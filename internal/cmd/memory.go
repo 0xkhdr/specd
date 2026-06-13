@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -117,7 +116,7 @@ func RunMemory(args cli.Args) int {
 			if occurrences < threshold && !args.Bool("force") {
 				return specdExit(core.GateError(fmt.Sprintf("memory: pattern '%s' seen in %d spec(s); promotion threshold is %d. Re-run with --force to promote anyway.", key, occurrences, threshold))), nil
 			}
-			date := time.Now().UTC().Format("2006-01-02")
+			date := core.Clock().UTC().Format("2006-01-02")
 			promoted := fmt.Sprintf("\n%s\n**Promoted:** from spec '%s' on %s (seen in %d spec(s))\n", block, slug, date, occurrences)
 			globalPath := core.SteeringDir(root) + "/memory.md"
 			if err := core.AppendFile(globalPath, promoted); err != nil {

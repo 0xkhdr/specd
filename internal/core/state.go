@@ -106,8 +106,17 @@ type State struct {
 	Acceptance    map[string]CriterionRecord `json:"acceptance,omitempty"`
 }
 
+// Clock is the time source for all spec-state timestamps and human-readable
+// date stamps. Production uses the real wall clock; tests override it (see
+// internal/testharness.FakeClock) for deterministic, golden-comparable output.
+//
+// Note: the advisory-lock staleness logic in lock.go deliberately does NOT use
+// Clock — lock reclamation needs real elapsed wall-clock time and must stay
+// immune to a frozen test clock.
+var Clock = time.Now
+
 func NowISO() string {
-	return time.Now().UTC().Format(time.RFC3339Nano)
+	return Clock().UTC().Format(time.RFC3339Nano)
 }
 
 func InitialState(spec, title string) State {

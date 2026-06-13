@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -55,7 +54,7 @@ func RunMidreq(args cli.Args) int {
 		if err := core.SaveState(root, slug, state); err != nil {
 			return specdExit(err), err
 		}
-		stamp := time.Now().UTC().Format("2006-01-02T15:04")
+		stamp := core.Clock().UTC().Format("2006-01-02T15:04")
 		entry := fmt.Sprintf("\n## Turn %d — %s — impact: %s\n**User input (verbatim):** \"%s\"\n**Interpretation:** %s\n**Impact:** %s\n**Changes made:** %s\n**Notes / open questions:** TODO\n",
 			state.Turn, stamp, impact, input, interpretation, impact, changes)
 		path := core.ArtifactPath(root, slug, "mid-requirements.md")

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -49,7 +48,7 @@ func RunDecision(args cli.Args) int {
 	if supersedes == "" {
 		supersedes = "—"
 	}
-	date := time.Now().UTC().Format("2006-01-02")
+	date := core.Clock().UTC().Format("2006-01-02")
 
 	rc, err := core.WithSpecLock[int](root, slug, func() (int, error) {
 		existing := core.ReadOrDefault(path, "")

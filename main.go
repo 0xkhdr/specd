@@ -17,22 +17,28 @@ func run(argv []string) int {
 	// Propagate version to core for help output.
 	core.Version = version
 
+	// A leading --json is a global flag, not a command. Strip any leading
+	// --json token(s) so the command is the first non-flag argument; the flag is
+	// re-threaded into the command's args below so per-command --json handling
+	// (and JSON env mode) still fire. This makes `specd --json status` behave
+	// like `specd status --json`.
+	jsonMode := false
+	for len(argv) > 0 && argv[0] == "--json" {
+		jsonMode = true
+		argv = argv[1:]
+	}
+
 	if len(argv) == 0 {
 		fmt.Print(core.RenderHelp())
 		return core.ExitUsage
 	}
 
-	if argv[0] == "--json" {
-		// json mode first
-		os.Setenv("SPECd_JSON", "1")
-	}
-
 	command := argv[0]
+	rest := argv[1:]
 
 	switch command {
 	case "--help", "-h", "help":
-		jsonMode := false
-		for _, a := range argv {
+		for _, a := range rest {
 			if a == "--json" {
 				jsonMode = true
 			}
@@ -44,13 +50,13 @@ func run(argv []string) int {
 				return core.ExitGate
 			}
 			fmt.Println(s)
-			if len(argv) == 1 {
+			if len(rest) == 0 {
 				return core.ExitUsage
 			}
 			return core.ExitOK
 		}
-		if len(argv) > 1 && !strings.HasPrefix(argv[1], "-") {
-			s, err := core.RenderCommandHelp(argv[1])
+		if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
+			s, err := core.RenderCommandHelp(rest[0])
 			if err != nil {
 				core.Error(err.Error())
 				return core.ExitUsage
@@ -61,9 +67,6 @@ func run(argv []string) int {
 		}
 		fmt.Print(strings.TrimRight(core.RenderHelp(), "\n"))
 		fmt.Println()
-		if len(argv) == 1 {
-			return core.ExitOK
-		}
 		return core.ExitOK
 
 	case "--version", "-v", "version":
@@ -71,14 +74,23 @@ func run(argv []string) int {
 		return core.ExitOK
 	}
 
-	// Set JSON mode if --json anywhere in argv.
-	for _, a := range argv[1:] {
+	// Enable JSON mode if --json appears anywhere after the command, too.
+	for _, a := range rest {
 		if a == "--json" {
-			os.Setenv("SPECd_JSON", "1")
+			jsonMode = true
 		}
 	}
+	if jsonMode {
+		os.Setenv("SPECd_JSON", "1")
+	}
 
-	args := cli.ParseArgs(argv[1:])
+	// Re-thread a stripped leading --json so the command's own flag parsing sees
+	// it (cli.ParseArgs treats a duplicate --json as a no-op).
+	parseArgv := rest
+	if jsonMode {
+		parseArgv = append(append([]string{}, rest...), "--json")
+	}
+	args := cli.ParseArgs(parseArgv)
 	return dispatch(command, args)
 }
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -43,7 +42,7 @@ func RunNew(args cli.Args) int {
 	if title == "" {
 		title = titleCase(slug)
 	}
-	date := time.Now().UTC().Format("2006-01-02")
+	date := core.Clock().UTC().Format("2006-01-02")
 	vars := map[string]string{"TITLE": title, "SLUG": slug, "DATE": date}
 
 	dir := core.SpecDir(root, slug)
