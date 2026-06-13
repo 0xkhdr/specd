@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { EXIT, SpecdError } from "./core/exit.js";
+import * as ui from "./core/ui.js";
+import { renderHelp, renderCommandHelp, renderHelpJson } from "./core/help.js";
 
 /** Read the package version from the shipped package.json (sibling of src/ and dist/). */
 function readVersion(): string {
@@ -44,34 +46,6 @@ export function parseArgs(argv: string[]): Args {
   return { pos, flags };
 }
 
-const USAGE = `specd — spec-driven coding harness
-
-Usage: specd <command> [args] [flags]
-
-Commands:
-  init [--force]                      Scaffold .specd/ + AGENTS.md
-  new <slug> [--title "..."]          Create a spec with the six artifacts
-  status [<slug>] [--json]            Render the durable ledger / board
-  program [status] [--json]           Cross-spec DAG: which specs are runnable across the program now
-  program link <spec> --on <dep>      Declare a cross-spec dependency edge
-  program unlink <spec> --on <dep>    Remove a cross-spec dependency edge
-  context <slug> [--json]             Minimal phase-scoped briefing (what to load + next action)
-  check <slug> [--json]               Run all validation gates (§10)
-  next <slug> [--all] [--json]        Next runnable task; --all prints the whole runnable frontier
-  dispatch <slug> [--json]            Ready-to-run packets for the runnable frontier (role+contract+verify)
-  verify <slug> <id>                  Run the task's verify: command, record a verified evidence proof
-  verify <slug> --criterion <r>.<n> --status pass|fail --evidence "..."  Record a per-criterion VERIFY proof (G5)
-  task <slug> <id> --status <s> [..]  Evidence-gated task status flip (complete needs a verified proof)
-  approve <slug> [--json]             Clear an awaiting-approval gate or advance the planning phase
-  decision <slug> "<text>" [--supersedes <id>]
-  midreq <slug> "<input>" --impact <low|medium|high|critical> [--interpretation ..] [--changes ..]
-  memory <slug> add --key <k> --pattern ".." --body ".." --source ".." --criticality <c> [--related ..]
-  memory <slug> promote --key <k>
-  report <slug> [--format md|html] [--out <path>]
-  waves <slug> [--json]
-
-Exit codes: 0 ok · 1 gate/validation · 2 usage · 3 not found`;
-
 type CommandFn = (args: Args) => void | number | Promise<void | number>;
 
 async function dispatch(cmd: string, args: Args): Promise<number> {
@@ -93,8 +67,9 @@ async function dispatch(cmd: string, args: Args): Promise<number> {
       case "memory": return (await import("./commands/memory.js")).run;
       case "report": return (await import("./commands/report.js")).run;
       case "waves": return (await import("./commands/waves.js")).run;
+      case "update": return (await import("./commands/update.js")).run;
       default:
-        throw new SpecdError(EXIT.USAGE, `unknown command: ${cmd}\n\n${USAGE}`);
+        throw new SpecdError(EXIT.USAGE, `unknown command: ${cmd}\n\n${renderHelp().trim()}`);
     }
   };
   const fn = await load();
@@ -103,10 +78,30 @@ async function dispatch(cmd: string, args: Args): Promise<number> {
 }
 
 export async function main(argv: string[]): Promise<number> {
-  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h" || argv[0] === "help") {
-    console.log(USAGE);
+  if (argv.includes("--json")) {
+    (globalThis as any).specdJsonMode = true;
+  }
+
+  const isHelp = argv.length === 0 || argv[0] === "--help" || argv[0] === "-h" || argv[0] === "help";
+  if (isHelp) {
+    const isJson = argv.includes("--json");
+    if (isJson) {
+      console.log(renderHelpJson());
+      return argv.length === 0 ? EXIT.USAGE : EXIT.OK;
+    }
+    if (argv[0] === "help" && argv[1] && !argv[1].startsWith("-")) {
+      try {
+        console.log(renderCommandHelp(argv[1]).trim());
+        return EXIT.OK;
+      } catch (err) {
+        ui.error((err as Error).message);
+        return EXIT.USAGE;
+      }
+    }
+    console.log(renderHelp().trim());
     return argv.length === 0 ? EXIT.USAGE : EXIT.OK;
   }
+
   if (argv[0] === "--version" || argv[0] === "-v" || argv[0] === "version") {
     console.log(readVersion());
     return EXIT.OK;
@@ -116,10 +111,10 @@ export async function main(argv: string[]): Promise<number> {
     return await dispatch(cmd, parseArgs(rest));
   } catch (err) {
     if (err instanceof SpecdError) {
-      console.error(`error: ${err.message}`);
+      ui.error(err.message);
       return err.code;
     }
-    console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+    ui.error(err instanceof Error ? err.message : String(err));
     return EXIT.GATE;
   }
 }

@@ -35,33 +35,55 @@ By defining clear phase transitions and validating structural correctness with d
 
 ---
 
+## Installation
+
+### Quick Install (Linux / macOS)
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
+```
+
+### With Options
+```bash
+# Force reinstall
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
+
+# Install specific version
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.2.0
+```
+
+### Uninstall
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
+```
+
+### Update
+```bash
+specd update
+specd update --force
+```
+
+### Requirements
+- Node.js >= 18
+- Git (optional — tarball fallback available)
+
+## For Agents
+
+`specd` is designed to be fully drivable by AI agents:
+
+- Set `SPECd_JSON=1` to receive structured JSON output for all commands.
+- Use `specd help --json` to discover the full command schema programmatically.
+- All state mutations are atomic and versioned — safe for concurrent agent access.
+- Exit codes are deterministic: `0`=ok, `1`=validation, `2`=usage, `3`=not found.
+
 ## Quick Start
-
-### Installation
-
-`specd` is built in TypeScript with **zero runtime dependencies**. Clone the repository and install developer dependencies:
-
-```sh
-npm install
-npm run build
-```
-
-Link or run the CLI using:
-```sh
-# Run directly from source
-node --import tsx src/cli.ts <command>
-
-# Or run the built version
-node dist/cli.js <command>
-```
 
 ### Initializing a Project
 
-To initialize `specd` in a target repository:
+After installing, run `specd init` in any project root to get started:
 
 ```sh
-# This scaffolds the .specd/ structure, roles, steering config, and AGENTS.md
-node <path-to-specd>/dist/cli.js init
+# Scaffolds .specd/ structure, roles, steering config, and AGENTS.md
+specd init
 ```
 
 ### Creating and Running a Spec

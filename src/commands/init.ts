@@ -4,6 +4,7 @@ import { atomicWrite } from "../core/io.js";
 import { agentsPath, configPath, specdDir, rolesDir, steeringDir } from "../core/paths.js";
 import { readTemplate } from "../core/templates.js";
 import type { Args } from "../cli.js";
+import * as ui from "../core/ui.js";
 
 const STEERING = ["reasoning.md", "workflow.md", "product.md", "tech.md", "structure.md", "memory.md"];
 const ROLES = ["investigator.md", "builder.md", "reviewer.md", "verifier.md"];
@@ -31,13 +32,13 @@ export function run(args: Args): number {
 
   const rel = (p: string) => p.replace(root + "/", "");
   if (written.length) {
-    console.log(`specd init: wrote ${written.length} file(s):`);
-    for (const w of written) console.log(`  + ${rel(w)}`);
+    ui.info(`specd init: wrote ${written.length} file(s):`);
+    for (const w of written) ui.info(`  + ${rel(w)}`);
   }
   if (skipped.length) {
-    console.log(`skipped ${skipped.length} existing file(s) (use --force to overwrite):`);
-    for (const s of skipped) console.log(`  · ${rel(s)}`);
+    ui.info(`skipped ${skipped.length} existing file(s) (use --force to overwrite):`);
+    for (const s of skipped) ui.info(`  · ${rel(s)}`);
   }
-  if (!written.length && !skipped.length) console.log("specd init: nothing to do");
+  if (!written.length && !skipped.length) ui.info("specd init: nothing to do");
   return 0;
 }

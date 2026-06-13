@@ -4,13 +4,36 @@ Welcome to the `specd` User Guide. This guide covers everything you need to know
 
 ---
 
+## 0. Installation
+
+Install `specd` globally with a single curl command:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
+```
+
+After install, restart your shell (or `source ~/.bashrc` / `source ~/.zshrc`) so the `specd` binary is on your `PATH`.
+
+**Options:**
+```sh
+# Force reinstall / upgrade
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
+
+# Pin a specific version
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.2.0
+```
+
+**Requirements:** Node.js >= 18 (git optional — tarball fallback available).
+
+---
+
 ## 1. Getting Started
 
 ### Project Initialization
-To start using `specd` in a repository, initialize it in your project root:
+For each new workspace, run `specd init` in the project root:
 ```sh
 # Scaffolds the .specd/ structure and writes default templates
-node /path/to/specd/dist/cli.js init
+specd init
 ```
 **Exit Code Transitions:**
 * `0`: Initialization succeeded. The `.specd/` directory is created.
@@ -19,7 +42,7 @@ node /path/to/specd/dist/cli.js init
 ### Creating a New Spec
 A "spec" is a modular directory representing a single feature, task, or bugfix. Create a new spec using `new`:
 ```sh
-node /path/to/specd/dist/cli.js new my-feature --title "Implement JWT Authentication"
+specd new my-feature --title "Implement JWT Authentication"
 ```
 This creates `.specd/specs/my-feature/` and populates the six standard Markdown stubs and an initial `state.json` file.
 * **Exit code `0`**: Spec created successfully. Status set to `requirements`.
@@ -200,7 +223,7 @@ graph LR
 ### Checking Validation Gates
 The `specd check` command runs 7 strict verification checks:
 ```sh
-node /path/to/specd/dist/cli.js check my-feature
+specd check my-feature
 ```
 **Exit Code Transitions:**
 * `0`: All gates passed.
@@ -210,7 +233,7 @@ node /path/to/specd/dist/cli.js check my-feature
 ### Approving Transitions
 Once `check` passes, advance to the next planning phase:
 ```sh
-node /path/to/specd/dist/cli.js approve my-feature
+specd approve my-feature
 ```
 **Exit Code Transitions:**
 * `0`: Phase advanced successfully.
@@ -225,13 +248,13 @@ Once the spec enters the `executing` status, the agent works on tasks.
 ### 1. Identify the Next Task
 The agent runs `next` to find out what to do next:
 ```sh
-node /path/to/specd/dist/cli.js next my-feature
+specd next my-feature
 ```
 This returns the single next runnable task (lowest wave, then lowest ID) packaged as a instructions block for the agent.
 
 To view the entire concurrent runnable frontier (all tasks with cleared dependencies):
 ```sh
-node /path/to/specd/dist/cli.js next my-feature --all
+specd next my-feature --all
 ```
 **Exit Code Transitions:**
 * `0`: Found runnable task(s).
@@ -239,13 +262,13 @@ node /path/to/specd/dist/cli.js next my-feature --all
 
 For **parallel orchestration**, `dispatch` emits a ready-to-run packet per frontier task — each bundles the resolved role prompt, contract, files, acceptance, verify command, and the exact completion command, so an orchestrator can fan the frontier out to parallel subagents with zero assembly:
 ```sh
-node /path/to/specd/dist/cli.js dispatch my-feature --json
+specd dispatch my-feature --json
 ```
 
 ### 2. Verifying a Task (the completion proof)
 `specd` does **not** trust a free-text "tests passed" claim. Instead, it runs the task's own `verify:` command for you and records the result. After implementing the task, run:
 ```sh
-node /path/to/specd/dist/cli.js verify my-feature T1
+specd verify my-feature T1
 ```
 This spawns the task's `verify:` shell command in the repo root, captures the OS **exit code**, output tails, duration, and the current **git HEAD**, and writes a `verification` record into `state.json`:
 * **Exit code `0`**: Command passed (`verified: true`). The task is now completable.
@@ -256,19 +279,19 @@ This spawns the task's `verify:` shell command in the repo root, captures the OS
 ### 3. Updating Task Status
 To start a task:
 ```sh
-node /path/to/specd/dist/cli.js task my-feature T1 --status running
+specd task my-feature T1 --status running
 ```
 To **complete** a task — all dependencies must be `complete` **and** a passing `specd verify` record must exist whose command still matches the current `verify:` line:
 ```sh
-node /path/to/specd/dist/cli.js task my-feature T1 --status complete
+specd task my-feature T1 --status complete
 ```
 You may pass `--evidence "..."` to override the auto-derived proof string. For **read-only roles** (investigator/reviewer) whose `verify` is `N/A`, or genuinely manual proofs, use the escape hatch:
 ```sh
-node /path/to/specd/dist/cli.js task my-feature T1 --status complete --unverified --evidence "Reviewed diff; no issues. (Commit: 7da5fe2)"
+specd task my-feature T1 --status complete --unverified --evidence "Reviewed diff; no issues. (Commit: 7da5fe2)"
 ```
 To mark a task as blocked (requires providing a `--reason`):
 ```sh
-node /path/to/specd/dist/cli.js task my-feature T1 --status blocked --reason "Underlying database client library lacks connection pooling support."
+specd task my-feature T1 --status blocked --reason "Underlying database client library lacks connection pooling support."
 ```
 **Exit Code Transitions:**
 * `0`: Task status updated and files synced successfully.
@@ -291,7 +314,7 @@ As specifications evolve during development, decisions, requirements updates, an
 ### ADRs (Architectural Decision Records)
 To log an architectural decision:
 ```sh
-node /path/to/specd/dist/cli.js decision my-feature "Use jose instead of jsonwebtoken library for Edge runtime support"
+specd decision my-feature "Use jose instead of jsonwebtoken library for Edge runtime support"
 ```
 This appends a structured ADR block to `decisions.md`.
 * **Exit code `0`**: ADR recorded successfully.
@@ -299,18 +322,18 @@ This appends a structured ADR block to `decisions.md`.
 ### Mid-flight Requirement Updates
 If requirements change while implementation is ongoing, log the update:
 ```sh
-node /path/to/specd/dist/cli.js midreq my-feature "Support JWT authentication via Cookie header as fallback" --impact high --interpretation "Need to check both Authorization and Cookie headers" --changes "Update design.md interface sections and add task T3"
+specd midreq my-feature "Support JWT authentication via Cookie header as fallback" --impact high --interpretation "Need to check both Authorization and Cookie headers" --changes "Update design.md interface sections and add task T3"
 ```
 **Critical Rule**: An impact level of `high` or `critical` automatically freezes execution by placing the spec's state gate into `awaiting-approval`. Tasks cannot be updated until a human reviews the change and runs `specd approve`.
 
 ### Memory Add & Promotion
 To record localized learnings:
 ```sh
-node /path/to/specd/dist/cli.js memory my-feature add --key "jose-expiration" --pattern "JWT exp claim must be positive integer" --body "Ensure numeric validation is added to prevent string cast security issues" --source "T1" --criticality important
+specd memory my-feature add --key "jose-expiration" --pattern "JWT exp claim must be positive integer" --body "Ensure numeric validation is added to prevent string cast security issues" --source "T1" --criticality important
 ```
 Promote local memories to global steering:
 ```sh
-node /path/to/specd/dist/cli.js memory my-feature promote --key "jose-expiration"
+specd memory my-feature promote --key "jose-expiration"
 ```
 * Note: Promotes automatically if the key has appeared in multiple specs (threshold tunable in `config.json`), or forces promotion with `--force`.
 
@@ -320,15 +343,15 @@ node /path/to/specd/dist/cli.js memory my-feature promote --key "jose-expiration
 
 To view the CLI's progress and status dashboard:
 ```sh
-node /path/to/specd/dist/cli.js status my-feature
+specd status my-feature
 ```
 To view the wave graph, critical paths, and active blockers:
 ```sh
-node /path/to/specd/dist/cli.js waves my-feature
+specd waves my-feature
 ```
 To generate a comprehensive Markdown or self-contained HTML report snapshot:
 ```sh
-node /path/to/specd/dist/cli.js report my-feature --format html --out report.html
+specd report my-feature --format html --out report.html
 ```
 
 ---
@@ -338,7 +361,7 @@ node /path/to/specd/dist/cli.js report my-feature --format html --out report.htm
 When `config.gates.acceptance` is set to `required`, closing a spec (`verifying` → `complete`) demands a passing proof for **every** acceptance criterion. Record each proof with the criterion form of `verify`:
 ```sh
 # Mark requirement 1, criterion 2 as passing, with mandatory evidence
-node /path/to/specd/dist/cli.js verify my-feature --criterion 1.2 --status pass --evidence "E2E login test green; see CI run #481"
+specd verify my-feature --criterion 1.2 --status pass --evidence "E2E login test green; see CI run #481"
 ```
 * Exit `0` for `pass`, `1` for `fail`. The requirement number must exist in `requirements.md`.
 * With the gate `required`, `specd approve` refuses to close the spec while any requirement lacks a passing criterion or any criterion is recorded `fail`.
@@ -351,10 +374,10 @@ node /path/to/specd/dist/cli.js verify my-feature --criterion 1.2 --status pass 
 For multi-spec efforts, declare dependencies **between** specs and ask which whole specs are runnable now:
 ```sh
 # Declare that the 'api' spec depends on the 'auth' spec being complete
-node /path/to/specd/dist/cli.js program link api --on auth
+specd program link api --on auth
 
 # Render the program-level DAG: waves, runnable frontier, critical path, cycles
-node /path/to/specd/dist/cli.js program
+specd program
 ```
 Edges are stored in `.specd/program.json`. Self-edges and edges that would create a cycle are rejected. Remove an edge with `program unlink api --on auth`.
 
