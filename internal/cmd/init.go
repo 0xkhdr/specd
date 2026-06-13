@@ -19,7 +19,7 @@ func RunInit(args cli.Args) int {
 		return core.ExitGate
 	}
 	force := args.Bool("force")
-	var written, skipped []string
+	var written, skipped, merged []string
 
 	place := func(dest, tmplPath string) {
 		if _, err := os.Stat(dest); err == nil && !force {
@@ -45,7 +45,19 @@ func RunInit(args cli.Args) int {
 		place(core.RolesDir(root)+"/"+f, "roles/"+f)
 	}
 	place(core.ConfigPath(root), "config.json")
-	place(core.AgentsPath(root), "AGENTS.md")
+
+	// AGENTS.md: merge with markers for idempotent updates
+	agentsPath := core.AgentsPath(root)
+	content, err := core.ReadTemplate("AGENTS.md")
+	if err != nil {
+		core.Error(fmt.Sprintf("missing template AGENTS.md: %v", err))
+		return core.ExitGate
+	}
+	if err := core.MergeAgentsMD(agentsPath, content, force); err != nil {
+		core.Error(fmt.Sprintf("merge %s: %v", agentsPath, err))
+		return core.ExitGate
+	}
+	merged = append(merged, agentsPath)
 
 	rel := func(p string) string { return strings.TrimPrefix(p, root+"/") }
 	if len(written) > 0 {
@@ -54,13 +66,19 @@ func RunInit(args cli.Args) int {
 			core.Info("  + " + rel(w))
 		}
 	}
+	if len(merged) > 0 {
+		core.Info(fmt.Sprintf("merged %d file(s) with markers:", len(merged)))
+		for _, m := range merged {
+			core.Info("  ↻ " + rel(m))
+		}
+	}
 	if len(skipped) > 0 {
 		core.Info(fmt.Sprintf("skipped %d existing file(s) (use --force to overwrite):", len(skipped)))
 		for _, s := range skipped {
 			core.Info("  · " + rel(s))
 		}
 	}
-	if len(written) == 0 && len(skipped) == 0 {
+	if len(written) == 0 && len(merged) == 0 && len(skipped) == 0 {
 		core.Info("specd init: nothing to do")
 	}
 	return core.ExitOK
