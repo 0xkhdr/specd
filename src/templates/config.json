@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "defaultVerify": "npm test",
+  "report": { "format": "md", "autoRefreshSeconds": 0 },
+  "roles": { "subagentMode": "inline" },
+  "promotionThreshold": 3,
+  "gates": { "traceability": "warn", "acceptance": "off" }
+}
