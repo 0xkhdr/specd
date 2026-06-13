@@ -14,10 +14,13 @@ src/
 │   ├── new.ts           # Initializes a new spec folder structure
 │   ├── status.ts        # Renders the current spec state and status graphs
 │   ├── context.ts       # Generates minimal loading lists and signal warnings for agents
-│   ├── check.ts         # Coordinates execution of the 7 validation gates
+│   ├── check.ts         # Coordinates execution of the validation gates
 │   ├── next.ts          # Computes and displays the next runnable task(s)
+│   ├── dispatch.ts      # Emits ready-to-run dispatch packets for the runnable frontier
+│   ├── verify.ts        # Runs a task's verify: command; records VerificationRecord / per-criterion proofs
 │   ├── task.ts          # Evidence-gated task status updates (dual-writes markdown/state)
-│   ├── approve.ts       # Planning ratchet coordinator
+│   ├── approve.ts       # Planning ratchet + spec-level acceptance coordinator
+│   ├── program.ts       # Cross-spec DAG view + program link/unlink edge editing
 │   ├── decision.ts      # Appends ADRs (Architectural Decision Records)
 │   ├── midreq.ts        # Appends mid-requirements feedback logs
 │   ├── memory.ts        # Appends and promotes local/global learnings
@@ -27,14 +30,17 @@ src/
     ├── paths.ts         # Traverses directories up from CWD to find .specd/ root
     ├── io.ts            # Atomic write and O_APPEND implementations
     ├── lock.ts          # Reentrant file-based advisory locking
-    ├── state.ts         # state.json schemas, CAS revision checks, and schema migrations
+    ├── state.ts         # state.json schemas, CAS revision checks, migrations, Verification/Criterion records
     ├── phases.ts        # Phase transitions, status mapping, and Design checklist
     ├── tasksParser.ts   # Custom tasks.md markdown parser/serializer
-    ├── dag.ts           # DAG construction, wave sorting, and cycle detection
+    ├── dag.ts           # DAG construction, wave sorting, frontier, critical path, cycle detection
+    ├── program.ts       # Projects specs as nodes in a spec-level DAG (reuses dag.ts primitives)
     ├── ears.ts          # Regex-based EARS grammar matcher
     ├── report.ts        # Deterministic MD/HTML report compiler
-    ├── specFiles.ts     # Accessor for spec folders; reconciles markdown to state.json
-    ├── render.ts        # Renders text-based wave graphs
+    ├── specFiles.ts     # Accessor for spec folders; reconciles markdown to state.json; role/artifact readers
+    ├── render.ts        # Renders text-based wave graphs; acceptance/requirement helpers
+    ├── md.ts            # Shared markdown scanning helpers
+    ├── output.ts        # Capture-safe redirectable raw stdout sink
     ├── templates.ts     # Scaffolding template loader
     └── exit.ts          # SpecdError definitions and exit code constants
 ```
@@ -69,9 +75,11 @@ graph TD
 2.  **Design Gate** (`phases.ts`): Checks `design.md` to confirm the presence of all 7 mandatory headers and validates that they contain non-empty contents free of `TODO` placeholders.
 3.  **Task-Schema Gate** (`tasksParser.ts`): Asserts that all task blocks in `tasks.md` contain the 7 mandatory keys, and that builder/verifier tasks do not have `verify: N/A`.
 4.  **DAG Gate** (`dag.ts`): Checks the task dependency graph for cycles, orphan dependencies, or wave violations.
-5.  **Evidence Gate** (`task.ts`): Verifies that no task status is marked `complete` in `state.json` without matching non-empty evidence.
+5.  **Evidence Gate** (`check.ts` / `state.ts`): No task is `complete` without non-empty evidence; **and** no non-read-only task is `complete` without a passing `verification` record (`specd verify`). The deterministic verify record — not a free-text string — is what authorizes completion.
 6.  **Sync Gate** (`specFiles.ts`): Confirms that markdown checkbox statuses (`[ ]`, `[/]`, `[x]`, `[!]`) in `tasks.md` match task statuses in `state.json`.
-7.  **Traceability Gate** (`specFiles.ts`): Ensures every requirement ID listed in `tasks.md` exists in `requirements.md`. Outputs a warning if a requirement has no associated tasks (a coverage gap).
+7.  **Traceability Gate** (`specFiles.ts`): Ensures every requirement ID listed in `tasks.md` exists in `requirements.md`. Forward direction (a requirement with no task) severity is governed by `config.gates.traceability` — `warn` (default) or `error`.
+
+> **Spec-level acceptance (approve-time, not part of `check`):** When `config.gates.acceptance` is `required`, `approve.ts` refuses to advance a `verifying` spec to `complete` until every requirement has a passing per-criterion proof in `state.acceptance` (recorded via `specd verify --criterion`). Default `off`.
 
 ---
 

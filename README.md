@@ -13,7 +13,8 @@ By defining clear phase transitions and validating structural correctness with d
 - 🔄 **Strict Planning Ratchet**: Enforces human-approved phase gates (Analyze → Plan → Execute → Verify → Reflect).
 - 🛡️ **7 Validation Gates**: Programmatic checks (`specd check`) including EARS requirement syntax, complete design templates, acyclic task DAGs, and sync checks.
 - 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are fully resolved.
-- 💾 **Evidence-Gated Completion**: Completing tasks requires passing test outputs, commit SHAs, or verification evidence. No task can be marked complete on trust alone.
+- 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
+- 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd program` resolves which whole specs are runnable across a multi-spec program.
 - 🔌 **Agent-Agnostic**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) how to execute the workflow via a localized prompt pack and steering constitution.
 - 📊 **Deterministic Status Reporting**: Generates markdown and self-contained HTML reports representing the state and wave DAG without any LLM dependencies or runtime overhead.
 
@@ -82,12 +83,14 @@ node <path-to-specd>/dist/cli.js init
    ```sh
    specd approve my-feature # Advances spec status from 'tasks' to 'executing'
    ```
-5. **Execute Tasks**: Get the next runnable task from the frontier, work on it, verify, and complete it:
+5. **Execute Tasks**: Get the next runnable task from the frontier, implement it, then let `specd` run the task's `verify:` command itself and record the result. A task can only complete on a **passing verify record** — not a free-text claim:
    ```sh
    specd next my-feature
    # [Implement the changes...]
-   specd task my-feature T1 --status complete --evidence "npm test pass (Commit: 8fbc1e3)"
+   specd verify my-feature T1                  # specd runs the task's verify: command, records exit code + git HEAD
+   specd task my-feature T1 --status complete   # allowed only because the verify record passed (exit 0)
    ```
+   Read-only roles (investigator/reviewer) whose `verify` is `N/A` complete with the manual escape hatch: `specd task my-feature T1 --status complete --unverified --evidence "<proof>"`.
 6. **Final Verification**: Once all tasks are complete, run final checks and sign off:
    ```sh
    specd approve my-feature # Closes the spec, promoting learnings and generating final reports
@@ -103,6 +106,7 @@ node <path-to-specd>/dist/cli.js init
 ├── CLAUDE.md               # Contributor cheat-sheet (build, test, and style invariants)
 ├── AGENTS.md               # Workflow guide for AI agents working on the specd repo itself
 └── docs/                   # Detailed documentation
+    ├── README.md              # Documentation index / navigation
     ├── user-guide.md          # Guide on using specd inside target repositories
     ├── agent-integration.md   # Configuring role prompts, steering, and context briefings
     └── contributor-guide.md   # CLI architecture, concurrency model, and codebase details

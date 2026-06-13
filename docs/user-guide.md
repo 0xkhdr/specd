@@ -237,14 +237,34 @@ node /path/to/specd/dist/cli.js next my-feature --all
 * `0`: Found runnable task(s).
 * `1`: Blocked by active planning gates (cannot execute tasks if spec status is still `design`).
 
-### 2. Updating Task Status
+For **parallel orchestration**, `dispatch` emits a ready-to-run packet per frontier task — each bundles the resolved role prompt, contract, files, acceptance, verify command, and the exact completion command, so an orchestrator can fan the frontier out to parallel subagents with zero assembly:
+```sh
+node /path/to/specd/dist/cli.js dispatch my-feature --json
+```
+
+### 2. Verifying a Task (the completion proof)
+`specd` does **not** trust a free-text "tests passed" claim. Instead, it runs the task's own `verify:` command for you and records the result. After implementing the task, run:
+```sh
+node /path/to/specd/dist/cli.js verify my-feature T1
+```
+This spawns the task's `verify:` shell command in the repo root, captures the OS **exit code**, output tails, duration, and the current **git HEAD**, and writes a `verification` record into `state.json`:
+* **Exit code `0`**: Command passed (`verified: true`). The task is now completable.
+* **Exit code `1`**: Command failed or timed out (`verified: false`). Fix the code and re-run.
+
+> The per-run timeout is `SPECD_VERIFY_TIMEOUT_MS` (default 600s). A timed-out run is recorded as failed with exit `124`.
+
+### 3. Updating Task Status
 To start a task:
 ```sh
 node /path/to/specd/dist/cli.js task my-feature T1 --status running
 ```
-To complete a task (requires providing `--evidence`, and all dependencies must be `complete`):
+To **complete** a task — all dependencies must be `complete` **and** a passing `specd verify` record must exist whose command still matches the current `verify:` line:
 ```sh
-node /path/to/specd/dist/cli.js task my-feature T1 --status complete --evidence "npm test passed; commit hash 7da5fe2"
+node /path/to/specd/dist/cli.js task my-feature T1 --status complete
+```
+You may pass `--evidence "..."` to override the auto-derived proof string. For **read-only roles** (investigator/reviewer) whose `verify` is `N/A`, or genuinely manual proofs, use the escape hatch:
+```sh
+node /path/to/specd/dist/cli.js task my-feature T1 --status complete --unverified --evidence "Reviewed diff; no issues. (Commit: 7da5fe2)"
 ```
 To mark a task as blocked (requires providing a `--reason`):
 ```sh
@@ -253,9 +273,11 @@ node /path/to/specd/dist/cli.js task my-feature T1 --status blocked --reason "Un
 **Exit Code Transitions:**
 * `0`: Task status updated and files synced successfully.
 * `1`: Command rejected. Reasons include:
-  * Missing evidence for status `complete`.
+  * No passing `specd verify` record (and `--unverified` not supplied).
+  * Verification is **stale** — the recorded command no longer matches the current `verify:` line; re-run `specd verify`.
+  * `--unverified` supplied without `--evidence`.
   * Dependencies of the task are not yet `complete`.
-  * Attempting to complete an unverified builder/verifier task.
+  * Spec gate is `awaiting-approval` (pass `--force` to override).
   * Stale local state (concurrency CAS failure).
 * `2`: Argument/usage error.
 * `3`: Target spec or task ID not found.
@@ -308,3 +330,50 @@ To generate a comprehensive Markdown or self-contained HTML report snapshot:
 ```sh
 node /path/to/specd/dist/cli.js report my-feature --format html --out report.html
 ```
+
+---
+
+## 9. Spec-Level Acceptance (Optional)
+
+When `config.gates.acceptance` is set to `required`, closing a spec (`verifying` → `complete`) demands a passing proof for **every** acceptance criterion. Record each proof with the criterion form of `verify`:
+```sh
+# Mark requirement 1, criterion 2 as passing, with mandatory evidence
+node /path/to/specd/dist/cli.js verify my-feature --criterion 1.2 --status pass --evidence "E2E login test green; see CI run #481"
+```
+* Exit `0` for `pass`, `1` for `fail`. The requirement number must exist in `requirements.md`.
+* With the gate `required`, `specd approve` refuses to close the spec while any requirement lacks a passing criterion or any criterion is recorded `fail`.
+* Default is `off` — semantic sign-off is then purely the human running `specd approve` on the `verifying` spec.
+
+---
+
+## 10. Cross-Spec Programs
+
+For multi-spec efforts, declare dependencies **between** specs and ask which whole specs are runnable now:
+```sh
+# Declare that the 'api' spec depends on the 'auth' spec being complete
+node /path/to/specd/dist/cli.js program link api --on auth
+
+# Render the program-level DAG: waves, runnable frontier, critical path, cycles
+node /path/to/specd/dist/cli.js program
+```
+Edges are stored in `.specd/program.json`. Self-edges and edges that would create a cycle are rejected. Remove an edge with `program unlink api --on auth`.
+
+---
+
+## 11. Environment Variables & Troubleshooting
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SPECD_LOCK_TIMEOUT_MS` | `5000` | Max wait to acquire a spec's advisory lock before failing with a contention error. |
+| `SPECD_LOCK_STALE_MS` | `30000` | Age past which an orphaned `.lock` file is reclaimed automatically. |
+| `SPECD_VERIFY_TIMEOUT_MS` | `600000` | Per-run timeout for `specd verify`; a timed-out run records `verified: false` (exit `124`). |
+
+### Common Errors
+| Symptom | Cause & Fix |
+|---|---|
+| `--status complete requires a passing specd verify` | No verify record. Run `specd verify <slug> <id>` first, or use `--unverified --evidence` for read-only/manual tasks. |
+| `verification is stale` | The `verify:` line changed since the record was made. Re-run `specd verify <slug> <id>`. |
+| `spec is gated (awaiting-approval)` | A `high`/`critical` `midreq` froze the spec. Present the revised plan, then `specd approve`. |
+| `exit 3` on any command | `.specd/` root or the spec slug was not found — run `init`/`new`, or run from inside the target repo. |
+| `dependency cycle` / `depends on missing task` | A `tasks.md` DAG error. Fix `depends:` keys; `specd check` and `specd waves` pinpoint the offending IDs. |
+| CAS / revision write abort (`exit 1`) | Concurrent write clobber prevented. Re-read state and retry the mutation. |

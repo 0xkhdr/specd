@@ -161,7 +161,27 @@ A JSON ledger updated only by the CLI. Current schema version is `2`.
       "startedAt": null,
       "finishedAt": null,
       "evidence": null,
-      "blocker": null
+      "blocker": null,
+      "verification": {
+        "command": "npm test",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "...",
+        "stderrTail": "...",
+        "durationMs": 1234,
+        "ranAt": "ISO-TIMESTAMP",
+        "gitHead": "abc1234"
+      }
+    }
+  },
+  "acceptance": {
+    "1.2": {
+      "requirement": 1,
+      "criterion": 2,
+      "status": "pass | fail",
+      "evidence": "...",
+      "ranAt": "ISO-TIMESTAMP"
     }
   },
   "blockers": []
@@ -169,6 +189,8 @@ A JSON ledger updated only by the CLI. Current schema version is `2`.
 ```
 *   `revision`: CAS counter incremented on every write to prevent concurrent write clobbering.
 *   `gate`: Bumps to `awaiting-approval` when high/critical `midreq` is recorded, freezing work.
+*   `tasks.<id>.verification`: The `VerificationRecord` written by `specd verify <slug> <id>`. specd spawns the task's `verify:` command, captures the OS exit code, output tails, duration, and git HEAD. `specd task --status complete` requires `verified: true` and a `command` matching the current `verify:` line (otherwise the record is **stale** and must be re-run). `null` until verified.
+*   `acceptance.<req>.<n>`: Per-criterion proofs written by `specd verify <slug> --criterion <req>.<n>`. Consulted by `specd approve` only when `config.gates.acceptance` is `required`.
 
 ---
 
@@ -180,12 +202,15 @@ Created during `specd init`.
   "defaultVerify": "npm test",
   "report": { "format": "md", "autoRefreshSeconds": 0 },
   "roles": { "subagentMode": "inline" },
-  "promotionThreshold": 3
+  "promotionThreshold": 3,
+  "gates": { "traceability": "warn", "acceptance": "off" }
 }
 ```
 *   `defaultVerify`: Global fallback verify command used during the spec-level VERIFY phase.
 *   `roles.subagentMode`: `inline` (same agent, persona swap) or `delegate` (spawn subagents).
 *   `promotionThreshold`: Count of specs where a memory key must appear before promotion to steering.
+*   `gates.traceability`: `warn` (default) or `error` — severity when a requirement has no task referencing it.
+*   `gates.acceptance`: `off` (default) or `required` — when `required`, `specd approve` refuses to close a `verifying` spec until every requirement has a passing per-criterion proof (see `specd verify --criterion`).
 
 ---
 
@@ -199,9 +224,11 @@ Created during `specd init`.
 | **2. Design** | `design.md` | Fail | All 7 mandatory H2 sections are present, non-empty, and contain no `TODO` markers. |
 | **3. Task-schema** | `tasks.md` | Fail | ≥1 tasks present; every task has all 7 mandatory keys; `role` is valid; `verify` is defined (cannot be `N/A` for builder/verifier roles). |
 | **4. DAG** | `tasks.md` | Fail | Dependency graph is acyclic, contains no orphan dependencies, and dependencies live in an earlier-or-equal wave. |
-| **5. Evidence** | `state.json` | Fail | No task has status `complete` with empty or missing `evidence`. |
+| **5. Evidence** | `state.json` | Fail | No task is `complete` with empty/missing `evidence`; and no non-read-only task is `complete` without a passing `verification` record (run `specd verify`). |
 | **6. Sync** | `tasks.md` ↔ `state.json` | Fail | Checkboxes (`[x]` ↔ `complete`) and blocked annotations match `state.json`. |
-| **7. Traceability** | `requirements.md` ↔ `tasks.md` | Fail / Warn | Fail if a task references a non-existent requirement. Warn if a requirement has no task referencing it. |
+| **7. Traceability** | `requirements.md` ↔ `tasks.md` | Fail / Warn | Fail if a task references a non-existent requirement. Forward direction (requirement with no task) severity is set by `config.gates.traceability` — `warn` (default) or `error`. |
+
+> **Spec-level acceptance (optional gate):** When `config.gates.acceptance` is `required`, `specd approve` will not advance a `verifying` spec to `complete` until every requirement has a passing per-criterion proof recorded via `specd verify <slug> --criterion <req>.<n> --status pass`. This is enforced at the `approve` boundary, not by `specd check`.
 
 ---
 
@@ -312,8 +339,14 @@ specd supports parallel execution (e.g. running multiple builders on different f
     *   Executes all 7 validation gates.
 *   `specd next <slug> [--all] [--json]`
     *   Default: prints the single next runnable task (lowest wave, then lowest ID) as a copy-pasteable prompt block. `--all`: prints the entire runnable frontier of tasks.
-*   `specd task <slug> <id> --status <complete|blocked|running|pending> [--evidence "..."] [--reason "..."] [--force]`
-    *   Sets task status. `--status complete` requires `--evidence` and all dependencies completed. `--status blocked` requires `--reason`.
+*   `specd dispatch <slug> [--json]`
+    *   Emits ready-to-run **dispatch packets** for the runnable frontier — each packet bundles the resolved role prompt, contract, files, acceptance, verify command, and the exact completion command. `--json` is the full fan-out payload for an orchestrator spawning parallel subagents; text mode prints a compact summary. Honors the `awaiting-approval` gate (override with `--force`).
+*   `specd verify <slug> <id>`
+    *   Deterministically **runs** the task's `verify:` command (via the shell, in the repo root), capturing exit code, output tails, duration, and git HEAD into the task's `verification` record. specd makes zero judgment — exit 0 → `verified: true`. Required before `specd task <id> --status complete` for any task with a runnable verify line. Exit `0` if verified, `1` if the command failed/timed out. Timeout via `SPECD_VERIFY_TIMEOUT_MS` (default 600s).
+*   `specd verify <slug> --criterion <req>.<n> --status <pass|fail> --evidence "..."`
+    *   Records a **per-criterion acceptance proof** into `state.acceptance` (the spec-level VERIFY beat). The requirement must exist in `requirements.md`. `--evidence` is mandatory. Exit `0` for `pass`, `1` for `fail`. Consulted by `specd approve` when `config.gates.acceptance` is `required`.
+*   `specd task <slug> <id> --status <complete|blocked|running|pending> [--evidence "..."] [--unverified] [--reason "..."] [--force]`
+    *   Sets task status. `--status complete` requires all dependencies complete **and** a passing `specd verify` record whose command still matches the current `verify:` line; otherwise pass `--unverified --evidence "<proof>"` (the manual escape hatch for read-only roles or genuinely manual proofs). `--status blocked` requires `--reason`. Refuses while the spec gate is `awaiting-approval` unless `--force`.
 *   `specd approve <slug> [--json]`
     *   Advances the planning ratchet if gates pass, clears `awaiting-approval` midreq gates, or signs off on `verifying` specs.
 *   `specd decision <slug> "<text>" [--supersedes <ADR-id>]`
@@ -328,6 +361,15 @@ specd supports parallel execution (e.g. running multiple builders on different f
     *   Generates a deterministic summary report. HTML output is self-contained.
 *   `specd waves <slug> [--json]`
     *   Renders the wave DAG, critical path list, and active blockers.
+*   `specd program [status] [--json]`
+    *   The **cross-spec / program view**. Projects every spec as a node in a spec-level DAG (edges from `.specd/program.json`) and answers "which whole specs are runnable across the program right now?". Renders waves, runnable frontier, critical path, orphan edges, and cycles. Exit `1` if a cycle exists.
+*   `specd program link <spec> --on <dep>` / `specd program unlink <spec> --on <dep>`
+    *   Adds/removes a cross-spec dependency edge in `.specd/program.json`. Both specs must exist; self-edges and edges that would form a cycle are rejected (exit `1`/`2`).
+
+### Environment Variables
+*   `SPECD_LOCK_TIMEOUT_MS` (default `5000`): Max wait to acquire a spec advisory lock before failing.
+*   `SPECD_LOCK_STALE_MS` (default `30000`): Age past which an orphaned lockfile is reclaimed.
+*   `SPECD_VERIFY_TIMEOUT_MS` (default `600000`): Per-run timeout for `specd verify`; a timed-out run records `verified: false` with exit `124`.
 
 ---
 
@@ -337,22 +379,30 @@ specd supports parallel execution (e.g. running multiple builders on different f
 ```
 src/
 ├── cli.ts               # Command routing, usage info, exit codes
-├── commands/            # One file per command (init, new, task, approve, check, etc.)
+├── commands/            # One file per command:
+│   │                    #   init, new, status, context, check, next, dispatch,
+│   │                    #   program, verify, task, approve, decision, midreq,
+│   │                    #   memory, report, waves
 └── core/
     ├── paths.ts         # Path helpers, walks up to find .specd/ root
     ├── io.ts            # Atomic write and O_APPEND file handling
     ├── lock.ts          # Reentrant advisory locking
-    ├── state.json       # Schema validation, save/load state, migrations
+    ├── state.ts         # Schema validation, save/load state, CAS, migrations, VerificationRecord/CriterionRecord
     ├── phases.ts        # Phase transitions, H2 design section checks
     ├── tasksParser.ts   # Custom tasks.md markdown parser/serializer
-    ├── dag.ts           # DAG construction, next-runnable, cycle checks
+    ├── dag.ts           # DAG construction, next-runnable, frontier, critical path, cycle checks
+    ├── program.ts       # Cross-spec program model: projects specs as a spec-level DAG
     ├── ears.ts          # EARS requirements regex parser
     ├── report.ts        # Markdown/HTML report generation
-    ├── specFiles.ts     # Spec-directory accessor, reconciler
-    ├── render.ts        # Output formatters
+    ├── specFiles.ts     # Spec-directory accessor, reconciler, role/artifact readers
+    ├── render.ts        # Output formatters, acceptance/requirement helpers
+    ├── md.ts            # Shared markdown scanning helpers
+    ├── output.ts        # Redirectable raw stdout sink (capture-safe)
     ├── templates.ts     # Template loader
     └── exit.ts          # Error classes & codes
 ```
+
+> The `.specd/` directory also gains a root `program.json` manifest (cross-spec dependency edges) once `specd program link` is used. Per-task `verification` records and the per-criterion `acceptance` ledger live inside each spec's `state.json`.
 
 ### Common Extension File Map
 
@@ -363,7 +413,10 @@ src/
 | Modify phase-status logic or the VERIFY gate | `src/core/phases.ts`, `src/commands/task.ts`, `src/commands/approve.ts` |
 | Adjust the `context` file-loading list | `src/commands/context.ts` |
 | Fix `.specd/` folder root discovery | `src/core/paths.ts` |
-| Add a new CLI command | `src/commands/<cmd>.ts`, `src/cli.ts` (routing), `test/` (new test suite) |
+| Add a new CLI command | `src/commands/<cmd>.ts`, `src/cli.ts` (routing + `USAGE`), `test/` (new test suite) |
+| Change the verify runner or VerificationRecord | `src/commands/verify.ts`, `src/core/state.ts`, `test/verify.test.ts` |
+| Change dispatch packet shape | `src/commands/dispatch.ts`, `test/dispatch.test.ts` |
+| Edit cross-spec program DAG / edges | `src/core/program.ts`, `src/commands/program.ts`, `test/program.test.ts` |
 | Alter `state.json` schema | `src/core/state.ts` (increment schema version, write `migrate()` logic) |
 | Fix markdown task list parsing | `src/core/tasksParser.ts`, `test/tasksParser.test.ts` |
 | Modify DAG, waves, or critical path engine | `src/core/dag.ts`, `test/dag.test.ts` |
@@ -383,22 +436,26 @@ src/
 
 ---
 
-## 10. Documentation Redesign Recommendations
+## 10. Documentation Map & Status
 
-When rebuilding the repository documentation, address the following areas to improve clarity, organization, and developer experience:
+The repository documentation is split by audience. This file (`DOCS_OVERVIEW.md`) is the consolidated source-of-truth reference; the `docs/` guides are the task-focused entry points.
 
-1.  **Structure and Modularity**:
-    *   Group documentation into three main target audiences:
-        *   **User Guides**: Getting started, lifecycle walkthrough, and writing spec artifacts.
-        *   **Agent Integration**: Setting up `AGENTS.md` and writing custom role prompts.
-        *   **Contributor Guides**: Code base walkthrough, lock/state concurrency, and extending the harness (adding commands or validation gates).
-    *   Keep documents focused on one topic rather than mixing internal architectures with basic usage.
-2.  **Fix Stale References**:
-    *   Several files refer to `CLAUDE.md` in the root repository. However, `CLAUDE.md` does not exist in the root of the source tree. Either restore it with correct developer context (e.g., test instructions, file mapping) or clean up links pointing to it.
-    *   Clearly distinguish the two `AGENTS.md` files: the one at the root of the specd repository (how to develop specd) versus the template `src/templates/AGENTS.md` (emitted into target repos for agents to run specd).
-3.  **Visual Elements and Diagrams**:
-    *   Include Mermaid flowcharts for the status/phase transitions, concurrency lock flow, and the pipeline of validation gates.
-    *   Provide side-by-side visual comparisons of `tasks.md` checkboxes next to `state.json` task statuses.
-4.  **Formatting and Interactive Examples**:
-    *   Ensure all CLI examples highlight the exit code transitions.
-    *   Provide templates and examples for writing EARS criteria and task schemas directly.
+| Document | Audience | Covers |
+|---|---|---|
+| `README.md` | Everyone | Identity, features, quick start, doc map. |
+| `docs/README.md` | Everyone | Index/navigation across the three guides. |
+| `docs/user-guide.md` | Users of specd in a target repo | Lifecycle, writing artifacts, verify→complete flow, dispatch/program, troubleshooting. |
+| `docs/agent-integration.md` | Agent/harness integrators | The two `AGENTS.md` files, steering, roles, subagent + dispatch orchestration, context engineering. |
+| `docs/contributor-guide.md` | specd contributors | Codebase walkthrough, gate pipeline, concurrency, parser internals, extension recipes. |
+| `CLAUDE.md` | Contributors/agents on the repo | Build/test commands and the invariants checklist. |
+| `AGENTS.md` (root) | Agents developing specd | Same as CLAUDE.md, agent-shaped. |
+
+### Recommendations status (formerly redesign backlog)
+1.  **Audience split** — ✅ Done: `docs/` is split into user / agent-integration / contributor guides, each single-topic.
+2.  **Stale references** — ✅ Done: `CLAUDE.md` now exists at the root; the two `AGENTS.md` files are distinguished in `docs/agent-integration.md §1`.
+3.  **Visual elements** — ✅ Done: Mermaid flowcharts for status/phase transitions, the lock flow, and the gate pipeline live in the guides; a checkbox↔`state.json` table is in `docs/user-guide.md §4`.
+4.  **Examples & exit codes** — ✅ Done: CLI examples in the user guide annotate exit-code transitions, with EARS, design, and task-schema templates inline.
+
+### Remaining opportunities
+*   Add an end-to-end recorded walkthrough (asciinema/GIF) of a full spec from `new` to `complete`.
+*   Document `delegate` subagent mode against a concrete host harness once a reference integration exists.

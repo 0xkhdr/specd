@@ -78,6 +78,34 @@ If the host agent supports spawning subagents (e.g. Claude Code's `invoke_subage
 *   **Pros**: Completely isolates implementation context. A builder subagent has no access to irrelevant codebase files, reducing token consumption.
 *   **Cons**: Requires a host agent with agent-spawning capabilities.
 
+#### Fanning out with `specd dispatch`
+The orchestrator does not have to assemble subagent prompts by hand. `specd dispatch <slug> --json` returns one **dispatch packet** per runnable frontier task, each containing exactly what a fresh subagent needs:
+
+```jsonc
+{
+  "kind": "frontier",
+  "count": 2,
+  "packets": [{
+    "id": "T1", "wave": 1, "role": "builder",
+    "rolePrompt": "<full .specd/roles/builder.md body>",
+    "title": "...", "why": "...", "contract": "...", "files": "...",
+    "acceptance": "...", "verify": "npm test ...",
+    "depends": [], "requirements": [1],
+    "completion": "specd task my-feature T1 --status complete --evidence \"<proof>\""
+  }]
+}
+```
+
+The orchestrator spawns one subagent per packet, hands it `rolePrompt` + the task fields, and on success runs `specd verify` then the `completion` command. `dispatch` respects the `awaiting-approval` gate (override with `--force`).
+
+### 3. Cross-Spec Orchestration (`specd program`)
+For programs spanning multiple specs, declare inter-spec edges and let `specd` compute which whole specs are runnable:
+```sh
+node /path/to/specd/dist/cli.js program link api --on auth   # api waits for auth
+node /path/to/specd/dist/cli.js program --json               # spec-level DAG + runnable frontier
+```
+The manifest lives in `.specd/program.json`. An orchestrator drives the spec-level frontier the same way a single spec drives its task frontier.
+
 ---
 
 ## 5. Context Engineering: `specd context`
