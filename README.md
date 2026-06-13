@@ -63,7 +63,7 @@ specd update --force
 ```
 
 ### Requirements
-- Node.js >= 18
+- Linux or macOS (amd64 / arm64)
 - Git (optional — tarball fallback available)
 
 ## For Agents

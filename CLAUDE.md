@@ -1,22 +1,28 @@
 # CLAUDE.md — Contributor Guidelines
 
-This file is a quick reference for developers and coding agents contributing to the `specd` repository.
+Quick reference for developers and coding agents contributing to `specd`.
 
 ## Commands
 
 ### Build & Compilation
 ```sh
-npm run build          # Compiles TypeScript to dist/ and copies templates
+make build             # go build -ldflags "-s -w -X main.version=$(VERSION)" -o specd .
+make install           # go install (puts specd in $GOPATH/bin)
 ```
 
 ### Running Tests
 ```sh
-npm test               # Runs the full test suite (92 tests covering gates, DAGs, concurrency)
+make test              # go test -race ./...
 ```
 
 ### Running from Source
 ```sh
-node --import tsx src/cli.ts <command>  # Run CLI commands directly without building
+go run . <command>     # Run directly without building
+```
+
+### Linting
+```sh
+make lint              # go vet ./...
 ```
 
 ---
@@ -25,23 +31,66 @@ node --import tsx src/cli.ts <command>  # Run CLI commands directly without buil
 
 All contributions must respect these core architectural constraints:
 
-1. **Zero Runtime Dependencies**: The `dependencies` object in `package.json` must remain empty. Use only Node.js built-ins and devDependencies (like `tsx` and `@types/node`).
-2. **Durable & Atomic File Writes**: Never use `fs.writeFileSync` directly for mutable state (`state.json` or `tasks.md`). You must use `atomicWrite` (defined in [io.ts](file:///var/www/html/rai/up/specd/src/core/io.ts)) which writes to a temporary file, forces disk synchronization (`fsync`), and renames it atomically.
-3. **Optimistic Concurrency (CAS)**: State mutations must load `state.json`, verify that the `revision` matches, and increment the revision count on write.
-4. **Reentrant Advisory Locks**: Mutating commands must acquire the spec-specific advisory lock using `withSpecLock` (defined in [lock.ts](file:///var/www/html/rai/up/specd/src/core/lock.ts)).
-5. **Round-Trip Parser Stability**: The custom tasks parser in [tasksParser.ts](file:///var/www/html/rai/up/specd/src/core/tasksParser.ts) must maintain 100% round-trip byte equivalence. Parsing a tasks markdown file and serializing it back must produce the identical byte sequence.
+1. **Zero Runtime Dependencies**: `go.mod` must have no `require` directives. Use stdlib only.
+2. **Durable & Atomic File Writes**: Never use `os.WriteFile` directly for mutable state (`state.json` or `tasks.md`). Use `AtomicWrite` in [`internal/core/io.go`](internal/core/io.go) — writes to a temp file, calls `Sync()`, then `os.Rename` (POSIX atomic).
+3. **Optimistic Concurrency (CAS)**: State mutations must call `LoadState`, verify the `revision` field matches on-disk, and increment on write via `SaveState`.
+4. **Reentrant Advisory Locks**: Mutating commands must acquire the spec-specific advisory lock via `WithSpecLock` in [`internal/core/lock.go`](internal/core/lock.go). Uses `O_EXCL` lockfile + `sync.Map` reentrancy counter.
+5. **Round-Trip Parser Stability**: `ParseTasks` → `SerializeTasks` must produce identical bytes. Tests in [`internal/core/tasksparser_test.go`](internal/core/tasksparser_test.go) enforce this.
 6. **Exit Code Semantics**:
-   - `0`: Operation succeeded or validation checks passed.
-   - `1`: Validation gate or check failed (e.g., EARS syntax, design headers, DAG cycle).
-   - `2`: Usage error / CLI arguments error.
-   - `3`: Root `.specd/` directory or specified spec slug not found.
+   - `0`: Success.
+   - `1`: Validation gate / check failed (EARS, design headers, DAG cycle, evidence gate).
+   - `2`: Usage error / bad CLI arguments.
+   - `3`: `.specd/` root or specified spec slug not found.
 
 ---
 
 ## Project Structure
 
-- **[src/cli.ts](file:///var/www/html/rai/up/specd/src/cli.ts)**: Command line entry point and dispatch routing.
-- **[src/commands/](file:///var/www/html/rai/up/specd/src/commands)**: Contains CLI command handlers (one file per command, e.g., `init.ts`, `check.ts`, `task.ts`).
-- **[src/core/](file:///var/www/html/rai/up/specd/src/core)**: Core domain logic (DAG engine, EARS parser, locks, state management, report generators).
-- **[src/templates/](file:///var/www/html/rai/up/specd/src/templates)**: Default configuration and steering documents copied to `dist/templates/` on build.
-- **[test/](file:///var/www/html/rai/up/specd/test)**: Comprehensive test suite split into core logic tests, parser tests, gate tests, and full lifecycle end-to-end scenarios.
+```
+main.go                         # Entry point; dispatch switch; version ldflags
+internal/
+  cli/
+    args.go                     # Hand-rolled arg parser — no external deps
+  cmd/
+    *.go                        # One file per command (init, new, check, task, verify, …)
+    helpers.go                  # specdExit(), usageExit()
+  core/
+    dag.go                      # DAG engine: cycle detection, waves, critical path, frontier
+    ears.go                     # EARS linter: regex patterns for 5 EARS forms
+    embed.go                    # //go:embed embed_templates — templates baked into binary
+    embed_templates/            # Template files (AGENTS.md, config.json, steering/, roles/, specStubs/)
+    exit.go                     # Exit codes and SpecdError type
+    io.go                       # AtomicWrite, AppendFile, ReadOrNull, ReadOrDefault
+    lock.go                     # WithSpecLock[T any] — advisory lock with generics
+    paths.go                    # Canonical .specd/ path helpers
+    phases.go                   # PhaseForStatus, DesignGate, PhaseReadiness, PlanningAdvance
+    program.go                  # ProgramManifest, BuildProgram (cross-spec DAG)
+    render.go                   # WaveGraph, NextSummary, CountTasks, BlockerLines, …
+    report.go                   # RenderMarkdown, RenderHTML, GetBadge
+    specfiles.go                # Config types, LoadConfig, LoadSpec, ListSpecs, RequireSpec
+    state.go                    # All types + LoadState/SaveState (CAS), migrate() v0→v4
+    tasksparser.go              # ParseTasks, SerializeTasks, ApplyTaskAnnotation
+    ui.go                       # ANSI color output; SPECd_JSON env; NO_COLOR support
+    help.go                     # RenderHelp, RenderCommandHelp, RenderHelpJSON
+    commands.go                 # CommandMeta slice (19 commands)
+    md.go                       # Markdown helpers
+Makefile
+.goreleaser.yml                 # Multi-platform release builds (linux/darwin/windows, amd64/arm64)
+.github/workflows/release.yml  # CI: vet + test + goreleaser on tag push
+scripts/
+  install.sh                   # curl-pipe installer — downloads pre-built binary from GitHub Releases
+  uninstall.sh                 # Removes binary and PATH entries
+```
+
+---
+
+## Adding a New Command
+
+1. Create `internal/cmd/<name>.go` with `func Run<Name>(args cli.Args) int`.
+2. Add the dispatch case in `main.go`'s `dispatch()` switch.
+3. Add `CommandMeta` entry in `internal/core/commands.go`.
+4. Write unit tests in `internal/core/` if adding core logic; command-level tests go in `internal/cmd/`.
+
+## Templates
+
+Templates live in `internal/core/embed_templates/` and are embedded at compile time via `//go:embed`. Do **not** modify the root-level `src/templates/` path — it no longer exists. Edit files directly in `embed_templates/`.

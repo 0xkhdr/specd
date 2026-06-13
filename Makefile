@@ -1,16 +1,23 @@
-.PHONY: install build test clean lint
+GO      ?= go
+VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo "dev")
+LDFLAGS  = -s -w -X main.version=$(VERSION)
+BIN      = specd
 
-install:
-	npm install
+.PHONY: all build install test lint clean
+
+all: build
 
 build:
-	npm run build
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN) .
+
+install:
+	$(GO) install -ldflags "$(LDFLAGS)" .
 
 test:
-	npm test
-
-clean:
-	rm -rf dist/ node_modules/
+	$(GO) test -race ./...
 
 lint:
-	@echo "Linting not configured yet. Run 'npx tsc --noEmit' for type checking."
+	$(GO) vet ./...
+
+clean:
+	rm -f $(BIN)
