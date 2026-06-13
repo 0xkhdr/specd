@@ -34,6 +34,45 @@ download() {
   fi
 }
 
+build_from_source() {
+  command -v go >/dev/null 2>&1 || die "Go is required to build from source. Install Go 1.22+ and retry."
+
+  TMPDIR="$(mktemp -d)"
+  REPO_DIR="${TMPDIR}/specd"
+
+  log "Cloning repository..."
+  git clone "https://github.com/${REPO}.git" "$REPO_DIR" || die "Failed to clone repository."
+
+  log "Building specd..."
+  (
+    cd "$REPO_DIR"
+    go build -ldflags "-s -w -X main.version=dev" -o specd . || die "Build failed."
+  )
+
+  log "Installing..."
+  mkdir -p "$BIN_DIR"
+  mv "${REPO_DIR}/specd" "$BIN"
+  chmod +x "$BIN"
+  rm -rf "$TMPDIR"
+
+  # --- PATH ---
+  case ":${PATH}:" in
+    *:"${BIN_DIR}":*) ;;
+    *)
+      LINE="export PATH=\"\${HOME}/.local/bin:\${PATH}\" # specd"
+      for rc in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
+        if [ -f "$rc" ] && ! grep -q "# specd" "$rc"; then
+          printf '\n%s\n' "$LINE" >> "$rc"
+        fi
+      done
+      warn "${BIN_DIR} added to PATH in shell configs. Run: source ~/.bashrc"
+      ;;
+  esac
+
+  ok "Built and installed specd from source → ${BIN}"
+  printf "[specd] ${BLUE}Run 'specd init' in your project root to get started.${RESET}\n"
+}
+
 main() {
   # --- Parse args ---
   while [ $# -gt 0 ]; do
@@ -66,10 +105,14 @@ main() {
   # --- Resolve version ---
   if [ -z "$VERSION" ]; then
     log "Fetching latest release version..."
-    VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-      | grep '"tag_name"' | head -n1 | cut -d'"' -f4)" \
-      || die "Could not fetch latest version from GitHub API."
-    [ -z "$VERSION" ] && die "Empty version from GitHub API."
+    VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
+      | grep '"tag_name"' | head -n1 | cut -d'"' -f4)" || true
+
+    if [ -z "$VERSION" ]; then
+      warn "No releases found. Building from source..."
+      build_from_source
+      exit 0
+    fi
   fi
 
   # Normalise: ensure leading 'v'
@@ -95,7 +138,12 @@ main() {
 
   log "Downloading specd ${VERSION} (${GOOS}/${GOARCH})..."
   [ "$VERBOSE" = "true" ] && log "URL: ${URL}"
-  download "$URL" "$TMPFILE" || die "Download failed: ${URL}"
+  download "$URL" "$TMPFILE" || {
+    warn "Release binary not found. Building from source..."
+    rm -rf "$TMPDIR"
+    build_from_source
+    exit 0
+  }
 
   # --- Extract ---
   log "Extracting..."
