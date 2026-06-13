@@ -23,15 +23,15 @@ func RunStatus(args cli.Args) int {
 		specs := core.ListSpecs(root)
 		if jsonOut {
 			type row struct {
-				Spec    string         `json:"spec"`
-				Status  core.SpecStatus `json:"status"`
-				Phase   core.Phase     `json:"phase"`
-				Gate    core.Gate      `json:"gate"`
-				Pending int            `json:"pending"`
-				Running int            `json:"running"`
-				Complete int           `json:"complete"`
-				Blocked int            `json:"blocked"`
-				Total   int            `json:"total"`
+				Spec     string          `json:"spec"`
+				Status   core.SpecStatus `json:"status"`
+				Phase    core.Phase      `json:"phase"`
+				Gate     core.Gate       `json:"gate"`
+				Pending  int             `json:"pending"`
+				Running  int             `json:"running"`
+				Complete int             `json:"complete"`
+				Blocked  int             `json:"blocked"`
+				Total    int             `json:"total"`
 			}
 			rows := make([]row, 0, len(specs))
 			for _, s := range specs {
@@ -76,7 +76,7 @@ func RunStatus(args cli.Args) int {
 	if jsonOut {
 		type fullState struct {
 			*core.State
-			Counts core.Counts    `json:"counts"`
+			Counts core.Counts     `json:"counts"`
 			Next   core.NextResult `json:"next"`
 		}
 		out := fullState{State: state, Counts: c, Next: core.NextRunnable(core.DagTasksFromState(state))}

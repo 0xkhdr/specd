@@ -128,7 +128,7 @@ func programRender(root string, jsonOut bool) int {
 			"kind": "program", "count": len(g.Specs), "specs": specs,
 			"frontier": frontierIDs, "waves": wout,
 			"criticalPath": core.CriticalPath(g.Dag),
-			"next": next, "cycle": g.Cycle, "orphans": g.Orphans,
+			"next":         next, "cycle": g.Cycle, "orphans": g.Orphans,
 		}
 		b, _ := json.MarshalIndent(out, "", "  ")
 		fmt.Println(string(b))

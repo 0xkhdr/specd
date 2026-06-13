@@ -3,15 +3,12 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
-
-var slugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 func titleCase(slug string) string {
 	parts := strings.Split(slug, "-")
@@ -35,8 +32,8 @@ func RunNew(args cli.Args) int {
 	if slug == "" {
 		return usageExit("usage: specd new <slug> [--title \"...\"]")
 	}
-	if !slugRE.MatchString(slug) {
-		return usageExit(fmt.Sprintf("invalid slug '%s' (must match ^[a-z0-9][a-z0-9-]*$)", slug))
+	if err := core.ValidateSlug(slug); err != nil {
+		return specdExit(err)
 	}
 	if core.SpecExists(root, slug) {
 		core.Error(fmt.Sprintf("spec '%s' already exists", slug))

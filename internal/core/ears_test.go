@@ -4,9 +4,9 @@ import "testing"
 
 func TestMatchEars(t *testing.T) {
 	cases := []struct {
-		line    string
-		want    EarsPattern
-		wantOK  bool
+		line   string
+		want   EarsPattern
+		wantOK bool
 	}{
 		{"THE SYSTEM SHALL store data", EarsUbiquitous, true},
 		{"WHEN user clicks THE SYSTEM SHALL respond", EarsEventDriven, true},

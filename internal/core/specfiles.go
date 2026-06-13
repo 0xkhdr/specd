@@ -109,6 +109,9 @@ func SpecExists(root, slug string) bool {
 }
 
 func RequireSpec(root, slug string) error {
+	if err := ValidateSlug(slug); err != nil {
+		return err
+	}
 	if !SpecExists(root, slug) {
 		return NotFoundError("spec '" + slug + "' not found under .specd/specs/")
 	}

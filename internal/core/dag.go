@@ -12,7 +12,7 @@ type DagTask struct {
 type NextResultKind string
 
 const (
-	NextTask       NextResultKind = "task"
+	NextTask        NextResultKind = "task"
 	NextAllComplete NextResultKind = "all-complete"
 	NextAllBlocked  NextResultKind = "all-blocked"
 	NextWaiting     NextResultKind = "waiting"

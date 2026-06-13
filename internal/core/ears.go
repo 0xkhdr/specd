@@ -45,10 +45,10 @@ var (
 )
 
 type reqBlock struct {
-	headerLine  int
-	name        string
+	headerLine   int
+	name         string
 	hasUserStory bool
-	criteria    int
+	criteria     int
 }
 
 func LintEars(text string) []EarsIssue {

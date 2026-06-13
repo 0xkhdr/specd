@@ -32,6 +32,6 @@ func ParseArgs(argv []string) Args {
 	return args
 }
 
-func (a Args) Bool(key string) bool    { return a.Flags[key] == "true" }
-func (a Args) Str(key string) string   { return a.Flags[key] }
-func (a Args) Has(key string) bool     { _, ok := a.Flags[key]; return ok }
+func (a Args) Bool(key string) bool  { return a.Flags[key] == "true" }
+func (a Args) Str(key string) string { return a.Flags[key] }
+func (a Args) Has(key string) bool   { _, ok := a.Flags[key]; return ok }

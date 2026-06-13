@@ -31,9 +31,9 @@ func RunWaves(args cli.Args) int {
 		type waveJSON struct {
 			Wave  int `json:"wave"`
 			Tasks []struct {
-				ID      string   `json:"id"`
+				ID      string          `json:"id"`
 				Status  core.TaskStatus `json:"status"`
-				Depends []string `json:"depends"`
+				Depends []string        `json:"depends"`
 			} `json:"tasks"`
 		}
 		waves := core.GroupWaves(tasks)
