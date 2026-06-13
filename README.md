@@ -77,22 +77,13 @@ specd update --force
 
 ## Quick Start
 
-To use the tool, run it via the global `specd` binary. Or if running from source:
-```sh
-# Run directly from source
-node --import tsx src/cli.ts <command>
-
-# Or run the built version
-node dist/cli.js <command>
-```
-
 ### Initializing a Project
 
-To initialize `specd` in a target repository:
+After installing, run `specd init` in any project root to get started:
 
 ```sh
-# This scaffolds the .specd/ structure, roles, steering config, and AGENTS.md
-node <path-to-specd>/dist/cli.js init
+# Scaffolds .specd/ structure, roles, steering config, and AGENTS.md
+specd init
 ```
 
 ### Creating and Running a Spec

@@ -309,7 +309,7 @@ main() {
   fi
 
   printf "[specd] ${GREEN}✅ Installation complete!${RESET}     specd %s\n" "$INSTALLED_VER"
-  printf "[specd] ${BLUE}💡 Run 'specd --help' to get started.${RESET}\n"
+  printf "[specd] ${BLUE}💡 Run 'specd init' in your project root to initialize a workspace.${RESET}\n"
 }
 
 main "$@"

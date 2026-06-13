@@ -101,8 +101,8 @@ The orchestrator spawns one subagent per packet, hands it `rolePrompt` + the tas
 ### 3. Cross-Spec Orchestration (`specd program`)
 For programs spanning multiple specs, declare inter-spec edges and let `specd` compute which whole specs are runnable:
 ```sh
-node /path/to/specd/dist/cli.js program link api --on auth   # api waits for auth
-node /path/to/specd/dist/cli.js program --json               # spec-level DAG + runnable frontier
+specd program link api --on auth   # api waits for auth
+specd program --json               # spec-level DAG + runnable frontier
 ```
 The manifest lives in `.specd/program.json`. An orchestrator drives the spec-level frontier the same way a single spec drives its task frontier.
 
@@ -115,7 +115,7 @@ A major cause of AI agent failure is **context pollution** — loading too many 
 `specd` solves this with the `specd context <slug>` command. The agent runs this command at the beginning of each turn:
 
 ```sh
-node /path/to/specd/dist/cli.js context my-feature
+specd context my-feature
 ```
 
 ### Context Output Structure
