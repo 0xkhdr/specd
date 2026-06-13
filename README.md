@@ -135,12 +135,12 @@ specd init
 ```
 
 ### Quick Links:
-- 📖 [User Guide](file:///var/www/html/rai/up/specd/docs/user-guide.md) — Getting started, EARS requirements, design headers, task DAG formatting.
-- 🤖 [Agent Integration Guide](file:///var/www/html/rai/up/specd/docs/agent-integration.md) — Configuring roles, global steering files, subagent modes, and context engineering.
-- 🛠️ [Contributor Guide](file:///var/www/html/rai/up/specd/docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), custom parser internals, and adding validation gates.
+- 📖 [User Guide](docs/user-guide.md) — Getting started, EARS requirements, design headers, task DAG formatting.
+- 🤖 [Agent Integration Guide](docs/agent-integration.md) — Configuring roles, global steering files, subagent modes, and context engineering.
+- 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), custom parser internals, and adding validation gates.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](file:///var/www/html/rai/up/specd/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

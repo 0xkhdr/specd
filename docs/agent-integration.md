@@ -14,10 +14,10 @@ It is critical to distinguish between the two `AGENTS.md` files in the `specd` e
 
 ### Root `AGENTS.md` (specd Contributor Guide)
 *   **Location**: Root of the `specd` CLI repository itself.
-*   **Purpose**: Instructs AI agents who are **developing the specd tool itself**. It explains how to build the TypeScript files, run the 92 core tests, write validation gates, and follow the CLI schema migrations.
+*   **Purpose**: Instructs AI agents who are **developing the specd tool itself**. It explains how to build the Go binary, run the 15 core tests, write validation gates, and extend the CLI.
 
-### Template `src/templates/AGENTS.md` (Target Project Guide)
-*   **Location**: Found inside `src/templates/AGENTS.md` in the CLI repo. When a user runs `specd init`, this file is written to the root of the **target repository** as `AGENTS.md`.
+### Template `AGENTS.md` (Target Project Guide)
+*   **Location**: Embedded in the compiled binary. When a user runs `specd init`, this file is written to the root of the **target repository** as `AGENTS.md`.
 *   **Purpose**: Instructs the agent working on the **target project** how to use the `specd` CLI. It details the six-phase spec process and mandates that the agent must only update task states via the `specd` CLI command interface.
 
 ---
@@ -89,7 +89,7 @@ The orchestrator does not have to assemble subagent prompts by hand. `specd disp
     "id": "T1", "wave": 1, "role": "builder",
     "rolePrompt": "<full .specd/roles/builder.md body>",
     "title": "...", "why": "...", "contract": "...", "files": "...",
-    "acceptance": "...", "verify": "npm test ...",
+    "acceptance": "...", "verify": "go test ./...",
     "depends": [], "requirements": [1],
     "completion": "specd task my-feature T1 --status complete --evidence \"<proof>\""
   }]

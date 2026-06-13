@@ -23,7 +23,7 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.2.0
 ```
 
-**Requirements:** Node.js >= 18 (git optional — tarball fallback available).
+**Requirements:** None. Pre-built binary includes all dependencies. Git optional for tarball fallback.
 
 ---
 
@@ -163,10 +163,10 @@ Each task has a checklist item followed by a list of metadata keys indented with
 - [ ] T1 — Create token generation utility
   - why: Foundations for issuing tokens
   - role: builder
-  - files: src/utils/jwt.ts, test/utils/jwt.test.ts
-  - contract: generateToken(payload: object) => string
+  - files: internal/auth/token.go, internal/auth/token_test.go
+  - contract: GenerateToken(payload map[string]interface{}) (string, error)
   - acceptance: Generates valid HS256 JWTs with 1-hour expiration
-  - verify: npm test test/utils/jwt.test.ts
+  - verify: go test -race ./internal/auth/...
   - depends: —
   - requirements: 1
 
@@ -174,10 +174,10 @@ Each task has a checklist item followed by a list of metadata keys indented with
 - [ ] T2 — Login route handler
   - why: Expose authentication interface
   - role: builder
-  - files: src/routes/auth.ts, test/routes/auth.test.ts
+  - files: internal/routes/auth.go, internal/routes/auth_test.go
   - contract: POST /login routes to handler
   - acceptance: Returns token on 200; handles incorrect passwords
-  - verify: npm test test/routes/auth.test.ts
+  - verify: go test -race ./internal/routes/...
   - depends: T1
   - requirements: 1, 2
 ```
@@ -194,7 +194,7 @@ Here is how task states align side-by-side:
 |---|---|---|
 | `- [ ] T1 — Create token ...` | `"status": "pending"` | Dependency not cleared or task not yet started. |
 | `- [/] T1 — Create token ...` | `"status": "running"` | Work on this task has been initiated. |
-| `- [x] T1 — Create token ...` <br/> `<!-- verified: npm test ... (Commit: abc1234) -->` | `"status": "complete"` | Task complete. Evidence is recorded in the HTML comment. |
+| `- [x] T1 — Create token ...` <br/> `<!-- verified: go test -race ./... (Commit: abc1234) -->` | `"status": "complete"` | Task complete. Evidence is recorded in the HTML comment. |
 | `- [!] T1 — Create token ...` <br/> `<!-- blocker: DB unavailable -->` | `"status": "blocked"` | Task blocked. Blocker reason annotated. |
 
 ---
