@@ -35,18 +35,49 @@ By defining clear phase transitions and validating structural correctness with d
 
 ---
 
-## Quick Start
+## Installation
 
-### Installation
-
-`specd` is built in TypeScript with **zero runtime dependencies**. Clone the repository and install developer dependencies:
-
-```sh
-npm install
-npm run build
+### Quick Install (Linux / macOS)
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
 ```
 
-Link or run the CLI using:
+### With Options
+```bash
+# Force reinstall
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
+
+# Install specific version
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.2.0
+```
+
+### Uninstall
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
+```
+
+### Update
+```bash
+specd update
+specd update --force
+```
+
+### Requirements
+- Node.js >= 18
+- Git (optional — tarball fallback available)
+
+## For Agents
+
+`specd` is designed to be fully drivable by AI agents:
+
+- Set `SPECd_JSON=1` to receive structured JSON output for all commands.
+- Use `specd help --json` to discover the full command schema programmatically.
+- All state mutations are atomic and versioned — safe for concurrent agent access.
+- Exit codes are deterministic: `0`=ok, `1`=validation, `2`=usage, `3`=not found.
+
+## Quick Start
+
+To use the tool, run it via the global `specd` binary. Or if running from source:
 ```sh
 # Run directly from source
 node --import tsx src/cli.ts <command>
