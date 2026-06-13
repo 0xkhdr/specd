@@ -1,0 +1,120 @@
+# specd — Spec-Driven Coding Harness
+
+`specd` is an **agent-agnostic, spec-driven coding harness CLI**. It fuses a structured spec workflow (requirements → design → tasks → evidence-gated execution) with a rigid thinking discipline for AI coding agents. 
+
+By defining clear phase transitions and validating structural correctness with deterministic gates, `specd` shifts the burden of process enforcement from the LLM's non-deterministic context to a strict, local, tool-gated pipeline.
+
+> **The agent reasons. The harness enforces.**
+
+---
+
+## Key Features
+
+- 🔄 **Strict Planning Ratchet**: Enforces human-approved phase gates (Analyze → Plan → Execute → Verify → Reflect).
+- 🛡️ **7 Validation Gates**: Programmatic checks (`specd check`) including EARS requirement syntax, complete design templates, acyclic task DAGs, and sync checks.
+- 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are fully resolved.
+- 💾 **Evidence-Gated Completion**: Completing tasks requires passing test outputs, commit SHAs, or verification evidence. No task can be marked complete on trust alone.
+- 🔌 **Agent-Agnostic**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) how to execute the workflow via a localized prompt pack and steering constitution.
+- 📊 **Deterministic Status Reporting**: Generates markdown and self-contained HTML reports representing the state and wave DAG without any LLM dependencies or runtime overhead.
+
+---
+
+## Core Philosophy
+
+`specd` is built on eight core principles designed to make AI software engineering reliable, structured, and predictable:
+
+1. **The Foundational Split**: The agent does the creative thinking; the harness enforces process integrity.
+2. **Specs as the Source of Truth**: The active plan lives as versioned Markdown on disk, not floating in the LLM's context window.
+3. **Evidence Gates Every State Change**: *Trust is recorded, not assumed.* Status changes require verifiable proof.
+4. **Waves, Not Lines**: Work is structured as a Directed Acyclic Graph (DAG) of concurrent batches (waves) rather than flat todo lists.
+5. **Agent-Agnostic by Design**: Standardized command interface integrated via role prompt injection.
+6. **Human Gates at Phase Boundaries**: Semantic transitions require explicit human approval (`specd approve`).
+7. **Deterministic Reporting**: Reports are generated programmatically from `state.json` and artifact files.
+8. **Steering as Constitution**: Durable steering files outlive individual chat sessions.
+
+---
+
+## Quick Start
+
+### Installation
+
+`specd` is built in TypeScript with **zero runtime dependencies**. Clone the repository and install developer dependencies:
+
+```sh
+npm install
+npm run build
+```
+
+Link or run the CLI using:
+```sh
+# Run directly from source
+node --import tsx src/cli.ts <command>
+
+# Or run the built version
+node dist/cli.js <command>
+```
+
+### Initializing a Project
+
+To initialize `specd` in a target repository:
+
+```sh
+# This scaffolds the .specd/ structure, roles, steering config, and AGENTS.md
+node <path-to-specd>/dist/cli.js init
+```
+
+### Creating and Running a Spec
+
+1. **Start a new spec**:
+   ```sh
+   specd new my-feature --title "Implement Feature X"
+   ```
+2. **Author Requirements**: Open `.specd/specs/my-feature/requirements.md` and document requirements in EARS format. Validate and approve:
+   ```sh
+   specd check my-feature
+   specd approve my-feature # Advances spec status from 'requirements' to 'design'
+   ```
+3. **Create Design**: Fill out `.specd/specs/my-feature/design.md` covering all mandatory sections. Approve:
+   ```sh
+   specd approve my-feature # Advances spec status from 'design' to 'tasks'
+   ```
+4. **Decompose into Tasks**: Author the task list under `.specd/specs/my-feature/tasks.md` defining dependency waves. Approve:
+   ```sh
+   specd approve my-feature # Advances spec status from 'tasks' to 'executing'
+   ```
+5. **Execute Tasks**: Get the next runnable task from the frontier, work on it, verify, and complete it:
+   ```sh
+   specd next my-feature
+   # [Implement the changes...]
+   specd task my-feature T1 --status complete --evidence "npm test pass (Commit: 8fbc1e3)"
+   ```
+6. **Final Verification**: Once all tasks are complete, run final checks and sign off:
+   ```sh
+   specd approve my-feature # Closes the spec, promoting learnings and generating final reports
+   ```
+
+---
+
+## Repository & Documentation Map
+
+```
+.
+├── README.md               # This overview guide
+├── CLAUDE.md               # Contributor cheat-sheet (build, test, and style invariants)
+├── AGENTS.md               # Workflow guide for AI agents working on the specd repo itself
+└── docs/                   # Detailed documentation
+    ├── user-guide.md          # Guide on using specd inside target repositories
+    ├── agent-integration.md   # Configuring role prompts, steering, and context briefings
+    └── contributor-guide.md   # CLI architecture, concurrency model, and codebase details
+```
+
+### Quick Links:
+- 📖 [User Guide](file:///var/www/html/rai/up/specd/docs/user-guide.md) — Getting started, EARS requirements, design headers, task DAG formatting.
+- 🤖 [Agent Integration Guide](file:///var/www/html/rai/up/specd/docs/agent-integration.md) — Configuring roles, global steering files, subagent modes, and context engineering.
+- 🛠️ [Contributor Guide](file:///var/www/html/rai/up/specd/docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), custom parser internals, and adding validation gates.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](file:///var/www/html/rai/up/specd/LICENSE) file for details.

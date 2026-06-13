@@ -123,11 +123,11 @@ different from this root `AGENTS.md` (which is for developing specd).
 The original `SPEC.md` / `Tasks.md` design documents have been **retired** — the implementation is
 now the source of truth. Before making structural changes, read:
 
-- **`docs/ARCHITECTURE.md`** — philosophy→code map, lifecycle sequence, and the key invariants.
-- **`specd-core-philosophy.md`** — the eight principles (original intent).
-- **`CLAUDE.md`** — the contributor file map and invariant list.
+- **`docs/contributor-guide.md`** — CLI architecture, concurrency model, and codebase details.
+- **`CLAUDE.md`** — contributor guidelines, build/test commands, and code style invariants.
 
 Source comments cite `SPEC §x` as historical rationale for the retired spec — not a live file.
+
 
 ---
 
