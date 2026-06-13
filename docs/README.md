@@ -1,6 +1,6 @@
 # specd Documentation
 
-Pick the guide that matches what you are doing. For the consolidated, single-source-of-truth reference (architecture, full CLI surface, schemas), see [`../DOCS_OVERVIEW.md`](../DOCS_OVERVIEW.md).
+Pick the guide that matches what you are doing:
 
 | Guide | Read it when you want to… |
 |---|---|

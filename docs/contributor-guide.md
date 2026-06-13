@@ -6,43 +6,75 @@ This guide is for developers and AI agents contributing to the development of th
 
 ## 1. Codebase Directory Walkthrough
 
+`specd` is a single-binary Go application with **zero external runtime dependencies**. All dependencies are from the Go standard library.
+
 ```
-src/
-├── cli.ts               # CLI Router: Parses arguments, registers dispatch table, handles exits
-├── commands/            # Command Handlers (one file per command)
-│   ├── init.ts          # Scaffolds configuration, role prompts, steering, and AGENTS.md
-│   ├── new.ts           # Initializes a new spec folder structure
-│   ├── status.ts        # Renders the current spec state and status graphs
-│   ├── context.ts       # Generates minimal loading lists and signal warnings for agents
-│   ├── check.ts         # Coordinates execution of the validation gates
-│   ├── next.ts          # Computes and displays the next runnable task(s)
-│   ├── dispatch.ts      # Emits ready-to-run dispatch packets for the runnable frontier
-│   ├── verify.ts        # Runs a task's verify: command; records VerificationRecord / per-criterion proofs
-│   ├── task.ts          # Evidence-gated task status updates (dual-writes markdown/state)
-│   ├── approve.ts       # Planning ratchet + spec-level acceptance coordinator
-│   ├── program.ts       # Cross-spec DAG view + program link/unlink edge editing
-│   ├── decision.ts      # Appends ADRs (Architectural Decision Records)
-│   ├── midreq.ts        # Appends mid-requirements feedback logs
-│   ├── memory.ts        # Appends and promotes local/global learnings
-│   ├── report.ts        # Compiles snapshot markdown/HTML status reports
-│   └── waves.ts         # Prints DAG waves and critical path analysis
-└── core/                # Core engines
-    ├── paths.ts         # Traverses directories up from CWD to find .specd/ root
-    ├── io.ts            # Atomic write and O_APPEND implementations
-    ├── lock.ts          # Reentrant file-based advisory locking
-    ├── state.ts         # state.json schemas, CAS revision checks, migrations, Verification/Criterion records
-    ├── phases.ts        # Phase transitions, status mapping, and Design checklist
-    ├── tasksParser.ts   # Custom tasks.md markdown parser/serializer
-    ├── dag.ts           # DAG construction, wave sorting, frontier, critical path, cycle detection
-    ├── program.ts       # Projects specs as nodes in a spec-level DAG (reuses dag.ts primitives)
-    ├── ears.ts          # Regex-based EARS grammar matcher
-    ├── report.ts        # Deterministic MD/HTML report compiler
-    ├── specFiles.ts     # Accessor for spec folders; reconciles markdown to state.json; role/artifact readers
-    ├── render.ts        # Renders text-based wave graphs; acceptance/requirement helpers
-    ├── md.ts            # Shared markdown scanning helpers
-    ├── output.ts        # Capture-safe redirectable raw stdout sink
-    ├── templates.ts     # Scaffolding template loader
-    └── exit.ts          # SpecdError definitions and exit code constants
+main.go                                  # Entry point; CLI dispatch; version ldflags
+Makefile                                 # Build, test, lint commands
+go.mod                                   # Module definition (no external requires)
+.goreleaser.yml                          # Multi-platform release builds
+.github/workflows/release.yml            # CI: tests + goreleaser on tag
+
+internal/
+├── cli/
+│   └── args.go                          # Hand-rolled argument parser (no flag library)
+│
+├── cmd/
+│   ├── init.go, new.go, approve.go      # Lifecycle commands
+│   ├── check.go, next.go, dispatch.go   # Execution commands
+│   ├── verify.go, task.go               # Verification/task status commands
+│   ├── decision.go, midreq.go, memory.go # ADR, feedback, learning commands
+│   ├── status.go, context.go, report.go # Inspection/reporting commands
+│   ├── waves.go, program.go             # DAG visualization + cross-spec commands
+│   ├── update.go, version.go            # Meta commands (self-update, version)
+│   └── helpers.go                       # Common exit/error helpers
+│
+└── core/
+    ├── paths.go                         # Canonical .specd/ path traversal
+    ├── io.go                            # AtomicWrite, AppendFile, ReadOrNull, ReadOrDefault
+    ├── lock.go                          # Reentrant file-based advisory lock (O_EXCL)
+    ├── exit.go                          # SpecdError type and exit code constants
+    ├── state.go                         # State schema, LoadState/SaveState (CAS), migrations
+    ├── specfiles.go                     # Spec directory accessor; config/manifest loaders
+    ├── phases.go                        # Phase transitions, status mapping, design checklist
+    ├── tasksparser.go                   # Custom markdown parser for tasks.md
+    ├── dag.go                           # DAG construction, waves, frontier, critical path
+    ├── ears.go                          # EARS requirement syntax validator (regex)
+    ├── program.go                       # Cross-spec DAG construction and frontier
+    ├── render.go                        # Wave graph ASCII rendering, summary helpers
+    ├── report.go                        # Markdown and HTML report generation
+    ├── ui.go                            # ANSI colors, JSON mode, NO_COLOR support
+    ├── help.go                          # Help text rendering and JSON schema export
+    ├── commands.go                      # CommandMeta registry (19 commands)
+    ├── md.go                            # Markdown parsing helpers
+    │
+    ├── embed.go                         # //go:embed declaration for templates
+    └── embed_templates/                 # Baked-in template files
+        ├── AGENTS.md                    # Agent prompt pack template
+        ├── config.json                  # Default config stub
+        ├── roles/                       # Role persona templates
+        │   ├── investigator.md
+        │   ├── builder.md
+        │   ├── reviewer.md
+        │   └── verifier.md
+        ├── steering/                    # Global steering constitution
+        │   ├── reasoning.md
+        │   ├── workflow.md
+        │   ├── product.md
+        │   ├── tech.md
+        │   ├── structure.md
+        │   └── memory.md
+        └── specStubs/                   # Spec artifact stubs
+            ├── requirements.md
+            ├── design.md
+            ├── tasks.md
+            ├── decisions.md
+            ├── mid-requirements.md
+            └── memory.md
+
+scripts/
+├── install.sh                           # curl | bash installer (downloads GitHub Release binary)
+└── uninstall.sh                         # Removes binary and PATH entry
 ```
 
 ---
@@ -51,122 +83,140 @@ src/
 
 The validation pipeline runs sequentially during `specd check` and is enforced at phase boundaries when running `specd approve`.
 
-```mermaid
-graph TD
-    Input[requirements.md / design.md / tasks.md] --> G1{Gate 1: EARS}
-    G1 -->|Pass| G2{Gate 2: Design}
-    G1 -->|Fail| Exit1[Exit 1: Validation Fail]
-    G2 -->|Pass| G3{Gate 3: Task Schema}
-    G2 -->|Fail| Exit1
-    G3 -->|Pass| G4{Gate 4: DAG}
-    G3 -->|Fail| Exit1
-    G4 -->|Pass| G5{Gate 5: Evidence}
-    G4 -->|Fail| Exit1
-    G5 -->|Pass| G6{Gate 6: Sync}
-    G5 -->|Fail| Exit1
-    G6 -->|Pass| G7{Gate 7: Traceability}
-    G6 -->|Fail| Exit1
-    G7 -->|Pass| Pass[Exit 0: Check Clean]
-    G7 -->|Fail| Exit1
-```
-
 ### The 7 Validation Gates:
-1.  **EARS Gate** (`ears.ts`): Parses `requirements.md` using regex to guarantee that every requirement contains a user story and that all acceptance criteria match EARS grammar.
-2.  **Design Gate** (`phases.ts`): Checks `design.md` to confirm the presence of all 7 mandatory headers and validates that they contain non-empty contents free of `TODO` placeholders.
-3.  **Task-Schema Gate** (`tasksParser.ts`): Asserts that all task blocks in `tasks.md` contain the 7 mandatory keys, and that builder/verifier tasks do not have `verify: N/A`.
-4.  **DAG Gate** (`dag.ts`): Checks the task dependency graph for cycles, orphan dependencies, or wave violations.
-5.  **Evidence Gate** (`check.ts` / `state.ts`): No task is `complete` without non-empty evidence; **and** no non-read-only task is `complete` without a passing `verification` record (`specd verify`). The deterministic verify record — not a free-text string — is what authorizes completion.
-6.  **Sync Gate** (`specFiles.ts`): Confirms that markdown checkbox statuses (`[ ]`, `[/]`, `[x]`, `[!]`) in `tasks.md` match task statuses in `state.json`.
-7.  **Traceability Gate** (`specFiles.ts`): Ensures every requirement ID listed in `tasks.md` exists in `requirements.md`. Forward direction (a requirement with no task) severity is governed by `config.gates.traceability` — `warn` (default) or `error`.
-
-> **Spec-level acceptance (approve-time, not part of `check`):** When `config.gates.acceptance` is `required`, `approve.ts` refuses to advance a `verifying` spec to `complete` until every requirement has a passing per-criterion proof in `state.acceptance` (recorded via `specd verify --criterion`). Default `off`.
+1.  **EARS Gate** (`internal/core/ears.go`): Regex-based EARS requirement syntax validator. Ensures every requirement contains a user story and all acceptance criteria match one of five EARS patterns.
+2.  **Design Gate** (`internal/core/phases.go`): Checks `design.md` for all 7 mandatory section headers (Overview, Architecture, Components, Data Models, Error Handling, Verification Strategy, Risks) free of TODO markers.
+3.  **Task-Schema Gate** (`internal/core/tasksparser.go`): Validates all tasks have 7 mandatory keys (why, role, files, contract, acceptance, verify, depends). Builder/verifier tasks cannot have `verify: N/A`.
+4.  **DAG Gate** (`internal/core/dag.go`): Detects cycles, orphan dependencies, and wave violations in task dependency graph.
+5.  **Evidence Gate** (`internal/cmd/check.go`, `internal/core/state.go`): No task complete without evidence. Non-read-only tasks require passing verify record (`specd verify` exit 0).
+6.  **Sync Gate** (`internal/core/specfiles.go`): Markdown checkbox statuses (`[ ]`, `[/]`, `[x]`, `[!]`) in `tasks.md` must match `state.json` task statuses.
+7.  **Traceability Gate** (`internal/core/specfiles.go`): Every requirement ID referenced in tasks must exist in requirements.md. Unreferenced requirements severity controlled by `config.gates.traceability` (warn/error).
 
 ---
 
 ## 3. Concurrency & Durability Model
 
-To support concurrent developer operations (such as multiple builders executing different frontier tasks at the same time), `specd` implements a multi-tier concurrency and safety model.
+### 1. Advisory Lock (`internal/core/lock.go`)
+Mutating operations acquire spec-level lockfile `.specd/specs/<slug>/.lock` using `O_EXCL` (exclusive create). Lock acquisition retries with exponential backoff; stale locks (>30s) auto-reclaim.
 
-### 1. Advisory Lock (`lock.ts`)
-A lock is acquired prior to any mutating operation (`task`, `approve`, `midreq`, etc.) using a directory-level lockfile `.specd/specs/<slug>/.lock`.
+Key function: `WithSpecLock[T](root, slug string, fn func() (T, error)) (T, error)`
 
-```mermaid
-flowchart TD
-    Start([Mutating Command Starts]) --> Lock[Try to create lockfile with O_EXCL]
-    Lock -->|Success| Run[Execute command critical section]
-    Lock -->|Failure: File Exists| Age{Is lockfile age > 30s?}
-    Age -->|Yes: Stale Lock| Reclaim[Delete stale lockfile] --> Lock
-    Age -->|No| Wait[Wait 100ms]
-    Wait --> Retries{Retries exhausted?}
-    Retries -->|No| Lock
-    Retries -->|Yes| Fail[Exit 1: Lock Contention]
-    Run --> Release[Delete lockfile] --> End([Command Done])
-```
+Reentrancy tracking via `sync.Map` prevents deadlock when a process acquires the same lock multiple times.
 
-### 2. Revision Checks (CAS)
-Every read of `state.json` caches the `revision` number in memory. When saving, the CLI performs a Compare-And-Swap check. If the revision number on disk has changed, the write aborts with an exit code of `1` to prevent clobbering concurrent updates.
+### 2. Compare-And-Swap (CAS) for State Mutations
+Every `state.json` load captures the `revision` number. On save, CAS verifies revision matches; write aborts if revision changed (concurrent write detected). Prevents clobbering.
+
+Key functions: `LoadState()`, `SaveState()` in `internal/core/state.go`
 
 ### 3. Atomic File Writes
-To prevent file corruption during OS crashes or termination interrupts, the `atomicWrite` method in `src/core/io.ts` implements this pattern:
-1. Writes the content to a temporary file (`.tasks.md.tmp` or `.state.json.tmp`) in the same directory.
-2. Synchronizes the write buffer to disk using `fsync`.
-3. Renames the temporary file over the target file using `rename` (atomic on POSIX systems).
+`AtomicWrite(path, data string)` in `internal/core/io.go` implements:
+1. Create temp file in same directory (name includes PID for debugging).
+2. Write content + `Sync()` to disk.
+3. `os.Rename()` atomic swap (POSIX).
+
+Temp file cleaned up via deferred `os.Remove()` on error.
 
 ### 4. Atomic Ledger Appends
-Documents like `decisions.md` (ADRs), `mid-requirements.md` (feedback log), and `memory.md` append records directly to file descriptors opened with the OS `O_APPEND` flag. This ensures that concurrent write requests are serialized and appended cleanly without interleaving or truncation.
+Logs like `decisions.md`, `mid-requirements.md`, `memory.md` append via `AppendFile()` with `os.O_APPEND`. Ensures serialized, non-interleaved writes.
 
 ---
 
-## 4. Parser Internals: `tasksParser.ts`
+## 4. Parser Internals: `tasksparser.go`
 
-`specd` avoids Markdown AST libraries to remain dependency-free and prevent modifying formatting, white spaces, or comments during serialization.
+To remain dependency-free, `specd` implements a custom tasks.md parser without AST libraries. Preserves formatting, whitespace, and comments.
 
-The `tasksParser.ts` engine is a line-by-line state machine:
-*   **Parsing**: Walks lines to find Wave headers (`## Wave N`) and tasks (`- [ ] TID — title`). When a task is matched, it parses the subsequent indented keys (e.g. `  - key: value`).
-*   **Annotations**: Evidence and blocker annotations are parsed from HTML comments immediately following a task declaration (e.g. `<!-- verified: ... -->`).
-*   **Serialization**: Rebuilds the document line-by-line. It guarantees **round-trip byte-stability**: parsing a file and writing it back out must yield identical bytes.
+**ParseTasks** (line-by-line state machine):
+- Detects `## Wave N` headers and task lines `- [ ] TID — title`.
+- Parses indented metadata keys (`  - key: value`).
+- Decodes task annotations (checkbox state, evidence, timestamp) from task line suffix.
+
+**SerializeTasks** (byte-stable reconstruction):
+- Rebuilds document line-by-line.
+- Round-trip guarantee: `ParseTasks(doc) → SerializeTasks() → ParseTasks()` yields identical bytes.
+- Tests in `internal/core/tasksparser_test.go` enforce stability.
 
 ---
 
 ## 5. Extending the CLI
 
 ### How to Add a CLI Command
-1.  **Create Command File**: Create `src/commands/my-command.ts`. Export a handler function:
-    ```typescript
-    import { findSpecdRoot, requireSpecdRoot } from "../core/paths.js";
-    import { SpecdError } from "../core/exit.js";
-
-    export async function myCommand(slug: string, options: { json?: boolean }): Promise<number> {
-      const root = requireSpecdRoot();
+1.  **Create Command File**: Create `internal/cmd/mycommand.go` with handler:
+    ```go
+    func RunMyCommand(args cli.Args) int {
+      root := core.MustFindSpecdRoot()
+      slug := args.Positional(0)
       // Implementation
-      return 0; // Return exit code
+      return core.ExitOK
     }
     ```
-2.  **Register Router**: Register your command in `src/cli.ts` within the main `switch (cmd)` block, parse parameters, and catch errors.
-3.  **Update Usage Info**: Add your command and its options to the `USAGE` help string in `src/cli.ts`.
-4.  **Add Tests**: Create unit/integration tests in `test/` (e.g., `test/my-command.test.ts`) and ensure it is included in `test` scripts.
+2.  **Register Dispatch**: Add case in `main.go`'s dispatch switch:
+    ```go
+    case "mycommand":
+      return cmd.RunMyCommand(args)
+    ```
+3.  **Add CommandMeta**: Register help metadata in `internal/core/commands.go`:
+    ```go
+    {
+      Command: "mycommand", Category: "inspection",
+      Description: "Brief description",
+      Usage: "specd mycommand <slug>",
+      // ... flags, examples, exit codes
+    }
+    ```
+4.  **Add Tests**: Create tests in `internal/core/*_test.go` for core logic, or `internal/cmd/` for command-level behavior.
 
 ### How to Add/Modify a Validation Gate
-1.  **Define Check Logic**: Write the validation logic in a core file (e.g., `src/core/ears.ts` for requirement checks, or directly in `src/commands/check.ts` for structural validations).
-2.  **Add to check command**: In `src/commands/check.ts`, execute your validation. Append failures to the result array:
-    ```typescript
-    // Example addition
-    if (failsCheck) {
-      results.push({ gate: "my-gate", severity: "fail", message: "Check failed!" });
+1.  **Define Logic**: Write validation in appropriate core file (e.g., `internal/core/ears.go` for syntax, or inline in `internal/cmd/check.go`).
+2.  **Add to check**: In `internal/cmd/check.go`, call validation and collect failures:
+    ```go
+    if err := validateMyGate(spec); err != nil {
+      failures = append(failures, core.ValidationFailure{
+        Gate: "my-gate", Severity: "fail", Message: err.Error(),
+      })
     }
     ```
-3.  **Update Planning Ratchet**: If the validation must block phase advancement, ensure the gate check is queried inside the transition logic in `src/commands/approve.ts`.
-4.  **Add Test Fixture**: Update `test/check.test.ts` to assert that your gate correctly flags violations and exits with code `1`.
+3.  **Block phase if needed**: In `internal/cmd/approve.go`, gate the transition:
+    ```go
+    if cfg.Gates.MyGate && hasViolations {
+      return core.ExitGate // Exit 1
+    }
+    ```
+4.  **Add test**: Verify gate detection in `internal/core/*_test.go`.
 
 ### How to Modify `state.json` Schema
-1.  **Update Schema Interface**: Edit the `State` interface in `src/core/state.ts` to add or modify properties.
-2.  **Increment Schema Version**: Increment `SCHEMA_VERSION` in `src/core/state.ts`.
-3.  **Write Migration Logic**: In the `migrate` function inside `src/core/state.ts`, add a case block to handle upgrades from the previous schema version:
-    ```typescript
-    if (state.schemaVersion === 2) {
-      // Migrate fields to version 3
-      state.schemaVersion = 3;
-      state.myNewField = defaultValue;
-    }
+1.  **Update State Struct**: Edit `State` type in `internal/core/state.go`.
+2.  **Increment SchemaVersion**: Bump `SchemaVersion` constant.
+3.  **Write Migration**: Add case in `migrate()` function:
+    ```go
+    case 2:
+      st.SchemaVersion = 3
+      st.MyNewField = defaultValue
     ```
-4.  **Add Migration Tests**: Add tests verifying schema upgrades in `test/core.test.ts`.
+4.  **Add Migration Test**: Verify upgrade in `internal/core/state_test.go` or equivalent.
+
+---
+
+## 6. Build & Release
+
+### Local Development
+```sh
+make build         # Compile binary to ./specd
+make test          # Run all tests (internal/core/*_test.go)
+make lint          # Run go vet
+go run . <cmd>     # Run directly without building
+```
+
+### Release Build
+Tagged commits (`v*`) trigger `.github/workflows/release.yml`:
+1. Run tests.
+2. Run `goreleaser` (via `.goreleaser.yml`) to build multi-platform binaries (linux/darwin, amd64/arm64).
+3. Create GitHub Release with artifacts.
+4. `install.sh` downloads from Releases and installs to `~/.local/bin/specd`.
+
+### Key Build Flags
+Version is stamped via ldflags:
+```sh
+go build -ldflags "-s -w -X main.version=<git-sha>"
+```
+- `-s -w`: Strip symbols/debuginfo for smaller binary.
+- `-X main.version`: Set version variable at compile time.
