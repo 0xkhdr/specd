@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -47,12 +46,13 @@ func RunNext(args cli.Args) int {
 
 	if state.Gate == core.GateAwaitingApproval && !args.Bool("force") {
 		if jsonOut {
-			b, _ := json.MarshalIndent(map[string]interface{}{"kind": "gated", "gate": state.Gate}, "", "  ")
-			fmt.Println(string(b))
+			if err := core.PrintJSON(map[string]interface{}{"kind": "gated", "gate": state.Gate}); err != nil {
+				return specdExit(err)
+			}
 		} else {
-			printlnErr(fmt.Sprintf("⛔ gate awaiting-approval — present the revised plan, then `specd approve %s` (override: --force).", slug))
+			errLine("⛔ gate awaiting-approval — present the revised plan, then `specd approve %s` (override: --force).", slug)
 		}
-		return 1
+		return core.ExitGate
 	}
 
 	if args.Bool("all") {
@@ -62,9 +62,10 @@ func RunNext(args cli.Args) int {
 			for i, f := range frontier {
 				tasks[i] = taskJSON(doc, state, f.ID)
 			}
-			b, _ := json.MarshalIndent(map[string]interface{}{"kind": "frontier", "count": len(frontier), "tasks": tasks}, "", "  ")
-			fmt.Println(string(b))
-			return 0
+			if err := core.PrintJSON(map[string]interface{}{"kind": "frontier", "count": len(frontier), "tasks": tasks}); err != nil {
+				return specdExit(err)
+			}
+			return core.ExitOK
 		}
 		if len(frontier) == 0 {
 			r := core.NextRunnable(core.DagTasksFromState(state))
@@ -76,7 +77,7 @@ func RunNext(args cli.Args) int {
 			case core.NextWaiting:
 				fmt.Printf("… waiting — frontier gated by incomplete deps: %v\n", r.Blocking)
 			}
-			return 0
+			return core.ExitOK
 		}
 		fmt.Printf("=== RUNNABLE FRONTIER (%d) — dispatch in parallel ===\n", len(frontier))
 		for _, f := range frontier {
@@ -91,25 +92,24 @@ func RunNext(args cli.Args) int {
 		}
 		fmt.Println("==============================")
 		fmt.Printf("Each: specd next %s (focused) or complete with specd task %s <id> --status complete --evidence \"<proof>\"\n", slug, slug)
-		return 0
+		return core.ExitOK
 	}
 
 	result := core.NextRunnable(core.DagTasksFromState(state))
 
 	if jsonOut {
+		var payload any = result
 		if result.Kind == core.NextTask {
-			out := map[string]interface{}{
+			payload = map[string]interface{}{
 				"kind": result.Kind,
 				"id":   result.ID,
 				"task": taskJSON(doc, state, result.ID),
 			}
-			b, _ := json.MarshalIndent(out, "", "  ")
-			fmt.Println(string(b))
-		} else {
-			b, _ := json.MarshalIndent(result, "", "  ")
-			fmt.Println(string(b))
 		}
-		return 0
+		if err := core.PrintJSON(payload); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
 	}
 
 	switch result.Kind {
@@ -156,5 +156,5 @@ func RunNext(args cli.Args) int {
 		fmt.Println("==============================")
 		fmt.Printf("When done: specd task %s %s --status complete --evidence \"<proof>\"\n", slug, result.ID)
 	}
-	return 0
+	return core.ExitOK
 }

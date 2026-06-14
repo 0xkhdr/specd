@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -38,12 +36,13 @@ func RunApprove(args cli.Args) int {
 				return specdExit(err), err
 			}
 			if jsonOut {
-				b, _ := json.MarshalIndent(map[string]interface{}{"ok": true, "action": "gate-cleared", "status": state.Status, "phase": state.Phase}, "", "  ")
-				fmt.Println(string(b))
+				if err := core.PrintJSON(map[string]interface{}{"ok": true, "action": "gate-cleared", "status": state.Status, "phase": state.Phase}); err != nil {
+					return specdExit(err), err
+				}
 			} else {
 				fmt.Printf("approve: gate cleared — resume at status '%s' (phase %s).\n", state.Status, state.Phase)
 			}
-			return 0, nil
+			return core.ExitOK, nil
 		}
 
 		// Case 2: verifying → complete.
@@ -60,15 +59,16 @@ func RunApprove(args cli.Args) int {
 						problems = append(problems, fmt.Sprintf("criterion %s: recorded as fail", k))
 					}
 					if jsonOut {
-						b, _ := json.MarshalIndent(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": problems}, "", "  ")
-						fmt.Println(string(b))
+						if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": problems}); err != nil {
+							return specdExit(err), err
+						}
 					} else {
 						for _, p := range problems {
-							fmt.Fprintf(os.Stderr, "fail  %s\n", p)
+							errLine("fail  %s", p)
 						}
-						fmt.Fprintf(os.Stderr, "\n✗ cannot approve verification — %d unmet acceptance criterion/criteria. Record with `specd verify %s --criterion <r>.<n> --status pass --evidence \"...\"`.\n", len(problems), slug)
+						errLine("\n✗ cannot approve verification — %d unmet acceptance criterion/criteria. Record with `specd verify %s --criterion <r>.<n> --status pass --evidence \"...\"`.", len(problems), slug)
 					}
-					return 1, nil
+					return core.ExitGate, nil
 				}
 			}
 			from := state.Status
@@ -78,12 +78,13 @@ func RunApprove(args cli.Args) int {
 				return specdExit(err), err
 			}
 			if jsonOut {
-				b, _ := json.MarshalIndent(map[string]interface{}{"ok": true, "action": "verified", "from": from, "status": state.Status, "phase": state.Phase}, "", "  ")
-				fmt.Println(string(b))
+				if err := core.PrintJSON(map[string]interface{}{"ok": true, "action": "verified", "from": from, "status": state.Status, "phase": state.Phase}); err != nil {
+					return specdExit(err), err
+				}
 			} else {
 				fmt.Printf("approve: verification accepted → status 'complete' (phase %s).\n", state.Phase)
 			}
-			return 0, nil
+			return core.ExitOK, nil
 		}
 
 		// Case 3: planning ratchet.
@@ -94,15 +95,16 @@ func RunApprove(args cli.Args) int {
 		problems := core.PhaseReadiness(state.Status, core.ReadArtifact(root, slug, "requirements.md"), core.ReadArtifact(root, slug, "design.md"), doc)
 		if len(problems) > 0 {
 			if jsonOut {
-				b, _ := json.MarshalIndent(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": problems}, "", "  ")
-				fmt.Println(string(b))
+				if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": problems}); err != nil {
+					return specdExit(err), err
+				}
 			} else {
 				for _, p := range problems {
-					fmt.Fprintf(os.Stderr, "fail  %s\n", p)
+					errLine("fail  %s", p)
 				}
-				fmt.Fprintf(os.Stderr, "\n✗ cannot approve '%s' — %d gate violation(s). Fix and retry.\n", state.Status, len(problems))
+				errLine("\n✗ cannot approve '%s' — %d gate violation(s). Fix and retry.", state.Status, len(problems))
 			}
-			return 1, nil
+			return core.ExitGate, nil
 		}
 		from := state.Status
 		state.Status = advance.Status
@@ -111,12 +113,13 @@ func RunApprove(args cli.Args) int {
 			return specdExit(err), err
 		}
 		if jsonOut {
-			b, _ := json.MarshalIndent(map[string]interface{}{"ok": true, "action": "advanced", "from": from, "status": state.Status, "phase": state.Phase}, "", "  ")
-			fmt.Println(string(b))
+			if err := core.PrintJSON(map[string]interface{}{"ok": true, "action": "advanced", "from": from, "status": state.Status, "phase": state.Phase}); err != nil {
+				return specdExit(err), err
+			}
 		} else {
 			fmt.Printf("approve: '%s' approved → status '%s' (phase %s).\n", from, state.Status, state.Phase)
 		}
-		return 0, nil
+		return core.ExitOK, nil
 	})
 	if err != nil {
 		return specdExit(err)

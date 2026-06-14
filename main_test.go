@@ -126,4 +126,22 @@ func TestRunDispatch(t *testing.T) {
 			t.Errorf("check ghost = %d, want %d", got, core.ExitNotFound)
 		}
 	})
+
+	t.Run("missing slug is usage error", func(t *testing.T) {
+		th.New(t)
+		if got := silentRun([]string{"check"}); got != core.ExitUsage {
+			t.Errorf("check (no slug) = %d, want %d", got, core.ExitUsage)
+		}
+	})
+
+	t.Run("gate violation exits ExitGate", func(t *testing.T) {
+		// A non-EARS acceptance criterion fails the EARS gate; check must surface
+		// it as an enforcement failure (ExitGate, 1), not success.
+		h := th.New(t)
+		h.Spec("auth").Req("R", "story", "this requirement is not in EARS form").
+			Status(core.StatusRequirements).Build()
+		if got := silentRun([]string{"check", "auth"}); got != core.ExitGate {
+			t.Errorf("check auth (bad EARS) = %d, want %d", got, core.ExitGate)
+		}
+	})
 }

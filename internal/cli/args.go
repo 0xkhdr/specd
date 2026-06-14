@@ -17,6 +17,12 @@ func ParseArgs(argv []string) Args {
 		tok := argv[i]
 		if strings.HasPrefix(tok, "--") {
 			key := tok[2:]
+			// --key=value: split on the first '=' so `--status=complete` binds
+			// the value explicitly instead of silently consuming the next token.
+			if eq := strings.IndexByte(key, '='); eq >= 0 {
+				args.Flags[key[:eq]] = key[eq+1:]
+				continue
+			}
 			if booleanFlags[key] {
 				args.Flags[key] = "true"
 			} else if i+1 < len(argv) && !strings.HasPrefix(argv[i+1], "--") {

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -41,21 +40,34 @@ func RunWaves(args cli.Args) int {
 		for i, w := range waves {
 			wout[i].Wave = w.Wave
 			for _, t := range w.Tasks {
+				depends := t.Depends
+				if depends == nil {
+					depends = []string{}
+				}
 				wout[i].Tasks = append(wout[i].Tasks, struct {
 					ID      string          `json:"id"`
 					Status  core.TaskStatus `json:"status"`
 					Depends []string        `json:"depends"`
-				}{t.ID, t.Status, t.Depends})
+				}{t.ID, t.Status, depends})
 			}
+		}
+		critical := core.CriticalPath(tasks)
+		if critical == nil {
+			critical = []string{}
+		}
+		blockers := state.Blockers
+		if blockers == nil {
+			blockers = []core.Blocker{}
 		}
 		out := map[string]interface{}{
 			"waves":        wout,
-			"criticalPath": core.CriticalPath(tasks),
-			"blockers":     state.Blockers,
+			"criticalPath": critical,
+			"blockers":     blockers,
 		}
-		b, _ := json.MarshalIndent(out, "", "  ")
-		fmt.Println(string(b))
-		return 0
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
 	}
 
 	fmt.Println(core.WaveGraph(state))
@@ -65,5 +77,5 @@ func RunWaves(args cli.Args) int {
 			fmt.Printf("  ⚠ %s: %s\n", b.Task, b.Reason)
 		}
 	}
-	return 0
+	return core.ExitOK
 }

@@ -85,7 +85,7 @@ func RunMemory(args cli.Args) int {
 				return specdExit(err), err
 			}
 			fmt.Printf("memory: added '%s' to %s/memory.md\n", key, slug)
-			return 0, nil
+			return core.ExitOK, nil
 		})
 		if err != nil {
 			return specdExit(err)
@@ -123,7 +123,7 @@ func RunMemory(args cli.Args) int {
 				return specdExit(err), err
 			}
 			fmt.Printf("memory: promoted '%s' from %s to steering/memory.md (seen in %d spec(s), threshold %d)\n", key, slug, occurrences, threshold)
-			return 0, nil
+			return core.ExitOK, nil
 		})
 		if err != nil {
 			return specdExit(err)

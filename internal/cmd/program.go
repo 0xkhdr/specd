@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -83,7 +82,7 @@ func programMutate(root, sub string, args cli.Args) int {
 		}
 		fmt.Printf("unlinked: %s no longer depends on %s\n", spec, dep)
 	}
-	return 0
+	return core.ExitOK
 }
 
 func programRender(root string, jsonOut bool) int {
@@ -124,23 +123,36 @@ func programRender(root string, jsonOut bool) int {
 			}
 			wout[i] = waveOut{w.Wave, ids}
 		}
+		critical := core.CriticalPath(g.Dag)
+		if critical == nil {
+			critical = []string{}
+		}
+		cycle := g.Cycle
+		if cycle == nil {
+			cycle = []string{}
+		}
+		orphans := g.Orphans
+		if orphans == nil {
+			orphans = []struct{ Spec, Dep string }{}
+		}
 		out := map[string]interface{}{
 			"kind": "program", "count": len(g.Specs), "specs": specs,
 			"frontier": frontierIDs, "waves": wout,
-			"criticalPath": core.CriticalPath(g.Dag),
-			"next":         next, "cycle": g.Cycle, "orphans": g.Orphans,
+			"criticalPath": critical,
+			"next":         next, "cycle": cycle, "orphans": orphans,
 		}
-		b, _ := json.MarshalIndent(out, "", "  ")
-		fmt.Println(string(b))
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
 		if g.Cycle != nil {
-			return 1
+			return core.ExitGate
 		}
-		return 0
+		return core.ExitOK
 	}
 
 	if len(g.Specs) == 0 {
 		fmt.Println("no specs yet. Run `specd new <slug>`.")
-		return 0
+		return core.ExitOK
 	}
 	fmt.Printf("# Program — %d spec(s)\n", len(g.Specs))
 	fmt.Println("legend: ✓ complete · ▶ runnable · ✗ blocked · · waiting")
@@ -190,9 +202,9 @@ func programRender(root string, jsonOut bool) int {
 	if g.Cycle != nil {
 		fmt.Println()
 		fmt.Printf("⛔ dependency cycle: %s\n", strings.Join(g.Cycle, " → "))
-		return 1
+		return core.ExitGate
 	}
-	return 0
+	return core.ExitOK
 }
 
 func findSpecNode(specs []core.SpecNode, slug string) *core.SpecNode {

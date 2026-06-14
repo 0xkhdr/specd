@@ -95,50 +95,12 @@ func run(argv []string) int {
 }
 
 func dispatch(command string, args cli.Args) int {
-	switch command {
-	case "init":
-		return cmd.RunInit(args)
-	case "boot":
-		return cmd.RunBoot(args)
-	case "enrich":
-		return cmd.RunEnrich(args)
-	case "new":
-		return cmd.RunNew(args)
-	case "status":
-		return cmd.RunStatus(args)
-	case "context":
-		return cmd.RunContext(args)
-	case "check":
-		return cmd.RunCheck(args)
-	case "next":
-		return cmd.RunNext(args)
-	case "dispatch":
-		return cmd.RunDispatch(args)
-	case "program":
-		return cmd.RunProgram(args)
-	case "verify":
-		return cmd.RunVerify(args)
-	case "task":
-		return cmd.RunTask(args)
-	case "approve":
-		return cmd.RunApprove(args)
-	case "decision":
-		return cmd.RunDecision(args)
-	case "midreq":
-		return cmd.RunMidreq(args)
-	case "memory":
-		return cmd.RunMemory(args)
-	case "report":
-		return cmd.RunReport(args)
-	case "waves":
-		return cmd.RunWaves(args)
-	case "update":
-		return cmd.RunUpdate(args)
-	default:
-		help := core.RenderHelp()
-		core.Error(fmt.Sprintf("unknown command: %s\n\n%s", command, strings.TrimRight(help, "\n")))
-		return core.ExitUsage
+	if code, ok := cmd.Dispatch(command, args); ok {
+		return code
 	}
+	help := core.RenderHelp()
+	core.Error(fmt.Sprintf("unknown command: %s\n\n%s", command, strings.TrimRight(help, "\n")))
+	return core.ExitUsage
 }
 
 func main() {

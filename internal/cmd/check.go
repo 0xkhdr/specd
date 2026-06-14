@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -51,19 +49,20 @@ func RunCheck(args cli.Args) int {
 	}
 
 	if jsonOut {
-		out := map[string]interface{}{"ok": len(violations) == 0, "violations": violations, "warnings": warnings}
 		if violations == nil {
-			out["violations"] = []core.Violation{}
+			violations = []core.Violation{}
 		}
 		if warnings == nil {
-			out["warnings"] = []core.Violation{}
+			warnings = []core.Violation{}
 		}
-		b, _ := json.MarshalIndent(out, "", "  ")
-		fmt.Println(string(b))
+		out := map[string]interface{}{"ok": len(violations) == 0, "violations": violations, "warnings": warnings}
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
 		if len(violations) == 0 {
-			return 0
+			return core.ExitOK
 		}
-		return 1
+		return core.ExitGate
 	}
 
 	for _, w := range warnings {
@@ -75,13 +74,13 @@ func RunCheck(args cli.Args) int {
 			warnNote = fmt.Sprintf(" (%d warning(s))", len(warnings))
 		}
 		fmt.Printf("✓ check passed — all gates green for '%s'%s\n", slug, warnNote)
-		return 0
+		return core.ExitOK
 	}
 	for _, v := range violations {
-		fmt.Fprintf(os.Stderr, "fail  %s: %s (%s)\n", v.Location, v.Message, v.Gate)
+		errLine("fail  %s: %s (%s)", v.Location, v.Message, v.Gate)
 	}
-	fmt.Fprintf(os.Stderr, "\n✗ %d violation(s) across gates.\n", len(violations))
-	return 1
+	errLine("\n✗ %d violation(s) across gates.", len(violations))
+	return core.ExitGate
 }
 
 // buildCheckCtx loads the artifacts and state the gate pipeline reads. It
@@ -135,10 +134,16 @@ func runBootCheck(root string, jsonOut bool) int {
 		return specdExit(err)
 	}
 	if jsonOut {
-		b, _ := json.MarshalIndent(map[string]interface{}{
-			"gate": "boot-freshness", "ok": !res.Stale, "issues": res.Issues,
-		}, "", "  ")
-		fmt.Println(string(b))
+		issues := res.Issues
+		if issues == nil {
+			issues = []string{}
+		}
+		out := map[string]interface{}{
+			"gate": "boot-freshness", "ok": !res.Stale, "issues": issues,
+		}
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
 		if res.Stale {
 			return core.ExitGate
 		}
@@ -149,9 +154,9 @@ func runBootCheck(root string, jsonOut bool) int {
 		return core.ExitOK
 	}
 	for _, iss := range res.Issues {
-		fmt.Fprintf(os.Stderr, "fail  boot.json: %s (boot-freshness)\n", iss)
+		errLine("fail  boot.json: %s (boot-freshness)", iss)
 	}
-	fmt.Fprintf(os.Stderr, "\n✗ boot.json is stale — re-run `specd boot --force`.\n")
+	errLine("\n✗ boot.json is stale — re-run `specd boot --force`.")
 	return core.ExitGate
 }
 

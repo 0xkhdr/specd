@@ -34,7 +34,7 @@ spec builder, assertions).
 
 ```
 specd/
-├── main.go                       # Entry point, arg router, dispatch switch
+├── main.go                       # Entry point, arg router, dispatch via cmd.Registry
 ├── internal/
 │   ├── cli/args.go               # Flag/positional parser (Args)
 │   ├── cmd/                      # One file per CLI command (Run<Command>)
@@ -42,7 +42,8 @@ specd/
 │   │   ├── next.go dispatch.go verify.go task.go
 │   │   ├── decision.go midreq.go memory.go
 │   │   ├── report.go waves.go program.go status.go context.go update.go
-│   │   └── helpers.go            # Shared command helpers
+│   │   ├── registry.go           # Command → handler dispatch table (cmd.Registry)
+│   │   └── helpers.go            # Shared command helpers (specdExit, usageExit, errLine)
 │   ├── core/                     # Domain logic
 │   │   ├── paths.go              # .specd root locator (FindSpecdRoot)
 │   │   ├── io.go                 # Atomic writes (AtomicWrite), O_APPEND ledger
@@ -89,9 +90,14 @@ specd/
        return core.ExitOK
    }
    ```
-2. Register it in the `dispatch` switch in `main.go`.
+2. Add it to `cmd.Registry` in `internal/cmd/registry.go` (the dispatch table).
 3. Add a `CommandMeta` entry in `internal/core/commands.go` (drives help + `--json` schema).
 4. Add a co-located `mycommand_test.go` (or extend `internal/cmd/lifecycle_test.go`).
+
+`TestRegistryMatchesHelp` fails if steps 2 and 3 disagree, so dispatch and help
+can never drift. Emit machine output via `core.PrintJSON` (lists non-nil → `[]`),
+return a `core.Exit*` constant, and send diagnostics to stderr (`core.Error` /
+`errLine`). See [command reference](./command-reference.md#output-streams).
 
 ### Adding a validation gate
 
@@ -108,3 +114,24 @@ specd/
 4. **Reentrant locks** — wrap mutating commands in `core.WithSpecLock`.
 5. **Round-trip stability** — `ParseTasksMd` must maintain 100% byte equivalence.
 6. **Embedded templates** — ship assets via `go:embed`, never read from disk relative to the binary.
+
+## Decision: custom CLI parser, not Cobra/urfave
+
+specd keeps its own ~40-line argument parser (`internal/cli/args.go`) and a flat
+dispatch table (`cmd.Registry`) instead of adopting Cobra, urfave/cli, or Viper.
+This is a conscious, recorded choice — not drift:
+
+- **Zero runtime dependencies is a product value.** `go.mod` lists no `require`
+  entries; Cobra pulls in a transitive tree (pflag, etc.) that contradicts the
+  "stdlib only" invariant.
+- **Determinism.** The harness enforces; the parser must be predictable. Cobra's
+  flag/help magic and global state fight the reproducibility the gates depend on.
+- **Small, stable surface.** ~19 commands, a fixed flag grammar. The custom
+  parser is fully covered by `args_test.go`, including a registration guard.
+- **Help cannot drift** without a framework: `cmd.Registry` (dispatch) and
+  `core.Commands` (help metadata) are tied by `TestRegistryMatchesHelp`, giving
+  the single-source-of-truth benefit a framework would provide, at no dependency
+  cost.
+
+Revisit only if the command set grows large/dynamic enough that hand-maintaining
+metadata becomes the bottleneck — not before.

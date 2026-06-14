@@ -23,6 +23,10 @@ func usageExit(msg string) int {
 	return core.ExitUsage
 }
 
-func printlnErr(msg string) {
-	fmt.Fprintln(os.Stderr, msg)
+// errLine writes a diagnostic line to stderr. It is the canonical stderr path
+// for command-level `fail …` / `✗ …` output, keeping machine-readable results
+// on stdout. A trailing newline is always appended. For styled single-line
+// errors prefer core.Error; use errLine for the multi-line gate dumps.
+func errLine(format string, a ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", a...)
 }

@@ -67,5 +67,5 @@ func RunReport(args cli.Args) int {
 	} else {
 		fmt.Print(out)
 	}
-	return 0
+	return core.ExitOK
 }

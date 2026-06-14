@@ -137,13 +137,15 @@ func RunBoot(args cli.Args) int {
 }
 
 func emitBootJSON(res core.BootResult, actions []string, dryRun bool) {
+	if actions == nil {
+		actions = []string{}
+	}
 	out := map[string]interface{}{
 		"detection": res,
 		"actions":   actions,
 		"dryRun":    dryRun,
 	}
-	b, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println(string(b))
+	_ = core.PrintJSON(out)
 }
 
 func bootTechBody(res core.BootResult) string {
