@@ -34,6 +34,12 @@ MCP is needed — if you can run a shell command, you can run this harness.
 
 ```
 specd init                       # scaffold .specd/ (already done if you see this file)
+specd boot                       # deterministic: detect stack -> boot.json + tech.md + defaultVerify
+# enrich the steering files boot left as stubs (product/structure/tech) — YOU do the inference:
+specd enrich plan --json         # brief: which sections to author + evidence to read
+#   read the cited evidence, write each section, then for each target:
+specd enrich apply --target product < product-section.md
+specd check --enrich             # gate: enrichment present, complete, not drifted from boot
 specd new my-feature --title "My Feature"
 # write .specd/specs/my-feature/requirements.md (EARS), then:
 specd check my-feature           # gate: requirements

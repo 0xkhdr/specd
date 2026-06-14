@@ -21,13 +21,16 @@ func RunCheck(args cli.Args) int {
 	if args.Bool("boot") {
 		return runBootCheck(root, args.Bool("json"))
 	}
+	if args.Bool("enrich") {
+		return runEnrichCheck(root, args.Bool("json"))
+	}
 
 	slug := ""
 	if len(args.Pos) > 0 {
 		slug = args.Pos[0]
 	}
 	if slug == "" {
-		return usageExit("usage: specd check <slug> [--json]  |  specd check --boot")
+		return usageExit("usage: specd check <slug> [--json]  |  specd check --boot  |  specd check --enrich")
 	}
 	if err := core.RequireSpec(root, slug); err != nil {
 		return specdExit(err)
@@ -276,4 +279,10 @@ func runBootCheck(root string, jsonOut bool) int {
 	}
 	fmt.Fprintf(os.Stderr, "\n✗ boot.json is stale — re-run `specd boot --force`.\n")
 	return core.ExitGate
+}
+
+// runEnrichCheck implements `specd check --enrich`: the enrich-freshness gate.
+// It verifies that agent-authored steering enrichment still matches the repo.
+func runEnrichCheck(root string, jsonOut bool) int {
+	return runEnrichStatus(root, jsonOut)
 }

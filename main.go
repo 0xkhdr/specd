@@ -100,6 +100,8 @@ func dispatch(command string, args cli.Args) int {
 		return cmd.RunInit(args)
 	case "boot":
 		return cmd.RunBoot(args)
+	case "enrich":
+		return cmd.RunEnrich(args)
 	case "new":
 		return cmd.RunNew(args)
 	case "status":

@@ -49,6 +49,20 @@ var Commands = []CommandMeta{
 		Examples:  []string{"specd boot", "specd boot --dry-run", "specd boot --json", "specd boot --force"},
 	},
 	{
+		Command: "enrich", Category: "lifecycle",
+		Description:     "AI-enrich steering files boot left as stubs",
+		Usage:           "specd enrich [plan] [--json]  |  specd enrich apply --target <product|structure|tech> [--content-file <path>]  |  specd enrich status [--json]",
+		Synopsis:        "specd enrich [plan|apply|status] [flags]",
+		LongDescription: "The AI companion to `specd boot`. boot fills the deterministic skeleton (boot.json, the detected-stack block, defaultVerify); enrich hands the calling agent a deterministic brief (`enrich plan`) of which steering sections to author and what evidence to read, accepts the authored markdown back into a managed SPECD ENRICH block (`enrich apply`), and gates its freshness (`enrich status` / `specd check --enrich`). The binary performs zero inference — the agent does the writing, specd owns the contract and the gate.",
+		Flags: []FlagMeta{
+			{Name: "target", Type: "string", Description: "Which steering file to write (product|structure|tech) — apply only"},
+			{Name: "content-file", Type: "string", Description: "Read authored markdown from this file instead of stdin — apply only"},
+			{Name: "json", Type: "boolean", Description: "Machine-readable output for agent consumption"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate failed / write error"}, {2, "Usage error"}, {3, ".specd/ or boot.json not found"}},
+		Examples:  []string{"specd enrich plan --json", "specd enrich apply --target product < product.md", "specd enrich status", "specd check --enrich"},
+	},
+	{
 		Command: "new", Category: "lifecycle",
 		Description: "Create a spec with six artifacts",
 		Usage:       "specd new <slug> [--title \"...\"]", Synopsis: "specd new <slug> [--title \"...\"]",
@@ -143,11 +157,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "check", Category: "inspection",
 		Description: "Run all validation gates",
-		Usage:       "specd check <slug> [--json]  |  specd check --boot", Synopsis: "specd check <slug> [--json] | --boot",
-		LongDescription: "Runs all seven validation gates on the specified spec. With --boot, runs the repo-global boot-freshness gate instead: verifies .specd/boot.json still matches the repository (sources exist, no detection drift).",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}, {Name: "boot", Type: "boolean", Description: "Run the boot-freshness gate (repo-global; no slug)"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec or boot.json not found"}},
-		Examples:        []string{"specd check my-feature", "specd check my-feature --json", "specd check --boot"},
+		Usage:       "specd check <slug> [--json]  |  specd check --boot  |  specd check --enrich", Synopsis: "specd check <slug> [--json] | --boot | --enrich",
+		LongDescription: "Runs all seven validation gates on the specified spec. With --boot, runs the repo-global boot-freshness gate instead: verifies .specd/boot.json still matches the repository (sources exist, no detection drift). With --enrich, runs the enrich-freshness gate: verifies agent-authored steering enrichment is present, complete, and not drifted from boot.",
+		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}, {Name: "boot", Type: "boolean", Description: "Run the boot-freshness gate (repo-global; no slug)"}, {Name: "enrich", Type: "boolean", Description: "Run the enrich-freshness gate (repo-global; no slug)"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec, boot.json, or enrich.json not found"}},
+		Examples:        []string{"specd check my-feature", "specd check my-feature --json", "specd check --boot", "specd check --enrich"},
 	},
 	{
 		Command: "context", Category: "inspection",
