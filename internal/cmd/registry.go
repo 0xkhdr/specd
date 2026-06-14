@@ -37,6 +37,7 @@ var Registry = []Command{
 	{"report", RunReport},
 	{"waves", RunWaves},
 	{"update", RunUpdate},
+	{"uninstall", RunUninstall},
 }
 
 var registryByName = func() map[string]Command {

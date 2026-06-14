@@ -210,6 +210,20 @@ var Commands = []CommandMeta{
 		Examples:        []string{"specd update", "specd update --force"},
 	},
 	{
+		Command: "uninstall", Category: "meta",
+		Description: "Remove specd from this machine",
+		Usage:       "specd uninstall [--force] [--dry-run] [--json]",
+		Synopsis:    "specd uninstall [--force] [--dry-run] [--json]",
+		LongDescription: "Removes the specd install directory, the ~/.local/bin/specd link, and the '# specd' PATH lines install.sh added to your shell rc files (backed up to <rc>.specd.bak). A bare invocation only previews the plan; pass --force to actually remove. Project-local '.specd/' directories are always preserved.",
+		Flags: []FlagMeta{
+			{Name: "force", Type: "boolean", Description: "Perform the removal (without it, only the plan is shown)"},
+			{Name: "dry-run", Type: "boolean", Description: "Show what would be removed and exit"},
+			{Name: "json", Type: "boolean", Description: "Machine-readable output"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Uninstall failed"}, {2, "Usage error"}},
+		Examples:  []string{"specd uninstall", "specd uninstall --dry-run", "specd uninstall --force"},
+	},
+	{
 		Command: "version", Category: "meta",
 		Description: "Show version information",
 		Usage:       "specd version", Synopsis: "specd version",
