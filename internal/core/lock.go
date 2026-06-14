@@ -9,8 +9,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// lockUnheld is the owner sentinel for a lock not held by any goroutine. It is
+// -1 (not 0) so a real goroutine id of 0 — or a goID parse failure — can never
+// alias "unheld" and silently bypass the lock. See goID.
+const lockUnheld int64 = -1
 
 // lockState tracks both the in-process serialization mutex and the reentrancy
 // bookkeeping for one spec lock path. owner/depth are guarded by locksMu, not
@@ -18,13 +24,18 @@ import (
 // taking mu (which it already holds).
 type lockState struct {
 	mu    sync.Mutex // serializes goroutines within this process
-	owner int64      // goroutine id currently holding mu (0 = unheld)
+	owner int64      // goroutine id currently holding mu (lockUnheld = unheld)
 	depth int        // reentrancy depth for owner
 }
 
 var (
 	locksMu sync.Mutex
 	locks   = map[string]*lockState{}
+
+	// goIDFallback feeds a process-unique id when goID cannot parse the stack
+	// header. Offset by 1<<40 so fallback ids never collide with real (small)
+	// goroutine ids.
+	goIDFallback int64
 )
 
 func lockStateFor(path string) *lockState {
@@ -32,7 +43,7 @@ func lockStateFor(path string) *lockState {
 	defer locksMu.Unlock()
 	ls, ok := locks[path]
 	if !ok {
-		ls = &lockState{}
+		ls = &lockState{owner: lockUnheld}
 		locks[path] = ls
 	}
 	return ls
@@ -41,15 +52,22 @@ func lockStateFor(path string) *lockState {
 // goID returns the current goroutine's id by parsing the runtime stack header
 // ("goroutine N [..."). Used only to make WithSpecLock reentrant for the same
 // goroutine while still excluding other goroutines.
+//
+// It never returns 0 or lockUnheld: on a parse failure it falls back to a
+// process-unique positive id, so a degraded goID can never be mistaken for the
+// "unheld" sentinel and bypass the lock.
 func goID() int64 {
 	var buf [64]byte
 	n := runtime.Stack(buf[:], false)
 	b := bytes.TrimPrefix(buf[:n], []byte("goroutine "))
 	i := bytes.IndexByte(b, ' ')
 	if i < 0 {
-		return 0
+		return atomic.AddInt64(&goIDFallback, 1) + 1<<40
 	}
-	id, _ := strconv.ParseInt(string(b[:i]), 10, 64)
+	id, err := strconv.ParseInt(string(b[:i]), 10, 64)
+	if err != nil || id == 0 {
+		return atomic.AddInt64(&goIDFallback, 1) + 1<<40
+	}
 	return id
 }
 
@@ -108,7 +126,7 @@ func WithSpecLock[T any](root, slug string, fn func() (T, error)) (T, error) {
 
 	// Reentrant fast path: this goroutine already owns the lock.
 	locksMu.Lock()
-	if ls.owner == gid && ls.depth > 0 {
+	if gid != lockUnheld && ls.owner == gid && ls.depth > 0 {
 		ls.depth++
 		locksMu.Unlock()
 		defer func() {
@@ -146,13 +164,27 @@ func WithSpecLock[T any](root, slug string, fn func() (T, error)) (T, error) {
 	ls.depth = 1
 	locksMu.Unlock()
 
+	// Release on return OR panic: defer unwinds even when fn panics, so the
+	// lock file is removed and ls.mu is unlocked before the panic propagates,
+	// leaving the next acquirer free.
 	defer func() {
 		locksMu.Lock()
-		ls.owner = 0
+		ls.owner = lockUnheld
 		ls.depth = 0
 		locksMu.Unlock()
 		os.Remove(path)
 		ls.mu.Unlock()
 	}()
 	return fn()
+}
+
+// lockHeldBy reports whether the current goroutine owns the spec lock for
+// (root, slug). Used by SaveState's debug assertion to catch callers that
+// mutate state outside WithSpecLock.
+func lockHeldBy(root, slug string) bool {
+	path := lockFilePath(root, slug)
+	locksMu.Lock()
+	defer locksMu.Unlock()
+	ls, ok := locks[path]
+	return ok && ls.depth > 0 && ls.owner == goID()
 }
