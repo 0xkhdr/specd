@@ -7,6 +7,27 @@ import (
 	"time"
 )
 
+func TestGoIDNonZeroStableAndDistinct(t *testing.T) {
+	// Non-zero and never the unheld sentinel: a degraded goID must not alias
+	// "unheld" and bypass the lock.
+	a1 := goID()
+	if a1 == 0 || a1 == lockUnheld {
+		t.Fatalf("goID() = %d, want non-zero and != lockUnheld", a1)
+	}
+
+	// Stable within a goroutine.
+	if a2 := goID(); a2 != a1 {
+		t.Errorf("goID() unstable within goroutine: %d then %d", a1, a2)
+	}
+
+	// Distinct across goroutines.
+	other := make(chan int64, 1)
+	go func() { other <- goID() }()
+	if b := <-other; b == a1 {
+		t.Errorf("goID() not distinct across goroutines: both %d", b)
+	}
+}
+
 func TestWithSpecLockReleasesOnReturn(t *testing.T) {
 	// Arrange
 	root := specRoot(t, "s")

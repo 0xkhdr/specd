@@ -1,6 +1,7 @@
 package core
 
 import (
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -52,5 +53,37 @@ func TestConcurrentSaveStateIsSerialized(t *testing.T) {
 	}
 	if final.Turn != workers {
 		t.Errorf("final Turn = %d, want %d (lost or duplicated updates)", final.Turn, workers)
+	}
+}
+
+// TestWithSpecLockReleasesOnPanic asserts that a panic inside fn still unwinds
+// the release defer — the lock file is removed and ls.mu is freed — so the next
+// acquirer is not deadlocked by an abandoned lock.
+func TestWithSpecLockReleasesOnPanic(t *testing.T) {
+	root := specRoot(t, "s")
+
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected panic to propagate out of WithSpecLock")
+			}
+		}()
+		_, _ = WithSpecLock[int](root, "s", func() (int, error) {
+			panic("boom inside critical section")
+		})
+	}()
+
+	// Lock file must be gone.
+	if _, err := os.Stat(lockFilePath(root, "s")); !os.IsNotExist(err) {
+		t.Errorf("lock file leaked after panic: %v", err)
+	}
+
+	// A subsequent acquire must succeed immediately (mu not left locked).
+	got, err := WithSpecLock[int](root, "s", func() (int, error) { return 9, nil })
+	if err != nil {
+		t.Fatalf("acquire after panic failed: %v", err)
+	}
+	if got != 9 {
+		t.Errorf("got %d, want 9", got)
 	}
 }

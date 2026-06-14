@@ -64,6 +64,59 @@ func TestSaveStateDetectsConcurrentWrite(t *testing.T) {
 	}
 }
 
+func TestSaveStateWithoutLockPanics(t *testing.T) {
+	// Arrange: enable the debug assertion for this test only.
+	root := specRoot(t, "s")
+	st := InitialState("s", "S")
+	prev := assertLocked
+	assertLocked = true
+	defer func() { assertLocked = prev }()
+
+	// Act + Assert: SaveState outside WithSpecLock must panic.
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("SaveState without lock did not panic")
+		}
+	}()
+	_ = SaveState(root, "s", &st)
+}
+
+func TestSaveStateUnderLockPassesAssertion(t *testing.T) {
+	// Assertion must NOT fire when the lock is held.
+	root := specRoot(t, "s")
+	prev := assertLocked
+	assertLocked = true
+	defer func() { assertLocked = prev }()
+
+	_, err := WithSpecLock[int](root, "s", func() (int, error) {
+		st := InitialState("s", "S")
+		return 0, SaveState(root, "s", &st)
+	})
+	if err != nil {
+		t.Fatalf("SaveState under lock: %v", err)
+	}
+}
+
+func TestSaveStateDetectsVanishedFile(t *testing.T) {
+	// Arrange: persist once (revision -> 1), then the file vanishes underfoot.
+	root := specRoot(t, "s")
+	st := InitialState("s", "S")
+	if err := SaveState(root, "s", &st); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(statePath(root, "s")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Act: saving a previously-persisted handle (revision 1) over nothing.
+	err := SaveState(root, "s", &st)
+
+	// Assert: treated as a concurrent-delete conflict, not a silent recreate.
+	if se, ok := IsSpecdError(err); !ok || se.Code != ExitGate {
+		t.Errorf("err = %v, want gate error on vanished file", err)
+	}
+}
+
 func TestLoadStateMissingReturnsNil(t *testing.T) {
 	root := specRoot(t, "s")
 	got, err := LoadState(root, "s")
@@ -108,6 +161,18 @@ func TestLoadStateRejectsNewerSchema(t *testing.T) {
 	_, err := LoadState(root, "s")
 	if se, ok := IsSpecdError(err); !ok || se.Code != ExitGate {
 		t.Errorf("err = %v, want gate error on newer schema", err)
+	}
+}
+
+func TestLoadStateRejectsCorruptSchemaVersion(t *testing.T) {
+	root := specRoot(t, "s")
+	// Valid outer JSON, but schemaVersion is a string where an int is expected.
+	if err := os.WriteFile(statePath(root, "s"), []byte(`{"spec":"s","schemaVersion":"oops"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadState(root, "s")
+	if se, ok := IsSpecdError(err); !ok || se.Code != ExitGate {
+		t.Errorf("err = %v, want gate error on corrupt schemaVersion", err)
 	}
 }
 

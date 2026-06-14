@@ -140,7 +140,9 @@ func InitialState(spec, title string) State {
 func migrate(raw map[string]json.RawMessage) (State, error) {
 	var sv int
 	if v, ok := raw["schemaVersion"]; ok {
-		json.Unmarshal(v, &sv)
+		if err := json.Unmarshal(v, &sv); err != nil {
+			return State{}, GateError("corrupt schemaVersion in state.json")
+		}
 	}
 	if sv == 0 {
 		sv = 1
@@ -195,7 +197,24 @@ func LoadState(root, slug string) (*State, error) {
 	return &s, nil
 }
 
+// assertLocked, when true, makes SaveState panic if it is called without the
+// caller holding the spec lock. Tests flip it on to catch the footgun; prod
+// leaves it false so the check costs nothing.
+var assertLocked = false
+
+// SaveState performs a compare-and-swap commit of state to disk: it verifies
+// the on-disk revision still matches state.Revision, then bumps the revision
+// and atomically writes.
+//
+// INVARIANT: SaveState MUST be called inside WithSpecLock(root, slug, …) for
+// the same (root, slug). The read-then-write CAS is not atomic on its own; the
+// advisory lock is what serializes it against concurrent writers. Calling
+// SaveState without the lock silently reintroduces the lost-update race. Test
+// builds set assertLocked to panic on violations.
 func SaveState(root, slug string, state *State) error {
+	if assertLocked && !lockHeldBy(root, slug) {
+		panic("SaveState called without spec lock: " + slug)
+	}
 	path := statePath(root, slug)
 	disk := ReadOrNull(path)
 	if disk != nil {
@@ -207,6 +226,11 @@ func SaveState(root, slug string, state *State) error {
 				return GateError(fmt.Sprintf("state.json for '%s' changed underfoot (on-disk revision %d ≠ expected %d) — concurrent write detected, reload and retry", slug, onDisk.Revision, state.Revision))
 			}
 		}
+	} else if state.Revision > 0 {
+		// We hold a state that was previously persisted (revision > 0) but the
+		// file is gone now: a concurrent delete (or delete+recreate) happened
+		// mid-session. Treat as a conflict rather than silently recreating it.
+		return GateError(fmt.Sprintf("state.json for '%s' disappeared mid-session — concurrent delete detected, reload and retry", slug))
 	}
 	state.Revision++
 	state.UpdatedAt = NowISO()
