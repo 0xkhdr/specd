@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-# stress.sh — hammer one spec from many concurrent specd processes to prove the
-# advisory-lock + CAS path serializes writes with no lost updates or corruption.
+# stress.sh — hammer ONE spec from many concurrent specd *processes* to prove
+# the advisory-lock + revision-CAS path serializes writes with no lost updates
+# and no torn state.json (Stage 07 F6 / Stage 02).
+#
+# Each `specd midreq` call does exactly one locked SaveState (revision++ and
+# state.Turn++). With a correct lock every successful call commits, so the final
+# state.Turn MUST equal the number of successful invocations. A lost update
+# (broken lock) shows up as Turn < successes; a corrupt write shows up as
+# state.json failing to load.
 #
 # Usage: ./scripts/stress.sh [WORKERS] [ITERS]
 set -euo pipefail
@@ -23,26 +30,48 @@ cd "$work"
 "$bin" new stress --title "Stress" >/dev/null
 
 echo "launching $WORKERS workers x $ITERS iterations against spec 'stress'..."
-# Each worker repeatedly runs a command that takes the spec lock + CAS-writes.
-# `status` loads + reconciles state under the lock; concurrent runs must never
-# corrupt state.json or trip the CAS guard fatally.
-pids=()
+# Each worker fires ITERS contending writes and records how many committed
+# (exit 0). midreq --impact low never gates, so every call should commit; we
+# count exit codes rather than assume to stay honest if the lock ever regresses.
 for w in $(seq 1 "$WORKERS"); do
   (
-    for _ in $(seq 1 "$ITERS"); do
-      "$bin" status stress >/dev/null 2>&1 || true
+    ok=0
+    for i in $(seq 1 "$ITERS"); do
+      if "$bin" midreq stress "w${w}-i${i}" --impact low >/dev/null 2>&1; then
+        ok=$((ok + 1))
+      fi
     done
+    echo "$ok" >"$work/ok.$w"
   ) &
-  pids+=("$!")
 done
-for p in "${pids[@]}"; do wait "$p"; done
+wait
 
-# Verify the resulting state.json is still valid JSON (no torn writes).
+successes=0
+for f in "$work"/ok.*; do
+  successes=$((successes + $(cat "$f")))
+done
+
 state="$work/.specd/specs/stress/state.json"
+
+# 1. state.json must still be valid JSON (no torn write under contention).
 if command -v python3 >/dev/null 2>&1; then
-  python3 -c "import json,sys; json.load(open('$state')); print('state.json valid:', '$state')"
-else
-  "$bin" status stress >/dev/null && echo "state.json loads cleanly via specd"
+  python3 -c "import json; json.load(open('$state'))" \
+    || { echo "FAIL: state.json is not valid JSON — torn write detected"; exit 1; }
 fi
 
-echo "PASS: $WORKERS x $ITERS concurrent runs left state.json intact."
+# 2. Final Turn must equal the number of committed writes — no lost updates.
+read_field() {
+  python3 -c "import json; print(json.load(open('$state'))['$1'])" 2>/dev/null \
+    || grep -o "\"$1\"[[:space:]]*:[[:space:]]*[0-9]*" "$state" | grep -o '[0-9]*$'
+}
+turn="$(read_field turn)"
+revision="$(read_field revision)"
+
+echo "committed writes: $successes   final turn: $turn   final revision: $revision"
+
+if [[ "$turn" != "$successes" ]]; then
+  echo "FAIL: lost update — final turn ($turn) != committed writes ($successes)"
+  exit 1
+fi
+
+echo "PASS: $WORKERS x $ITERS concurrent processes, $successes committed writes, turn==successes, state.json intact."
