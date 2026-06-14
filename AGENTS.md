@@ -13,6 +13,26 @@ no files outside `.specd/` in target repos. Zero runtime dependencies. Zero LLM 
 
 ---
 
+## Security model
+
+`tasks.md` is **agent-authored input**, not trusted config — treat every
+`verify:` line and env var as hostile until validated.
+
+- `specd verify` executes `verify:` lines via `sh -c` (override:
+  `SPECD_VERIFY_SHELL`) as the invoking user. This is intentional code
+  execution — only run it on trusted `tasks.md`. The child env is scrubbed to
+  an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, `SPECD_*`), NUL
+  bytes are rejected, and the command + cwd are printed before running.
+- Spec slugs are path-validated (`^[a-z0-9][a-z0-9-]*$`) — no traversal.
+- `specd update` and `install.sh` verify a release `SHA256SUMS` digest before
+  replacing any binary and **fail closed** on mismatch (`install.sh
+  --no-verify` opts out loudly).
+- `SPECD_*` int env vars go through `core.EnvInt` (clamp + one warning).
+- The `.lock` file (`PID epochMillis`) is non-secret; `state.json`/`tasks.md`
+  are written `0644` minus umask.
+
+Full detail in `docs/validation-gates.md` → "Security model".
+
 ## Build & test
 
 ```sh

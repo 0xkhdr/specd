@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,26 +45,104 @@ func fetchLatestTag() (string, error) {
 	return rel.TagName, nil
 }
 
-func downloadBinary(tag, destPath string) error {
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-	if goarch == "amd64" {
-		goarch = "amd64"
+// releaseBaseURL is the GitHub release-download prefix; overridable in tests.
+var releaseBaseURL = "https://github.com/0xkhdr/specd/releases/download"
+
+// releaseURL builds the download URL for an asset of the given release tag.
+func releaseURL(tag, asset string) string {
+	return fmt.Sprintf("%s/%s/%s", releaseBaseURL, tag, asset)
+}
+
+// fetchChecksums downloads the SHA256SUMS file for tag and parses its
+// "<hex>  <filename>" lines into a map keyed by filename.
+func fetchChecksums(tag string) (map[string]string, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(releaseURL(tag, "SHA256SUMS"))
+	if err != nil {
+		return nil, fmt.Errorf("fetch SHA256SUMS: %w", err)
 	}
-	tarName := fmt.Sprintf("specd_%s_%s.tar.gz", goos, goarch)
-	url := fmt.Sprintf("https://github.com/0xkhdr/specd/releases/download/%s/%s", tag, tarName)
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("fetch SHA256SUMS: HTTP %d (release must publish checksums)", resp.StatusCode)
+	}
+	sums := map[string]string{}
+	sc := bufio.NewScanner(resp.Body)
+	for sc.Scan() {
+		fields := strings.Fields(sc.Text())
+		if len(fields) != 2 {
+			continue
+		}
+		// "<hex>  <filename>"; filename may be prefixed with "*" for binary mode.
+		sums[strings.TrimPrefix(fields[1], "*")] = strings.ToLower(fields[0])
+	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("parse SHA256SUMS: %w", err)
+	}
+	if len(sums) == 0 {
+		return nil, fmt.Errorf("SHA256SUMS is empty")
+	}
+	return sums, nil
+}
+
+func downloadBinary(tag, destPath string) error {
+	tarName := fmt.Sprintf("specd_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+
+	// Fail closed: no verified checksum, no install.
+	sums, err := fetchChecksums(tag)
+	if err != nil {
+		return err
+	}
+	want, ok := sums[tarName]
+	if !ok {
+		return fmt.Errorf("no checksum for %s in SHA256SUMS", tarName)
+	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := client.Get(releaseURL(tag, tarName))
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("download %s: HTTP %d", url, resp.StatusCode)
+		return fmt.Errorf("download %s: HTTP %d", tarName, resp.StatusCode)
 	}
 
-	gz, err := gzip.NewReader(resp.Body)
+	// Stream the tarball to a temp file beside destPath, hashing as we go.
+	tmpTar, err := os.CreateTemp(filepath.Dir(destPath), ".specd-dl-*.tar.gz")
+	if err != nil {
+		return fmt.Errorf("create temp: %w", err)
+	}
+	tmpTarName := tmpTar.Name()
+	defer os.Remove(tmpTarName)
+
+	h := sha256.New()
+	if _, err := io.Copy(tmpTar, io.TeeReader(resp.Body, h)); err != nil {
+		tmpTar.Close()
+		return fmt.Errorf("download: %w", err)
+	}
+	if err := tmpTar.Close(); err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+
+	got := hex.EncodeToString(h.Sum(nil))
+	if got != want {
+		return fmt.Errorf("checksum mismatch for %s: got %s want %s", tarName, got, want)
+	}
+
+	// Verified — extract the binary and atomically replace destPath.
+	return extractBinary(tmpTarName, destPath)
+}
+
+// extractBinary reads the verified tarball at tarPath, finds the specd binary,
+// writes it to destPath+".new", and renames it over destPath.
+func extractBinary(tarPath, destPath string) error {
+	tf, err := os.Open(tarPath)
+	if err != nil {
+		return fmt.Errorf("open archive: %w", err)
+	}
+	defer tf.Close()
+
+	gz, err := gzip.NewReader(tf)
 	if err != nil {
 		return fmt.Errorf("gzip: %w", err)
 	}
@@ -123,16 +204,8 @@ func RunUpdate(args cli.Args) int {
 	}
 
 	if err := downloadBinary(tag, self); err != nil {
-		// Try Windows exe name if the first attempt failed due to wrong extension.
-		if !strings.HasSuffix(self, ".exe") {
-			if err2 := downloadBinary(tag, self); err2 != nil {
-				core.Error(fmt.Sprintf("update failed: %v", err))
-				return core.ExitGate
-			}
-		} else {
-			core.Error(fmt.Sprintf("update failed: %v", err))
-			return core.ExitGate
-		}
+		core.Error(fmt.Sprintf("update failed: %v", err))
+		return core.ExitGate
 	}
 
 	core.Success(fmt.Sprintf("Update complete! specd %s", tag))

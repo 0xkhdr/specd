@@ -48,6 +48,11 @@ func AtomicWrite(path, data string) error {
 	if err := f.Sync(); err != nil {
 		return err
 	}
+	// CreateTemp makes 0600 files; restore the documented 0644 (honoring umask)
+	// so the renamed artifact is group/other readable for shared CI checkouts.
+	if err := f.Chmod(0o644); err != nil {
+		return err
+	}
 	if err := f.Close(); err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -24,6 +25,28 @@ func TestAtomicWrite(t *testing.T) {
 		}
 		if string(got) != "hello" {
 			t.Errorf("content = %q, want %q", got, "hello")
+		}
+	})
+
+	t.Run("writes_0644_not_temp_0600", func(t *testing.T) {
+		// Arrange: pin umask 022 so the expected 0644 survives intact.
+		old := syscall.Umask(0o022)
+		defer syscall.Umask(old)
+		dir := t.TempDir()
+		path := filepath.Join(dir, "state.json")
+
+		// Act
+		if err := AtomicWrite(path, "{}"); err != nil {
+			t.Fatal(err)
+		}
+
+		// Assert: not the CreateTemp default of 0600.
+		fi, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if perm := fi.Mode().Perm(); perm != 0o644 {
+			t.Errorf("perm = %o, want 0644", perm)
 		}
 	})
 

@@ -9,6 +9,7 @@ REPO="0xkhdr/specd"
 FORCE=false
 VERSION=""
 VERBOSE=false
+NO_VERIFY=false
 BIN_DIR="${HOME}/.local/bin"
 BIN="${BIN_DIR}/specd"
 
@@ -32,6 +33,30 @@ download() {
   else
     die "Neither curl nor wget found. Install one and retry."
   fi
+}
+
+verify_checksum() {
+  # verify_checksum <dir> <archive> <version>
+  dir="$1"; archive="$2"; version="$3"
+  if [ "$NO_VERIFY" = "true" ]; then
+    warn "Skipping checksum verification (--no-verify)"
+    return 0
+  fi
+  log "Verifying checksum..."
+  download "https://github.com/${REPO}/releases/download/${version}/SHA256SUMS" "${dir}/SHA256SUMS" \
+    || die "Could not download SHA256SUMS for ${version} (use --no-verify to override)."
+  (
+    cd "$dir"
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum --ignore-missing -c SHA256SUMS >/dev/null 2>&1
+    elif command -v shasum >/dev/null 2>&1; then
+      # shasum lacks --ignore-missing; check just our archive line.
+      grep " ${archive}\$" SHA256SUMS | shasum -a 256 -c - >/dev/null 2>&1
+    else
+      die "Neither sha256sum nor shasum found (use --no-verify to override)."
+    fi
+  ) || die "Checksum verification failed for ${archive}"
+  ok "Checksum verified"
 }
 
 build_from_source() {
@@ -77,8 +102,9 @@ main() {
   # --- Parse args ---
   while [ $# -gt 0 ]; do
     case "$1" in
-      --force)   FORCE=true;  shift ;;
-      --verbose) VERBOSE=true; shift ;;
+      --force)     FORCE=true;     shift ;;
+      --verbose)   VERBOSE=true;   shift ;;
+      --no-verify) NO_VERIFY=true; shift ;;
       --version)
         [ -z "$2" ] && die "--version requires a value"
         VERSION="$2"; shift 2 ;;
@@ -144,6 +170,9 @@ main() {
     build_from_source
     exit 0
   }
+
+  # --- Verify ---
+  verify_checksum "$TMPDIR" "$ARCHIVE" "$VERSION"
 
   # --- Extract ---
   log "Extracting..."

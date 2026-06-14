@@ -23,13 +23,26 @@ func tailStr(s string, max int) string {
 }
 
 func verifyTimeoutMs() time.Duration {
-	v := strings.TrimSpace(os.Getenv("SPECD_VERIFY_TIMEOUT_MS"))
-	if v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return time.Duration(n) * time.Millisecond
+	return time.Duration(core.EnvInt("SPECD_VERIFY_TIMEOUT_MS", 600_000, 1, 0)) * time.Millisecond
+}
+
+// scrubbedEnv builds a minimal allowlisted environment for verify child
+// processes, dropping inherited secrets from the parent shell while keeping
+// the SPECD_* namespace the harness relies on.
+func scrubbedEnv() []string {
+	allow := []string{"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR"}
+	var out []string
+	for _, k := range allow {
+		if v, ok := os.LookupEnv(k); ok {
+			out = append(out, k+"="+v)
 		}
 	}
-	return 600 * time.Second
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "SPECD_") {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 func gitHead(cwd string) *string {
@@ -86,6 +99,15 @@ func RunVerify(args cli.Args) int {
 			return specdExit(core.GateError(fmt.Sprintf("task %s: verify is '%s' (no runnable command) — read-only roles complete with `specd task %s %s --status complete --unverified --evidence \"...\"`", id, command, slug, id))), nil
 		}
 
+		if strings.ContainsRune(command, 0) {
+			return specdExit(core.GateError(fmt.Sprintf("task %s: verify command contains a NUL byte — refusing to run", id))), nil
+		}
+
+		shell := strings.TrimSpace(os.Getenv("SPECD_VERIFY_SHELL"))
+		if shell == "" {
+			shell = "sh"
+		}
+
 		timeout := verifyTimeoutMs()
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -93,8 +115,10 @@ func RunVerify(args cli.Args) int {
 		startedAt := core.NowISO()
 		t0 := time.Now()
 
-		cmd := exec.CommandContext(ctx, "sh", "-c", command)
+		core.Info(fmt.Sprintf("run: %s -c %q  (cwd=%s)", shell, command, root))
+		cmd := exec.CommandContext(ctx, shell, "-c", command)
 		cmd.Dir = root
+		cmd.Env = scrubbedEnv()
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
