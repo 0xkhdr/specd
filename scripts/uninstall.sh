@@ -63,7 +63,7 @@ main() {
   # --- Check if installed ---
   PATH_ENTRIES_FOUND=false
   for shell_config in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
-    if [ -f "$shell_config" ] && grep -q "# specd PATH" "$shell_config"; then
+    if [ -f "$shell_config" ] && grep -q "# specd" "$shell_config"; then
       PATH_ENTRIES_FOUND=true
     fi
   done
@@ -82,12 +82,12 @@ main() {
   # --- PATH Cleanup ---
   log_step "🧹 Cleaning PATH entries" "pending"
   for shell_config in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
-    if [ -f "$shell_config" ] && grep -q "# specd PATH" "$shell_config"; then
+    if [ -f "$shell_config" ] && grep -q "# specd" "$shell_config"; then
       # Backup
       cp "$shell_config" "${shell_config}.specd.bak"
       # Remove lines (using portable grep -v fallback to avoid sed incompatibility)
       temp_file="${shell_config}.tmp"
-      grep -v "# specd PATH" "$shell_config" > "$temp_file" || true
+      grep -v "# specd" "$shell_config" > "$temp_file" || true
       mv "$temp_file" "$shell_config"
     fi
   done

@@ -98,3 +98,38 @@ No **blocker** findings in Stage 2.
 | F-S5-1 | blocker | `SPECD_JSON=1` did **not** produce JSON for flag-reading commands, breaking the documented `--json == SPECD_JSON=1` parity. Commands resolve JSON via `args.Bool("json")`; `main.run` bridged the `--json` flag *into* the env (`os.Setenv`) but never the reverse, so env-only invocations (`SPECD_JSON=1 specd status` → human text, while `specd status --json` → JSON) diverged. | Seed `jsonMode := core.IsJSONMode()` at the top of `main.run` so `SPECD_JSON` is re-threaded into the per-command `--json` flag at the dispatch boundary — one fix covers all 13 flag-reading commands. Added regression test `TestRunDispatch/SPECD_JSON_env_matches_--json_flag` asserting byte-identical output + exit code. |
 
 No **open** findings in Stage 5.
+
+---
+
+## Stage 7 — Documentation & Release Artifact Review
+
+**Verdict: PASS** (after fixing one blocker + one warning).
+
+### Review results
+- `README.md` — features/install/quick-start accurate; repo & docs map matches actual tree.
+- `TESTING.md` — accurate: Go commands, `make ci` gate, coverage floors (overall 60% / core 58%),
+  Windows `specd update` limitation, `SHA256SUMS` three-consumer note.
+- `docs/` complete — all six present (`concepts user-guide command-reference validation-gates
+  agent-integration contributor-guide`) + `docs/README.md` index. `contributor-guide.md` is
+  Go-accurate (codebase map, contracts, extension recipes, custom-parser ADR).
+- `LICENSE` — MIT, © 2026 0xkhdr.
+- `.github/workflows/ci.yml` — lint (gofmt/vet/shellcheck), test (ubuntu+macOS, `-race -count=1`
+  then `-count=2`), coverage-floor, cross-process stress, build (ubuntu+macOS+Windows). ✓
+- `.github/workflows/release.yml` — on `v*` tags → re-run race suite, then GoReleaser. ✓
+- `.goreleaser.yml` — `checksum.name_template: SHA256SUMS` matches the filename `update.go`
+  (`fetchChecksums`) and `install.sh` (`verify_checksum`) expect; builds linux/darwin/windows ×
+  amd64/arm64; `-ldflags "-s -w -X main.version={{.Version}}"`. ✓
+- Version injection via `-ldflags` confirmed in `Makefile` + both workflows.
+
+### Findings
+
+| ID | Severity | Finding | Fix |
+|----|----------|---------|-----|
+| F-S7-1 | blocker | Root `AGENTS.md` described a **TypeScript/npm** project (`npm run build`, `tsc → dist/`, `node --test`, "65 tests", `src/**/*.ts` layout, `dist/templates/`) — wholly wrong for this Go/stdlib repo. An agent following it would chase non-existent files/commands. | Rewrote "What this repo is", "Build & test", "Repo layout", "Key contracts", "Templates are shipped", "Design references", "Working on this repo" to the actual Go layout (`main.go` + `internal/{cli,cmd,core,testharness}`, `make build`/`make test`/`make ci`, `go:embed embed_templates/`, `cmd.Registry`/`CommandMeta`/`TestRegistryMatchesHelp`). Security-model section was already correct, left intact. |
+| F-S7-2 | warning | `scripts/install.sh` writes its PATH-export line with the marker `# specd`, but `scripts/uninstall.sh` detected/stripped lines matching `# specd PATH` — so uninstall never removed the PATH line install added (orphaned config). | Aligned `uninstall.sh` to match on `# specd` (both the detection guard and the `grep -v` strip). |
+| F-S7-3 | info | No static `CHANGELOG.md` in repo. Not a blocker: `.goreleaser.yml` has a `changelog:` block that auto-generates release notes from commits (excluding `docs:`/`chore:`/`ci:`), so each GitHub Release carries its changelog. | None — documented as intentional. |
+
+### Post-fix validation
+- `gofmt -l .` empty · `go vet ./...` clean · `shellcheck scripts/*.sh` clean · `go build` ok.
+
+No **open** findings in Stage 7.

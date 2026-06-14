@@ -7,9 +7,9 @@ build, fix, or extend the tool itself, not to use it on a project.
 
 ## What this repo is
 
-`specd` is a deterministic TypeScript CLI + prompt pack that teaches any coding agent to follow
+`specd` is a deterministic Go CLI + prompt pack that teaches any coding agent to follow
 a structured spec workflow (requirements → design → tasks → evidence-gated execution). It writes
-no files outside `.specd/` in target repos. Zero runtime dependencies. Zero LLM calls.
+no files outside `.specd/` in target repos. Zero runtime dependencies (Go stdlib only). Zero LLM calls.
 
 ---
 
@@ -36,105 +36,92 @@ Full detail in `docs/validation-gates.md` → "Security model".
 ## Build & test
 
 ```sh
-npm run build          # tsc → dist/  +  copy src/templates → dist/templates
-npm test               # node --test over test/*.test.ts + test/e2e/*.test.ts  (65 tests)
-node --import tsx src/cli.ts <command>   # run from source without building
+make build             # go build -ldflags "-s -w -X main.version=..." -o specd .
+make test              # go test ./... -race -count=1
+make ci                # full local gate: lint + race test + count=2 + coverage floor + stress
+go run . <command>     # run from source without building, e.g. go run . status
 ```
 
-All 65 tests must pass before any change is considered done. Tests cover:
+All tests must pass (race detector clean) before any change is considered done. The
+full gate is `make ci` (lint, race suite, order-dependence `-count=2`, coverage floor,
+cross-process stress). Tests cover:
 - Every validation gate (EARS, design, task-schema, DAG, evidence, sync, traceability)
-- Parser round-trips
-- Report golden files (md + html)
+- Parser round-trips (byte-stable `ParseTasksMd`)
+- Report rendering (md + html, deterministic — no golden files; assert on content)
 - End-to-end lifecycle scenario (init → execute → report)
 - Concurrency hardening (per-spec lock, revision CAS, atomic appends, runnable frontier)
+
+See [TESTING.md](TESTING.md) for the deterministic test harness (`internal/testharness`)
+and the coverage policy.
 
 ---
 
 ## Repo layout
 
 ```
-src/
-  cli.ts               # arg router, exit codes, dispatch table
-  commands/            # one file per CLI command
-    init.ts            # specd init — scaffold .specd/ + AGENTS.md
-    new.ts             # specd new <slug>
-    status.ts          # specd status
-    context.ts         # specd context — phase-scoped briefing
-    check.ts           # specd check — all 7 gates
-    next.ts            # specd next — next runnable task (--all = frontier)
-    task.ts            # specd task — evidence gate + dual-write
-    approve.ts         # specd approve — planning ratchet + VERIFY gate
-    decision.ts        # specd decision — ADR append
-    midreq.ts          # specd midreq — feedback log
-    memory.ts          # specd memory — learnings + promote
-    report.ts          # specd report — md/html snapshot
-    waves.ts           # specd waves — wave DAG view
-  core/
-    paths.ts           # .specd root locator (walks up from cwd)
-    io.ts              # atomic write (temp + rename), O_APPEND ledger append
-    lock.ts            # per-spec advisory lock (withSpecLock) for concurrent mutation
-    state.ts           # state.json load/save (machine ledger) + revision CAS
-    phases.ts          # phase ↔ status single source of truth
-    tasksParser.ts     # line-based tasks.md parser + serializer
-    dag.ts             # wave DAG, next-runnable, runnable-frontier, cycle detection
-    ears.ts            # EARS requirements linter
-    report.ts          # md/html assembler (deterministic, no LLM)
-    specFiles.ts       # artifact accessors, reconcile tasks↔state
-    render.ts          # wave graph text renderer
-    templates.ts       # template loader + variable substitution
-    exit.ts            # SpecdError, exit code constants
-    md.ts              # markdown helpers (strip HTML comments)
-  templates/           # shipped as dist/templates/ at runtime
-    AGENTS.md          # emitted into user repos by specd init
-    config.json        # default config scaffold
-    steering/          # reasoning.md, workflow.md, product/tech/structure/memory.md
-    roles/             # investigator, builder, reviewer, verifier prompt files
-    specStubs/         # six artifact stubs (requirements, design, tasks, etc.)
-test/
-  helpers.ts           # run() harness — captures stdout/stderr, swaps cwd
-  core.test.ts         # paths, io, state
-  dag.test.ts          # DAG engine
-  ears.test.ts         # EARS linter
-  tasksParser.test.ts  # parser round-trips
-  check.test.ts        # all 7 gate fixtures
-  report.test.ts       # golden-file render tests
-  e2e/full-spec.test.ts  # full lifecycle + evidence-gate enforcement
-scripts/
-  copy-templates.mjs   # post-build: copies src/templates → dist/templates
+main.go                       # entry point, arg router, dispatch via cmd.Registry
+internal/
+  cli/args.go                 # flag/positional parser (Args)
+  cmd/                        # one file per CLI command (Run<Command>)
+    init.go new.go status.go context.go check.go next.go dispatch.go
+    task.go verify.go approve.go decision.go midreq.go memory.go
+    report.go waves.go program.go boot.go enrich.go update.go
+    registry.go               # command → handler dispatch table (cmd.Registry)
+    helpers.go                # shared helpers (specdExit, usageExit, errLine)
+    *_test.go                 # unit tests co-located beside each command
+  core/                       # domain logic
+    paths.go                  # .specd root locator (FindSpecdRoot, walks up from cwd)
+    io.go                     # atomic write (temp + fsync + rename), O_APPEND ledger append
+    lock.go                   # per-spec advisory lock (WithSpecLock) for concurrent mutation
+    state.go                  # state.json load/save (machine ledger) + revision CAS
+    phases.go                 # phase ↔ status single source of truth
+    tasksparser.go            # line-based tasks.md parser + serializer (ParseTasksMd)
+    dag.go                    # wave DAG, next-runnable, runnable-frontier, cycle detection
+    ears.go                   # EARS requirements linter
+    report.go                 # md/html assembler (deterministic, no LLM)
+    specfiles.go              # artifact accessors, sync + traceability gates, Config
+    boot.go boot_detectors.go # boot manifest + deterministic stack detectors
+    enrich.go enrich_evidence.go  # enrich plan/apply + freshness gate
+    agents.go                 # AGENTS.md marker-based merge
+    commands.go               # CommandMeta registry (drives help + --json schema)
+    render.go slug.go md.go ui.go exit.go help.go program.go
+    embed.go                  # go:embed of embed_templates/
+    embed_templates/          # shipped templates (AGENTS.md, config, steering, roles, stubs)
+  testharness/                # deterministic test infra (sandbox, in-process runner, FakeClock)
+scripts/                      # install.sh uninstall.sh coverage-check.sh stress.sh
 ```
 
 ---
 
 ## Key contracts
 
-- **`src/core/paths.ts`** — `findSpecdRoot` walks up from cwd looking for `.specd/`. All path
-  helpers (`specdDir`, `steeringDir`, `rolesDir`, `specsDir`, `specDir`) are derived from the
-  root. `requireSpecdRoot` throws `SpecdError(3)` if not found.
+- **`internal/core/paths.go`** — `FindSpecdRoot` walks up from cwd looking for `.specd/`. All path
+  helpers are derived from the root. Callers return `NotFoundError` (exit `3`) if not found.
 
-- **`src/core/state.ts`** — `state.json` is machine truth for task status. Write via `saveState`
-  (atomic). Never hand-edit. `reconcile()` in `specFiles.ts` syncs structural fields from
-  `tasks.md` into state on every load.
+- **`internal/core/state.go`** — `state.json` is machine truth for task status. Load with
+  `LoadState`, write via `SaveState` (atomic + CAS on `revision`). Never hand-edit. Structural
+  fields are reconciled from `tasks.md` into state on every load.
 
-- **`src/commands/task.ts`** — the evidence gate. `--status complete` requires non-empty
-  `--evidence` AND all deps `complete`. Dual-writes `tasks.md` checkboxes + `state.json`
-  atomically. This is the integrity core — do not weaken it.
+- **`internal/cmd/task.go`** — the evidence gate. `--status complete` requires a passing verify
+  record (or `--unverified --evidence` for read-only roles) AND all deps `complete`. Dual-writes
+  `tasks.md` checkboxes + `state.json` atomically. This is the integrity core — do not weaken it.
 
-- **`src/core/tasksParser.ts`** — bespoke line parser for the §7.3 format. No AST libs. Round-trip
-  stability is tested. Throws `SpecdError(1)` with line number on structural errors.
+- **`internal/core/tasksparser.go`** — bespoke line parser (`ParseTasksMd`). No external libs.
+  Round-trip byte-stability is tested. Returns `SpecdError(1)` with a line number on structural errors.
 
 - **Exit codes:** `0` ok · `1` gate/validation failure · `2` usage error · `3` not found. Defined
-  in `src/core/exit.ts`. All commands follow this contract; CI branches on it.
+  in `internal/core/exit.go`. All commands follow this contract; CI branches on it.
 
 ---
 
 ## Templates are shipped
 
-`src/templates/` is copied verbatim to `dist/templates/` at build time
-(`scripts/copy-templates.mjs`). The CLI reads templates from `dist/templates/` at runtime via
-`templatesDir()` in `paths.ts`. If you modify a template, rebuild before testing.
+`internal/core/embed_templates/` is compiled into the binary via `go:embed` in
+`internal/core/embed.go` — there are no disk-relative template reads at runtime. If you modify a
+template, rebuild before testing.
 
-`src/templates/AGENTS.md` is what gets written into **user repos** by `specd init` — it is
-different from this root `AGENTS.md` (which is for developing specd).
+`internal/core/embed_templates/AGENTS.md` is what gets written into **user repos** by `specd init`
+— it is different from this root `AGENTS.md` (which is for developing specd).
 
 ---
 
@@ -144,7 +131,7 @@ The original `SPEC.md` / `Tasks.md` design documents have been **retired** — t
 now the source of truth. Before making structural changes, read:
 
 - **`docs/contributor-guide.md`** — CLI architecture, concurrency model, and codebase details.
-- **`CLAUDE.md`** — contributor guidelines, build/test commands, and code style invariants.
+- **`TESTING.md`** — test harness, determinism invariants, and coverage policy.
 
 Source comments cite `SPEC §x` as historical rationale for the retired spec — not a live file.
 
@@ -153,11 +140,13 @@ Source comments cite `SPEC §x` as historical rationale for the retired spec —
 
 ## Working on this repo
 
-- Fix a bug → edit `src/`, `npm run build`, `npm test`.
-- Add/change a gate → edit `src/commands/check.ts` + matching test fixtures in `test/check.test.ts`.
-- Add a command → add `src/commands/<cmd>.ts`, register in the `dispatch` switch in `src/cli.ts`,
-  add to the `USAGE` string, add tests.
-- Modify templates → edit `src/templates/`, rebuild, verify `specd init` still works in a
-  temp dir.
-- Change the `state.json` shape → update `src/core/state.ts` and add a migration if existing
+- Fix a bug → edit `internal/`, `make build`, `make test`.
+- Add/change a gate → edit `internal/cmd/check.go` (+ the gate logic in `internal/core/`) and
+  matching tests.
+- Add a command → add `internal/cmd/<cmd>.go`, register in `cmd.Registry`
+  (`internal/cmd/registry.go`), add a `CommandMeta` in `internal/core/commands.go`, add tests.
+  `TestRegistryMatchesHelp` fails if dispatch and help disagree.
+- Modify templates → edit `internal/core/embed_templates/`, rebuild, verify `specd init` still
+  works in a temp dir.
+- Change the `state.json` shape → update `internal/core/state.go` and add a migration if existing
   files could be misread.

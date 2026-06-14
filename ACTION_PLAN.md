@@ -156,18 +156,18 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 ## Stage 7: Documentation & Release Artifact Review
 **Objective:** Docs accurate, consistent, release-ready.
 
-- [ ] `README.md` features/install/quick-start accurate
-- [ ] `AGENTS.md` matches actual build/test commands + layout
-- [ ] `TESTING.md` matches actual test commands + coverage floors
-- [ ] `docs/` complete: `concepts user-guide command-reference validation-gates agent-integration contributor-guide`
-- [ ] CHANGELOG present + covers 7 stages (NOTE: confirm existence — not seen in discovery; if absent, log finding)
-- [ ] `LICENSE` present + MIT
-- [ ] `.github/workflows/ci.yml`: lint, test (ubuntu+macOS), coverage floor, stress, build (ubuntu+macOS+Windows)
-- [ ] `.github/workflows/release.yml`: on `v*` → race suite + GoReleaser
-- [ ] `.goreleaser.yml` produces `SHA256SUMS` with exact filename expected by `update.go` + `install.sh`
-- [ ] `scripts/install.sh` + `scripts/uninstall.sh` functional
-- [ ] Version via `-ldflags "-s -w -X main.version=..."` (confirmed in Makefile)
-- [ ] **STOP → Commit & Push** — `regression: stage 7 — docs & release artifacts review`
+- [x] `README.md` features/install/quick-start accurate
+- [x] `AGENTS.md` matches actual build/test commands + layout — FIXED F-S7-1 (was TypeScript/npm; rewrote to Go)
+- [x] `TESTING.md` matches actual test commands + coverage floors
+- [x] `docs/` complete: `concepts user-guide command-reference validation-gates agent-integration contributor-guide` (+ `docs/README.md` index)
+- [x] CHANGELOG: no static file — `.goreleaser.yml` `changelog:` auto-generates per-release notes from commits (F-S7-3, info)
+- [x] `LICENSE` present + MIT
+- [x] `.github/workflows/ci.yml`: lint, test (ubuntu+macOS), coverage floor, stress, build (ubuntu+macOS+Windows)
+- [x] `.github/workflows/release.yml`: on `v*` → race suite + GoReleaser
+- [x] `.goreleaser.yml` produces `SHA256SUMS` with exact filename expected by `update.go` + `install.sh`
+- [x] `scripts/install.sh` + `scripts/uninstall.sh` functional — FIXED F-S7-2 (uninstall PATH marker `# specd PATH`→`# specd` to match install)
+- [x] Version via `-ldflags "-s -w -X main.version=..."` (confirmed in Makefile)
+- [x] **STOP → Commit & Push** — `regression: stage 7 — docs & release artifacts review`
 
 ---
 
