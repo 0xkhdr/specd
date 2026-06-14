@@ -1,128 +1,122 @@
-# specd Agent Integration Guide
+# Agent Integration
 
-`specd` is designed to be **agent-agnostic**. It aligns host coding agents (such as Claude Code, Cursor, Aider, or custom wrappers) to follow the spec-driven workflow through:
-1. An **agents instruction file** (`AGENTS.md`) at the project root.
-2. A directory of **steering constitutions** (`.specd/steering/`) that guide high-level decisions.
-3. A set of **role-play prompts** (`.specd/roles/`) that restrict the agent's actions during execution.
-4. **Context Engineering** primitives (`specd context`) that control what data enters the agent's context window.
+Wiring a coding agent (Claude Code, Cursor, Aider, or any command-running wrapper)
+to drive the `specd` workflow.
 
----
+## Contents
 
-## 1. The Two `AGENTS.md` Files
-
-It is critical to distinguish between the two `AGENTS.md` files in the `specd` ecosystem:
-
-### Root `AGENTS.md` (specd Contributor Guide)
-*   **Location**: Root of the `specd` CLI repository itself.
-*   **Purpose**: Instructs AI agents who are **developing the specd tool itself**. It explains how to build the Go binary, run the 15 core tests, write validation gates, and extend the CLI.
-
-### Template `AGENTS.md` (Target Project Guide)
-*   **Location**: Embedded in the compiled binary. When a user runs `specd init`, this file is written to the root of the **target repository** as `AGENTS.md`.
-*   **Purpose**: Instructs the agent working on the **target project** how to use the `specd` CLI. It details the six-phase spec process and mandates that the agent must only update task states via the `specd` CLI command interface.
+1. [The two AGENTS.md files](#the-two-agentsmd-files)
+2. [Steering constitution](#steering-constitution)
+3. [Role personas](#role-personas)
+4. [Subagent coordination modes](#subagent-coordination-modes)
+5. [Context engineering](#context-engineering)
+6. [Cross-spec programs](#cross-spec-programs)
 
 ---
 
-## 2. Steering Configuration (`.specd/steering/`)
+## The two AGENTS.md files
 
-The steering files act as the **constitution** for the agent. They outlive any individual chat session and define the rules and boundaries of the project.
-
-```mermaid
-graph TD
-    subgraph Steering [Steering Constitution]
-        R[reasoning.md]
-        W[workflow.md]
-        P[product.md]
-        T[tech.md]
-        S[structure.md]
-        M[memory.md]
-    end
-    
-    Agent((Host Agent)) -->|Reads Context| Steering
-    Agent -->|Enforces Rules| TaskExecution
-```
-
-### Steering Document Purposes:
-1.  **`reasoning.md`**: Defines the six-phase thinking discipline (Analyze, Plan, Execute, Verify, Reflect) and the **backpropagation protocol** (when a test fails, update the invariants first).
-2.  **`workflow.md`**: Outlines the spec lifecycle transitions and the validation gates that must be satisfied before moving between phases.
-3.  **`product.md`**: Documents the domain rules, target audience, business constraints, and core product assumptions.
-4.  **`tech.md`**: Outlines the approved technology stack, languages, dependency constraints, and testing frameworks.
-5.  **`structure.md`**: Defines file organization conventions, directory structures, and module boundaries.
-6.  **`memory.md`**: Holds promoted learnings and conventions compiled across multiple past specifications to avoid repeating mistakes.
-
----
-
-## 3. Role Personas (`.specd/roles/`)
-
-During the `executing` phase, tasks are assigned to specific roles in `tasks.md`. The agent must swap its active persona to match the task's assigned role.
-
-| Role Persona | Permissions | Rules & Responsibilities |
+| File | Location | Purpose |
 |---|---|---|
-| 🔍 **`investigator`** | **Read-only** | Explores code, traces execution paths, and finds integration points. Cannot edit files. Reports findings with exact file and line references. |
-| 🛠️ **`builder`** | **Write-only** | Implements the task contract. Modifies only the designated files and their corresponding test files. Runs the task verify command. |
-| 🧪 **`verifier`** | **Read-only** | Runs tests independently to collect execution logs. Cannot modify code. Captures output as evidence. |
-| 🛡️ **`reviewer`** | **Read-only** | Performs code audits on git diffs. Logs issues with severity tags (`critical`, `high`, `medium`, `low`) and specifies the exact location and recommended fix. |
+| **Root AGENTS.md** | `0xkhdr/specd` repo root | Guide for agents **developing specd itself** |
+| **Template AGENTS.md** | `internal/core/embed_templates/AGENTS.md` | Guide written to **user repos** by `specd init` |
 
----
+## Steering constitution
 
-## 4. Subagent Coordination Modes
+Durable rules under `.specd/steering/` that outlive individual chat sessions:
 
-The configuration file `.specd/config.json` defines how roles are executed via the `roles.subagentMode` tunable:
+| File | Purpose |
+|---|---|
+| `reasoning.md` | Six-phase thinking discipline + backpropagation protocol |
+| `workflow.md` | Spec lifecycle transitions + validation gates |
+| `product.md` | Domain rules, target audience, business constraints |
+| `tech.md` | Approved stack, languages, dependencies, testing frameworks |
+| `structure.md` | File organization, directory structures, module boundaries |
+| `memory.md` | Promoted learnings across specs |
 
-### 1. `inline` Mode (Default)
-The host agent performs the work itself, manually swapping its persona context inline when starting a task.
-*   **Pros**: Simple, works with any agent interface.
-*   **Cons**: The agent must maintain the full chat history, leading to potential context bloat.
+`product.md`, `structure.md`, and `tech.md` are partly authored by the agent via
+`specd enrich` (see the [User Guide](./user-guide.md#bootstrap-project-context-optional-but-recommended)).
 
-### 2. `delegate` Mode
-If the host agent supports spawning subagents (e.g. Claude Code's `invoke_subagent` or multi-agent CLI harnesses), it delegates tasks to specialized subagents configured with the specific role prompts in `.specd/roles/`.
-*   **Pros**: Completely isolates implementation context. A builder subagent has no access to irrelevant codebase files, reducing token consumption.
-*   **Cons**: Requires a host agent with agent-spawning capabilities.
+## Role personas
 
-#### Fanning out with `specd dispatch`
-The orchestrator does not have to assemble subagent prompts by hand. `specd dispatch <slug> --json` returns one **dispatch packet** per runnable frontier task, each containing exactly what a fresh subagent needs:
+Prompts under `.specd/roles/`. Each task's `role:` key binds it to one persona.
 
-```jsonc
-{
-  "kind": "frontier",
-  "count": 2,
-  "packets": [{
-    "id": "T1", "wave": 1, "role": "builder",
-    "rolePrompt": "<full .specd/roles/builder.md body>",
-    "title": "...", "why": "...", "contract": "...", "files": "...",
-    "acceptance": "...", "verify": "go test ./...",
-    "depends": [], "requirements": [1],
-    "completion": "specd task my-feature T1 --status complete --evidence \"<proof>\""
-  }]
-}
+| Role | Permissions | Responsibilities |
+|---|---|---|
+| 🔍 `investigator` | Read-only | Explore code, trace paths, find integration points. Reports exact file/line refs. |
+| 🛠️ `builder` | Write | Implement the task contract. Modifies designated files + tests. Runs verify. |
+| 🧪 `verifier` | Read-only | Runs tests independently. Captures output as evidence. |
+| 🛡️ `reviewer` | Read-only | Audits git diffs. Logs issues with severity tags + exact locations. |
+
+## Subagent coordination modes
+
+Set in `.specd/config.json` via `roles.subagentMode`:
+
+### `inline` mode (default)
+- The host agent performs the work, swapping persona context inline.
+- **Pros:** Simple; works with any agent.
+- **Cons:** Context bloat from full chat history.
+
+### `delegate` mode
+- The host spawns specialized subagents per role.
+- **Pros:** Isolated context, reduced token consumption.
+- **Cons:** Requires agent-spawning capabilities (Claude Code, etc.).
+
+### Frontier dispatch
+
+`specd dispatch <slug> --json` emits one ready-to-run packet per task in the
+current frontier — role prompt, contract, files, acceptance, verify command, and
+the completion command. Pattern for parallel execution:
+
+```bash
+# 1. Get dispatch packets
+specd dispatch my-feature --json
+
+# 2. For each packet, spawn a subagent with its rolePrompt + contract.
+# 3. Each subagent:
+#      ... implement task ...
+#      specd verify my-feature T1
+#      specd task my-feature T1 --status complete
+# 4. The orchestrator monitors the frontier and dispatches the next wave.
 ```
 
-The orchestrator spawns one subagent per packet, hands it `rolePrompt` + the task fields, and on success runs `specd verify` then the `completion` command. `dispatch` respects the `awaiting-approval` gate (override with `--force`).
+## Context engineering
 
-### 3. Cross-Spec Orchestration (`specd program`)
-For programs spanning multiple specs, declare inter-spec edges and let `specd` compute which whole specs are runnable:
-```sh
-specd program link api --on auth   # api waits for auth
-specd program --json               # spec-level DAG + runnable frontier
-```
-The manifest lives in `.specd/program.json`. An orchestrator drives the spec-level frontier the same way a single spec drives its task frontier.
+`specd context <slug>` controls what enters the agent's context window:
 
----
-
-## 5. Context Engineering: `specd context`
-
-A major cause of AI agent failure is **context pollution** — loading too many files, leading to confusion, hallucinated imports, or exceeding token limits.
-
-`specd` solves this with the `specd context <slug>` command. The agent runs this command at the beginning of each turn:
-
-```sh
+```bash
 specd context my-feature
 ```
 
-### Context Output Structure
-The output is divided into three sections:
-1.  **Phase Briefing**: Reminds the agent of the active phase rules (e.g. "You are in the PLAN phase. Do not edit code files outside `.specd/`").
-2.  **Load List**: A minimal, absolute list of files the agent should load into its context window (e.g. only the active task details, the design document, and the steering files).
-3.  **Signals (Active System Notifications)**:
-    *   **Blockers**: Lists any tasks currently blocked and their reasons.
-    *   **Awaiting Approval**: Notifies if a mid-requirements change has locked the spec.
-    *   **Uncovered Requirements**: Lists any requirements that have no tasks mapping to them during verification.
+Output sections:
+1. **Phase briefing** — active phase rules (e.g. "You are in PLAN phase. Do not edit code.").
+2. **Load list** — the minimal file list for the context window.
+3. **Signals**
+   - Blockers: currently blocked tasks + reasons
+   - Awaiting approval: mid-req change locks
+   - Uncovered requirements: requirements with no task mappings
+
+---
+
+## Cross-spec programs
+
+For multi-spec efforts, declare dependencies between whole specs:
+
+```bash
+specd program link api --on auth     # 'api' waits for 'auth'
+specd program unlink api --on auth   # remove the dependency
+specd program                        # view the program-level DAG
+specd program --json                 # JSON output for orchestrators
+```
+
+Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
+
+```
+┌─────────┐     ┌─────────┐     ┌─────────┐
+│  auth   │────►│  api    │────►│  web    │
+│ (Wave 1)│     │ (Wave 2)│     │ (Wave 3)│
+└─────────┘     └─────────┘     └─────────┘
+```
+
+`specd program status` resolves which whole specs are runnable — the cross-spec
+analog of `specd next`.

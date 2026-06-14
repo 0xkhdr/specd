@@ -1,21 +1,32 @@
-# specd User Guide
+# User Guide
 
-Welcome to the `specd` User Guide. This guide covers everything you need to know to use the `specd` coding harness in a target project. 
+Using `specd` inside a target repository — from install through a closed spec.
+For the *why*, read [Concepts](./concepts.md); for command-level detail, the
+[Command Reference](./command-reference.md).
+
+## Contents
+
+1. [Installation & setup](#installation--setup)
+2. [The spec lifecycle](#the-spec-lifecycle)
+3. [Writing spec artifacts](#writing-spec-artifacts)
+4. [Task execution & evidence](#task-execution--evidence)
+5. [Troubleshooting](#troubleshooting)
 
 ---
 
-## 0. Installation
+## Installation & setup
 
-Install `specd` globally with a single curl command:
+### Quick install (Linux / macOS)
 
-```sh
+```bash
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
 ```
 
-After install, restart your shell (or `source ~/.bashrc` / `source ~/.zshrc`) so the `specd` binary is on your `PATH`.
+After install, restart your shell (or `source ~/.bashrc` / `source ~/.zshrc`).
 
-**Options:**
-```sh
+### Install options
+
+```bash
 # Force reinstall / upgrade
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
 
@@ -23,81 +34,158 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.2.0
 ```
 
-**Requirements:** None. Pre-built binary includes all dependencies. Git optional for tarball fallback.
+### Uninstall / update
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
+specd update            # self-update to the latest release
+specd update --force
+```
+
+### Requirements
+
+- Linux or macOS (amd64 / arm64)
+- Git (optional — tarball fallback available)
+- **Zero runtime dependencies** — single binary
+
+### Initialize a project
+
+```bash
+specd init              # in your project root
+```
+
+This scaffolds `.specd/` with default templates, steering files, roles, and
+`AGENTS.md`.
+
+### Bootstrap project context (optional but recommended)
+
+After `init`, seed the steering constitution from the real repository:
+
+```bash
+# Deterministic, AI-free stack detection → boot.json + steering/tech.md + config.defaultVerify
+specd boot
+specd boot --dry-run    # preview without writing
+
+# AI companion: have the agent author the remaining steering sections
+specd enrich plan --json                          # brief: which sections to write + evidence to read
+specd enrich apply --target product < product.md  # accept the agent's authored markdown (or --content-file)
+specd enrich status                               # check freshness (also: specd check --enrich)
+```
+
+`boot` performs **zero LLM calls** — every detected fact is traceable to a source
+file. `enrich` performs no inference either: it owns the contract and the
+freshness gate while the calling agent does the writing.
 
 ---
 
-## 1. Getting Started
+## The spec lifecycle
 
-### Project Initialization
-For each new workspace, run `specd init` in the project root:
-```sh
-# Scaffolds the .specd/ structure and writes default templates
-specd init
-```
-**Exit Code Transitions:**
-* `0`: Initialization succeeded. The `.specd/` directory is created.
-* `2`: CLI usage/argument error (e.g. invalid arguments).
+A **spec** is a modular directory representing a single feature, task, or bugfix.
+Its lifecycle has 5 phases driven by a status machine.
 
-### Creating a New Spec
-A "spec" is a modular directory representing a single feature, task, or bugfix. Create a new spec using `new`:
-```sh
-specd new my-feature --title "Implement JWT Authentication"
-```
-This creates `.specd/specs/my-feature/` and populates the six standard Markdown stubs and an initial `state.json` file.
-* **Exit code `0`**: Spec created successfully. Status set to `requirements`.
-* **Exit code `3`**: Root `.specd/` folder not found (you must run `init` first).
+### Status → phase mapping
 
----
-
-## 2. The Spec Lifecycle
-
-The development lifecycle consists of 5 main **phases**, driven by the spec's **status** machine. The planning ratchet restricts transitions between these phases to ensure that implementation never begins without clear requirements and design.
-
-### Status and Phase Mapping
-
-The CLI derives the current active phase from the spec's status:
-
-| Spec Status (`state.json`) | Derived Phase (`phase`) | Primary Activities |
+| Spec status (`state.json`) | Derived phase | Primary activities |
 |---|---|---|
-| `requirements` | `analyze` | Authoring and linting user story and criteria in `requirements.md`. |
-| `design` | `plan` | Specifying component architecture, interfaces, and testing strategies in `design.md`. |
-| `tasks` | `plan` | Defining the execution waves and tasks in `tasks.md`. |
-| `executing` | `execute` | Implementing the tasks in sequence. |
-| `blocked` | `execute` | Execution halted; all remaining runnable tasks are blocked. |
-| `verifying` | `verify` | Running overall verification; preparing for human sign-off. |
-| `complete` | `reflect` | Spec closed. Memories promoted; final reports generated. |
+| `requirements` | `analyze` | Author EARS requirements in `requirements.md` |
+| `design` | `plan` | Specify architecture in `design.md` |
+| `tasks` | `plan` | Define execution waves in `tasks.md` |
+| `executing` | `execute` | Implement tasks in dependency order |
+| `blocked` | `execute` | Execution halted; tasks blocked |
+| `verifying` | `verify` | Run overall verification; prepare sign-off |
+| `complete` | `reflect` | Spec closed; learnings promoted; reports generated |
 
-### Lifecycle Flowchart
+### Lifecycle flow
 
-```mermaid
-graph TD
-    Intake([Start: specd new]) --> Phase1[1. requirements <br/> phase: analyze]
-    Phase1 -->|specd check passes + specd approve| Phase2[2. design <br/> phase: plan]
-    Phase2 -->|specd check passes + specd approve| Phase3[3. tasks <br/> phase: plan]
-    Phase3 -->|specd check passes + specd approve| Phase4[4. executing / blocked <br/> phase: execute]
-    Phase4 -->|All tasks completed via specd task| Phase5[5. verifying <br/> phase: verify]
-    Phase5 -->|specd approve| Phase6([6. complete <br/> phase: reflect])
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ 1. REQUIRE  │────►│ 2. DESIGN   │────►│ 3. TASKS    │
+│   (analyze) │     │   (plan)    │     │   (plan)    │
+└─────────────┘     └─────────────┘     └─────────────┘
+      │                   │                   │
+   specd check        specd check        specd check
+   specd approve      specd approve      specd approve
+      └───────────────────┴───────────────────┘
+                          ▼
+                  ┌─────────────┐
+                  │ 4. EXECUTE  │   specd next  / specd dispatch
+                  │  (execute)  │   specd verify / specd task
+                  └─────────────┘
+                          ▼
+                  ┌─────────────┐
+                  │ 5. VERIFY   │   specd approve
+                  │  (verify)   │
+                  └─────────────┘
+                          ▼
+                  ┌─────────────┐
+                  │ 6. COMPLETE │
+                  │  (reflect)  │
+                  └─────────────┘
+```
+
+### The planning ratchet
+
+To prevent skipping process steps, the CLI enforces a planning ratchet with
+`check` and `approve`:
+
+```
+requirements.md ──► design.md ──► tasks.md ──► Code/Tests
+     │                  │             │            │
+  Gate 1: EARS    Gate 2: Design  Gates 3&4:   Execution
+  specd approve   specd approve   Task schema  specd next
+                                  + DAG        specd verify
+                                  specd approve specd task
+```
+
+### Walkthrough: single developer, single feature
+
+```bash
+specd init
+specd new auth --title "Implement JWT Authentication"
+
+# Requirements (analyze)
+$EDITOR .specd/specs/auth/requirements.md
+specd check auth && specd approve auth
+
+# Design (plan)
+$EDITOR .specd/specs/auth/design.md
+specd check auth && specd approve auth
+
+# Tasks (plan)
+$EDITOR .specd/specs/auth/tasks.md
+specd check auth && specd approve auth
+
+# Execute
+specd next auth
+#   ... implement T1 ...
+specd verify auth T1
+specd task auth T1 --status complete
+
+# Close
+specd approve auth
 ```
 
 ---
 
-## 3. Writing Spec Artifacts
+## Writing spec artifacts
 
-The core philosophy of `specd` is that **intent lives in Markdown, status lives in state.json**. You must author files according to strict structural guidelines.
+Core philosophy: **intent lives in Markdown, status lives in `state.json`.**
 
-### 1. `requirements.md` (Analyze Phase)
-Requirements must conform to the **EARS (Easy Approach to Requirements Syntax)** grammar. The `specd check` command runs a regex-based requirements linter to verify compliance.
+> ⚠️ Do not hand-edit `state.json` or manually check markdown boxes. Use `specd`
+> commands only — they dual-write the artifact and the state atomically.
 
-#### EARS Syntax Rules:
-*   **Ubiquitous** (Always active): `THE SYSTEM SHALL <response>`
-*   **Event-driven** (Triggered by event): `WHEN <trigger> THE SYSTEM SHALL <response>`
-*   **State-driven** (Active while in a state): `WHILE <state> THE SYSTEM SHALL <response>`
-*   **Optional-feature** (Active if feature present): `WHERE <feature> THE SYSTEM SHALL <response>`
-*   **Unwanted** (Error/exceptional case): `IF <condition> THEN THE SYSTEM SHALL <response>`
+### requirements.md (analyze phase)
 
-#### Template & Example:
-Every requirement must contain a `**User story:**` block and a numbered list of `**Acceptance criteria:**` using the EARS patterns.
+Requirements must conform to the **EARS** (Easy Approach to Requirements Syntax)
+grammar.
+
+| Pattern | Syntax | Use case |
+|---|---|---|
+| **Ubiquitous** | `THE SYSTEM SHALL <action>` | Always-active behavior |
+| **Event-driven** | `WHEN <event> THE SYSTEM SHALL <action>` | Triggered by an event |
+| **State-driven** | `WHILE <state> THE SYSTEM SHALL <action>` | Active while in a state |
+| **Optional-feature** | `WHERE <feature> THE SYSTEM SHALL <action>` | Active if a feature is present |
+| **Unwanted** | `IF <condition> THEN THE SYSTEM SHALL <action>` | Error / exceptional case |
 
 ```markdown
 # Requirements — JWT Authentication
@@ -108,295 +196,138 @@ Every requirement must contain a `**User story:**` block and a numbered list of 
 **Acceptance criteria:**
 1. WHEN a user submits valid credentials to /login THE SYSTEM SHALL return an HTTP 200 with a JWT.
 2. IF a user submits invalid credentials THEN THE SYSTEM SHALL return an HTTP 401 Unauthorized.
+3. THE SYSTEM SHALL expire tokens after 1 hour.
 ```
 
----
+### design.md (plan phase)
 
-### 2. `design.md` (Plan Phase)
-The design document details how the requirements will be implemented. The Design Gate enforces that all **7 mandatory H2 headers** are present, non-empty, and free of `TODO` placeholders:
+Must contain all **7 mandatory H2 headers**, non-empty, free of `TODO` placeholders:
 
 ```markdown
-# Design — JWT Authentication
+# Design — Feature Name
 
 ## Overview
-High level description of the JWT implementation.
-
 ## Architecture
-How authentication fits into the application structure.
-
 ## Components and interfaces
-Signatures and file locations for the login handler, token issuer, and validation middleware.
-
 ## Data models
-The structure of user objects and payload structure of the JWT claims.
-
 ## Error handling
-Exceptional scenarios (expired tokens, malformed signatures, database outages).
-
 ## Verification strategy
-Unit tests for handlers and cryptographic routines; E2E tests for login flow.
-
 ## Risks and open questions
-Security risks (token storage) and performance considerations.
 ```
 
----
+### tasks.md (plan phase)
 
-### 3. `tasks.md` (Plan Phase)
-Tasks are defined as Markdown checklist items grouped under `## Wave N` headers (where `N` represents concurrent execution waves, starting at `1`).
+Tasks are Markdown checklist items grouped under `## Wave N` headers.
 
-Each task has a checklist item followed by a list of metadata keys indented with spaces:
-*   `why`: The architectural reason for this task.
-*   `role`: The persona required (`investigator`, `builder`, `reviewer`, `verifier`).
-*   `files`: Comma-separated files modified or researched.
-*   `contract`: The technical signature or behavior contract.
-*   `acceptance`: Test or user criteria that determines completion.
-*   `verify`: Shell command to verify this specific task.
-*   `depends`: Comma-separated IDs of tasks that must complete first, or `—`.
-*   `requirements` (optional): Comma-separated requirement numbers (e.g. `1, 2`).
+#### Task metadata keys
 
-#### Tasks Template:
+| Key | Required | Description |
+|---|---|---|
+| `why` | ✅ | Architectural reason for this task |
+| `role` | ✅ | Persona: `investigator`, `builder`, `reviewer`, `verifier` |
+| `files` | ✅ | Comma-separated files modified or researched |
+| `contract` | ✅ | Technical signature or behavior contract |
+| `acceptance` | ✅ | Test or user criteria for completion |
+| `verify` | ✅ | Shell command to verify this task (or `N/A` for read-only roles) |
+| `depends` | ✅ | Comma-separated task IDs, or `—` |
+| `requirements` | ❌ | Comma-separated requirement numbers |
+
 ```markdown
-# Tasks — JWT Authentication
+# Tasks — Feature Name
 
 ## Wave 1
-- [ ] T1 — Create token generation utility
-  - why: Foundations for issuing tokens
+- [ ] T1 — Task title
+  - why: Reason for this task
   - role: builder
-  - files: internal/auth/token.go, internal/auth/token_test.go
-  - contract: GenerateToken(payload map[string]interface{}) (string, error)
-  - acceptance: Generates valid HS256 JWTs with 1-hour expiration
-  - verify: go test -race ./internal/auth/...
+  - files: path/to/file.go, path/to/file_test.go
+  - contract: Function signature or behavior
+  - acceptance: Criteria for completion
+  - verify: go test -race ./path/...
   - depends: —
   - requirements: 1
 
 ## Wave 2
-- [ ] T2 — Login route handler
-  - why: Expose authentication interface
+- [ ] T2 — Dependent task
+  - why: Reason for this task
   - role: builder
-  - files: internal/routes/auth.go, internal/routes/auth_test.go
-  - contract: POST /login routes to handler
-  - acceptance: Returns token on 200; handles incorrect passwords
-  - verify: go test -race ./internal/routes/...
+  - files: path/to/file2.go
+  - contract: Function signature or behavior
+  - acceptance: Criteria for completion
+  - verify: go test -race ./path2/...
   - depends: T1
   - requirements: 1, 2
 ```
 
----
+#### Checkbox ↔ state mapping
 
-## 4. Checkbox vs JSON Sync Comparison
-
-When tasks are executing, the CLI acts as the dual-writer, keeping the Markdown checklists (`tasks.md`) in sync with the machine state (`state.json`). **Do not hand-edit state.json or manually check markdown boxes.**
-
-Here is how task states align side-by-side:
-
-| `tasks.md` Markdown representation | `state.json` Status | Interpretation |
+| tasks.md | state.json | Meaning |
 |---|---|---|
-| `- [ ] T1 — Create token ...` | `"status": "pending"` | Dependency not cleared or task not yet started. |
-| `- [/] T1 — Create token ...` | `"status": "running"` | Work on this task has been initiated. |
-| `- [x] T1 — Create token ...` <br/> `<!-- verified: go test -race ./... (Commit: abc1234) -->` | `"status": "complete"` | Task complete. Evidence is recorded in the HTML comment. |
-| `- [!] T1 — Create token ...` <br/> `<!-- blocker: DB unavailable -->` | `"status": "blocked"` | Task blocked. Blocker reason annotated. |
+| `- [ ] T1` | `"status": "pending"` | Not started / dependencies not cleared |
+| `- [/] T1` | `"status": "running"` | Work initiated |
+| `- [x] T1` | `"status": "complete"` | Complete with evidence |
+| `- [!] T1` | `"status": "blocked"` | Blocked with reason |
 
 ---
 
-## 5. The Planning Ratchet & Phase Transitions
+## Task execution & evidence
 
-To prevent skipping process steps, the CLI enforces a planning ratchet using `check` and `approve`.
+### The verify → complete flow
 
-```mermaid
-graph LR
-    subgraph analyze [ANALYZE Phase]
-    R[requirements.md]
-    end
-    subgraph plan [PLAN Phase]
-    D[design.md] --> T[tasks.md]
-    end
-    subgraph execute [EXECUTE Phase]
-    E[Code / Tests]
-    end
-    
-    R -->|Gate 1: EARS <br/> specd approve| D
-    D -->|Gate 2: Design <br/> specd approve| T
-    T -->|Gate 3 & 4: Task Schema & DAG <br/> specd approve| E
-```
-
-### Checking Validation Gates
-The `specd check` command runs 7 strict verification checks:
-```sh
-specd check my-feature
-```
-**Exit Code Transitions:**
-* `0`: All gates passed.
-* `1`: One or more validation checks failed (e.g. invalid EARS grammar, missing design header, cycle in task dependencies).
-* `3`: Target spec slug not found.
-
-### Approving Transitions
-Once `check` passes, advance to the next planning phase:
-```sh
-specd approve my-feature
-```
-**Exit Code Transitions:**
-* `0`: Phase advanced successfully.
-* `1`: Advance blocked because validation gates failed.
-
----
-
-## 6. Task Execution Commands
-
-Once the spec enters the `executing` status, the agent works on tasks.
-
-### 1. Identify the Next Task
-The agent runs `next` to find out what to do next:
-```sh
+```bash
+# 1. Get the next runnable task
 specd next my-feature
-```
-This returns the single next runnable task (lowest wave, then lowest ID) packaged as a instructions block for the agent.
+#    → T1 — Create token generation utility
 
-To view the entire concurrent runnable frontier (all tasks with cleared dependencies):
-```sh
-specd next my-feature --all
-```
-**Exit Code Transitions:**
-* `0`: Found runnable task(s).
-* `1`: Blocked by active planning gates (cannot execute tasks if spec status is still `design`).
+# 2. Implement the task (the agent does the work)
 
-For **parallel orchestration**, `dispatch` emits a ready-to-run packet per frontier task — each bundles the resolved role prompt, contract, files, acceptance, verify command, and the exact completion command, so an orchestrator can fan the frontier out to parallel subagents with zero assembly:
-```sh
-specd dispatch my-feature --json
-```
-
-### 2. Verifying a Task (the completion proof)
-`specd` does **not** trust a free-text "tests passed" claim. Instead, it runs the task's own `verify:` command for you and records the result. After implementing the task, run:
-```sh
+# 3. Run verification — specd runs the task's own verify: command
 specd verify my-feature T1
-```
-This spawns the task's `verify:` shell command in the repo root, captures the OS **exit code**, output tails, duration, and the current **git HEAD**, and writes a `verification` record into `state.json`:
-* **Exit code `0`**: Command passed (`verified: true`). The task is now completable.
-* **Exit code `1`**: Command failed or timed out (`verified: false`). Fix the code and re-run.
+#    Records: exit code, output tail, duration, git HEAD
 
-> The per-run timeout is `SPECD_VERIFY_TIMEOUT_MS` (default 600s). A timed-out run is recorded as failed with exit `124`.
-
-### 3. Updating Task Status
-To start a task:
-```sh
-specd task my-feature T1 --status running
-```
-To **complete** a task — all dependencies must be `complete` **and** a passing `specd verify` record must exist whose command still matches the current `verify:` line:
-```sh
+# 4. Mark complete — only allowed if the verify record passed
 specd task my-feature T1 --status complete
 ```
-You may pass `--evidence "..."` to override the auto-derived proof string. For **read-only roles** (investigator/reviewer) whose `verify` is `N/A`, or genuinely manual proofs, use the escape hatch:
-```sh
-specd task my-feature T1 --status complete --unverified --evidence "Reviewed diff; no issues. (Commit: 7da5fe2)"
-```
-To mark a task as blocked (requires providing a `--reason`):
-```sh
-specd task my-feature T1 --status blocked --reason "Underlying database client library lacks connection pooling support."
-```
-**Exit Code Transitions:**
-* `0`: Task status updated and files synced successfully.
-* `1`: Command rejected. Reasons include:
-  * No passing `specd verify` record (and `--unverified` not supplied).
-  * Verification is **stale** — the recorded command no longer matches the current `verify:` line; re-run `specd verify`.
-  * `--unverified` supplied without `--evidence`.
-  * Dependencies of the task are not yet `complete`.
-  * Spec gate is `awaiting-approval` (pass `--force` to override).
-  * Stale local state (concurrency CAS failure).
-* `2`: Argument/usage error.
-* `3`: Target spec or task ID not found.
 
----
+### Evidence requirements
 
-## 7. Appending Spec Records
-
-As specifications evolve during development, decisions, requirements updates, and learnings are logged.
-
-### ADRs (Architectural Decision Records)
-To log an architectural decision:
-```sh
-specd decision my-feature "Use jose instead of jsonwebtoken library for Edge runtime support"
-```
-This appends a structured ADR block to `decisions.md`.
-* **Exit code `0`**: ADR recorded successfully.
-
-### Mid-flight Requirement Updates
-If requirements change while implementation is ongoing, log the update:
-```sh
-specd midreq my-feature "Support JWT authentication via Cookie header as fallback" --impact high --interpretation "Need to check both Authorization and Cookie headers" --changes "Update design.md interface sections and add task T3"
-```
-**Critical Rule**: An impact level of `high` or `critical` automatically freezes execution by placing the spec's state gate into `awaiting-approval`. Tasks cannot be updated until a human reviews the change and runs `specd approve`.
-
-### Memory Add & Promotion
-To record localized learnings:
-```sh
-specd memory my-feature add --key "jose-expiration" --pattern "JWT exp claim must be positive integer" --body "Ensure numeric validation is added to prevent string cast security issues" --source "T1" --criticality important
-```
-Promote local memories to global steering:
-```sh
-specd memory my-feature promote --key "jose-expiration"
-```
-* Note: Promotes automatically if the key has appeared in multiple specs (threshold tunable in `config.json`), or forces promotion with `--force`.
-
----
-
-## 8. Status and Reports
-
-To view the CLI's progress and status dashboard:
-```sh
-specd status my-feature
-```
-To view the wave graph, critical paths, and active blockers:
-```sh
-specd waves my-feature
-```
-To generate a comprehensive Markdown or self-contained HTML report snapshot:
-```sh
-specd report my-feature --format html --out report.html
-```
-
----
-
-## 9. Spec-Level Acceptance (Optional)
-
-When `config.gates.acceptance` is set to `required`, closing a spec (`verifying` → `complete`) demands a passing proof for **every** acceptance criterion. Record each proof with the criterion form of `verify`:
-```sh
-# Mark requirement 1, criterion 2 as passing, with mandatory evidence
-specd verify my-feature --criterion 1.2 --status pass --evidence "E2E login test green; see CI run #481"
-```
-* Exit `0` for `pass`, `1` for `fail`. The requirement number must exist in `requirements.md`.
-* With the gate `required`, `specd approve` refuses to close the spec while any requirement lacks a passing criterion or any criterion is recorded `fail`.
-* Default is `off` — semantic sign-off is then purely the human running `specd approve` on the `verifying` spec.
-
----
-
-## 10. Cross-Spec Programs
-
-For multi-spec efforts, declare dependencies **between** specs and ask which whole specs are runnable now:
-```sh
-# Declare that the 'api' spec depends on the 'auth' spec being complete
-specd program link api --on auth
-
-# Render the program-level DAG: waves, runnable frontier, critical path, cycles
-specd program
-```
-Edges are stored in `.specd/program.json`. Self-edges and edges that would create a cycle are rejected. Remove an edge with `program unlink api --on auth`.
-
----
-
-## 11. Environment Variables & Troubleshooting
-
-| Variable | Default | Effect |
+| Task type | Evidence required | Command |
 |---|---|---|
-| `SPECD_LOCK_TIMEOUT_MS` | `5000` | Max wait to acquire a spec's advisory lock before failing with a contention error. |
-| `SPECD_LOCK_STALE_MS` | `30000` | Age past which an orphaned `.lock` file is reclaimed automatically. |
-| `SPECD_VERIFY_TIMEOUT_MS` | `600000` | Per-run timeout for `specd verify`; a timed-out run records `verified: false` (exit `124`). |
+| **Builder / Verifier** | Passing `specd verify` record | `specd task <slug> <id> --status complete` |
+| **Investigator / Reviewer** | Manual evidence (read-only roles) | `specd task <slug> <id> --status complete --unverified --evidence "..."` |
 
-### Common Errors
-| Symptom | Cause & Fix |
+### Verification timeout
+
+- Default: `600000ms` (10 minutes)
+- Override: `SPECD_VERIFY_TIMEOUT_MS`
+- On timeout, the **task's recorded** exit code is `124` and the record is marked
+  `verified: false`. The `specd verify` process itself still exits `1` (failed
+  verification).
+
+### Blocking a task
+
+```bash
+specd task my-feature T1 --status blocked \
+  --reason "Underlying database client lacks connection pooling"
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause & fix |
 |---|---|
-| `--status complete requires a passing specd verify` | No verify record. Run `specd verify <slug> <id>` first, or use `--unverified --evidence` for read-only/manual tasks. |
-| `verification is stale` | The `verify:` line changed since the record was made. Re-run `specd verify <slug> <id>`. |
-| `spec is gated (awaiting-approval)` | A `high`/`critical` `midreq` froze the spec. Present the revised plan, then `specd approve`. |
-| `exit 3` on any command | `.specd/` root or the spec slug was not found — run `init`/`new`, or run from inside the target repo. |
-| `dependency cycle` / `depends on missing task` | A `tasks.md` DAG error. Fix `depends:` keys; `specd check` and `specd waves` pinpoint the offending IDs. |
-| CAS / revision write abort (`exit 1`) | Concurrent write clobber prevented. Re-read state and retry the mutation. |
+| `--status complete requires a passing specd verify` | No verify record. Run `specd verify <slug> <task>` first, or use `--unverified --evidence` for read-only tasks. |
+| `verification is stale` | The `verify:` line changed since recording. Re-run `specd verify`. |
+| `spec is gated (awaiting-approval)` | A `high`/`critical` `midreq` froze the spec. Review changes, then `specd approve`. |
+| `exit 3` on any command | `.specd/` root or spec slug not found. Run `specd init` / `specd new`, or run from the target repo. |
+| `dependency cycle` / `depends on missing task` | DAG error in `tasks.md`. Fix `depends:` keys; use `specd check` and `specd waves` to pinpoint. |
+| CAS / revision write abort (`exit 1`) | Concurrent write clobber prevented. Re-read state and retry. |
+
+### Agent tips
+
+- Set `SPECD_JSON=1` (or pass `--json`) for structured output parsing.
+- Use `specd help --json` to discover the command schema programmatically.
+- All state mutations are atomic and versioned — safe for concurrent agent access.
+- Never hand-edit `state.json` — always use CLI commands.
+
+See [Agent Integration](./agent-integration.md) for wiring an agent end-to-end.
