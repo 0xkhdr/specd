@@ -206,7 +206,7 @@ func RunTask(args cli.Args) int {
 		if newStatus == core.TaskBlocked {
 			fmt.Printf("  blocked: %s\n", reason)
 		}
-		return 0, nil
+		return core.ExitOK, nil
 	})
 	if err != nil {
 		return specdExit(err)

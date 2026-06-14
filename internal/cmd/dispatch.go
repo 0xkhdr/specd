@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -46,12 +45,13 @@ func RunDispatch(args cli.Args) int {
 
 	if state.Gate == core.GateAwaitingApproval && !args.Bool("force") {
 		if jsonOut {
-			b, _ := json.MarshalIndent(map[string]interface{}{"kind": "gated", "gate": state.Gate}, "", "  ")
-			fmt.Println(string(b))
+			if err := core.PrintJSON(map[string]interface{}{"kind": "gated", "gate": state.Gate}); err != nil {
+				return specdExit(err)
+			}
 		} else {
-			printlnErr(fmt.Sprintf("⛔ gate awaiting-approval — present the revised plan, then `specd approve %s` (override: --force).", slug))
+			errLine("⛔ gate awaiting-approval — present the revised plan, then `specd approve %s` (override: --force).", slug)
 		}
-		return 1
+		return core.ExitGate
 	}
 
 	frontier := core.RunnableFrontier(core.DagTasksFromState(state))
@@ -59,9 +59,11 @@ func RunDispatch(args cli.Args) int {
 	if len(frontier) == 0 {
 		r := core.NextRunnable(core.DagTasksFromState(state))
 		if jsonOut {
-			b, _ := json.MarshalIndent(map[string]interface{}{"kind": "frontier", "count": 0, "reason": r.Kind, "packets": []interface{}{}}, "", "  ")
-			fmt.Println(string(b))
-			return 0
+			out := map[string]interface{}{"kind": "frontier", "count": 0, "reason": r.Kind, "packets": []interface{}{}}
+			if err := core.PrintJSON(out); err != nil {
+				return specdExit(err)
+			}
+			return core.ExitOK
 		}
 		switch r.Kind {
 		case core.NextAllComplete:
@@ -71,7 +73,7 @@ func RunDispatch(args cli.Args) int {
 		case core.NextWaiting:
 			fmt.Printf("… waiting — frontier gated by incomplete deps: %v\n", r.Blocking)
 		}
-		return 0
+		return core.ExitOK
 	}
 
 	roleCache := make(map[string]string)
@@ -120,9 +122,10 @@ func RunDispatch(args cli.Args) int {
 	}
 
 	if jsonOut {
-		b, _ := json.MarshalIndent(map[string]interface{}{"kind": "frontier", "count": len(packets), "packets": packets}, "", "  ")
-		fmt.Println(string(b))
-		return 0
+		if err := core.PrintJSON(map[string]interface{}{"kind": "frontier", "count": len(packets), "packets": packets}); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
 	}
 
 	fmt.Printf("=== DISPATCH FRONTIER (%d) — fan out to parallel subagents ===\n", len(packets))
@@ -137,5 +140,5 @@ func RunDispatch(args cli.Args) int {
 	}
 	fmt.Println("==============================")
 	fmt.Printf("Full packets (role prompt + contract + files + acceptance): specd dispatch %s --json\n", slug)
-	return 0
+	return core.ExitOK
 }

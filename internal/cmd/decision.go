@@ -59,7 +59,7 @@ func RunDecision(args cli.Args) int {
 			return specdExit(err), err
 		}
 		fmt.Printf("decision: appended %s to decisions.md\n", id)
-		return 0, nil
+		return core.ExitOK, nil
 	})
 	if err != nil {
 		return specdExit(err)

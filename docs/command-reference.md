@@ -13,6 +13,8 @@ the `config.json` schema. This mirrors the embedded registry; run
 - [Program commands](#program-commands)
 - [Meta commands](#meta-commands)
 - [Environment variables](#environment-variables)
+- [Argument grammar](#argument-grammar)
+- [Output streams](#output-streams)
 - [Exit code semantics](#exit-code-semantics)
 - [Config file](#config-file-specdconfigjson)
 
@@ -99,14 +101,59 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 > The `--json` flag is equivalent to `SPECD_JSON=1` and is the recommended way to
 > request machine-readable output.
 
+## Argument grammar
+
+`specd` uses a small custom parser (`internal/cli/args.go`) — no Cobra/urfave
+(see [contributor guide](./contributor-guide.md) for the rationale). The grammar:
+
+- **Positionals** — any token not starting with `--` (e.g. the `<slug>` and
+  `<id>`). Order-significant.
+- **Value flags** — `--key value` *or* `--key=value`. The `=` form splits on the
+  first `=`, so `--evidence=a=b` yields `evidence` → `a=b`. Use the `=` form
+  whenever the value could be mistaken for a flag.
+- **Boolean flags** — registered in `booleanFlags` (`--force`, `--json`, `--all`,
+  `--unverified`, `--dry-run`, `--boot`, `--enrich`). They take no value;
+  `--json status` keeps `status` as a positional. A test
+  (`TestBooleanFlagsRegistered`) asserts every `args.Bool(...)` flag used in
+  `internal/cmd` is registered, so a forgotten registration can never silently
+  consume the next token.
+
+A bare value flag with no following value (or followed by another `--flag`)
+resolves to `"true"`. A value that legitimately begins with `--` must use the
+`--key=--value` form.
+
+## Output streams
+
+One rule, so a consumer never has to guess where to read:
+
+- **Machine/result output → stdout.** Human-readable result lines and every
+  `--json` / `SPECD_JSON` response (emitted via `core.PrintJSON`) go to stdout.
+- **Diagnostics → stderr.** Gate-failure dumps (`fail  <loc>: <msg>`), the
+  trailing `✗ N violation(s)` summaries, and unknown-command errors go to stderr
+  via `core.Error` / the `errLine` helper. Inline status glyphs inside a result
+  table (e.g. `✗` marking a blocked spec in `specd program`) stay on stdout —
+  they are part of the result, not a diagnostic.
+
+Every JSON list field is a **non-nil** slice: arrays the agent parses always
+serialize as `[]`, never `null`. Genuinely-optional scalar/object fields may use
+`omitempty`.
+
 ## Exit code semantics
 
-| Code | Meaning |
-|---|---|
-| `0` | Success / validation passed |
-| `1` | Validation gate failure / check failed |
-| `2` | Usage error / CLI argument error |
-| `3` | Root `.specd/` or spec slug not found |
+All commands return one of the `core.Exit*` constants (`internal/core/exit.go`)
+— never a bare literal. A single convention applies across every command, so
+scripted callers can branch on the code reliably:
+
+| Code | Constant | Meaning |
+|---|---|---|
+| `0` | `ExitOK` | Success / validation passed |
+| `1` | `ExitGate` | Enforcement failure — a validation gate, `check`, or `verify` failed |
+| `2` | `ExitUsage` | Usage error / CLI argument error |
+| `3` | `ExitNotFound` | Root `.specd/` or spec slug not found |
+
+`ExitGate` (`1`) deliberately covers **both** "check found violations" and
+"verify failed": both are enforcement failures, and collapsing them keeps the
+contract simple. Distinguish the two by the command you invoked, not the code.
 
 ## Config file (`.specd/config.json`)
 

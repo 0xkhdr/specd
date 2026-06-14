@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -43,13 +42,14 @@ func RunStatus(args cli.Args) int {
 				rows = append(rows, row{Spec: s, Status: st.Status, Phase: st.Phase, Gate: st.Gate,
 					Pending: c.Pending, Running: c.Running, Complete: c.Complete, Blocked: c.Blocked, Total: c.Total})
 			}
-			b, _ := json.MarshalIndent(rows, "", "  ")
-			fmt.Println(string(b))
-			return 0
+			if err := core.PrintJSON(rows); err != nil {
+				return specdExit(err)
+			}
+			return core.ExitOK
 		}
 		if len(specs) == 0 {
 			fmt.Println("no specs yet. Run `specd new <slug>`.")
-			return 0
+			return core.ExitOK
 		}
 		for _, s := range specs {
 			st, err := core.LoadState(root, s)
@@ -63,7 +63,7 @@ func RunStatus(args cli.Args) int {
 			}
 			fmt.Printf("%s  [%s]  %d/%d done · next: %s%s\n", s, st.Status, c.Complete, c.Total, core.NextSummary(st), gate)
 		}
-		return 0
+		return core.ExitOK
 	}
 
 	loaded, err := core.LoadSpec(root, slug)
@@ -80,9 +80,10 @@ func RunStatus(args cli.Args) int {
 			Next   core.NextResult `json:"next"`
 		}
 		out := fullState{State: state, Counts: c, Next: core.NextRunnable(core.DagTasksFromState(state))}
-		b, _ := json.MarshalIndent(out, "", "  ")
-		fmt.Println(string(b))
-		return 0
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
 	}
 
 	fmt.Printf("# %s (%s)\n", state.Title, state.Spec)
@@ -102,5 +103,5 @@ func RunStatus(args cli.Args) int {
 	if state.Gate != core.GateNone {
 		fmt.Printf("\n⛔ GATE: %s — stop and get approval.\n", state.Gate)
 	}
-	return 0
+	return core.ExitOK
 }

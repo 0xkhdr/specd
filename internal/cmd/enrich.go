@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -49,8 +48,9 @@ func runEnrichPlan(root string, jsonOut bool) int {
 	brief := core.BuildEnrichBrief(root)
 
 	if jsonOut {
-		b, _ := json.MarshalIndent(brief, "", "  ")
-		fmt.Println(string(b))
+		if err := core.PrintJSON(brief); err != nil {
+			return specdExit(err)
+		}
 		return core.ExitOK
 	}
 
@@ -124,10 +124,16 @@ func runEnrichStatus(root string, jsonOut bool) int {
 		return specdExit(err)
 	}
 	if jsonOut {
-		b, _ := json.MarshalIndent(map[string]interface{}{
-			"gate": "enrich-freshness", "ok": !res.Stale, "issues": res.Issues,
-		}, "", "  ")
-		fmt.Println(string(b))
+		issues := res.Issues
+		if issues == nil {
+			issues = []string{}
+		}
+		out := map[string]interface{}{
+			"gate": "enrich-freshness", "ok": !res.Stale, "issues": issues,
+		}
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
 		if res.Stale {
 			return core.ExitGate
 		}
@@ -138,8 +144,8 @@ func runEnrichStatus(root string, jsonOut bool) int {
 		return core.ExitOK
 	}
 	for _, iss := range res.Issues {
-		fmt.Fprintf(os.Stderr, "fail  enrich.json: %s (enrich-freshness)\n", iss)
+		errLine("fail  enrich.json: %s (enrich-freshness)", iss)
 	}
-	fmt.Fprintf(os.Stderr, "\n✗ enrichment is stale or incomplete — run `specd enrich plan`.\n")
+	errLine("\n✗ enrichment is stale or incomplete — run `specd enrich plan`.")
 	return core.ExitGate
 }

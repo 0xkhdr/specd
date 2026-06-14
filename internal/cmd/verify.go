@@ -137,9 +137,9 @@ func RunVerify(args cli.Args) int {
 		if rec.Verified {
 			fmt.Printf("  complete with: specd task %s %s --status complete\n", slug, id)
 		}
-		rc := 1
+		rc := core.ExitGate
 		if rec.Verified {
-			rc = 0
+			rc = core.ExitOK
 		}
 		return rc, nil
 	})
@@ -199,9 +199,9 @@ func recordCriterion(root, slug string, args cli.Args) int {
 			icon = "✓ pass"
 		}
 		fmt.Printf("%s — criterion %s (requirement %d) recorded.\n", icon, key, req)
-		rc := 0
+		rc := core.ExitOK
 		if status == "fail" {
-			rc = 1
+			rc = core.ExitGate
 		}
 		return rc, nil
 	})

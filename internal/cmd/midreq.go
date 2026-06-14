@@ -65,7 +65,7 @@ func RunMidreq(args cli.Args) int {
 		if gated {
 			fmt.Println("⛔ gate set to awaiting-approval — stop, present the revised plan, wait for approval.")
 		}
-		return 0, nil
+		return core.ExitOK, nil
 	})
 	if err != nil {
 		return specdExit(err)

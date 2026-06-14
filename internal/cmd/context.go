@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -103,9 +102,11 @@ func RunContext(args cli.Args) int {
 	if gated {
 		midreq = core.LatestMidreq(root, slug)
 	}
-	var uncovered []int
+	uncovered := []int{}
 	if state.Status == core.StatusVerifying {
-		uncovered = core.UncoveredRequirements(state, reqMd)
+		if u := core.UncoveredRequirements(state, reqMd); u != nil {
+			uncovered = u
+		}
 	}
 
 	if jsonOut {
@@ -126,9 +127,10 @@ func RunContext(args cli.Args) int {
 				"uncoveredRequirements": uncovered,
 			},
 		}
-		byt, _ := json.MarshalIndent(out, "", "  ")
-		fmt.Println(string(byt))
-		return 0
+		if err := core.PrintJSON(out); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
 	}
 
 	fmt.Printf("=== CONTEXT: %s ===\n", slug)
@@ -165,9 +167,9 @@ func RunContext(args cli.Args) int {
 			fmt.Printf("   ↳ midreq Turn %d (%s): \"%s\"\n", midreq.Turn, midreq.Impact, midreq.Input)
 		}
 		fmt.Printf("NEXT: specd approve %s\n", slug)
-		return 0
+		return core.ExitOK
 	}
 	fmt.Printf("FOCUS: %s\n", b.focus)
 	fmt.Printf("NEXT:  %s\n", b.next)
-	return 0
+	return core.ExitOK
 }

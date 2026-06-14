@@ -51,52 +51,14 @@ func (h *Harness) RunExpect(want int, command string, args ...string) Result {
 	return res
 }
 
-// dispatch mirrors main.dispatch, mapping a command name to its cmd.RunX entry
-// point. Kept in lockstep with main.go: every CLI subcommand must appear here.
+// dispatch routes through the same cmd.Registry as main.go, so test runs
+// exercise the production dispatch table (no parallel switch to drift).
 func dispatch(command string, args cli.Args) int {
-	switch command {
-	case "init":
-		return cmd.RunInit(args)
-	case "boot":
-		return cmd.RunBoot(args)
-	case "enrich":
-		return cmd.RunEnrich(args)
-	case "new":
-		return cmd.RunNew(args)
-	case "status":
-		return cmd.RunStatus(args)
-	case "context":
-		return cmd.RunContext(args)
-	case "check":
-		return cmd.RunCheck(args)
-	case "next":
-		return cmd.RunNext(args)
-	case "dispatch":
-		return cmd.RunDispatch(args)
-	case "program":
-		return cmd.RunProgram(args)
-	case "verify":
-		return cmd.RunVerify(args)
-	case "task":
-		return cmd.RunTask(args)
-	case "approve":
-		return cmd.RunApprove(args)
-	case "decision":
-		return cmd.RunDecision(args)
-	case "midreq":
-		return cmd.RunMidreq(args)
-	case "memory":
-		return cmd.RunMemory(args)
-	case "report":
-		return cmd.RunReport(args)
-	case "waves":
-		return cmd.RunWaves(args)
-	case "update":
-		return cmd.RunUpdate(args)
-	default:
-		core.Error("unknown command: " + command)
-		return core.ExitUsage
+	if code, ok := cmd.Dispatch(command, args); ok {
+		return code
 	}
+	core.Error("unknown command: " + command)
+	return core.ExitUsage
 }
 
 // capture redirects os.Stdout and os.Stderr through pipes for the duration of
