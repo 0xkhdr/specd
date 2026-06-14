@@ -26,6 +26,42 @@ func TestMatchEars(t *testing.T) {
 	}
 }
 
+func TestMatchEars_FormsAndGuards(t *testing.T) {
+	cases := []struct {
+		name   string
+		line   string
+		want   EarsPattern
+		wantOK bool
+	}{
+		// One row per documented form.
+		{"ubiquitous", "THE SYSTEM SHALL persist state", EarsUbiquitous, true},
+		{"event", "WHEN the file changes THE SYSTEM SHALL re-run", EarsEventDriven, true},
+		{"state", "WHILE syncing THE SYSTEM SHALL show progress", EarsStateDriven, true},
+		{"unwanted", "IF the lock is held THEN THE SYSTEM SHALL wait", EarsUnwanted, true},
+		{"optional", "WHERE caching is enabled THE SYSTEM SHALL reuse results", EarsOptionalFeature, true},
+		// Case-insensitivity.
+		{"lowercase_event", "when the user logs in the system shall greet", EarsEventDriven, true},
+		{"mixed_case_ubiquitous", "The System Shall validate input", EarsUbiquitous, true},
+		// Combined clause: leading keyword + SHALL anchor; "while" is trigger text.
+		{"combined_when_while", "WHEN started, WHILE idle THE SYSTEM SHALL poll", EarsEventDriven, true},
+		// False-positive guards: prose that must NOT match any form.
+		{"prose_when", "When in doubt, ask the user.", "", false},
+		{"prose_system", "The system administrator shall configure the host.", "", false},
+		{"empty", "", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, ok := MatchEars(c.line)
+			if ok != c.wantOK {
+				t.Fatalf("MatchEars(%q) ok=%v, want %v", c.line, ok, c.wantOK)
+			}
+			if ok && got != c.want {
+				t.Fatalf("MatchEars(%q) = %q, want %q", c.line, got, c.want)
+			}
+		})
+	}
+}
+
 func TestLintEars_valid(t *testing.T) {
 	doc := `## Requirement 1 — Login
 

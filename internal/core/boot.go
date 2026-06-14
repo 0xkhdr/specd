@@ -34,7 +34,12 @@ type Detector interface {
 }
 
 // bootDetectors is the ordered registry. Priority (not slice order) decides
-// which stack supplies the primary verify command.
+// which stack supplies the primary verify command; on equal priority the stack
+// name (ascending) breaks the tie, so the winner is fully deterministic for a
+// polyglot repo. Current priorities: python 40, java 35, go/rust 30,
+// ruby/php/elixir 25, nodejs 20. Example: a Go+Rust repo both score 30, so "go"
+// (alphabetically first) supplies the primary verify and "rust" becomes an
+// alternative. Slice order here is irrelevant to the outcome — AnalyzeBoot sorts.
 var bootDetectors = []Detector{
 	pythonDetector{},
 	javaDetector{},

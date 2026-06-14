@@ -25,6 +25,14 @@ type NextResult struct {
 	Blocking []string       `json:"blocking,omitempty"`
 }
 
+// ordinal extracts the numeric suffix used to break ties when ordering tasks.
+//
+// Task ids are `T\d+` (enforced by taskRE in tasksparser.go), so a valid id has
+// exactly one leading digit run after the `T`. ordinal reads that first digit
+// run, giving a numeric (not lexicographic) order — `T10` > `T9`. This keeps the
+// tie-break in NextRunnable/RunnableFrontier total over valid ids. Ids without a
+// digit sort last (max int); behaviour on malformed ids (e.g. `T1a2` → 1) is
+// undefined-but-deterministic and never reached for parser-validated input.
 func ordinal(id string) int {
 	for i, c := range id {
 		if c >= '0' && c <= '9' {
@@ -262,7 +270,17 @@ func GroupWaves(tasks []DagTask) []WaveRow {
 	return rows
 }
 
+// CriticalPath returns the longest dependency chain (by task count) in the DAG.
+//
+// Precondition: tasks must be acyclic. A cycle makes "longest path" ill-defined,
+// and the memo would otherwise be populated with partial paths computed under a
+// specific cycle-guard context and reused incorrectly across roots. To stay safe
+// when called directly (it is exported), CriticalPath returns nil if DetectCycle
+// reports a cycle.
 func CriticalPath(tasks []DagTask) []string {
+	if DetectCycle(tasks) != nil {
+		return nil
+	}
 	m := byID(tasks)
 	memo := make(map[string][]string)
 

@@ -75,18 +75,83 @@ func splitAnnotation(rawTitle string) (title string, ann *Annotation) {
 		subs := annotCompleteRE.FindStringSubmatch(rawTitle)
 		return strings.TrimRight(rawTitle[:m[0]], " "), &Annotation{
 			Kind:     AnnotComplete,
-			Evidence: subs[1],
-			Ts:       strings.TrimSpace(subs[2]),
+			Evidence: decodeAnnotationField(subs[1]),
+			Ts:       decodeAnnotationField(strings.TrimSpace(subs[2])),
 		}
 	}
 	if m := annotBlockedRE.FindStringSubmatchIndex(rawTitle); m != nil {
 		subs := annotBlockedRE.FindStringSubmatch(rawTitle)
 		return strings.TrimRight(rawTitle[:m[0]], " "), &Annotation{
 			Kind:   AnnotBlocked,
-			Reason: subs[1],
+			Reason: decodeAnnotationField(subs[1]),
 		}
 	}
 	return rawTitle, nil
+}
+
+// Annotation fields (evidence, reason, ts) are agent-authored free text written
+// onto a single tasks.md line whose fields are delimited by " · ". A newline
+// would split the line and a literal "·" could collide with the delimiter, so
+// fields are encoded on write and decoded on read. The transform is lossless:
+// decodeAnnotationField(encodeAnnotationField(s)) == s for any s.
+//
+//	\  -> \\        (escape introducer)
+//	\n -> \n  \r -> \r   (newline normalization keeps fields single-line)
+//	·  -> \m        (protects the field delimiter)
+//
+// Readers tolerate legacy unescaped fields: a string with no "\" escape
+// sequences decodes to itself.
+func encodeAnnotationField(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch r {
+		case '\\':
+			b.WriteString(`\\`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '·':
+			b.WriteString(`\m`)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func decodeAnnotationField(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	rs := []rune(s)
+	for i := 0; i < len(rs); i++ {
+		if rs[i] == '\\' && i+1 < len(rs) {
+			switch rs[i+1] {
+			case '\\':
+				b.WriteRune('\\')
+				i++
+				continue
+			case 'n':
+				b.WriteRune('\n')
+				i++
+				continue
+			case 'r':
+				b.WriteRune('\r')
+				i++
+				continue
+			case 'm':
+				b.WriteRune('·')
+				i++
+				continue
+			}
+		}
+		b.WriteRune(rs[i])
+	}
+	return b.String()
 }
 
 func ParseDepends(value string) []string {
@@ -123,6 +188,7 @@ func ParseTasks(text string) (ParsedTasks, error) {
 	currentWave := 0
 	var tasks []ParsedTask
 	var current *ParsedTask
+	seen := map[string]int{} // task id -> line where first defined
 
 	flush := func() error {
 		if current == nil {
@@ -160,6 +226,10 @@ func ParseTasks(text string) (ParsedTasks, error) {
 			if currentWave == 0 {
 				return ParsedTasks{}, GateError(fmt.Sprintf("tasks.md:%d: task %s appears before any '## Wave N' header", lineNo, m[2]))
 			}
+			if first, dup := seen[m[2]]; dup {
+				return ParsedTasks{}, GateError(fmt.Sprintf("tasks.md:%d: duplicate task id %s (first defined at line %d)", lineNo, m[2], first))
+			}
+			seen[m[2]] = lineNo
 			bare, ann := splitAnnotation(m[3])
 			current = &ParsedTask{
 				ID:         m[2],
@@ -209,9 +279,9 @@ func serializeTask(t ParsedTask) string {
 	if t.Annotation != nil {
 		switch t.Annotation.Kind {
 		case AnnotComplete:
-			titleLine += fmt.Sprintf(" ✓ complete · evidence: %s · %s", t.Annotation.Evidence, t.Annotation.Ts)
+			titleLine += fmt.Sprintf(" ✓ complete · evidence: %s · %s", encodeAnnotationField(t.Annotation.Evidence), encodeAnnotationField(t.Annotation.Ts))
 		case AnnotBlocked:
-			titleLine += fmt.Sprintf(" ⚠ blocked · reason: %s", t.Annotation.Reason)
+			titleLine += fmt.Sprintf(" ⚠ blocked · reason: %s", encodeAnnotationField(t.Annotation.Reason))
 		}
 	}
 	var metaLines []string
@@ -267,9 +337,9 @@ func RenderTaskLine(id, bareTitle string, checked bool, ann *Annotation) string 
 	if ann != nil {
 		switch ann.Kind {
 		case AnnotComplete:
-			line += fmt.Sprintf(" ✓ complete · evidence: %s · %s", ann.Evidence, ann.Ts)
+			line += fmt.Sprintf(" ✓ complete · evidence: %s · %s", encodeAnnotationField(ann.Evidence), encodeAnnotationField(ann.Ts))
 		case AnnotBlocked:
-			line += fmt.Sprintf(" ⚠ blocked · reason: %s", ann.Reason)
+			line += fmt.Sprintf(" ⚠ blocked · reason: %s", encodeAnnotationField(ann.Reason))
 		}
 	}
 	return line

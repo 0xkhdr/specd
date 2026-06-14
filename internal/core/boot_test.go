@@ -126,6 +126,51 @@ func TestAnalyzeBoot_PolyglotPriority(t *testing.T) {
 	}
 }
 
+func TestAnalyzeBoot_GoNodeMonorepo(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{
+		"go.mod":                    "module x\ngo 1.22\n",
+		"services/web/package.json": `{"name":"web","scripts":{"test":"jest"}}`,
+	})
+	a := AnalyzeBoot(root)
+	// Nested manifest => monorepo layout.
+	if a.Layout != "monorepo" {
+		t.Fatalf("layout = %q, want monorepo", a.Layout)
+	}
+	// Only the root go.mod is a stack source; the nested package.json drives
+	// layout but node detection only scans the root, so stacks = [go].
+	if !reflect.DeepEqual(a.Stacks, []string{"go"}) {
+		t.Fatalf("stacks = %v, want [go]", a.Stacks)
+	}
+	// Determinism: identical output across runs.
+	if b := AnalyzeBoot(root); !reflect.DeepEqual(a, b) {
+		t.Fatalf("non-deterministic monorepo output:\n%+v\n%+v", a, b)
+	}
+}
+
+func TestAnalyzeBoot_UnknownRepo(t *testing.T) {
+	root := t.TempDir()
+	// Files present, but none is a recognized manifest.
+	writeFiles(t, root, map[string]string{
+		"README.md": "# hi\n",
+		"main.c":    "int main(){return 0;}\n",
+		"notes.txt": "todo\n",
+	})
+	a := AnalyzeBoot(root)
+	if len(a.Stacks) != 0 {
+		t.Fatalf("stacks = %v, want none for unknown repo", a.Stacks)
+	}
+	if a.Verify != "" {
+		t.Fatalf("verify = %q, want empty for unknown repo", a.Verify)
+	}
+	if a.ProjectName != baseName(root) {
+		t.Fatalf("projectName = %q, want dir base", a.ProjectName)
+	}
+	if b := AnalyzeBoot(root); !reflect.DeepEqual(a, b) {
+		t.Fatalf("non-deterministic unknown output:\n%+v\n%+v", a, b)
+	}
+}
+
 func TestAnalyzeBoot_Deterministic(t *testing.T) {
 	root := t.TempDir()
 	writeFiles(t, root, map[string]string{
