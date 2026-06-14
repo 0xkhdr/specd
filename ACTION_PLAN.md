@@ -75,15 +75,15 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 ## Stage 2: Build Integrity & Test Suite Validation
 **Objective:** Codebase builds cleanly; tests pass deterministically.
 
-- [ ] Clean: `make clean` then `make build`
-- [ ] Full race suite: `make test` (`go test ./... -race -count=1`) — all pass
-- [ ] Order guard: `make test-order` (`go test ./... -count=2`) — all pass
-- [ ] Static: `gofmt -l .` (empty), `go vet ./...` (clean), `shellcheck scripts/*.sh`
-- [ ] Coverage floor: `make cover-check` — floor met
-- [ ] Concurrency stress: `make stress`
-- [ ] Zero deps: `go.mod` has no `require` block
-- [ ] Templates embedded: `internal/core/embed.go` `go:embed embed_templates/...` resolves; build output runs `specd init` without disk templates
-- [ ] **STOP → Commit & Push** — `regression: stage 2 — build integrity & tests`
+- [x] Clean: `make clean` then `make build`
+- [x] Full race suite: `make test` (`go test ./... -race -count=1`) — all pass
+- [x] Order guard: `make test-order` (`go test ./... -count=2`) — all pass
+- [x] Static: `gofmt -l .` (empty), `go vet ./...` (clean), `shellcheck scripts/*.sh` (fixed SC2034/SC2059 — see F-S2-1)
+- [x] Coverage floor: `make cover-check` — floor met (overall 64.0%≥60%, core 59.9%≥58%)
+- [x] Concurrency stress: `make stress` — 320 writes, state.json intact
+- [x] Zero deps: `go.mod` has no `require` block
+- [x] Templates embedded: `internal/core/embed.go` `go:embed embed_templates/...` resolves; build output runs `specd init` without disk templates
+- [x] **STOP → Commit & Push** — `regression: stage 2 — build integrity & tests`
 
 ---
 

@@ -49,3 +49,30 @@ their claimed work present in the codebase. Acceptance criteria satisfied; every
 | F-S1-1 | info | 01/07 | `shellcheck` not installed in local env — `install.sh`/`stress.sh` lint not verifiable locally; covered by CI `shellcheck` job. |
 
 No **blocker** findings in Stage 1.
+
+---
+
+## Stage 2 — Build Integrity & Test Suite Validation
+
+**Verdict: PASS** (after fixing one gate-breaking lint finding).
+
+### Gate results
+- `make clean` + `make build` → binary 7.3 MB, version `-ldflags`-injected (`specd v0.1.0-24-...`)
+- `make test` (`-race -count=1`) → all 5 packages PASS
+- `make test-order` (`-count=2`) → PASS (no order dependence)
+- `gofmt -l .` empty; `go vet ./...` clean; `shellcheck scripts/*.sh` clean (after fix)
+- `make cover-check` → overall 64.0% ≥ 60% floor; `internal/core` 59.9% ≥ 58% floor
+- `make stress` → 16×20 cross-process, 320 committed writes, turn==successes, `state.json` intact
+- `go.mod` → zero `require` entries
+- Embed: lone built binary copied to empty temp dir → `specd init` creates `.specd/` (config.json, roles, steering) — no disk templates needed
+- **`make ci` (full gate) → GREEN**
+
+### Findings fixed (gate-breaking)
+| ID | Severity | Finding | Fix |
+|----|----------|---------|-----|
+| F-S2-1 | warning | `shellcheck scripts/*.sh` exited 1 → `make lint`/`make ci` failed. SC2034 unused `BOLD`/`BLUE` in `uninstall.sh`; SC2059 variables-in-printf-format in `install.sh` (×2) and `uninstall.sh` (×4). Pre-existing, not introduced by Stage 1. | Removed unused color vars; converted color printfs to `printf '...%s...' "$VAR"` form. Behavior identical (same output), shellcheck now clean. |
+
+### Notes
+- `shellcheck` not in local env; installed static binary `v0.10.0` to `/tmp/shellcheck` for local gate parity. CI uses `ludeeus/action-shellcheck`. (Supersedes Stage 1 F-S1-1 for local verifiability.)
+
+No **blocker** findings in Stage 2.
