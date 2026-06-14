@@ -70,7 +70,7 @@ specd update --force
 
 `specd` is designed to be fully drivable by AI agents:
 
-- Set `SPECd_JSON=1` to receive structured JSON output for all commands.
+- Set `SPECD_JSON=1` to receive structured JSON output for all commands.
 - Use `specd help --json` to discover the full command schema programmatically.
 - All state mutations are atomic and versioned — safe for concurrent agent access.
 - Exit codes are deterministic: `0`=ok, `1`=validation, `2`=usage, `3`=not found.

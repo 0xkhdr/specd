@@ -81,7 +81,7 @@ func run(argv []string) int {
 		}
 	}
 	if jsonMode {
-		os.Setenv("SPECd_JSON", "1")
+		os.Setenv("SPECD_JSON", "1")
 	}
 
 	// Re-thread a stripped leading --json so the command's own flag parsing sees

@@ -60,7 +60,7 @@ func New(t *testing.T) *Harness {
 	// stray JSON-mode flag, and keep lock/verify timeouts short so a wedged test
 	// fails fast instead of hanging the suite.
 	t.Setenv("NO_COLOR", "1")
-	t.Setenv("SPECd_JSON", "")
+	t.Setenv("SPECD_JSON", "")
 	t.Setenv("SPECD_LOCK_TIMEOUT_MS", "2000")
 	t.Setenv("SPECD_LOCK_STALE_MS", "1000")
 	t.Setenv("SPECD_VERIFY_TIMEOUT_MS", "5000")

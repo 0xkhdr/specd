@@ -6,7 +6,7 @@ import (
 )
 
 func IsJSONMode() bool {
-	v := os.Getenv("SPECd_JSON")
+	v := os.Getenv("SPECD_JSON")
 	return v == "1" || v == "true"
 }
 
