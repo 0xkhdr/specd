@@ -47,6 +47,47 @@ func deriveStatus(state *core.State) {
 	state.Phase = core.PhaseForStatus(state.Status)
 }
 
+// validateComplete enforces the complete-status evidence gate and returns the
+// evidence string to record. It mutates nothing; on any gate failure it returns
+// a *core.SpecdError (GateError) with the same message the inline gate emitted.
+func validateComplete(state *core.State, ts core.TaskState, docTask *core.ParsedTask, slug, id string, args cli.Args) (string, *core.SpecdError) {
+	for _, d := range ts.Depends {
+		if dep, ok := state.Tasks[d]; !ok || dep.Status != core.TaskComplete {
+			return "", core.GateError(fmt.Sprintf("task %s: cannot complete — dependencies not complete: %s", id, d))
+		}
+	}
+	evidence := args.Str("evidence")
+	if args.Bool("unverified") {
+		if evidence == "" {
+			return "", core.GateError(fmt.Sprintf("task %s: --status complete --unverified requires non-empty --evidence", id))
+		}
+	} else {
+		verifyLine := ""
+		if v, ok := docTask.Meta["verify"]; ok {
+			verifyLine = v
+		}
+		rec := ts.Verification
+		if rec == nil || !rec.Verified {
+			return "", core.GateError(fmt.Sprintf("task %s: --status complete requires a passing `specd verify %s %s` (exit 0) first — or pass --unverified with --evidence for a manual proof", id, slug, id))
+		}
+		if rec.Command != verifyLine {
+			return "", core.GateError(fmt.Sprintf("task %s: verification is stale — recorded command (%s) ≠ current verify line (%s); re-run `specd verify %s %s`", id, rec.Command, verifyLine, slug, id))
+		}
+	}
+	derived := ""
+	if ts.Verification != nil && ts.Verification.Verified {
+		gitHead := "no-git"
+		if ts.Verification.GitHead != nil {
+			gitHead = *ts.Verification.GitHead
+		}
+		derived = fmt.Sprintf("verified: `%s` → exit 0 @ %s (%s)", ts.Verification.Command, gitHead, ts.Verification.RanAt)
+	}
+	if evidence == "" {
+		evidence = derived
+	}
+	return evidence, nil
+}
+
 var validTaskStatuses = map[core.TaskStatus]bool{
 	core.TaskComplete: true,
 	core.TaskBlocked:  true,
@@ -94,63 +135,23 @@ func RunTask(args cli.Args) int {
 			return specdExit(core.NotFoundError(fmt.Sprintf("task '%s' not found in spec '%s'", id, slug))), nil
 		}
 
-		evidence := args.Str("evidence")
 		reason := args.Str("reason")
 		stamp := core.NowISO()
 
 		switch newStatus {
 		case core.TaskComplete:
-			for _, d := range ts.Depends {
-				if dep, ok := state.Tasks[d]; !ok || dep.Status != core.TaskComplete {
-					return specdExit(core.GateError(fmt.Sprintf("task %s: cannot complete — dependencies not complete: %s", id, d))), nil
-				}
-			}
-			unverified := args.Bool("unverified")
-			if unverified {
-				if evidence == "" {
-					return specdExit(core.GateError(fmt.Sprintf("task %s: --status complete --unverified requires non-empty --evidence", id))), nil
-				}
-			} else {
-				verifyLine := ""
-				if v, ok := docTask.Meta["verify"]; ok {
-					verifyLine = v
-				}
-				rec := ts.Verification
-				if rec == nil || !rec.Verified {
-					return specdExit(core.GateError(fmt.Sprintf("task %s: --status complete requires a passing `specd verify %s %s` (exit 0) first — or pass --unverified with --evidence for a manual proof", id, slug, id))), nil
-				}
-				if rec.Command != verifyLine {
-					return specdExit(core.GateError(fmt.Sprintf("task %s: verification is stale — recorded command (%s) ≠ current verify line (%s); re-run `specd verify %s %s`", id, rec.Command, verifyLine, slug, id))), nil
-				}
+			ev, serr := validateComplete(state, ts, docTask, slug, id, args)
+			if serr != nil {
+				return specdExit(serr), nil
 			}
 			ts.Status = core.TaskComplete
-			derived := ""
-			if ts.Verification != nil && ts.Verification.Verified {
-				gitHead := ""
-				if ts.Verification.GitHead != nil {
-					gitHead = *ts.Verification.GitHead
-				} else {
-					gitHead = "no-git"
-				}
-				derived = fmt.Sprintf("verified: `%s` → exit 0 @ %s (%s)", ts.Verification.Command, gitHead, ts.Verification.RanAt)
-			}
-			ev := evidence
-			if ev == "" {
-				ev = derived
-			}
 			ts.Evidence = &ev
 			ts.FinishedAt = &stamp
 			if ts.StartedAt == nil {
 				ts.StartedAt = &stamp
 			}
 			ts.Blocker = nil
-			var blockers []core.Blocker
-			for _, b := range state.Blockers {
-				if b.Task != id {
-					blockers = append(blockers, b)
-				}
-			}
-			state.Blockers = blockers
+			core.RemoveBlocker(state, id)
 			docTask.Checked = true
 			docTask.Annotation = &core.Annotation{Kind: core.AnnotComplete, Evidence: ev, Ts: stamp}
 
@@ -160,13 +161,7 @@ func RunTask(args cli.Args) int {
 			}
 			ts.Status = core.TaskBlocked
 			ts.Blocker = &reason
-			var blockers []core.Blocker
-			for _, b := range state.Blockers {
-				if b.Task != id {
-					blockers = append(blockers, b)
-				}
-			}
-			state.Blockers = append(blockers, core.Blocker{Task: id, Reason: reason, Since: fmt.Sprintf("Turn %d", state.Turn)})
+			core.AddBlocker(state, id, reason, state.Turn)
 			docTask.Checked = false
 			docTask.Annotation = &core.Annotation{Kind: core.AnnotBlocked, Reason: reason}
 
@@ -176,26 +171,14 @@ func RunTask(args cli.Args) int {
 				ts.StartedAt = &stamp
 			}
 			ts.Blocker = nil
-			var blockers []core.Blocker
-			for _, b := range state.Blockers {
-				if b.Task != id {
-					blockers = append(blockers, b)
-				}
-			}
-			state.Blockers = blockers
+			core.RemoveBlocker(state, id)
 			docTask.Checked = false
 			docTask.Annotation = nil
 
 		case core.TaskPending:
 			ts.Status = core.TaskPending
 			ts.Blocker = nil
-			var blockers []core.Blocker
-			for _, b := range state.Blockers {
-				if b.Task != id {
-					blockers = append(blockers, b)
-				}
-			}
-			state.Blockers = blockers
+			core.RemoveBlocker(state, id)
 			docTask.Checked = false
 			docTask.Annotation = nil
 		}
