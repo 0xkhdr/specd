@@ -76,3 +76,25 @@ No **blocker** findings in Stage 1.
 - `shellcheck` not in local env; installed static binary `v0.10.0` to `/tmp/shellcheck` for local gate parity. CI uses `ludeeus/action-shellcheck`. (Supersedes Stage 1 F-S1-1 for local verifiability.)
 
 No **blocker** findings in Stage 2.
+
+---
+
+## Stage 5 — CLI Surface & Command Registry Consistency
+
+**Verdict: PASS** (after fixing one gate-breaking parity bug).
+
+### Gate results
+- `specd help --json` → complete registry dump (all 19 dispatchable commands, with flags/exit-codes/examples)
+- `TestRegistryMatchesHelp` + `TestRegistryHandlersNonNil` → PASS (`cmd.Registry` ⇔ `core.Commands` parity, no nil handlers)
+- Every command exercised by co-located tests in `internal/cmd/` (`commands_test.go` covers new/check/next/dispatch/task/status/approve/midreq/decision/context/waves/report/memory/init/program; dedicated `boot_test`/`enrich_test`/`task_test`/`update_test`/`verify_test`/`lifecycle_test`)
+- Boolean flags: all registered in `cli.booleanFlags`; `TestBooleanFlagsRegistered` derives usage from source so the list can't drift
+- Exit codes verified live: `0` ok, `2` usage (`new` no-args, unknown command), `3` not-found (`check ghost`), `1` gate (`check` bad EARS)
+- `SPECD_JSON=1` → valid JSON on success paths for status/check/next/context/waves/program/boot/enrich plan/help (validated through `json.load`); error paths emit human text to stderr + correct exit code (consistent across all commands)
+- `--json` flag == `SPECD_JSON=1` after fix (see F-S5-1)
+
+### Findings fixed (gate-breaking)
+| ID | Severity | Finding | Fix |
+|----|----------|---------|-----|
+| F-S5-1 | blocker | `SPECD_JSON=1` did **not** produce JSON for flag-reading commands, breaking the documented `--json == SPECD_JSON=1` parity. Commands resolve JSON via `args.Bool("json")`; `main.run` bridged the `--json` flag *into* the env (`os.Setenv`) but never the reverse, so env-only invocations (`SPECD_JSON=1 specd status` → human text, while `specd status --json` → JSON) diverged. | Seed `jsonMode := core.IsJSONMode()` at the top of `main.run` so `SPECD_JSON` is re-threaded into the per-command `--json` flag at the dispatch boundary — one fix covers all 13 flag-reading commands. Added regression test `TestRunDispatch/SPECD_JSON_env_matches_--json_flag` asserting byte-identical output + exit code. |
+
+No **open** findings in Stage 5.

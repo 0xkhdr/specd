@@ -122,15 +122,15 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 ## Stage 5: CLI Surface & Command Registry Consistency
 **Objective:** CLI surface consistent, documented, tested.
 
-- [ ] `specd help --json` produces complete command registry
-- [ ] `cmd.Registry` (dispatch) matches `core.Commands` (help meta) — `TestRegistryMatchesHelp` passes (`internal/cmd/registry_test.go`)
-- [ ] Every command has co-located `*_test.go`
-- [ ] All boolean flags registered in `booleanFlags` and tested
-- [ ] `SPECD_JSON=1` → valid JSON for every command
-- [ ] `--json` flag == `SPECD_JSON=1`
-- [ ] Exit codes follow `0/1/2/3`
-- [ ] Spot-check each: `init new check approve next verify task status report update version`
-- [ ] **STOP → Commit & Push** — `regression: stage 5 — CLI surface & registry consistency`
+- [x] `specd help --json` produces complete command registry (all 19 dispatchable commands w/ flags/exit-codes/examples)
+- [x] `cmd.Registry` (dispatch) matches `core.Commands` (help meta) — `TestRegistryMatchesHelp` passes (`internal/cmd/registry_test.go`)
+- [x] Every command has co-located `*_test.go` (in `internal/cmd/`; shared `commands_test.go` + dedicated boot/enrich/task/update/verify/lifecycle)
+- [x] All boolean flags registered in `booleanFlags` and tested (`TestBooleanFlagsRegistered` derives usage from source)
+- [x] `SPECD_JSON=1` → valid JSON for every command (success paths validated via `json.load`; error paths human-stderr + exit code)
+- [x] `--json` flag == `SPECD_JSON=1` — FIXED parity bug F-S5-1 (`main.run` now seeds `jsonMode` from `core.IsJSONMode()`); regression test added
+- [x] Exit codes follow `0/1/2/3` (verified live: ok/gate/usage/not-found)
+- [x] Spot-check each: `init new check approve next verify task status report update version`
+- [x] **STOP → Commit & Push** — `regression: stage 5 — CLI surface & registry consistency`
 
 ---
 
