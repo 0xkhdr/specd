@@ -90,17 +90,17 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 ## Stage 3: Code Review & Contract Adherence
 **Objective:** Review source against contracts in `AGENTS.md` + `docs/contributor-guide.md`.
 
-- [ ] `internal/core/paths.go`: `FindSpecdRoot` walks up; slug validation rejects traversal
-- [ ] `internal/core/state.go`: atomic writes, revision CAS, never hand-edited
-- [ ] `internal/core/io.go`: `AtomicWrite` = temp + fsync + rename; ledger appends `O_APPEND`
-- [ ] `internal/core/lock.go`: `WithSpecLock` reentrant; timeout / stale-reclaim works
-- [ ] `internal/cmd/task.go`: evidence gate (verify record before complete); dual-write atomicity
-- [ ] `internal/core/tasksparser.go`: round-trip byte stability; line-numbered errors
-- [ ] Exit codes `0=ok 1=gate 2=usage 3=not-found` in `internal/core/exit.go` + all commands
-- [ ] No bare `os.WriteFile` for managed state — all via `AtomicWrite` (grep audit)
-- [ ] No map-range-to-output without sort first (determinism grep audit)
-- [ ] `go:embed` for all shipped templates; no disk-relative reads at runtime
-- [ ] **STOP → Commit & Push** — `regression: stage 3 — code review & contract adherence`
+- [x] `internal/core/paths.go`: `FindSpecdRoot` walks up; slug validation rejects traversal (in `slug.go` `ValidateSlug`, regex `^[a-z0-9][a-z0-9-]*$`)
+- [x] `internal/core/state.go`: atomic writes, revision CAS, never hand-edited (`SaveState` CAS + `assertLocked` guard + `AtomicWrite`)
+- [x] `internal/core/io.go`: `AtomicWrite` = temp + fsync (`f.Sync()`) + rename; ledger appends `O_APPEND` (`AppendFile`)
+- [x] `internal/core/lock.go`: `WithSpecLock` reentrant (goID); timeout / stale-reclaim works
+- [x] `internal/cmd/task.go`: evidence gate (`validateComplete` requires passing verify record before complete); dual-write tasks.md + state
+- [x] `internal/core/tasksparser.go`: round-trip byte stability (`SerializeTasks`); line-numbered errors (`tasks.md:N:`)
+- [x] Exit codes `0=ok 1=gate 2=usage 3=not-found` in `internal/core/exit.go` + all commands (via `specdExit`/`usageExit`)
+- [x] No bare `os.WriteFile` for managed state — all via `AtomicWrite` (grep audit: only `*_test.go` hits)
+- [x] No map-range-to-output without sort first (JSON marshal sorts keys; `ListSpecs` sorts; `BuildProgram` sorts)
+- [x] `go:embed` for all shipped templates; no disk-relative reads at runtime (`embed.go` `//go:embed embed_templates`)
+- [x] **STOP → Commit & Push** — `regression: stage 3 — code review & contract adherence`
 
 ---
 
