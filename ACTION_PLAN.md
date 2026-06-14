@@ -138,18 +138,18 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 **Objective:** Full spec lifecycle in a temp dir validates the harness E2E.
 (This is where the TOOL's `requirements.md`/`design.md`/`tasks.md` format IS exercised.)
 
-- [ ] temp dir, `cd`, `specd init`
-- [ ] `specd boot` and `specd boot --dry-run`
-- [ ] `specd new test-feature --title "Regression Test Feature"`
-- [ ] author minimal valid `requirements.md` (EARS) → `specd check test-feature` (Gate 1) → `specd approve`
-- [ ] author minimal valid `design.md` (7 H2 headers) → `specd check` (Gate 2) → `specd approve`
-- [ ] author minimal valid `tasks.md` (2 waves, valid DAG) → `specd check` (Gates 3&4) → `specd approve` → `executing`
-- [ ] `specd next test-feature` → T1 → trivial change → `specd verify test-feature T1` → `specd task test-feature T1 --status complete`
-- [ ] `specd next` → T2/empty → `specd approve` closes spec, generates reports
-- [ ] `specd report test-feature --format md` and `--format html`
-- [ ] `specd status` and `specd program status` correct
-- [ ] clean up temp dir
-- [ ] **STOP → Commit & Push** — `regression: stage 6 — E2E lifecycle validation`
+- [x] temp dir, `cd`, `specd init` — wrote 11 files + merged AGENTS.md, exit 0
+- [x] `specd boot` and `specd boot --dry-run` — both exit 0 (warn: no tech stack in temp dir)
+- [x] `specd new test-feature --title "Regression Test Feature"` — created 6 artifacts + state.json (status: requirements)
+- [x] author minimal valid `requirements.md` (EARS) → `specd check test-feature` (Gate 1 clean) → `specd approve` → status `design`
+- [x] author minimal valid `design.md` (7 H2 headers) → `specd check` (Gate 2 clean) → `specd approve` → status `tasks`
+- [x] author minimal valid `tasks.md` (2 waves, valid DAG) → `specd check` (Gates 3&4 → `ok true`) → `specd approve` → `executing`
+- [x] `specd next test-feature` → T1 → trivial change → `specd verify test-feature T1` (exit 0) → `specd task test-feature T1 --status complete` (evidence recorded)
+- [x] `specd next` → T2 → verify+complete → `specd next` → `all-complete` → `specd approve` closes spec → status `complete` (phase reflect)
+- [x] `specd report test-feature --format md` and `--format html` — both render, exit 0
+- [x] `specd status` (`test-feature [complete] 2/2 done`) and `specd program status` (`all specs complete`) correct
+- [x] clean up temp dir — `/tmp/specd-e2e` removed
+- [x] **STOP → Commit & Push** — `regression: stage 6 — E2E lifecycle validation`
 
 ---
 
