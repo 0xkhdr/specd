@@ -368,3 +368,25 @@ func TestScanFrameworks_WordBoundary(t *testing.T) {
 		t.Fatalf("got %v, want [next]", got)
 	}
 }
+
+func BenchmarkBootDetect(b *testing.B) {
+	root := b.TempDir()
+	files := map[string]string{
+		"go.mod":         "module github.com/example/app\n\nrequire github.com/gin-gonic/gin v1.9.0\n",
+		"package.json":   `{"name":"web","dependencies":{"react":"18","express":"4"},"devDependencies":{"jest":"29"},"scripts":{"test":"jest"}}`,
+		"pyproject.toml": "[project]\nname = \"svc\"\ndependencies = [\"fastapi\", \"sqlalchemy\"]\n[tool.pytest.ini_options]\ntestpaths = [\"tests\"]\n",
+		"Cargo.toml":     "[package]\nname = \"engine\"\n[dependencies]\naxum = \"0.7\"\ntokio = \"1\"\n",
+		"Makefile":       "build:\n\tgo build ./...\n",
+		"Dockerfile":     "FROM scratch\n",
+	}
+	for name, body := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = AnalyzeBoot(root)
+	}
+}

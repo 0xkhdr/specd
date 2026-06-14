@@ -161,7 +161,7 @@ func isRunnable(t DagTask, m map[string]DagTask) bool {
 
 func NextRunnable(tasks []DagTask) NextResult {
 	m := byID(tasks)
-	var remaining []DagTask
+	remaining := make([]DagTask, 0, len(tasks))
 	for _, t := range tasks {
 		if t.Status != TaskComplete {
 			remaining = append(remaining, t)
@@ -171,7 +171,7 @@ func NextRunnable(tasks []DagTask) NextResult {
 		return NextResult{Kind: NextAllComplete}
 	}
 
-	var runnable []DagTask
+	runnable := make([]DagTask, 0, len(remaining))
 	for _, t := range remaining {
 		if isRunnable(t, m) {
 			runnable = append(runnable, t)
@@ -187,7 +187,8 @@ func NextRunnable(tasks []DagTask) NextResult {
 		return NextResult{Kind: NextTask, ID: runnable[0].ID}
 	}
 
-	var pending, blocked []DagTask
+	pending := make([]DagTask, 0, len(remaining))
+	blocked := make([]DagTask, 0, len(remaining))
 	for _, t := range remaining {
 		if t.Status == TaskBlocked {
 			blocked = append(blocked, t)

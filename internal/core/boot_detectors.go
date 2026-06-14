@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // ---- shared helpers -------------------------------------------------------
@@ -37,14 +38,32 @@ func contains(xs []string, x string) bool {
 
 func joinComma(xs []string) string { return strings.Join(xs, ", ") }
 
+// wordRECache memoizes the whole-word regex for each framework candidate. The
+// candidate set is a small fixed vocabulary (literal slices at the call sites),
+// so the cache is bounded and lets scanFrameworks reuse compiled regexes across
+// every detector invocation instead of recompiling per candidate per call.
+var (
+	wordREMu    sync.Mutex
+	wordRECache = map[string]*regexp.Regexp{}
+)
+
+func wordRE(candidate string) *regexp.Regexp {
+	wordREMu.Lock()
+	defer wordREMu.Unlock()
+	if re, ok := wordRECache[candidate]; ok {
+		return re
+	}
+	re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(candidate) + `\b`)
+	wordRECache[candidate] = re
+	return re
+}
+
 // scanFrameworks returns the candidates that appear as whole words in content.
 // Word boundaries avoid matching "expressive" when looking for "express".
 func scanFrameworks(content string, candidates []string) []string {
 	var found []string
 	for _, c := range candidates {
-		// TODO(stage06): hoist — this compiles one regex per candidate per call.
-		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(c) + `\b`)
-		if re.MatchString(content) {
+		if wordRE(c).MatchString(content) {
 			found = append(found, c)
 		}
 	}

@@ -74,6 +74,13 @@ func GateTaskSchema(c CheckCtx) (violations, warnings []Violation) {
 
 // GateDAG checks the dependency graph for orphan deps, cycles, and wave-order
 // violations.
+//
+// OrphanDeps/DetectCycle/WaveViolations each rebuild their own id→task map. We
+// deliberately do not hoist a shared byID here (Stage 06 F3): benchmarking a
+// 200-task DAG put DetectCycle at ~26µs with only 7 allocs, so the extra map
+// builds are noise against a once-per-`check` invocation. Sharing the map would
+// add *With API surface for no measurable win, so the public funcs stay
+// self-contained.
 func GateDAG(c CheckCtx) (violations, warnings []Violation) {
 	if c.Doc == nil {
 		return nil, nil

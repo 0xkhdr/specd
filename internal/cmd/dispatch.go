@@ -54,10 +54,12 @@ func RunDispatch(args cli.Args) int {
 		return core.ExitGate
 	}
 
-	frontier := core.RunnableFrontier(core.DagTasksFromState(state))
+	// Derive the DAG view once and reuse it for both scheduling queries below.
+	dag := core.DagTasksFromState(state)
+	frontier := core.RunnableFrontier(dag)
 
 	if len(frontier) == 0 {
-		r := core.NextRunnable(core.DagTasksFromState(state))
+		r := core.NextRunnable(dag)
 		if jsonOut {
 			out := map[string]interface{}{"kind": "frontier", "count": 0, "reason": r.Kind, "packets": []interface{}{}}
 			if err := core.PrintJSON(out); err != nil {
