@@ -15,12 +15,19 @@ func RunCheck(args cli.Args) int {
 	if err != nil {
 		return specdExit(err)
 	}
+
+	// Repo-global boot-freshness gate: not spec-scoped, so it runs before the
+	// slug requirement.
+	if args.Bool("boot") {
+		return runBootCheck(root, args.Bool("json"))
+	}
+
 	slug := ""
 	if len(args.Pos) > 0 {
 		slug = args.Pos[0]
 	}
 	if slug == "" {
-		return usageExit("usage: specd check <slug> [--json]")
+		return usageExit("usage: specd check <slug> [--json]  |  specd check --boot")
 	}
 	if err := core.RequireSpec(root, slug); err != nil {
 		return specdExit(err)
@@ -241,4 +248,32 @@ func min3(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// runBootCheck implements `specd check --boot`: the boot-freshness gate. It
+// verifies that .specd/boot.json still matches the repository.
+func runBootCheck(root string, jsonOut bool) int {
+	res, err := core.CheckBootFreshness(root)
+	if err != nil {
+		return specdExit(err)
+	}
+	if jsonOut {
+		b, _ := json.MarshalIndent(map[string]interface{}{
+			"gate": "boot-freshness", "ok": !res.Stale, "issues": res.Issues,
+		}, "", "  ")
+		fmt.Println(string(b))
+		if res.Stale {
+			return core.ExitGate
+		}
+		return core.ExitOK
+	}
+	if !res.Stale {
+		fmt.Println("✓ boot-freshness: .specd/boot.json matches the repository.")
+		return core.ExitOK
+	}
+	for _, iss := range res.Issues {
+		fmt.Fprintf(os.Stderr, "fail  boot.json: %s (boot-freshness)\n", iss)
+	}
+	fmt.Fprintf(os.Stderr, "\n✗ boot.json is stale — re-run `specd boot --force`.\n")
+	return core.ExitGate
 }

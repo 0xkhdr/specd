@@ -6,6 +6,30 @@ import (
 	"strings"
 )
 
+// MergeSection replaces the content between begin/end markers in the file at
+// path, preserving everything outside the markers. If the markers are absent
+// the section is appended; if the file does not exist it is created holding only
+// the section. This is idempotent: re-running with the same body is a no-op, and
+// content the user added outside the markers is always preserved.
+func MergeSection(path, begin, end, body string) error {
+	existing, _ := os.ReadFile(path)
+	ec := string(existing)
+	section := begin + "\n" + body + "\n" + end
+	if ec == "" {
+		return AtomicWrite(path, section+"\n")
+	}
+	if i := strings.Index(ec, begin); i >= 0 {
+		if j := strings.Index(ec, end); j > i {
+			merged := ec[:i] + section + ec[j+len(end):]
+			return AtomicWrite(path, merged)
+		}
+	}
+	if !strings.HasSuffix(ec, "\n") {
+		ec += "\n"
+	}
+	return AtomicWrite(path, ec+"\n"+section+"\n")
+}
+
 const agentsMarkerVersion = "v1"
 
 func markerBegin() string {

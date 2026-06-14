@@ -6,6 +6,11 @@ import (
 	"path/filepath"
 )
 
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func ReadOrDefault(path, fallback string) string {
 	b, err := os.ReadFile(path)
 	if err != nil {

@@ -34,6 +34,21 @@ var Commands = []CommandMeta{
 		Examples:        []string{"specd init", "specd init --force"},
 	},
 	{
+		Command: "boot", Category: "lifecycle",
+		Description:     "Auto-detect tech stack, populate .specd/",
+		Usage:           "specd boot [--force] [--dry-run] [--json] [--output-dir <dir>]",
+		Synopsis:        "specd boot [--force] [--dry-run] [--json] [--output-dir <dir>]",
+		LongDescription: "Analyzes the repository with deterministic, AI-free detectors (Python, Node.js, Rust, Go) and populates .specd/ with detected context: boot.json, a managed section in steering/tech.md, and config.json's defaultVerify. Zero LLM calls, no network, no exec — every claim is traceable to a source file.",
+		Flags: []FlagMeta{
+			{Name: "force", Type: "boolean", Description: "Regenerate boot.json and overwrite a hand-set defaultVerify"},
+			{Name: "dry-run", Type: "boolean", Description: "Show what would be generated without writing"},
+			{Name: "json", Type: "boolean", Description: "Machine-readable output for agent consumption"},
+			{Name: "output-dir", Type: "string", Description: "Directory for boot.json (default .specd/)"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Write error"}, {2, "Usage error"}, {3, ".specd/ not found — run specd init first"}},
+		Examples:  []string{"specd boot", "specd boot --dry-run", "specd boot --json", "specd boot --force"},
+	},
+	{
 		Command: "new", Category: "lifecycle",
 		Description: "Create a spec with six artifacts",
 		Usage:       "specd new <slug> [--title \"...\"]", Synopsis: "specd new <slug> [--title \"...\"]",
@@ -128,11 +143,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "check", Category: "inspection",
 		Description: "Run all validation gates",
-		Usage:       "specd check <slug> [--json]", Synopsis: "specd check <slug> [--json]",
-		LongDescription: "Runs all seven validation gates on the specified spec.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd check my-feature", "specd check my-feature --json"},
+		Usage:       "specd check <slug> [--json]  |  specd check --boot", Synopsis: "specd check <slug> [--json] | --boot",
+		LongDescription: "Runs all seven validation gates on the specified spec. With --boot, runs the repo-global boot-freshness gate instead: verifies .specd/boot.json still matches the repository (sources exist, no detection drift).",
+		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}, {Name: "boot", Type: "boolean", Description: "Run the boot-freshness gate (repo-global; no slug)"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec or boot.json not found"}},
+		Examples:        []string{"specd check my-feature", "specd check my-feature --json", "specd check --boot"},
 	},
 	{
 		Command: "context", Category: "inspection",

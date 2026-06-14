@@ -98,6 +98,8 @@ func dispatch(command string, args cli.Args) int {
 	switch command {
 	case "init":
 		return cmd.RunInit(args)
+	case "boot":
+		return cmd.RunBoot(args)
 	case "new":
 		return cmd.RunNew(args)
 	case "status":
