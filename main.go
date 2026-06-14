@@ -22,7 +22,12 @@ func run(argv []string) int {
 	// re-threaded into the command's args below so per-command --json handling
 	// (and JSON env mode) still fire. This makes `specd --json status` behave
 	// like `specd status --json`.
-	jsonMode := false
+	//
+	// Seed jsonMode from SPECD_JSON so the env var is bridged into the per-command
+	// --json flag. Commands resolve JSON output via args.Bool("json"), so without
+	// this seed `SPECD_JSON=1` would set the env but never reach flag-reading
+	// commands — making `SPECD_JSON=1 specd status` diverge from `--json`.
+	jsonMode := core.IsJSONMode()
 	for len(argv) > 0 && argv[0] == "--json" {
 		jsonMode = true
 		argv = argv[1:]

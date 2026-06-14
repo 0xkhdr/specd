@@ -120,6 +120,26 @@ func TestRunDispatch(t *testing.T) {
 		}
 	})
 
+	t.Run("SPECD_JSON env matches --json flag", func(t *testing.T) {
+		// Parity contract: `SPECD_JSON=1 specd status` must produce the same JSON
+		// as `specd status --json`. Commands read args.Bool("json"), so the env
+		// var has to be bridged into the flag at the dispatch boundary.
+		h := th.New(t)
+		h.Spec("auth").Req("R", "story", "THE SYSTEM SHALL work.").Status(core.StatusRequirements).Build()
+		flagOut, flagCode := captureRun([]string{"status", "auth", "--json"})
+		t.Setenv("SPECD_JSON", "1")
+		envOut, envCode := captureRun([]string{"status", "auth"})
+		if envCode != flagCode {
+			t.Errorf("exit codes differ: env=%d flag=%d", envCode, flagCode)
+		}
+		if envOut != flagOut {
+			t.Errorf("SPECD_JSON output != --json output\nenv:  %q\nflag: %q", envOut, flagOut)
+		}
+		if !strings.Contains(envOut, "\"spec\": \"auth\"") {
+			t.Errorf("SPECD_JSON=1 did not produce JSON output: %q", envOut)
+		}
+	})
+
 	t.Run("unknown spec propagates not-found", func(t *testing.T) {
 		th.New(t)
 		if got := silentRun([]string{"check", "ghost"}); got != core.ExitNotFound {

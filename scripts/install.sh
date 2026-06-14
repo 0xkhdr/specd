@@ -95,7 +95,7 @@ build_from_source() {
   esac
 
   ok "Built and installed specd from source → ${BIN}"
-  printf "[specd] ${BLUE}Run 'specd init' in your project root to get started.${RESET}\n"
+  printf '[specd] %sRun '\''specd init'\'' in your project root to get started.%s\n' "${BLUE}" "${RESET}"
 }
 
 main() {
@@ -202,7 +202,7 @@ main() {
   esac
 
   ok "Installed specd ${VERSION} → ${BIN}"
-  printf "[specd] ${BLUE}Run 'specd init' in your project root to get started.${RESET}\n"
+  printf '[specd] %sRun '\''specd init'\'' in your project root to get started.%s\n' "${BLUE}" "${RESET}"
 }
 
 main "$@"
