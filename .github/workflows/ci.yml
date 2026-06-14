@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: gofmt (fail on unformatted)
         run: |
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: go test -race (with coverage)
         run: go test ./... -race -count=1 -coverprofile=coverage.out
@@ -79,7 +79,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: Enforce coverage floor
         run: ./scripts/coverage-check.sh
@@ -93,7 +93,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       - name: Cross-process contention on one spec
         run: ./scripts/stress.sh
@@ -111,7 +111,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       # F3: Windows builds to guard cross-platform compilation. `specd update`
       # self-replacement is known-limited on Windows (see TESTING.md); the

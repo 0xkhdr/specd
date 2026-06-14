@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
 
       # Gate the release on the race suite even though ci.yml already ran it on
       # the commit — a tag should never publish an unverified tree.
