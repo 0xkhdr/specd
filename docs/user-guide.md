@@ -57,24 +57,22 @@ specd init              # in your project root
 This scaffolds `.specd/` with default templates, steering files, roles, and
 `AGENTS.md`.
 
-### Bootstrap project context (optional but recommended)
+### Bootstrap project context (recommended)
 
-After `init`, seed the steering constitution from the real repository:
+After `init`, seed the steering constitution from the real repository. This is
+agent work — there is no detection command. Read
+`.specd/skills/specd-steering/SKILL.md`, then:
 
-```bash
-# Deterministic, AI-free stack detection → boot.json + steering/tech.md + config.defaultVerify
-specd boot
-specd boot --dry-run    # preview without writing
+1. Inspect the repo yourself — manifests (`go.mod`, `package.json`, …), the
+   directory tree, `README`/`CONTRIBUTING`/`docs/`, and CI files.
+2. Author `.specd/steering/product.md`, `structure.md`, and `tech.md`, grounding
+   every claim in a file you actually read — never invented.
+3. Set `config.defaultVerify` in `.specd/config.json` to the real test command you
+   found (e.g. `go test ./...`, `npm test`, `pytest`).
 
-# AI companion: have the agent author the remaining steering sections
-specd enrich plan --json                          # brief: which sections to write + evidence to read
-specd enrich apply --target product < product.md  # accept the agent's authored markdown (or --content-file)
-specd enrich status                               # check freshness (also: specd check --enrich)
-```
-
-`boot` performs **zero LLM calls** — every detected fact is traceable to a source
-file. `enrich` performs no inference either: it owns the contract and the
-freshness gate while the calling agent does the writing.
+The harness performs **zero inference**: it scaffolds the skill pack at `init` and
+enforces specs at `check`. Perceiving the stack and authoring steering is the
+agent's job (the Foundational Split).
 
 ---
 

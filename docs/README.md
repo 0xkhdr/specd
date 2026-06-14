@@ -10,7 +10,7 @@ Pick the guide that matches what you are doing.
 | 💡 [Concepts](./concepts.md) | Understand *why* specd exists — the foundational split, the eight principles, and the architecture at a glance. |
 | 📖 [User Guide](./user-guide.md) | Use `specd` inside a target repo — install, the spec lifecycle, writing EARS/design/tasks artifacts, the `verify → complete` flow, and troubleshooting. |
 | 📑 [Command Reference](./command-reference.md) | Look up a command, its flags, exit codes, environment variables, or `config.json` keys. |
-| ✅ [Validation Gates](./validation-gates.md) | Learn what each of the 7 spec gates (plus the 2 repo-global freshness gates) checks and why it fails. |
+| ✅ [Validation Gates](./validation-gates.md) | Learn what each of the 7 spec gates checks and why it fails. |
 | 🤖 [Agent Integration](./agent-integration.md) | Wire a coding agent to `specd` — steering constitution, role personas, `inline`/`delegate` dispatch, context engineering, and cross-spec programs. |
 | 🛠️ [Contributor Guide](./contributor-guide.md) | Hack on `specd` itself — codebase walkthrough, the concurrency/durability model, parser internals, and extension recipes. |
 

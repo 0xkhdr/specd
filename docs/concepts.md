@@ -102,10 +102,9 @@ the key code contracts.
 your-project/
 ├── .specd/
 │   ├── config.json               # Project configuration
-│   ├── boot.json                 # Detected stack manifest (specd boot)
 │   ├── program.json              # Cross-spec dependencies
 │   ├── state.json                # Machine state (auto-managed)
-│   ├── skills/                   # Companion skills (e.g. specd-enrich)
+│   ├── skills/                   # The skill pack (specd-foundations, specd-steering, per-stage)
 │   ├── steering/                 # Constitution (durable rules)
 │   │   ├── reasoning.md  workflow.md  product.md
 │   │   ├── tech.md       structure.md memory.md

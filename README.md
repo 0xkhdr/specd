@@ -132,7 +132,7 @@ specd init
     ├── concepts.md            # Philosophy, the eight principles, architecture
     ├── user-guide.md          # Install, lifecycle, artifacts, execution, troubleshooting
     ├── command-reference.md   # Every command, flag, exit code, env var, config key
-    ├── validation-gates.md    # What each of the 7 (+2 repo-global) gates checks
+    ├── validation-gates.md    # What each of the 7 gates checks
     ├── agent-integration.md   # Steering, roles, subagent modes, context, programs
     └── contributor-guide.md   # CLI architecture, concurrency model, extension recipes
 ```
@@ -141,7 +141,7 @@ specd init
 - 💡 [Concepts](docs/concepts.md) — The foundational split, eight principles, architecture overview.
 - 📖 [User Guide](docs/user-guide.md) — Getting started, EARS requirements, design headers, task DAG, the verify → complete flow.
 - 📑 [Command Reference](docs/command-reference.md) — Commands, flags, exit codes, environment variables, and `config.json`.
-- ✅ [Validation Gates](docs/validation-gates.md) — The 7 spec gates plus the 2 repo-global freshness gates.
+- ✅ [Validation Gates](docs/validation-gates.md) — The 7 spec gates.
 - 🤖 [Agent Integration Guide](docs/agent-integration.md) — Roles, steering files, subagent modes, context engineering, cross-spec programs.
 - 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), parser internals, adding commands/gates.
 

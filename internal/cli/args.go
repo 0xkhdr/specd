@@ -8,7 +8,7 @@ type Args struct {
 }
 
 var booleanFlags = map[string]bool{
-	"force": true, "json": true, "all": true, "unverified": true, "dry-run": true, "boot": true, "enrich": true,
+	"force": true, "json": true, "all": true, "unverified": true, "dry-run": true,
 }
 
 func ParseArgs(argv []string) Args {

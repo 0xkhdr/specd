@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed (breaking)
+
+- **`boot` and `enrich` commands removed**, along with the two repo-global
+  freshness gates (`specd check --boot` / `--enrich`), `boot.json`, and
+  `enrich.json`. These performed repo *perception* and steering *authoring* inside
+  the binary, violating the Foundational Split (the agent reasons; the harness
+  enforces). `specd boot` and `specd enrich` are now unknown commands (exit 2).
+
+### Added
+
+- **`init` scaffolds a skill pack** under `.specd/skills/`: `specd-foundations`,
+  `specd-steering`, `specd-requirements`, `specd-design`, `specd-tasks`, and
+  `specd-execute`. The agent reads `specd-steering` to inspect the repo and author
+  `product/structure/tech.md` + set `config.defaultVerify` itself — replacing
+  `boot`/`enrich` with progressive-disclosure agent knowledge.
+
 ## [0.1.0] - 2026-06-14
 
 First public release of `specd`, a spec-driven coding harness (stdlib-only Go, no

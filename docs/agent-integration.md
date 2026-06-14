@@ -34,8 +34,8 @@ Durable rules under `.specd/steering/` that outlive individual chat sessions:
 | `structure.md` | File organization, directory structures, module boundaries |
 | `memory.md` | Promoted learnings across specs |
 
-`product.md`, `structure.md`, and `tech.md` are partly authored by the agent via
-`specd enrich` (see the [User Guide](./user-guide.md#bootstrap-project-context-optional-but-recommended)).
+`product.md`, `structure.md`, and `tech.md` are authored by the agent itself,
+guided by the `specd-steering` skill (see the [User Guide](./user-guide.md#bootstrap-project-context-recommended)).
 
 ## Role personas
 

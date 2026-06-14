@@ -54,10 +54,6 @@ specd/
 │   │   ├── dag.go                # Wave DAG, frontier, critical path
 │   │   ├── ears.go               # EARS requirements linter
 │   │   ├── specfiles.go          # Artifact accessors, sync + traceability gates, Config
-│   │   ├── boot.go               # Boot manifest + boot-freshness gate
-│   │   ├── boot_detectors.go     # Deterministic stack detectors (Go/Node/Py/Rust)
-│   │   ├── enrich.go             # Enrich plan/apply contract
-│   │   ├── enrich_evidence.go    # Enrich freshness evidence + gate
 │   │   ├── agents.go             # AGENTS.md marker-based merge
 │   │   ├── commands.go           # CommandMeta registry (help/JSON schema)
 │   │   ├── help.go program.go slug.go md.go render.go report.go
