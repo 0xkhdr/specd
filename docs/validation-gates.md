@@ -11,6 +11,26 @@ transition.
 - **Checks:** Every requirement has a user story; every acceptance criterion matches one of the five EARS patterns.
 - **Fails on:** Invalid grammar, missing user story, malformed criteria.
 
+**Recognized EARS forms** (`MatchEars`, case-insensitive, checked in order):
+
+| Form | Pattern | Shape |
+|---|---|---|
+| Unwanted behaviour | `unwanted` | `IF <condition> THEN THE SYSTEM SHALL <response>` |
+| Event-driven | `event-driven` | `WHEN <trigger> THE SYSTEM SHALL <response>` |
+| State-driven | `state-driven` | `WHILE <state> THE SYSTEM SHALL <response>` |
+| Optional feature | `optional-feature` | `WHERE <feature> THE SYSTEM SHALL <response>` |
+| Ubiquitous | `ubiquitous` | `THE SYSTEM SHALL <response>` |
+
+Notes:
+- Matching is case-insensitive, so `when …`/`When …` are accepted.
+- A criterion is the text after `N.` inside the **Acceptance criteria:** block;
+  leading whitespace before the number is allowed (`criterionRe`).
+- Complex/combined clauses (e.g. `When X, while Y, the system shall Z`) satisfy
+  the event-driven form because the leading keyword and `THE SYSTEM SHALL`
+  anchor the match; the embedded `while` is part of the trigger text.
+- Ubiquitous is matched last so a conditional form is never mis-tagged as
+  ubiquitous.
+
 ### Gate 2 — Design
 - **Source:** `internal/core/phases.go`
 - **Checks:** All 7 mandatory H2 headers present, non-empty, no `TODO` markers.
@@ -49,6 +69,39 @@ These run on the whole repository (no spec slug).
 |---|---|---|---|
 | **Boot-freshness** | `specd check --boot` | `internal/core/boot.go` | `boot.json` still matches the repo — source files exist, no detection drift |
 | **Enrich-freshness** | `specd check --enrich` | `internal/core/enrich_evidence.go` | Agent-authored steering enrichment is present, complete, and not drifted from `boot` |
+
+### Boot detection determinism
+
+`AnalyzeBoot` is a pure function of the filesystem (no time/env/random; the
+`generatedAt` timestamp is stamped by the caller, not by `AnalyzeBoot`). Each
+detector is static file analysis — no exec, no network. When several ecosystems
+are present, the **primary** verify command is chosen by detector priority, with
+the stack name (ascending) as the tie-break (see `bootDetectors`). Output slices
+(`stacks`, `sources`, …) are sorted, so the same repo state always yields
+byte-identical `boot.json`. `CheckBootFreshness` re-runs `AnalyzeBoot` and
+compares the result (timestamp excluded) plus the recorded detector version.
+
+### Enrichment freshness contract
+
+`enrich.json` records which steering targets (`product.md`, `structure.md`,
+`tech.md`) an agent enriched and the boot state they were authored against. The
+ENRICH block in each target is delimited by managed `SPECD ENRICH` markers.
+
+`specd check --enrich` (`CheckEnrichFreshness`) flags enrichment **stale** when
+any of these hold:
+
+- **Boot drift** — the current `bootHash` (sha256 of `boot.json` with the
+  timestamp zeroed) differs from the hash recorded at enrich time, or
+  `boot.json` is now missing/invalid.
+- **Detector version drift** — `boot`'s `DetectorVersion` no longer matches the
+  version recorded in `enrich.json`.
+- **Missing block** — a target recorded as enriched has lost its ENRICH marker,
+  or a target has not been enriched yet.
+- **Vanished source** — a recorded evidence source file no longer exists.
+
+Enrichment is **fresh** only when every target carries its ENRICH block and none
+of the above drift conditions apply. Bump `EnrichVersion` on any change to the
+target set or marker scheme so older records are flagged stale.
 
 ## Security model
 

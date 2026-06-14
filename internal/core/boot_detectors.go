@@ -42,6 +42,7 @@ func joinComma(xs []string) string { return strings.Join(xs, ", ") }
 func scanFrameworks(content string, candidates []string) []string {
 	var found []string
 	for _, c := range candidates {
+		// TODO(stage06): hoist — this compiles one regex per candidate per call.
 		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(c) + `\b`)
 		if re.MatchString(content) {
 			found = append(found, c)
