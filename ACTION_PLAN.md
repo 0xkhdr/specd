@@ -107,15 +107,15 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 ## Stage 4: Security & Hardening Review
 **Objective:** Validate security model in `docs/validation-gates.md` + stage `01-security`.
 
-- [ ] `verify` shell exec: env scrubbed to allowlist (`PATH HOME LANG LC_ALL TMPDIR SPECD_*`) — `internal/cmd/verify.go`
-- [ ] NUL byte rejection in verify commands
-- [ ] Slug validation `^[a-z0-9][a-z0-9-]*$` rejects `..` `/` `\` leading `-` — `internal/core/slug.go`
-- [ ] `update` / `install.sh`: SHA256SUMS verification, fail-closed on mismatch — `internal/cmd/update.go`, `scripts/install.sh`
-- [ ] `.lock` non-secret (`PID epochMillis`, `0644`)
-- [ ] `state.json` / `tasks.md` written `0644` minus umask
-- [ ] `SPECD_*` ints via `core.EnvInt` with clamp + warning — `internal/core/env.go`
-- [ ] No secrets leak into logs / state / error messages
-- [ ] **STOP → Commit & Push** — `regression: stage 4 — security & hardening review`
+- [x] `verify` shell exec: env scrubbed to allowlist (`PATH HOME LANG LC_ALL TMPDIR SPECD_*`) — `internal/cmd/verify.go` (`scrubbedEnv` allowlist + `SPECD_` prefix passthrough; `cmd.Env = scrubbedEnv()`)
+- [x] NUL byte rejection in verify commands (`verify.go` `strings.ContainsRune(command, 0)` → GateError before exec)
+- [x] Slug validation `^[a-z0-9][a-z0-9-]*$` rejects `..` `/` `\` leading `-` — `internal/core/slug.go` (`SlugRE`/`ValidateSlug`)
+- [x] `update` / `install.sh`: SHA256SUMS verification, fail-closed on mismatch — `update.go` `downloadBinary` aborts on missing/empty SHA256SUMS, missing entry, or digest mismatch; `install.sh` `verify_checksum` dies on failure (`--no-verify` warns)
+- [x] `.lock` non-secret (`PID epochMillis`, `0644`) — `lock.go` `tryAcquire` `O_EXCL` `0o644`, writes `"%d %d\n"` pid+epochMillis
+- [x] `state.json` / `tasks.md` written `0644` minus umask — `io.go` `AtomicWrite` `f.Chmod(0o644)` before rename
+- [x] `SPECD_*` ints via `core.EnvInt` with clamp + warning — `internal/core/env.go` (clamp `[min,max]`, `Warn` on non-int); used by verify timeout + lock stale/timeout
+- [x] No secrets leak into logs / state / error messages — verify child env scrubbed; error messages quote command/path, never env contents
+- [x] **STOP → Commit & Push** — `regression: stage 4 — security & hardening review`
 
 ---
 
