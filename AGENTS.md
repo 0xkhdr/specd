@@ -80,8 +80,6 @@ internal/
     ears.go                   # EARS requirements linter
     report.go                 # md/html assembler (deterministic, no LLM)
     specfiles.go              # artifact accessors, sync + traceability gates, Config
-    boot.go boot_detectors.go # boot manifest + deterministic stack detectors
-    enrich.go enrich_evidence.go  # enrich plan/apply + freshness gate
     agents.go                 # AGENTS.md marker-based merge
     commands.go               # CommandMeta registry (drives help + --json schema)
     render.go slug.go md.go ui.go exit.go help.go program.go

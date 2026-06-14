@@ -11,6 +11,10 @@ import (
 
 var steeringFiles = []string{"reasoning.md", "workflow.md", "product.md", "tech.md", "structure.md", "memory.md"}
 var roleFiles = []string{"investigator.md", "builder.md", "reviewer.md", "verifier.md"}
+var skillFiles = []string{
+	"specd-foundations", "specd-steering", "specd-requirements",
+	"specd-design", "specd-tasks", "specd-execute",
+}
 
 func RunInit(args cli.Args) int {
 	root, err := os.Getwd()
@@ -43,6 +47,9 @@ func RunInit(args cli.Args) int {
 	}
 	for _, f := range roleFiles {
 		place(core.RolesDir(root)+"/"+f, "roles/"+f)
+	}
+	for _, s := range skillFiles {
+		place(core.SkillsDir(root)+"/"+s+"/SKILL.md", "skills/"+s+"/SKILL.md")
 	}
 	place(core.ConfigPath(root), "config.json")
 

@@ -17,6 +17,23 @@ type brief struct {
 	next       string
 }
 
+// phaseSkill names the stage skill the agent should load for the current spec
+// status — the harness points at the right knowledge without being it.
+func phaseSkill(status core.SpecStatus) string {
+	switch status {
+	case core.StatusRequirements:
+		return ".specd/skills/specd-requirements/SKILL.md"
+	case core.StatusDesign:
+		return ".specd/skills/specd-design/SKILL.md"
+	case core.StatusTasks:
+		return ".specd/skills/specd-tasks/SKILL.md"
+	case core.StatusExecuting, core.StatusBlocked, core.StatusVerifying:
+		return ".specd/skills/specd-execute/SKILL.md"
+	default:
+		return ".specd/skills/specd-foundations/SKILL.md"
+	}
+}
+
 func sp(slug string, files ...string) []string {
 	out := make([]string, len(files))
 	for i, f := range files {
@@ -92,6 +109,7 @@ func RunContext(args cli.Args) int {
 	jsonOut := args.Bool("json")
 
 	b := buildBrief(state, slug, cfg.DefaultVerify)
+	skill := phaseSkill(state.Status)
 	c := core.CountTasks(state)
 	load := append(baseSteering, b.load...)
 	gated := state.Gate == core.GateAwaitingApproval
@@ -120,7 +138,7 @@ func RunContext(args cli.Args) int {
 			"spec": slug, "title": state.Title, "status": state.Status, "phase": state.Phase,
 			"gate": state.Gate, "turn": state.Turn, "counts": c,
 			"phaseLabel": b.phaseLabel, "purpose": b.purpose, "load": load,
-			"focus": focus, "next": next,
+			"skill": skill, "focus": focus, "next": next,
 			"signals": map[string]interface{}{
 				"blockers":              blockers,
 				"latestMidreq":          midreq,
@@ -143,6 +161,7 @@ func RunContext(args cli.Args) int {
 	for _, f := range load {
 		fmt.Printf("  - %s\n", f)
 	}
+	fmt.Printf("SKILL: %s\n", skill)
 	fmt.Println()
 
 	var signals []string

@@ -24,11 +24,7 @@ the `config.json` schema. This mirrors the embedded registry; run
 
 | Command | Description | Exit codes |
 |---|---|---|
-| `specd init [--force]` | Scaffold `.specd/` + `AGENTS.md` in the project root | `0` ok, `2` usage, `3` `.specd/` exists (no `--force`) |
-| `specd boot [--force] [--dry-run] [--json] [--output-dir <dir>]` | Auto-detect tech stack (AI-free detectors) → `boot.json`, managed block in `steering/tech.md`, `config.defaultVerify` | `0` ok, `1` write error, `2` usage, `3` no `.specd/` |
-| `specd enrich [plan] [--json]` | Brief the agent: which steering sections to author + what evidence to read | `0` ok, `2` usage, `3` no `boot.json` |
-| `specd enrich apply --target <product\|structure\|tech> [--content-file <path>]` | Accept agent-authored markdown into the managed `SPECD ENRICH` block (stdin if no `--content-file`) | `0` ok, `1` gate/write fail, `2` usage, `3` not found |
-| `specd enrich status [--json]` | Report enrichment freshness (also: `specd check --enrich`) | `0` ok, `1` drift, `3` not found |
+| `specd init [--force]` | Scaffold `.specd/` (steering, roles, the skill pack) + `AGENTS.md` in the project root | `0` ok, `2` usage, `3` `.specd/` exists (no `--force`) |
 | `specd new <slug> [--title "..."]` | Create a spec with six artifact stubs | `0` ok, `2` usage, `3` no `.specd/` or spec exists |
 | `specd approve <slug> [--json]` | Clear approval gate / advance to the next phase (human gate) | `0` ok, `1` gates failed, `2` usage, `3` not found |
 
@@ -51,8 +47,6 @@ the `config.json` schema. This mirrors the embedded registry; run
 |---|---|---|
 | `specd status [<slug>] [--json]` | Progress board for a spec, or list all specs | `0` ok, `2` usage, `3` not found |
 | `specd check <slug> [--json]` | Run all 7 validation gates on a spec | `0` pass, `1` fail, `2` usage, `3` not found |
-| `specd check --boot` | Run the repo-global boot-freshness gate | `0` pass, `1` drift, `2` usage, `3` no `boot.json` |
-| `specd check --enrich` | Run the repo-global enrich-freshness gate | `0` pass, `1` missing/drift, `2` usage, `3` not found |
 | `specd waves <slug> [--json]` | Wave graph, critical paths, blockers | `0` ok, `2` usage, `3` not found |
 | `specd context <slug> [--json]` | Phase briefing + load list + signals | `0` ok, `2` usage, `3` not found |
 | `specd report <slug> [--format md\|html] [--out <path>]` | Generate a snapshot report | `0` ok, `2` usage, `3` not found |
@@ -120,7 +114,7 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
   first `=`, so `--evidence=a=b` yields `evidence` → `a=b`. Use the `=` form
   whenever the value could be mistaken for a flag.
 - **Boolean flags** — registered in `booleanFlags` (`--force`, `--json`, `--all`,
-  `--unverified`, `--dry-run`, `--boot`, `--enrich`). They take no value;
+  `--unverified`, `--dry-run`). They take no value;
   `--json status` keeps `status` as a positional. A test
   (`TestBooleanFlagsRegistered`) asserts every `args.Bool(...)` flag used in
   `internal/cmd` is registered, so a forgotten registration can never silently
@@ -178,7 +172,7 @@ contract simple. Distinguish the two by the command you invoked, not the code.
 
 | Key | Default | Effect |
 |---|---|---|
-| `defaultVerify` | `npm test` | Fallback `verify:` command; `specd boot` overwrites it with the detected stack's test command |
+| `defaultVerify` | `npm test` | Fallback `verify:` command; set it to your detected test command when bootstrapping steering (see the `specd-steering` skill) |
 | `report.format` | `md` | Default `specd report` format (`md` or `html`) |
 | `report.autoRefreshSeconds` | `0` | HTML report auto-refresh interval (`0` = off) |
 | `roles.subagentMode` | `inline` | `inline` or `delegate` subagent coordination |

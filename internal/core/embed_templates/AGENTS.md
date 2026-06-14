@@ -30,16 +30,28 @@ MCP is needed — if you can run a shell command, you can run this harness.
 5. **Evidence gate.** Never mark a task complete without a passing verify or a manual proof, and
    pass that proof as `--evidence`. A builder's word is not evidence.
 
+## Skills — progressive disclosure
+
+specd ships a skill pack under `.specd/skills/<name>/SKILL.md` — plain Markdown you
+read with your shell. Read a stage skill **before** entering that stage and not
+before, so you pay context only for the work in front of you.
+
+| Skill | Read when |
+|-------|-----------|
+| `specd-foundations` | Once per session — the constitution + this index. |
+| `specd-steering` | After `init`, before any spec — inspect the repo and author `product/structure/tech.md` + set `config.defaultVerify`. Replaces the old boot/enrich step. |
+| `specd-requirements` | Entering the requirements phase (EARS + the `ears` gate). |
+| `specd-design` | Entering the design phase (the 7 `design.md` sections + the `design` gate). |
+| `specd-tasks` | Entering the tasks phase (wave DAG, 7 task keys, `task-schema`/`dag` gates). |
+| `specd-execute` | Entering executing/verifying (the next→verify→complete loop + `evidence` gate). |
+
 ## Quickstart
 
 ```
-specd init                       # scaffold .specd/ (already done if you see this file)
-specd boot                       # deterministic: detect stack -> boot.json + tech.md + defaultVerify
-# enrich the steering files boot left as stubs (product/structure/tech) — YOU do the inference:
-specd enrich plan --json         # brief: which sections to author + evidence to read
-#   read the cited evidence, write each section, then for each target:
-specd enrich apply --target product < product-section.md
-specd check --enrich             # gate: enrichment present, complete, not drifted from boot
+specd init                       # scaffold .specd/ + the skill pack (already done if you see this file)
+# bootstrap steering: read .specd/skills/specd-steering/SKILL.md, then inspect the
+# repo (manifests, dir tree, README, CI) and author product.md / structure.md /
+# tech.md and set config.defaultVerify yourself — this replaces the old boot/enrich.
 specd new my-feature --title "My Feature"
 # write .specd/specs/my-feature/requirements.md (EARS), then:
 specd check my-feature           # gate: requirements

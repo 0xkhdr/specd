@@ -9,13 +9,20 @@
 # The documented long-term target (TESTING.md) is higher (85% overall / 95% for
 # internal/core); these gates are the regression floor on the way there.
 #
+# Re-baselined when the `boot`/`enrich` subsystem was removed: those files
+# (boot.go, boot_detectors.go, enrich.go, enrich_evidence.go) were heavily tested
+# and carried internal/core's aggregate well above the rest of the package.
+# Deleting that whole subsystem — and its tests — drops the internal/core average
+# even though no surviving line lost coverage. The floors below sit just under the
+# new measured coverage; raise them as the remaining core paths gain tests.
+#
 # Usage: ./scripts/coverage-check.sh
-#   OVERALL_MIN  minimum total statement coverage   (default 60)
-#   CORE_MIN     minimum internal/core coverage     (default 58)
+#   OVERALL_MIN  minimum total statement coverage   (default 59)
+#   CORE_MIN     minimum internal/core coverage     (default 49)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-60}"
-CORE_MIN="${CORE_MIN:-58}"
+OVERALL_MIN="${OVERALL_MIN:-59}"
+CORE_MIN="${CORE_MIN:-49}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"

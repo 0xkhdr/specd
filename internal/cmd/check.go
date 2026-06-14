@@ -14,21 +14,12 @@ func RunCheck(args cli.Args) int {
 		return specdExit(err)
 	}
 
-	// Repo-global boot-freshness gate: not spec-scoped, so it runs before the
-	// slug requirement.
-	if args.Bool("boot") {
-		return runBootCheck(root, args.Bool("json"))
-	}
-	if args.Bool("enrich") {
-		return runEnrichCheck(root, args.Bool("json"))
-	}
-
 	slug := ""
 	if len(args.Pos) > 0 {
 		slug = args.Pos[0]
 	}
 	if slug == "" {
-		return usageExit("usage: specd check <slug> [--json]  |  specd check --boot  |  specd check --enrich")
+		return usageExit("usage: specd check <slug> [--json]")
 	}
 	if err := core.RequireSpec(root, slug); err != nil {
 		return specdExit(err)
@@ -134,44 +125,4 @@ func buildCheckCtx(root, slug string) (core.CheckCtx, []core.Violation, error) {
 		State: state,
 		Cfg:   core.LoadConfig(root),
 	}, pre, nil
-}
-
-// runBootCheck implements `specd check --boot`: the boot-freshness gate. It
-// verifies that .specd/boot.json still matches the repository.
-func runBootCheck(root string, jsonOut bool) int {
-	res, err := core.CheckBootFreshness(root)
-	if err != nil {
-		return specdExit(err)
-	}
-	if jsonOut {
-		issues := res.Issues
-		if issues == nil {
-			issues = []string{}
-		}
-		out := map[string]interface{}{
-			"gate": "boot-freshness", "ok": !res.Stale, "issues": issues,
-		}
-		if err := core.PrintJSON(out); err != nil {
-			return specdExit(err)
-		}
-		if res.Stale {
-			return core.ExitGate
-		}
-		return core.ExitOK
-	}
-	if !res.Stale {
-		fmt.Println("✓ boot-freshness: .specd/boot.json matches the repository.")
-		return core.ExitOK
-	}
-	for _, iss := range res.Issues {
-		errLine("fail  boot.json: %s (boot-freshness)", iss)
-	}
-	errLine("\n✗ boot.json is stale — re-run `specd boot --force`.")
-	return core.ExitGate
-}
-
-// runEnrichCheck implements `specd check --enrich`: the enrich-freshness gate.
-// It verifies that agent-authored steering enrichment still matches the repo.
-func runEnrichCheck(root string, jsonOut bool) int {
-	return runEnrichStatus(root, jsonOut)
 }
