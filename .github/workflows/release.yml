@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# Force all JavaScript actions onto the Node 24 runtime. Node 20 is deprecated
+# on GitHub-hosted runners and forced off by default starting 2026-06-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release:
     name: Release
