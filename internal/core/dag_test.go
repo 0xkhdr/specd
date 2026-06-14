@@ -161,3 +161,41 @@ func TestOrdinal(t *testing.T) {
 		t.Errorf("expected max int for digitless id, got %d", ordinal("T"))
 	}
 }
+
+// syntheticDAG builds an n-task chain-plus-fan DAG for benchmarking. Each task
+// depends on the previous one (a long critical path) and is laid out in waves
+// of 10, exercising byID rebuilds, the runnable scan, and the sort.
+func syntheticDAG(n int) []DagTask {
+	tasks := make([]DagTask, n)
+	for i := 0; i < n; i++ {
+		var deps []string
+		if i > 0 {
+			deps = []string{"T" + strconv.Itoa(i)}
+		}
+		tasks[i] = DagTask{
+			ID:      "T" + strconv.Itoa(i+1),
+			Wave:    i / 10,
+			Depends: deps,
+			Status:  TaskPending,
+		}
+	}
+	return tasks
+}
+
+func BenchmarkDetectCycle(b *testing.B) {
+	tasks := syntheticDAG(200)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = DetectCycle(tasks)
+	}
+}
+
+func BenchmarkNextRunnable(b *testing.B) {
+	tasks := syntheticDAG(200)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = NextRunnable(tasks)
+	}
+}

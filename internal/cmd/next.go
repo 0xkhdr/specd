@@ -43,6 +43,9 @@ func RunNext(args cli.Args) int {
 	state := loaded.State
 	doc := loaded.Doc
 	jsonOut := args.Bool("json")
+	// Derive the DAG view once; RunNext never mutates state.Tasks afterward, so
+	// every scheduling query below reuses this slice (Stage 06 F2).
+	dag := core.DagTasksFromState(state)
 
 	if state.Gate == core.GateAwaitingApproval && !args.Bool("force") {
 		if jsonOut {
@@ -56,7 +59,7 @@ func RunNext(args cli.Args) int {
 	}
 
 	if args.Bool("all") {
-		frontier := core.RunnableFrontier(core.DagTasksFromState(state))
+		frontier := core.RunnableFrontier(dag)
 		if jsonOut {
 			tasks := make([]interface{}, len(frontier))
 			for i, f := range frontier {
@@ -68,7 +71,7 @@ func RunNext(args cli.Args) int {
 			return core.ExitOK
 		}
 		if len(frontier) == 0 {
-			r := core.NextRunnable(core.DagTasksFromState(state))
+			r := core.NextRunnable(dag)
 			switch r.Kind {
 			case core.NextAllComplete:
 				fmt.Println("✓ all tasks complete — nothing runnable.")
@@ -95,7 +98,7 @@ func RunNext(args cli.Args) int {
 		return core.ExitOK
 	}
 
-	result := core.NextRunnable(core.DagTasksFromState(state))
+	result := core.NextRunnable(dag)
 
 	if jsonOut {
 		var payload any = result

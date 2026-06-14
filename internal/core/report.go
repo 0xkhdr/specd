@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type Badge struct {
@@ -38,12 +39,31 @@ type ReportData struct {
 	MidReqs      *string
 }
 
+// sectionRECache memoizes the per-heading section regex. Headings come from a
+// fixed set ("Introduction", "Overview", ...), so the cache stays bounded and
+// avoids recompiling the same regex on every ExtractSection call.
+var (
+	sectionREMu    sync.Mutex
+	sectionRECache = map[string]*regexp.Regexp{}
+)
+
+func sectionRE(heading string) *regexp.Regexp {
+	sectionREMu.Lock()
+	defer sectionREMu.Unlock()
+	if re, ok := sectionRECache[heading]; ok {
+		return re
+	}
+	re := regexp.MustCompile(`(?i)^##\s+` + regexp.QuoteMeta(heading))
+	sectionRECache[heading] = re
+	return re
+}
+
 func ExtractSection(md *string, heading string) *string {
 	if md == nil {
 		return nil
 	}
 	lines := splitLines(*md)
-	re := regexp.MustCompile(`(?i)^##\s+` + regexp.QuoteMeta(heading))
+	re := sectionRE(heading)
 	start := -1
 	for i, l := range lines {
 		if re.MatchString(l) {
