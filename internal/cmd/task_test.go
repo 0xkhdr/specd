@@ -1,10 +1,119 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+// argsFrom builds a cli.Args from flag key/value pairs for table tests.
+func argsFrom(flags map[string]string) cli.Args {
+	a := cli.Args{Flags: map[string]string{}}
+	for k, v := range flags {
+		a.Flags[k] = v
+	}
+	return a
+}
+
+func TestValidateComplete(t *testing.T) {
+	const slug, id = "demo", "T1"
+	verifyLine := "go test ./..."
+	goodRec := &core.VerificationRecord{Command: verifyLine, Verified: true, RanAt: "2026-01-01T00:00:00Z"}
+	docTask := func() *core.ParsedTask {
+		return &core.ParsedTask{ID: id, Meta: map[string]string{"verify": verifyLine}}
+	}
+
+	tests := []struct {
+		name      string
+		state     *core.State
+		ts        core.TaskState
+		docTask   *core.ParsedTask
+		flags     map[string]string
+		wantEv    string // substring expected in returned evidence (empty = skip)
+		wantErr   bool
+		errSubstr string // substring expected in error message
+	}{
+		{
+			name:      "dependency not complete → error",
+			state:     &core.State{Tasks: map[string]core.TaskState{"T0": {ID: "T0", Status: core.TaskPending}}},
+			ts:        core.TaskState{ID: id, Depends: []string{"T0"}, Verification: goodRec},
+			docTask:   docTask(),
+			wantErr:   true,
+			errSubstr: "dependencies not complete",
+		},
+		{
+			name:      "unverified without evidence → error",
+			state:     &core.State{Tasks: map[string]core.TaskState{}},
+			ts:        core.TaskState{ID: id},
+			docTask:   docTask(),
+			flags:     map[string]string{"unverified": "true"},
+			wantErr:   true,
+			errSubstr: "requires non-empty --evidence",
+		},
+		{
+			name:    "unverified with evidence → ok",
+			state:   &core.State{Tasks: map[string]core.TaskState{}},
+			ts:      core.TaskState{ID: id},
+			docTask: docTask(),
+			flags:   map[string]string{"unverified": "true", "evidence": "manual proof"},
+			wantEv:  "manual proof",
+		},
+		{
+			name:      "no passing verification → error",
+			state:     &core.State{Tasks: map[string]core.TaskState{}},
+			ts:        core.TaskState{ID: id},
+			docTask:   docTask(),
+			wantErr:   true,
+			errSubstr: "requires a passing",
+		},
+		{
+			name:      "stale verification command → error",
+			state:     &core.State{Tasks: map[string]core.TaskState{}},
+			ts:        core.TaskState{ID: id, Verification: &core.VerificationRecord{Command: "old cmd", Verified: true}},
+			docTask:   docTask(),
+			wantErr:   true,
+			errSubstr: "verification is stale",
+		},
+		{
+			name:    "verified → derives evidence",
+			state:   &core.State{Tasks: map[string]core.TaskState{}},
+			ts:      core.TaskState{ID: id, Verification: goodRec},
+			docTask: docTask(),
+			wantEv:  "verified: `go test ./...`",
+		},
+		{
+			name:    "verified with explicit evidence overrides derived",
+			state:   &core.State{Tasks: map[string]core.TaskState{}},
+			ts:      core.TaskState{ID: id, Verification: goodRec},
+			docTask: docTask(),
+			flags:   map[string]string{"evidence": "custom note"},
+			wantEv:  "custom note",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ev, serr := validateComplete(tt.state, tt.ts, tt.docTask, slug, id, argsFrom(tt.flags))
+			if tt.wantErr {
+				if serr == nil {
+					t.Fatalf("expected error, got nil (ev=%q)", ev)
+				}
+				if tt.errSubstr != "" && !strings.Contains(serr.Message, tt.errSubstr) {
+					t.Fatalf("error %q does not contain %q", serr.Message, tt.errSubstr)
+				}
+				return
+			}
+			if serr != nil {
+				t.Fatalf("unexpected error: %v", serr)
+			}
+			if tt.wantEv != "" && !strings.Contains(ev, tt.wantEv) {
+				t.Fatalf("evidence %q does not contain %q", ev, tt.wantEv)
+			}
+		})
+	}
+}
 
 func TestDeriveStatus(t *testing.T) {
 	tests := []struct {
