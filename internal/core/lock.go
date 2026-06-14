@@ -53,23 +53,11 @@ func goID() int64 {
 	return id
 }
 
-func numEnv(name string, fallback int) int {
-	v := os.Getenv(name)
-	if v == "" {
-		return fallback
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 0 {
-		return fallback
-	}
-	return n
-}
-
 func staleMs() time.Duration {
-	return time.Duration(numEnv("SPECD_LOCK_STALE_MS", 30_000)) * time.Millisecond
+	return time.Duration(EnvInt("SPECD_LOCK_STALE_MS", 30_000, 0, 0)) * time.Millisecond
 }
 func timeoutMs() time.Duration {
-	return time.Duration(numEnv("SPECD_LOCK_TIMEOUT_MS", 5_000)) * time.Millisecond
+	return time.Duration(EnvInt("SPECD_LOCK_TIMEOUT_MS", 5_000, 0, 0)) * time.Millisecond
 }
 
 const retryInterval = 25 * time.Millisecond
