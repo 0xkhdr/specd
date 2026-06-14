@@ -108,47 +108,10 @@ func RunVerify(args cli.Args) int {
 			shell = "sh"
 		}
 
-		timeout := verifyTimeoutMs()
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-
-		startedAt := core.NowISO()
-		t0 := time.Now()
-
-		core.Info(fmt.Sprintf("run: %s -c %q  (cwd=%s)", shell, command, root))
-		cmd := exec.CommandContext(ctx, shell, "-c", command)
-		cmd.Dir = root
-		cmd.Env = scrubbedEnv()
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		runErr := cmd.Run()
-		durationMs := time.Since(t0).Milliseconds()
-
-		timedOut := ctx.Err() == context.DeadlineExceeded
-		exitCode := 0
-		if runErr != nil {
-			if exitErr, ok := runErr.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			} else {
-				exitCode = 124
-			}
-		}
-		if timedOut {
-			exitCode = 124
-		}
-
-		rec := &core.VerificationRecord{
-			Command:    command,
-			ExitCode:   exitCode,
-			Verified:   exitCode == 0 && !timedOut,
-			TimedOut:   timedOut,
-			StdoutTail: tailStr(stdout.String(), 2000),
-			StderrTail: tailStr(stderr.String(), 2000),
-			DurationMs: durationMs,
-			RanAt:      startedAt,
-			GitHead:    gitHead(root),
-		}
+		rec := runVerifyCommand(context.Background(), root, shell, command)
+		timedOut := rec.TimedOut
+		exitCode := rec.ExitCode
+		durationMs := rec.DurationMs
 
 		ts.Verification = rec
 		state.Tasks[id] = ts
@@ -248,9 +211,49 @@ func recordCriterion(root, slug string, args cli.Args) int {
 	return rc
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// runVerifyCommand executes command via `shell -c` in root with a scrubbed
+// environment and a timeout, then returns the resulting VerificationRecord. It
+// performs no state IO or presentation — callers handle persistence and output.
+func runVerifyCommand(parent context.Context, root, shell, command string) *core.VerificationRecord {
+	timeout := verifyTimeoutMs()
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+
+	startedAt := core.NowISO()
+	t0 := time.Now()
+
+	core.Info(fmt.Sprintf("run: %s -c %q  (cwd=%s)", shell, command, root))
+	cmd := exec.CommandContext(ctx, shell, "-c", command)
+	cmd.Dir = root
+	cmd.Env = scrubbedEnv()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	runErr := cmd.Run()
+	durationMs := time.Since(t0).Milliseconds()
+
+	timedOut := ctx.Err() == context.DeadlineExceeded
+	exitCode := 0
+	if runErr != nil {
+		if exitErr, ok := runErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = 124
+		}
 	}
-	return b
+	if timedOut {
+		exitCode = 124
+	}
+
+	return &core.VerificationRecord{
+		Command:    command,
+		ExitCode:   exitCode,
+		Verified:   exitCode == 0 && !timedOut,
+		TimedOut:   timedOut,
+		StdoutTail: tailStr(stdout.String(), 2000),
+		StderrTail: tailStr(stderr.String(), 2000),
+		DurationMs: durationMs,
+		RanAt:      startedAt,
+		GitHead:    gitHead(root),
+	}
 }

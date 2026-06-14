@@ -37,179 +37,17 @@ func RunCheck(args cli.Args) int {
 	}
 	jsonOut := args.Bool("json")
 
-	var violations, warnings []core.Violation
-
-	// Gate 1: EARS
-	reqMd := core.ReadArtifact(root, slug, "requirements.md")
-	if reqMd != nil {
-		for _, iss := range core.LintEars(*reqMd) {
-			violations = append(violations, core.Violation{Gate: "ears", Location: fmt.Sprintf("requirements.md:%d", iss.Line), Message: iss.Message})
-		}
-	} else {
-		violations = append(violations, core.Violation{Gate: "ears", Location: "requirements.md", Message: "requirements.md missing"})
-	}
-
-	// Gate 2: design
-	violations = append(violations, core.DesignGate(core.ReadArtifact(root, slug, "design.md"))...)
-
-	// Gate 3+4: parse tasks, schema, DAG
-	tasksMdRaw := core.ReadArtifact(root, slug, "tasks.md")
-	tasksMd := ""
-	if tasksMdRaw != nil {
-		tasksMd = *tasksMdRaw
-	}
-	var doc *core.ParsedTasks
-	if strings.TrimSpace(tasksMd) != "" {
-		parsed, parseErr := core.ParseTasks(tasksMd)
-		if parseErr != nil {
-			if se, ok := core.IsSpecdError(parseErr); ok {
-				violations = append(violations, core.Violation{Gate: "task-schema", Location: "tasks.md", Message: se.Message})
-			} else {
-				return specdExit(parseErr)
-			}
-		} else {
-			doc = &parsed
-		}
-	}
-
-	state, err := core.LoadState(root, slug)
+	ctx, pre, err := buildCheckCtx(root, slug)
 	if err != nil {
 		return specdExit(err)
 	}
 
-	if doc != nil {
-		if len(doc.Tasks) == 0 {
-			violations = append(violations, core.Violation{Gate: "task-schema", Location: "tasks.md", Message: "no tasks defined"})
-		}
-		cfg := core.LoadConfig(root)
-
-		// Schema: role valid, verify command
-		for _, t := range doc.Tasks {
-			role := t.Meta["role"]
-			validRole := false
-			for _, r := range core.ValidRoles {
-				if r == role {
-					validRole = true
-					break
-				}
-			}
-			if !validRole {
-				violations = append(violations, core.Violation{Gate: "task-schema", Location: fmt.Sprintf("tasks.md:%d", t.Line), Message: fmt.Sprintf("%s: invalid role '%s'", t.ID, role)})
-			}
-			verify := strings.TrimSpace(t.Meta["verify"])
-			isNA := verify == "" || strings.ToUpper(verify[:min3(len(verify), 3)]) == "N/A"
-			if isNA {
-				isReadonly := false
-				for _, r := range core.ReadonlyRoles {
-					if r == role {
-						isReadonly = true
-						break
-					}
-				}
-				if !isReadonly {
-					violations = append(violations, core.Violation{Gate: "task-schema", Location: fmt.Sprintf("tasks.md:%d", t.Line), Message: fmt.Sprintf("%s: verify N/A only allowed for read-only roles (got '%s')", t.ID, role)})
-				}
-			}
-		}
-
-		// DAG
-		dag := make([]core.DagTask, len(doc.Tasks))
-		for i, t := range doc.Tasks {
-			st := core.TaskPending
-			if state != nil {
-				if ts, ok := state.Tasks[t.ID]; ok {
-					st = ts.Status
-				}
-			}
-			dag[i] = core.DagTask{ID: t.ID, Wave: t.Wave, Depends: core.ParseDepends(t.Meta["depends"]), Status: st}
-		}
-		for _, o := range core.OrphanDeps(dag) {
-			violations = append(violations, core.Violation{Gate: "dag", Location: "tasks.md", Message: fmt.Sprintf("%s depends on missing task '%s'", o.Task, o.Dep)})
-		}
-		if cyc := core.DetectCycle(dag); cyc != nil {
-			violations = append(violations, core.Violation{Gate: "dag", Location: "tasks.md", Message: fmt.Sprintf("dependency cycle: %s", strings.Join(cyc, " → "))})
-		}
-		for _, w := range core.WaveViolations(dag) {
-			violations = append(violations, core.Violation{Gate: "dag", Location: "tasks.md", Message: fmt.Sprintf("%s depends on '%s' which is in a later wave", w.Task, w.Dep)})
-		}
-
-		// Gate 6: sync
-		if state != nil {
-			for _, t := range doc.Tasks {
-				ts, ok := state.Tasks[t.ID]
-				if !ok {
-					continue
-				}
-				checkboxComplete := t.Checked && ts.Status == core.TaskComplete
-				checkboxNotComplete := !t.Checked && ts.Status != core.TaskComplete
-				if !checkboxComplete && !checkboxNotComplete {
-					cbStr := "[ ]"
-					if t.Checked {
-						cbStr = "[x]"
-					}
-					violations = append(violations, core.Violation{Gate: "sync", Location: fmt.Sprintf("tasks.md:%d", t.Line), Message: fmt.Sprintf("%s: checkbox/state drift (checkbox=%s, state=%s)", t.ID, cbStr, ts.Status)})
-				}
-				annotBlocked := t.Annotation != nil && t.Annotation.Kind == core.AnnotBlocked
-				if annotBlocked != (ts.Status == core.TaskBlocked) {
-					violations = append(violations, core.Violation{Gate: "sync", Location: fmt.Sprintf("tasks.md:%d", t.Line), Message: fmt.Sprintf("%s: blocked-annotation/state drift (state=%s)", t.ID, ts.Status)})
-				}
-			}
-		}
-
-		// Gate 7: traceability
-		referenced := make(map[int]bool)
-		for _, t := range doc.Tasks {
-			if _, ok := t.Meta["requirements"]; ok {
-				for _, n := range core.ParseRequirements(t.Meta["requirements"]) {
-					referenced[n] = true
-				}
-			}
-		}
-		if reqMd != nil {
-			forwardSink := &warnings
-			if cfg.Gates.Traceability == "error" {
-				forwardSink = &violations
-			}
-			reqNums := core.RequirementNumbers(*reqMd)
-			for n := range reqNums {
-				if !referenced[n] {
-					*forwardSink = append(*forwardSink, core.Violation{Gate: "traceability", Location: "requirements.md", Message: fmt.Sprintf("requirement %d not referenced by any task", n)})
-				}
-			}
-			for _, t := range doc.Tasks {
-				if _, ok := t.Meta["requirements"]; !ok {
-					continue
-				}
-				for _, n := range core.ParseRequirements(t.Meta["requirements"]) {
-					if !reqNums[n] {
-						violations = append(violations, core.Violation{Gate: "traceability", Location: fmt.Sprintf("tasks.md:%d", t.Line), Message: fmt.Sprintf("%s: references requirement %d which is not defined in requirements.md", t.ID, n)})
-					}
-				}
-			}
-		}
-	}
-
-	// Gate 5: evidence
-	if state != nil {
-		for _, t := range state.Tasks {
-			if t.Status != core.TaskComplete {
-				continue
-			}
-			if t.Evidence == nil || strings.TrimSpace(*t.Evidence) == "" {
-				violations = append(violations, core.Violation{Gate: "evidence", Location: "state.json", Message: fmt.Sprintf("%s: complete without evidence", t.ID)})
-				continue
-			}
-			isReadonly := false
-			for _, r := range core.ReadonlyRoles {
-				if r == t.Role {
-					isReadonly = true
-					break
-				}
-			}
-			if !isReadonly && (t.Verification == nil || !t.Verification.Verified) {
-				violations = append(violations, core.Violation{Gate: "evidence", Location: "state.json", Message: fmt.Sprintf("%s: complete without a verified record (role '%s') — run `specd verify %s %s`", t.ID, t.Role, slug, t.ID)})
-			}
-		}
+	violations := pre
+	var warnings []core.Violation
+	for _, gate := range core.CheckGates {
+		v, w := gate(ctx)
+		violations = append(violations, v...)
+		warnings = append(warnings, w...)
 	}
 
 	if jsonOut {
@@ -246,11 +84,47 @@ func RunCheck(args cli.Args) int {
 	return 1
 }
 
-func min3(a, b int) int {
-	if a < b {
-		return a
+// buildCheckCtx loads the artifacts and state the gate pipeline reads. It
+// returns the context, any pre-gate violations (currently only a tasks.md parse
+// error surfaced as a task-schema violation), and a hard error for
+// non-recoverable load failures.
+func buildCheckCtx(root, slug string) (core.CheckCtx, []core.Violation, error) {
+	var pre []core.Violation
+
+	reqMd := core.ReadArtifact(root, slug, "requirements.md")
+
+	tasksMdRaw := core.ReadArtifact(root, slug, "tasks.md")
+	tasksMd := ""
+	if tasksMdRaw != nil {
+		tasksMd = *tasksMdRaw
 	}
-	return b
+	var doc *core.ParsedTasks
+	if strings.TrimSpace(tasksMd) != "" {
+		parsed, parseErr := core.ParseTasks(tasksMd)
+		if parseErr != nil {
+			if se, ok := core.IsSpecdError(parseErr); ok {
+				pre = append(pre, core.Violation{Gate: "task-schema", Location: "tasks.md", Message: se.Message})
+			} else {
+				return core.CheckCtx{}, nil, parseErr
+			}
+		} else {
+			doc = &parsed
+		}
+	}
+
+	state, err := core.LoadState(root, slug)
+	if err != nil {
+		return core.CheckCtx{}, nil, err
+	}
+
+	return core.CheckCtx{
+		Root:  root,
+		Slug:  slug,
+		ReqMd: reqMd,
+		Doc:   doc,
+		State: state,
+		Cfg:   core.LoadConfig(root),
+	}, pre, nil
 }
 
 // runBootCheck implements `specd check --boot`: the boot-freshness gate. It

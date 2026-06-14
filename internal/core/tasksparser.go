@@ -12,7 +12,25 @@ var (
 	KeyOrder      = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends", "requirements"}
 	ValidRoles    = []string{"investigator", "builder", "reviewer", "verifier"}
 	ReadonlyRoles = []string{"investigator", "reviewer"}
+
+	validRoleSet    = sliceToSet(ValidRoles)
+	readonlyRoleSet = sliceToSet(ReadonlyRoles)
 )
+
+// IsValidRole reports whether r is a recognized task role.
+func IsValidRole(r string) bool { return validRoleSet[r] }
+
+// IsReadonlyRole reports whether r is a read-only role (no runnable verify
+// command required to complete).
+func IsReadonlyRole(r string) bool { return readonlyRoleSet[r] }
+
+func sliceToSet(ss []string) map[string]bool {
+	m := make(map[string]bool, len(ss))
+	for _, s := range ss {
+		m[s] = true
+	}
+	return m
+}
 
 type AnnotationKind string
 
