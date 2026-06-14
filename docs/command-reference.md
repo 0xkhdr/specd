@@ -86,6 +86,14 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 | `specd version` | Show version | `0` ok |
 | `specd help [command] [--json]` | Show help / dump the JSON command registry | `0` ok, `2` unknown command |
 
+> **`specd update` verifies before replacing.** It downloads the release
+> `SHA256SUMS`, checks the archive digest, and **fails closed** on mismatch — the
+> same filename `install.sh` and `.goreleaser.yml` use.
+>
+> **Windows limitation:** `specd update` cannot replace the running `specd.exe`
+> in place (Windows locks in-use executables). On Windows, reinstall from a fresh
+> download instead. All other commands work normally. See TESTING.md.
+
 ---
 
 ## Environment variables

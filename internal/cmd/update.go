@@ -135,6 +135,14 @@ func downloadBinary(tag, destPath string) error {
 
 // extractBinary reads the verified tarball at tarPath, finds the specd binary,
 // writes it to destPath+".new", and renames it over destPath.
+//
+// KNOWN LIMITATION (Windows): the final os.Rename replaces the running
+// executable in place. POSIX permits renaming over a running binary; Windows
+// locks an in-use .exe and the rename fails with "Access is denied". specd
+// therefore builds and runs on Windows, but `specd update` self-replacement is
+// known-limited there — Windows users should reinstall from a fresh download
+// instead. Lifting this needs the rename-to-sidecar + relaunch dance; tracked
+// as follow-up (see TESTING.md → "Windows limitation"), not silently broken.
 func extractBinary(tarPath, destPath string) error {
 	tf, err := os.Open(tarPath)
 	if err != nil {
