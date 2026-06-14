@@ -49,22 +49,32 @@ func RunCheck(args cli.Args) int {
 	}
 
 	if jsonOut {
-		if violations == nil {
-			violations = []core.Violation{}
-		}
-		if warnings == nil {
-			warnings = []core.Violation{}
-		}
-		out := map[string]interface{}{"ok": len(violations) == 0, "violations": violations, "warnings": warnings}
-		if err := core.PrintJSON(out); err != nil {
-			return specdExit(err)
-		}
-		if len(violations) == 0 {
-			return core.ExitOK
-		}
-		return core.ExitGate
+		return renderCheckJSON(violations, warnings)
 	}
+	return renderCheckHuman(slug, violations, warnings)
+}
 
+// renderCheckJSON emits the machine-readable check result and maps the gate
+// outcome to an exit code.
+func renderCheckJSON(violations, warnings []core.Violation) int {
+	if violations == nil {
+		violations = []core.Violation{}
+	}
+	if warnings == nil {
+		warnings = []core.Violation{}
+	}
+	out := map[string]interface{}{"ok": len(violations) == 0, "violations": violations, "warnings": warnings}
+	if err := core.PrintJSON(out); err != nil {
+		return specdExit(err)
+	}
+	if len(violations) == 0 {
+		return core.ExitOK
+	}
+	return core.ExitGate
+}
+
+// renderCheckHuman prints warnings then the pass/fail summary for a check run.
+func renderCheckHuman(slug string, violations, warnings []core.Violation) int {
 	for _, w := range warnings {
 		fmt.Printf("warn  %s: %s (%s)\n", w.Location, w.Message, w.Gate)
 	}

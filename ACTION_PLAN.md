@@ -174,13 +174,13 @@ work landed in the codebase. (Adapted — these are prose stages, not tool-forma
 ## Stage 8: Final Ship Gate — Summary & Sign-Off
 **Objective:** Compile findings, fix blockers, produce ship report.
 
-- [ ] `REGRESSION_FINDINGS.md`: passed / failed (blocker|warning|info) / fixed / open
-- [ ] Fix all **blocker** findings; re-run affected stage(s)
-- [ ] Final `make test` (race suite)
-- [ ] Full local gate: `make ci`
-- [ ] `git status` clean
-- [ ] `SHIP_REPORT.md`: version, 7-stage summary, test results+coverage%, security status, known limits (e.g. Windows `specd update`), sign-off
-- [ ] **STOP → Commit & Push** — `regression: stage 8 — final ship gate & sign-off`
+- [x] `REGRESSION_FINDINGS.md`: passed / failed (blocker|warning|info) / fixed / open — Stage 8 ledger added; 0 open
+- [x] Fix all **blocker** findings; re-run affected stage(s) — F-S5-1 & F-S7-1 fixed (prior stages); F-S3-1 warning also closed (RunCheck decomposed)
+- [x] Final `make test` (race suite) — all 5 packages PASS
+- [x] Full local gate: `make ci` — GREEN (lint·test·test-order·cover-check·stress)
+- [x] `git status` clean
+- [x] `SHIP_REPORT.md`: version, 7-stage summary, test results+coverage%, security status, known limits (e.g. Windows `specd update`), sign-off
+- [x] **STOP → Commit & Push** — `regression: stage 8 — final ship gate & sign-off`
 
 ---
 
@@ -199,9 +199,9 @@ commits there, open PR at Stage 8. Do NOT push straight to `main`.
 First action in fresh window: `git switch -c regression/ship-readiness`.
 
 ## Success Criteria
-- [ ] All 8 stages `[x]` in this file
-- [ ] `REGRESSION_FINDINGS.md` exists, blockers resolved
-- [ ] `SHIP_REPORT.md` exists, signed off
-- [ ] `make test` passes
-- [ ] `make ci` passes locally
-- [ ] `git status` clean
+- [x] All 8 stages `[x]` in this file
+- [x] `REGRESSION_FINDINGS.md` exists, blockers resolved
+- [x] `SHIP_REPORT.md` exists, signed off
+- [x] `make test` passes
+- [x] `make ci` passes locally
+- [x] `git status` clean

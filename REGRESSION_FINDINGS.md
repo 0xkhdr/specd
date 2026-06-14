@@ -133,3 +133,42 @@ No **open** findings in Stage 5.
 - `gofmt -l .` empty · `go vet ./...` clean · `shellcheck scripts/*.sh` clean · `go build` ok.
 
 No **open** findings in Stage 7.
+
+---
+
+## Stage 8 — Final Ship Gate & Sign-Off
+
+**Verdict: PASS — ship-ready.** All blocker findings resolved; the sole open
+warning (F-S3-1) was closed by a low-risk refactor. Full local gate
+(`make ci`) green.
+
+### Finding resolved this stage
+
+| ID | Severity | Finding | Resolution |
+|----|----------|---------|------------|
+| F-S3-1 | warning | `RunCheck` body was ~73 lines vs the spec AC1 soft target of "≤ ~40 lines". Gate logic was already extracted to `core/gates.go`; the excess was inline JSON + human output rendering. | Extracted the two output paths into `renderCheckJSON` and `renderCheckHuman` helpers (`internal/cmd/check.go`). `RunCheck` body is now ~30 lines. Behavior byte-identical (same JSON shape, same human lines, same exit codes); existing check/lifecycle tests still pass. |
+
+### Final findings ledger
+
+| ID | Severity | Stage | Status |
+|----|----------|-------|--------|
+| F-S1-1 | info | 01/07 | Closed — `shellcheck` run locally via pinned `v0.10.0` static binary; covered by CI. |
+| F-S2-1 | warning | 02 | Fixed — shellcheck SC2034/SC2059 cleaned in `install.sh`/`uninstall.sh`. |
+| F-S3-1 | warning | 03 | Fixed — `RunCheck` decomposed (this stage). |
+| F-S5-1 | blocker | 05 | Fixed — `SPECD_JSON` ⇔ `--json` parity restored; regression test added. |
+| F-S7-1 | blocker | 07 | Fixed — `AGENTS.md` rewritten from TypeScript to actual Go layout. |
+| F-S7-2 | warning | 07 | Fixed — `uninstall.sh` PATH marker aligned to `# specd`. |
+| F-S7-3 | info | 07 | Closed — no static CHANGELOG by design; GoReleaser auto-generates per-release notes. |
+
+**Blockers: 0 open (2 fixed). Warnings: 0 open (3 fixed). Info: 0 open (2 closed).**
+
+### Final gate results
+- `make test` (`-race -count=1`) → all 5 packages PASS
+- `make ci` (lint · test · test-order · cover-check · stress) → **GREEN**
+  - lint: `gofmt -l .` empty · `go vet` clean · `shellcheck scripts/*.sh` clean
+  - test-order (`-count=2`) → PASS (no order dependence)
+  - coverage: overall **64.1% ≥ 60%**, `internal/core` **59.9% ≥ 58%**
+  - stress: 16×20 cross-process, 320 committed writes, turn==successes, `state.json` intact
+- `git status` clean after commit.
+
+No **open** findings. See `SHIP_REPORT.md` for sign-off.
