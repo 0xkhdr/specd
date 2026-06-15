@@ -29,17 +29,6 @@ func (p uninstallPlan) empty() bool {
 	return p.InstallDir == "" && p.BinLink == "" && len(p.PathFiles) == 0
 }
 
-// isWSL reports whether we are running under Windows/WSL, matching the
-// /proc/version probe in scripts/uninstall.sh.
-func isWSL() bool {
-	b, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	v := strings.ToLower(string(b))
-	return strings.Contains(v, "microsoft") || strings.Contains(v, "wsl")
-}
-
 // installDirFor returns the directory install.sh extracts the repo/binary into,
 // keyed on platform exactly as the shell script does.
 func installDirFor(home string) string {

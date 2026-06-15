@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -275,15 +276,7 @@ func serializeTask(t ParsedTask) string {
 	if t.Checked {
 		checked = "x"
 	}
-	titleLine := fmt.Sprintf("- [%s] %s — %s", checked, t.ID, t.Title)
-	if t.Annotation != nil {
-		switch t.Annotation.Kind {
-		case AnnotComplete:
-			titleLine += fmt.Sprintf(" ✓ complete · evidence: %s · %s", encodeAnnotationField(t.Annotation.Evidence), encodeAnnotationField(t.Annotation.Ts))
-		case AnnotBlocked:
-			titleLine += fmt.Sprintf(" ⚠ blocked · reason: %s", encodeAnnotationField(t.Annotation.Reason))
-		}
-	}
+	titleLine := fmt.Sprintf("- [%s] %s — %s", checked, t.ID, t.Title) + annotationSuffix(t.Annotation)
 	var metaLines []string
 	for _, k := range KeyOrder {
 		if v, ok := t.Meta[k]; ok {
@@ -304,7 +297,7 @@ func SerializeTasks(doc ParsedTasks) string {
 	for w := range waveSet {
 		waves = append(waves, w)
 	}
-	sortInts(waves)
+	sort.Ints(waves)
 	for _, w := range waves {
 		out = append(out, fmt.Sprintf("## Wave %d", w))
 		for _, t := range doc.Tasks {
@@ -333,16 +326,23 @@ func RenderTaskLine(id, bareTitle string, checked bool, ann *Annotation) string 
 	if checked {
 		ch = "x"
 	}
-	line := fmt.Sprintf("- [%s] %s — %s", ch, id, bareTitle)
-	if ann != nil {
-		switch ann.Kind {
-		case AnnotComplete:
-			line += fmt.Sprintf(" ✓ complete · evidence: %s · %s", encodeAnnotationField(ann.Evidence), encodeAnnotationField(ann.Ts))
-		case AnnotBlocked:
-			line += fmt.Sprintf(" ⚠ blocked · reason: %s", encodeAnnotationField(ann.Reason))
-		}
+	return fmt.Sprintf("- [%s] %s — %s", ch, id, bareTitle) + annotationSuffix(ann)
+}
+
+// annotationSuffix renders the trailing " ✓ complete · …" / " ⚠ blocked · …"
+// fragment appended to a task line. Shared by serializeTask and RenderTaskLine
+// so the on-disk annotation format has a single source of truth.
+func annotationSuffix(ann *Annotation) string {
+	if ann == nil {
+		return ""
 	}
-	return line
+	switch ann.Kind {
+	case AnnotComplete:
+		return fmt.Sprintf(" ✓ complete · evidence: %s · %s", encodeAnnotationField(ann.Evidence), encodeAnnotationField(ann.Ts))
+	case AnnotBlocked:
+		return fmt.Sprintf(" ⚠ blocked · reason: %s", encodeAnnotationField(ann.Reason))
+	}
+	return ""
 }
 
 func ApplyTaskAnnotation(text, id string, checked bool, ann *Annotation) (string, error) {
@@ -357,12 +357,4 @@ func ApplyTaskAnnotation(text, id string, checked bool, ann *Annotation) (string
 		}
 	}
 	return "", GateError(fmt.Sprintf("tasks.md: task line for '%s' not found", id))
-}
-
-func sortInts(a []int) {
-	for i := 1; i < len(a); i++ {
-		for j := i; j > 0 && a[j] < a[j-1]; j-- {
-			a[j], a[j-1] = a[j-1], a[j]
-		}
-	}
 }

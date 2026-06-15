@@ -89,16 +89,9 @@ func buildBrief(state *core.State, slug, defaultVerify string) brief {
 }
 
 func RunContext(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd context <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd context <slug> [--json]")
+	if !ok {
+		return code
 	}
 	loaded, err := core.LoadSpec(root, slug)
 	if err != nil {

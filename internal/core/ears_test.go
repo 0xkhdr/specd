@@ -1,6 +1,36 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestLintEars_stateMachine(t *testing.T) {
+	// Block 1: a numbered line BEFORE the acceptance marker must not be counted
+	// as a criterion; the two lines after the marker are. Block 2 is fully valid.
+	text := "## Requirement 1: Foo\n" + // 1
+		"**User story:** As a user I want X\n" + // 2
+		"1. THE SYSTEM SHALL be ignored before marker\n" + // 3 (pre-marker, ignored)
+		"**Acceptance criteria:**\n" + // 4
+		"1. WHEN x happens THE SYSTEM SHALL y\n" + // 5 (valid)
+		"2. this is not an ears criterion\n" + // 6 (invalid → issue)
+		"\n" + // 7
+		"## Requirement 2: Bar\n" + // 8
+		"**User story:** As a user\n" + // 9
+		"**Acceptance criteria:**\n" + // 10
+		"1. THE SYSTEM SHALL be valid\n" // 11
+
+	issues := LintEars(text)
+	if len(issues) != 1 {
+		t.Fatalf("expected exactly 1 issue, got %d: %v", len(issues), issues)
+	}
+	if issues[0].Line != 6 {
+		t.Errorf("issue line = %d, want 6", issues[0].Line)
+	}
+	if !strings.Contains(issues[0].Message, "this is not an ears criterion") {
+		t.Errorf("issue message = %q, want it to quote the bad criterion", issues[0].Message)
+	}
+}
 
 func TestMatchEars(t *testing.T) {
 	cases := []struct {

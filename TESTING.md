@@ -82,7 +82,7 @@ builders + asserters:
 | `h.Run(cmd, args...)` / `h.RunExpect(want, cmd, args...)` | dispatch a command, capture stdout/stderr/code |
 | `h.State(slug)` | `StateAsserter` — `.Status().Phase().Gate()…` chained assertions |
 | `h.Path(rel)` / `h.SpecPath(slug, name)` | resolve paths under the temp root |
-| `h.InitGit()` / `h.GitCommitAll(msg)` / `h.GitHead()` | git fixtures for boot/enrich tests |
+| `h.InitGit()` / `h.GitCommitAll(msg)` / `h.GitHead()` | git fixtures for verification (gitHead) tests |
 
 ## Determinism (golden / report output)
 
@@ -110,8 +110,8 @@ below the floor:
 
 | Scope | Floor (enforced) | Long-term target |
 |---|---|---|
-| overall | `OVERALL_MIN` = **60%** | 85% |
-| `internal/core` (the engine) | `CORE_MIN` = **58%** | 95% |
+| overall | `OVERALL_MIN` = **65%** | 85% |
+| `internal/core` (the engine) | `CORE_MIN` = **60%** | 95% |
 
 The floors sit just under current measured coverage so a refactor can't
 silently lose tests; the targets are where we're driving them. Raise the floors

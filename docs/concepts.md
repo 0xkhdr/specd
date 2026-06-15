@@ -84,7 +84,7 @@ specd/
 │   │       ├── steering/         # Constitution files
 │   │       ├── roles/            # Role persona prompts
 │   │       ├── specStubs/        # Spec artifact stubs
-│   │       └── skills/           # Companion skills (e.g. specd-enrich)
+│   │       └── skills/           # Companion skills (e.g. specd-execute)
 │   └── testharness/              # Deterministic test infrastructure
 │                                 # (sandbox repo, in-process runner, FakeClock)
 ├── scripts/                      # install.sh / uninstall.sh / stress.sh

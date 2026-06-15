@@ -8,16 +8,9 @@ import (
 )
 
 func RunApprove(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd approve <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd approve <slug> [--json]")
+	if !ok {
+		return code
 	}
 	jsonOut := args.Bool("json")
 

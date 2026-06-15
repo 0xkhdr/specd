@@ -7,6 +7,15 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// frontierOut is the typed schema for the non-empty dispatch frontier response.
+// Field order matches the previous map output (encoder sorts map keys) so the
+// emitted bytes are unchanged.
+type frontierOut struct {
+	Count   int              `json:"count"`
+	Kind    string           `json:"kind"`
+	Packets []dispatchPacket `json:"packets"`
+}
+
 type dispatchPacket struct {
 	ID           string   `json:"id"`
 	Wave         int      `json:"wave"`
@@ -24,16 +33,9 @@ type dispatchPacket struct {
 }
 
 func RunDispatch(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd dispatch <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd dispatch <slug> [--json]")
+	if !ok {
+		return code
 	}
 	loaded, err := core.LoadSpec(root, slug)
 	if err != nil {
@@ -43,15 +45,8 @@ func RunDispatch(args cli.Args) int {
 	doc := loaded.Doc
 	jsonOut := args.Bool("json")
 
-	if state.Gate == core.GateAwaitingApproval && !args.Bool("force") {
-		if jsonOut {
-			if err := core.PrintJSON(map[string]interface{}{"kind": "gated", "gate": state.Gate}); err != nil {
-				return specdExit(err)
-			}
-		} else {
-			errLine("⛔ gate awaiting-approval — present the revised plan, then `specd approve %s` (override: --force).", slug)
-		}
-		return core.ExitGate
+	if code, blocked := approvalGateBlocked(args, state, slug, jsonOut); blocked {
+		return code
 	}
 
 	// Derive the DAG view once and reuse it for both scheduling queries below.
@@ -67,13 +62,8 @@ func RunDispatch(args cli.Args) int {
 			}
 			return core.ExitOK
 		}
-		switch r.Kind {
-		case core.NextAllComplete:
-			fmt.Println("✓ all tasks complete — nothing to dispatch.")
-		case core.NextAllBlocked:
-			fmt.Printf("⚠ all remaining tasks blocked: %v\n", r.Blocked)
-		case core.NextWaiting:
-			fmt.Printf("… waiting — frontier gated by incomplete deps: %v\n", r.Blocking)
+		if msg := frontierStuckReason(r, "✓ all tasks complete — nothing to dispatch."); msg != "" {
+			fmt.Println(msg)
 		}
 		return core.ExitOK
 	}
@@ -94,37 +84,26 @@ func RunDispatch(args cli.Args) int {
 
 	packets := make([]dispatchPacket, len(frontier))
 	for i, f := range frontier {
-		t := core.FindTask(doc, f.ID)
-		ts := state.Tasks[f.ID]
-		role := ts.Role
-		if t != nil && t.Meta["role"] != "" {
-			role = t.Meta["role"]
-		}
-		m := map[string]string{}
-		title := ts.Title
-		if t != nil {
-			m = t.Meta
-			title = t.Title
-		}
-		depends := ts.Depends
+		v := core.ResolveTaskView(doc, state, f.ID)
+		depends := v.Depends
 		if depends == nil {
 			depends = []string{}
 		}
-		reqs := ts.Requirements
+		reqs := v.Requirements
 		if reqs == nil {
 			reqs = []int{}
 		}
 		packets[i] = dispatchPacket{
-			ID: f.ID, Wave: f.Wave, Role: role, RolePrompt: rolePromptFor(role),
-			Title: title, Why: m["why"], Contract: m["contract"], Files: m["files"],
-			Acceptance: m["acceptance"], Verify: m["verify"],
+			ID: f.ID, Wave: f.Wave, Role: v.Role, RolePrompt: rolePromptFor(v.Role),
+			Title: v.Title, Why: v.Meta["why"], Contract: v.Meta["contract"], Files: v.Meta["files"],
+			Acceptance: v.Meta["acceptance"], Verify: v.Meta["verify"],
 			Depends: depends, Requirements: reqs,
 			Completion: fmt.Sprintf("specd task %s %s --status complete --evidence \"<proof>\"", slug, f.ID),
 		}
 	}
 
 	if jsonOut {
-		if err := core.PrintJSON(map[string]interface{}{"kind": "frontier", "count": len(packets), "packets": packets}); err != nil {
+		if err := core.PrintJSON(frontierOut{Count: len(packets), Kind: "frontier", Packets: packets}); err != nil {
 			return specdExit(err)
 		}
 		return core.ExitOK

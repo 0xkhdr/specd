@@ -57,6 +57,8 @@ state="$work/.specd/specs/stress/state.json"
 if command -v python3 >/dev/null 2>&1; then
   python3 -c "import json; json.load(open('$state'))" \
     || { echo "FAIL: state.json is not valid JSON — torn write detected"; exit 1; }
+else
+  echo "WARN: python3 not found — skipping the JSON torn-write check (the turn==successes lost-update check below still runs)." >&2
 fi
 
 # 2. Final Turn must equal the number of committed writes — no lost updates.

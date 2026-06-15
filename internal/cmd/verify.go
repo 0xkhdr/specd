@@ -58,16 +58,9 @@ func gitHead(cwd string) *string {
 }
 
 func RunVerify(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd verify <slug> <id>  |  specd verify <slug> --criterion <req>.<n> --status pass|fail --evidence \"...\"")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd verify <slug> <id>  |  specd verify <slug> --criterion <req>.<n> --status pass|fail --evidence \"...\"")
+	if !ok {
+		return code
 	}
 	if args.Has("criterion") {
 		return recordCriterion(root, slug, args)
@@ -109,44 +102,48 @@ func RunVerify(args cli.Args) int {
 		}
 
 		rec := runVerifyCommand(context.Background(), root, shell, command)
-		timedOut := rec.TimedOut
-		exitCode := rec.ExitCode
-		durationMs := rec.DurationMs
 
+		// State mutation: persist the verification record under the spec lock.
 		ts.Verification = rec
 		state.Tasks[id] = ts
 		if err := core.SaveState(root, slug, state); err != nil {
 			return specdExit(err), err
 		}
 
-		mark := "✗ FAILED"
-		if rec.Verified {
-			mark = "✓ verified"
-		}
-		to := ""
-		if timedOut {
-			to = " (timed out)"
-		}
-		fmt.Printf("%s — %s: `%s` → exit %d%s in %dms\n", mark, id, command, exitCode, to, durationMs)
-		if rec.GitHead != nil {
-			fmt.Printf("  gitHead: %s\n", *rec.GitHead)
-		}
-		if !rec.Verified && strings.TrimSpace(rec.StderrTail) != "" {
-			fmt.Printf("  stderr tail:\n%s\n", rec.StderrTail)
-		}
-		if rec.Verified {
-			fmt.Printf("  complete with: specd task %s %s --status complete\n", slug, id)
-		}
-		rc := core.ExitGate
-		if rec.Verified {
-			rc = core.ExitOK
-		}
-		return rc, nil
+		// Presentation is factored out so this closure only does IO/state.
+		return printVerifyResult(slug, id, rec), nil
 	})
 	if err != nil {
 		return specdExit(err)
 	}
 	return rc
+}
+
+// printVerifyResult renders a verification record to stdout and returns the
+// process exit code (OK when verified, Gate otherwise). It performs no spec-state
+// IO — the caller owns persistence — mirroring the execution/presentation split
+// already drawn by runVerifyCommand.
+func printVerifyResult(slug, id string, rec *core.VerificationRecord) int {
+	mark := "✗ FAILED"
+	if rec.Verified {
+		mark = "✓ verified"
+	}
+	to := ""
+	if rec.TimedOut {
+		to = " (timed out)"
+	}
+	fmt.Printf("%s — %s: `%s` → exit %d%s in %dms\n", mark, id, rec.Command, rec.ExitCode, to, rec.DurationMs)
+	if rec.GitHead != nil {
+		fmt.Printf("  gitHead: %s\n", *rec.GitHead)
+	}
+	if !rec.Verified && strings.TrimSpace(rec.StderrTail) != "" {
+		fmt.Printf("  stderr tail:\n%s\n", rec.StderrTail)
+	}
+	if rec.Verified {
+		fmt.Printf("  complete with: specd task %s %s --status complete\n", slug, id)
+		return core.ExitOK
+	}
+	return core.ExitGate
 }
 
 var criterionRE = regexp.MustCompile(`^(\d+)\.(\d+)$`)

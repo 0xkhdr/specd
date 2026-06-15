@@ -10,11 +10,15 @@ RED=""
 GREEN=""
 YELLOW=""
 
+# Materialize escapes into the vars (tput, else `printf '%b'`) so format strings
+# never carry raw \033 under /bin/sh printf.
 if [ -t 1 ] && { [ -z "${NO_COLOR}" ] || [ "${NO_COLOR}" = "0" ]; }; then
-  RESET="\033[0m"
-  RED="\033[31m"
-  GREEN="\033[32m"
-  YELLOW="\033[33m"
+  if command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    RESET="$(tput sgr0)"; RED="$(tput setaf 1)"; GREEN="$(tput setaf 2)"; YELLOW="$(tput setaf 3)"
+  else
+    RESET="$(printf '%b' '\033[0m')"; RED="$(printf '%b' '\033[31m')"
+    GREEN="$(printf '%b' '\033[32m')"; YELLOW="$(printf '%b' '\033[33m')"
+  fi
 fi
 
 log_step() {

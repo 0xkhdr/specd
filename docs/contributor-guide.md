@@ -38,7 +38,7 @@ specd/
 ├── internal/
 │   ├── cli/args.go               # Flag/positional parser (Args)
 │   ├── cmd/                      # One file per CLI command (Run<Command>)
-│   │   ├── init.go boot.go enrich.go new.go check.go approve.go
+│   │   ├── init.go new.go check.go approve.go
 │   │   ├── next.go dispatch.go verify.go task.go
 │   │   ├── decision.go midreq.go memory.go
 │   │   ├── report.go waves.go program.go status.go context.go update.go

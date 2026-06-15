@@ -30,10 +30,11 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      # Gate the release on the race suite even though ci.yml already ran it on
-      # the commit — a tag should never publish an unverified tree.
-      - name: go test -race
-        run: go test ./... -race -count=1
+      # Gate the release on the full CI suite (lint + race + order-dependence +
+      # coverage floor + stress) even though ci.yml already ran it on the commit
+      # — a tag should never publish an unverified tree (R4.3).
+      - name: make ci
+        run: make ci
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

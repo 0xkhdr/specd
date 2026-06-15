@@ -7,6 +7,9 @@ before:
 builds:
   - main: .
     binary: specd
+    # Reproducible builds: pin embedded file timestamps to the commit time so
+    # the same source produces byte-identical binaries.
+    mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0
     goos:
@@ -32,6 +35,12 @@ checksum:
   # Must match the filename update.go::fetchChecksums and install.sh expect.
   name_template: SHA256SUMS
   algorithm: sha256
+
+# Generate a CycloneDX SBOM per archive (requires `syft` on the release runner).
+# Artifact signing remains a documented deferral until signing-key management is
+# in place.
+sboms:
+  - artifacts: archive
 
 changelog:
   sort: asc
