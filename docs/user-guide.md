@@ -31,7 +31,7 @@ After install, restart your shell (or `source ~/.bashrc` / `source ~/.zshrc`).
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
 
 # Pin a specific version
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.2.0
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.1.0
 ```
 
 ### Uninstall / update

@@ -1,7 +1,7 @@
 #!/bin/sh
 # specd install script — downloads pre-built binary from GitHub Releases.
 # Usage: curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
-#        curl -fsSL ... | bash -s -- --force --version v0.2.0
+#        curl -fsSL ... | bash -s -- --force --version v0.1.0
 
 set -e
 
