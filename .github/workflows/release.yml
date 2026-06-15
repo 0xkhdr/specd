@@ -36,6 +36,9 @@ jobs:
       - name: make ci
         run: make ci
 
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
