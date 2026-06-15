@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>specd — Demonstration, Value &amp; Roadmap Report</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --border:#30363d;
+    --text:#c9d1d9; --muted:#8b949e; --dim:#6e7681;
+    --purple:#a371f7; --amber:#d29922; --blue:#58a6ff; --green:#3fb950; --red:#f85149; --cyan:#39c5cf;
+  }
+  *{box-sizing:border-box}
+  body{font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);background:var(--bg);margin:0;}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 1.2rem 6rem;}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#1f2630;padding:.12rem .4rem;border-radius:5px;font-size:.86em;color:#e6edf3}
+  pre{white-space:pre-wrap;background:#0a0e14;border:1px solid var(--border);padding:1rem;border-radius:8px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;line-height:1.5}
+  h1,h2,h3{line-height:1.25;font-weight:700}
+  h2{font-size:1.6rem;margin:3.2rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+  h3{font-size:1.18rem;margin:2rem 0 .6rem;color:#e6edf3}
+  p{margin:.6rem 0}
+  /* HERO */
+  header.hero{padding:4rem 0 2.5rem;text-align:center;border-bottom:1px solid var(--border);margin-bottom:1rem;
+    background:radial-gradient(ellipse 80% 60% at 50% -10%, rgba(163,113,247,.18), transparent 70%);}
+  .logo{font-size:3.4rem;font-weight:800;letter-spacing:-2px}
+  .logo .d{color:var(--purple)}
+  .tag{font-size:1.15rem;color:var(--muted);margin:.6rem 0 1rem}
+  .creed{display:inline-block;font-style:italic;color:var(--purple);border:1px solid rgba(163,113,247,.4);
+    padding:.4rem 1.1rem;border-radius:2rem;background:rgba(163,113,247,.08);margin-top:.4rem}
+  .ver{font-family:ui-monospace,monospace;color:var(--dim);font-size:.8rem;margin-top:1rem}
+  /* badges row */
+  .pills{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1.2rem}
+  .pill{font-size:.78rem;padding:.22rem .7rem;border-radius:1rem;border:1px solid var(--border);background:var(--panel);color:var(--muted)}
+  /* nav */
+  nav{position:sticky;top:0;z-index:5;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);padding:.6rem 0;margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:.3rem 1rem;justify-content:center;font-size:.83rem}
+  nav a{color:var(--muted)}
+  /* cards */
+  .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem}
+  .card h4{margin:.1rem 0 .5rem;font-size:1.02rem;color:#e6edf3}
+  .card .ico{font-size:1.4rem}
+  .card p{color:var(--muted);font-size:.9rem;margin:.3rem 0 0}
+  /* table */
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.88rem}
+  th,td{text-align:left;padding:.55rem .7rem;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  td code{white-space:nowrap}
+  tr:hover td{background:rgba(255,255,255,.015)}
+  /* phase flow */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:1.2rem 0;justify-content:center}
+  .phase{padding:.5rem .9rem;border-radius:8px;border:1px solid var(--border);background:var(--panel);font-weight:600;font-size:.9rem}
+  .arrow{color:var(--dim);font-size:1.2rem}
+  .gate{font-size:.7rem;color:var(--amber);display:block;font-weight:400}
+  /* callouts */
+  .note{border-left:3px solid var(--blue);background:rgba(88,166,255,.07);padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:1rem 0;font-size:.9rem}
+  .win{border-left:3px solid var(--green);background:rgba(63,185,80,.07);padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:1rem 0;font-size:.9rem}
+  .pain{border-left:3px solid var(--red);background:rgba(248,81,73,.07);padding:.8rem 1rem;border-radius:0 8px 8px 0;margin:1rem 0;font-size:.9rem}
+  /* idea cards */
+  .idea{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem;margin:.9rem 0;position:relative}
+  .idea .head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.4rem}
+  .idea .num{font-family:ui-monospace,monospace;font-weight:700;color:var(--purple);font-size:.9rem}
+  .idea h4{margin:0;font-size:1.05rem;color:#e6edf3}
+  .chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-left:auto}
+  .chip{font-size:.68rem;padding:.12rem .55rem;border-radius:1rem;font-weight:600;letter-spacing:.02em}
+  .c-impact{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.35)}
+  .c-effort{background:rgba(210,153,34,.15);color:var(--amber);border:1px solid rgba(210,153,34,.35)}
+  .c-moat{background:rgba(163,113,247,.15);color:var(--purple);border:1px solid rgba(163,113,247,.35)}
+  .idea p{font-size:.9rem;margin:.35rem 0}
+  .idea .why{color:var(--muted)}
+  .theme-label{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--cyan);font-weight:700;margin:2rem 0 .4rem}
+  /* value metrics */
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin:1.2rem 0}
+  .metric{text-align:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1.2rem .8rem}
+  .metric .big{font-size:1.9rem;font-weight:800;color:var(--green)}
+  .metric .lbl{color:var(--muted);font-size:.82rem;margin-top:.2rem}
+  footer{margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--dim);font-size:.82rem;text-align:center}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+  @media(max-width:720px){.twocol{grid-template-columns:1fr}}
+  ul.tight li{margin:.25rem 0}
+  .kbd{font-family:ui-monospace,monospace;color:var(--green)}
+  .seq{counter-reset:step}
+  .seq>li{margin:.5rem 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="logo">spec<span class="d">d</span></div>
+  <div class="tag">An agent-agnostic, spec-driven coding <strong>harness</strong> for AI engineers</div>
+  <div class="creed">“The agent reasons. The harness enforces.”</div>
+  <div class="pills">
+    <span class="pill">Go · stdlib only · single static binary</span>
+    <span class="pill">Zero runtime deps</span>
+    <span class="pill">7 validation gates</span>
+    <span class="pill">DAG wave execution</span>
+    <span class="pill">Evidence-gated completion</span>
+  </div>
+  <div class="ver">specd v0.1.0 · report generated 2026-06-15</div>
+</header>
+
+<nav>
+  <a href="#what">What</a>
+  <a href="#why">Why</a>
+  <a href="#how">How it works</a>
+  <a href="#commands">Commands</a>
+  <a href="#examples">Real-world examples</a>
+  <a href="#value">Value</a>
+  <a href="#strategies">Strategies</a>
+  <a href="#missing">Missing features &amp; ideas</a>
+  <a href="#north">North star</a>
+</nav>
+
+<!-- ============ WHAT ============ -->
+<h2 id="what">1 · What specd is</h2>
+<p>
+  Most AI coding today is <em>free-form prompting</em>: the plan lives inside the model's context
+  window, "done" means the model said so, and process discipline is re-negotiated every session.
+  <strong>specd inverts that.</strong> It moves process enforcement out of the LLM's non-deterministic
+  context and into a strict, local, tool-gated pipeline. The plan lives as versioned Markdown on disk;
+  every state change requires recorded proof; work is a DAG of concurrent waves, not a flat todo list.
+</p>
+
+<pre>┌─────────────────┐        ┌─────────────────┐
+│  AGENT  (LLM)   │        │ HARNESS (specd) │
+│  ─────────────  │        │ ─────────────── │
+│  • Reasons      │ ◄────► │ • Enforces      │
+│  • Designs      │        │ • Validates     │
+│  • Implements   │        │ • Gates         │
+│  • Decides      │        │ • Records proof │
+└─────────────────┘        └─────────────────┘
+   non-deterministic          deterministic</pre>
+
+<div class="grid">
+  <div class="card"><div class="ico">🔄</div><h4>Planning Ratchet</h4><p>Human-approved phase gates: Analyze → Plan → Execute → Verify → Reflect. No skipping forward.</p></div>
+  <div class="card"><div class="ico">🛡️</div><h4>7 Validation Gates</h4><p>Deterministic <code>specd check</code> — EARS syntax, design completeness, acyclic DAG, evidence, sync, traceability.</p></div>
+  <div class="card"><div class="ico">📉</div><h4>DAG Wave Execution</h4><p>Computes the concurrent runnable frontier so agents only touch tasks whose deps are resolved.</p></div>
+  <div class="card"><div class="ico">💾</div><h4>Evidence-Gated Completion</h4><p><code>specd verify</code> runs the task's own command, records exit code + git HEAD. Complete only on a passing record.</p></div>
+  <div class="card"><div class="ico">🚦</div><h4>Frontier Dispatch</h4><p><code>specd dispatch</code> emits ready-to-run packets for parallel subagents — role prompt + contract + verify.</p></div>
+  <div class="card"><div class="ico">🔌</div><h4>Agent-Agnostic</h4><p>Claude Code, Cursor, Aider — any command-running agent. Wired via a localized prompt pack + steering constitution.</p></div>
+</div>
+
+<!-- ============ WHY ============ -->
+<h2 id="why">2 · Why it exists — the problem it kills</h2>
+<div class="twocol">
+  <div>
+    <h3>Traditional AI coding</h3>
+    <ul class="tight">
+      <li>❌ Free-form prompts, lost between sessions</li>
+      <li>❌ Context window <em>is</em> the source of truth</li>
+      <li>❌ "Trust me, it works" completion</li>
+      <li>❌ Linear todo lists, no parallelism</li>
+      <li>❌ Workflow re-invented per agent / per repo</li>
+      <li>❌ Plan drift the moment context compacts</li>
+    </ul>
+  </div>
+  <div>
+    <h3>specd-driven coding</h3>
+    <ul class="tight">
+      <li>✅ Structured spec artifacts on disk</li>
+      <li>✅ Markdown files as the source of truth</li>
+      <li>✅ Evidence-gated completion (exit code + HEAD)</li>
+      <li>✅ DAG wave execution — parallel subagents</li>
+      <li>✅ One agent-agnostic CLI contract</li>
+      <li>✅ Steering constitution outlives chat sessions</li>
+    </ul>
+  </div>
+</div>
+<div class="note">
+  <strong>The core insight:</strong> LLMs are excellent at <em>reasoning</em> and terrible at <em>remembering process</em>
+  across a long, compacting context. So specd stops asking the model to police itself. The model proposes; a deterministic
+  Go binary decides whether the gate opens.
+</div>
+
+<!-- ============ HOW ============ -->
+<h2 id="how">3 · How it works — the lifecycle</h2>
+
+<div class="flow">
+  <div class="phase">requirements<span class="gate">Gate 1: EARS</span></div>
+  <span class="arrow">→</span>
+  <div class="phase">design<span class="gate">Gate 2: 7 headers</span></div>
+  <span class="arrow">→</span>
+  <div class="phase">tasks<span class="gate">Gate 3+4: schema+DAG</span></div>
+  <span class="arrow">→</span>
+  <div class="phase">executing<span class="gate">Gate 5+6: evidence+sync</span></div>
+  <span class="arrow">→</span>
+  <div class="phase">complete<span class="gate">Gate 7: traceability</span></div>
+</div>
+<p style="text-align:center;color:var(--muted);font-size:.85rem">
+  Each <span class="arrow" style="font-size:.9rem">→</span> is a <code>specd approve</code> human gate. It opens only if every gate for that phase passes.
+</p>
+
+<h3>The 7 validation gates</h3>
+<table>
+  <tr><th>#</th><th>Gate</th><th>Enforces</th><th>Fails on</th></tr>
+  <tr><td>1</td><td><strong>EARS</strong></td><td>Every requirement has a user story; each criterion matches one of 5 EARS forms (WHEN / IF / WHILE / WHERE / THE SYSTEM SHALL)</td><td>Invalid grammar, missing story</td></tr>
+  <tr><td>2</td><td><strong>Design</strong></td><td>All 7 mandatory H2 headers present, non-empty, no <code>TODO</code></td><td>Missing header, placeholder text</td></tr>
+  <tr><td>3</td><td><strong>Task schema</strong></td><td>Every task has 7 keys: why·role·files·contract·acceptance·verify·depends</td><td>Missing key; builder with <code>verify: N/A</code></td></tr>
+  <tr><td>4</td><td><strong>DAG</strong></td><td>Acyclic deps, no orphan deps, valid wave numbering</td><td>Cycle, missing task ID, wave violation</td></tr>
+  <tr><td>5</td><td><strong>Evidence</strong></td><td>No task complete without a passing verify record</td><td>Complete task, no verify record</td></tr>
+  <tr><td>6</td><td><strong>Sync</strong></td><td>Markdown checkboxes match <code>state.json</code> statuses</td><td>tasks.md ↔ state.json drift</td></tr>
+  <tr><td>7</td><td><strong>Traceability</strong></td><td>Every requirement ID referenced in tasks exists</td><td>Dangling requirement ref (warn/error configurable)</td></tr>
+</table>
+
+<h3>Roles — the four personas a task can bind to</h3>
+<table>
+  <tr><th>Role</th><th>Perms</th><th>Responsibility</th></tr>
+  <tr><td>🔍 <code>investigator</code></td><td>Read-only</td><td>Explore code, trace paths, report exact file/line refs</td></tr>
+  <tr><td>🛠️ <code>builder</code></td><td>Write</td><td>Implement the contract, modify designated files + tests, run verify</td></tr>
+  <tr><td>🧪 <code>verifier</code></td><td>Read-only</td><td>Run tests independently, capture output as evidence</td></tr>
+  <tr><td>🛡️ <code>reviewer</code></td><td>Read-only</td><td>Audit git diffs, log issues with severity + locations</td></tr>
+</table>
+
+<!-- ============ COMMANDS ============ -->
+<h2 id="commands">4 · The command surface</h2>
+<table>
+  <tr><th>Phase</th><th>Command</th><th>What it does</th></tr>
+  <tr><td>Lifecycle</td><td><code>specd init</code></td><td>Scaffold <code>.specd/</code> — steering, roles, skill pack, AGENTS.md</td></tr>
+  <tr><td></td><td><code>specd new &lt;slug&gt;</code></td><td>Create a spec with 6 artifact stubs</td></tr>
+  <tr><td></td><td><code>specd approve &lt;slug&gt;</code></td><td>Human gate — advance phase if gates pass</td></tr>
+  <tr><td>Execution</td><td><code>specd next &lt;slug&gt;</code></td><td>Next runnable task (or <code>--all</code> for the frontier)</td></tr>
+  <tr><td></td><td><code>specd dispatch &lt;slug&gt;</code></td><td>Emit ready-to-run subagent packets for the frontier</td></tr>
+  <tr><td></td><td><code>specd verify &lt;slug&gt; &lt;id&gt;</code></td><td>Run task's verify command, record exit code + output tail + HEAD</td></tr>
+  <tr><td></td><td><code>specd task &lt;slug&gt; &lt;id&gt; --status</code></td><td>Evidence-gated status flip; dual-writes tasks.md + state.json</td></tr>
+  <tr><td>Inspection</td><td><code>specd status / waves / context / check</code></td><td>Progress board · wave graph + critical path · context briefing · run gates</td></tr>
+  <tr><td></td><td><code>specd report --format html</code></td><td>Self-contained HTML/MD snapshot — no LLM, deterministic</td></tr>
+  <tr><td>Record</td><td><code>specd decision / midreq / memory</code></td><td>ADRs · mid-flight requirement changes · promotable learnings</td></tr>
+  <tr><td>Program</td><td><code>specd program link/status</code></td><td>Cross-spec DAG — which whole specs are runnable</td></tr>
+</table>
+<div class="note">
+  <strong>Built for machines:</strong> <code>SPECD_JSON=1</code> gives structured JSON on every command;
+  <code>specd help --json</code> dumps the full command schema; exit codes are deterministic
+  (<span class="kbd">0</span> ok · <span class="kbd">1</span> gate/verify fail · <span class="kbd">2</span> usage · <span class="kbd">3</span> not found).
+  All state mutations are atomic + versioned (advisory lock + compare-and-swap) — safe for concurrent agents.
+</div>
+
+<!-- ============ EXAMPLES ============ -->
+<h2 id="examples">5 · Real-world examples</h2>
+
+<h3>Example A — Solo dev shipping a feature with Claude Code</h3>
+<pre>$ specd init
+$ specd new password-reset --title "Self-serve password reset"
+
+# Agent authors requirements.md in EARS, then:
+$ specd check password-reset
+✓ EARS  ✓ design(skipped)  ...  ✗ traceability
+$ specd approve password-reset        # requirements → design
+
+# Agent fills design.md (7 headers), tasks.md (DAG), approves through.
+$ specd next password-reset
+T1 — Add reset-token table + migration   (role: builder)
+
+# Agent implements T1, then specd — not the agent — proves it:
+$ specd verify password-reset T1
+running: go test ./...    exit=0  HEAD=a1b9f3c  (4.1s)
+$ specd task password-reset T1 --status complete
+✓ T1 complete (verify record exit 0)</pre>
+<div class="win"><strong>Win:</strong> the agent cannot mark T1 done by claiming success. It completes only because a real test run exited 0 — recorded with the git HEAD it passed against.</div>
+
+<h3>Example B — Parallel subagent fan-out (delegate mode)</h3>
+<pre>$ specd dispatch checkout-flow --json
+# emits N packets, one per frontier task — each with rolePrompt + contract + files + verify
+[
+  { "id":"T3", "role":"builder",  "files":["cart.go"],     "verify":"go test ./cart/..." },
+  { "id":"T4", "role":"builder",  "files":["pricing.go"],  "verify":"go test ./pricing/..." },
+  { "id":"T5", "role":"investigator", "files":["*.go"],    "verify":"N/A" }
+]
+# Orchestrator spawns 3 subagents in parallel — no shared-file collisions,
+# because the DAG guarantees these tasks have no inter-dependencies.</pre>
+<div class="win"><strong>Win:</strong> true parallel execution. The frontier is the set of tasks whose deps are <em>all</em> resolved, so concurrent subagents never step on each other or on unfinished prerequisites.</div>
+
+<h3>Example C — Multi-spec program (a real release train)</h3>
+<pre>$ specd program link api --on auth     # api waits for auth
+$ specd program link web --on api      # web waits for api
+$ specd program status
+┌─────────┐   ┌─────────┐   ┌─────────┐
+│  auth   │──►│   api   │──►│   web   │
+│ Wave 1  │   │ Wave 2  │   │ Wave 3  │
+└─────────┘   └─────────┘   └─────────┘
+runnable now: auth</pre>
+<div class="win"><strong>Win:</strong> the same DAG discipline that orders <em>tasks</em> inside a spec also orders <em>whole specs</em> across a program — an orchestrator knows exactly which spec is safe to start.</div>
+
+<h3>Example D — Mid-flight requirement change without losing the plot</h3>
+<pre>$ specd midreq checkout-flow "Add Apple Pay" --impact high \
+    --interpretation "new payment provider path" --changes "T4, +T7"
+# Logged to mid-requirements.md, change-locked until human approves.
+$ specd decision checkout-flow "Use provider-agnostic PaymentGateway iface" --supersedes ADR-2</pre>
+<div class="win"><strong>Win:</strong> requirement churn is captured as an auditable record (impact + interpretation + ADR) instead of silently mutating the agent's memory.</div>
+
+<!-- ============ VALUE ============ -->
+<h2 id="value">6 · The value it delivers</h2>
+<div class="metrics">
+  <div class="metric"><div class="big">0</div><div class="lbl">false "done" claims — completion needs a passing record</div></div>
+  <div class="metric"><div class="big">N×</div><div class="lbl">parallel subagents on the runnable frontier</div></div>
+  <div class="metric"><div class="big">7</div><div class="lbl">deterministic gates replacing prompt-policing</div></div>
+  <div class="metric"><div class="big">1</div><div class="lbl">static binary · zero deps · any agent</div></div>
+</div>
+<table>
+  <tr><th>For…</th><th>Value</th></tr>
+  <tr><td><strong>The solo developer</strong></td><td>The agent stops "forgetting" the plan after context compaction. The spec on disk <em>is</em> the memory; gates catch hallucinated completion before it ships.</td></tr>
+  <tr><td><strong>The team lead</strong></td><td>Every state change is auditable — exit code, git HEAD, ADRs, mid-req logs. Code review starts from a recorded spec, not a chat transcript nobody can reconstruct.</td></tr>
+  <tr><td><strong>The platform / tooling team</strong></td><td>One agent-agnostic contract. Swap Claude Code for Cursor for Aider without rewriting the workflow. JSON-everywhere + deterministic exit codes make it scriptable in CI.</td></tr>
+  <tr><td><strong>The agent itself</strong></td><td>A narrow, deterministic interface to lean on. <code>specd context</code> tells it exactly what to load; <code>specd next</code> tells it exactly what's safe to do. Less to hold in context = better reasoning.</td></tr>
+</table>
+
+<!-- ============ STRATEGIES ============ -->
+<h2 id="strategies">7 · Strategies to work with specd</h2>
+
+<h3>Strategy 1 — Tight inline loop (solo, default)</h3>
+<p>One agent, <code>subagentMode: inline</code>. Drive the ratchet by hand-feeding the agent the cycle: <code>next → implement → verify → task complete</code>. Best for small features and getting fluent with the gates.</p>
+
+<h3>Strategy 2 — Orchestrated fan-out (delegate)</h3>
+<p>An orchestrator agent runs <code>dispatch --json</code>, spawns one subagent per packet, monitors the frontier, dispatches the next wave when it clears. Best for large specs with wide, independent waves. Maximizes wall-clock throughput.</p>
+
+<h3>Strategy 3 — CI as the enforcer</h3>
+<p>Put <code>specd check</code> in CI as a required status. A PR that touches a spec must pass all 7 gates before merge — turning specd from a local discipline into an org-wide one. Exit code <span class="kbd">1</span> = block merge.</p>
+
+<h3>Strategy 4 — Steering-first bootstrapping</h3>
+<p>Before the first spec, have the agent author the steering constitution (<code>product.md</code>, <code>tech.md</code>, <code>structure.md</code>) via the <code>specd-steering</code> skill, and set <code>config.defaultVerify</code> to the repo's real test command. Every later spec inherits this context for free.</p>
+
+<h3>Strategy 5 — Program-level release trains</h3>
+<p>Model a multi-service release as linked specs (<code>program link</code>). The orchestrator polls <code>program status</code> to know which spec is runnable next — DAG discipline scaled from tasks to deliverables.</p>
+
+<div class="note"><strong>Picking a mode:</strong> start at Strategy 1 to learn the gates, graduate to 2+3 once the team trusts the records, reach for 5 only when you genuinely have cross-spec dependencies — premature program modeling is overhead.</div>
+
+<!-- ============ MISSING / IDEAS ============ -->
+<h2 id="missing">8 · Missing features &amp; concepts — the roadmap to world-wide adoption</h2>
+<p>
+  specd's core thesis (deterministic harness around a non-deterministic agent) is strong and under-served.
+  To become <em>the</em> default harness for CLI agents, the gaps below matter most. Each idea is tagged by
+  <span class="chip c-impact">impact</span> (adoption upside), <span class="chip c-effort">effort</span> (build cost),
+  and <span class="chip c-moat">moat</span> (how hard to copy / how sticky).
+</p>
+
+<div class="theme-label">Theme A · Frictionless adoption — the first 5 minutes</div>
+
+<div class="idea">
+  <div class="head"><span class="num">A1</span><h4>Native MCP server (<code>specd mcp</code>)</h4>
+    <div class="chips"><span class="chip c-impact">impact: very high</span><span class="chip c-effort">effort: med</span><span class="chip c-moat">moat: high</span></div></div>
+  <p>Expose every command as <strong>Model Context Protocol</strong> tools so Claude Code / Cursor / any MCP host can call <code>specd_next</code>, <code>specd_verify</code> natively — no shelling out, no brittle prompt-pack parsing. This is the single biggest lever for "world-wide used with CLI agents."</p>
+  <p class="why"><strong>Why:</strong> MCP is becoming the universal agent-tool interface. A first-class MCP surface turns specd from "a CLI an agent must be taught to drive" into "a tool the agent already knows how to use."</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">A2</span><h4>One-shot scaffolding from a prompt (<code>specd new --from "..."</code>)</h4>
+    <div class="chips"><span class="chip c-impact">impact: high</span><span class="chip c-effort">effort: low</span><span class="chip c-moat">moat: low</span></div></div>
+  <p>Let the agent generate a draft requirements.md + design.md + tasks.md DAG from a natural-language feature description in one call, then iterate against the gates. Reduces time-to-first-green-check from ~20 min to ~2.</p>
+  <p class="why"><strong>Why:</strong> The blank-stub cold start is the highest-friction moment. The gates already tell you what "valid" means — generate toward them.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">A3</span><h4>Editor/IDE extension + live HTML dashboard</h4>
+    <div class="chips"><span class="chip c-impact">impact: med</span><span class="chip c-effort">effort: med</span><span class="chip c-moat">moat: med</span></div></div>
+  <p>A VS Code panel rendering the live wave DAG, frontier, blockers, and gate status — auto-refreshing off <code>state.json</code> (the HTML report's <code>autoRefreshSeconds</code> hints this is intended). Humans <em>see</em> what the agent is doing without reading JSON.</p>
+  <p class="why"><strong>Why:</strong> Adoption needs a human-facing surface. The deterministic report is already there; make it ambient.</p>
+</div>
+
+<div class="theme-label">Theme B · Closing the trust loop — better evidence</div>
+
+<div class="idea">
+  <div class="head"><span class="num">B1</span><h4>Semantic acceptance gate (criteria ↔ test mapping)</h4>
+    <div class="chips"><span class="chip c-impact">impact: very high</span><span class="chip c-effort">effort: high</span><span class="chip c-moat">moat: very high</span></div></div>
+  <p>Today verify proves "tests passed." It does <em>not</em> prove the tests cover the acceptance criteria. Add a gate that maps each EARS criterion to ≥1 named test and fails if a criterion is untested. The <code>gates.acceptance</code> config key is a stub waiting for this.</p>
+  <p class="why"><strong>Why:</strong> The deepest objection to AI code is "green tests, wrong behavior." Closing the criterion→test loop is specd's strongest possible moat — it makes "done" mean "the requirement is demonstrably satisfied," not "some test passed."</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">B2</span><h4>Coverage &amp; diff-scope evidence</h4>
+    <div class="chips"><span class="chip c-impact">impact: high</span><span class="chip c-effort">med</span><span class="chip c-moat">med</span></div></div>
+  <p>Have verify also capture coverage delta and assert the task's <code>files:</code> contract — flag when a builder touched files outside its declared scope. The record already holds HEAD; add changed-file set + coverage to it.</p>
+  <p class="why"><strong>Why:</strong> Scope creep and untested branches are where agents quietly go wrong. The harness is the right place to catch both, deterministically.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">B3</span><h4>Verify sandboxing (container / namespace isolation)</h4>
+    <div class="chips"><span class="chip c-impact">impact: high</span><span class="chip c-effort">high</span><span class="chip c-moat">high</span></div></div>
+  <p>Today <code>verify</code> runs <code>sh -c</code> as the user (env scrubbed, but real code exec on agent-authored input — SECURITY.md is explicit). Offer an opt-in sandboxed runner (container, <code>bwrap</code>, or seccomp) so untrusted <code>tasks.md</code> can be verified safely.</p>
+  <p class="why"><strong>Why:</strong> "Only run verify on a tasks.md you trust" is a real adoption ceiling for autonomous fleets. Safe-by-default verify unlocks running specs you didn't author.</p>
+</div>
+
+<div class="theme-label">Theme C · Scale &amp; orchestration — fleets of agents</div>
+
+<div class="idea">
+  <div class="head"><span class="num">C1</span><h4>Long-running daemon + event stream (<code>specd watch</code>)</h4>
+    <div class="chips"><span class="chip c-impact">high</span><span class="chip c-effort">med</span><span class="chip c-moat">med</span></div></div>
+  <p>A daemon that watches the program DAG and emits frontier-change events (webhook / SSE / JSON-lines) so external orchestrators react instead of polling <code>program status</code> in a loop. Turns specd into the scheduler core of an agent fleet.</p>
+  <p class="why"><strong>Why:</strong> Parallel orchestration today is poll-driven. An event stream is what production multi-agent systems need to scale past a handful of tasks.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">C2</span><h4>Distributed locking + remote state backend</h4>
+    <div class="chips"><span class="chip c-impact">med</span><span class="chip c-effort">high</span><span class="chip c-moat">med</span></div></div>
+  <p>The advisory file lock + CAS works locally. For agents on different machines sharing a spec, add a pluggable state backend (git-native, or Redis/Postgres) with the same CAS contract. Keeps the "atomic, versioned" promise across hosts.</p>
+  <p class="why"><strong>Why:</strong> Cloud agent platforms run subagents on separate workers. Shared, consistent state is the precondition for distributed fan-out.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">C3</span><h4>Cost &amp; telemetry ledger</h4>
+    <div class="chips"><span class="chip c-impact">med</span><span class="chip c-effort">low</span><span class="chip c-moat">low</span></div></div>
+  <p>Record per-task wall-clock, retries, verify duration, and (optionally) token/cost annotations into state. <code>specd report</code> then shows where time/money goes per wave — the missing analytics layer for agent work.</p>
+  <p class="why"><strong>Why:</strong> Teams adopt what they can measure and justify to finance. specd already records the structure; add the meter.</p>
+</div>
+
+<div class="theme-label">Theme D · The discipline itself — smarter gates</div>
+
+<div class="idea">
+  <div class="head"><span class="num">D1</span><h4>Automatic rollback on failed verify</h4>
+    <div class="chips"><span class="chip c-impact">high</span><span class="chip c-effort">low</span><span class="chip c-moat">med</span></div></div>
+  <p>Since verify records git HEAD, offer <code>specd verify --revert-on-fail</code> to auto-restore the working tree (or stash) when a task's verify fails — leaving the repo clean for the next attempt instead of half-applied.</p>
+  <p class="why"><strong>Why:</strong> Failed agent attempts leave messy trees that poison the next task. The harness has the HEAD; it can guarantee a clean retry surface.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">D2</span><h4>Plugin / custom-gate API</h4>
+    <div class="chips"><span class="chip c-impact">high</span><span class="chip c-effort">med</span><span class="chip c-moat">high</span></div></div>
+  <p>Let orgs register custom gates (license headers, ADR-required-for-arch-change, perf budgets) via a declared hook contract — same exit-code semantics. Ships the 7 core gates; lets the ecosystem add the 8th.</p>
+  <p class="why"><strong>Why:</strong> Extensibility is how a tool becomes a platform. A gate API turns specd's discipline into a substrate others build standards on.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">D3</span><h4>Replay &amp; spec diff / time-travel</h4>
+    <div class="chips"><span class="chip c-impact">med</span><span class="chip c-effort">med</span><span class="chip c-moat">med</span></div></div>
+  <p><code>specd replay &lt;slug&gt;</code> reconstructs the full decision timeline (approvals, verifies, midreqs, ADRs) and <code>specd diff</code> shows how requirements/design evolved across phases. The records exist; surface them as a narrative.</p>
+  <p class="why"><strong>Why:</strong> Post-mortems and onboarding need "how did we get here." specd already has the audit trail — make it readable.</p>
+</div>
+
+<div class="theme-label">Theme E · Ecosystem &amp; standardization</div>
+
+<div class="idea">
+  <div class="head"><span class="num">E1</span><h4>Spec-pack registry (shareable templates)</h4>
+    <div class="chips"><span class="chip c-impact">high</span><span class="chip c-effort">med</span><span class="chip c-moat">high</span></div></div>
+  <p>A registry of reusable spec/steering/role packs (e.g. "Next.js feature", "Go microservice", "Rust CLI") installable via <code>specd init --pack go-service</code>. Network effects: the more packs, the more reason to start in specd.</p>
+  <p class="why"><strong>Why:</strong> Templates are how frameworks win. A community of packs makes specd the obvious default instead of a blank-stub chore.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">E2</span><h4>The EARS/DAG spec format as an open standard</h4>
+    <div class="chips"><span class="chip c-impact">very high</span><span class="chip c-effort">low</span><span class="chip c-moat">very high</span></div></div>
+  <p>Publish the artifact schema (EARS requirements + 7-key task DAG + evidence record) as a documented, versioned <strong>open spec format</strong> with a JSON Schema. Let other tools read/write it. specd becomes the reference implementation of a standard, not just a tool.</p>
+  <p class="why"><strong>Why:</strong> Tools get replaced; standards endure. If competitors interop with the specd format, specd has already won the category — this is the deepest moat on the page.</p>
+</div>
+
+<div class="idea">
+  <div class="head"><span class="num">E3</span><h4>GitHub-native integration (PR ↔ spec binding)</h4>
+    <div class="chips"><span class="chip c-impact">high</span><span class="chip c-effort">med</span><span class="chip c-moat">med</span></div></div>
+  <p>A GitHub App / Action that posts the wave DAG + gate status as a PR check and comment, links each commit to its task ID, and blocks merge on gate failure. Meets developers exactly where review already happens.</p>
+  <p class="why"><strong>Why:</strong> Distribution beats features. Living inside the PR is how a workflow tool reaches millions without anyone running <code>install.sh</code> first.</p>
+</div>
+
+<!-- ============ NORTH STAR ============ -->
+<h2 id="north">9 · North star — the sequencing bet</h2>
+<p>If the goal is <em>"the world-wide-used harness for CLI agents,"</em> the ideas above aren't equal. Recommended order:</p>
+<ol class="seq tight">
+  <li><strong>A1 — MCP server.</strong> Removes the single biggest adoption barrier: agents calling specd natively. Do this first.</li>
+  <li><strong>B1 — Semantic acceptance gate.</strong> The defensible moat. "Done means the requirement is demonstrably satisfied" is a claim no free-form agent can make.</li>
+  <li><strong>E2 — Open spec format.</strong> Standardize the artifact schema so the format outlives any one tool — turns specd into the reference implementation of a category.</li>
+  <li><strong>A2 + E1 — One-shot scaffolding + spec-pack registry.</strong> Kill the cold-start friction; seed network effects.</li>
+  <li><strong>C1 + E3 — Daemon/event stream + GitHub-native.</strong> Scale to fleets and meet developers in the PR where they already are.</li>
+</ol>
+<div class="note">
+  <strong>The thesis in one line:</strong> specd already wins on <em>process integrity</em>. The road to ubiquity is
+  <em>frictionless entry (MCP), an undeniable trust claim (acceptance gate), and a format other tools must interop with (open standard).</em>
+  Build those three and the rest is distribution.
+</div>
+
+<footer>
+  Generated for the specd project · v0.1.0 · 2026-06-15 ·
+  Source: README, docs/{concepts,command-reference,agent-integration,validation-gates}, SECURITY.md ·
+  This report is a self-contained static HTML file — no JS, no external assets.
+</footer>
+
+</div>
+</body>
+</html>
