@@ -17,12 +17,12 @@
 # new measured coverage; raise them as the remaining core paths gain tests.
 #
 # Usage: ./scripts/coverage-check.sh
-#   OVERALL_MIN  minimum total statement coverage   (default 59)
-#   CORE_MIN     minimum internal/core coverage     (default 49)
+#   OVERALL_MIN  minimum total statement coverage   (default 65)
+#   CORE_MIN     minimum internal/core coverage     (default 60)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-59}"
-CORE_MIN="${CORE_MIN:-49}"
+OVERALL_MIN="${OVERALL_MIN:-65}"
+CORE_MIN="${CORE_MIN:-60}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"

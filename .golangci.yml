@@ -1,0 +1,18 @@
+# golangci-lint configuration (v2 schema). Governs the static-analysis gate in
+# CI. staticcheck is the headline analyzer required by the regression spec
+# (R4.1); the rest are cheap, high-signal checks already implied by `go vet`.
+#
+# These run as CI-only dev tooling — they add no runtime dependency to the
+# shipped binary (stdlib-only invariant preserved).
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - staticcheck
+    - errcheck
+    - govet
+    - ineffassign
+    - unused

@@ -19,6 +19,94 @@ Some content here.
 
 More content.`
 
+func TestMergeSection_CreatesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "F.md")
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("file not created: %v", err)
+	}
+	want := "<!--B-->\nbody\n<!--E-->\n"
+	if string(got) != want {
+		t.Errorf("content = %q, want %q", got, want)
+	}
+}
+
+func TestMergeSection_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "F.md")
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := os.ReadFile(path)
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err != nil {
+		t.Fatal(err)
+	}
+	second, _ := os.ReadFile(path)
+	if string(first) != string(second) {
+		t.Errorf("not idempotent:\n%q\n!=\n%q", first, second)
+	}
+}
+
+func TestMergeSection_ReplacesBodyPreservingOutside(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "F.md")
+	initial := "PREAMBLE\n<!--B-->\nold body\n<!--E-->\nTRAILER\n"
+	if err := os.WriteFile(path, []byte(initial), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "new body"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	want := "PREAMBLE\n<!--B-->\nnew body\n<!--E-->\nTRAILER\n"
+	if string(got) != want {
+		t.Errorf("content = %q, want %q", got, want)
+	}
+}
+
+func TestMergeSection_MarkerAbsentAppends(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "F.md")
+	if err := os.WriteFile(path, []byte("USER CONTENT no newline"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	if !strings.HasPrefix(string(got), "USER CONTENT no newline\n") {
+		t.Errorf("user content not preserved: %q", got)
+	}
+	if !strings.Contains(string(got), "<!--B-->\nbody\n<!--E-->") {
+		t.Errorf("section not appended: %q", got)
+	}
+}
+
+func TestMergeSection_MalformedMarkerFallsBackToAppend(t *testing.T) {
+	// begin marker present but end marker missing (or before begin): treat as
+	// markerless and append rather than corrupting the file.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "F.md")
+	if err := os.WriteFile(path, []byte("<!--B-->\ndangling, no end\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	// Original dangling content preserved, new full section appended.
+	if !strings.Contains(string(got), "dangling, no end") {
+		t.Errorf("original content lost: %q", got)
+	}
+	if !strings.Contains(string(got), "<!--B-->\nbody\n<!--E-->") {
+		t.Errorf("section not appended on malformed marker: %q", got)
+	}
+}
+
 func TestMergeAgentsMD_NewFile(t *testing.T) {
 	tmpdir := t.TempDir()
 	path := filepath.Join(tmpdir, "AGENTS.md")

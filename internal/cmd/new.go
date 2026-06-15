@@ -20,16 +20,9 @@ func titleCase(slug string) string {
 }
 
 func RunNew(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd new <slug> [--title \"...\"]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd new <slug> [--title \"...\"]")
+	if !ok {
+		return code
 	}
 	if err := core.ValidateSlug(slug); err != nil {
 		return specdExit(err)

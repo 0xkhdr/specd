@@ -1,7 +1,7 @@
 #!/bin/sh
 # specd install script — downloads pre-built binary from GitHub Releases.
 # Usage: curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
-#        curl -fsSL ... | bash -s -- --force --version v0.3.0
+#        curl -fsSL ... | bash -s -- --force --version v0.2.0
 
 set -e
 
@@ -14,9 +14,19 @@ BIN_DIR="${HOME}/.local/bin"
 BIN="${BIN_DIR}/specd"
 
 # --- Colors ---
+# Materialize escape sequences into the variables (via tput, falling back to
+# `printf '%b'`) so the log helpers never embed raw \033 in a format string —
+# POSIX /bin/sh printf does not reliably interpret backslash escapes there.
 RESET="" GREEN="" RED="" YELLOW="" BLUE=""
 if [ -t 1 ] && [ -z "${NO_COLOR}" ]; then
-  RESET="\033[0m" GREEN="\033[32m" RED="\033[31m" YELLOW="\033[33m" BLUE="\033[34m"
+  if command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    RESET="$(tput sgr0)"; GREEN="$(tput setaf 2)"; RED="$(tput setaf 1)"
+    YELLOW="$(tput setaf 3)"; BLUE="$(tput setaf 4)"
+  else
+    RESET="$(printf '%b' '\033[0m')"; GREEN="$(printf '%b' '\033[32m')"
+    RED="$(printf '%b' '\033[31m')"; YELLOW="$(printf '%b' '\033[33m')"
+    BLUE="$(printf '%b' '\033[34m')"
+  fi
 fi
 
 log()  { printf "[specd] %s\n" "$*"; }

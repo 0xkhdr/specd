@@ -113,3 +113,65 @@ func TestAppendFile(t *testing.T) {
 		t.Errorf("content = %q, want ab", got)
 	}
 }
+
+func TestAtomicWriteFailureModes(t *testing.T) {
+	t.Run("parent_is_a_file_mkdirall_fails", func(t *testing.T) {
+		// A regular file standing where a parent dir must be makes MkdirAll fail;
+		// the error must propagate, not be swallowed.
+		dir := t.TempDir()
+		blocker := filepath.Join(dir, "blocker")
+		if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		err := AtomicWrite(filepath.Join(blocker, "child", "f.txt"), "data")
+		if err == nil {
+			t.Fatal("expected error when parent path is a file, got nil")
+		}
+	})
+
+	t.Run("unwritable_dir_leaves_no_temp_file", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root bypasses directory permissions")
+		}
+		dir := t.TempDir()
+		target := filepath.Join(dir, "ro")
+		if err := os.Mkdir(target, 0o555); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chmod(target, 0o755) // allow cleanup
+		err := AtomicWrite(filepath.Join(target, "f.txt"), "data")
+		if err == nil {
+			t.Fatal("expected error writing into read-only dir, got nil")
+		}
+		// No temp turds left behind in the read-only dir.
+		entries, _ := os.ReadDir(target)
+		if len(entries) != 0 {
+			t.Errorf("read-only dir has %d leftover entries, want 0", len(entries))
+		}
+	})
+}
+
+func TestAppendFileFailureModes(t *testing.T) {
+	t.Run("parent_is_a_file", func(t *testing.T) {
+		dir := t.TempDir()
+		blocker := filepath.Join(dir, "blocker")
+		if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := AppendFile(filepath.Join(blocker, "child", "log"), "data"); err == nil {
+			t.Fatal("expected MkdirAll error, got nil")
+		}
+	})
+
+	t.Run("target_is_a_directory", func(t *testing.T) {
+		// OpenFile on a directory for write fails; the error must propagate.
+		dir := t.TempDir()
+		target := filepath.Join(dir, "adir")
+		if err := os.Mkdir(target, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := AppendFile(target, "data"); err == nil {
+			t.Fatal("expected error appending to a directory, got nil")
+		}
+	})
+}

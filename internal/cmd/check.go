@@ -9,17 +9,9 @@ import (
 )
 
 func RunCheck(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd check <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--json]")
+	if !ok {
+		return code
 	}
 	if err := core.RequireSpec(root, slug); err != nil {
 		return specdExit(err)

@@ -65,9 +65,10 @@ internal/
   cmd/                        # one file per CLI command (Run<Command>)
     init.go new.go status.go context.go check.go next.go dispatch.go
     task.go verify.go approve.go decision.go midreq.go memory.go
-    report.go waves.go program.go boot.go enrich.go update.go
+    report.go waves.go program.go update.go
     registry.go               # command → handler dispatch table (cmd.Registry)
-    helpers.go                # shared helpers (specdExit, usageExit, errLine)
+    helpers.go                # shared helpers (specdExit, usageExit, errLine,
+                              #   requireRootAndSlug, approvalGateBlocked)
     *_test.go                 # unit tests co-located beside each command
   core/                       # domain logic
     paths.go                  # .specd root locator (FindSpecdRoot, walks up from cwd)

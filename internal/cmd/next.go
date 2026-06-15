@@ -8,33 +8,25 @@ import (
 )
 
 func taskJSON(doc core.ParsedTasks, state *core.State, id string) map[string]interface{} {
-	t := core.FindTask(doc, id)
-	if t != nil {
+	v := core.ResolveTaskView(doc, state, id)
+	if v.FromDoc {
 		out := map[string]interface{}{
-			"id": t.ID, "title": t.Title, "wave": t.Wave,
+			"id": v.ID, "title": v.Title, "wave": v.Wave,
 		}
-		for k, v := range t.Meta {
-			out[k] = v
+		for k, val := range v.Meta {
+			out[k] = val
 		}
 		return out
 	}
-	ts := state.Tasks[id]
 	return map[string]interface{}{
-		"id": id, "title": ts.Title, "wave": ts.Wave, "role": ts.Role, "depends": ts.Depends,
+		"id": v.ID, "title": v.Title, "wave": v.Wave, "role": v.Role, "depends": v.Depends,
 	}
 }
 
 func RunNext(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
-	if err != nil {
-		return specdExit(err)
-	}
-	slug := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if slug == "" {
-		return usageExit("usage: specd next <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd next <slug> [--json]")
+	if !ok {
+		return code
 	}
 	loaded, err := core.LoadSpec(root, slug)
 	if err != nil {
@@ -47,15 +39,8 @@ func RunNext(args cli.Args) int {
 	// every scheduling query below reuses this slice (Stage 06 F2).
 	dag := core.DagTasksFromState(state)
 
-	if state.Gate == core.GateAwaitingApproval && !args.Bool("force") {
-		if jsonOut {
-			if err := core.PrintJSON(map[string]interface{}{"kind": "gated", "gate": state.Gate}); err != nil {
-				return specdExit(err)
-			}
-		} else {
-			errLine("⛔ gate awaiting-approval — present the revised plan, then `specd approve %s` (override: --force).", slug)
-		}
-		return core.ExitGate
+	if code, blocked := approvalGateBlocked(args, state, slug, jsonOut); blocked {
+		return code
 	}
 
 	if args.Bool("all") {
@@ -72,13 +57,8 @@ func RunNext(args cli.Args) int {
 		}
 		if len(frontier) == 0 {
 			r := core.NextRunnable(dag)
-			switch r.Kind {
-			case core.NextAllComplete:
-				fmt.Println("✓ all tasks complete — nothing runnable.")
-			case core.NextAllBlocked:
-				fmt.Printf("⚠ all remaining tasks blocked: %v\n", r.Blocked)
-			case core.NextWaiting:
-				fmt.Printf("… waiting — frontier gated by incomplete deps: %v\n", r.Blocking)
+			if msg := frontierStuckReason(r, "✓ all tasks complete — nothing runnable."); msg != "" {
+				fmt.Println(msg)
 			}
 			return core.ExitOK
 		}

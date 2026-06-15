@@ -43,7 +43,7 @@ func TestUninstallScriptInSyncWithCommand(t *testing.T) {
 		"/.specd-repo",        // darwin/default install dir (installDirFor)
 		".specd.bak",          // backup suffix (cleanPathFile)
 		"# specd",             // rc marker (hasSpecdMarker / cleanPathFile)
-		"/proc/version",       // WSL probe (isWSL)
+		"/proc/version",       // WSL probe (uninstall.sh)
 	}
 	for _, frag := range shared {
 		if !strings.Contains(script, frag) {

@@ -6,11 +6,14 @@ import (
 	"path/filepath"
 )
 
+// FileExists reports whether a file or directory exists at path.
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
 
+// ReadOrDefault returns the file contents at path, or fallback if it cannot be
+// read (missing or unreadable).
 func ReadOrDefault(path, fallback string) string {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -19,6 +22,9 @@ func ReadOrDefault(path, fallback string) string {
 	return string(b)
 }
 
+// ReadOrNull returns a pointer to the file contents at path, or nil if it
+// cannot be read. The nil result lets callers distinguish a missing file from
+// an empty one.
 func ReadOrNull(path string) *string {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -28,6 +34,10 @@ func ReadOrNull(path string) *string {
 	return &s
 }
 
+// AtomicWrite writes data to path atomically: it creates any missing parent
+// dirs, writes to a temp file in the same directory, fsyncs, sets 0644 (honoring
+// umask), and renames over path. A partial write never replaces the target, and
+// any failure is propagated to the caller.
 func AtomicWrite(path, data string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -59,6 +69,9 @@ func AtomicWrite(path, data string) error {
 	return os.Rename(name, path)
 }
 
+// AppendFile appends data to the file at path (creating it and any missing
+// parent dirs), fsyncs, and propagates any write or close failure so a partial
+// append is never reported as success.
 func AppendFile(path, data string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -67,7 +80,15 @@ func AppendFile(path, data string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.WriteString(data)
-	return err
+	if _, err := f.WriteString(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	// Return the Close error: a deferred Close would swallow a flush failure and
+	// let a partial append be reported as success.
+	return f.Close()
 }

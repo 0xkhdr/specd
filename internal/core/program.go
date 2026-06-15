@@ -169,6 +169,12 @@ func BuildProgram(root string, manifest *ProgramManifest) (ProgramGraph, error) 
 		if err != nil {
 			return ProgramGraph{}, err
 		}
+		if state == nil {
+			// TOCTOU: ListSpecs saw the spec dir, but its state.json has since
+			// vanished (concurrent delete). Fail closed with a gate error rather
+			// than dereferencing a nil state.
+			return ProgramGraph{}, GateError(fmt.Sprintf("state.json for spec '%s' is missing — concurrent delete detected, reload and retry", slug))
+		}
 		statuses[slug] = state.Status
 	}
 
