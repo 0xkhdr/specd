@@ -26,16 +26,24 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Parse criteria & mapping
 
-- [ ] **T2 — Number EARS acceptance criteria with stable IDs**
+- [x] **T2 — Number EARS acceptance criteria with stable IDs** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R2
   - Extend `ears.go` so each acceptance criterion has a deterministic ID usable
     for mapping. No change when acceptance gate is off.
   - verify: `go test ./internal/core/ -run TestEarsCriterionID -race -count=2`
+  - **Evidence:** `ExtractCriteria` + `Criterion{ID,Req,Index,Text,Line,Pattern,EarsOK}`
+    added `internal/core/ears.go`; IDs are `<req>.<idx>` aligning with the verify
+    `--criterion` / `State.Acceptance` key space. `LintEars` untouched (gate-off
+    is a no-op). `TestEarsCriterionID` passes `-race -count=2`.
 
-- [ ] **T3 — Parse `acceptance:` mapping in tasks.md**
+- [x] **T3 — Parse `acceptance:` mapping in tasks.md** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R2
   - Extend `tasksparser.go` to read criterion ID → test-name mappings per task.
   - verify: `go test ./internal/core/ -run TestParseAcceptanceMap -race -count=2`
+  - **Evidence:** `ParseAcceptanceMap(value) map[string]string` added
+    `internal/core/tasksparser.go` (lenient: prose-only → empty non-nil map, so
+    existing free-text `acceptance:` lines stay valid). `TestParseAcceptanceMap`
+    passes `-race -count=2`.
 
 ## Wave 3 — Gate 8 + evidence binding
 

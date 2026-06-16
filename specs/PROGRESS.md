@@ -11,23 +11,24 @@ dependency order; tasks within a wave may run in parallel.
 | Order | Spec | Idea | Status | Waves left | Next task |
 |-------|------|------|--------|-----------|-----------|
 | 1 | mcp-server | A1 | ✅ done | 0 / 3 | — |
-| 2 | semantic-acceptance-gate | B1 | 🟡 | 3 / 4 | W2·T2 number EARS criteria IDs |
-| 3 | open-spec-format | E2 | 🟡 | 2 / 3 | W2·T2 author JSON Schema v1 |
-| 4 | prompt-scaffolding | A2 | 🟡 | 2 / 3 | W2·T2 persist `--from` prompt |
-| 4 | spec-pack-registry | E1 | 🟡 | 2 / 3 | W2·T2 pack.json manifest + parser |
-| 5 | watch-daemon | C1 | 🟡 | 2 / 3 | W2·T2 FrontierEvent model + detector |
-| 5 | github-native-integration | E3 | 🟡 | 2 / 3 | W2·T2 report --pr-summary md/json |
-| 6 | coverage-diff-scope-evidence | B2 | 🟡 | 2 / 3 | W2·T2 add ChangedFiles + Coverage |
-| 6 | verify-sandboxing | B3 | 🟡 | 3 / 4 | W2·T2 extract Runner interface |
-| 7 | verify-revert-on-fail | D1 | 🟡 | 2 / 3 | W2·T2 repo-safety pre-check |
-| 7 | custom-gate-api | D2 | 🟡 | 2 / 3 | W2·T2 CustomGateInput/Output contract |
-| 7 | replay-spec-diff | D3 | 🟡 | 2 / 3 | W2·T2 replay.go event collector |
-| 8 | ide-dashboard | A3 | 🟡 | 2 / 3 | W2·T2 specd serve read-only server |
-| 8 | distributed-state-backend | C2 | 🟡 | 2 / 3 | W2·T2 extract StateBackend interface |
-| 8 | cost-telemetry-ledger | C3 | 🟡 | 2 / 3 | W2·T2 add Telemetry to TaskState |
+| 2 | semantic-acceptance-gate | B1 | 🟡 | 2 / 4 | W3·T4 GateAcceptance (off/warn/error) |
+| 3 | open-spec-format | E2 | 🟡 | 1 / 3 | W3·T4 `specd schema [--version]` |
+| 4 | prompt-scaffolding | A2 | 🟡 | 1 / 3 | W3·T4 wire `--from` into `new` |
+| 4 | spec-pack-registry | E1 | 🟡 | 1 / 3 | W3·T4 pack resolver (pinned SHA256) |
+| 5 | watch-daemon | C1 | 🟡 | 1 / 3 | W3·T4 SSE transport over net/http |
+| 5 | github-native-integration | E3 | 🟡 | 1 / 3 | W3·T5 composite Action + PR comment |
+| 6 | coverage-diff-scope-evidence | B2 | 🟡 | 1 / 3 | W3·T4 GateScope (warn/error) |
+| 6 | verify-sandboxing | B3 | 🟡 | 2 / 4 | W3·T4 bwrapRunner (fail-closed) |
+| 7 | verify-revert-on-fail | D1 | 🟡 | 1 / 3 | W3·T5 flag-unset byte-identical test |
+| 7 | custom-gate-api | D2 | 🟡 | 1 / 3 | W3·T4 gates.custom pipeline integration |
+| 7 | replay-spec-diff | D3 | 🟡 | 1 / 3 | W3·T4 `specd diff --from --to` |
+| 8 | ide-dashboard | A3 | 🟡 | 1 / 3 | W3·T4 served-view == static report test |
+| 8 | distributed-state-backend | C2 | 🟡 | 1 / 3 | W3·T4 git-native backend |
+| 8 | cost-telemetry-ledger | C3 | 🟡 | 1 / 3 | W3·T5 per-wave/per-spec roll-up |
 
-**Totals:** 22 / 103 tasks done (21%). 1 / 15 specs complete · 14 in progress
-(all Wave 1 recon landed).
+**Totals:** 55 / 103 tasks done (53%). 1 / 15 specs complete · 14 in progress
+(all Wave 1 recon + **all Wave 2 builders landed**, full `-race` suite green,
+coverage 67.4% / core 63.7% above floors, 16×20 concurrency stress intact).
 
 ---
 

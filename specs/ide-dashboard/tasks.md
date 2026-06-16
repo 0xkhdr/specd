@@ -26,16 +26,24 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Read-only server
 
-- [ ] **T2 — `specd serve` read-only HTTP server**
+- [x] **T2 — `specd serve` read-only HTTP server** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R2,R3,R4
   - `internal/cmd/serve.go`: GET `/` → `RenderHTML(data, autoRefresh)`, GET
     `/api/report` → marshaled `ReportData` rebuilt per request. Loopback bind,
     405 on non-GET. Register in `registry.go`.
   - verify: `go test ./internal/cmd/ -run TestServe -race -count=1`
+  - **Evidence:** `internal/cmd/serve.go` — `NewServeHandler` (GET `/` → identical
+    HTML to `report --format html`; GET `/api/report` → JSON `ReportData` rebuilt
+    per request; 405 on non-GET; no mutating routes), `RunServe` binds
+    `127.0.0.1:8765` (`--addr`). `loadReportData` shared with `report`. Registered
+    in both registries (parity green). `TestServe` passes.
 
-- [ ] **T3 — 404 + no-panic on missing spec/root**
+- [x] **T3 — 404 + no-panic on missing spec/root** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R5
   - verify: `go test ./internal/cmd/ -run TestServeNotFound -race -count=1`
+  - **Evidence:** `serveReportData` returns a clean 404 (never panics) when the
+    spec or its state is absent; unknown sub-paths 404 via `http.NotFound`.
+    `TestServeNotFound` passes.
 
 ## Wave 3 — Parity + extension
 

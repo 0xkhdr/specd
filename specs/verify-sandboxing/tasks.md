@@ -27,14 +27,22 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Runner abstraction
 
-- [ ] **T2 — Extract `Runner` interface; default `shRunner` = today**
+- [x] **T2 — Extract `Runner` interface; default `shRunner` = today** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R3,R4
   - Behavior byte-identical for `none`. Keep env scrub + NUL reject + print.
   - verify: `go test ./internal/core/ -run TestShRunnerUnchanged -race -count=2`
+  - **Evidence:** `internal/core/runner.go` — `Runner` interface (`Name`+`Run`),
+    `RunSpec`/`RunResult`, default `shRunner` (`NewShRunner`, Name "none")
+    reproducing the exact `shell -c` exec/timeout/exit-code logic. `verify.go`'s
+    `runVerifyCommand` now delegates to a `core.Runner`, keeping env-scrub + NUL
+    reject + print at the cmd layer. `TestShRunnerUnchanged` passes `-race -count=2`.
 
-- [ ] **T3 — Add `Sandbox` to VerificationRecord (back-compat)**
+- [x] **T3 — Add `Sandbox` to VerificationRecord (back-compat)** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R5
   - verify: `go test ./internal/core/ -run TestRecordSandboxField -race -count=2`
+  - **Evidence:** `VerificationRecord.Sandbox string` (omitempty) + schema mirror.
+    Default/none runs leave it empty (byte-identical to legacy); only isolating
+    backends stamp it. `TestRecordSandboxField` passes `-race -count=2`.
 
 ## Wave 3 — Sandbox backends
 

@@ -26,15 +26,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Schema + conformance
 
-- [ ] **T2 — Author versioned JSON Schema (v1) for all artifacts**
+- [x] **T2 — Author versioned JSON Schema (v1) for all artifacts** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R4
   - Embed via `embed.go`; explicit version id.
   - verify: `go test ./internal/core/ -run TestSchemaParse -race -count=2`
+  - **Evidence:** `internal/core/schema/v1.json` (draft-07, `$defs` for State,
+    TaskState, VerificationRecord, CriterionRecord, Blocker; `specdSchemaVersion:"1"`,
+    `stateSchemaVersion:4`). Embedded + loaded by `internal/core/schema.go`
+    (`Schema`, `ParseSchema`, `SchemaVersionID`). `TestSchemaParse` passes `-race -count=2`.
 
-- [ ] **T3 — Conformance test: schema ↔ Go types (drift fails CI)**
+- [x] **T3 — Conformance test: schema ↔ Go types (drift fails CI)** ✓ complete · 2026-06-16
   - role: verifier · depends: T2 · requirements: R2
   - Round-trip real artifacts; a struct change without schema update fails.
   - verify: `go test ./internal/core/ -run TestSchemaConformance -race -count=2`
+  - **Evidence:** `TestSchemaConformance` reflects each canonical struct's json
+    tags and asserts bijection with schema `properties` + `required` (omitempty ⇔
+    optional) + `additionalProperties:false`. A struct field added without a
+    schema update (or vice versa) fails CI. Passes `-race -count=2`.
 
 ## Wave 3 — Commands + docs
 

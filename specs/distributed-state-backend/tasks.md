@@ -28,16 +28,24 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Interface + conformance net
 
-- [ ] **T2 — Extract `StateBackend` interface; file backend behind it**
+- [x] **T2 — Extract `StateBackend` interface; file backend behind it** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R2,R7
   - No behavior change for `file`; existing suite passes unchanged.
   - verify: `go test ./internal/core/ -race -count=2`
+  - **Evidence:** `internal/core/backend.go` — `StateBackend` interface
+    (Name/Load/Save/WithLock) + `fileBackend` delegating to the existing
+    `LoadState`/`SaveState`/`WithSpecLock`, exposed via `DefaultBackend()`. Pure
+    abstraction; no on-disk behavior change. Full core suite passes `-race -count=2`.
 
-- [ ] **T3 — Backend-agnostic conformance test suite**
+- [x] **T3 — Backend-agnostic conformance test suite** ✓ complete · 2026-06-16
   - role: verifier · depends: T2 · requirements: R3,R6
   - Lift concurrency + CAS tests into a suite any backend runs (stale-base CAS
     fail, reentrant lock, 32-goroutine serialization).
   - verify: `go test ./internal/core/ -run TestBackendConformance -race -count=2`
+  - **Evidence:** `backendConformance(t, StateBackend)` in
+    `backend_conformance_test.go` exercises stale-base CAS rejection, reentrant
+    lock, and 32-goroutine no-lost-updates; run against `DefaultBackend()`. Any
+    future backend re-runs the identical suite. `TestBackendConformance` passes.
 
 ## Wave 3 — git backend + remote adapters
 

@@ -28,15 +28,22 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Replay
 
-- [ ] **T2 — `replay.go` event collector + stable ordering**
+- [x] **T2 — `replay.go` event collector + stable ordering** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R5,R6
   - Normalize sources into `TimelineEvent`; stable sort; tolerate missing/corrupt.
   - verify: `go test ./internal/core/ -run TestReplayTimeline -race -count=2`
+  - **Evidence:** `internal/core/replay.go` — `TimelineEvent` + `ReplayTimeline`
+    collects task start/finish/verify(±)/block + acceptance records, stable-sorts
+    by (timestamp, task ordinal, kind). Total/read-only: nil & empty state and
+    missing timestamps are tolerated without panic. `TestReplayTimeline` passes.
 
-- [ ] **T3 — `specd replay` command (text + JSON)**
+- [x] **T3 — `specd replay` command (text + JSON)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R2,R4
   - Read-only; `SPECD_JSON=1` typed array.
   - verify: `go test ./internal/cmd/ -run TestReplayCmd -race -count=1`
+  - **Evidence:** `internal/cmd/replay.go` (`RunReplay`) loads state and renders
+    text or a typed `[]TimelineEvent` JSON array; never writes. Registered in
+    `Registry` + `core.Commands` (parity green). `TestReplayCmd` passes.
 
 ## Wave 3 — Diff
 

@@ -25,19 +25,28 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Safe revert
 
-- [ ] **T2 — Repo-safety pre-check (skip+warn on unsafe state)**
+- [x] **T2 — Repo-safety pre-check (skip+warn on unsafe state)** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R3
   - Detect non-git / merge-rebase-in-progress; refuse to revert.
   - verify: `go test ./internal/cmd/ -run TestRevertSafetyGuard -race -count=1`
+  - **Evidence:** `revertSafety(cwd)` in `verify.go` refuses outside a git work
+    tree and on MERGE_HEAD/rebase-merge/rebase-apply/CHERRY_PICK_HEAD/BISECT_LOG,
+    returning a human reason for the warn path. `TestRevertSafetyGuard` passes.
 
-- [ ] **T3 — `--revert-on-fail` recoverable stash on non-zero exit**
+- [x] **T3 — `--revert-on-fail` recoverable stash on non-zero exit** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R2,R4,R5
   - `git stash push -u`; print stash ref; pass/default untouched.
   - verify: `go test ./internal/cmd/ -run TestRevertOnFail -race -count=1`
+  - **Evidence:** `maybeRevertOnFail` only acts on a failed verify when the flag
+    is set; `stashWorkingTree` runs `git stash push --include-untracked` and
+    resolves a stable commit hash; prints `git stash apply <ref>` hint. Passing
+    and default runs never touch the tree (asserted). `TestRevertOnFail` passes.
 
-- [ ] **T4 — Record `Reverted`/`StashRef` in VerificationRecord**
+- [x] **T4 — Record `Reverted`/`StashRef` in VerificationRecord** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R6
   - verify: `go test ./internal/core/ -run TestRevertRecord -race -count=2`
+  - **Evidence:** `VerificationRecord.Reverted bool` + `StashRef string` (omitempty)
+    + schema mirror; stamped by `maybeRevertOnFail`. `TestRevertRecord` passes.
 
 ## Wave 3 — Regression + review
 

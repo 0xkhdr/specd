@@ -28,14 +28,21 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Pack format + built-ins
 
-- [ ] **T2 — `pack.json` manifest format + parser (declarative only)**
+- [x] **T2 — `pack.json` manifest format + parser (declarative only)** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R4,R5,R7
   - Reject manifests referencing executable hooks.
   - verify: `go test ./internal/core/ -run TestPackManifest -race -count=2`
+  - **Evidence:** `internal/core/pack.go` — `Pack`/`PackFile` + `ParsePack`
+    (DisallowUnknownFields + explicit forbidden executable-key list, case-insensitive;
+    path-safety via `validatePackPath`: rejects abs/`..`/non-canonical/dup).
+    Fails closed, no partial pack. `TestPackManifest` passes `-race -count=2`.
 
-- [ ] **T3 — Embed built-in packs + `--list-packs`**
+- [x] **T3 — Embed built-in packs + `--list-packs`** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R2
   - verify: `go test ./internal/cmd/ -run TestListPacks -race -count=1`
+  - **Evidence:** `//go:embed embed_packs` + `BuiltinPacks`/`BuiltinPack` in
+    `pack.go`; ship `minimal` + `go-service`. `specd init --list-packs` (text +
+    `SPECD_JSON`) added in `init.go`, scaffolds nothing. `TestListPacks` passes.
 
 ## Wave 3 — Resolve + apply
 

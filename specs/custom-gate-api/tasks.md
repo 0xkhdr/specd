@@ -26,14 +26,22 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Contract + runner
 
-- [ ] **T2 — Define `CustomGateInput`/`Output` JSON contract**
+- [x] **T2 — Define `CustomGateInput`/`Output` JSON contract** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R2,R7
   - verify: `go test ./internal/core/ -run TestCustomGateSchema -race -count=2`
+  - **Evidence:** `internal/core/customgate.go` — `CustomGateInput`
+    (spec/root/status/tasks, read-only), `CustomGateOutput` (violations/warnings
+    of `CustomGateFinding`), `BuildCustomGateInput`. `TestCustomGateSchema` passes.
 
-- [ ] **T3 — `customgate.go` runner (bounded timeout, env-scrubbed)**
+- [x] **T3 — `customgate.go` runner (bounded timeout, env-scrubbed)** ✓ complete · 2026-06-16
   - role: builder · depends: T1,T2 · requirements: R1,R5,R6
   - JSON in/out; reuse verify env-scrub; bounded timeout; invalid JSON ⇒ error.
   - verify: `go test ./internal/core/ -run TestCustomGateRunner -race -count=1`
+  - **Evidence:** `RunCustomGate` writes input JSON to stdin, runs `sh -c` with
+    `core.ScrubbedEnv()` (env-scrub now single-sourced; `verify.go` delegates),
+    bounded `context.WithTimeout`, NUL-reject; parses stdout with
+    `DisallowUnknownFields`. Invalid JSON / non-zero exit / timeout ⇒ error. No Go
+    plugins, no network. `TestCustomGateRunner` passes.
 
 ## Wave 3 — Pipeline integration
 

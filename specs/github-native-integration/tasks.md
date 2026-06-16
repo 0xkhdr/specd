@@ -26,19 +26,30 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Deterministic PR summary (specd side, no network)
 
-- [ ] **T2 — `specd report --pr-summary` Markdown + JSON**
+- [x] **T2 — `specd report --pr-summary` Markdown + JSON** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R3
   - Wave DAG + gate status; deterministic; zero network.
   - verify: `go test ./internal/cmd/ -run TestPRSummary -race -count=2`
+  - **Evidence:** `internal/core/prsummary.go` (`PRSummary`, `BuildPRSummary`,
+    `.Markdown()`) + `report --pr-summary` path in `report.go` runs the same
+    gate pipeline as `check`, emits Markdown or JSON (`SPECD_JSON`), exit maps to
+    gate status. Deterministic (asserted identical across runs). `TestPRSummary` passes.
 
-- [ ] **T3 — Commit↔task link map (unreferenced listed, not dropped)**
+- [x] **T3 — Commit↔task link map (unreferenced listed, not dropped)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R4
   - Parse task IDs from commit messages, deterministically.
   - verify: `go test ./internal/core/ -run TestCommitTaskLink -race -count=2`
+  - **Evidence:** `internal/core/commitlink.go` — `ParseTaskRefs` (word-boundary
+    `T\d+`, ordinal-sorted, unique), `LinkCommits` (every commit kept; no-ref →
+    empty non-nil Tasks), `UnreferencedCommits`. `report` attaches local
+    `git log` (best-effort, read-only). `TestCommitTaskLink` passes.
 
-- [ ] **T4 — Test: PR-summary path makes no network call**
+- [x] **T4 — Test: PR-summary path makes no network call** ✓ complete · 2026-06-16
   - role: verifier · depends: T2,T3 · requirements: R3
   - verify: `go test ./internal/cmd/ -run TestPRSummaryNoNetwork -race -count=2`
+  - **Evidence:** `TestPRSummaryNoNetwork` swaps `http.DefaultTransport` for a
+    recording RoundTripper that fails on any call and asserts zero calls during
+    `report --pr-summary`. Passes `-race -count=2`.
 
 ## Wave 3 — Action wrapper + docs
 

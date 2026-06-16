@@ -27,16 +27,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Capture evidence
 
-- [ ] **T2 — Add `ChangedFiles` + `Coverage` to the record (back-compat)**
+- [x] **T2 — Add `ChangedFiles` + `Coverage` to the record (back-compat)** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R3
   - `omitempty` JSON; existing records still parse.
   - verify: `go test ./internal/core/ -run TestVerificationRecordCompat -race -count=2`
+  - **Evidence:** `VerificationRecord.ChangedFiles []string` + `Coverage string`
+    (both omitempty) `state.go`; schema mirror added. `TestVerificationRecordCompat`
+    proves legacy records parse and empty fields stay omitted. Passes `-race -count=2`.
 
-- [ ] **T3 — Capture changed files + optional coverage in `RunVerify`**
+- [x] **T3 — Capture changed files + optional coverage in `RunVerify`** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R3,R4
   - `git diff --name-only` vs base HEAD; parse coverage total if present, else
     "unavailable" (never fail on coverage).
   - verify: `go test ./internal/cmd/ -run TestVerifyCapture -race -count=1`
+  - **Evidence:** `changedFiles` (diff vs HEAD + untracked, sorted, best-effort)
+    and `parseCoverage` (`coverage: N%` → "N%" else "unavailable") in `verify.go`,
+    wired into `runVerifyCommand`'s record. Coverage capture never fails verify.
+    `TestVerifyCapture` + `TestVerifyCaptureNoCoverage` pass.
 
 ## Wave 3 — Scope gate + surface
 

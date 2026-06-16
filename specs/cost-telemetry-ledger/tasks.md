@@ -27,18 +27,30 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Capture
 
-- [ ] **T2 — Add `Telemetry` to TaskState (omitempty, back-compat)**
+- [x] **T2 — Add `Telemetry` to TaskState (omitempty, back-compat)** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R5
   - verify: `go test ./internal/core/ -run TestTelemetryCompat -race -count=2`
+  - **Evidence:** `Telemetry{DurationMs,VerifyDurationMs,Retries,Tokens,Cost}`
+    (all omitempty) + `TaskState.Telemetry *Telemetry` (omitempty) + schema mirror
+    (`Telemetry` $def). Legacy tasks parse; absent telemetry omitted.
+    `TestTelemetryCompat` passes. (Also fixed `reconcileTasks` to preserve
+    `Telemetry` across LoadSpec, alongside Verification.)
 
-- [ ] **T3 — Capture duration/retries/verify-duration via injectable clock**
+- [x] **T3 — Capture duration/retries/verify-duration via injectable clock** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R4
   - Deterministic timing; retries increment on verify re-run.
   - verify: `go test ./internal/cmd/ -run TestTelemetryCapture -race -count=2`
+  - **Evidence:** `core.DurationMsBetween` (clock-stamp diff); `verify.go`
+    increments `Retries` and sets `VerifyDurationMs` per run; `task.go` complete
+    sets `DurationMs` from StartedAt→FinishedAt. All via the injectable Clock →
+    deterministic under FakeClock. `TestTelemetryCapture` passes `-race -count=2`.
 
-- [ ] **T4 — `--tokens`/`--cost` annotation flags (stored, not computed)**
+- [x] **T4 — `--tokens`/`--cost` annotation flags (stored, not computed)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R2
   - verify: `go test ./internal/cmd/ -run TestTelemetryAnnotate -race -count=1`
+  - **Evidence:** `applyTelemetryAnnotations` stores `--tokens`/`--cost` verbatim
+    into Telemetry (no flags ⇒ no telemetry created; no computation/pricing).
+    Flags added to `task` metadata. `TestTelemetryAnnotate` passes.
 
 ## Wave 3 — Aggregate + render
 

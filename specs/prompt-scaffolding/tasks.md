@@ -27,18 +27,27 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Persist prompt + brief generator
 
-- [ ] **T2 — Persist `--from` prompt into the spec**
+- [x] **T2 — Persist `--from` prompt into the spec** ✓ complete · 2026-06-16
   - role: builder · depends: — · requirements: R1,R6
   - Add optional `Prompt` to `state.json` and inject it into the
     `requirements.md` stub. `--from` omitted ⇒ unchanged behavior.
   - verify: `go test ./internal/cmd/ -run TestNewFrom -race -count=1`
+  - **Evidence:** `State.Prompt` (omitempty) `state.go` + schema mirror; `new`
+    reads `--from`, sets `state.Prompt`, and `core.InjectPrompt` inserts an
+    `## Originating prompt` block before `## Requirement 1`. Empty `--from` is
+    byte-identical to plain `new` (asserted). `TestNewFrom` passes.
 
-- [ ] **T3 — `authoring.go` gate-shaped brief generator**
+- [x] **T3 — `authoring.go` gate-shaped brief generator** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R2,R3,R4
   - Pure function returning per-artifact gate constraints, sourced from the gate
     definitions (no duplicated strings). Text + `SPECD_JSON=1` JSON output. No
     network/LLM.
   - verify: `go test ./internal/core/ -run TestAuthoringBrief -race -count=2`
+  - **Evidence:** `NewAuthoringBrief(prompt)` in `internal/core/authoring.go`
+    returns `AuthoringBrief` sourced from `EarsForms()`/`DesignSections`/
+    `MandatoryKeys`/`ValidRoles` (no literal re-lists); `.Text()` + json tags for
+    `SPECD_JSON`. `EarsForms()` added to `ears.go` as single source.
+    `TestAuthoringBrief` + `TestAuthoringSync` pass `-race -count=2`.
 
 ## Wave 3 — Wire & validate
 

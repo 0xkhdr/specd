@@ -16,7 +16,48 @@ var skillFiles = []string{
 	"specd-design", "specd-tasks", "specd-execute",
 }
 
+// listPacks renders the embedded built-in packs as text, or JSON under
+// SPECD_JSON. It performs no filesystem writes.
+func listPacks() int {
+	packs, err := core.BuiltinPacks()
+	if err != nil {
+		return specdExit(err)
+	}
+	if core.IsJSONMode() {
+		type packView struct {
+			Name        string `json:"name"`
+			Version     string `json:"version"`
+			Description string `json:"description"`
+			Files       int    `json:"files"`
+		}
+		views := make([]packView, 0, len(packs))
+		for _, p := range packs {
+			views = append(views, packView{p.Name, p.Version, p.Description, len(p.Files)})
+		}
+		if err := core.PrintJSON(views); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	fmt.Printf("specd built-in packs (%d):\n", len(packs))
+	for _, p := range packs {
+		fmt.Printf("  %-12s v%-7s %s (%d file%s)\n", p.Name, p.Version, p.Description, len(p.Files), plural(len(p.Files)))
+	}
+	fmt.Println("\nApply with: specd init --pack <name>")
+	return core.ExitOK
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
 func RunInit(args cli.Args) int {
+	if args.Bool("list-packs") {
+		return listPacks()
+	}
 	root, err := os.Getwd()
 	if err != nil {
 		core.Error(err.Error())

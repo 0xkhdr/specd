@@ -170,6 +170,7 @@ func Reconcile(state *State, doc ParsedTasks) {
 			ts.Evidence = prev.Evidence
 			ts.Verification = prev.Verification
 			ts.Blocker = prev.Blocker
+			ts.Telemetry = prev.Telemetry
 		}
 		if ts.Depends == nil {
 			ts.Depends = []string{}

@@ -1,6 +1,11 @@
 package core
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+)
 
 type EarsPattern string
 
@@ -12,15 +17,31 @@ const (
 	EarsUbiquitous      EarsPattern = "ubiquitous"
 )
 
+// earsPatterns is the single source of truth for EARS forms: each row carries
+// the pattern name, the human-readable template (what authors must write), and
+// the regex the gate enforces. MatchEars enforces; EarsForms publishes the
+// templates for the authoring brief — both read this one table so the brief can
+// never drift from what the gate accepts.
 var earsPatterns = []struct {
 	name EarsPattern
+	form string
 	re   *regexp.Regexp
 }{
-	{EarsUnwanted, regexp.MustCompile(`(?i)^IF .+ THEN THE SYSTEM SHALL .+`)},
-	{EarsEventDriven, regexp.MustCompile(`(?i)^WHEN .+ THE SYSTEM SHALL .+`)},
-	{EarsStateDriven, regexp.MustCompile(`(?i)^WHILE .+ THE SYSTEM SHALL .+`)},
-	{EarsOptionalFeature, regexp.MustCompile(`(?i)^WHERE .+ THE SYSTEM SHALL .+`)},
-	{EarsUbiquitous, regexp.MustCompile(`(?i)^THE SYSTEM SHALL .+`)},
+	{EarsUnwanted, "IF <condition> THEN THE SYSTEM SHALL <response>", regexp.MustCompile(`(?i)^IF .+ THEN THE SYSTEM SHALL .+`)},
+	{EarsEventDriven, "WHEN <trigger> THE SYSTEM SHALL <response>", regexp.MustCompile(`(?i)^WHEN .+ THE SYSTEM SHALL .+`)},
+	{EarsStateDriven, "WHILE <state> THE SYSTEM SHALL <response>", regexp.MustCompile(`(?i)^WHILE .+ THE SYSTEM SHALL .+`)},
+	{EarsOptionalFeature, "WHERE <feature> THE SYSTEM SHALL <response>", regexp.MustCompile(`(?i)^WHERE .+ THE SYSTEM SHALL .+`)},
+	{EarsUbiquitous, "THE SYSTEM SHALL <response>", regexp.MustCompile(`(?i)^THE SYSTEM SHALL .+`)},
+}
+
+// EarsForms returns the canonical EARS templates in match-precedence order,
+// derived from the same table MatchEars enforces.
+func EarsForms() []string {
+	out := make([]string, len(earsPatterns))
+	for i, p := range earsPatterns {
+		out[i] = p.form
+	}
+	return out
 }
 
 func MatchEars(line string) (EarsPattern, bool) {
@@ -107,6 +128,76 @@ func LintEars(text string) []EarsIssue {
 		issues = append(issues, EarsIssue{Line: 1, Message: "no '## Requirement N' sections found"})
 	}
 	return issues
+}
+
+// reqHeaderNumRe captures the numeric id from a `## Requirement N` header so
+// criteria can be addressed as "<req>.<idx>" — the same key space the verify
+// `--criterion <req>.<n>` route and State.Acceptance already use.
+var reqHeaderNumRe = regexp.MustCompile(`(?i)^##\s+Requirement\s+(\d+)`)
+
+// Criterion is a single acceptance criterion with a deterministic, mapping-stable
+// ID. IDs are "<requirement>.<index>" where index is the 1-based position of the
+// criterion within its requirement's acceptance list (matching the markdown
+// ordinal in well-formed requirements.md).
+type Criterion struct {
+	ID      string      // "<req>.<idx>", e.g. "1.2"
+	Req     int         // requirement number
+	Index   int         // 1-based position within the requirement's acceptance list
+	Text    string      // criterion prose
+	Line    int         // 1-based line in requirements.md
+	Pattern EarsPattern // matched EARS pattern ("" when none matched)
+	EarsOK  bool        // whether Text matched an EARS pattern
+}
+
+// ExtractCriteria walks requirements.md and returns every acceptance criterion
+// with a stable ID. It is read-only and side-effect free; the acceptance gate
+// being off simply means callers never invoke it, so EARS linting and existing
+// numbering are unaffected (T2: no change when the gate is off).
+func ExtractCriteria(text string) []Criterion {
+	lines := splitLines(StripHTMLComments(text))
+	var out []Criterion
+	curReq := 0
+	idx := 0
+	inAcceptance := false
+	for i, line := range lines {
+		lineNo := i + 1
+		if m := reqHeaderNumRe.FindStringSubmatch(line); m != nil {
+			curReq, _ = strconv.Atoi(m[1])
+			idx = 0
+			inAcceptance = false
+			continue
+		}
+		// A Requirement header without a parseable number still resets context
+		// so criteria under it are not misattributed to the previous requirement.
+		if reqHeaderRe.MatchString(line) {
+			curReq = 0
+			idx = 0
+			inAcceptance = false
+			continue
+		}
+		if curReq == 0 {
+			continue
+		}
+		if acceptanceRe.MatchString(line) {
+			inAcceptance = true
+			continue
+		}
+		if m := criterionRe.FindStringSubmatch(line); m != nil && inAcceptance {
+			idx++
+			crit := strings.TrimSpace(m[1])
+			pat, ok := MatchEars(crit)
+			out = append(out, Criterion{
+				ID:      fmt.Sprintf("%d.%d", curReq, idx),
+				Req:     curReq,
+				Index:   idx,
+				Text:    crit,
+				Line:    lineNo,
+				Pattern: pat,
+				EarsOK:  ok,
+			})
+		}
+	}
+	return out
 }
 
 func splitLines(s string) []string {

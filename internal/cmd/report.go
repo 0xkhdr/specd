@@ -3,11 +3,85 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+// gitRecentCommits returns recent commit subjects from the local repository for
+// the commit↔task link map. It is best-effort and read-only: outside a git repo
+// (or on any git error) it returns nil so the PR summary degrades gracefully
+// without the commit section. It shells out to local git only — no network.
+func gitRecentCommits(root string) []core.Commit {
+	out, err := exec.Command("git", "-C", root, "log", "--max-count=50", "--no-color", "--pretty=format:%H\x1f%s").Output()
+	if err != nil {
+		return nil
+	}
+	var commits []core.Commit
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\x1f", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		commits = append(commits, core.Commit{SHA: parts[0], Subject: parts[1]})
+	}
+	return commits
+}
+
+// runPRSummary renders a deterministic, network-free PR summary (Markdown, or
+// JSON under SPECD_JSON): wave/task progress + gate status, plus the commit↔task
+// link map when a local git history is available. It runs the same gate pipeline
+// as `specd check` and makes no network calls.
+func runPRSummary(root, slug string, state *core.State) int {
+	ctx, pre, err := buildCheckCtx(root, slug)
+	if err != nil {
+		return specdExit(err)
+	}
+	violations := pre
+	var warnings []core.Violation
+	for _, gate := range core.CheckGates {
+		v, w := gate(ctx)
+		violations = append(violations, v...)
+		warnings = append(warnings, w...)
+	}
+
+	commits := core.LinkCommits(gitRecentCommits(root))
+	summary := core.BuildPRSummary(state, violations, warnings, commits)
+
+	if core.IsJSONMode() {
+		if err := core.PrintJSON(summary); err != nil {
+			return specdExit(err)
+		}
+	} else {
+		fmt.Print(summary.Markdown())
+	}
+	if !summary.GatesOK {
+		return core.ExitGate
+	}
+	return core.ExitOK
+}
+
+// loadReportData assembles the ReportData a report/serve render consumes: the
+// already-loaded state plus the six on-disk artifacts. It is the single source
+// of report-data construction shared by `specd report` and `specd serve`, so the
+// served view stays byte-identical to the static report.
+func loadReportData(root, slug string, state *core.State) core.ReportData {
+	return core.ReportData{
+		State:        state,
+		Requirements: core.ReadArtifact(root, slug, "requirements.md"),
+		Design:       core.ReadArtifact(root, slug, "design.md"),
+		Tasks:        core.ReadArtifact(root, slug, "tasks.md"),
+		Decisions:    core.ReadArtifact(root, slug, "decisions.md"),
+		Memory:       core.ReadArtifact(root, slug, "memory.md"),
+		MidReqs:      core.ReadArtifact(root, slug, "mid-requirements.md"),
+	}
+}
 
 func RunReport(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd report <slug> [--format md|html] [--out <path>]")
@@ -21,6 +95,10 @@ func RunReport(args cli.Args) int {
 	state := loaded.State
 	cfg := core.LoadConfig(root)
 
+	if args.Bool("pr-summary") {
+		return runPRSummary(root, slug, state)
+	}
+
 	format := args.Str("format")
 	if format == "" {
 		format = cfg.Report.Format
@@ -29,15 +107,7 @@ func RunReport(args cli.Args) int {
 		return usageExit("--format must be md or html")
 	}
 
-	data := core.ReportData{
-		State:        state,
-		Requirements: core.ReadArtifact(root, slug, "requirements.md"),
-		Design:       core.ReadArtifact(root, slug, "design.md"),
-		Tasks:        core.ReadArtifact(root, slug, "tasks.md"),
-		Decisions:    core.ReadArtifact(root, slug, "decisions.md"),
-		Memory:       core.ReadArtifact(root, slug, "memory.md"),
-		MidReqs:      core.ReadArtifact(root, slug, "mid-requirements.md"),
-	}
+	data := loadReportData(root, slug, state)
 
 	var out string
 	if format == "html" {

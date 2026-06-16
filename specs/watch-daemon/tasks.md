@@ -26,15 +26,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 2 — Core loop + events
 
-- [ ] **T2 — `FrontierEvent` model + change detector**
+- [x] **T2 — `FrontierEvent` model + change detector** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R1,R5,R6
   - Revision-based change detection; emit only on real frontier change; read-only.
   - verify: `go test ./internal/core/ -run TestFrontierDetect -race -count=2`
+  - **Evidence:** `internal/core/frontier.go` — `FrontierEvent`, `FrontierOf`,
+    and `FrontierDetector.Observe` (per-spec last-frontier memory; emits only when
+    the ordered runnable set changes — unchanged frontier at a higher revision is
+    suppressed; computes Added/Removed). Read-only. `TestFrontierDetect` passes.
 
-- [ ] **T3 — JSON-lines emitter + `specd watch` command**
+- [x] **T3 — JSON-lines emitter + `specd watch` command** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R2
   - `internal/cmd/watch.go`, registered. NDJSON on stdout.
   - verify: `go test ./internal/cmd/ -run TestWatchNDJSON -race -count=1`
+  - **Evidence:** `internal/cmd/watch.go` (`RunWatch`, `watchPass`) emits compact
+    NDJSON per changed frontier; `--once` single pass, `--spec` filter, polls at
+    `SPECD_WATCH_INTERVAL_MS` otherwise. Registered in both `Registry` and
+    `core.Commands` (parity test green). `TestWatchNDJSON` passes.
 
 ## Wave 3 — Transports + lifecycle
 
