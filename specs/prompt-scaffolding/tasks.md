@@ -6,12 +6,24 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Derive constraints from gates
 
-- [ ] **T1 — Map gate constraints to a single source**
+- [x] **T1 — Map gate constraints to a single source** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R2,R5
   - Locate where the EARS forms, the 7 design headers, and the 7 task keys are
     defined (`ears.go`, `gates.go`, `tasksparser.go`). Report the exported
     symbols a brief generator can read instead of re-listing strings.
   - verify: N/A — complete with `--unverified --evidence "<symbol map>"`
+  - **Evidence:** EARS forms — exported `EarsPattern` consts
+    `internal/core/ears.go:7-13` (Unwanted/EventDriven/StateDriven/
+    OptionalFeature/Ubiquitous) + `MatchEars` `ears.go:26`; the `earsPatterns`
+    regex table `ears.go:15-24` is unexported, so a brief generator must call
+    `MatchEars` or read the const names, not the regexes. 7 design headers —
+    `DesignSections []string` (exported) `internal/core/phases.go:9-12`. 7 task
+    keys — `MandatoryKeys` `internal/core/tasksparser.go:12` + `KeyOrder`
+    `tasksparser.go:13`; roles `ValidRoles` `tasksparser.go:14`,
+    `ReadonlyRoles` `tasksparser.go:15` (+ `IsValidRole`/`IsReadonlyRole`
+    `tasksparser.go:22-26`). All three constraint sets are already exported
+    package vars — the brief generator reads these symbols, never re-lists
+    literal strings.
 
 ## Wave 2 — Persist prompt + brief generator
 

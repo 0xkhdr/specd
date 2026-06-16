@@ -6,11 +6,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Output + exit-code recon
 
-- [ ] **T1 — Map check exit codes + report/status output**
+- [x] **T1 — Map check exit codes + report/status output** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R2,R3
   - Report `specd check` exit-code mapping and the report/status/waves data the
     PR summary will render. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<output+exit map>"`
+  - **Evidence:** exit codes — `ExitOK=0`/`ExitGate=1`/`ExitUsage=2`/
+    `ExitNotFound=3` `internal/core/exit.go:3-8`; `RunCheck` maps
+    `len(violations)==0 ⇒ ExitOK` else `ExitGate` (`check.go:53-56` JSON,
+    `check.go:70`/`:76` human); pipeline loop `check.go:28-32`. Render data the
+    PR summary reuses — `status --json` rows `internal/cmd/status.go:24-48`
+    (+ full state `status.go:77-86`, `next` via `NextRunnable`); `waves --json`
+    `internal/cmd/waves.go:21-63` (`waves`, `criticalPath`, `blockers`);
+    `report` builds `core.ReportData` `internal/cmd/report.go:32-40` →
+    `RenderMarkdown`/`RenderHTML` (`internal/core/report.go:159`/`:185`).
+    `check --json` payload `{ok,violations,warnings}` `check.go:49`. All paths
+    are deterministic and make zero network calls — the PR-summary builder layers
+    on top of these in-process renderers.
 
 ## Wave 2 — Deterministic PR summary (specd side, no network)
 

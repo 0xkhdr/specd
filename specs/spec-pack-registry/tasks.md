@@ -6,11 +6,25 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Init + verify recon
 
-- [ ] **T1 — Map init scaffolding + SHA256 verify pattern**
+- [x] **T1 — Map init scaffolding + SHA256 verify pattern** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R3
   - Report how `init.go` renders embedded assets (`embed.go`) and how
     `update.go`/`install.sh` do fail-closed SHA256. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<init+verify map>"`
+  - **Evidence:** init render — `RunInit` `internal/cmd/init.go:19`; `place()`
+    `init.go:28-43` reads embedded templates via `core.ReadTemplate`
+    (`internal/core/embed.go:11`, backed by `//go:embed embed_templates`
+    `embed.go:8-9`) then `core.AtomicWrite` `init.go:38`; asset lists
+    `steeringFiles`/`roleFiles`/`skillFiles` `init.go:12-17`; `ApplyVars`
+    substitution `embed.go:19-24`; AGENTS.md marker-merge `init.go:57-67`.
+    Fail-closed SHA256 — Go: `downloadBinary` `internal/cmd/update.go:87-134`,
+    `fetchChecksums` `update.go:58-85` (no SHA256SUMS ⇒ abort `update.go:66`,
+    no entry ⇒ abort `update.go:95-98`), stream-hash via `io.TeeReader`
+    `update.go:118-119`, mismatch abort `update.go:128-130`. Shell:
+    `install.sh` `verify_checksum` `scripts/install.sh:48-69` (die on missing
+    SHA256SUMS `:57`, no hasher `:66`, checksum fail `:68`; `--no-verify` escape
+    `:51`). Pattern to reuse for pinned-pack resolve: download → hash → compare →
+    refuse on any gap.
 
 ## Wave 2 — Pack format + built-ins
 

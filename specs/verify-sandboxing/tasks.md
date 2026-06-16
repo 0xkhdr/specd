@@ -6,11 +6,24 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Runner recon
 
-- [ ] **T1 — Map the current verify execution path**
+- [x] **T1 — Map the current verify execution path** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R3,R4
   - Report exactly where `sh -c` runs, env allowlist + NUL rejection live, and
     how the record is written. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<exec path map>"`
+  - **Evidence:** exec — `runVerifyCommand` `internal/cmd/verify.go:214-256`
+    runs `exec.CommandContext(ctx, shell, "-c", command)` `verify.go:223` with
+    `cmd.Dir = root` `verify.go:224`; shell = `SPECD_VERIFY_SHELL` else `"sh"`
+    `verify.go:99-102`; timeout `SPECD_VERIFY_TIMEOUT_MS` (default 600 000 ms)
+    `verify.go:25-27`/`:215-216`. Env allowlist — `scrubbedEnv`
+    `verify.go:32-46` (keeps `PATH,HOME,LANG,LC_ALL,TMPDIR` + `SPECD_*` only),
+    applied at `cmd.Env = scrubbedEnv()` `verify.go:225`. NUL rejection —
+    `verify.go:95-97` (refuses command containing a NUL byte). Record write —
+    built `verify.go:245-255`, persisted under `WithSpecLock` via
+    `ts.Verification = rec` + `SaveState` `verify.go:104-111`. Insertion point
+    for a `Runner` interface is the single `exec.CommandContext` call
+    `verify.go:223` — default `shRunner` reproduces today's behaviour byte-for-
+    byte; sandbox runners wrap it fail-closed.
 
 ## Wave 2 — Runner abstraction
 

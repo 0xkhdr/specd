@@ -6,11 +6,25 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Audit-source recon
 
-- [ ] **T1 — Inventory on-disk audit records**
+- [x] **T1 — Inventory on-disk audit records** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R3
   - Map status history + verify records in `state.json`, decision/midreq file
     formats, and how phase-entry timestamps relate to git commits. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<audit-source map>"`
+  - **Evidence:** state.json audit fields — `TaskState.{StartedAt, FinishedAt,
+    Evidence, Verification, Blocker}` `internal/core/state.go:80-84`;
+    `VerificationRecord` `state.go:52-62` (incl. `GitHead`, `RanAt`);
+    `CriterionRecord` `state.go:64-70`; top-level `CreatedAt`/`UpdatedAt`/`Turn`
+    `state.go:101-103`, `Revision` `state.go:96`. Transitions stamped in `RunTask`
+    `internal/cmd/task.go:139-184` (`FinishedAt` `:149`, `StartedAt` `:150`/`:171`).
+    decisions.md — ADR blocks written by `RunDecision`
+    `internal/cmd/decision.go:55-57` (`## ADR-NNN — text · date`), numbered by
+    `nextADRNumber`/`adrNumRE` `decision.go:12-24`. mid-requirements.md — Turn
+    blocks by `RunMidreq` `internal/cmd/midreq.go:57-59`, `state.Turn++`
+    `midreq.go:50`, stamp `midreq.go:57`. git relation — only per-verify
+    `GitHead` (`verify.go:254` → `state.go:61`); **no phase-entry→commit log**
+    beyond `CreatedAt`/`UpdatedAt`, so replay orders by `RanAt`/`FinishedAt`
+    timestamps and ties-breaks deterministically by task `ordinal`.
 
 ## Wave 2 — Replay
 

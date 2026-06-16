@@ -6,11 +6,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Map the existing scaffolding
 
-- [ ] **T1 — Inventory the acceptance stubs**
+- [x] **T1 — Inventory the acceptance stubs** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R4
   - Report exact use sites/absence of `CriterionRecord`, `State.Acceptance`,
     `GatesCfg.Acceptance`, and how `LintEars` numbers criteria. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<stub inventory>"`
+  - **Evidence:** `CriterionRecord` defined `internal/core/state.go:64-70`
+    (Requirement, Criterion, Status, Evidence, RanAt). `State.Acceptance`
+    `map[string]CriterionRecord` `state.go:106` (omitempty). Only write site:
+    `recordCriterion` `internal/cmd/verify.go:151-208` (writes
+    `state.Acceptance[key]` `verify.go:184`; `--criterion` route `verify.go:65`);
+    surfaced read-only in report `internal/core/report.go:132-148`.
+    `GatesCfg.Acceptance` is **ABSENT** — `c.Cfg.Gates` only exposes
+    `Traceability` (`gates.go:154`); `CheckGates` pipeline `gates.go:26-34` has 7
+    gates, no `GateAcceptance`. `LintEars` `ears.go:54-110` *counts* criteria
+    (`current.criteria++` `ears.go:91`, `criterionRe` `ears.go:43`) but assigns
+    **no stable per-criterion ID**. Conclusion: record type + write path exist;
+    config flag, stable IDs, and enforcing gate are the gaps.
 
 ## Wave 2 — Parse criteria & mapping
 

@@ -6,11 +6,25 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Contract recon
 
-- [ ] **T1 — Document the exact current lock + CAS contract**
+- [x] **T1 — Document the exact current lock + CAS contract** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R2
   - Map `lock.go` reentrancy, `SaveState` CAS + `assertLocked`, atomic write
     sequence. This is the contract every backend must honor. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<contract doc>"`
+  - **Evidence:** lock — `WithSpecLock[T]` `internal/core/lock.go:122-179`:
+    reentrant fast path by goroutine id `lock.go:128-138` (`goID` `lock.go:59-72`,
+    `lockUnheld=-1` sentinel `lock.go:19`); cross-process `O_EXCL` lock file
+    `tryAcquire` `lock.go:87-95`; stale reclamation `isStale` `lock.go:97-112`
+    + reclaim loop `lock.go:146-160` (`SPECD_LOCK_STALE_MS`/`TIMEOUT_MS`
+    `lock.go:74-79`); in-process `ls.mu` serialization `lock.go:142`;
+    release-on-return-or-panic defer `lock.go:170-177`; `lockHeldBy`
+    `lock.go:184-190`. CAS — `SaveState` `internal/core/state.go:214-242`:
+    on-disk `revision` compare `state.go:220-228`, delete-mid-session guard
+    `state.go:229-234`, `state.Revision++` `state.go:235`, `UpdatedAt=NowISO`
+    `state.go:236`, then `AtomicWrite` (temp+rename) `state.go:241`.
+    `assertLocked` debug guard `state.go:203-217`. Invariant every backend must
+    honor: serialize writers (lock), reject stale-revision writes (CAS), commit
+    atomically — see `state.go:208-213` contract comment.
 
 ## Wave 2 — Interface + conformance net
 

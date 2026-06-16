@@ -6,11 +6,22 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Verify-path recon
 
-- [ ] **T1 — Map RunVerify exit handling + git usage**
+- [x] **T1 — Map RunVerify exit handling + git usage** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R4
   - Report where exit code is evaluated, where the record is written, and the
     existing git HEAD-capture call. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<verify-path map>"`
+  - **Evidence:** exit eval — `runVerifyCommand` `internal/cmd/verify.go:232-243`
+    (`*exec.ExitError ⇒ ExitCode()` `verify.go:235`, non-exit/timeout ⇒ 124
+    `verify.go:238`/`:242`); `Verified = exitCode==0 && !timedOut`
+    `verify.go:248`. Record write — `ts.Verification = rec` + `SaveState`
+    `verify.go:107-111`, inside `WithSpecLock` opened at `verify.go:76`. Existing
+    git call — `gitHead(cwd)` `verify.go:48-58` (`git -C cwd rev-parse HEAD`),
+    invoked at `verify.go:254` to stamp `VerificationRecord.GitHead`
+    (`state.go:61`). The revert hook attaches after the non-zero exit at
+    `verify.go:104` (record built) and before/around `SaveState`: pre-check repo
+    safety, `git stash` to a recoverable ref on failure, and record
+    `Reverted`/`StashRef` on the record — never `reset --hard`.
 
 ## Wave 2 — Safe revert
 

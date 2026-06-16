@@ -6,11 +6,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Report data reuse
 
-- [ ] **T1 — Map the report data path**
+- [x] **T1 — Map the report data path** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R2
   - Report how `internal/cmd/report.go` builds `core.ReportData` and calls
     `RenderHTML`, and which fields cover frontier/blockers/gates. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<ReportData map>"`
+  - **Evidence:** `RunReport` `internal/cmd/report.go:12` loads state +
+    artifacts and builds `core.ReportData` `report.go:32-40` (State + 6
+    `ReadArtifact` reads), then calls `core.RenderHTML(data, autoRefresh)`
+    `report.go:44` or `RenderMarkdown` `report.go:46`. Type `ReportData`
+    `internal/core/report.go:32-40`; `buildSections` `report.go:121-157`.
+    Field coverage — **frontier: none stored**; derived live via
+    `WaveGraph(state)` in `progressOverview` `report.go:108-113` (uses
+    `CountTasks` `render.go:25`). blockers — `State.Blockers` rendered
+    `report.go:149-155`. gates — **not in ReportData** (`check` is a separate
+    command); acceptance criteria section `report.go:132-148`. A read-only
+    `specd serve` should call the identical `RenderHTML(data, …)` so the served
+    view is byte-identical to the static report; no mutating routes.
 
 ## Wave 2 — Read-only server
 

@@ -6,11 +6,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Change-signal recon
 
-- [ ] **T1 — Map frontier computation + revision signal**
+- [x] **T1 — Map frontier computation + revision signal** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R5
   - Report how `RunnableFrontier` + program builder compute runnable sets, and
     where the state revision/CAS counter lives. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<signal map>"`
+  - **Evidence:** frontier — `RunnableFrontier` `internal/core/dag.go:226-241`
+    (filters `isRunnable` `dag.go:149-160`, sorts wave then `ordinal`);
+    `NextRunnable` `dag.go:162-224`; per-spec input `DagTasksFromState`
+    `internal/core/render.go:43`. Program-level frontier — `BuildProgram` +
+    `RunnableFrontier(g.Dag)` in `programRender` `internal/cmd/program.go:89-101`
+    (also emits `frontier` JSON `program.go:138-143`). Revision/CAS counter —
+    `State.Revision` `internal/core/state.go:96`; bumped + compare-and-swapped in
+    `SaveState` `state.go:214-242` (on-disk revision compare `state.go:220-228`,
+    `state.Revision++` `state.go:235`). Change signal = monotonically increasing
+    `Revision`; emit a `FrontierEvent` only when `RunnableFrontier` output changes
+    across revisions. Read-only: daemon reads `LoadState`/`LoadSpec`, never
+    `SaveState`.
 
 ## Wave 2 — Core loop + events
 

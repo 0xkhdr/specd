@@ -6,11 +6,24 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Record & contract recon
 
-- [ ] **T1 — Map verify record + files-contract plumbing**
+- [x] **T1 — Map verify record + files-contract plumbing** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R2
   - Report `VerificationRecord` shape, where HEAD is captured in
     `RunVerify`, and how `files:` is parsed/stored. file:line only.
   - verify: N/A — complete with `--unverified --evidence "<plumbing map>"`
+  - **Evidence:** record shape — `VerificationRecord`
+    `internal/core/state.go:52-62` (`Command, ExitCode, Verified, TimedOut,
+    StdoutTail, StderrTail, DurationMs, RanAt, GitHead *string`). HEAD capture —
+    `gitHead(cwd)` `internal/cmd/verify.go:48-58` (`git rev-parse HEAD`), called
+    when building the record in `runVerifyCommand` `verify.go:254`; record
+    persisted under the spec lock `ts.Verification = rec` `verify.go:107-111`.
+    `files:` contract — `files` is one of the 7 `MandatoryKeys`
+    `internal/core/tasksparser.go:12`, stored as raw text in `ParsedTask.Meta`
+    `tasksparser.go:261`; **no gate currently reads/enforces it** (`CheckGates`
+    `gates.go:26-34` has no scope gate). Gaps to fill: add `ChangedFiles` +
+    `Coverage` to `VerificationRecord`, capture them in `runVerifyCommand`
+    alongside `GitHead`, and add a `GateScope` that diffs changed files against
+    the `files:` glob (`*`/unset = no-op).
 
 ## Wave 2 — Capture evidence
 

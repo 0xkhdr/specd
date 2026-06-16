@@ -6,11 +6,23 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 1 — Canonical type recon
 
-- [ ] **T1 — Inventory the canonical artifact types**
+- [x] **T1 — Inventory the canonical artifact types** ✓ complete · 2026-06-16
   - role: investigator · depends: — · requirements: R1,R2
   - Map the Go types/parsers defining EARS, the 7-key task + DAG, the evidence
     record, and `state.json`. These are the schema's source of truth. file:line.
   - verify: N/A — complete with `--unverified --evidence "<type inventory>"`
+  - **Evidence:** EARS — `EarsPattern` + `earsPatterns` `internal/core/ears.go:5-24`,
+    `MatchEars` `ears.go:26`, `LintEars` `ears.go:54`. Task — `MandatoryKeys`
+    /`KeyOrder` `internal/core/tasksparser.go:12-13`, `ParsedTask`
+    `tasksparser.go:50-58`, `ParseTasks` `tasksparser.go:186`, `ValidRoles`
+    /`ReadonlyRoles` `tasksparser.go:14-15`. DAG — `DagTask` `internal/core/dag.go:5-10`,
+    `ParseDepends` `tasksparser.go:158`. Design headers — `DesignSections`
+    `internal/core/phases.go:9-12`. Evidence records — `VerificationRecord`
+    `state.go:52-62`, `CriterionRecord` `state.go:64-70`. `state.json` —
+    `State` `state.go:93-107`, `TaskState` `state.go:72-85`, `Blocker`
+    `state.go:87-91`, `Violation` `phases.go:14-18`; `SchemaVersion=4`
+    `state.go:11`, migration `state.go:140-169`. These Go types are the schema's
+    single source of truth a v1 JSON Schema must mirror.
 
 ## Wave 2 — Schema + conformance
 
