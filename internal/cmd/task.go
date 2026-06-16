@@ -2,10 +2,34 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+// ensureTelemetry lazily allocates a task's Telemetry record so callers can set
+// a field without a nil check, keeping it omitted for tasks that never touch it.
+func ensureTelemetry(ts *core.TaskState) *core.Telemetry {
+	if ts.Telemetry == nil {
+		ts.Telemetry = &core.Telemetry{}
+	}
+	return ts.Telemetry
+}
+
+// applyTelemetryAnnotations stores the operator-supplied --tokens/--cost values
+// verbatim. specd records these as evidence; it never computes or prices them.
+// Absent flags leave telemetry untouched (no empty record is created).
+func applyTelemetryAnnotations(args cli.Args, ts *core.TaskState) {
+	if args.Has("tokens") {
+		if n, err := strconv.Atoi(args.Str("tokens")); err == nil {
+			ensureTelemetry(ts).Tokens = n
+		}
+	}
+	if args.Has("cost") {
+		ensureTelemetry(ts).Cost = args.Str("cost")
+	}
+}
 
 func deriveStatus(state *core.State) {
 	vals := make([]core.TaskState, 0, len(state.Tasks))
@@ -154,6 +178,10 @@ func RunTask(args cli.Args) int {
 			core.RemoveBlocker(state, id)
 			docTask.Checked = true
 			docTask.Annotation = &core.Annotation{Kind: core.AnnotComplete, Evidence: ev, Ts: stamp}
+			// Capture running→complete elapsed via the injectable clock.
+			if ts.StartedAt != nil {
+				ensureTelemetry(&ts).DurationMs = core.DurationMsBetween(*ts.StartedAt, stamp)
+			}
 
 		case core.TaskBlocked:
 			if reason == "" {
@@ -182,6 +210,9 @@ func RunTask(args cli.Args) int {
 			docTask.Checked = false
 			docTask.Annotation = nil
 		}
+
+		// Operator-annotated cost/usage (stored verbatim, never computed).
+		applyTelemetryAnnotations(args, &ts)
 
 		state.Tasks[id] = ts
 

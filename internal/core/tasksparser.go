@@ -171,6 +171,26 @@ func ParseDepends(value string) []string {
 	return out
 }
 
+// acceptancePairRe matches a single "<req>.<crit>=<test-name>" mapping token
+// inside a task's `acceptance:` value. The criterion id is the stable
+// ExtractCriteria/verify key space ("1.2"); the test name is a contiguous
+// non-space token (a test function name or `pkg -run Name` selector with no
+// spaces). Tokens may be separated by commas, semicolons, or whitespace.
+var acceptancePairRe = regexp.MustCompile(`(\d+\.\d+)\s*=\s*([^\s,;]+)`)
+
+// ParseAcceptanceMap reads criterion-id → test-name mappings from a task's
+// `acceptance:` metadata value. It is intentionally lenient: free-form prose
+// with no "id=test" tokens yields an empty (non-nil) map, so existing specs
+// whose acceptance lines are descriptive remain valid and the acceptance gate
+// stays a no-op for them. Later tokens win on duplicate ids (last write).
+func ParseAcceptanceMap(value string) map[string]string {
+	out := map[string]string{}
+	for _, m := range acceptancePairRe.FindAllStringSubmatch(value, -1) {
+		out[m[1]] = m[2]
+	}
+	return out
+}
+
 func ParseRequirements(value string) []int {
 	parts := strings.Split(value, ",")
 	var out []int

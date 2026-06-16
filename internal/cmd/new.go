@@ -37,6 +37,7 @@ func RunNew(args cli.Args) int {
 	}
 	date := core.Clock().UTC().Format("2006-01-02")
 	vars := map[string]string{"TITLE": title, "SLUG": slug, "DATE": date}
+	prompt := strings.TrimSpace(args.Str("from"))
 
 	dir := core.SpecDir(root, slug)
 	for _, name := range core.Artifacts {
@@ -46,12 +47,17 @@ func RunNew(args cli.Args) int {
 			core.Error(fmt.Sprintf("missing template %s: %v", tmplPath, err))
 			return core.ExitGate
 		}
-		if err := core.AtomicWrite(filepath.Join(dir, name), core.ApplyVars(tmpl, vars)); err != nil {
+		content := core.ApplyVars(tmpl, vars)
+		if name == "requirements.md" {
+			content = core.InjectPrompt(content, prompt)
+		}
+		if err := core.AtomicWrite(filepath.Join(dir, name), content); err != nil {
 			core.Error(fmt.Sprintf("write %s: %v", name, err))
 			return core.ExitGate
 		}
 	}
 	state := core.InitialState(slug, title)
+	state.Prompt = prompt
 	if err := core.SaveState(root, slug, &state); err != nil {
 		return specdExit(err)
 	}

@@ -237,3 +237,37 @@ func TestApplyTaskAnnotation(t *testing.T) {
 		t.Error("expected ✓ complete annotation")
 	}
 }
+
+func TestParseAcceptanceMap(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want map[string]string
+	}{
+		{"empty", "", map[string]string{}},
+		{"prose only", "observable criteria that make this done", map[string]string{}},
+		{"single", "1.1=TestLogin", map[string]string{"1.1": "TestLogin"}},
+		{"comma list", "1.1=TestLogin, 1.2=TestLogout", map[string]string{"1.1": "TestLogin", "1.2": "TestLogout"}},
+		{"semicolon and ws", "1.1=TestA;2.3=TestB  4.1=TestC", map[string]string{"1.1": "TestA", "2.3": "TestB", "4.1": "TestC"}},
+		{"spaces around eq", "1.1 = TestLogin", map[string]string{"1.1": "TestLogin"}},
+		{"mixed prose and pairs", "covered by 1.1=TestLogin and others", map[string]string{"1.1": "TestLogin"}},
+		{"last write wins", "1.1=TestOld, 1.1=TestNew", map[string]string{"1.1": "TestNew"}},
+		{"selector token", "1.2=./internal/core/-run", map[string]string{"1.2": "./internal/core/-run"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ParseAcceptanceMap(c.in)
+			if got == nil {
+				t.Fatal("map must be non-nil")
+			}
+			if len(got) != len(c.want) {
+				t.Fatalf("len=%d want %d: %v", len(got), len(c.want), got)
+			}
+			for k, v := range c.want {
+				if got[k] != v {
+					t.Errorf("[%q]=%q want %q", k, got[k], v)
+				}
+			}
+		})
+	}
+}

@@ -59,6 +59,24 @@ type VerificationRecord struct {
 	DurationMs int64   `json:"durationMs"`
 	RanAt      string  `json:"ranAt"`
 	GitHead    *string `json:"gitHead,omitempty"`
+	// ChangedFiles is the set of working-tree paths changed at verify time
+	// (git diff --name-only vs HEAD). Evidence for the scope gate; omitempty so
+	// records written before this field still parse byte-for-byte.
+	ChangedFiles []string `json:"changedFiles,omitempty"`
+	// Coverage is the parsed total coverage at verify time (e.g. "84.2%") or
+	// "unavailable" when no coverage signal was found. It is evidence only —
+	// coverage capture never fails a verify. omitempty for back-compat.
+	Coverage string `json:"coverage,omitempty"`
+	// Sandbox names the isolation backend the command ran under ("bwrap",
+	// "container"). Empty/omitted means the default unsandboxed shell runner, so
+	// pre-sandbox records and `--sandbox none` runs stay byte-identical.
+	Sandbox string `json:"sandbox,omitempty"`
+	// Reverted is true when a failed verify stashed the working tree under
+	// --revert-on-fail. StashRef carries the recoverable git stash reference so
+	// the change can be restored with `git stash apply <ref>`. Both omitempty so
+	// passing/default runs stay byte-identical.
+	Reverted bool   `json:"reverted,omitempty"`
+	StashRef string `json:"stashRef,omitempty"`
 }
 
 type CriterionRecord struct {
@@ -67,6 +85,18 @@ type CriterionRecord struct {
 	Status      string `json:"status"` // "pass" | "fail"
 	Evidence    string `json:"evidence"`
 	RanAt       string `json:"ranAt"`
+}
+
+// Telemetry is per-task cost/timing evidence. Durations are measured via the
+// injectable Clock (deterministic under the test clock); tokens/cost are
+// operator-annotated values, never computed by specd (no pricing API). Every
+// field is omitempty so tasks without telemetry stay byte-identical.
+type Telemetry struct {
+	DurationMs       int64  `json:"durationMs,omitempty"`       // running → complete elapsed
+	VerifyDurationMs int64  `json:"verifyDurationMs,omitempty"` // most recent verify run
+	Retries          int    `json:"retries,omitempty"`          // verify re-runs for this task
+	Tokens           int    `json:"tokens,omitempty"`           // annotated, not computed
+	Cost             string `json:"cost,omitempty"`             // annotated (e.g. "0.42"), not computed
 }
 
 type TaskState struct {
@@ -82,6 +112,7 @@ type TaskState struct {
 	Evidence     *string             `json:"evidence,omitempty"`
 	Verification *VerificationRecord `json:"verification,omitempty"`
 	Blocker      *string             `json:"blocker,omitempty"`
+	Telemetry    *Telemetry          `json:"telemetry,omitempty"`
 }
 
 type Blocker struct {
@@ -104,6 +135,9 @@ type State struct {
 	Tasks         map[string]TaskState       `json:"tasks"`
 	Blockers      []Blocker                  `json:"blockers"`
 	Acceptance    map[string]CriterionRecord `json:"acceptance,omitempty"`
+	// Prompt is the optional originating `specd new --from` text. omitempty keeps
+	// state.json byte-identical for specs created without --from.
+	Prompt string `json:"prompt,omitempty"`
 }
 
 // Clock is the time source for all spec-state timestamps and human-readable

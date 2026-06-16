@@ -9,7 +9,7 @@ import (
 
 // metaOnly are core.Commands entries that are handled in main.run before
 // dispatch (not Registry handlers).
-var metaOnly = map[string]bool{"help": true, "version": true}
+var metaOnly = map[string]bool{"help": true, "version": true, "mcp": true}
 
 // TestRegistryMatchesHelp asserts the dispatch Registry and the help metadata
 // (core.Commands) describe exactly the same command set. This is the guarantee

@@ -11,12 +11,14 @@ By defining clear phase transitions and validating structural correctness with d
 ## Key Features
 
 - 🔄 **Strict Planning Ratchet**: Enforces human-approved phase gates (Analyze → Plan → Execute → Verify → Reflect).
-- 🛡️ **7 Validation Gates**: Programmatic checks (`specd check`) including EARS requirement syntax, complete design templates, acyclic task DAGs, and sync checks.
+- 🛡️ **Validation Gates**: Programmatic checks (`specd check`) — 7 core gates (EARS syntax, design completeness, task schema, acyclic DAG, evidence, sync, traceability) plus opt-in **acceptance**, **scope**, and external **custom** gates.
 - 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are fully resolved.
 - 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
+- 🔒 **Sandboxed Verify & Rollback**: Run `verify:` under `bwrap`/container isolation (fail-closed if absent) and optionally stash the working tree on failure (`--revert-on-fail`).
 - 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd program` resolves which whole specs are runnable across a multi-spec program.
-- 🔌 **Agent-Agnostic**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) how to execute the workflow via a localized prompt pack and steering constitution.
-- 📊 **Deterministic Status Reporting**: Generates markdown and self-contained HTML reports representing the state and wave DAG without any LLM dependencies or runtime overhead.
+- 🔌 **Agent-Agnostic + MCP**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) via a localized prompt pack, or drives the workflow from any MCP client (`specd mcp`).
+- 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd serve`), a frontier event stream (`specd watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
+- 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd schema` / `specd validate --schema`), shareable scaffold bundles (`specd init --pack`), and read-only audit `replay`/`diff`.
 
 ---
 
@@ -63,7 +65,8 @@ specd update --force
 ```
 
 ### Requirements
-- Linux or macOS (amd64 / arm64)
+- Linux, macOS, or Windows (amd64 / arm64)
+  - *Windows note*: `specd` is fully compatible with Windows, except that the in-place self-updater (`specd update`) is locked by the OS. Windows users should reinstall manually. Additionally, task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`.
 - Git (optional — tarball fallback available)
 
 ## For Agents
@@ -132,8 +135,12 @@ specd init
     ├── concepts.md            # Philosophy, the eight principles, architecture
     ├── user-guide.md          # Install, lifecycle, artifacts, execution, troubleshooting
     ├── command-reference.md   # Every command, flag, exit code, env var, config key
-    ├── validation-gates.md    # What each of the 7 gates checks
+    ├── validation-gates.md    # What each gate checks (7 core + acceptance/scope/custom)
     ├── agent-integration.md   # Steering, roles, subagent modes, context, programs
+    ├── custom-gates.md        # External custom-gate subprocess contract
+    ├── spec-packs.md          # Declarative scaffold bundles (specd init --pack)
+    ├── open-spec-format.md    # The versioned open spec format JSON Schema
+    ├── github-action.md       # PR gates + deterministic summary comment
     └── contributor-guide.md   # CLI architecture, concurrency model, extension recipes
 ```
 
@@ -141,8 +148,9 @@ specd init
 - 💡 [Concepts](docs/concepts.md) — The foundational split, eight principles, architecture overview.
 - 📖 [User Guide](docs/user-guide.md) — Getting started, EARS requirements, design headers, task DAG, the verify → complete flow.
 - 📑 [Command Reference](docs/command-reference.md) — Commands, flags, exit codes, environment variables, and `config.json`.
-- ✅ [Validation Gates](docs/validation-gates.md) — The 7 spec gates.
+- ✅ [Validation Gates](docs/validation-gates.md) — The 7 core gates plus the opt-in acceptance, scope, and custom gates.
 - 🤖 [Agent Integration Guide](docs/agent-integration.md) — Roles, steering files, subagent modes, context engineering, cross-spec programs.
+- 🧩 [Custom Gates](docs/custom-gates.md) · 📦 [Spec Packs](docs/spec-packs.md) · 📐 [Open Spec Format](docs/open-spec-format.md) · 🐙 [GitHub Action](docs/github-action.md)
 - 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), parser internals, adding commands/gates.
 
 ---

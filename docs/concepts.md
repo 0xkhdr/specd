@@ -14,12 +14,19 @@ strict, local, tool-gated pipeline.
 | Capability | Description |
 |---|---|
 | **Planning Ratchet** | Enforces human-approved phase gates (Analyze → Plan → Execute → Verify → Reflect). |
-| **7 Validation Gates** | Programmatic checks (`specd check`) for EARS syntax, design completeness, acyclic DAGs, evidence, sync, and traceability. |
+| **Validation Gates** | Programmatic `specd check` — 7 core gates (EARS, design, task schema, DAG, evidence, sync, traceability) plus opt-in acceptance, scope, and [custom](./custom-gates.md) gates. |
 | **DAG-Based Execution** | Computes the concurrent runnable frontier of waves for parallel task execution. |
 | **Evidence-Gated Completion** | Tasks complete only against a passing `verify` record — never on a free-text claim. |
 | **Frontier Dispatch** | Emits ready-to-run packets for parallel subagents with role prompts and contracts. |
-| **Agent-Agnostic** | Works with Claude Code, Cursor, Aider, or any command-running agent. |
-| **Deterministic Reporting** | Generates markdown and self-contained HTML reports with no LLM dependency. |
+| **Verify Sandboxing & Rollback** | Run `verify:` under `bwrap`/container isolation (fail-closed) and optionally stash the tree on failure (`--revert-on-fail`). |
+| **Agent-Agnostic** | Works with Claude Code, Cursor, Aider, any command-running agent, or any [MCP](https://modelcontextprotocol.io) client (`specd mcp`). |
+| **Deterministic Reporting** | Markdown / self-contained HTML reports, a read-only live dashboard (`specd serve`), and a network-free PR summary — no LLM dependency. |
+| **Live Frontier Stream** | `specd watch` emits a `FrontierEvent` on every runnable-set change over NDJSON / SSE / webhook. |
+| **Replay & Diff** | Reconstruct a deterministic audit timeline (`specd replay`) or diff a spec's artifacts across git refs (`specd diff`). |
+| **Open Spec Format** | A versioned, embedded JSON Schema for all on-disk artifacts (`specd schema` / `specd validate --schema`). |
+| **Spec Packs** | Share a steering/role baseline as a declarative, file-only scaffold (`specd init --pack`). |
+| **Cost & Telemetry Ledger** | Per-task duration/retries plus annotated token/cost rolled up per wave/spec (stored, never computed). |
+| **Pluggable State Backend** | File backend by default; git-native, or Redis/Postgres behind build tags — the default binary links no DB driver. |
 
 ### The foundational split
 
@@ -77,7 +84,9 @@ specd/
 ├── internal/
 │   ├── cli/                      # Flag/positional parser (Args)
 │   ├── cmd/                      # One file per CLI command (Run<Command>)
-│   ├── core/                     # Domain logic
+│   ├── core/                     # Domain logic (gates, state, runners, schema, backends)
+│   │   ├── schema/               # Embedded open-spec-format JSON Schema (go:embed)
+│   │   ├── embed_packs/          # Built-in spec packs (go:embed)
 │   │   └── embed_templates/      # Shipped templates (embedded in binary)
 │   │       ├── AGENTS.md         # Agent prompt pack for user repos
 │   │       ├── config.json       # Default config scaffold
@@ -85,13 +94,20 @@ specd/
 │   │       ├── roles/            # Role persona prompts
 │   │       ├── specStubs/        # Spec artifact stubs
 │   │       └── skills/           # Companion skills (e.g. specd-execute)
+│   ├── mcp/                      # MCP JSON-RPC 2.0 stdio server (specd mcp)
 │   └── testharness/              # Deterministic test infrastructure
 │                                 # (sandbox repo, in-process runner, FakeClock)
+├── editors/                      # VS Code extension (live dashboard webview)
+├── .github/actions/specd-pr/     # Composite GitHub Action (PR gates + summary)
 ├── scripts/                      # install.sh / uninstall.sh / stress.sh
 ├── docs/                         # This documentation
-├── README.md / AGENTS.md / TESTING.md
+├── README.md / AGENTS.md / TESTING.md / SECURITY.md
 ├── Makefile / go.mod / LICENSE / .goreleaser.yml
 ```
+
+> The default binary is stdlib-only with no DB driver. The git-native state
+> backend needs no Go dependency; the Redis/Postgres adapters compile in only
+> under the `specd_redis` / `specd_postgres` build tags.
 
 See the [Contributor Guide](./contributor-guide.md) for a file-by-file map and
 the key code contracts.

@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specd.dev/schema/v1.json",
+  "title": "specd open spec format",
+  "description": "Versioned, machine-readable description of the specd on-disk artifacts. The Go types in internal/core are the single source of truth; this schema mirrors them and a conformance test fails CI on drift.",
+  "specdSchemaVersion": "1",
+  "stateSchemaVersion": 4,
+  "type": "object",
+  "$ref": "#/$defs/State",
+  "$defs": {
+    "State": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "revision",
+        "spec",
+        "title",
+        "status",
+        "phase",
+        "gate",
+        "turn",
+        "createdAt",
+        "updatedAt",
+        "tasks",
+        "blockers"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 4 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "spec": { "type": "string" },
+        "title": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["requirements", "design", "tasks", "executing", "verifying", "complete", "blocked"]
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["perceive", "analyze", "plan", "execute", "verify", "reflect"]
+        },
+        "gate": {
+          "type": "string",
+          "enum": ["none", "awaiting-approval"]
+        },
+        "turn": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "tasks": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/TaskState" }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Blocker" }
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/CriterionRecord" }
+        },
+        "prompt": { "type": "string" }
+      }
+    },
+    "TaskState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "role", "wave", "depends", "requirements", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^T[0-9]+$" },
+        "title": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["investigator", "builder", "reviewer", "verifier"]
+        },
+        "wave": { "type": "integer", "minimum": 1 },
+        "depends": { "type": "array", "items": { "type": "string" } },
+        "requirements": { "type": "array", "items": { "type": "integer" } },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "complete", "blocked"]
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "finishedAt": { "type": "string", "format": "date-time" },
+        "evidence": { "type": "string" },
+        "verification": { "$ref": "#/$defs/VerificationRecord" },
+        "blocker": { "type": "string" },
+        "telemetry": { "$ref": "#/$defs/Telemetry" }
+      }
+    },
+    "Telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "durationMs": { "type": "integer" },
+        "verifyDurationMs": { "type": "integer" },
+        "retries": { "type": "integer" },
+        "tokens": { "type": "integer" },
+        "cost": { "type": "string" }
+      }
+    },
+    "VerificationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "exitCode", "verified", "timedOut", "stdoutTail", "stderrTail", "durationMs", "ranAt"],
+      "properties": {
+        "command": { "type": "string" },
+        "exitCode": { "type": "integer" },
+        "verified": { "type": "boolean" },
+        "timedOut": { "type": "boolean" },
+        "stdoutTail": { "type": "string" },
+        "stderrTail": { "type": "string" },
+        "durationMs": { "type": "integer" },
+        "ranAt": { "type": "string", "format": "date-time" },
+        "gitHead": { "type": "string" },
+        "changedFiles": { "type": "array", "items": { "type": "string" } },
+        "coverage": { "type": "string" },
+        "sandbox": { "type": "string" },
+        "reverted": { "type": "boolean" },
+        "stashRef": { "type": "string" }
+      }
+    },
+    "CriterionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement", "criterion", "status", "evidence", "ranAt"],
+      "properties": {
+        "requirement": { "type": "integer", "minimum": 1 },
+        "criterion": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "evidence": { "type": "string" },
+        "ranAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "reason", "since"],
+      "properties": {
+        "task": { "type": "string" },
+        "reason": { "type": "string" },
+        "since": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

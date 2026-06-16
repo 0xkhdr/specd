@@ -1,8 +1,13 @@
 package core
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path"
+	"sort"
 	"strings"
+	"time"
 )
 
 // CheckCtx is the shared, read-only context every check gate operates over. It
@@ -31,6 +36,24 @@ var CheckGates = []CheckGate{
 	GateSync,
 	GateTraceability,
 	GateEvidence,
+	GateAcceptance,
+	GateScope,
+}
+
+// RunGates runs the full check pipeline: the ordered pure-gate slice followed by
+// any configured external custom gates. It is the single entry point shared by
+// `specd check` and `specd report --pr-summary`, so both surfaces apply an
+// identical gate set (including custom gates) and can never drift.
+func RunGates(c CheckCtx) (violations, warnings []Violation) {
+	for _, gate := range CheckGates {
+		v, w := gate(c)
+		violations = append(violations, v...)
+		warnings = append(warnings, w...)
+	}
+	v, w := runCustomGates(c)
+	violations = append(violations, v...)
+	warnings = append(warnings, w...)
+	return violations, warnings
 }
 
 // GateEars lints requirements.md for EARS-form violations.
@@ -195,4 +218,222 @@ func GateEvidence(c CheckCtx) (violations, warnings []Violation) {
 		}
 	}
 	return violations, warnings
+}
+
+// GateAcceptance enforces, for tasks that declare an `acceptance:` mapping, that
+// every mapped criterion is (a) defined in requirements.md and (b) recorded as a
+// pass in state.json once the task is complete. It is enforcement-only — specd
+// never judges whether a criterion is "met"; it records and gates on the
+// operator-supplied pass/fail evidence (`specd verify --criterion`). Severity is
+// driven by cfg.Gates.Acceptance: "off"/"" disables the gate (byte-identical to
+// pre-gate behaviour), "warn" demotes the completion findings to warnings,
+// "error" fails the check. A criterion id that is mapped but undefined in
+// requirements.md is always an error (a broken reference, not a severity knob).
+func GateAcceptance(c CheckCtx) (violations, warnings []Violation) {
+	mode := c.Cfg.Gates.Acceptance
+	if mode == "" || mode == "off" {
+		return nil, nil
+	}
+	if c.Doc == nil {
+		return nil, nil
+	}
+	asError := mode == "error"
+	var validCrit map[string]bool
+	if c.ReqMd != nil {
+		validCrit = map[string]bool{}
+		for _, cr := range ExtractCriteria(*c.ReqMd) {
+			validCrit[cr.ID] = true
+		}
+	}
+	for _, t := range c.Doc.Tasks {
+		amap := ParseAcceptanceMap(t.Meta["acceptance"])
+		if len(amap) == 0 {
+			continue
+		}
+		isComplete := false
+		if c.State != nil {
+			if ts, ok := c.State.Tasks[t.ID]; ok && ts.Status == TaskComplete {
+				isComplete = true
+			}
+		}
+		ids := sortedKeys(amap)
+		for _, critID := range ids {
+			if validCrit != nil && !validCrit[critID] {
+				violations = append(violations, Violation{Gate: "acceptance", Location: fmt.Sprintf("tasks.md:%d", t.Line), Message: fmt.Sprintf("%s maps acceptance to criterion %s which is not defined in requirements.md", t.ID, critID)})
+				continue
+			}
+			if !isComplete {
+				continue
+			}
+			rec, ok := c.State.Acceptance[critID]
+			if !ok || rec.Status != "pass" {
+				v := Violation{Gate: "acceptance", Location: "state.json", Message: fmt.Sprintf("%s complete but acceptance criterion %s has no recorded pass — run `specd verify %s --criterion %s --status pass --evidence \"...\"`", t.ID, critID, c.Slug, critID)}
+				if asError {
+					violations = append(violations, v)
+				} else {
+					warnings = append(warnings, v)
+				}
+			}
+		}
+	}
+	return violations, warnings
+}
+
+// GateScope flags verify-time changed files that fall outside a task's declared
+// `files:` contract. cfg.Gates.Scope drives it: "off"/""/"*" disables it (the
+// default — no behavioural change), "warn"/"error" set the severity. A task whose
+// `files` contract is "*" (or empty) opts out individually. Evidence comes from
+// the VerificationRecord's ChangedFiles; tasks without a verify record are
+// skipped (nothing to scope). Matching is glob-based (path.Match per declared
+// pattern) so contracts like `internal/core/*.go` work.
+func GateScope(c CheckCtx) (violations, warnings []Violation) {
+	mode := c.Cfg.Gates.Scope
+	if mode == "" || mode == "off" || mode == "*" {
+		return nil, nil
+	}
+	if c.Doc == nil || c.State == nil {
+		return nil, nil
+	}
+	asError := mode == "error"
+	for _, t := range c.Doc.Tasks {
+		ts, ok := c.State.Tasks[t.ID]
+		if !ok || ts.Verification == nil || len(ts.Verification.ChangedFiles) == 0 {
+			continue
+		}
+		patterns := parseFilesContract(t.Meta["files"])
+		if len(patterns) == 0 || containsStr(patterns, "*") {
+			continue
+		}
+		for _, f := range ts.Verification.ChangedFiles {
+			if !matchesAnyGlob(f, patterns) {
+				v := Violation{Gate: "scope", Location: "state.json", Message: fmt.Sprintf("%s changed '%s' outside its declared files contract (%s)", t.ID, f, strings.Join(patterns, ", "))}
+				if asError {
+					violations = append(violations, v)
+				} else {
+					warnings = append(warnings, v)
+				}
+			}
+		}
+	}
+	return violations, warnings
+}
+
+// runCustomGates executes each configured external custom gate and folds its
+// findings into the check result. A gate that errors (non-zero exit, timeout,
+// invalid JSON) is itself reported as a violation so a broken gate fails loudly
+// rather than silently passing. Per-gate Severity decides whether its reported
+// findings are violations or warnings (default "error").
+func runCustomGates(c CheckCtx) (violations, warnings []Violation) {
+	gates := c.Cfg.Gates.Custom
+	if len(gates) == 0 || c.State == nil {
+		return nil, nil
+	}
+	shell := strings.TrimSpace(customGateShell())
+	if shell == "" {
+		shell = "sh"
+	}
+	input := BuildCustomGateInput(c.Root, c.State)
+	for _, g := range gates {
+		name := g.Name
+		if name == "" {
+			name = "custom"
+		}
+		gateID := "custom:" + name
+		if strings.TrimSpace(g.Command) == "" {
+			violations = append(violations, Violation{Gate: gateID, Location: ".specd/config.json", Message: fmt.Sprintf("custom gate %q has no command", name)})
+			continue
+		}
+		out, err := RunCustomGate(context.Background(), c.Root, shell, g.Command, input, customGateTimeout())
+		if err != nil {
+			violations = append(violations, Violation{Gate: gateID, Location: ".specd/config.json", Message: err.Error()})
+			continue
+		}
+		asError := g.Severity != "warn"
+		for _, f := range out.Violations {
+			v := Violation{Gate: gateID, Location: f.Location, Message: f.Message}
+			if asError {
+				violations = append(violations, v)
+			} else {
+				warnings = append(warnings, v)
+			}
+		}
+		for _, f := range out.Warnings {
+			warnings = append(warnings, Violation{Gate: gateID, Location: f.Location, Message: f.Message})
+		}
+	}
+	return violations, warnings
+}
+
+// customGateTimeout is the per-gate wall-clock budget, overridable via
+// SPECD_CUSTOM_GATE_TIMEOUT_MS (default 30s).
+func customGateTimeout() time.Duration {
+	return time.Duration(EnvInt("SPECD_CUSTOM_GATE_TIMEOUT_MS", 30_000, 1, 0)) * time.Millisecond
+}
+
+// customGateShell mirrors the verify shell selection so custom gates run under
+// the same interpreter as verify commands.
+func customGateShell() string {
+	if s := strings.TrimSpace(os.Getenv("SPECD_VERIFY_SHELL")); s != "" {
+		return s
+	}
+	return "sh"
+}
+
+// parseFilesContract splits a `files:` metadata value into individual path
+// globs, tolerating comma- or whitespace-separated lists.
+func parseFilesContract(value string) []string {
+	fields := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == ';'
+	})
+	var out []string
+	for _, f := range fields {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// matchesAnyGlob reports whether path p matches any of the declared globs. A
+// pattern that ends in "/" or is a bare directory also matches files beneath it.
+func matchesAnyGlob(p string, patterns []string) bool {
+	for _, pat := range patterns {
+		if pat == p {
+			return true
+		}
+		if ok, _ := path.Match(pat, p); ok {
+			return true
+		}
+		// Directory-prefix contract: "internal/core" matches "internal/core/x.go".
+		dir := strings.TrimSuffix(pat, "/")
+		if dir != "" && (strings.HasPrefix(p, dir+"/")) {
+			return true
+		}
+		// Recursive glob convenience: "dir/**" matches anything under dir.
+		if strings.HasSuffix(pat, "/**") {
+			base := strings.TrimSuffix(pat, "/**")
+			if base == "" || strings.HasPrefix(p, base+"/") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsStr(ss []string, want string) bool {
+	for _, s := range ss {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

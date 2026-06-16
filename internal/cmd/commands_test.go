@@ -1,10 +1,17 @@
 package cmd_test
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/0xkhdr/specd/internal/cmd"
 	"github.com/0xkhdr/specd/internal/core"
 	th "github.com/0xkhdr/specd/internal/testharness"
 )
@@ -371,4 +378,432 @@ func TestNoSpecdRootIsNotFound(t *testing.T) {
 	}
 	h.RunExpect(core.ExitNotFound, "check", "auth")
 	h.RunExpect(core.ExitNotFound, "status")
+}
+
+func TestNewFrom(t *testing.T) {
+	t.Run("--from persists prompt and injects it into requirements.md", func(t *testing.T) {
+		h := th.New(t)
+		const prompt = "Build a rate limiter for the public API"
+		h.RunExpect(core.ExitOK, "new", "ratelimit", "--from", prompt)
+
+		if got := h.State("ratelimit").Raw().Prompt; got != prompt {
+			t.Errorf("state.Prompt = %q, want %q", got, prompt)
+		}
+		req := h.ReadFile(".specd/specs/ratelimit/requirements.md")
+		if !strings.Contains(req, prompt) {
+			t.Errorf("requirements.md missing prompt text:\n%s", req)
+		}
+		if !strings.Contains(req, "## Originating prompt") {
+			t.Errorf("requirements.md missing originating-prompt section:\n%s", req)
+		}
+		// Injection sits before the first requirement.
+		if strings.Index(req, "## Originating prompt") > strings.Index(req, "## Requirement 1") {
+			t.Error("originating prompt must precede '## Requirement 1'")
+		}
+	})
+
+	t.Run("no --from is byte-identical to plain new", func(t *testing.T) {
+		a := th.New(t)
+		a.RunExpect(core.ExitOK, "new", "plain")
+		withReq := a.ReadFile(".specd/specs/plain/requirements.md")
+
+		b := th.New(t)
+		b.RunExpect(core.ExitOK, "new", "plain", "--from", "")
+		emptyReq := b.ReadFile(".specd/specs/plain/requirements.md")
+
+		if withReq != emptyReq {
+			t.Errorf("empty --from changed requirements.md output")
+		}
+		if got := b.State("plain").Raw().Prompt; got != "" {
+			t.Errorf("empty --from should leave Prompt empty, got %q", got)
+		}
+	})
+}
+
+func TestListPacks(t *testing.T) {
+	h := th.New(t)
+	res := h.RunExpect(core.ExitOK, "init", "--list-packs")
+	for _, want := range []string{"minimal", "go-service", "built-in packs"} {
+		if !strings.Contains(res.Stdout, want) {
+			t.Errorf("--list-packs output missing %q:\n%s", want, res.Stdout)
+		}
+	}
+	// Listing must not scaffold anything.
+	h.AssertFileAbsent(".specd/steering/project.md")
+}
+
+func TestWatchNDJSON(t *testing.T) {
+	h := th.New(t)
+	// Two specs with runnable frontiers.
+	validSpec(h, "alpha", core.StatusExecuting)
+	validSpec(h, "beta", core.StatusExecuting)
+
+	res := h.RunExpect(core.ExitOK, "watch", "--once")
+	lines := strings.Split(strings.TrimSpace(res.Stdout), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want 2 NDJSON lines, got %d:\n%s", len(lines), res.Stdout)
+	}
+	for _, line := range lines {
+		var ev core.FrontierEvent
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("line is not valid JSON object: %q (%v)", line, err)
+		}
+		if ev.Spec == "" || len(ev.Frontier) == 0 {
+			t.Errorf("event missing spec/frontier: %+v", ev)
+		}
+		if strings.Contains(line, "\n") {
+			t.Error("NDJSON line must be single-line (compact)")
+		}
+	}
+
+	// --spec narrows the stream to one spec.
+	res2 := h.RunExpect(core.ExitOK, "watch", "--once", "--spec", "alpha")
+	out := strings.TrimSpace(res2.Stdout)
+	if strings.Count(out, "\n") != 0 {
+		t.Fatalf("--spec alpha should emit one line, got:\n%s", out)
+	}
+	if !strings.Contains(out, "\"spec\":\"alpha\"") {
+		t.Errorf("--spec output not for alpha: %s", out)
+	}
+}
+
+func TestPRSummary(t *testing.T) {
+	h := th.New(t)
+	validSpec(h, "auth", core.StatusExecuting)
+
+	t.Run("markdown is deterministic and shows gate + waves", func(t *testing.T) {
+		r1 := h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
+		r2 := h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
+		if r1.Stdout != r2.Stdout {
+			t.Error("PR summary not deterministic across runs")
+		}
+		for _, want := range []string{"## specd", "**Gates:**", "### Wave 1", "| Task | Role | Status |"} {
+			if !strings.Contains(r1.Stdout, want) {
+				t.Errorf("PR summary missing %q:\n%s", want, r1.Stdout)
+			}
+		}
+	})
+
+	t.Run("JSON mode emits structured summary", func(t *testing.T) {
+		t.Setenv("SPECD_JSON", "1")
+		res := h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
+		var s core.PRSummary
+		if err := json.Unmarshal([]byte(res.Stdout), &s); err != nil {
+			t.Fatalf("not valid JSON: %v\n%s", err, res.Stdout)
+		}
+		if s.Spec != "auth" || len(s.Waves) == 0 {
+			t.Errorf("summary missing data: %+v", s)
+		}
+	})
+}
+
+func TestPRSummaryNoNetwork(t *testing.T) {
+	prev := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = prev })
+	var calls int32
+	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&calls, 1)
+		return nil, errors.New("network access is forbidden in PR-summary path")
+	})
+
+	h := th.New(t)
+	validSpec(h, "auth", core.StatusExecuting)
+	h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
+
+	if n := atomic.LoadInt32(&calls); n != 0 {
+		t.Fatalf("PR summary made %d network call(s); must be zero", n)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestVerifyCapture(t *testing.T) {
+	h := th.New(t)
+	h.InitGit()
+	h.Spec("cap").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{
+			ID:           "T1",
+			Verify:       "printf 'coverage: 77.0%% of statements\\n'; printf x > scratch.txt",
+			Requirements: []int{1},
+		}).
+		Status(core.StatusExecuting).
+		Build()
+	// Commit the scaffold so the only post-verify change is scratch.txt.
+	h.GitCommitAll("seed spec")
+
+	h.RunExpect(core.ExitOK, "verify", "cap", "T1")
+
+	rec := h.State("cap").Raw().Tasks["T1"].Verification
+	if rec == nil {
+		t.Fatal("no verification record persisted")
+	}
+	if rec.Coverage != "77.0%" {
+		t.Errorf("Coverage = %q, want 77.0%%", rec.Coverage)
+	}
+	found := false
+	for _, f := range rec.ChangedFiles {
+		if f == "scratch.txt" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("ChangedFiles = %v, want it to include scratch.txt", rec.ChangedFiles)
+	}
+}
+
+func TestVerifyCaptureNoCoverage(t *testing.T) {
+	h := th.New(t)
+	// No git repo, no coverage output: capture degrades gracefully.
+	h.Spec("plain").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+	h.RunExpect(core.ExitOK, "verify", "plain", "T1")
+	rec := h.State("plain").Raw().Tasks["T1"].Verification
+	if rec == nil || rec.Coverage != "unavailable" {
+		t.Errorf("expected coverage 'unavailable', got %+v", rec)
+	}
+}
+
+func failingVerifySpec(h *th.Harness, slug, verify string) {
+	h.Spec(slug).
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: verify, Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+}
+
+func TestRevertSafetyGuard(t *testing.T) {
+	// No git repo: --revert-on-fail must skip with a warning, not error, and must
+	// not flip the record's Reverted flag.
+	h := th.New(t)
+	failingVerifySpec(h, "auth", "printf x > dirty.txt; exit 1")
+	res := h.RunExpect(core.ExitGate, "verify", "auth", "T1", "--revert-on-fail")
+	if !strings.Contains(res.Stdout, "skipped") {
+		t.Errorf("expected safety skip warning, got stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	}
+	rec := h.State("auth").Raw().Tasks["T1"].Verification
+	if rec == nil || rec.Reverted {
+		t.Errorf("non-git repo must not revert: %+v", rec)
+	}
+}
+
+func TestRevertOnFail(t *testing.T) {
+	t.Run("failed verify stashes working tree", func(t *testing.T) {
+		h := th.New(t)
+		h.InitGit()
+		failingVerifySpec(h, "auth", "printf x > dirty.txt; exit 1")
+		h.GitCommitAll("seed")
+
+		res := h.RunExpect(core.ExitGate, "verify", "auth", "T1", "--revert-on-fail")
+		if !strings.Contains(res.Stdout, "git stash apply") {
+			t.Errorf("expected recovery hint, got stdout=%q", res.Stdout)
+		}
+		rec := h.State("auth").Raw().Tasks["T1"].Verification
+		if rec == nil || !rec.Reverted || rec.StashRef == "" {
+			t.Fatalf("expected reverted record with stash ref: %+v", rec)
+		}
+		// The dirty file produced by the failed verify must be stashed away.
+		h.AssertFileAbsent("dirty.txt")
+	})
+
+	t.Run("passing verify never touches the tree", func(t *testing.T) {
+		h := th.New(t)
+		h.InitGit()
+		h.Spec("ok").
+			Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+			FullDesign().
+			AddTask(th.TaskSpec{ID: "T1", Verify: "printf x > kept.txt; true", Requirements: []int{1}}).
+			Status(core.StatusExecuting).
+			Build()
+		h.GitCommitAll("seed")
+
+		h.RunExpect(core.ExitOK, "verify", "ok", "T1", "--revert-on-fail")
+		rec := h.State("ok").Raw().Tasks["T1"].Verification
+		if rec.Reverted {
+			t.Error("passing verify must not revert")
+		}
+		h.AssertFileExists("kept.txt")
+	})
+
+	t.Run("flag unset leaves failed tree dirty", func(t *testing.T) {
+		h := th.New(t)
+		h.InitGit()
+		failingVerifySpec(h, "auth", "printf x > dirty.txt; exit 1")
+		h.GitCommitAll("seed")
+
+		h.RunExpect(core.ExitGate, "verify", "auth", "T1")
+		rec := h.State("auth").Raw().Tasks["T1"].Verification
+		if rec.Reverted {
+			t.Error("default run must not revert")
+		}
+		h.AssertFileExists("dirty.txt")
+	})
+}
+
+func TestReplayCmd(t *testing.T) {
+	h := th.New(t)
+	h.Spec("auth").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Status: core.TaskComplete, Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+
+	t.Run("text output lists events read-only", func(t *testing.T) {
+		res := h.RunExpect(core.ExitOK, "replay", "auth")
+		if !strings.Contains(res.Stdout, "replay — auth") {
+			t.Errorf("missing header: %q", res.Stdout)
+		}
+		// Read-only: a second run is identical.
+		res2 := h.RunExpect(core.ExitOK, "replay", "auth")
+		if res.Stdout != res2.Stdout {
+			t.Error("replay not deterministic / mutated state")
+		}
+	})
+
+	t.Run("JSON is a typed array", func(t *testing.T) {
+		t.Setenv("SPECD_JSON", "1")
+		res := h.RunExpect(core.ExitOK, "replay", "auth")
+		var events []core.TimelineEvent
+		if err := json.Unmarshal([]byte(res.Stdout), &events); err != nil {
+			t.Fatalf("not a JSON array: %v\n%s", err, res.Stdout)
+		}
+	})
+
+	t.Run("unknown spec is not-found", func(t *testing.T) {
+		h.RunExpect(core.ExitNotFound, "replay", "ghost")
+	})
+}
+
+func TestServe(t *testing.T) {
+	h := th.New(t)
+	validSpec(h, "auth", core.StatusExecuting)
+	srv := httptest.NewServer(cmd.NewServeHandler(h.Root, "auth"))
+	defer srv.Close()
+
+	t.Run("GET / renders HTML identical to report", func(t *testing.T) {
+		resp, err := http.Get(srv.URL + "/")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Fatalf("status = %d", resp.StatusCode)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		if !strings.Contains(string(body), "<html") && !strings.Contains(string(body), "<!DOCTYPE") {
+			t.Errorf("not HTML: %.120s", body)
+		}
+		// Byte-identical to the static report HTML.
+		static := h.RunExpect(core.ExitOK, "report", "auth", "--format", "html")
+		if string(body) != static.Stdout {
+			t.Error("served HTML differs from static report")
+		}
+	})
+
+	t.Run("GET /api/report returns JSON ReportData", func(t *testing.T) {
+		resp, err := http.Get(srv.URL + "/api/report")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var data core.ReportData
+		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+			t.Fatalf("api/report not JSON ReportData: %v", err)
+		}
+		if data.State == nil || data.State.Spec != "auth" {
+			t.Errorf("unexpected report data: %+v", data.State)
+		}
+	})
+
+	t.Run("non-GET is 405", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/", nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("POST status = %d, want 405", resp.StatusCode)
+		}
+	})
+}
+
+func TestServeNotFound(t *testing.T) {
+	h := th.New(t)
+	// No spec created: handler must 404, never panic.
+	srv := httptest.NewServer(cmd.NewServeHandler(h.Root, "ghost"))
+	defer srv.Close()
+
+	for _, path := range []string{"/", "/api/report"} {
+		resp, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("GET %s status = %d, want 404", path, resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+
+	// Unknown sub-path is 404 too.
+	resp, _ := http.Get(srv.URL + "/secret")
+	if resp != nil {
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("unknown path status = %d, want 404", resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+}
+
+func TestTelemetryCapture(t *testing.T) {
+	h := th.New(t)
+	validSpec(h, "auth", core.StatusExecuting)
+
+	h.RunExpect(core.ExitOK, "task", "auth", "T1", "--status", "running")
+	// Two verify runs → retries increments to 2.
+	h.RunExpect(core.ExitOK, "verify", "auth", "T1")
+	h.RunExpect(core.ExitOK, "verify", "auth", "T1")
+	h.RunExpect(core.ExitOK, "task", "auth", "T1", "--status", "complete")
+
+	tel := h.State("auth").Raw().Tasks["T1"].Telemetry
+	if tel == nil {
+		t.Fatal("no telemetry captured")
+	}
+	if tel.Retries != 2 {
+		t.Errorf("Retries = %d, want 2", tel.Retries)
+	}
+	if tel.VerifyDurationMs < 0 {
+		t.Errorf("VerifyDurationMs = %d, want >= 0", tel.VerifyDurationMs)
+	}
+	if tel.DurationMs < 0 {
+		t.Errorf("DurationMs = %d, want >= 0", tel.DurationMs)
+	}
+}
+
+func TestTelemetryAnnotate(t *testing.T) {
+	h := th.New(t)
+	validSpec(h, "auth", core.StatusExecuting)
+
+	h.RunExpect(core.ExitOK, "task", "auth", "T1", "--status", "running", "--tokens", "12000", "--cost", "0.42")
+	tel := h.State("auth").Raw().Tasks["T1"].Telemetry
+	if tel == nil || tel.Tokens != 12000 || tel.Cost != "0.42" {
+		t.Fatalf("annotations not stored: %+v", tel)
+	}
+
+	// No annotation flags → no telemetry created from the flip alone.
+	h2 := th.New(t)
+	validSpec(h2, "auth", core.StatusExecuting)
+	h2.RunExpect(core.ExitOK, "task", "auth", "T1", "--status", "running")
+	if tel2 := h2.State("auth").Raw().Tasks["T1"].Telemetry; tel2 != nil && (tel2.Tokens != 0 || tel2.Cost != "") {
+		t.Errorf("unexpected annotations without flags: %+v", tel2)
+	}
 }

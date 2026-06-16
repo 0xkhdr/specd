@@ -23,13 +23,8 @@ func RunCheck(args cli.Args) int {
 		return specdExit(err)
 	}
 
-	violations := pre
-	var warnings []core.Violation
-	for _, gate := range core.CheckGates {
-		v, w := gate(ctx)
-		violations = append(violations, v...)
-		warnings = append(warnings, w...)
-	}
+	v, warnings := core.RunGates(ctx)
+	violations := append(pre, v...)
 
 	if jsonOut {
 		return renderCheckJSON(violations, warnings)

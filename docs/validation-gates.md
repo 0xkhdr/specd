@@ -1,9 +1,11 @@
 # Validation Gates
 
-`specd check <slug>` runs 7 strict gates on a spec. A gate failure exits `1` and
-blocks the relevant `specd approve` transition.
+`specd check <slug>` runs the validation gates on a spec. A gate failure exits
+`1` and blocks the relevant `specd approve` transition. **Seven core gates always
+run**; three further gates (`acceptance`, `scope`, custom) are opt-in and no-ops
+by default, so the baseline behaviour is unchanged.
 
-## The 7 spec gates
+## The 7 core gates
 
 ### Gate 1 — EARS
 - **Source:** `internal/core/ears.go`
@@ -60,6 +62,37 @@ Notes:
 - **Checks:** Every requirement ID referenced in tasks exists in `requirements.md`.
 - **Severity:** Controlled by `config.gates.traceability` (`warn` or `error`).
 
+## Opt-in gates (no-op by default)
+
+These run after the seven core gates only when enabled. With their defaults,
+`specd check` output is byte-identical to a build without them.
+
+### Gate 8 — Acceptance
+- **Source:** `internal/core/gates.go` (`GateAcceptance`)
+- **Config:** `config.gates.acceptance` — `off` (default), `warn`, or `error`.
+- **Checks:** For tasks that declare an `acceptance:` mapping (e.g.
+  `acceptance: 1.1, 1.2`), every referenced criterion exists in
+  `requirements.md`, and a complete task has a recorded **pass** for each mapped
+  criterion (via `specd verify <slug> --criterion <r>.<n> --status pass`).
+- **Fails on:** A mapping to an undefined criterion, or a complete task with a
+  mapped criterion that has no recorded pass. Enforcement only — no LLM judgment.
+
+### Gate 9 — Scope (diff-scope evidence)
+- **Source:** `internal/core/gates.go` (`GateScope`)
+- **Config:** `config.gates.scope` — `off`/`*`/unset = no-op, else `warn`/`error`.
+- **Checks:** Files changed during `specd verify` (captured into the verify
+  record) fall within the task's declared `files:` contract.
+- **Fails on:** A task that touched a file outside its declared `files:` glob set.
+  Coverage is recorded as **evidence**, not enforced as a numeric floor.
+
+### Custom gates
+- **Source:** `internal/core/customgate.go`
+- **Config:** `config.gates.custom` — a list of `{name, command, severity}`.
+- **Checks:** Each is an external program run after the core pipeline via the
+  verify shell with a scrubbed env and bounded timeout (no Go plugins, no
+  network). Findings map to violations (`error`) or warnings (`warn`).
+- See [Custom Gates](./custom-gates.md) for the stdin/stdout JSON contract.
+
 ## Steering is agent-authored, not gated
 
 There are no repo-global freshness gates. Bootstrapping the steering constitution
@@ -80,6 +113,7 @@ every `verify:` line and every env var as hostile until validated.
   to an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, and `SPECD_*`),
   dropping inherited secrets; commands containing a NUL byte are rejected; the
   exact command and cwd are printed before execution for audit.
+  *Note on Custom Gates*: Custom gates configured in `.specd/config.json` also run as external commands under the verify shell, but **do not run within the verify sandbox (bubblewrap or containers)**. Ensure custom gate commands are trusted before running `specd check`.
 - **Path inputs.** Spec slugs are validated against `^[a-z0-9][a-z0-9-]*$`
   (`internal/core/slug.go`), so `..`, `/`, `\`, and leading `-` are rejected —
   no path traversal.

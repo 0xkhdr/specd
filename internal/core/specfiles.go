@@ -15,6 +15,13 @@ type Config struct {
 	Roles              RolesCfg  `json:"roles"`
 	PromotionThreshold int       `json:"promotionThreshold"`
 	Gates              GatesCfg  `json:"gates"`
+	Verify             VerifyCfg `json:"verify"`
+}
+
+// VerifyCfg holds verify-execution policy. Sandbox selects the isolation backend
+// ("none"|"bwrap"|"container"); empty means the default unsandboxed shell runner.
+type VerifyCfg struct {
+	Sandbox string `json:"sandbox"`
 }
 
 type ReportCfg struct {
@@ -29,6 +36,22 @@ type RolesCfg struct {
 type GatesCfg struct {
 	Traceability string `json:"traceability"`
 	Acceptance   string `json:"acceptance"`
+	// Scope is the diff-scope gate severity: "off"/""/"*" = no-op, else
+	// "warn"/"error". It flags verify-time changed files outside a task's
+	// declared `files:` contract.
+	Scope string `json:"scope"`
+	// Custom lists external, declarative custom gates run after the core
+	// pipeline. Each is an ordinary subprocess (no Go plugin, no network).
+	Custom []CustomGateCfg `json:"custom"`
+}
+
+// CustomGateCfg declares one external custom gate. Command is run via the verify
+// shell with a scrubbed env and bounded timeout; Severity ("warn"|"error", default
+// "error") decides how its findings map into the check result.
+type CustomGateCfg struct {
+	Name     string `json:"name"`
+	Command  string `json:"command"`
+	Severity string `json:"severity"`
 }
 
 var DefaultConfig = Config{
@@ -37,7 +60,8 @@ var DefaultConfig = Config{
 	Report:             ReportCfg{Format: "md", AutoRefreshSeconds: 0},
 	Roles:              RolesCfg{SubagentMode: "inline"},
 	PromotionThreshold: 3,
-	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off"},
+	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off"},
+	Verify:             VerifyCfg{Sandbox: "none"},
 }
 
 func LoadConfig(root string) Config {
@@ -52,6 +76,7 @@ func LoadConfig(root string) Config {
 		Roles              *RolesCfg  `json:"roles"`
 		PromotionThreshold *int       `json:"promotionThreshold"`
 		Gates              *GatesCfg  `json:"gates"`
+		Verify             *VerifyCfg `json:"verify"`
 	}
 	if err := json.Unmarshal([]byte(*raw), &partial); err != nil {
 		return DefaultConfig
@@ -82,6 +107,15 @@ func LoadConfig(root string) Config {
 		if partial.Gates.Acceptance != "" {
 			cfg.Gates.Acceptance = partial.Gates.Acceptance
 		}
+		if partial.Gates.Scope != "" {
+			cfg.Gates.Scope = partial.Gates.Scope
+		}
+		if partial.Gates.Custom != nil {
+			cfg.Gates.Custom = partial.Gates.Custom
+		}
+	}
+	if partial.Verify != nil && partial.Verify.Sandbox != "" {
+		cfg.Verify.Sandbox = partial.Verify.Sandbox
 	}
 	return cfg
 }
@@ -170,6 +204,7 @@ func Reconcile(state *State, doc ParsedTasks) {
 			ts.Evidence = prev.Evidence
 			ts.Verification = prev.Verification
 			ts.Blocker = prev.Blocker
+			ts.Telemetry = prev.Telemetry
 		}
 		if ts.Depends == nil {
 			ts.Depends = []string{}

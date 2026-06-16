@@ -16,11 +16,84 @@ var skillFiles = []string{
 	"specd-design", "specd-tasks", "specd-execute",
 }
 
+// listPacks renders the embedded built-in packs as text, or JSON under
+// SPECD_JSON. It performs no filesystem writes.
+func listPacks() int {
+	packs, err := core.BuiltinPacks()
+	if err != nil {
+		return specdExit(err)
+	}
+	if core.IsJSONMode() {
+		type packView struct {
+			Name        string `json:"name"`
+			Version     string `json:"version"`
+			Description string `json:"description"`
+			Files       int    `json:"files"`
+		}
+		views := make([]packView, 0, len(packs))
+		for _, p := range packs {
+			views = append(views, packView{p.Name, p.Version, p.Description, len(p.Files)})
+		}
+		if err := core.PrintJSON(views); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	fmt.Printf("specd built-in packs (%d):\n", len(packs))
+	for _, p := range packs {
+		fmt.Printf("  %-12s v%-7s %s (%d file%s)\n", p.Name, p.Version, p.Description, len(p.Files), plural(len(p.Files)))
+	}
+	fmt.Println("\nApply with: specd init --pack <name>")
+	return core.ExitOK
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
+// applyPack resolves and transactionally applies a pack into root. A bare name
+// resolves to a built-in; an http(s) URL requires --sha256 (fail-closed). It
+// writes nothing on any resolve/apply error.
+func applyPack(root, ref string, args cli.Args) int {
+	pack, err := core.ResolvePack(ref, args.Str("sha256"))
+	if err != nil {
+		return specdExit(err)
+	}
+	res, err := core.ApplyPack(root, pack, args.Bool("force"))
+	if err != nil {
+		return specdExit(err)
+	}
+	if core.IsJSONMode() {
+		if err := core.PrintJSON(struct {
+			Pack    string   `json:"pack"`
+			Version string   `json:"version"`
+			Written []string `json:"written"`
+		}{pack.Name, pack.Version, res.Written}); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	core.Info(fmt.Sprintf("specd init --pack %s (v%s): wrote %d file(s):", pack.Name, pack.Version, len(res.Written)))
+	for _, w := range res.Written {
+		core.Info("  + " + w)
+	}
+	return core.ExitOK
+}
+
 func RunInit(args cli.Args) int {
+	if args.Bool("list-packs") {
+		return listPacks()
+	}
 	root, err := os.Getwd()
 	if err != nil {
 		core.Error(err.Error())
 		return core.ExitGate
+	}
+	if ref := args.Str("pack"); ref != "" {
+		return applyPack(root, ref, args)
 	}
 	force := args.Bool("force")
 	var written, skipped, merged []string

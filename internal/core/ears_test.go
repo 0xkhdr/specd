@@ -131,3 +131,62 @@ func TestLintEars_noRequirements(t *testing.T) {
 		t.Error("expected issue for missing requirements")
 	}
 }
+
+func TestEarsCriterionID(t *testing.T) {
+	text := "## Requirement 1: Login\n" +
+		"**User story:** As a user I want to log in\n" +
+		"**Acceptance criteria:**\n" +
+		"1. WHEN credentials are valid THE SYSTEM SHALL grant access\n" +
+		"2. IF credentials are invalid THEN THE SYSTEM SHALL deny access\n" +
+		"\n" +
+		"## Requirement 2: Logout\n" +
+		"**User story:** As a user I want to log out\n" +
+		"**Acceptance criteria:**\n" +
+		"1. WHEN the user clicks logout THE SYSTEM SHALL end the session\n"
+
+	got := ExtractCriteria(text)
+	if len(got) != 3 {
+		t.Fatalf("want 3 criteria, got %d: %+v", len(got), got)
+	}
+	want := []struct {
+		id     string
+		req    int
+		idx    int
+		earsOK bool
+	}{
+		{"1.1", 1, 1, true},
+		{"1.2", 1, 2, true},
+		{"2.1", 2, 1, true},
+	}
+	for i, w := range want {
+		if got[i].ID != w.id || got[i].Req != w.req || got[i].Index != w.idx || got[i].EarsOK != w.earsOK {
+			t.Errorf("criterion %d = {ID:%q Req:%d Index:%d EarsOK:%v}, want {%q %d %d %v}",
+				i, got[i].ID, got[i].Req, got[i].Index, got[i].EarsOK, w.id, w.req, w.idx, w.earsOK)
+		}
+	}
+
+	// Determinism: identical input yields identical IDs across runs.
+	again := ExtractCriteria(text)
+	for i := range got {
+		if got[i].ID != again[i].ID {
+			t.Errorf("non-deterministic ID at %d: %q vs %q", i, got[i].ID, again[i].ID)
+		}
+	}
+
+	// A pre-marker numbered line must not consume a criterion index.
+	pre := "## Requirement 1: Foo\n" +
+		"1. THIS is prose before the marker\n" +
+		"**Acceptance criteria:**\n" +
+		"1. THE SYSTEM SHALL do the thing\n"
+	pc := ExtractCriteria(pre)
+	if len(pc) != 1 || pc[0].ID != "1.1" {
+		t.Fatalf("pre-marker handling wrong: %+v", pc)
+	}
+
+	// Non-EARS criterion is still extracted with an ID, just EarsOK=false.
+	bad := "## Requirement 3: X\n**Acceptance criteria:**\n1. just do it somehow\n"
+	bc := ExtractCriteria(bad)
+	if len(bc) != 1 || bc[0].ID != "3.1" || bc[0].EarsOK {
+		t.Fatalf("non-EARS extraction wrong: %+v", bc)
+	}
+}

@@ -1,0 +1,86 @@
+name: "specd PR check"
+description: "Run specd validation gates and upsert a deterministic PR summary comment."
+
+# Supply-chain note: this composite action uses only `bash`, `curl`, and `jq`
+# (preinstalled on GitHub-hosted runners). It pulls in NO third-party actions, so
+# there is nothing to pin and no transitive action to audit. specd itself is
+# stdlib-only and makes no network calls; the only network here is the GitHub API
+# call this action makes to upsert the comment.
+
+inputs:
+  spec:
+    description: "Spec slug to check (e.g. my-feature)."
+    required: true
+  specd:
+    description: "Path to the specd binary (must be on PATH or absolute)."
+    required: false
+    default: "specd"
+  token:
+    description: "GitHub token used to upsert the PR comment (needs pull-requests: write)."
+    required: false
+    default: ${{ github.token }}
+  comment:
+    description: "Whether to upsert a PR comment with the summary."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run specd check and build PR summary
+      id: specd
+      shell: bash
+      run: |
+        set -uo pipefail
+        SPECD="${{ inputs.specd }}"
+        SPEC="${{ inputs.spec }}"
+
+        # Render the deterministic, network-free PR summary regardless of gate
+        # outcome (the summary itself reports the gate status).
+        "$SPECD" report "$SPEC" --pr-summary > specd-pr-summary.md
+        SUMMARY_RC=$?
+
+        # The gate verdict drives the job status: a non-zero check fails the step.
+        "$SPECD" check "$SPEC"
+        CHECK_RC=$?
+
+        echo "check_rc=$CHECK_RC" >> "$GITHUB_OUTPUT"
+        echo "summary_rc=$SUMMARY_RC" >> "$GITHUB_OUTPUT"
+
+    - name: Upsert PR comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        MARKER="<!-- specd-pr-summary:${{ inputs.spec }} -->"
+        BODY="$(printf '%s\n\n%s' "$MARKER" "$(cat specd-pr-summary.md)")"
+        API="https://api.github.com/repos/${REPO}"
+
+        # Find an existing specd comment for this spec (idempotent upsert).
+        EXISTING=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          "${API}/issues/${PR_NUMBER}/comments?per_page=100" \
+          | jq -r --arg m "$MARKER" '.[] | select(.body | contains($m)) | .id' | head -n1)
+
+        PAYLOAD=$(jq -nc --arg b "$BODY" '{body:$b}')
+        if [ -n "${EXISTING}" ]; then
+          curl -sS -X PATCH -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${API}/issues/comments/${EXISTING}" -d "$PAYLOAD" > /dev/null
+        else
+          curl -sS -X POST -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${API}/issues/${PR_NUMBER}/comments" -d "$PAYLOAD" > /dev/null
+        fi
+
+    - name: Fail on gate violations
+      shell: bash
+      run: |
+        if [ "${{ steps.specd.outputs.check_rc }}" != "0" ]; then
+          echo "specd check failed (exit ${{ steps.specd.outputs.check_rc }})" >&2
+          exit 1
+        fi
