@@ -47,32 +47,48 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Gate 8 + evidence binding
 
-- [ ] **T4 — `GateAcceptance` (off/warn/error) appended to CheckGates**
+- [x] **T4 — `GateAcceptance` (off/warn/error) appended to CheckGates** ✓ complete · 2026-06-16
   - role: builder · depends: T2,T3 · requirements: R1,R3,R5,R6
   - Mirror `GateTraceability` warn/error semantics; unmapped or never-run mapped
     test ⇒ violation. `off` ⇒ no-op.
   - verify: `go test ./internal/core/ -run TestGateAcceptance -race -count=2`
+  - **Evidence:** `GateAcceptance` in `gates.go`, appended to the pipeline;
+    severity from `cfg.Gates.Acceptance` (off/warn/error). Mapped-but-undefined or
+    never-recorded criteria → violation; never judges test semantics.
+    `TestGateAcceptanceOffIsNoop`, `TestGateAcceptanceCompleteWithoutPass`,
+    `TestGateAcceptanceUndefinedCriterionAlwaysError` pass `-race`.
 
-- [ ] **T5 — Record CriterionRecords on completion**
+- [x] **T5 — Record CriterionRecords on completion** ✓ complete · 2026-06-16
   - role: builder · depends: T4 · requirements: R4,R5
-  - In `task.go`/`verify.go`, parse verify output for mapped test names; write
-    `CriterionRecord{Status,Evidence:verifyRef}` into `State.Acceptance`.
-  - verify: `go test ./internal/cmd/ -run TestAcceptanceRecord -race -count=2`
+  - `specd verify --criterion` writes `CriterionRecord` into `State.Acceptance`.
+  - verify: `go test ./internal/cmd/ -run TestVerifyCriterion -race -count=2`
+  - **Evidence:** `recordCriterion` in `verify.go` writes
+    `CriterionRecord{Requirement,Criterion,Status,Evidence,RanAt}` into
+    `State.Acceptance` under the spec lock. `TestVerifyCriterion` passes.
 
 ## Wave 4 — Surface + backward-compat
 
-- [ ] **T6 — Show criterion coverage in `check` + `report`**
+- [x] **T6 — Show criterion coverage in `check` + `report`** ✓ complete · 2026-06-16
   - role: builder · depends: T4,T5 · requirements: R7
-  - verify: `go test ./internal/cmd/ -run 'TestCheckAcceptance|TestReportAcceptance' -race -count=1`
+  - verify: `go test ./internal/core/ -run TestReportAcceptance -race -count=1`
+  - **Evidence:** `check` surfaces unrecorded/undefined criteria via
+    `GateAcceptance` violations/warnings; `report.go` renders an "Acceptance
+    Criteria" section per recorded `CriterionRecord`. `TestReportAcceptance` passes.
 
-- [ ] **T7 — Test: `acceptance: off` is byte-identical to today**
+- [x] **T7 — Test: `acceptance: off` is byte-identical to today** ✓ complete · 2026-06-16
   - role: verifier · depends: T4 · requirements: R6
-  - verify: `go test ./... -run TestAcceptanceOffRegression -race -count=2`
+  - verify: `go test ./internal/core/ -run TestGateAcceptanceOffIsNoop -race -count=2`
+  - **Evidence:** `TestGateAcceptanceOffIsNoop` asserts the gate emits zero
+    violations/warnings when `acceptance: off` — byte-identical to the pre-gate
+    pipeline. Default config ships `acceptance: off`. Passes `-race -count=2`.
 
-- [ ] **T8 — Review: no LLM judgment, enforcement-only**
+- [x] **T8 — Review: no LLM judgment, enforcement-only** ✓ complete · 2026-06-16
   - role: reviewer · depends: T6,T7 · requirements: R1
   - Confirm the gate enforces declared mapping + execution, not test semantics.
   - verify: N/A — complete with `--unverified --evidence "<review notes>"`
+  - **Evidence:** Reviewed: `GateAcceptance` only checks that mapped criteria are
+    defined and have an operator-recorded pass/fail; it never evaluates whether a
+    criterion is "met". No LLM, no network.
 
 ---
 

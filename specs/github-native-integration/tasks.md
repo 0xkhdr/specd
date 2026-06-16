@@ -53,19 +53,30 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Action wrapper + docs
 
-- [ ] **T5 — Composite Action: check status + upsert PR comment**
+- [x] **T5 — Composite Action: check status + upsert PR comment** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R2,R5
   - `.github/actions/specd-pr/`: run check, set status from exit code, upsert
     comment via `GITHUB_TOKEN`; pinned refs, least-privilege permissions.
   - verify: N/A — complete with `--unverified --evidence "<action.yml + actionlint>"`
+  - **Evidence:** `.github/actions/specd-pr/action.yml` — composite Action renders
+    `report --pr-summary`, runs `check` (its exit drives the job status), and
+    upserts a marker-keyed PR comment via the GitHub API. Pure bash+curl+jq, no
+    third-party actions (nothing to pin inside it).
 
-- [ ] **T6 — Workflow snippet + permissions docs**
+- [x] **T6 — Workflow snippet + permissions docs** ✓ complete · 2026-06-16
   - role: builder · depends: T5 · requirements: R6
   - verify: N/A — complete with `--unverified --evidence "<docs diff>"`
+  - **Evidence:** `docs/github-action.md` — workflow snippet, least-privilege
+    `permissions` table (contents:read, pull-requests:write), inputs, and a
+    supply-chain note (pin external workflow actions to SHAs).
 
-- [ ] **T7 — Review: no network in binary, supply-chain pinned**
+- [x] **T7 — Review: no network in binary, supply-chain pinned** ✓ complete · 2026-06-16
   - role: reviewer · depends: T4,T5 · requirements: R3,R5
   - verify: N/A — complete with `--unverified --evidence "<review notes>"`
+  - **Evidence:** Reviewed: `TestPRSummaryNoNetwork` proves the binary makes no
+    network call; the only network is the Action's GitHub API comment call. The
+    Action pulls in no third-party actions; docs instruct pinning external
+    workflow actions to commit SHAs.
 
 ---
 

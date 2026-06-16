@@ -2,6 +2,7 @@ package core
 
 import (
 	"os"
+	"os/exec"
 	"sync"
 	"testing"
 )
@@ -93,5 +94,11 @@ func backendConformance(t *testing.T, b StateBackend) {
 func TestBackendConformance(t *testing.T) {
 	t.Run("file", func(t *testing.T) {
 		backendConformance(t, DefaultBackend())
+	})
+	t.Run("git", func(t *testing.T) {
+		if _, err := exec.LookPath("git"); err != nil {
+			t.Skip("git not on PATH")
+		}
+		backendConformance(t, GitBackend())
 	})
 }

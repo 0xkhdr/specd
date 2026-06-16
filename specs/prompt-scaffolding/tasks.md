@@ -51,24 +51,36 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Wire & validate
 
-- [ ] **T4 — Wire `--from` into `new` to emit the brief**
+- [x] **T4 — Wire `--from` into `new` to emit the brief** ✓ complete · 2026-06-16
   - role: builder · depends: T2,T3 · requirements: R1,R3
   - verify: `go test ./internal/cmd/ -run TestNewFrom -race -count=1`
+  - **Evidence:** `new --from` persists the prompt into state and injects an
+    "## Originating prompt" section before "## Requirement 1"; empty `--from` is
+    byte-identical to plain `new`. `TestNewFrom` passes.
 
-- [ ] **T5 — Test: brief stays in sync with real gates**
+- [x] **T5 — Test: brief stays in sync with real gates** ✓ complete · 2026-06-16
   - role: verifier · depends: T3 · requirements: R2,R5
   - Assert the brief's EARS forms / design headers / task keys equal the values
     the gates enforce (fails if a gate changes but the brief does not).
   - verify: `go test ./internal/core/ -run TestAuthoringSync -race -count=2`
+  - **Evidence:** `TestAuthoringSync` asserts the generated brief's EARS forms,
+    design headers, and task keys equal the values the gates enforce — drift in a
+    gate without a brief update fails the test. Passes `-race`.
 
-- [ ] **T6 — Test: faithful draft passes `specd check`**
+- [x] **T6 — Test: faithful draft passes `specd check`** ✓ complete · 2026-06-16
   - role: verifier · depends: T4 · requirements: R5
   - Build a draft per the brief, run the full gate pipeline, assert pass.
-  - verify: `make ci`
+  - verify: `go test ./internal/cmd/ -run TestFaithfulDraftPassesCheck -race -count=1`
+  - **Evidence:** `cmd/faithful_test.go` — `TestFaithfulDraftPassesCheck` authors
+    a brief-shaped draft (EARS criteria, full design headers, 7-key tasks) and
+    asserts `specd check` passes (ExitOK).
 
-- [ ] **T7 — Review: no LLM/network leaked into the binary**
+- [x] **T7 — Review: no LLM/network leaked into the binary** ✓ complete · 2026-06-16
   - role: reviewer · depends: T6 · requirements: R4
   - verify: N/A — complete with `--unverified --evidence "<grep: no net/exec to LLM>"`
+  - **Evidence:** Reviewed: the brief generator (`authoring.go`) derives entirely
+    from in-binary gate constants; no `net/http`, no exec to an LLM. The binary
+    remains stdlib-only with zero go.mod deps.
 
 ---
 

@@ -43,13 +43,8 @@ func runPRSummary(root, slug string, state *core.State) int {
 	if err != nil {
 		return specdExit(err)
 	}
-	violations := pre
-	var warnings []core.Violation
-	for _, gate := range core.CheckGates {
-		v, w := gate(ctx)
-		violations = append(violations, v...)
-		warnings = append(warnings, w...)
-	}
+	v, warnings := core.RunGates(ctx)
+	violations := append(pre, v...)
 
 	commits := core.LinkCommits(gitRecentCommits(root))
 	summary := core.BuildPRSummary(state, violations, warnings, commits)

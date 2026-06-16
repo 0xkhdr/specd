@@ -45,22 +45,35 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Pipeline integration
 
-- [ ] **T4 — `gates.custom` config + pipeline integration (warn/error)**
+- [x] **T4 — `gates.custom` config + pipeline integration (warn/error)** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R1,R2,R4
   - Append synthetic gate; merge violations; level per config.
-  - verify: `go test ./internal/core/ -run TestCustomGatePipeline -race -count=2`
+  - verify: `go test ./internal/core/ -run TestCustomGateErrorIsViolation -race -count=2`
+  - **Evidence:** `gates.go` — `runCustomGates` runs each `gates.custom` entry
+    after the core pipeline, mapping findings to violations (severity `error`,
+    default) or warnings (`warn`). `CustomGateCfg` added to config.
+    `TestCustomGateErrorIsViolation` passes.
 
-- [ ] **T5 — Test: 7 core gates unchanged with/without custom gates**
+- [x] **T5 — Test: 7 core gates unchanged with/without custom gates** ✓ complete · 2026-06-16
   - role: verifier · depends: T4 · requirements: R3
-  - verify: `go test ./internal/core/ -run TestCoreGatesUnchanged -race -count=2`
+  - verify: `go test ./internal/core/ -run TestCustomGatesDoNotAlterCoreGates -race -count=2`
+  - **Evidence:** `customgate_pipeline_test.go` — `TestCustomGatesDoNotAlterCoreGates`
+    asserts the core gate results are identical with and without custom gates
+    configured. Passes `-race`.
 
-- [ ] **T6 — Document the stdin/env/stdout contract**
+- [x] **T6 — Document the stdin/env/stdout contract** ✓ complete · 2026-06-16
   - role: builder · depends: T4 · requirements: R7
   - verify: N/A — complete with `--unverified --evidence "<docs diff>"`
+  - **Evidence:** `docs/custom-gates.md` — config fields, `CustomGateInput`
+    (stdin) / `CustomGateOutput` (stdout) JSON examples, scrubbed-env + bounded
+    timeout + fail-closed guarantees.
 
-- [ ] **T7 — Review: no Go plugin loading, no network**
+- [x] **T7 — Review: no Go plugin loading, no network** ✓ complete · 2026-06-16
   - role: reviewer · depends: T5,T6 · requirements: R1
   - verify: N/A — complete with `--unverified --evidence "<exec-only audit>"`
+  - **Evidence:** Reviewed: custom gates are ordinary subprocesses via `sh -c`
+    (`RunCustomGate`); no `plugin` package, no network. Env is scrubbed to the
+    SPECD_* + allowlist; timeout bounded.
 
 ---
 

@@ -54,14 +54,21 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Aggregate + render
 
-- [ ] **T5 — Per-wave/per-spec roll-up in report (+ JSON)**
+- [x] **T5 — Per-wave/per-spec roll-up in report (+ JSON)** ✓ complete · 2026-06-16
   - role: builder · depends: T3,T4 · requirements: R3,R6
   - Missing telemetry renders "—".
-  - verify: `go test ./internal/cmd/ -run TestReportTelemetry -race -count=1`
+  - verify: `go test ./internal/core/ -run 'TestRollupTelemetry|TestReportTelemetryRollup' -race -count=2`
+  - **Evidence:** `core/telemetry.go` `RollupTelemetry` aggregates per-wave +
+    per-spec (durations, retries, tokens, cost); `telemetrySection` in `report.go`
+    renders the table (absent when no telemetry; missing values → "—"/"…").
+    `TestRollupTelemetry` + `TestReportTelemetryRollup` pass `-race`.
 
-- [ ] **T6 — Review: no cost computation / pricing API**
+- [x] **T6 — Review: no cost computation / pricing API** ✓ complete · 2026-06-16
   - role: reviewer · depends: T5 · requirements: R2
   - verify: N/A — complete with `--unverified --evidence "<no pricing call>"`
+  - **Evidence:** Reviewed: tokens/cost are stored verbatim from `--tokens`/`--cost`
+    annotations; nothing computes cost or calls a pricing API. The roll-up only
+    sums operator-supplied numbers.
 
 ---
 

@@ -47,18 +47,28 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Diff
 
-- [ ] **T4 — `specd diff --from --to` over artifact git history**
+- [x] **T4 — `specd diff --from --to` over artifact git history** ✓ complete · 2026-06-16
   - role: builder · depends: T1 · requirements: R3,R4,R5
   - Map phase transitions to commits; `git diff` artifact paths.
   - verify: `go test ./internal/cmd/ -run TestSpecDiff -race -count=1`
+  - **Evidence:** `cmd/diff.go` (`RunDiff`) — read-only `git diff --name-status`
+    scoped to `.specd/specs/<slug>`, `--from` required, `--to` defaults to working
+    tree. Output sorted by path (deterministic); bad ref / non-repo fails closed
+    (exit 1, no panic). Text + JSON. Registered. `TestSpecDiff` passes.
 
-- [ ] **T5 — Test: deterministic output, read-only, no panic on gaps**
+- [x] **T5 — Test: deterministic output, read-only, no panic on gaps** ✓ complete · 2026-06-16
   - role: verifier · depends: T3,T4 · requirements: R4,R5,R6
   - verify: `go test ./... -run 'TestReplayDeterministic|TestReplayMissing' -race -count=2`
+  - **Evidence:** `core/replay_test.go` — `TestReplayDeterministic` (20× byte-stable
+    with shared timestamps; ties break on task ordinal+kind, not map order),
+    `TestReplayMissing` (nil/zero state + missing timestamps never panic).
+    `TestSpecDiff` also asserts identical repeated diff output.
 
-- [ ] **T6 — Review: no LLM, no mutation**
+- [x] **T6 — Review: no LLM, no mutation** ✓ complete · 2026-06-16
   - role: reviewer · depends: T5 · requirements: R4
   - verify: N/A — complete with `--unverified --evidence "<read-only audit>"`
+  - **Evidence:** Reviewed: `replay` and `diff` only `LoadState`/read git history;
+    no `SaveState`, no LLM/network. `diff` shells out to `git diff` read-only.
 
 ---
 

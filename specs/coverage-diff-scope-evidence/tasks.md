@@ -47,18 +47,27 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Scope gate + surface
 
-- [ ] **T4 — `GateScope` (warn/error, `*`/unset = no-op)**
+- [x] **T4 — `GateScope` (warn/error, `*`/unset = no-op)** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R2,R5
   - `filepath.Match` changed files vs task `files:` globs.
   - verify: `go test ./internal/core/ -run TestGateScope -race -count=2`
+  - **Evidence:** `GateScope` in `gates.go` flags verify-time changed files
+    outside a task's declared `files:` contract; severity from `cfg.Gates.Scope`
+    ("off"/""/"*" = no-op). `TestGateScopeOffIsNoop` + `TestGateScopeFlagsOutOfContract`
+    pass `-race -count=2`.
 
-- [ ] **T5 — Report shows changed-file count + coverage**
+- [x] **T5 — Report shows changed-file count + coverage** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R6
-  - verify: `go test ./internal/cmd/ -run TestReportScope -race -count=1`
+  - verify: `go test ./internal/core/ -run TestReportScope -race -count=1`
+  - **Evidence:** `verificationEvidence` in `report.go` renders a per-task table
+    with Coverage and changed-file count (and sandbox). `TestReportScope` confirms
+    the section + values render.
 
-- [ ] **T6 — Review: coverage is evidence, not a binary floor**
+- [x] **T6 — Review: coverage is evidence, not a binary floor** ✓ complete · 2026-06-16
   - role: reviewer · depends: T4,T5 · requirements: R4
   - verify: N/A — complete with `--unverified --evidence "<no hardcoded floor>"`
+  - **Evidence:** Reviewed: coverage is captured/rendered as data only; no gate
+    or report path compares it to a threshold (no hardcoded floor anywhere).
 
 ---
 

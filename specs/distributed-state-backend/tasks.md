@@ -49,24 +49,43 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — git backend + remote adapters
 
-- [ ] **T4 — git-native backend (no Go dep)**
+- [x] **T4 — git-native backend (no Go dep)** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R5,R3
   - Commit state; CAS via expected parent SHA; lock via lock ref. Passes T3.
   - verify: `go test ./internal/core/ -run TestBackendConformance/git -race -count=2`
+  - **Evidence:** `core/backend_git.go` — `gitBackend` reuses the file backend's
+    lock + revision-CAS spine verbatim (unweakened) and commits each saved state
+    to git (CLI only, no Go git dep). git-init runs under the spec lock so writers
+    never race. Passes the full `TestBackendConformance/git` suite (stale-CAS,
+    reentrant lock, 32-goroutine) `-race -count=2`.
 
-- [ ] **T5 — Redis/Postgres adapters behind build tags**
+- [x] **T5 — Redis/Postgres adapters behind build tags** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R4
   - `//go:build specd_redis` etc.; default build imports neither.
   - verify: `go build -tags specd_redis ./... && go vet ./...`
+  - **Evidence:** `core/backend_redis.go` (`//go:build specd_redis`, pure-stdlib
+    RESP client: SET-NX lock + WATCH/MULTI/EXEC revision CAS) and
+    `core/backend_postgres.go` (`//go:build specd_postgres`, stdlib database/sql:
+    advisory-xact lock + revision-guarded UPSERT CAS; driver registered by the
+    importer). Both build + vet clean under their tags with zero go.mod deps.
+    `SelectBackend` registry gates them.
 
-- [ ] **T6 — Test: default binary links no DB/redis driver**
+- [x] **T6 — Test: default binary links no DB/redis driver** ✓ complete · 2026-06-16
   - role: verifier · depends: T5 · requirements: R4
   - Assert via `go list -deps ./...` (default tags) shows no driver module.
   - verify: `make ci`
+  - **Evidence:** `TestDefaultLinksNoDriver` asserts the optional-backend registry
+    is empty in a default build and that redis/postgres `SelectBackend` fails
+    closed; `go list -deps ./...` shows no driver module (go.mod declares zero
+    external deps). Passes.
 
-- [ ] **T7 — Review: integrity spine unweakened**
+- [x] **T7 — Review: integrity spine unweakened** ✓ complete · 2026-06-16
   - role: reviewer · depends: T4,T6 · requirements: R2,R3
   - verify: N/A — complete with `--unverified --evidence "<spine audit>"`
+  - **Evidence:** Reviewed: git backend delegates lock+CAS to the proven file
+    backend (no new lock logic to weaken it); redis/postgres adapters each
+    re-implement serialize-writers + reject-stale-revision + atomic-commit. All
+    held to the same `backendConformance` contract.
 
 ---
 

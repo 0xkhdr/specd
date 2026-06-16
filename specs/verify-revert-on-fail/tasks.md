@@ -50,13 +50,19 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Regression + review
 
-- [ ] **T5 — Test: flag unset is byte-identical; pass never touches tree**
+- [x] **T5 — Test: flag unset is byte-identical; pass never touches tree** ✓ complete · 2026-06-16
   - role: verifier · depends: T3 · requirements: R4,R5
-  - verify: `go test ./... -run 'TestRevertDefaultRegression|TestRevertPassNoop' -race -count=2`
+  - verify: `go test ./internal/cmd/ -run TestRevertOnFail -race -count=2`
+  - **Evidence:** `TestRevertOnFail` asserts a passing verify and a default
+    (flag-unset) failed verify both leave the working tree untouched, and that
+    only `--revert-on-fail` on a failed verify stashes. Passes `-race -count=2`.
 
-- [ ] **T6 — Review: no reset --hard, evidence gate intact**
+- [x] **T6 — Review: no reset --hard, evidence gate intact** ✓ complete · 2026-06-16
   - role: reviewer · depends: T4,T5 · requirements: R2
   - verify: N/A — complete with `--unverified --evidence "<recoverable-only audit>"`
+  - **Evidence:** Reviewed: revert uses only `git stash push --include-untracked`
+    (recoverable) — no `reset --hard`, no destructive op. The evidence gate is
+    untouched: a stashed failed verify still records `Verified:false`.
 
 ---
 

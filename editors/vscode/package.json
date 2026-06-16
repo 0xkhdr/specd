@@ -1,0 +1,34 @@
+{
+  "name": "specd-dashboard",
+  "displayName": "specd Live Dashboard",
+  "description": "Open the read-only specd progress dashboard inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "specd",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "specd.openDashboard",
+        "title": "specd: Open Live Dashboard"
+      }
+    ],
+    "configuration": {
+      "title": "specd",
+      "properties": {
+        "specd.binaryPath": {
+          "type": "string",
+          "default": "specd",
+          "description": "Path to the specd binary."
+        },
+        "specd.servePort": {
+          "type": "number",
+          "default": 8765,
+          "description": "Loopback port for the read-only dashboard server."
+        }
+      }
+    }
+  }
+}

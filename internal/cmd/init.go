@@ -54,6 +54,35 @@ func plural(n int) string {
 	return "s"
 }
 
+// applyPack resolves and transactionally applies a pack into root. A bare name
+// resolves to a built-in; an http(s) URL requires --sha256 (fail-closed). It
+// writes nothing on any resolve/apply error.
+func applyPack(root, ref string, args cli.Args) int {
+	pack, err := core.ResolvePack(ref, args.Str("sha256"))
+	if err != nil {
+		return specdExit(err)
+	}
+	res, err := core.ApplyPack(root, pack, args.Bool("force"))
+	if err != nil {
+		return specdExit(err)
+	}
+	if core.IsJSONMode() {
+		if err := core.PrintJSON(struct {
+			Pack    string   `json:"pack"`
+			Version string   `json:"version"`
+			Written []string `json:"written"`
+		}{pack.Name, pack.Version, res.Written}); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	core.Info(fmt.Sprintf("specd init --pack %s (v%s): wrote %d file(s):", pack.Name, pack.Version, len(res.Written)))
+	for _, w := range res.Written {
+		core.Info("  + " + w)
+	}
+	return core.ExitOK
+}
+
 func RunInit(args cli.Args) int {
 	if args.Bool("list-packs") {
 		return listPacks()
@@ -62,6 +91,9 @@ func RunInit(args cli.Args) int {
 	if err != nil {
 		core.Error(err.Error())
 		return core.ExitGate
+	}
+	if ref := args.Str("pack"); ref != "" {
+		return applyPack(root, ref, args)
 	}
 	force := args.Bool("force")
 	var written, skipped, merged []string

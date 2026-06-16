@@ -146,6 +146,12 @@ func buildSections(d ReportData) []reportSection {
 		}
 		s = append(s, reportSection{"🧪", "Acceptance Criteria", strings.Join(lines, "\n")})
 	}
+	if body := verificationEvidence(d.State); body != "" {
+		s = append(s, reportSection{"🔬", "Verification Evidence", body})
+	}
+	if body := telemetrySection(d.State); body != "" {
+		s = append(s, reportSection{"⏱️", "Telemetry", body})
+	}
 	if len(d.State.Blockers) > 0 {
 		var lines []string
 		for _, b := range d.State.Blockers {
@@ -154,6 +160,82 @@ func buildSections(d ReportData) []reportSection {
 		s = append(s, reportSection{"🚧", "Blockers", strings.Join(lines, "\n")})
 	}
 	return s
+}
+
+// verificationEvidence renders the per-task verify evidence (changed-file count
+// and coverage) captured by `specd verify`. It is evidence reporting only —
+// coverage is shown as data, never as a pass/fail floor. Tasks without a verify
+// record are omitted; an empty body suppresses the whole section.
+func verificationEvidence(state *State) string {
+	ids := make([]string, 0, len(state.Tasks))
+	for id, t := range state.Tasks {
+		if t.Verification != nil {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	sort.Slice(ids, func(i, j int) bool { return ordinal(ids[i]) < ordinal(ids[j]) })
+	lines := []string{"| Task | Verified | Coverage | Changed files |", "|------|----------|----------|---------------|"}
+	for _, id := range ids {
+		v := state.Tasks[id].Verification
+		mark := "✅"
+		if !v.Verified {
+			mark = "❌"
+		}
+		cov := v.Coverage
+		if cov == "" {
+			cov = "—"
+		}
+		sandbox := ""
+		if v.Sandbox != "" {
+			sandbox = " _(sandbox: " + v.Sandbox + ")_"
+		}
+		lines = append(lines, fmt.Sprintf("| %s | %s | %s | %d%s |", id, mark, cov, len(v.ChangedFiles), sandbox))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// telemetrySection renders the per-wave and per-spec telemetry roll-up. Returns
+// "" when no task carried telemetry, so specs without telemetry stay unchanged.
+func telemetrySection(state *State) string {
+	roll := RollupTelemetry(state)
+	if !roll.HasData() {
+		return ""
+	}
+	lines := []string{"| Wave | Tasks | Duration | Verify | Retries | Tokens | Cost |", "|------|-------|----------|--------|---------|--------|------|"}
+	for _, w := range roll.Waves {
+		lines = append(lines, fmt.Sprintf("| %d | %d | %s | %s | %d | %s | %s |",
+			w.Wave, w.Tasks, humanMs(w.DurationMs), humanMs(w.VerifyDurationMs), w.Retries, tokensStr(w.Tokens), costStr(w.Cost, w.CostAnnotated)))
+	}
+	lines = append(lines, fmt.Sprintf("| **total** | — | **%s** | **%s** | **%d** | **%s** | **%s** |",
+		humanMs(roll.DurationMs), humanMs(roll.VerifyDurationMs), roll.Retries, tokensStr(roll.Tokens), costStr(roll.Cost, roll.CostAnnotated)))
+	return strings.Join(lines, "\n")
+}
+
+func humanMs(ms int64) string {
+	if ms <= 0 {
+		return "—"
+	}
+	if ms < 1000 {
+		return fmt.Sprintf("%dms", ms)
+	}
+	return fmt.Sprintf("%.1fs", float64(ms)/1000)
+}
+
+func tokensStr(n int) string {
+	if n <= 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%d", n)
+}
+
+func costStr(c float64, annotated bool) string {
+	if !annotated {
+		return "—"
+	}
+	return fmt.Sprintf("%.2f", c)
 }
 
 func RenderMarkdown(d ReportData) string {

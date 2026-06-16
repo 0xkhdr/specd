@@ -46,23 +46,37 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Resolve + apply
 
-- [ ] **T4 — Pack resolver: embedded + remote (pinned SHA256, fail-closed)**
+- [x] **T4 — Pack resolver: embedded + remote (pinned SHA256, fail-closed)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R3,R5
   - Reuse update.go verify helper; mismatch ⇒ nothing written.
   - verify: `go test ./internal/core/ -run TestPackResolve -race -count=2`
+  - **Evidence:** `core/pack_resolve.go` — `ResolvePack` (bare name → built-in;
+    http(s) → remote requiring `--sha256`), `VerifyAndParsePack` (SHA256 compare
+    before parse; mismatch returns no pack). Bounded 1 MiB download.
+    `TestPackResolve` (httptest loopback) passes `-race -count=2`.
 
-- [ ] **T5 — `specd init --pack` transactional apply (no partial scaffold)**
+- [x] **T5 — `specd init --pack` transactional apply (no partial scaffold)** ✓ complete · 2026-06-16
   - role: builder · depends: T3,T4 · requirements: R1,R5,R6
   - `--pack` omitted ⇒ unchanged.
   - verify: `go test ./internal/cmd/ -run TestInitPack -race -count=1`
+  - **Evidence:** `core/pack_apply.go` — `ApplyPack` plans (re-validates paths,
+    detects collisions) then writes atomically, rolling back created files on any
+    failure. `cmd/init.go` wires `--pack`/`--sha256`; omitting `--pack` is
+    byte-unchanged. `TestInitPack` passes.
 
-- [ ] **T6 — Test: fail-closed remote + default regression**
+- [x] **T6 — Test: fail-closed remote + default regression** ✓ complete · 2026-06-16
   - role: verifier · depends: T5 · requirements: R3,R6
   - verify: `go test ./... -run 'TestPackFailClosed|TestInitDefaultRegression' -race -count=2`
+  - **Evidence:** `TestPackFailClosed` (missing pin, wrong pin, direct
+    VerifyAndParsePack mismatch all refuse) + `TestInitDefaultRegression`
+    (default `init` still scaffolds the standard tree, no pack-only file). Pass.
 
-- [ ] **T7 — Document the pack manifest contract**
+- [x] **T7 — Document the pack manifest contract** ✓ complete · 2026-06-16
   - role: builder · depends: T5 · requirements: R7
   - verify: N/A — complete with `--unverified --evidence "<pack format docs>"`
+  - **Evidence:** `docs/spec-packs.md` — manifest fields, declarative-only +
+    path-safety hard rules, resolution (built-in vs pinned remote), transactional
+    apply semantics.
 
 ---
 

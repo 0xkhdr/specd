@@ -70,3 +70,47 @@ func TestReplayTimeline(t *testing.T) {
 		t.Errorf("failed verify = %+v, want verify-failed", fe)
 	}
 }
+
+// TestReplayDeterministic asserts the timeline is byte-stable across repeated
+// calls even when several events share a timestamp — ties break on a fixed key
+// (task ordinal, kind), never on Go map iteration order.
+func TestReplayDeterministic(t *testing.T) {
+	state := &State{
+		Spec: "demo",
+		Tasks: map[string]TaskState{
+			"T3": {ID: "T3", StartedAt: strptr("2026-01-01T00:00:00Z")},
+			"T1": {ID: "T1", StartedAt: strptr("2026-01-01T00:00:00Z")},
+			"T2": {ID: "T2", StartedAt: strptr("2026-01-01T00:00:00Z")},
+		},
+	}
+	first := ReplayTimeline(state)
+	for i := 0; i < 20; i++ {
+		again := ReplayTimeline(state)
+		if len(again) != len(first) {
+			t.Fatalf("iteration %d: length drift %d != %d", i, len(again), len(first))
+		}
+		for j := range first {
+			if again[j] != first[j] {
+				t.Fatalf("iteration %d event %d: %+v != %+v", i, j, again[j], first[j])
+			}
+		}
+	}
+}
+
+// TestReplayMissing confirms the collector tolerates gaps — nil state, no tasks,
+// and records with missing timestamps — without panicking or dropping into an
+// undefined order.
+func TestReplayMissing(t *testing.T) {
+	if got := ReplayTimeline(nil); got != nil {
+		t.Errorf("nil state should yield nil, got %+v", got)
+	}
+	if got := ReplayTimeline(&State{}); len(got) != 0 {
+		t.Errorf("zero-value state should yield no events, got %+v", got)
+	}
+	// A task with no timestamps anywhere must not panic and must still surface
+	// whatever events it can (here: none crash, started omitted when At empty).
+	gapState := &State{Tasks: map[string]TaskState{
+		"T1": {ID: "T1", Verification: &VerificationRecord{Command: "x", Verified: true}},
+	}}
+	_ = ReplayTimeline(gapState) // must not panic
+}

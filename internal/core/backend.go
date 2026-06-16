@@ -1,5 +1,7 @@
 package core
 
+import "fmt"
+
 // StateBackend is the storage contract for spec state. It abstracts the three
 // guarantees every backend MUST honor, documented against the file backend in
 // lock.go/state.go: serialize writers (WithLock), reject stale-revision writes
@@ -42,3 +44,28 @@ func (fileBackend) WithLock(root, slug string, fn func() error) error {
 
 // DefaultBackend returns the on-disk file backend used by every command.
 func DefaultBackend() StateBackend { return fileBackend{} }
+
+// optionalBackends holds constructors for backends compiled in behind build
+// tags (e.g. redis, postgres). The default build registers none, so the binary
+// links no database driver — the registry is empty unless a `specd_*` tag is set.
+var optionalBackends = map[string]func() StateBackend{}
+
+func registerOptionalBackend(name string, ctor func() StateBackend) {
+	optionalBackends[name] = ctor
+}
+
+// SelectBackend resolves a backend name to a StateBackend. "file"/"" is the
+// default; "git" is always available (CLI-only, no driver); any other name must
+// have been compiled in via its build tag, otherwise this fails closed.
+func SelectBackend(name string) (StateBackend, error) {
+	switch name {
+	case "", "file":
+		return DefaultBackend(), nil
+	case "git":
+		return GitBackend(), nil
+	}
+	if ctor, ok := optionalBackends[name]; ok {
+		return ctor(), nil
+	}
+	return nil, GateError(fmt.Sprintf("unknown or not-compiled-in state backend %q (build with -tags specd_%s to enable)", name, name))
+}

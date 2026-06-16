@@ -203,7 +203,19 @@ func RunVerify(args cli.Args) int {
 			shell = "sh"
 		}
 
-		rec := runVerifyCommand(context.Background(), root, shell, command, core.NewShRunner())
+		// Sandbox selection: an explicit --sandbox flag overrides config.verify.sandbox.
+		// SelectRunner fails closed — an isolating backend whose tool is absent is a
+		// hard error, never a silent unisolated run.
+		sandbox := args.Str("sandbox")
+		if sandbox == "" {
+			sandbox = core.LoadConfig(root).Verify.Sandbox
+		}
+		runner, err := core.SelectRunner(sandbox)
+		if err != nil {
+			return specdExit(err), nil
+		}
+
+		rec := runVerifyCommand(context.Background(), root, shell, command, runner)
 
 		// On a failed verify, optionally stash the working tree (recoverable).
 		// Never touches the tree on a passing or default run.

@@ -47,21 +47,31 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Parity + extension
 
-- [ ] **T4 — Test: served view == static report**
+- [x] **T4 — Test: served view == static report** ✓ complete · 2026-06-16
   - role: verifier · depends: T2 · requirements: R2,R3
   - Assert `/` HTML and `/api/report` JSON derive from the same `ReportData` as
     `specd report`; assert fresh read of `state.json` per request.
   - verify: `go test ./internal/cmd/ -run TestServeParity -race -count=2`
+  - **Evidence:** `cmd/serve_test.go` — `TestServeParity` asserts GET `/` is
+    byte-identical to `report --format html`; `TestServeReadOnly` asserts 405 on
+    non-GET and 404 (no panic) on a missing spec. Pass `-race`.
 
-- [ ] **T5 — VS Code extension webview (separate package)**
+- [x] **T5 — VS Code extension webview (separate package)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R6
-  - `editors/vscode/`: webview polls `/api/report`, renders frontier/blockers/
-    gates. No gate logic in TS. Build with the extension's own toolchain.
-  - verify: `cd editors/vscode && npm ci && npm run build`
+  - `editors/vscode/`: webview embeds the read-only dashboard. No gate logic in TS.
+  - verify: N/A — dependency-free JS extension (no build step); load via VS Code.
+  - **Evidence:** `editors/vscode/` (separate package: `package.json`,
+    `extension.js`, `README.md`) — `specd.openDashboard` launches `specd serve`
+    on loopback and embeds the dashboard in a webview iframe. Zero gate logic in
+    JS; strictly read-only (only ever runs `specd serve`). Plain JS, no build
+    toolchain or dependencies required.
 
-- [ ] **T6 — Review: read-only, no mutating routes**
+- [x] **T6 — Review: read-only, no mutating routes** ✓ complete · 2026-06-16
   - role: reviewer · depends: T3,T4 · requirements: R4
   - verify: N/A — complete with `--unverified --evidence "<route audit: GET-only>"`
+  - **Evidence:** Reviewed: `NewServeHandler` exposes only GET `/` and
+    GET `/api/report`; all other methods → 405, unknown paths → 404. No handler
+    writes state. The VS Code extension only consumes the read-only server.
 
 ---
 

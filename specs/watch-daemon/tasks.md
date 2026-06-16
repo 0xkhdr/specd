@@ -46,22 +46,37 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Transports + lifecycle
 
-- [ ] **T4 — SSE transport over net/http**
+- [x] **T4 — SSE transport over net/http** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R3
   - verify: `go test ./internal/cmd/ -run TestWatchSSE -race -count=1`
+  - **Evidence:** `cmd/watch_sse.go` — `sseHandler` streams `data: <json>\n\n`
+    frames (per-connection detector, initial snapshot then deltas, ends on client
+    disconnect); `runWatchSSE` serves `/events` with graceful shutdown.
+    `TestWatchSSE` (httptest) passes `-race`.
 
-- [ ] **T5 — Webhook POST with bounded backoff (non-blocking)**
+- [x] **T5 — Webhook POST with bounded backoff (non-blocking)** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R4
   - Separate goroutine + bounded retry queue; slow endpoint never blocks loop.
   - verify: `go test ./internal/cmd/ -run TestWatchWebhook -race -count=1`
+  - **Evidence:** `cmd/watch_webhook.go` — `webhookSink` worker goroutine,
+    bounded 256-event buffer (Emit drops + warns when full → never blocks),
+    exponential backoff up to 3 attempts, ctx-cancellable; `Close` drains
+    gracefully, `abort` stops immediately. `TestWatchWebhook` (delivery + drain +
+    non-blocking-against-hung-endpoint) passes `-race`.
 
-- [ ] **T6 — Signal handling + clean shutdown**
+- [x] **T6 — Signal handling + clean shutdown** ✓ complete · 2026-06-16
   - role: builder · depends: T3 · requirements: R7
   - verify: `go test ./internal/cmd/ -run TestWatchShutdown -race -count=1`
+  - **Evidence:** `RunWatch` uses `signal.NotifyContext` (SIGINT/SIGTERM);
+    `watchLoop` returns ExitOK on ctx cancel; SSE server `Shutdown` on signal.
+    `TestWatchShutdown` confirms the loop returns cleanly on cancel. Passes `-race`.
 
-- [ ] **T7 — Review: read-only, no duplicate events, stdlib-only**
+- [x] **T7 — Review: read-only, no duplicate events, stdlib-only** ✓ complete · 2026-06-16
   - role: reviewer · depends: T4,T5,T6 · requirements: R5,R6
   - verify: N/A — complete with `--unverified --evidence "<observer audit>"`
+  - **Evidence:** Reviewed: all transports go through `collectChanges` →
+    `FrontierDetector.Observe`, which emits only on real frontier change (no
+    duplicates); no `SaveState` anywhere; net/http + stdlib only, no new deps.
 
 ---
 

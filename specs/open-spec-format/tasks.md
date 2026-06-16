@@ -46,22 +46,35 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Commands + docs
 
-- [ ] **T4 — `specd schema [--version]` emits embedded schema**
+- [x] **T4 — `specd schema [--version]` emits embedded schema** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R3
   - verify: `go test ./internal/cmd/ -run TestSchemaCmd -race -count=1`
+  - **Evidence:** `cmd/schema.go` (`RunSchema`) writes the embedded schema to
+    stdout; `--version` selects (unknown fails closed); needs no .specd/ root.
+    Registered in Registry + core.Commands. `TestSchemaCmd` passes.
 
-- [ ] **T5 — `specd validate --schema` format conformance mode**
+- [x] **T5 — `specd validate --schema` format conformance mode** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R5
   - Independent of the 7 semantic gates.
   - verify: `go test ./internal/cmd/ -run TestValidateSchema -race -count=1`
+  - **Evidence:** `core.ValidateState` (stdlib-only structural validator:
+    $ref/required/additionalProperties/enum) + `cmd/validate.go` (`RunValidate`,
+    `--schema` mode, read-only, JSON under SPECD_JSON). `TestValidateSchema` passes.
 
-- [ ] **T6 — `docs/spec-format.md` versioned prose standard**
+- [x] **T6 — `docs/spec-format.md` versioned prose standard** ✓ complete · 2026-06-16
   - role: builder · depends: T4 · requirements: R4,R6
   - verify: N/A — complete with `--unverified --evidence "<format doc>"`
+  - **Evidence:** `docs/spec-format.md` — versioning (specdSchemaVersion vs
+    stateSchemaVersion), source-of-truth + conformance trip-wire, artifact table,
+    state.json $defs, structural conformance modes.
 
-- [ ] **T7 — Review: schema is single source of truth, v1 non-breaking**
+- [x] **T7 — Review: schema is single source of truth, v1 non-breaking** ✓ complete · 2026-06-16
   - role: reviewer · depends: T3,T5,T6 · requirements: R2,R4
   - verify: N/A — complete with `--unverified --evidence "<standard review>"`
+  - **Evidence:** Reviewed: Go types remain the single source of truth, enforced
+    by `TestSchemaConformance` drift trip-wire; v1 optional fields are non-required
+    so older documents validate (non-breaking). Validator is stdlib-only (no
+    third-party JSON Schema dependency).
 
 ---
 

@@ -46,28 +46,47 @@ Companion to [`spec.md`](spec.md). Roles: `builder`/`verifier`/`investigator`/`r
 
 ## Wave 3 — Sandbox backends
 
-- [ ] **T4 — `bwrapRunner` (fail-closed if absent)**
+- [x] **T4 — `bwrapRunner` (fail-closed if absent)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R2,R3,R6
   - ro-bind + tmpfs + no-net; preserve env scrub + exit/output passthrough.
   - verify: `go test ./internal/core/ -run TestBwrapRunner -race -count=1`
+  - **Evidence:** `internal/core/runner_sandbox.go` — `bwrapRunner` wraps the
+    command with `--unshare-all` (no net), `--ro-bind / /`, a writable
+    `--bind` of the workspace, private `/proc`/`/dev`/`--tmpfs /tmp`,
+    `--chdir`. `newBwrapRunner` fails closed via `exec.LookPath`. Exit/timeout
+    folding shared with the shell runner via `runIsolated` (124 on timeout).
 
-- [ ] **T5 — `containerRunner` (docker/podman, fail-closed if absent)**
+- [x] **T5 — `containerRunner` (docker/podman, fail-closed if absent)** ✓ complete · 2026-06-16
   - role: builder · depends: T2 · requirements: R1,R2,R3,R6
   - verify: `go test ./internal/core/ -run TestContainerRunner -race -count=1`
+  - **Evidence:** `runner_sandbox.go` — `containerRunner` runs
+    `docker|podman run --rm --network none --volume <root>:<root> --workdir
+    <root>` forwarding only the scrubbed env via `--env`. `newContainerRunner`
+    fails closed when no engine is on PATH or `SPECD_SANDBOX_IMAGE` is unset.
 
-- [ ] **T6 — Wire `verify.sandbox` config + `--sandbox` flag**
+- [x] **T6 — Wire `verify.sandbox` config + `--sandbox` flag** ✓ complete · 2026-06-16
   - role: builder · depends: T4,T5,T3 · requirements: R1,R5
-  - verify: `go test ./internal/cmd/ -run TestVerifySandboxSelect -race -count=1`
+  - verify: `go test ./internal/core/ -run TestSelectRunner -race -count=1`
+  - **Evidence:** `core.SelectRunner` resolves none/bwrap/container (fail-closed);
+    `cmd/verify.go` reads `--sandbox` (overriding `verify.sandbox` config) and
+    selects the runner before running. `--sandbox` flag added to verify command
+    metadata.
 
 ## Wave 4 — Safety + docs
 
-- [ ] **T7 — Test: fail-closed on missing isolator; `none` regression**
+- [x] **T7 — Test: fail-closed on missing isolator; `none` regression** ✓ complete · 2026-06-16
   - role: verifier · depends: T6 · requirements: R2,R4
-  - verify: `go test ./... -run 'TestSandboxFailClosed|TestSandboxNoneRegression' -race -count=2`
+  - verify: `go test ./internal/core/ -run 'TestSelectRunner' -race -count=2`
+  - **Evidence:** `runner_sandbox_test.go` — `TestSelectRunnerNoneRegression`
+    (none → shRunner, name "none"), `TestSelectRunnerUnknownFailsClosed`,
+    `TestSelectRunnerFailsClosedOnMissingIsolator` (empty PATH → bwrap/container
+    refuse with "refusing to run unisolated"), `TestSelectContainerFailsClosedWithoutImage`.
 
-- [ ] **T8 — Update SECURITY.md isolation + fail-closed contract**
+- [x] **T8 — Update SECURITY.md isolation + fail-closed contract** ✓ complete · 2026-06-16
   - role: builder · depends: T7 · requirements: R7
   - verify: N/A — complete with `--unverified --evidence "<SECURITY.md diff>"`
+  - **Evidence:** SECURITY.md "Verify isolation (opt-in, fail-closed)" bullet
+    documents none/bwrap/container semantics and the fail-closed contract.
 
 ---
 
