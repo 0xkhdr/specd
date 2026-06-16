@@ -689,8 +689,8 @@ func TestServe(t *testing.T) {
 	srv := httptest.NewServer(cmd.NewServeHandler(h.Root, "auth"))
 	defer srv.Close()
 
-	t.Run("GET / renders HTML identical to report", func(t *testing.T) {
-		resp, err := http.Get(srv.URL + "/")
+	t.Run("GET /s/<slug> renders HTML identical to report", func(t *testing.T) {
+		resp, err := http.Get(srv.URL + "/s/auth")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -743,7 +743,9 @@ func TestServeNotFound(t *testing.T) {
 	srv := httptest.NewServer(cmd.NewServeHandler(h.Root, "ghost"))
 	defer srv.Close()
 
-	for _, path := range []string{"/", "/api/report"} {
+	// A missing spec yields 404 on the report and JSON routes (the index at /
+	// always renders, listing zero specs).
+	for _, path := range []string{"/s/ghost", "/api/report"} {
 		resp, err := http.Get(srv.URL + path)
 		if err != nil {
 			t.Fatalf("GET %s: %v", path, err)

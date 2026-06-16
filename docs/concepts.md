@@ -97,7 +97,6 @@ specd/
 │   ├── mcp/                      # MCP JSON-RPC 2.0 stdio server (specd mcp)
 │   └── testharness/              # Deterministic test infrastructure
 │                                 # (sandbox repo, in-process runner, FakeClock)
-├── editors/                      # VS Code extension (live dashboard webview)
 ├── .github/actions/specd-pr/     # Composite GitHub Action (PR gates + summary)
 ├── scripts/                      # install.sh / uninstall.sh / stress.sh
 ├── docs/                         # This documentation

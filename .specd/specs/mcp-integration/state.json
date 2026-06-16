@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "revision": 1,
+  "spec": "mcp-integration",
+  "title": "MCP Deep-Dive \u0026 Real-World Integration",
+  "status": "requirements",
+  "phase": "analyze",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-16T22:49:49.989452276Z",
+  "updatedAt": "2026-06-16T22:49:49.989469095Z",
+  "tasks": {},
+  "blockers": []
+}

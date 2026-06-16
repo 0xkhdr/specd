@@ -59,3 +59,28 @@ func TestReportTelemetryRollup(t *testing.T) {
 		t.Error("telemetry section should be absent when no task carries telemetry")
 	}
 }
+
+// TestRenderHTMLLiveResponsive pins the browser-native dashboard contract: the
+// rendered report carries a responsive viewport meta and a live-update
+// EventSource client, and stays self-contained with no external asset fetches.
+func TestRenderHTMLLiveResponsive(t *testing.T) {
+	st := &State{Spec: "demo", Title: "Demo", Status: StatusExecuting, Tasks: map[string]TaskState{"T1": {ID: "T1"}}}
+	html := RenderHTML(ReportData{State: st}, 0)
+
+	for _, want := range []string{
+		`<meta name="viewport"`,
+		`new EventSource("/events")`,
+		`/api/report?spec=`,
+		`@media`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("RenderHTML output missing %q", want)
+		}
+	}
+	// Self-contained: no external asset fetches.
+	for _, bad := range []string{"http://", "https://", "//cdn", "src=\"//"} {
+		if strings.Contains(html, bad) {
+			t.Errorf("RenderHTML output has external reference %q", bad)
+		}
+	}
+}

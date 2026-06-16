@@ -1,0 +1,11 @@
+{
+  "dependsOn": {
+    "dashboard-web": [
+      "mcp-integration"
+    ],
+    "mcp-expansion": [
+      "mcp-integration"
+    ]
+  },
+  "version": 1
+}

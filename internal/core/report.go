@@ -275,10 +275,37 @@ func RenderHTML(d ReportData, autoRefreshSeconds int) string {
 		secHTML = append(secHTML, fmt.Sprintf("  <section>\n    <h2>%s %s</h2>\n    <pre>%s</pre>\n  </section>",
 			sec.Icon, esc(sec.Title), esc(sec.Body)))
 	}
+	// Live-update client: subscribe to the reused /events SSE stream and, on a
+	// frontier delta for this spec, re-fetch and re-render this report in place —
+	// no polling, no full-page reload, no LLM call. Self-contained inline script
+	// with no external asset fetch (R4, R6). Degrades to a static page where
+	// EventSource is unavailable.
+	liveScript := fmt.Sprintf(`  <script>
+  (function () {
+    var slug = %q;
+    if (typeof EventSource === "undefined") return;
+    var es = new EventSource("/events");
+    es.onmessage = function (e) {
+      var ev;
+      try { ev = JSON.parse(e.data); } catch (_) { return; }
+      if (ev.spec !== slug) return;
+      fetch("/api/report?spec=" + encodeURIComponent(slug))
+        .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+        .then(function () { return fetch("/s/" + encodeURIComponent(slug)); })
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, "text/html");
+          if (doc.body) document.body.innerHTML = doc.body.innerHTML;
+        })
+        .catch(function () {});
+    };
+  })();
+  </script>`, d.State.Spec)
 	return fmt.Sprintf(`<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">%s
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">%s
   <title>%s — %s</title>
   <style>
     body { font: 15px/1.55 system-ui, sans-serif; max-width: 920px; margin: 2rem auto; padding: 0 1rem; color: #c9d1d9; background: #0d1117; }
@@ -288,15 +315,21 @@ func RenderHTML(d ReportData, autoRefreshSeconds int) string {
     .meta { color: #8b949e; font-size: .9rem; }
     pre { white-space: pre-wrap; background: #161b22; padding: 1rem; border-radius: 6px; overflow-x: auto; }
     section { margin-bottom: 1rem; }
+    @media (max-width: 600px) {
+      body { margin: 1rem auto; font-size: 14px; }
+      h1 { font-size: 1.3rem; }
+      pre { padding: .75rem; }
+    }
   </style>
 </head>
 <body>
   <h1>%s <span class="badge">%s</span></h1>
   <p class="meta">Spec: <code>%s</code> · Status: %s · Phase: %s · Turn: %d</p>
 %s
+%s
 </body>
 </html>
 `, refresh, esc(d.State.Title), b.Label, b.Color, esc(d.State.Title), b.Label,
 		esc(d.State.Spec), esc(string(d.State.Status)), esc(string(d.State.Phase)), d.State.Turn,
-		strings.Join(secHTML, "\n"))
+		strings.Join(secHTML, "\n"), liveScript)
 }

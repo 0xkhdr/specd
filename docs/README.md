@@ -16,6 +16,7 @@ Pick the guide that matches what you are doing.
 | 📦 [Spec Packs](./spec-packs.md) | Share a steering/role baseline as a declarative, file-only scaffold bundle (`specd init --pack`). |
 | 📐 [Open Spec Format](./open-spec-format.md) | The versioned JSON Schema for specd's on-disk artifacts (`specd schema` / `specd validate --schema`). |
 | 🔌 [MCP Integration](./mcp-guide.md) | Guide for driving specd via Model Context Protocol clients (Cursor, Claude Desktop). |
+| 📊 [Dashboard](./dashboard.md) | Browser-native read-only dashboard served by the binary (`specd serve`) — routes, live SSE updates, network safety, VS Code migration. |
 | 🐙 [GitHub Action](./github-action.md) | Run the gates on a PR and upsert a deterministic summary comment (`specd report --pr-summary`). |
 | ⚠️ [Troubleshooting](./troubleshooting.md) | Resolve blocks, lock contention, CAS conflicts, and verify sandbox failures. |
 | 🛠️ [Contributor Guide](./contributor-guide.md) | Hack on `specd` itself — codebase walkthrough, the concurrency/durability model, parser internals, and extension recipes. |
