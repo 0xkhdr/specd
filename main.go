@@ -77,6 +77,12 @@ func run(argv []string) int {
 	case "--version", "-v", "version":
 		fmt.Printf("specd %s\n", version)
 		return core.ExitOK
+
+	case "mcp":
+		// The MCP server is a long-lived stdio transport, not a spec-scoped
+		// command. Handle it here (like help/version) so it bypasses the --json
+		// bridging below and is never surfaced as one of its own tools.
+		return cmd.RunMCP(cli.ParseArgs(rest))
 	}
 
 	// Enable JSON mode if --json appears anywhere after the command, too.

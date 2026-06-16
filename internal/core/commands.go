@@ -203,6 +203,16 @@ var Commands = []CommandMeta{
 		Examples: []string{"specd version"},
 	},
 	{
+		Command: "mcp", Category: "meta",
+		Description:     "Run the MCP stdio server",
+		Usage:           "specd mcp [--root <path>]",
+		Synopsis:        "specd mcp [--root <path>]",
+		LongDescription: "Starts a Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio, exposing every read-safe and state-mutating specd command as an MCP tool. A thin transport over the existing handlers — stdlib-only, no network, no LLM calls.",
+		Flags:           []FlagMeta{{Name: "root", Type: "string", Description: "Resolve specs against this project root"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success (stream closed)"}, {1, "Server error"}, {2, "Usage error"}},
+		Examples:        []string{"specd mcp", "specd mcp --root /path/to/project"},
+	},
+	{
 		Command: "help", Category: "meta",
 		Description: "Show detailed help for a command",
 		Usage:       "specd help [command]", Synopsis: "specd help [command]",
