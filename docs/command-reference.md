@@ -60,27 +60,27 @@ See [Validation Gates](./validation-gates.md) for what each `check` gate enforce
 
 | Command | Description | Exit codes |
 |---|---|---|
-| `specd schema [--version <v>]` | Emit the embedded, versioned [open spec format](./spec-format.md) JSON Schema to stdout. Needs no `.specd/` root | `0` ok, `1` unknown version, `2` usage |
+| `specd schema [--version <v>]` | Emit the embedded, versioned [open spec format](./open-spec-format.md) JSON Schema to stdout. Needs no `.specd/` root | `0` ok, `1` unknown version, `2` usage |
 | `specd validate <slug> --schema [--version <v>] [--json]` | Validate a spec's `state.json` against the embedded JSON Schema (structural/format conformance, independent of the semantic gates). Read-only | `0` conformant, `1` violations, `2` usage, `3` not found |
 | `specd replay <slug>` | Reconstruct a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from on-disk audit data. Text, or typed JSON array under `SPECD_JSON` | `0` ok, `2` usage, `3` not found |
-| `specd diff <slug> --from <ref> [--to <ref>]` | Show how a spec's artifacts changed between two git refs — a read-only `git diff --name-status` scoped to the spec dir. `--to` defaults to the working tree | `0` ok, `1` git diff failed, `2` usage, `3` not found |
+| `specd diff <slug> --from <ref> [--to <ref>] [--json]` | Show how a spec's artifacts changed between two git refs — a read-only `git diff --name-status` scoped to the spec dir. `--to` defaults to the working tree. Under `--json`, returns structured file-diff lists. | `0` ok, `1` git diff failed, `2` usage, `3` not found |
 
 ## Record commands
 
-| Command | Description |
-|---|---|
-| `specd decision <slug> "..." [--supersedes <id>]` | Append an ADR to `decisions.md` |
-| `specd midreq <slug> "..." --impact <low\|medium\|high\|critical> [--interpretation "..."] [--changes "..."]` | Log a mid-flight requirement update |
-| `specd memory <slug> add --key "..." --pattern "..." --body "..." --source "T1" --criticality important [--related "..."] [--force]` | Record a learning |
-| `specd memory <slug> promote --key "..."` | Promote a learning to global steering |
+| Command | Description | Exit codes |
+|---|---|---|
+| `specd decision <slug> "..." [--supersedes <id>]` | Append an ADR to `decisions.md`. `--supersedes` deprecates and references an existing ADR ID. | `0` ok, `2` usage, `3` not found |
+| `specd midreq <slug> "..." --impact <low\|medium\|high\|critical> [--interpretation "..."] [--changes "..."]` | Log a mid-flight requirement update. `--interpretation` specifies the analyzed feedback; `--changes` lists implementation updates. | `0` ok, `2` usage, `3` not found |
+| `specd memory <slug> add --key "..." --pattern "..." --body "..." --source "T1" --criticality important [--related "..."] [--force]` | Record a learning. `--criticality` specifies severity (`important`, `critical`); `--source` cites task/log source; `--pattern` matches recurrence. | `0` ok, `2` usage, `3` not found |
+| `specd memory <slug> promote --key "..."` | Promote a learning to global steering. | `0` ok, `2` usage, `3` not found |
 
 ## Program commands
 
-| Command | Description |
-|---|---|
-| `specd program [status] [--json]` | Render the spec-level DAG + runnable frontier (JSON for orchestrators) |
-| `specd program link <spec> --on <dep>` | Declare an inter-spec dependency |
-| `specd program unlink <spec> --on <dep>` | Remove an inter-spec dependency |
+| Command | Description | Exit codes |
+|---|---|---|
+| `specd program [status] [--json]` | Render the spec-level DAG + runnable frontier (JSON for orchestrators) | `0` ok, `2` usage |
+| `specd program link <spec> --on <dep>` | Declare an inter-spec dependency | `0` ok, `2` usage |
+| `specd program unlink <spec> --on <dep>` | Remove an inter-spec dependency | `0` ok, `2` usage |
 
 Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 
@@ -112,7 +112,7 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 | `SPECD_LOCK_TIMEOUT_MS` | `5000` | Max wait for a spec advisory lock |
 | `SPECD_LOCK_STALE_MS` | `30000` | Age at which an orphaned `.lock` file is auto-reclaimed |
 | `SPECD_VERIFY_TIMEOUT_MS` | `600000` | Per-run timeout for `specd verify` |
-| `SPECD_VERIFY_SHELL` | `sh -c` | Shell used to run each `verify:` line and custom-gate command |
+| `SPECD_VERIFY_SHELL` | `sh` | Shell executable used to run each `verify:` line and custom-gate command (always invoked as `<shell> -c "<command>"`). On Windows, `sh` or an equivalent bash-like shell must be in the `PATH` (e.g. from Git for Windows); native `cmd.exe` is not supported due to the hardcoded `-c` argument. |
 | `SPECD_WATCH_INTERVAL_MS` | `1000` | Poll interval for `specd watch` |
 | `SPECD_CUSTOM_GATE_TIMEOUT_MS` | — | Per-gate wall-clock budget for [custom gates](./custom-gates.md) |
 | `SPECD_SANDBOX_IMAGE` | — | Container image for `--sandbox container` ([verify sandboxing](../SECURITY.md)) |

@@ -42,9 +42,8 @@ specd update            # self-update to the latest release
 specd update --force
 ```
 
-### Requirements
-
-- Linux or macOS (amd64 / arm64)
+- Linux, macOS, or Windows (amd64 / arm64)
+  - *Windows note*: `specd` runs on Windows, except for `specd update` which is blocked by OS file locks (reinstall manually). Verification commands also require `sh` or `bash` (e.g. from Git for Windows) in the `PATH` since verify execution uses `-c`.
 - Git (optional — tarball fallback available)
 - **Zero runtime dependencies** — single binary
 

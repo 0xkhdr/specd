@@ -65,7 +65,8 @@ specd update --force
 ```
 
 ### Requirements
-- Linux or macOS (amd64 / arm64)
+- Linux, macOS, or Windows (amd64 / arm64)
+  - *Windows note*: `specd` is fully compatible with Windows, except that the in-place self-updater (`specd update`) is locked by the OS. Windows users should reinstall manually. Additionally, task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`.
 - Git (optional — tarball fallback available)
 
 ## For Agents
@@ -138,7 +139,7 @@ specd init
     ├── agent-integration.md   # Steering, roles, subagent modes, context, programs
     ├── custom-gates.md        # External custom-gate subprocess contract
     ├── spec-packs.md          # Declarative scaffold bundles (specd init --pack)
-    ├── spec-format.md         # The versioned open spec format JSON Schema
+    ├── open-spec-format.md    # The versioned open spec format JSON Schema
     ├── github-action.md       # PR gates + deterministic summary comment
     └── contributor-guide.md   # CLI architecture, concurrency model, extension recipes
 ```
@@ -149,7 +150,7 @@ specd init
 - 📑 [Command Reference](docs/command-reference.md) — Commands, flags, exit codes, environment variables, and `config.json`.
 - ✅ [Validation Gates](docs/validation-gates.md) — The 7 core gates plus the opt-in acceptance, scope, and custom gates.
 - 🤖 [Agent Integration Guide](docs/agent-integration.md) — Roles, steering files, subagent modes, context engineering, cross-spec programs.
-- 🧩 [Custom Gates](docs/custom-gates.md) · 📦 [Spec Packs](docs/spec-packs.md) · 📐 [Open Spec Format](docs/spec-format.md) · 🐙 [GitHub Action](docs/github-action.md)
+- 🧩 [Custom Gates](docs/custom-gates.md) · 📦 [Spec Packs](docs/spec-packs.md) · 📐 [Open Spec Format](docs/open-spec-format.md) · 🐙 [GitHub Action](docs/github-action.md)
 - 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), parser internals, adding commands/gates.
 
 ---

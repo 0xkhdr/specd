@@ -113,6 +113,7 @@ every `verify:` line and every env var as hostile until validated.
   to an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, and `SPECD_*`),
   dropping inherited secrets; commands containing a NUL byte are rejected; the
   exact command and cwd are printed before execution for audit.
+  *Note on Custom Gates*: Custom gates configured in `.specd/config.json` also run as external commands under the verify shell, but **do not run within the verify sandbox (bubblewrap or containers)**. Ensure custom gate commands are trusted before running `specd check`.
 - **Path inputs.** Spec slugs are validated against `^[a-z0-9][a-z0-9-]*$`
   (`internal/core/slug.go`), so `..`, `/`, `\`, and leading `-` are rejected —
   no path traversal.
