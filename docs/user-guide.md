@@ -280,7 +280,7 @@ specd next my-feature
 
 # 3. Run verification — specd runs the task's own verify: command
 specd verify my-feature T1
-#    Records: exit code, output tail, duration, git HEAD
+#    Records: exit code, output tail, duration, git HEAD, changed files, optional coverage
 
 # 4. Mark complete — only allowed if the verify record passed
 specd task my-feature T1 --status complete
@@ -301,12 +301,53 @@ specd task my-feature T1 --status complete
   `verified: false`. The `specd verify` process itself still exits `1` (failed
   verification).
 
+### Sandboxed verify & rollback
+
+`tasks.md` is agent-authored input, so a `verify:` line is untrusted code. Two
+opt-in safeguards harden a run (defaults are unchanged):
+
+```bash
+# Isolate the run — bwrap or container; fails closed if the isolator is absent
+specd verify my-feature T1 --sandbox bwrap
+
+# Stash the working tree (recoverable) if verify exits non-zero, instead of
+# leaving it dirty. Never uses `reset --hard`; a passing verify never touches the tree.
+specd verify my-feature T1 --revert-on-fail
+```
+
+Set a project-wide default with `verify.sandbox` in `.specd/config.json`. See
+[SECURITY.md](../SECURITY.md) for the isolation and fail-closed contract.
+
+### Telemetry annotations
+
+Annotate a completion with token/cost figures from your agent runtime. They are
+**stored, never computed** — specd does no pricing math — and roll up per
+wave/spec in `specd report`:
+
+```bash
+specd task my-feature T1 --status complete --evidence "…" --tokens 12000 --cost 0.42
+```
+
 ### Blocking a task
 
 ```bash
 specd task my-feature T1 --status blocked \
   --reason "Underlying database client lacks connection pooling"
 ```
+
+### Inspecting & streaming progress
+
+Beyond `status` / `report`, these read-only commands surface live and historical
+state (see the [Command Reference](./command-reference.md)):
+
+| Command | Use |
+|---|---|
+| `specd serve <slug>` | Live read-only HTML dashboard + `GET /api/report` JSON |
+| `specd watch [--once] [--sse <addr>] [--webhook <url>]` | Stream a `FrontierEvent` on every runnable-set change |
+| `specd replay <slug>` | Deterministic audit timeline from on-disk records |
+| `specd diff <slug> --from <ref> [--to <ref>]` | Diff a spec's artifacts across git refs |
+| `specd schema` · `specd validate <slug> --schema` | Emit / check against the open-spec-format JSON Schema |
+| `specd mcp` | Drive the whole workflow from an MCP client |
 
 ---
 
