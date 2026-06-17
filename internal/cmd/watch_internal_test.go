@@ -108,10 +108,15 @@ func TestWatchWebhook(t *testing.T) {
 	mu.Unlock()
 
 	// Non-blocking against a hung endpoint.
+	hungDone := make(chan struct{})
 	hung := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		<-r.Context().Done()
+		select {
+		case <-hungDone:
+		case <-r.Context().Done():
+		}
 	}))
 	defer hung.Close()
+	defer close(hungDone)
 	slow := newWebhookSink(hung.URL)
 	defer slow.abort() // immediate shutdown: never drains against the hung endpoint
 	done := make(chan struct{})
