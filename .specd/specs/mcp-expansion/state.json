@@ -1,14 +1,264 @@
 {
   "schemaVersion": 4,
-  "revision": 1,
+  "revision": 19,
   "spec": "mcp-expansion",
   "title": "MCP Expansion for External Tools",
-  "status": "requirements",
-  "phase": "analyze",
+  "status": "complete",
+  "phase": "reflect",
   "gate": "none",
   "turn": 0,
   "createdAt": "2026-06-16T22:49:50.001132019Z",
-  "updatedAt": "2026-06-16T22:49:50.001149533Z",
-  "tasks": {},
-  "blockers": []
+  "updatedAt": "2026-06-16T23:23:48.337517157Z",
+  "tasks": {
+    "T1": {
+      "id": "T1",
+      "title": "Discover antigravity CLI MCP client capabilities",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        1
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:19:42.064611943Z",
+      "finishedAt": "2026-06-16T23:19:42.064611943Z",
+      "evidence": "docs/mcp-hosts/antigravity.md records stdio=true,http=true,sse=true; configPath ~/.gemini/config/mcp_config.json; mcpServers schema (command/args/env/serverUrl/oauth); 4 dated sources incl Medium 2026-05-24. R1.3: stdio supported, no adapter required for antigravity.",
+      "telemetry": {}
+    },
+    "T2": {
+      "id": "T2",
+      "title": "Discover Codex CLI MCP capabilities",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        2
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:20:01.023957111Z",
+      "finishedAt": "2026-06-16T23:20:01.023957111Z",
+      "evidence": "docs/mcp-hosts/codex.md: native MCP yes; stdio=true,http(Streamable)=true,sse=false; configPath ~/.codex/config.toml; [mcp_servers.\u003cname\u003e] syntax (command/args/env | url/bearer_token_env_var); 3 sources incl official developers.openai.com/codex/mcp. R2.3: stdio supported, no adapter required for Codex.",
+      "telemetry": {}
+    },
+    "T3": {
+      "id": "T3",
+      "title": "Record the integration-path decision per host",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [
+        "T1",
+        "T2"
+      ],
+      "requirements": [
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:20:19.205601079Z",
+      "finishedAt": "2026-06-16T23:20:19.205601079Z",
+      "evidence": "ADR-001 in decisions.md: both hosts → declarative stdio config (R3.1); HTTP adapter built as additive future infra but no host config points at it. Grounded in T1/T2 capability records.",
+      "telemetry": {}
+    },
+    "T4": {
+      "id": "T4",
+      "title": "Implement the opt-in HTTP/SSE transport adapter",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T3"
+      ],
+      "requirements": [
+        3,
+        4,
+        7
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:21:33.350035539Z",
+      "finishedAt": "2026-06-16T23:21:33.350035539Z",
+      "evidence": "ServeHTTP in transport_http.go: POST /rpc + GET|POST /sse route via dispatchOnce→conn.handle→route (same dispatch as stdio); loopbackAddr defaults to 127.0.0.1 (R4.2); mutex serialises calls (capture swaps global stdout); --http flag in cmd/mcp.go, absent=byte-identical stdio (R4.3); stdlib-only. verify go build+vet exit 0.",
+      "verification": {
+        "command": "go build ./... \u0026\u0026 go vet ./internal/mcp/...",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 2344,
+        "ranAt": "2026-06-16T23:21:24.104177739Z",
+        "gitHead": "0a1b22ffcd400642aa5041a0a5b414c6d02486b0",
+        "changedFiles": [
+          ".specd/specs/mcp-expansion/.lock",
+          ".specd/specs/mcp-expansion/decisions.md",
+          ".specd/specs/mcp-expansion/state.json",
+          ".specd/specs/mcp-expansion/tasks.md",
+          "docs/mcp-hosts/antigravity.md",
+          "docs/mcp-hosts/codex.md",
+          "internal/cmd/mcp.go",
+          "internal/mcp/transport_http.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 2358,
+        "retries": 1
+      }
+    },
+    "T5": {
+      "id": "T5",
+      "title": "Author declarative per-host configs",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T4"
+      ],
+      "requirements": [
+        5
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:22:00.999298117Z",
+      "finishedAt": "2026-06-16T23:22:00.999298117Z",
+      "evidence": "antigravity.config.json (mcpServers.specd, stdio command/args/env) parses via json.load exit 0; codex.config.toml ([mcp_servers.specd] stdio) parses via tomllib. Both stdio per ADR-001, no secrets, referenced from antigravity.md/codex.md.",
+      "verification": {
+        "command": "python3 -c \"import json;json.load(open('docs/mcp-hosts/antigravity.config.json'))\"",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 45,
+        "ranAt": "2026-06-16T23:21:55.178335316Z",
+        "gitHead": "0a1b22ffcd400642aa5041a0a5b414c6d02486b0",
+        "changedFiles": [
+          ".specd/specs/mcp-expansion/.lock",
+          ".specd/specs/mcp-expansion/decisions.md",
+          ".specd/specs/mcp-expansion/state.json",
+          ".specd/specs/mcp-expansion/tasks.md",
+          "docs/mcp-hosts/antigravity.config.json",
+          "docs/mcp-hosts/antigravity.md",
+          "docs/mcp-hosts/codex.config.toml",
+          "docs/mcp-hosts/codex.md",
+          "internal/cmd/mcp.go",
+          "internal/mcp/transport_http.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 57,
+        "retries": 1
+      }
+    },
+    "T6": {
+      "id": "T6",
+      "title": "Add sandboxed transport-parity integration test",
+      "role": "builder",
+      "wave": 3,
+      "depends": [
+        "T5"
+      ],
+      "requirements": [
+        6,
+        7
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:23:09.799681709Z",
+      "finishedAt": "2026-06-16T23:23:09.799681709Z",
+      "evidence": "transport_http_test.go: TestHTTPTransportParity asserts HTTP /rpc tools/list==stdio, tools/call specd_status==stdio, /sse frame==stdio (R6.2); TestHTTPLoopbackDefault asserts bare port binds 127.0.0.1 (R4.2); uses testharness fixture, stdio ref gathered before HTTP server starts (avoids os.Stdout swap race). go test -race -count=1 exit 0.",
+      "verification": {
+        "command": "go test ./internal/mcp/... -race -count=1",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/mcp\t1.129s\n",
+        "stderrTail": "",
+        "durationMs": 3359,
+        "ranAt": "2026-06-16T23:22:59.896270494Z",
+        "gitHead": "0a1b22ffcd400642aa5041a0a5b414c6d02486b0",
+        "changedFiles": [
+          ".specd/specs/mcp-expansion/.lock",
+          ".specd/specs/mcp-expansion/decisions.md",
+          ".specd/specs/mcp-expansion/state.json",
+          ".specd/specs/mcp-expansion/tasks.md",
+          "docs/mcp-hosts/antigravity.config.json",
+          "docs/mcp-hosts/antigravity.md",
+          "docs/mcp-hosts/codex.config.toml",
+          "docs/mcp-hosts/codex.md",
+          "internal/cmd/mcp.go",
+          "internal/mcp/transport_http.go",
+          "internal/mcp/transport_http_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 3374,
+        "retries": 1
+      }
+    },
+    "T7": {
+      "id": "T7",
+      "title": "Final gate review of the expansion spec",
+      "role": "verifier",
+      "wave": 3,
+      "depends": [
+        "T6"
+      ],
+      "requirements": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-16T23:23:25.039193963Z",
+      "finishedAt": "2026-06-16T23:23:25.039193963Z",
+      "evidence": "check green + mcp suite race-clean (exit 0). Req map: R1→antigravity.md, R2→codex.md, R3→ADR-001+configs, R4→transport_http.go(ServeHTTP/--http), R5→antigravity.config.json+codex.config.toml, R6→transport_http_test.go(parity,-race), R7→serialise mutex+preserved capture panic-recovery. No behaviour changed.",
+      "verification": {
+        "command": "./specd check mcp-expansion \u0026\u0026 go test ./internal/mcp/... -race -count=1",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "✓ check passed — all gates green for 'mcp-expansion'\nok  \tgithub.com/0xkhdr/specd/internal/mcp\t1.131s\n",
+        "stderrTail": "",
+        "durationMs": 1844,
+        "ranAt": "2026-06-16T23:23:15.471687161Z",
+        "gitHead": "0a1b22ffcd400642aa5041a0a5b414c6d02486b0",
+        "changedFiles": [
+          ".specd/specs/mcp-expansion/.lock",
+          ".specd/specs/mcp-expansion/decisions.md",
+          ".specd/specs/mcp-expansion/state.json",
+          ".specd/specs/mcp-expansion/tasks.md",
+          "docs/mcp-hosts/antigravity.config.json",
+          "docs/mcp-hosts/antigravity.md",
+          "docs/mcp-hosts/codex.config.toml",
+          "docs/mcp-hosts/codex.md",
+          "internal/cmd/mcp.go",
+          "internal/mcp/transport_http.go",
+          "internal/mcp/transport_http_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 1856,
+        "retries": 1
+      }
+    }
+  },
+  "blockers": [],
+  "acceptance": {
+    "4.3": {
+      "requirement": 4,
+      "criterion": 3,
+      "status": "pass",
+      "evidence": "go build ./... exit 0; --http unset path unchanged, transport_http_test confirms stdio parity",
+      "ranAt": "2026-06-16T23:23:44.019197263Z"
+    },
+    "6.2": {
+      "requirement": 6,
+      "criterion": 2,
+      "status": "pass",
+      "evidence": "TestHTTPTransportParity: HTTP tools/list reflect.DeepEqual stdio tools/list; go test -race exit 0",
+      "ranAt": "2026-06-16T23:23:44.032615111Z"
+    }
+  }
 }

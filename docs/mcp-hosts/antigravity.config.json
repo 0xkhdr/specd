@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "specd": {
+      "command": "specd",
+      "args": ["mcp", "--root", "/absolute/path/to/your/project"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "DISABLE_CONSOLE_OUTPUT": "true"
+      }
+    }
+  }
+}

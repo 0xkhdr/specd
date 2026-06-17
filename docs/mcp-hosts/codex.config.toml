@@ -1,0 +1,7 @@
+# specd as an MCP server for OpenAI Codex CLI.
+# Merge into ~/.codex/config.toml (or a trusted project's .codex/config.toml).
+# stdio transport, per decision ADR-001 (no secrets; no HTTP adapter needed).
+
+[mcp_servers.specd]
+command = "specd"
+args = ["mcp", "--root", "/absolute/path/to/your/project"]

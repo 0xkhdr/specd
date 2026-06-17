@@ -14,3 +14,10 @@ Only generalizable patterns, never raw observations. Promote to project steering
 **Criticality:** important
 **Related:** [[other-key]]
 -->
+
+## serialise-stdout-swap
+**Pattern:** Any transport reusing mcp.callTool must serialise calls because capture() swaps process-global os.Stdout
+**Detail:** callTool's capture() replaces os.Stdout/os.Stderr for the whole process during a tool call. A second front door (HTTP adapter) must hold a mutex around dispatch, and parity tests must gather the stdio reference BEFORE starting a concurrent transport server — else -race flags a data race on os.Stdout.
+**Source:** Turn 1, Task T4/T6, builder
+**Criticality:** important
+**Related:** —
