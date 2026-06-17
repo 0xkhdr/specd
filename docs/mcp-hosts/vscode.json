@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "servers": {
+      "specd": {
+        "type": "stdio",
+        "command": "specd",
+        "args": ["mcp", "--root", "${workspaceFolder}"]
+      }
+    }
+  }
+}
