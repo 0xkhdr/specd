@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "specd": {
+      "command": "/var/www/html/rai/up/specd/specd",
+      "args": [
+        "mcp",
+        "--root",
+        "/var/www/html/rai/up/specd"
+      ],
+      "env": {
+        "MCP_MODE": "stdio",
+        "DISABLE_CONSOLE_OUTPUT": "true"
+      }
+    }
+  }
+}
