@@ -1,14 +1,174 @@
 {
   "schemaVersion": 4,
-  "revision": 1,
+  "revision": 14,
   "spec": "regression-agent-harness-value",
   "title": "Regression: Agent-Harness Value (context engineering, perf, market-gap)",
-  "status": "requirements",
-  "phase": "analyze",
+  "status": "complete",
+  "phase": "reflect",
   "gate": "none",
   "turn": 0,
   "createdAt": "2026-06-17T15:46:18.394654003Z",
-  "updatedAt": "2026-06-17T15:46:18.394686687Z",
-  "tasks": {},
+  "updatedAt": "2026-06-17T17:57:48.690515095Z",
+  "tasks": {
+    "T1": {
+      "id": "T1",
+      "title": "Define budgets and baselines",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        1,
+        2
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:51:47.634446082Z",
+      "finishedAt": "2026-06-17T17:51:47.634446082Z",
+      "evidence": "docs/agent-harness-baselines.md: budget table (context 898→2048B, next 661→1536B, dispatch 1829→4096B, no ANSI) + perf baseline (status 7.5ms, next 7.1ms, program 8.7ms, budget 50ms) measured on .specd sample repo via /tmp/specd-bench. Token-proxy decision recorded ADR-001. verify=N/A (investigator artifact task).",
+      "telemetry": {}
+    },
+    "T2": {
+      "id": "T2",
+      "title": "Context-efficiency regression tests",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        1
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:52:57.982379527Z",
+      "finishedAt": "2026-06-17T17:52:57.982379527Z",
+      "evidence": "internal/cmd/agent_budget_test.go: TestAgentBriefingBudgets (context/next/dispatch --json within byte budgets, prints measured size on fail), TestAgentBriefingNoDecoration (no ANSI in --json). verify go test -run 'Context|Budget|Brief' → exit 0.",
+      "verification": {
+        "command": "go test ./internal/cmd/ ./internal/core/ -run 'Context|Budget|Brief'",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/cmd\t0.043s\nok  \tgithub.com/0xkhdr/specd/internal/core\t0.005s\n",
+        "stderrTail": "",
+        "durationMs": 878,
+        "ranAt": "2026-06-17T17:52:51.630274639Z",
+        "gitHead": "fa9cb8e629afe0bfa2b6e1c5e519321ac6a9fb87",
+        "changedFiles": [
+          ".specd/specs/regression-agent-harness-value/.lock",
+          ".specd/specs/regression-agent-harness-value/decisions.md",
+          ".specd/specs/regression-agent-harness-value/state.json",
+          ".specd/specs/regression-agent-harness-value/tasks.md",
+          "docs/agent-harness-baselines.md",
+          "internal/cmd/agent_budget_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 890,
+        "retries": 1
+      }
+    },
+    "T3": {
+      "id": "T3",
+      "title": "Performance benchmarks + determinism goldens",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        2
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:54:22.382911703Z",
+      "finishedAt": "2026-06-17T17:54:22.382911703Z",
+      "evidence": "internal/core/agent_perf_test.go: TestDeterminismRenders (WaveGraph/NextSummary/FrontierOf byte-identical on double-call, R2.2) + BenchmarkWaveGraph (render), BenchmarkFrontierOf (frontier); dag/frontier already have BenchmarkDetectCycle/NextRunnable (R2.3). Latency baseline stored in docs/agent-harness-baselines.md; benchmarks track relative regression (R2.1). verify go test -bench . -run Determinism → exit 0.",
+      "verification": {
+        "command": "go test ./internal/core/ -bench . -run Determinism",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "goos: linux\ngoarch: amd64\npkg: github.com/0xkhdr/specd/internal/core\ncpu: 12th Gen Intel(R) Core(TM) i7-1255U\nBenchmarkWaveGraph-12       \t    1502\t    782751 ns/op\t  599112 B/op\t    1503 allocs/op\nBenchmarkFrontierOf-12      \t   31015\t     40436 ns/op\t   35472 B/op\t       7 allocs/op\nBenchmarkDetectCycle-12     \t   18505\t     67611 ns/op\t   28384 B/op\t       7 allocs/op\nBenchmarkNextRunnable-12    \t   30519\t     41072 ns/op\t   48960 B/op\t       6 allocs/op\nPASS\nok  \tgithub.com/0xkhdr/specd/internal/core\t6.495s\n",
+        "stderrTail": "",
+        "durationMs": 7071,
+        "ranAt": "2026-06-17T17:54:09.412074496Z",
+        "gitHead": "fa9cb8e629afe0bfa2b6e1c5e519321ac6a9fb87",
+        "changedFiles": [
+          ".specd/specs/regression-agent-harness-value/.lock",
+          ".specd/specs/regression-agent-harness-value/decisions.md",
+          ".specd/specs/regression-agent-harness-value/state.json",
+          ".specd/specs/regression-agent-harness-value/tasks.md",
+          "docs/agent-harness-baselines.md",
+          "internal/cmd/agent_budget_test.go",
+          "internal/core/agent_perf_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 7083,
+        "retries": 1
+      }
+    },
+    "T4": {
+      "id": "T4",
+      "title": "Compatibility matrix verification",
+      "role": "verifier",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:56:05.660377699Z",
+      "finishedAt": "2026-06-17T17:56:05.660377699Z",
+      "evidence": "internal/mcp/host_compat_test.go: TestHostCompatibilityMatrix asserts registry↔docs parity (5 hosts), each --config snippet invokes `specd mcp` with root substituted, and stdio specd_status tools/call returns working content. docs/agent-harness-compat.md publishes transport×host matrix with explicit unsupported/n/a cells + known limitations. verify go test ./internal/mcp/ -run 'Host|Transport' → exit 0.",
+      "verification": {
+        "command": "go test ./internal/mcp/ -run 'Host|Transport'",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/mcp\t0.068s\n",
+        "stderrTail": "",
+        "durationMs": 600,
+        "ranAt": "2026-06-17T17:55:59.691415875Z",
+        "gitHead": "fa9cb8e629afe0bfa2b6e1c5e519321ac6a9fb87",
+        "changedFiles": [
+          ".specd/specs/regression-agent-harness-value/.lock",
+          ".specd/specs/regression-agent-harness-value/decisions.md",
+          ".specd/specs/regression-agent-harness-value/state.json",
+          ".specd/specs/regression-agent-harness-value/tasks.md",
+          "docs/agent-harness-baselines.md",
+          "docs/agent-harness-compat.md",
+          "internal/cmd/agent_budget_test.go",
+          "internal/core/agent_perf_test.go",
+          "internal/mcp/host_compat_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 613,
+        "retries": 1
+      }
+    },
+    "T5": {
+      "id": "T5",
+      "title": "Market-gap analysis + prioritized improvement ledger",
+      "role": "reviewer",
+      "wave": 3,
+      "depends": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "requirements": [
+        4
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:57:36.385766187Z",
+      "finishedAt": "2026-06-17T17:57:36.385766187Z",
+      "evidence": "docs/agent-harness-gap-analysis.md: field positioning + 4 gaps (each evidence+severity+remedy+owner) + ranked improvement ledger by market-value impact. Gaps recorded ADR-002..005; GAP-1 also memory 'agent-output-byte-budgets'. R4.3 judgment: no blocker-critical gap (GAP-2 has documented workaround → follow-up). Full suite go test ./... green. verify=N/A (reviewer artifact task).",
+      "telemetry": {}
+    }
+  },
   "blockers": []
 }
