@@ -261,13 +261,16 @@ var Commands = []CommandMeta{
 	},
 	{
 		Command: "mcp", Category: "meta",
-		Description:     "Run the MCP stdio server",
-		Usage:           "specd mcp [--root <path>]",
-		Synopsis:        "specd mcp [--root <path>]",
-		LongDescription: "Starts a Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio, exposing every read-safe and state-mutating specd command as an MCP tool. A thin transport over the existing handlers — stdlib-only, no network, no LLM calls.",
-		Flags:           []FlagMeta{{Name: "root", Type: "string", Description: "Resolve specs against this project root"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success (stream closed)"}, {1, "Server error"}, {2, "Usage error"}},
-		Examples:        []string{"specd mcp", "specd mcp --root /path/to/project"},
+		Description:     "Run the MCP stdio server (or print a host config snippet)",
+		Usage:           "specd mcp [--root <path>] [--config <host>]",
+		Synopsis:        "specd mcp [--root <path>] [--config <host>]",
+		LongDescription: "Starts a Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio, exposing every read-safe and state-mutating specd command as an MCP tool. A thin transport over the existing handlers — stdlib-only, no network, no LLM calls.\n\n--config <host> prints a ready-to-paste config snippet for the named MCP host and exits without starting the server. Supported hosts: claude-desktop, cursor, vscode, antigravity, codex. Combine with --root to substitute your project path into the snippet.",
+		Flags: []FlagMeta{
+			{Name: "root", Type: "string", Description: "Resolve specs against this project root (also substituted into --config output)"},
+			{Name: "config", Type: "string", Description: "Print ready-to-paste MCP config for a host (claude-desktop | cursor | vscode | antigravity | codex) and exit"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success (stream closed or config printed)"}, {1, "Server error"}, {2, "Usage error"}},
+		Examples:  []string{"specd mcp", "specd mcp --root /path/to/project", "specd mcp --config cursor", "specd mcp --config codex --root /path/to/project"},
 	},
 	{
 		Command: "help", Category: "meta",

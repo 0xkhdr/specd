@@ -185,6 +185,18 @@ The following tools are exposed automatically. Refer to the
 
 ## Host Configuration
 
+`specd mcp --config <host>` prints a ready-to-paste config snippet for any supported host and
+exits without starting the server. Combine with `--root` to substitute your project path:
+
+```bash
+specd mcp --config cursor
+specd mcp --config claude-desktop --root /path/to/your/project
+```
+
+Supported values: `claude-desktop`, `cursor`, `vscode`, `antigravity`, `codex`.
+
+---
+
 ### Claude Desktop
 
 Add the following block to your Claude Desktop configuration file:
@@ -259,7 +271,7 @@ locations in priority order:
   "mcpServers": {
     "specd": {
       "command": "specd",
-      "args": ["mcp", "--root", "/absolute/path/to/your/project"],
+      "args": ["mcp", "--root", "/path/to/your/project"],
       "env": {
         "MCP_MODE": "stdio",
         "DISABLE_CONSOLE_OUTPUT": "true"
@@ -270,10 +282,28 @@ locations in priority order:
 ```
 
 The `MCP_MODE` and `DISABLE_CONSOLE_OUTPUT` env vars prevent Antigravity's debug output from
-leaking onto stdout and corrupting the JSON-RPC stream. Replace `/absolute/path/to/your/project`
+leaking onto stdout and corrupting the JSON-RPC stream. Replace `/path/to/your/project`
 with the absolute path to your specd project root.
 
 For a ready-to-paste config file see [`docs/mcp-hosts/antigravity.config.json`](mcp-hosts/antigravity.config.json).
+
+### OpenAI Codex CLI
+
+Merge the following into your Codex config file:
+- **Global:** `~/.codex/config.toml`
+- **Project-scoped (trusted):** `.codex/config.toml`
+
+```toml
+[mcp_servers.specd]
+command = "specd"
+args = ["mcp", "--root", "/path/to/your/project"]
+```
+
+Replace `/path/to/your/project` with the absolute path to your specd project root.
+Codex natively supports stdio MCP servers — no extra environment variables or transport
+adapters are needed.
+
+For a ready-to-paste config file see [`docs/mcp-hosts/codex.config.toml`](mcp-hosts/codex.config.toml).
 
 ---
 
