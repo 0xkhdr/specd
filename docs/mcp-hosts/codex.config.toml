@@ -1,7 +1,0 @@
-# specd MCP server config for OpenAI Codex CLI.
-# Merge into ~/.codex/config.toml (or a trusted project's .codex/config.toml).
-# Replace the --root path with your project's absolute path.
-
-[mcp_servers.specd]
-command = "specd"
-args = ["mcp", "--root", "/path/to/your/project"]

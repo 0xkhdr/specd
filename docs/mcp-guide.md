@@ -214,8 +214,8 @@ Add the following block to your Claude Desktop configuration file:
 }
 ```
 
-Replace `/path/to/your/project` with the absolute path to your specd project root. For a
-ready-to-paste config file see [`docs/mcp-hosts/claude-desktop.json`](mcp-hosts/claude-desktop.json).
+Replace `/path/to/your/project` with the absolute path to your specd project root, or run
+`specd mcp --config claude-desktop --root /path/to/your/project` to get a pre-filled snippet.
 
 ### Cursor
 
@@ -233,7 +233,7 @@ global MCP settings):
 }
 ```
 
-For a ready-to-paste config file see [`docs/mcp-hosts/cursor.json`](mcp-hosts/cursor.json).
+Run `specd mcp --config cursor --root /path/to/your/project` to get a pre-filled snippet.
 
 **Note:** Cursor sends newline-delimited JSON framing. `Content-Length` auto-detection means no
 specd-side change is needed if Cursor switches framing in a future version.
@@ -256,7 +256,7 @@ Add `specd` to your VS Code `settings.json` under the `mcp.servers` key:
 }
 ```
 
-For a ready-to-paste config file see [`docs/mcp-hosts/vscode.json`](mcp-hosts/vscode.json).
+Run `specd mcp --config vscode --root /path/to/your/project` to get a pre-filled snippet.
 
 ### Antigravity CLI
 
@@ -285,7 +285,7 @@ The `MCP_MODE` and `DISABLE_CONSOLE_OUTPUT` env vars prevent Antigravity's debug
 leaking onto stdout and corrupting the JSON-RPC stream. Replace `/path/to/your/project`
 with the absolute path to your specd project root.
 
-For a ready-to-paste config file see [`docs/mcp-hosts/antigravity.config.json`](mcp-hosts/antigravity.config.json).
+Run `specd mcp --config antigravity --root /path/to/your/project` to get a pre-filled snippet.
 
 ### OpenAI Codex CLI
 
@@ -303,7 +303,7 @@ Replace `/path/to/your/project` with the absolute path to your specd project roo
 Codex natively supports stdio MCP servers — no extra environment variables or transport
 adapters are needed.
 
-For a ready-to-paste config file see [`docs/mcp-hosts/codex.config.toml`](mcp-hosts/codex.config.toml).
+Run `specd mcp --config codex --root /path/to/your/project` to get a pre-filled snippet.
 
 ---
 
