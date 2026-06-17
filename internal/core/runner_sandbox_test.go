@@ -1,9 +1,40 @@
 package core
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 )
+
+// R5.2 + R5.3: the default ("none") runner captures exit code and stderr
+// verbatim, and still reports exit/output when no sandbox is in effect. This
+// binds the surface contract through SelectRunner, the path verify actually
+// takes.
+func TestSelectRunnerNoneCapturesExitAndStderrVerbatim(t *testing.T) {
+	r, err := SelectRunner("none")
+	if err != nil {
+		t.Fatalf("SelectRunner: %v", err)
+	}
+	res := r.Run(context.Background(), RunSpec{
+		Root:    t.TempDir(),
+		Shell:   "sh",
+		Command: "echo out; echo oops 1>&2; exit 3",
+		Timeout: 5 * time.Second,
+	})
+	if res.ExitCode != 3 {
+		t.Errorf("R5.2: exit code = %d, want 3 (surfaced verbatim)", res.ExitCode)
+	}
+	if res.TimedOut {
+		t.Error("R5.3: must not report timeout for a clean non-zero exit")
+	}
+	if res.Stderr != "oops\n" {
+		t.Errorf("R5.2: stderr = %q, want %q (verbatim)", res.Stderr, "oops\n")
+	}
+	if res.Stdout != "out\n" {
+		t.Errorf("R5.3: stdout = %q, want %q (captured under sandbox=none)", res.Stdout, "out\n")
+	}
+}
 
 // TestSelectRunnerNoneRegression confirms the default selection is the
 // historical shell runner, byte-identically named "none".

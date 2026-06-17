@@ -14,3 +14,10 @@ Only generalizable patterns, never raw observations. Promote to project steering
 **Criticality:** important
 **Related:** [[other-key]]
 -->
+
+## coverage-baseline-T1
+**Pattern:** regression floor: core coverage must stay >= T1 baseline
+**Detail:** Baseline core coverage (T1): total 66.4%. Per-file lows to watch: embed 0, output 0, pack_apply 0, prsummary 0, schema_validate 0, taskview 0, md 14.3, paths 20.0, ui 26.7, specfiles 29.1, runner_sandbox 33.2, render 40.1, phases 43.0. Highs: blockers/commitlink/env/exit/slug 100, agents 98.9, runner 98.3, state 97.6, frontier 96.7.
+**Source:** T1
+**Criticality:** important
+**Related:** —

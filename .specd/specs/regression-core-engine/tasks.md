@@ -1,7 +1,7 @@
 # Tasks — Regression: Core Engine (DAG, gates, state, runner, telemetry)
 
 ## Wave 1
-- [ ] T1 — Baseline coverage snapshot of internal/core
+- [x] T1 — Baseline coverage snapshot of internal/core ✓ complete · evidence: go test ./internal/core/... coverprofile → exit 0, total 66.4%. Baseline table recorded in memory key coverage-baseline-T1. · 2026-06-17T16:05:36.692203495Z
   - why: establish the floor below which regression is forbidden (R1-R6)
   - role: investigator
   - files: internal/core
@@ -11,7 +11,7 @@
   - depends: —
   - requirements: 1, 2, 3, 4, 5, 6
 
-- [ ] T2 — Map each requirement criterion to an existing test
+- [x] T2 — Map each requirement criterion to an existing test ✓ complete · evidence: criterion-matrix.md maps R1.1-R6.3 to test funcs. Gaps: R2.1 UNMAPPED (approval-gate block), R3.2 partial (--unverified path), R2.4/R3.1 thin. Investigator task, verify=N/A. · 2026-06-17T16:07:20.31553241Z
   - why: find unmapped criteria (gaps) before writing new tests
   - role: investigator
   - files: internal/core
@@ -22,7 +22,7 @@
   - requirements: 1, 2, 3, 4, 5, 6
 
 ## Wave 2
-- [ ] T3 — Close DAG/frontier gaps (cycle, wave order, determinism)
+- [x] T3 — Close DAG/frontier gaps (cycle, wave order, determinism) ✓ complete · evidence: Added dag_regression_test.go: permutation-determinism (R1.1/R1.3), incomplete-dep exclusion table (R1.4), cycle-refused (R1.2). go test -run 'DAG|Frontier' -count=3 → exit 0. · 2026-06-17T16:08:44.095464864Z
   - why: R1 must be fully enforced including determinism across map iteration
   - role: builder
   - files: internal/core/dag_test.go, internal/core/frontier_test.go
@@ -32,7 +32,7 @@
   - depends: T2
   - requirements: 1
 
-- [ ] T4 — Close gate/phase/task-flip gaps
+- [x] T4 — Close gate/phase/task-flip gaps ✓ complete · evidence: gates_regression_test.go: R2.1 PhaseReadiness-blocks + forward-only ratchet, R2.2 evidence rejection, R2.3 monotone revision, R2.4 custom-gate pipeline order, R3.1 evidence+timestamp persist, R3.3 telemetry stored-not-computed. go test -run 'Gate|Phase|Task' → exit 0. ADR-001 records R3.2/R2.1-full as cli-cmd scope. · 2026-06-17T16:12:50.535364793Z
   - why: R2, R3 enforce the state machine and evidence gating
   - role: builder
   - files: internal/core/gates_test.go, internal/core/customgate_test.go
@@ -42,7 +42,7 @@
   - depends: T2
   - requirements: 2, 3
 
-- [ ] T5 — Close runner/sandbox + locking gaps
+- [x] T5 — Close runner/sandbox + locking gaps ✓ complete · evidence: runner_sandbox_test.go: R5.2/R5.3 exit+stderr+stdout verbatim via SelectRunner(none). lock_regression_test.go: R6.2 stale-reclaim keeps state schema-valid, R6.1/R6.3 concurrent writers serialize + every committed state.json validates. go test -run 'Runner|Sandbox|Lock|Concurren' -race → exit 0. · 2026-06-17T16:15:36.774384308Z
   - why: R5, R6 are the security + integrity boundary
   - role: builder
   - files: internal/core/runner_sandbox_test.go, internal/core/lock_test.go, internal/core/concurrency_test.go
@@ -53,7 +53,7 @@
   - requirements: 5, 6
 
 ## Wave 3
-- [ ] T6 — Review core regression suite for gaps and flakiness
+- [x] T6 — Review core regression suite for gaps and flakiness ✓ complete · evidence: review.md: 9 findings, all pass. Coverage 70.2% >= 66.4% floor. Zero UNMAPPED at core scope (R2.1-full/R3.2 deferred to cli-cmd per ADR-001). No weakened assertions. go test ./internal/core/... -cover -race → exit 0. · 2026-06-17T16:17:09.379923523Z
   - why: a regression suite that flakes is worse than none
   - role: reviewer
   - files: internal/core
