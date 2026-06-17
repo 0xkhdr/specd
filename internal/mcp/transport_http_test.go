@@ -131,6 +131,128 @@ func TestHTTPLoopbackDefault(t *testing.T) {
 	}
 }
 
+// TestHTTPTransportMatrix runs a set of read-only tools over both stdio and
+// HTTP /rpc and asserts byte-for-byte equal results, so transport is an
+// operational, not behavioral, choice across more than a single tool (R3.1).
+func TestHTTPTransportMatrix(t *testing.T) {
+	h := th.New(t)
+	h.Spec("matrix").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+
+	reqs := map[string]string{
+		"status": `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":["matrix"]}}}`,
+		"waves":  `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"specd_waves","arguments":{"args":["matrix"]}}}`,
+		"check":  `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"specd_check","arguments":{"args":["matrix"]}}}`,
+	}
+
+	// Gather every stdio reference BEFORE the HTTP server starts: callTool swaps
+	// the process-global os.Stdout, so the two paths must never run concurrently.
+	want := map[string]map[string]any{}
+	for name, req := range reqs {
+		want[name] = stdioResult(t, req)
+	}
+
+	addr := freePort(t)
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	base := "http://" + addr
+	waitReady(t, addr)
+
+	for name, req := range reqs {
+		got := httpResult(t, base, "/rpc", req)
+		if !reflect.DeepEqual(got, want[name]) {
+			t.Errorf("tool %s: HTTP result != stdio\n http: %v\nstdio: %v", name, got, want[name])
+		}
+	}
+}
+
+// TestHTTPMalformedRequest covers R3.3: a malformed request gets a proper HTTP
+// + MCP error rather than a crash. A wrong method is a 405; an unparseable JSON
+// body is a 200 carrying a JSON-RPC parse-error (-32700) envelope, the MCP
+// contract for transport-level vs protocol-level failures.
+func TestHTTPMalformedRequest(t *testing.T) {
+	addr := freePort(t)
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	base := "http://" + addr
+	waitReady(t, addr)
+
+	t.Run("wrong method is 405", func(t *testing.T) {
+		resp, err := http.Get(base + "/rpc")
+		if err != nil {
+			t.Fatalf("GET /rpc: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("GET /rpc status = %d, want 405", resp.StatusCode)
+		}
+	})
+
+	t.Run("garbage body is MCP parse error", func(t *testing.T) {
+		resp, err := http.Post(base+"/rpc", "application/json", strings.NewReader("{not valid json"))
+		if err != nil {
+			t.Fatalf("POST /rpc: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("status = %d, want 200 (MCP error envelope)", resp.StatusCode)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		var m map[string]any
+		if err := json.Unmarshal(body, &m); err != nil {
+			t.Fatalf("response not JSON: %q: %v", string(body), err)
+		}
+		e, ok := m["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected JSON-RPC error envelope, got %v", m)
+		}
+		if code := e["code"].(float64); code != -32700 {
+			t.Errorf("error code = %v, want -32700 (parse error)", code)
+		}
+	})
+}
+
+// TestSSEFraming asserts the /sse endpoint emits MCP-compliant SSE framing
+// (R3.2): a text/event-stream content type and a body framed as `data: <json>`
+// terminated by a blank line, with the unwrapped payload being the same
+// JSON-RPC result the /rpc endpoint returns.
+func TestSSEFraming(t *testing.T) {
+	addr := freePort(t)
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	base := "http://" + addr
+	waitReady(t, addr)
+
+	const listReq = `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+	resp, err := http.Post(base+"/sse", "application/json", strings.NewReader(listReq))
+	if err != nil {
+		t.Fatalf("POST /sse: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("Content-Type = %q, want text/event-stream", ct)
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	body := string(raw)
+	if !strings.HasPrefix(body, "data: ") {
+		t.Errorf("SSE body must start with 'data: ', got %q", body)
+	}
+	if !strings.HasSuffix(body, "\n\n") {
+		t.Errorf("SSE event must terminate with a blank line, got %q", body)
+	}
+	// The unwrapped data payload must itself be a valid JSON-RPC result.
+	payload := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(body), "data:"))
+	var m map[string]any
+	if err := json.Unmarshal([]byte(payload), &m); err != nil {
+		t.Fatalf("SSE data payload not JSON: %q: %v", payload, err)
+	}
+	if _, ok := m["result"]; !ok {
+		t.Errorf("SSE payload missing result: %v", m)
+	}
+}
+
 // waitReady blocks until the server accepts connections or the deadline passes.
 func waitReady(t *testing.T, addr string) {
 	t.Helper()

@@ -112,6 +112,28 @@ func TestToolsCall(t *testing.T) {
 			t.Errorf("code = %v, want -32602", e["code"])
 		}
 	})
+
+	// R1.3: malformed arguments (args must be an array) yield a structured MCP
+	// error, never a crash, and the server stays up to answer the next request.
+	t.Run("invalid argument shape is structured error, server survives", func(t *testing.T) {
+		resps := drive(t,
+			`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":"not-an-array"}}}`,
+			`{"jsonrpc":"2.0","id":6,"method":"ping"}`,
+		)
+		if len(resps) != 2 {
+			t.Fatalf("got %d responses, want 2: %v", len(resps), resps)
+		}
+		e, ok := resps[0]["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected structured error, got %v", resps[0])
+		}
+		if e["code"].(float64) != -32602 {
+			t.Errorf("code = %v, want -32602", e["code"])
+		}
+		if _, ok := resps[1]["result"]; !ok {
+			t.Errorf("server did not answer ping after bad-arg error: %v", resps[1])
+		}
+	})
 }
 
 // TestMCPEndToEnd drives a full handshake over a pipe — initialize → tools/list

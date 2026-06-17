@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"sort"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 func TestParseArgs(t *testing.T) {
@@ -142,4 +144,81 @@ func TestBooleanFlagsRegistered(t *testing.T) {
 
 func hasSuffix(s, suffix string) bool {
 	return len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix
+}
+
+// TestDocumentedFlagsParse drives R1.1 across the whole command surface: for
+// every flag documented in core.Commands, ParseArgs must bind it the way the
+// help text promises — boolean flags resolve to Bool(true), string flags take
+// the following token as their value — with any leading positional preserved.
+// This is the parser-level proof that "the system parses every documented flag
+// for every subcommand"; the per-handler semantics are exercised elsewhere.
+func TestDocumentedFlagsParse(t *testing.T) {
+	for _, c := range core.Commands {
+		for _, f := range c.Flags {
+			name := c.Command + "/--" + f.Name
+			t.Run(name, func(t *testing.T) {
+				switch f.Type {
+				case "boolean":
+					a := ParseArgs([]string{"slug", "--" + f.Name})
+					if !a.Bool(f.Name) {
+						t.Errorf("Bool(%q) = false, want true", f.Name)
+					}
+					// The leading positional must survive the boolean flag.
+					if len(a.Pos) != 1 || a.Pos[0] != "slug" {
+						t.Errorf("Pos = %v, want [slug] (boolean flag ate a positional)", a.Pos)
+					}
+				case "string", "":
+					a := ParseArgs([]string{"slug", "--" + f.Name, "val"})
+					if a.Str(f.Name) != "val" {
+						t.Errorf("Str(%q) = %q, want \"val\"", f.Name, a.Str(f.Name))
+					}
+					if len(a.Pos) != 1 || a.Pos[0] != "slug" {
+						t.Errorf("Pos = %v, want [slug]", a.Pos)
+					}
+				default:
+					t.Fatalf("unexpected documented flag type %q for %s", f.Type, name)
+				}
+			})
+		}
+	}
+}
+
+// TestDocumentedBooleanFlagsRegistered closes the loop the other way from
+// TestBooleanFlagsRegistered: every flag the help metadata advertises as
+// boolean must live in booleanFlags. Otherwise `specd <cmd> --thatflag slug`
+// would silently swallow `slug` as the flag's value — a documented-surface
+// regression invisible until an agent's positional vanishes.
+func TestDocumentedBooleanFlagsRegistered(t *testing.T) {
+	var missing []string
+	for _, c := range core.Commands {
+		for _, f := range c.Flags {
+			if f.Type == "boolean" && !booleanFlags[f.Name] {
+				missing = append(missing, c.Command+":--"+f.Name)
+			}
+		}
+	}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		t.Errorf("documented boolean flags missing from booleanFlags: %v", missing)
+	}
+}
+
+// TestUnknownFlagIsTolerated freezes the parser's intentional permissiveness
+// (see ADR-001): an unrecognized flag is not rejected — it is parsed into the
+// Flags map and ignored by handlers, never consuming a positional. Rejecting
+// unknown flags would be a behavior change out of scope for this regression.
+func TestUnknownFlagIsTolerated(t *testing.T) {
+	a := ParseArgs([]string{"auth", "--definitely-not-a-flag", "T1"})
+	if !a.Bool("definitely-not-a-flag") {
+		// Unknown flag at non-final position with a following non-flag token is
+		// treated as a value flag, binding the next token.
+		if a.Str("definitely-not-a-flag") != "T1" {
+			t.Errorf("unknown flag = %q; expected it bound \"T1\" as a value", a.Str("definitely-not-a-flag"))
+		}
+		if len(a.Pos) != 1 || a.Pos[0] != "auth" {
+			t.Errorf("Pos = %v, want [auth]", a.Pos)
+		}
+		return
+	}
+	t.Errorf("unknown value-flag should have bound next token, got Bool=true Pos=%v", a.Pos)
 }

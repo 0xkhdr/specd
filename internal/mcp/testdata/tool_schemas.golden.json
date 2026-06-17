@@ -1,0 +1,489 @@
+{
+  "specd_approve": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd approve \u003cslug\u003e [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean",
+        "description": "Output in JSON format"
+      }
+    }
+  },
+  "specd_check": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd check \u003cslug\u003e [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      }
+    }
+  },
+  "specd_context": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd context \u003cslug\u003e [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      }
+    }
+  },
+  "specd_decision": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd decision \u003cslug\u003e \"\u003ctext\u003e\" [--supersedes \u003cid\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "supersedes": {
+        "type": "string",
+        "description": "ID of the decision being superseded"
+      }
+    }
+  },
+  "specd_diff": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd diff \u003cslug\u003e --from \u003cref\u003e [--to \u003cref\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "from": {
+        "type": "string",
+        "description": "Base git ref (required)"
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "to": {
+        "type": "string",
+        "description": "Target git ref (default: working tree)"
+      }
+    }
+  },
+  "specd_dispatch": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd dispatch \u003cslug\u003e [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      }
+    }
+  },
+  "specd_init": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd init [--force] [--pack \u003cname\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "force": {
+        "type": "boolean",
+        "description": "Overwrite existing files"
+      },
+      "list-packs": {
+        "type": "boolean",
+        "description": "List the embedded spec packs and exit"
+      },
+      "pack": {
+        "type": "string",
+        "description": "Apply a spec pack by built-in name or http(s) URL"
+      },
+      "sha256": {
+        "type": "string",
+        "description": "Pinned SHA256 digest required for a remote --pack URL"
+      }
+    }
+  },
+  "specd_memory": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd memory \u003cslug\u003e \u003cadd|promote\u003e [flags]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "body": {
+        "type": "string"
+      },
+      "criticality": {
+        "type": "string"
+      },
+      "force": {
+        "type": "boolean"
+      },
+      "key": {
+        "type": "string"
+      },
+      "pattern": {
+        "type": "string"
+      },
+      "related": {
+        "type": "string"
+      },
+      "source": {
+        "type": "string"
+      }
+    }
+  },
+  "specd_midreq": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd midreq \u003cslug\u003e \"\u003cinput\u003e\" --impact \u003clow|medium|high|critical\u003e",
+        "items": {
+          "type": "string"
+        }
+      },
+      "changes": {
+        "type": "string"
+      },
+      "impact": {
+        "type": "string",
+        "description": "Impact level (low/medium/high/critical)"
+      },
+      "interpretation": {
+        "type": "string"
+      }
+    }
+  },
+  "specd_new": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd new \u003cslug\u003e [--title \"...\"]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "title": {
+        "type": "string",
+        "description": "The title of the spec"
+      }
+    }
+  },
+  "specd_next": {
+    "type": "object",
+    "properties": {
+      "all": {
+        "type": "boolean",
+        "description": "Print all runnable tasks"
+      },
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd next \u003cslug\u003e [--all] [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      }
+    }
+  },
+  "specd_program": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd program [status|link|unlink] [args] [flags]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "on": {
+        "type": "string"
+      }
+    }
+  },
+  "specd_replay": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd replay \u003cslug\u003e",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "specd_report": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd report \u003cslug\u003e [--format md|html] [--out \u003cpath\u003e] [--pr-summary]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "format": {
+        "type": "string"
+      },
+      "out": {
+        "type": "string"
+      },
+      "pr-summary": {
+        "type": "boolean",
+        "description": "Emit a deterministic PR summary instead of the full report"
+      }
+    }
+  },
+  "specd_schema": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd schema [--version \u003cv\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "version": {
+        "type": "string",
+        "description": "Schema version to emit (default: current)"
+      }
+    }
+  },
+  "specd_serve": {
+    "type": "object",
+    "properties": {
+      "addr": {
+        "type": "string",
+        "description": "Bind address (default 127.0.0.1:8765)"
+      },
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd serve \u003cslug\u003e [--addr 127.0.0.1:8765]",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "specd_status": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd status [\u003cslug\u003e] [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      }
+    }
+  },
+  "specd_task": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd task \u003cslug\u003e \u003cid\u003e --status \u003cstatus\u003e [flags]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "cost": {
+        "type": "string",
+        "description": "Annotate task telemetry with a cost (stored, not computed)"
+      },
+      "evidence": {
+        "type": "string"
+      },
+      "force": {
+        "type": "boolean"
+      },
+      "reason": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string"
+      },
+      "tokens": {
+        "type": "string",
+        "description": "Annotate task telemetry with a token count (stored, not computed)"
+      },
+      "unverified": {
+        "type": "boolean"
+      }
+    }
+  },
+  "specd_uninstall": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd uninstall [--force] [--dry-run] [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "dry-run": {
+        "type": "boolean",
+        "description": "Show what would be removed and exit"
+      },
+      "force": {
+        "type": "boolean",
+        "description": "Perform the removal (without it, only the plan is shown)"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "Machine-readable output"
+      }
+    }
+  },
+  "specd_update": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd update [--force]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "force": {
+        "type": "boolean",
+        "description": "Force update even if already up to date"
+      }
+    }
+  },
+  "specd_validate": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd validate \u003cslug\u003e --schema [--version \u003cv\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "schema": {
+        "type": "boolean",
+        "description": "Validate against the embedded JSON Schema (required)"
+      },
+      "version": {
+        "type": "string",
+        "description": "Schema version to validate against (default: current)"
+      }
+    }
+  },
+  "specd_verify": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd verify \u003cslug\u003e [id] [flags]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "criterion": {
+        "type": "string"
+      },
+      "evidence": {
+        "type": "string"
+      },
+      "revert-on-fail": {
+        "type": "boolean",
+        "description": "On a failed verify, stash the working tree (recoverable) instead of leaving it dirty"
+      },
+      "sandbox": {
+        "type": "string",
+        "description": "Isolation backend for this run (none|bwrap|container); overrides verify.sandbox config"
+      },
+      "status": {
+        "type": "string"
+      }
+    }
+  },
+  "specd_watch": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd watch [--once] [--spec \u003cslug\u003e] [--sse \u003caddr\u003e] [--webhook \u003curl\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "once": {
+        "type": "boolean",
+        "description": "Emit current frontiers once and exit"
+      },
+      "spec": {
+        "type": "string",
+        "description": "Limit the stream to a single spec slug"
+      },
+      "sse": {
+        "type": "string",
+        "description": "Serve Server-Sent Events at this bind address (e.g. 127.0.0.1:8766)"
+      },
+      "webhook": {
+        "type": "string",
+        "description": "POST each frontier event to this URL"
+      }
+    }
+  },
+  "specd_waves": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd waves \u003cslug\u003e [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      }
+    }
+  }
+}

@@ -65,6 +65,126 @@ func TestFullLifecycle(t *testing.T) {
 	h.AssertFileContains(".specd/specs/auth/tasks.md", "[x] T2")
 }
 
+// TestLifecycleReportReflectsFinalState drives the spec all the way to complete
+// and then runs `report`, proving R3.3: the report renders the final state. It
+// also exercises the tail of the new→…→report walk via the real CLI.
+func TestLifecycleReportReflectsFinalState(t *testing.T) {
+	h := th.New(t)
+	slug := h.Spec("auth").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Title: "Implement login", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+
+	h.RunExpect(core.ExitOK, "verify", slug, "T1")
+	h.RunExpect(core.ExitOK, "task", slug, "T1", "--status", "complete")
+	h.State(slug).Status(core.StatusVerifying)
+	h.RunExpect(core.ExitOK, "approve", slug)
+	h.State(slug).Status(core.StatusComplete)
+
+	// report (markdown to stdout) must reflect the completed spec.
+	res := h.RunExpect(core.ExitOK, "report", slug)
+	for _, want := range []string{"auth", "T1"} {
+		if !strings.Contains(res.Stdout, want) {
+			t.Errorf("report stdout missing %q:\n%s", want, res.Stdout)
+		}
+	}
+}
+
+// TestLifecycleOutOfOrderBlocked drives R3.2: a lifecycle step attempted out of
+// order is refused (non-zero), not silently performed. Flipping a task to
+// complete while the spec is still in requirements (no executing phase, no
+// verification) must be blocked.
+func TestLifecycleOutOfOrderBlocked(t *testing.T) {
+	h := th.New(t)
+	slug := h.Spec("auth").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Title: "Implement login", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusRequirements).
+		Build()
+
+	if res := h.Run("task", slug, "T1", "--status", "complete"); res.OK() {
+		t.Errorf("task complete in requirements phase should be blocked, got exit 0:\n%s", res.Out())
+	}
+	// State must be untouched by the rejected step.
+	h.State(slug).Status(core.StatusRequirements)
+}
+
+// TestExitCodeTaxonomyCLI is the R4 golden table at the dispatch level: each
+// scenario maps to a stable, distinct exit code. This freezes the script-facing
+// contract end to end (R4.1 distinct codes, R4.2 success → 0).
+func TestExitCodeTaxonomyCLI(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string                 // command + args
+		set  func(h *th.Harness) string // builds spec, returns slug to substitute for "" placeholder
+		want int
+	}{
+		{
+			name: "success: check clean spec",
+			args: []string{"check", ""},
+			set: func(h *th.Harness) string {
+				return h.Spec("ok").
+					Req("R", "story", "THE SYSTEM SHALL work.").
+					FullDesign().
+					AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+					Status(core.StatusExecuting).
+					Build()
+			},
+			want: core.ExitOK,
+		},
+		{
+			name: "validation failure: check non-EARS spec",
+			args: []string{"check", ""},
+			set: func(h *th.Harness) string {
+				return h.Spec("bad").Req("R", "story", "this is not ears").Status(core.StatusRequirements).Build()
+			},
+			want: core.ExitGate,
+		},
+		{
+			name: "gate block: out-of-order task complete",
+			args: []string{"task", "", "T1", "--status", "complete"},
+			set: func(h *th.Harness) string {
+				return h.Spec("gated").
+					Req("R", "story", "THE SYSTEM SHALL work.").
+					FullDesign().
+					AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+					Status(core.StatusRequirements).
+					Build()
+			},
+			want: core.ExitGate,
+		},
+		{
+			name: "not found: report missing spec",
+			args: []string{"report", "does-not-exist"},
+			set:  func(h *th.Harness) string { return "" },
+			want: core.ExitNotFound,
+		},
+		{
+			name: "usage: report with no slug",
+			args: []string{"report"},
+			set:  func(h *th.Harness) string { return "" },
+			want: core.ExitUsage,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := th.New(t)
+			slug := c.set(h)
+			args := append([]string(nil), c.args...)
+			for i := range args {
+				if args[i] == "" {
+					args[i] = slug
+				}
+			}
+			h.RunExpect(c.want, args[0], args[1:]...)
+		})
+	}
+}
+
 // TestVerifyExecution exercises the real shell execution path of `verify`,
 // including pass, fail, and the verified-record gate on completion.
 func TestVerifyExecution(t *testing.T) {

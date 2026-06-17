@@ -2,14 +2,112 @@ package mcp_test
 
 import (
 	"encoding/json"
+	"io"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/cmd"
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/mcp"
 	th "github.com/0xkhdr/specd/internal/testharness"
 )
+
+// captureCLI runs cmd.Dispatch for one command under SPECD_JSON=1, capturing
+// stdout, and returns the parsed JSON object — the reference result a real CLI
+// invocation would print. This is the ground truth an MCP tool call must match.
+func captureCLI(t *testing.T, command string, argv ...string) map[string]any {
+	t.Helper()
+	prev, had := os.LookupEnv("SPECD_JSON")
+	os.Setenv("SPECD_JSON", "1")
+	defer func() {
+		if had {
+			os.Setenv("SPECD_JSON", prev)
+		} else {
+			os.Unsetenv("SPECD_JSON")
+		}
+	}()
+
+	// The MCP path forces structured output by appending --json to the argv
+	// (mirrored here) in addition to SPECD_JSON; commands gate JSON on the flag.
+	argv = append(append([]string{}, argv...), "--json")
+	orig := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	_, known := cmd.Dispatch(command, cli.ParseArgs(argv))
+	_ = w.Close()
+	os.Stdout = orig
+	if !known {
+		t.Fatalf("CLI command %q not known to dispatch", command)
+	}
+	out, _ := io.ReadAll(r)
+	var m map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(out))), &m); err != nil {
+		t.Fatalf("CLI %s output not JSON: %q: %v", command, out, err)
+	}
+	return m
+}
+
+// mcpStructured drives a single tools/call through the MCP stdio loop and
+// returns the tool result's structuredContent object.
+func mcpStructured(t *testing.T, tool string, args ...string) map[string]any {
+	t.Helper()
+	argsJSON, _ := json.Marshal(args)
+	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` + tool +
+		`","arguments":{"args":` + string(argsJSON) + `}}}`
+	resps := driveIntegration(t, &th.Harness{}, req)
+	if len(resps) != 1 {
+		t.Fatalf("got %d responses, want 1", len(resps))
+	}
+	r, ok := resps[0]["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("tools/call %s returned no result: %v", tool, resps[0])
+	}
+	sc, ok := r["structuredContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("tools/call %s missing structuredContent: %v", tool, r)
+	}
+	return sc
+}
+
+// TestCLIMCPParity asserts that for a representative set of read-only tools the
+// MCP tool call returns the same structured result the equivalent CLI command
+// prints (R2.2). Both paths re-enter cmd.Dispatch under SPECD_JSON, so any
+// divergence is a real bug, not a fixture artifact. The CLI reference is
+// captured BEFORE the MCP drive because both swap process-global os.Stdout.
+func TestCLIMCPParity(t *testing.T) {
+	h := th.New(t)
+	h.Spec("parity").
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+
+	cases := []struct {
+		tool    string
+		command string
+		args    []string
+	}{
+		{"specd_status", "status", []string{"parity"}},
+		{"specd_waves", "waves", []string{"parity"}},
+		{"specd_check", "check", []string{"parity"}},
+		{"specd_next", "next", []string{"parity"}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.tool, func(t *testing.T) {
+			want := captureCLI(t, c.command, c.args...)
+			got := mcpStructured(t, c.tool, c.args...)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("MCP %s != CLI %s (divergence is a bug)\n  mcp: %v\n  cli: %v",
+					c.tool, c.command, got, want)
+			}
+		})
+	}
+}
 
 // driveIntegration is a local helper that does NOT call t.Parallel: capture()
 // swaps process-global os.Stdout/os.Stderr so integration steps must be serial.

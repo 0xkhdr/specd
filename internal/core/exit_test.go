@@ -6,6 +6,34 @@ import (
 	"testing"
 )
 
+// TestExitCodeTaxonomyGolden locks the documented exit-code values (R4.1, R4.3).
+// These integers are the public contract a script branches on; renumbering one
+// is a breaking regression, so they are pinned as a golden table and asserted
+// distinct. Adding a NEW code is allowed (append a row); changing an existing
+// value must fail this test.
+func TestExitCodeTaxonomyGolden(t *testing.T) {
+	golden := []struct {
+		name string
+		got  int
+		want int
+	}{
+		{"ExitOK", ExitOK, 0},
+		{"ExitGate", ExitGate, 1},
+		{"ExitUsage", ExitUsage, 2},
+		{"ExitNotFound", ExitNotFound, 3},
+	}
+	seen := map[int]string{}
+	for _, c := range golden {
+		if c.got != c.want {
+			t.Errorf("%s = %d, want %d (exit-code contract changed)", c.name, c.got, c.want)
+		}
+		if prev, dup := seen[c.got]; dup {
+			t.Errorf("exit code %d shared by %s and %s; codes must be distinct", c.got, prev, c.name)
+		}
+		seen[c.got] = c.name
+	}
+}
+
 func TestErrorConstructorsCarryCode(t *testing.T) {
 	tests := []struct {
 		name string
