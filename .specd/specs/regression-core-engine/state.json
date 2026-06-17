@@ -1,14 +1,14 @@
 {
   "schemaVersion": 4,
-  "revision": 16,
+  "revision": 17,
   "spec": "regression-core-engine",
   "title": "Regression: Core Engine (DAG, gates, state, runner, telemetry)",
-  "status": "verifying",
-  "phase": "verify",
+  "status": "complete",
+  "phase": "reflect",
   "gate": "none",
   "turn": 0,
   "createdAt": "2026-06-17T15:45:58.137655706Z",
-  "updatedAt": "2026-06-17T16:17:09.382577847Z",
+  "updatedAt": "2026-06-17T16:43:12.886073379Z",
   "tasks": {
     "T1": {
       "id": "T1",

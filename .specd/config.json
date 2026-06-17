@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "defaultVerify": "npm test",
+  "defaultVerify": "go test ./internal/core/... -cover -race",
   "report": { "format": "md", "autoRefreshSeconds": 0 },
   "roles": { "subagentMode": "inline" },
   "promotionThreshold": 3,
