@@ -16,6 +16,7 @@ var metaCommands = map[string]bool{"help": true, "version": true, "mcp": true}
 var readOnlyCommands = map[string]bool{
 	"status": true, "waves": true, "context": true, "check": true,
 	"next": true, "dispatch": true, "report": true,
+	"serve": true, "watch": true, "validate": true, "replay": true, "diff": true,
 }
 
 // destructiveCommands mutate the install itself rather than spec state; they are

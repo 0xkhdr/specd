@@ -15,7 +15,7 @@ business logic and introduces no new binary dependencies.
 Start the server with the `specd mcp` command:
 
 ```bash
-specd mcp [--root /path/to/project]
+specd mcp [--root /path/to/project] [--http [<addr>]] [--config <host>]
 ```
 
 - **`specd mcp`** starts a JSON-RPC 2.0 stdio server and runs until stdin closes (EOF). No
@@ -25,6 +25,12 @@ specd mcp [--root /path/to/project]
   `chdir` before the loop starts. Without it, the working directory of the spawning process
   is used as the spec root — the same fallback the CLI uses.
   (`internal/cmd/mcp.go:23-28`)
+- **`--http [<addr>]`** opts into the HTTP/SSE transport instead of stdio. Bare `--http`
+  (no value) defaults to `127.0.0.1:8765`. The server runs until it stops; exits `0` on clean
+  shutdown, `1` on bind error. See [HTTP/SSE Transport](#httpsse-transport) below.
+  (`internal/mcp/transport_http.go`, `ServeHTTP`)
+- **`--config <host>`** prints a ready-to-paste config snippet for the named host and exits
+  immediately without starting any server. (`internal/cmd/mcp.go:25-27`)
 - If the `--root` path cannot be entered, the server exits with **usage code 2** before any
   protocol bytes are emitted. The error message goes to stderr.
   (`internal/cmd/mcp.go:27`, `core.ExitUsage = 2`)
@@ -86,6 +92,60 @@ a JSON-RPC error and keeps reading:
 | Bad params or unknown tool name | `-32602` (invalid params) |
 
 (`internal/mcp/transport.go`, `server.go:handle`)
+
+---
+
+## HTTP/SSE Transport
+
+For MCP hosts that cannot spawn stdio processes (browser-based tools, remote agents, hosts
+that require an HTTP endpoint), `specd mcp --http` starts an HTTP server exposing the same
+JSON-RPC 2.0 dispatch as the stdio path.
+
+### When to use `--http` vs stdio
+
+Use stdio (default) for all local desktop hosts (Claude Desktop, Cursor, VS Code). Use
+`--http` when the host requires a network endpoint — a browser extension, a remote agent, or
+a host process that cannot manage child process I/O directly.
+
+### Routes
+
+| Route | Method | Behavior |
+|---|---|---|
+| `/rpc` | `POST` | Single JSON-RPC 2.0 request body → JSON-RPC response. HTTP 200 even on JSON-RPC errors (errors are in the response body envelope). |
+| `/sse` | `GET` or `POST` | Same dispatch; response wrapped as one SSE `data:` frame (`data: <json>\n\n`). An empty body is a valid no-op that opens the stream. |
+
+(`internal/mcp/transport_http.go`, `httpHandler`)
+
+### Default address and security
+
+Bare `--http` (no value) binds `127.0.0.1:8765`. A port-only address like `--http :9000` is
+rewritten to `127.0.0.1:9000`. Loopback binding is enforced unless an operator supplies an
+explicit external IP — spec contents never leave the host by default.
+
+(`internal/mcp/transport_http.go`, `loopbackAddr`)
+
+### Concurrent call serialization
+
+The stdio loop is serial by nature. The HTTP path allows concurrent requests, which would
+interleave captured stdout. A mutex serializes all tool calls regardless of how many
+concurrent HTTP requests arrive — behavior is identical to stdio, just multi-client.
+
+(`internal/mcp/transport_http.go`, `dispatchLocked`)
+
+### Example
+
+```bash
+# Bind default loopback:8765
+specd mcp --http --root /path/to/project
+
+# Bind explicit port (still loopback)
+specd mcp --http :9000 --root /path/to/project
+
+# Single JSON-RPC call via curl
+curl -s -X POST http://127.0.0.1:8765/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"specd_status","arguments":{}}}'
+```
 
 ---
 
@@ -311,7 +371,7 @@ Run `specd mcp --config codex --root /path/to/your/project` to get a pre-filled 
 
 | Limitation | Detail |
 |---|---|
-| **stdio only** | `specd mcp` exposes only a stdio transport today. There is no built-in HTTP or SSE transport for remote or web-based hosts. |
+| **Loopback HTTP only** | `specd mcp --http` binds loopback (`127.0.0.1`) by default and is not an authenticated remote endpoint. Do not expose it on a public interface without an authenticating proxy in front. |
 | **No resources or prompts** | Only the `tools` capability is advertised. MCP resources and prompts are not yet implemented. |
 | **Static tool list** | `listChanged` is `false`. The tool list is fixed for the process lifetime; a host must restart the server to pick up newly compiled commands. |
 | **Serial tool calls** | Tool calls are processed one at a time. Concurrent calls from the same host are serialised by the stdio loop. |

@@ -90,7 +90,7 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 |---|---|---|
 | `specd update [--force]` | Self-update to the latest release | `0` ok, `1` failed, `2` usage |
 | `specd uninstall [--force] [--dry-run] [--json]` | Remove the install dir, the `~/.local/bin/specd` link, and the `# specd` PATH lines from shell rc files (backed up). A bare invocation only previews; `--force` actually removes. Project-local `.specd/` dirs are always preserved | `0` ok, `1` failed, `2` usage |
-| `specd mcp [--root <path>]` | Run the [MCP](https://modelcontextprotocol.io) stdio server (JSON-RPC 2.0), exposing every read-safe and state-mutating command as an MCP tool. Stdlib-only, no network, no LLM calls | `0` stream closed, `1` server error, `2` usage |
+| `specd mcp [--root <path>] [--http [<addr>]] [--config <host>]` | Run the [MCP](https://modelcontextprotocol.io) server (JSON-RPC 2.0), exposing every command as an MCP tool. Default: stdio transport (no network). `--http [<addr>]` starts HTTP/SSE on loopback (default `127.0.0.1:8765`); bare `--http` uses the default address. `--config <host>` prints a ready-to-paste config snippet and exits without starting a server. Stdlib-only, no LLM calls | `0` clean exit, `1` server error or bind failure, `2` usage |
 | `specd version` | Show version | `0` ok |
 | `specd help [command] [--json]` | Show help / dump the JSON command registry | `0` ok, `2` unknown command |
 

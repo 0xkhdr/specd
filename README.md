@@ -16,7 +16,7 @@ By defining clear phase transitions and validating structural correctness with d
 - 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
 - 🔒 **Sandboxed Verify & Rollback**: Run `verify:` under `bwrap`/container isolation (fail-closed if absent) and optionally stash the working tree on failure (`--revert-on-fail`).
 - 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd program` resolves which whole specs are runnable across a multi-spec program.
-- 🔌 **Agent-Agnostic + MCP**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) via a localized prompt pack, or drives the workflow from any MCP client (`specd mcp`).
+- 🔌 **Agent-Agnostic + MCP**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). Use `specd mcp --config <host>` to generate a ready-to-paste config snippet for Claude Desktop, Cursor, VS Code, and others.
 - 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd serve`), a frontier event stream (`specd watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
 - 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd schema` / `specd validate --schema`), shareable scaffold bundles (`specd init --pack`), and read-only audit `replay`/`diff`.
 
