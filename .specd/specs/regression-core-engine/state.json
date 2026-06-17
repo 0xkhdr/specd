@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "revision": 1,
+  "spec": "regression-core-engine",
+  "title": "Regression: Core Engine (DAG, gates, state, runner, telemetry)",
+  "status": "requirements",
+  "phase": "analyze",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-17T15:45:58.137655706Z",
+  "updatedAt": "2026-06-17T15:45:58.137702145Z",
+  "tasks": {},
+  "blockers": []
+}

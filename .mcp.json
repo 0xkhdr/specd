@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "specd": {
-      "command": "/var/www/html/rai/up/specd/specd",
+      "command": "/home/xkhdr/.local/bin/specd",
       "args": [
         "mcp",
         "--root",

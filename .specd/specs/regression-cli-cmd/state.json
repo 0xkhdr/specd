@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "revision": 1,
+  "spec": "regression-cli-cmd",
+  "title": "Regression: CLI + Command Surface (args, lifecycle, JSON contracts)",
+  "status": "requirements",
+  "phase": "analyze",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-17T15:46:17.175432594Z",
+  "updatedAt": "2026-06-17T15:46:17.175461782Z",
+  "tasks": {},
+  "blockers": []
+}

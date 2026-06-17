@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "revision": 1,
+  "spec": "regression-backends-state",
+  "title": "Regression: State Backends (default/git/postgres/redis, locking, CAS)",
+  "status": "requirements",
+  "phase": "analyze",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-17T15:46:16.968943164Z",
+  "updatedAt": "2026-06-17T15:46:16.96898518Z",
+  "tasks": {},
+  "blockers": []
+}

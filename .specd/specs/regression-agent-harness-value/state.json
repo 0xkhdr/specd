@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "revision": 1,
+  "spec": "regression-agent-harness-value",
+  "title": "Regression: Agent-Harness Value (context engineering, perf, market-gap)",
+  "status": "requirements",
+  "phase": "analyze",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-17T15:46:18.394654003Z",
+  "updatedAt": "2026-06-17T15:46:18.394686687Z",
+  "tasks": {},
+  "blockers": []
+}

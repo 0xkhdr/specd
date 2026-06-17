@@ -1,0 +1,21 @@
+{
+  "dependsOn": {
+    "regression-agent-harness-value": [
+      "regression-mcp-transport"
+    ],
+    "regression-backends-state": [
+      "regression-core-engine"
+    ],
+    "regression-cli-cmd": [
+      "regression-backends-state",
+      "regression-packs-schema"
+    ],
+    "regression-mcp-transport": [
+      "regression-cli-cmd"
+    ],
+    "regression-packs-schema": [
+      "regression-core-engine"
+    ]
+  },
+  "version": 1
+}
