@@ -118,7 +118,7 @@ func TestLifecycleOutOfOrderBlocked(t *testing.T) {
 func TestExitCodeTaxonomyCLI(t *testing.T) {
 	cases := []struct {
 		name string
-		args []string                 // command + args
+		args []string                   // command + args
 		set  func(h *th.Harness) string // builds spec, returns slug to substitute for "" placeholder
 		want int
 	}{
