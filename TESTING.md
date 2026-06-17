@@ -84,6 +84,40 @@ builders + asserters:
 | `h.Path(rel)` / `h.SpecPath(slug, name)` | resolve paths under the temp root |
 | `h.InitGit()` / `h.GitCommitAll(msg)` / `h.GitHead()` | git fixtures for verification (gitHead) tests |
 
+## State-backend conformance parity
+
+`internal/core/backend_conformance_test.go` runs one shared suite
+(`backendConformance`) against every `StateBackend`, so a backend swap can never
+weaken the lock + revision-CAS + atomicity contract. The backend table is built
+by `availableBackends()`:
+
+| Backend | When it runs | When it skips (with reason) |
+|---|---|---|
+| `file` | always | — |
+| `git` | `git` on `PATH` | `git not on PATH` |
+| `postgres` | built `-tags specd_postgres` **and** `SPECD_PG_DSN` set | not compiled in / DSN unset |
+| `redis` | built `-tags specd_redis` **and** `SPECD_REDIS_ADDR` set | not compiled in / addr unset |
+
+A missing driver or service is a **visible `t.Skip` with a reason**, never a
+silent pass — `go test -run Conformance -v` prints exactly which backends ran vs
+skipped, so a default-build CI run cannot masquerade an unexercised backend as
+green. To exercise the database-backed backends locally:
+
+```sh
+# Postgres: needs a reachable DB with a specd_state(slug text primary key,
+# revision int, doc text) table.
+go test -tags specd_postgres ./internal/core/ -run Conformance -v \
+  -count=1   # SPECD_PG_DSN=postgres://user:pass@localhost/specd?sslmode=disable
+
+# Redis: needs a reachable redis (SPECD_REDIS_ADDR, default 127.0.0.1:6379).
+SPECD_REDIS_ADDR=127.0.0.1:6379 \
+  go test -tags specd_redis ./internal/core/ -run Conformance -v -count=1
+```
+
+Default builds link **no** database driver (`go.mod` declares zero external
+deps); `TestDefaultLinksNoDriver` guards that the registry stays empty and
+`SelectBackend("redis"|"postgres")` fails closed without the build tag.
+
 ## Determinism (golden / report output)
 
 specd emits no nondeterministic report fixtures. The invariants that keep

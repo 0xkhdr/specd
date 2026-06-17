@@ -1,7 +1,7 @@
 # Tasks — Regression: Packs, Schema, Templates (apply/resolve/validate)
 
 ## Wave 1
-- [ ] T1 — Inventory packs, templates, and schema-validation coverage
+- [x] T1 — Inventory packs, templates, and schema-validation coverage ✓ complete · evidence: Inventory in memory packs-inventory-T1. 2 packs, 24 templates (only config.json schema-bearing), schema v1 only. Gaps: R1.1 no generated-artifact sweep, R2.1 deterministic re-apply UNMAPPED, R4 template trip-wire absent. Investigator, verify N/A. · 2026-06-17T16:48:41.921568217Z
   - why: know which generated artifacts and templates are currently validated (R1, R4)
   - role: investigator
   - files: internal/core/embed_packs, internal/core/embed_templates, internal/core/schema
@@ -12,7 +12,7 @@
   - requirements: 1, 4
 
 ## Wave 2
-- [ ] T2 — Schema-validity sweep over generated artifacts and templates
+- [x] T2 — Schema-validity sweep over generated artifacts and templates ✓ complete · evidence: schema_sweep_test.go: generated state validates (R1.1), missing-required rejected (R1.2), served schema versions == state (R1.3), all embedded templates well-formed (R4.1), unknown-field lockstep trip-wire (R4.2). go test -run 'Schema|Template' → exit 0. · 2026-06-17T16:54:04.080604215Z
   - why: R1, R4 demand every generated artifact and template validate
   - role: builder
   - files: internal/core/schema_validate_test.go, internal/core/pack_test.go
@@ -22,7 +22,7 @@
   - depends: T1
   - requirements: 1, 4
 
-- [ ] T3 — Deterministic pack application golden tests
+- [x] T3 — Deterministic pack application golden tests ✓ complete · evidence: pack_golden_test.go: byte-identical re-apply minimal+go-service (R2.1), --force guard no-clobber + sentinel survives (R2.3), BuiltinPacks enumerable+sorted (R2.2). go test -run 'Pack|InitPack' → exit 0. · 2026-06-17T17:04:15.234929958Z
   - why: R2 reproducibility — same pack, same bytes, no clobber
   - role: builder
   - files: internal/core/pack_test.go, internal/core/initpack_test.go
@@ -32,7 +32,7 @@
   - depends: T1
   - requirements: 2
 
-- [ ] T4 — Remote pack digest-safety tests
+- [x] T4 — Remote pack digest-safety tests ✓ complete · evidence: TestRemotePackDigestSafety: hermetic httptest table {correct→apply, wrong→refuse, absent→refuse, tampered-body→refuse} (R3.1-R3.3). No live network. go test -run 'PackResolve|Remote' → exit 0. · 2026-06-17T17:04:59.463768776Z
   - why: R3 supply-chain safety via sha256 pinning
   - role: builder
   - files: internal/core/pack_resolve_test.go
@@ -43,7 +43,7 @@
   - requirements: 3
 
 ## Wave 3
-- [ ] T5 — Review pack/schema regression for hermeticity and field-drop safety
+- [x] T5 — Review pack/schema regression for hermeticity and field-drop safety ✓ complete · evidence: Review T2-T4: remote tests use httptest loopback only — zero live network. ParsePack DisallowUnknownFields surfaces unknown fields not dropped (R4.3, TestPackManifest/unknown_field). Digest check exact lowercased-hex; tampered-body test proves pin trusted over URL. All T1 gaps closed, none UNMAPPED. go test -run 'Schema|Pack' -count=2 → exit 0 (no state leak across runs). · 2026-06-17T17:05:20.08880982Z
   - why: hidden network or silently-dropped fields would void the guarantees
   - role: reviewer
   - files: internal/core

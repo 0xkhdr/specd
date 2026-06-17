@@ -75,3 +75,49 @@ func TestPackFailClosed(t *testing.T) {
 		t.Errorf("VerifyAndParsePack mismatch returned pack=%v err=%v", p, err)
 	}
 }
+
+// TestRemotePackDigestSafety is the supply-chain trip-wire: a hermetic fixture
+// server (no live network) serves a known body, and a table asserts a pack is
+// applied only when the pinned SHA256 matches exactly — a tampered body, a wrong
+// pin, or an absent pin all refuse (R3.1–R3.3).
+func TestRemotePackDigestSafety(t *testing.T) {
+	body := []byte(sampleRemotePack)
+	good := sha256Hex(body)
+
+	// Hermetic server: one serves the real body, one serves a tampered body to
+	// prove the pinned digest (not the URL) is what is trusted.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	tampered := []byte(strings.Replace(sampleRemotePack, "remote-demo", "evil-pack", 1))
+	tamperSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(tampered)
+	}))
+	defer tamperSrv.Close()
+
+	cases := []struct {
+		name      string
+		url, pin  string
+		wantApply bool
+	}{
+		{"correct pin applies", srv.URL, good, true},
+		{"wrong pin refuses", srv.URL, sha256Hex([]byte("other")), false},
+		{"absent pin refuses", srv.URL, "", false},
+		{"tampered body refuses (pin of original)", tamperSrv.URL, good, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p, err := ResolvePack(c.url, c.pin)
+			if c.wantApply {
+				if err != nil || p == nil {
+					t.Fatalf("expected apply, got pack=%v err=%v", p, err)
+				}
+				return
+			}
+			if err == nil || p != nil {
+				t.Fatalf("expected refusal, got pack=%v err=nil", p)
+			}
+		})
+	}
+}

@@ -1,14 +1,218 @@
 {
   "schemaVersion": 4,
-  "revision": 1,
+  "revision": 15,
   "spec": "regression-packs-schema",
   "title": "Regression: Packs, Schema, Templates (apply/resolve/validate)",
-  "status": "requirements",
-  "phase": "analyze",
+  "status": "complete",
+  "phase": "reflect",
   "gate": "none",
   "turn": 0,
   "createdAt": "2026-06-17T15:46:16.998320105Z",
-  "updatedAt": "2026-06-17T15:46:16.998337311Z",
-  "tasks": {},
+  "updatedAt": "2026-06-17T17:05:33.945575822Z",
+  "tasks": {
+    "T1": {
+      "id": "T1",
+      "title": "Inventory packs, templates, and schema-validation coverage",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        1,
+        4
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T16:48:41.921568217Z",
+      "finishedAt": "2026-06-17T16:48:41.921568217Z",
+      "evidence": "Inventory in memory packs-inventory-T1. 2 packs, 24 templates (only config.json schema-bearing), schema v1 only. Gaps: R1.1 no generated-artifact sweep, R2.1 deterministic re-apply UNMAPPED, R4 template trip-wire absent. Investigator, verify N/A.",
+      "telemetry": {}
+    },
+    "T2": {
+      "id": "T2",
+      "title": "Schema-validity sweep over generated artifacts and templates",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        1,
+        4
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T16:54:04.080604215Z",
+      "finishedAt": "2026-06-17T16:54:04.080604215Z",
+      "evidence": "schema_sweep_test.go: generated state validates (R1.1), missing-required rejected (R1.2), served schema versions == state (R1.3), all embedded templates well-formed (R4.1), unknown-field lockstep trip-wire (R4.2). go test -run 'Schema|Template' → exit 0.",
+      "verification": {
+        "command": "go test ./internal/core/ -run 'Schema|Template'",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/core\t0.049s\n",
+        "stderrTail": "",
+        "durationMs": 669,
+        "ranAt": "2026-06-17T16:53:55.470340587Z",
+        "gitHead": "16bc94c150e2f54520cf3f43a7f575e33b5fccef",
+        "changedFiles": [
+          ".specd/specs/regression-backends-state/memory.md",
+          ".specd/specs/regression-backends-state/state.json",
+          ".specd/specs/regression-backends-state/tasks.md",
+          ".specd/specs/regression-packs-schema/.lock",
+          ".specd/specs/regression-packs-schema/memory.md",
+          ".specd/specs/regression-packs-schema/state.json",
+          ".specd/specs/regression-packs-schema/tasks.md",
+          "TESTING.md",
+          "internal/core/backend_conformance_test.go",
+          "internal/core/schema_sweep_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 681,
+        "retries": 1
+      }
+    },
+    "T3": {
+      "id": "T3",
+      "title": "Deterministic pack application golden tests",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        2
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:04:15.234929958Z",
+      "finishedAt": "2026-06-17T17:04:15.234929958Z",
+      "evidence": "pack_golden_test.go: byte-identical re-apply minimal+go-service (R2.1), --force guard no-clobber + sentinel survives (R2.3), BuiltinPacks enumerable+sorted (R2.2). go test -run 'Pack|InitPack' → exit 0.",
+      "verification": {
+        "command": "go test ./internal/core/ -run 'Pack|InitPack'",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/core\t0.032s\n",
+        "stderrTail": "",
+        "durationMs": 536,
+        "ranAt": "2026-06-17T17:04:05.267596163Z",
+        "gitHead": "16bc94c150e2f54520cf3f43a7f575e33b5fccef",
+        "changedFiles": [
+          ".specd/specs/regression-backends-state/memory.md",
+          ".specd/specs/regression-backends-state/state.json",
+          ".specd/specs/regression-backends-state/tasks.md",
+          ".specd/specs/regression-packs-schema/.lock",
+          ".specd/specs/regression-packs-schema/memory.md",
+          ".specd/specs/regression-packs-schema/state.json",
+          ".specd/specs/regression-packs-schema/tasks.md",
+          "TESTING.md",
+          "internal/core/backend_conformance_test.go",
+          "internal/core/pack_golden_test.go",
+          "internal/core/schema_sweep_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 549,
+        "retries": 1
+      }
+    },
+    "T4": {
+      "id": "T4",
+      "title": "Remote pack digest-safety tests",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:04:59.463768776Z",
+      "finishedAt": "2026-06-17T17:04:59.463768776Z",
+      "evidence": "TestRemotePackDigestSafety: hermetic httptest table {correct→apply, wrong→refuse, absent→refuse, tampered-body→refuse} (R3.1-R3.3). No live network. go test -run 'PackResolve|Remote' → exit 0.",
+      "verification": {
+        "command": "go test ./internal/core/ -run 'PackResolve|Remote'",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/core\t0.013s\n",
+        "stderrTail": "",
+        "durationMs": 1316,
+        "ranAt": "2026-06-17T17:04:52.297373125Z",
+        "gitHead": "16bc94c150e2f54520cf3f43a7f575e33b5fccef",
+        "changedFiles": [
+          ".specd/specs/regression-backends-state/memory.md",
+          ".specd/specs/regression-backends-state/state.json",
+          ".specd/specs/regression-backends-state/tasks.md",
+          ".specd/specs/regression-packs-schema/.lock",
+          ".specd/specs/regression-packs-schema/memory.md",
+          ".specd/specs/regression-packs-schema/state.json",
+          ".specd/specs/regression-packs-schema/tasks.md",
+          "TESTING.md",
+          "internal/core/backend_conformance_test.go",
+          "internal/core/pack_golden_test.go",
+          "internal/core/pack_resolve_test.go",
+          "internal/core/schema_sweep_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 1329,
+        "retries": 1
+      }
+    },
+    "T5": {
+      "id": "T5",
+      "title": "Review pack/schema regression for hermeticity and field-drop safety",
+      "role": "reviewer",
+      "wave": 3,
+      "depends": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "requirements": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-17T17:05:20.08880982Z",
+      "finishedAt": "2026-06-17T17:05:20.08880982Z",
+      "evidence": "Review T2-T4: remote tests use httptest loopback only — zero live network. ParsePack DisallowUnknownFields surfaces unknown fields not dropped (R4.3, TestPackManifest/unknown_field). Digest check exact lowercased-hex; tampered-body test proves pin trusted over URL. All T1 gaps closed, none UNMAPPED. go test -run 'Schema|Pack' -count=2 → exit 0 (no state leak across runs).",
+      "verification": {
+        "command": "go test ./internal/core/ -run 'Schema|Pack' -count=2",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "ok  \tgithub.com/0xkhdr/specd/internal/core\t0.142s\n",
+        "stderrTail": "",
+        "durationMs": 696,
+        "ranAt": "2026-06-17T17:05:09.865640067Z",
+        "gitHead": "16bc94c150e2f54520cf3f43a7f575e33b5fccef",
+        "changedFiles": [
+          ".specd/specs/regression-backends-state/memory.md",
+          ".specd/specs/regression-backends-state/state.json",
+          ".specd/specs/regression-backends-state/tasks.md",
+          ".specd/specs/regression-packs-schema/.lock",
+          ".specd/specs/regression-packs-schema/memory.md",
+          ".specd/specs/regression-packs-schema/state.json",
+          ".specd/specs/regression-packs-schema/tasks.md",
+          "TESTING.md",
+          "internal/core/backend_conformance_test.go",
+          "internal/core/pack_golden_test.go",
+          "internal/core/pack_resolve_test.go",
+          "internal/core/schema_sweep_test.go"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 708,
+        "retries": 1
+      }
+    }
+  },
   "blockers": []
 }
