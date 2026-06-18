@@ -2,7 +2,7 @@
 
 ## Wave 0 — Configuration Model
 
-- [ ] T1 — Add orchestration config models and defaults
+- [x] T1 — Add orchestration config models and defaults
   - why: Establish the policy contract before runtime components depend on it.
   - role: builder
   - files: internal/core/specfiles.go

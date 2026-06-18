@@ -9,13 +9,38 @@ import (
 )
 
 type Config struct {
-	Version            int       `json:"version"`
-	DefaultVerify      string    `json:"defaultVerify"`
-	Report             ReportCfg `json:"report"`
-	Roles              RolesCfg  `json:"roles"`
-	PromotionThreshold int       `json:"promotionThreshold"`
-	Gates              GatesCfg  `json:"gates"`
-	Verify             VerifyCfg `json:"verify"`
+	Version            int              `json:"version"`
+	DefaultVerify      string           `json:"defaultVerify"`
+	Report             ReportCfg        `json:"report"`
+	Roles              RolesCfg         `json:"roles"`
+	PromotionThreshold int              `json:"promotionThreshold"`
+	Gates              GatesCfg         `json:"gates"`
+	Verify             VerifyCfg        `json:"verify"`
+	Orchestration      OrchestrationCfg `json:"orchestration"`
+}
+
+type OrchestrationCfg struct {
+	Enabled                  bool         `json:"enabled"`
+	ApprovalPolicy           string       `json:"approvalPolicy"`
+	WorkerMode               string       `json:"workerMode"`
+	MaxWorkers               int          `json:"maxWorkers"`
+	MaxRetries               int          `json:"maxRetries"`
+	SessionTimeoutMinutes    int          `json:"sessionTimeoutMinutes"`
+	HostReportedCostLimitUSD float64      `json:"hostReportedCostLimitUSD"`
+	Transport                TransportCfg `json:"transport"`
+	Program                  ProgramCfg   `json:"program"`
+}
+
+type TransportCfg struct {
+	Kind               string `json:"kind"`
+	PollIntervalMillis int    `json:"pollIntervalMillis"`
+	MessageTTLSeconds  int    `json:"messageTTLSeconds"`
+	LeaseSeconds       int    `json:"leaseSeconds"`
+	HeartbeatSeconds   int    `json:"heartbeatSeconds"`
+}
+
+type ProgramCfg struct {
+	MaxConcurrentSpecs int `json:"maxConcurrentSpecs"`
 }
 
 // VerifyCfg holds verify-execution policy. Sandbox selects the isolation backend
@@ -62,6 +87,23 @@ var DefaultConfig = Config{
 	PromotionThreshold: 3,
 	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off"},
 	Verify:             VerifyCfg{Sandbox: "none"},
+	Orchestration: OrchestrationCfg{
+		Enabled:                  false,
+		ApprovalPolicy:           "manual",
+		WorkerMode:               "host",
+		MaxWorkers:               4,
+		MaxRetries:               2,
+		SessionTimeoutMinutes:    120,
+		HostReportedCostLimitUSD: 0,
+		Transport: TransportCfg{
+			Kind:               "file",
+			PollIntervalMillis: 500,
+			MessageTTLSeconds:  3600,
+			LeaseSeconds:       120,
+			HeartbeatSeconds:   30,
+		},
+		Program: ProgramCfg{MaxConcurrentSpecs: 2},
+	},
 }
 
 func LoadConfig(root string) Config {
@@ -77,6 +119,25 @@ func LoadConfig(root string) Config {
 		PromotionThreshold *int       `json:"promotionThreshold"`
 		Gates              *GatesCfg  `json:"gates"`
 		Verify             *VerifyCfg `json:"verify"`
+		Orchestration      *struct {
+			Enabled                  *bool    `json:"enabled"`
+			ApprovalPolicy           *string  `json:"approvalPolicy"`
+			WorkerMode               *string  `json:"workerMode"`
+			MaxWorkers               *int     `json:"maxWorkers"`
+			MaxRetries               *int     `json:"maxRetries"`
+			SessionTimeoutMinutes    *int     `json:"sessionTimeoutMinutes"`
+			HostReportedCostLimitUSD *float64 `json:"hostReportedCostLimitUSD"`
+			Transport                *struct {
+				Kind               *string `json:"kind"`
+				PollIntervalMillis *int    `json:"pollIntervalMillis"`
+				MessageTTLSeconds  *int    `json:"messageTTLSeconds"`
+				LeaseSeconds       *int    `json:"leaseSeconds"`
+				HeartbeatSeconds   *int    `json:"heartbeatSeconds"`
+			} `json:"transport"`
+			Program *struct {
+				MaxConcurrentSpecs *int `json:"maxConcurrentSpecs"`
+			} `json:"program"`
+		} `json:"orchestration"`
 	}
 	if err := json.Unmarshal([]byte(*raw), &partial); err != nil {
 		return DefaultConfig
@@ -116,6 +177,51 @@ func LoadConfig(root string) Config {
 	}
 	if partial.Verify != nil && partial.Verify.Sandbox != "" {
 		cfg.Verify.Sandbox = partial.Verify.Sandbox
+	}
+	if partial.Orchestration != nil {
+		orchestration := partial.Orchestration
+		if orchestration.Enabled != nil {
+			cfg.Orchestration.Enabled = *orchestration.Enabled
+		}
+		if orchestration.ApprovalPolicy != nil {
+			cfg.Orchestration.ApprovalPolicy = *orchestration.ApprovalPolicy
+		}
+		if orchestration.WorkerMode != nil {
+			cfg.Orchestration.WorkerMode = *orchestration.WorkerMode
+		}
+		if orchestration.MaxWorkers != nil {
+			cfg.Orchestration.MaxWorkers = *orchestration.MaxWorkers
+		}
+		if orchestration.MaxRetries != nil {
+			cfg.Orchestration.MaxRetries = *orchestration.MaxRetries
+		}
+		if orchestration.SessionTimeoutMinutes != nil {
+			cfg.Orchestration.SessionTimeoutMinutes = *orchestration.SessionTimeoutMinutes
+		}
+		if orchestration.HostReportedCostLimitUSD != nil {
+			cfg.Orchestration.HostReportedCostLimitUSD = *orchestration.HostReportedCostLimitUSD
+		}
+		if orchestration.Transport != nil {
+			transport := orchestration.Transport
+			if transport.Kind != nil {
+				cfg.Orchestration.Transport.Kind = *transport.Kind
+			}
+			if transport.PollIntervalMillis != nil {
+				cfg.Orchestration.Transport.PollIntervalMillis = *transport.PollIntervalMillis
+			}
+			if transport.MessageTTLSeconds != nil {
+				cfg.Orchestration.Transport.MessageTTLSeconds = *transport.MessageTTLSeconds
+			}
+			if transport.LeaseSeconds != nil {
+				cfg.Orchestration.Transport.LeaseSeconds = *transport.LeaseSeconds
+			}
+			if transport.HeartbeatSeconds != nil {
+				cfg.Orchestration.Transport.HeartbeatSeconds = *transport.HeartbeatSeconds
+			}
+		}
+		if orchestration.Program != nil && orchestration.Program.MaxConcurrentSpecs != nil {
+			cfg.Orchestration.Program.MaxConcurrentSpecs = *orchestration.Program.MaxConcurrentSpecs
+		}
 	}
 	return cfg
 }

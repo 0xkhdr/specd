@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: specification revision complete; awaiting human review
+Status: implementation in progress; Wave 0 complete; awaiting human review
 Last updated: 2026-06-18
-Implementation progress: 0/37 tasks complete
+Implementation progress: 1/37 tasks complete
 
 ## Program Outcome
 
@@ -18,7 +18,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 
 | Wave | Goal | Tasks | Status |
 |---:|---|---:|---|
-| 0 | Configuration model | 1 | pending |
+| 0 | Configuration model | 1 | complete |
 | 1 | Configuration validation | 1 | pending |
 | 2 | Shipped defaults and ACP protocol | 2 | pending |
 | 3 | Runtime path security | 1 | pending |
@@ -58,7 +58,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 
 | Spec | Tasks | Complete | Current state | Next task |
 |---|---:|---:|---|---|
-| config-extension | 4 | 0 | proposed | T1 |
+| config-extension | 4 | 1 | in progress | T2 |
 | acp-file-transport | 7 | 0 | proposed | blocked by config-extension/T2 |
 | brain-core | 8 | 0 | proposed | blocked by config-extension/T3 and ACP |
 | pinky-core | 7 | 0 | proposed | blocked by config-extension/T3 and ACP |
@@ -72,6 +72,14 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 3. Approve file ACP v1 with at-least-once, idempotent delivery rather than an exactly-once claim.
 4. Approve cooperative cancellation and post-edit scope enforcement as the honest v1 security boundary.
 5. Approve the seven-wave implementation order and fail-fast program policy.
+
+## Implementation Evidence
+
+- Wave 0 / `config-extension/T1`: added backward-compatible orchestration,
+  transport, and program configuration models with field-level defaults.
+  Verification passed:
+  `go test ./internal/core/... -run 'Test.*Config.*(Legacy|Default|Partial)' -count=2`,
+  `make build`, `make test`, and `make ci`.
 
 ## Progress Update Rules
 
