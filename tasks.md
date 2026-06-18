@@ -154,7 +154,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 5 — CLI coding-agent integrations
 
-- [ ] T15 — Implement Codex project adapter
+- [x] T15 — Implement Codex project adapter
   - why: Codex supports CLI-managed MCP and shared CLI/IDE project configuration.
   - role: builder
   - files: internal/integration/codex.go, internal/integration/codex_test.go, internal/mcp/embed_hosts/codex.toml
@@ -164,7 +164,7 @@ in parallel when file ownership does not overlap.
   - depends: T10, T11, T12, T13
   - requirements: R2.1, R3.1, R3.3, R3.5, R4.5
 
-- [ ] T16 — Implement Claude Code project adapter
+- [x] T16 — Implement Claude Code project adapter
   - why: Existing Claude Desktop snippet does not serve main CLI coding-agent path.
   - role: builder
   - files: internal/integration/claude.go, internal/integration/claude_test.go, internal/mcp/embed_hosts/
@@ -174,7 +174,7 @@ in parallel when file ownership does not overlap.
   - depends: T10, T11, T12, T13, T14
   - requirements: R2.1, R3.1, R3.2, R3.3, R3.5
 
-- [ ] T17 — Implement Gemini CLI project adapter
+- [x] T17 — Implement Gemini CLI project adapter
   - why: Gemini CLI is a major CLI agent and supports project/user MCP scopes.
   - role: builder
   - files: internal/integration/gemini.go, internal/integration/gemini_test.go, internal/mcp/embed_hosts/gemini.json

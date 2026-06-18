@@ -55,6 +55,15 @@ func MustRegistry(adapters ...HostAdapter) *Registry {
 	return registry
 }
 
+// DefaultRegistry contains the project-scoped CLI coding-agent adapters.
+func DefaultRegistry() *Registry {
+	return MustRegistry(
+		NewClaudeCodeAdapter(),
+		NewCodexAdapter(),
+		NewGeminiAdapter(),
+	)
+}
+
 func (r *Registry) Names() []string {
 	names := make([]string, 0, len(r.adapters))
 	for name := range r.adapters {
