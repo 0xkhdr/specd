@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math"
 	"reflect"
 	"testing"
 )
@@ -93,5 +94,163 @@ func TestConfigOrchestrationPartial(t *testing.T) {
 	got := LoadConfig(root)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("LoadConfig() = %#v, want %#v", got, want)
+	}
+}
+
+func TestOrchestrationConfigBoundaryValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  OrchestrationCfg
+		want OrchestrationCfg
+	}{
+		{
+			name: "clamps lower bounds",
+			cfg: OrchestrationCfg{
+				ApprovalPolicy: "manual",
+				WorkerMode:     "host",
+				MaxWorkers:     -1,
+				MaxRetries:     -1,
+				Transport:      TransportCfg{Kind: "file"},
+			},
+			want: OrchestrationCfg{
+				ApprovalPolicy:        "manual",
+				WorkerMode:            "host",
+				MaxWorkers:            minMaxWorkers,
+				MaxRetries:            minMaxRetries,
+				SessionTimeoutMinutes: minSessionTimeoutMinutes,
+				Transport: TransportCfg{
+					Kind:               "file",
+					PollIntervalMillis: minPollIntervalMillis,
+					MessageTTLSeconds:  minMessageTTLSeconds,
+					LeaseSeconds:       minLeaseSeconds,
+					HeartbeatSeconds:   minHeartbeatSeconds,
+				},
+				Program: ProgramCfg{MaxConcurrentSpecs: minMaxConcurrentSpecs},
+			},
+		},
+		{
+			name: "clamps upper bounds",
+			cfg: OrchestrationCfg{
+				ApprovalPolicy:        "session",
+				WorkerMode:            "host",
+				MaxWorkers:            maxMaxWorkers + 1,
+				MaxRetries:            maxMaxRetries + 1,
+				SessionTimeoutMinutes: maxSessionTimeoutMinutes + 1,
+				Transport: TransportCfg{
+					Kind:               "file",
+					PollIntervalMillis: maxPollIntervalMillis + 1,
+					MessageTTLSeconds:  maxMessageTTLSeconds + 1,
+					LeaseSeconds:       maxLeaseSeconds + 1,
+					HeartbeatSeconds:   maxHeartbeatSeconds + 1,
+				},
+				Program: ProgramCfg{MaxConcurrentSpecs: maxMaxConcurrentSpecs + 1},
+			},
+			want: OrchestrationCfg{
+				ApprovalPolicy:        "session",
+				WorkerMode:            "host",
+				MaxWorkers:            maxMaxWorkers,
+				MaxRetries:            maxMaxRetries,
+				SessionTimeoutMinutes: maxSessionTimeoutMinutes,
+				Transport: TransportCfg{
+					Kind:               "file",
+					PollIntervalMillis: maxPollIntervalMillis,
+					MessageTTLSeconds:  maxMessageTTLSeconds,
+					LeaseSeconds:       maxLeaseSeconds,
+					HeartbeatSeconds:   maxHeartbeatSeconds,
+				},
+				Program: ProgramCfg{MaxConcurrentSpecs: maxMaxConcurrentSpecs},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateOrchestrationConfig(&tt.cfg); err != nil {
+				t.Fatalf("ValidateOrchestrationConfig() error = %v", err)
+			}
+			if !reflect.DeepEqual(tt.cfg, tt.want) {
+				t.Fatalf("config = %#v, want %#v", tt.cfg, tt.want)
+			}
+		})
+	}
+}
+
+func TestOrchestrationConfigInvalidEnumValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*OrchestrationCfg)
+	}{
+		{"approval policy", func(cfg *OrchestrationCfg) { cfg.ApprovalPolicy = "automatic" }},
+		{"worker mode", func(cfg *OrchestrationCfg) { cfg.WorkerMode = "embedded" }},
+		{"transport kind", func(cfg *OrchestrationCfg) { cfg.Transport.Kind = "http" }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig.Orchestration
+			tt.mutate(&cfg)
+			if err := ValidateOrchestrationConfig(&cfg); err == nil {
+				t.Fatal("ValidateOrchestrationConfig() error = nil, want rejection")
+			}
+		})
+	}
+}
+
+func TestOrchestrationConfigUnsafeValueValidation(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*OrchestrationCfg)
+	}{
+		{"negative cost", func(cfg *OrchestrationCfg) { cfg.HostReportedCostLimitUSD = -1 }},
+		{"nan cost", func(cfg *OrchestrationCfg) { cfg.HostReportedCostLimitUSD = math.NaN() }},
+		{"infinite cost", func(cfg *OrchestrationCfg) { cfg.HostReportedCostLimitUSD = math.Inf(1) }},
+		{"heartbeat reaches lease", func(cfg *OrchestrationCfg) {
+			cfg.Transport.HeartbeatSeconds = cfg.Transport.LeaseSeconds
+		}},
+		{"lease exceeds ttl", func(cfg *OrchestrationCfg) {
+			cfg.Transport.MessageTTLSeconds = minMessageTTLSeconds
+			cfg.Transport.LeaseSeconds = minMessageTTLSeconds + 1
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig.Orchestration
+			tt.mutate(&cfg)
+			if err := ValidateOrchestrationConfig(&cfg); err == nil {
+				t.Fatal("ValidateOrchestrationConfig() error = nil, want rejection")
+			}
+		})
+	}
+}
+
+func TestOrchestrationConfigFailClosedValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		orchestration string
+	}{
+		{"invalid enum", `{"enabled":true,"workerMode":"embedded"}`},
+		{"api key", `{"enabled":true,"apiKey":"top-secret"}`},
+		{"provider credentials", `{"enabled":true,"providerCredentials":{"user":"x"}}`},
+		{"shell command", `{"enabled":true,"transport":{"command":"curl example.test"}}`},
+		{"model selection", `{"enabled":true,"model":"vendor-model"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			raw := `{"defaultVerify":"make test","orchestration":` + tt.orchestration + `}`
+			if err := AtomicWrite(ConfigPath(root), raw); err != nil {
+				t.Fatal(err)
+			}
+
+			got := LoadConfig(root)
+			if got.DefaultVerify != "make test" {
+				t.Fatalf("unrelated config field changed: DefaultVerify = %q", got.DefaultVerify)
+			}
+			if !reflect.DeepEqual(got.Orchestration, DefaultConfig.Orchestration) {
+				t.Fatalf("orchestration = %#v, want fail-closed defaults %#v", got.Orchestration, DefaultConfig.Orchestration)
+			}
+		})
 	}
 }

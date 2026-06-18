@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 0 complete; awaiting human review
+Status: implementation in progress; Wave 1 complete; awaiting human review
 Last updated: 2026-06-18
-Implementation progress: 1/37 tasks complete
+Implementation progress: 2/37 tasks complete
 
 ## Program Outcome
 
@@ -19,7 +19,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | Wave | Goal | Tasks | Status |
 |---:|---|---:|---|
 | 0 | Configuration model | 1 | complete |
-| 1 | Configuration validation | 1 | pending |
+| 1 | Configuration validation | 1 | complete |
 | 2 | Shipped defaults and ACP protocol | 2 | pending |
 | 3 | Runtime path security | 1 | pending |
 | 4 | Atomic ACP event store | 1 | pending |
@@ -58,8 +58,8 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 
 | Spec | Tasks | Complete | Current state | Next task |
 |---|---:|---:|---|---|
-| config-extension | 4 | 1 | in progress | T2 |
-| acp-file-transport | 7 | 0 | proposed | blocked by config-extension/T2 |
+| config-extension | 4 | 2 | in progress | T3 |
+| acp-file-transport | 7 | 0 | proposed | T1 |
 | brain-core | 8 | 0 | proposed | blocked by config-extension/T3 and ACP |
 | pinky-core | 7 | 0 | proposed | blocked by config-extension/T3 and ACP |
 | program-orchestration | 5 | 0 | proposed | blocked by brain-core/T3 |
@@ -79,6 +79,12 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   transport, and program configuration models with field-level defaults.
   Verification passed:
   `go test ./internal/core/... -run 'Test.*Config.*(Legacy|Default|Partial)' -count=2`,
+  `make build`, `make test`, and `make ci`.
+- Wave 1 / `config-extension/T2`: added fail-closed orchestration validation
+  for policy enums, worker/transport modes, cost values, timing relationships,
+  bounded concurrency/retry/timeout values, and secret-shaped configuration
+  fields while preserving unrelated legacy settings. Verification passed:
+  `go test ./internal/core/... -run 'Test.*OrchestrationConfig.*Validation' -count=2`,
   `make build`, `make test`, and `make ci`.
 
 ## Progress Update Rules

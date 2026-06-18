@@ -14,7 +14,7 @@
 
 ## Wave 1 — Configuration Validation
 
-- [ ] T2 — Validate orchestration policy and bounded values
+- [x] T2 — Validate orchestration policy and bounded values
   - why: Prevent unsafe or ambiguous runtime behavior.
   - role: builder
   - files: internal/core/specfiles.go, internal/core/specfiles_test.go
