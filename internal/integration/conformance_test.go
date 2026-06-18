@@ -1,11 +1,14 @@
 package integration
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -152,4 +155,112 @@ func TestAdapterConformanceDoesNotWriteDuringDetection(t *testing.T) {
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("detection modified project: before=%v after=%v", before, after)
 	}
+}
+
+func TestCompatibilityMatrixMatchesProjectAdapters(t *testing.T) {
+	rows := compatibilityRows(t)
+	var documented []string
+	for host, adapter := range rows {
+		if adapter == "project" {
+			documented = append(documented, host)
+		}
+	}
+	sort.Strings(documented)
+	if got := DefaultRegistry().Names(); !reflect.DeepEqual(got, documented) {
+		t.Fatalf("project adapter registry %v != compatibility matrix %v", got, documented)
+	}
+}
+
+func TestDefaultAdapterConformance(t *testing.T) {
+	root := t.TempDir()
+	registry := DefaultRegistry()
+	for _, adapter := range registry.Adapters() {
+		t.Run(adapter.Name(), func(t *testing.T) {
+			before, err := os.ReadDir(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			adapter.Detect(root)
+			after, err := os.ReadDir(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(before, after) {
+				t.Fatalf("detection modified project: before=%v after=%v", before, after)
+			}
+
+			first, err := registry.Plan(adapter.Name(), root, ScopeProject)
+			if err != nil {
+				t.Fatal(err)
+			}
+			second, err := registry.Plan(adapter.Name(), root, ScopeProject)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(first, second) {
+				t.Fatalf("plan is not deterministic:\n%#v\n%#v", first, second)
+			}
+			for _, action := range first.Actions {
+				switch action.Command {
+				case "sh", "bash", "zsh", "cmd.exe":
+					t.Fatalf("plan uses a shell: %#v", action)
+				}
+				if action.Target == "" {
+					t.Fatal("plan action has no target")
+				}
+				rel, err := filepath.Rel(root, action.Target)
+				if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+					t.Fatalf("project action escapes root: %s", action.Target)
+				}
+			}
+		})
+	}
+}
+
+func compatibilityRows(t *testing.T) map[string]string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate conformance test")
+	}
+	path := filepath.Join(filepath.Dir(file), "..", "..", "docs", "agent-harness-compat.md")
+	handle, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Close()
+
+	rows := map[string]string{}
+	scanner := bufio.NewScanner(handle)
+	inHosts := false
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "## Hosts" {
+			inHosts = true
+			continue
+		}
+		if inHosts && strings.HasPrefix(line, "## ") {
+			break
+		}
+		if !inHosts || !strings.HasPrefix(line, "|") {
+			continue
+		}
+		cells := strings.Split(strings.Trim(line, "|"), "|")
+		if len(cells) < 2 {
+			continue
+		}
+		host := strings.TrimSpace(cells[0])
+		adapter := strings.TrimSpace(cells[1])
+		if host == "Host" || strings.HasPrefix(host, "---") {
+			continue
+		}
+		rows[host] = adapter
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("compatibility matrix has no host rows")
+	}
+	return rows
 }

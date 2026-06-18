@@ -253,7 +253,7 @@ specd mcp --config cursor
 specd mcp --config claude-desktop --root /path/to/your/project
 ```
 
-Supported values: `claude-desktop`, `cursor`, `vscode`, `antigravity`, `codex`.
+Supported values: `antigravity`, `claude-code`, `claude-desktop`, `codex`, `cursor`, `gemini`, `vscode`.
 
 ---
 
@@ -287,7 +287,7 @@ global MCP settings):
   "mcpServers": {
     "specd": {
       "command": "specd",
-      "args": ["mcp", "--root", "${workspaceFolder}"]
+      "args": ["mcp", "--root", "/path/to/your/project"]
     }
   }
 }
@@ -298,19 +298,18 @@ Run `specd mcp --config cursor --root /path/to/your/project` to get a pre-filled
 **Note:** Cursor sends newline-delimited JSON framing. `Content-Length` auto-detection means no
 specd-side change is needed if Cursor switches framing in a future version.
 
-### VS Code (MCP extension)
+### VS Code
 
-Add `specd` to your VS Code `settings.json` under the `mcp.servers` key:
+Add `specd` to the workspace MCP file at `.vscode/mcp.json` under the top-level
+`servers` key:
 
 ```json
 {
-  "mcp": {
-    "servers": {
-      "specd": {
-        "type": "stdio",
-        "command": "specd",
-        "args": ["mcp", "--root", "${workspaceFolder}"]
-      }
+  "servers": {
+    "specd": {
+      "type": "stdio",
+      "command": "specd",
+      "args": ["mcp", "--root", "/path/to/your/project"]
     }
   }
 }

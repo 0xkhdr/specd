@@ -24,12 +24,20 @@ var hostRegistry = map[string]HostEntry{
 		Dest: "~/.config/Claude/claude_desktop_config.json  (macOS/Linux)\n# %APPDATA%\\Claude\\claude_desktop_config.json  (Windows)",
 		file: "embed_hosts/claude-desktop.json",
 	},
+	"claude-code": {
+		Dest: ".mcp.json  (project)",
+		file: "embed_hosts/claude-code.json",
+	},
 	"cursor": {
 		Dest: ".cursor/mcp.json  (project)  or  global MCP settings",
 		file: "embed_hosts/cursor.json",
 	},
+	"gemini": {
+		Dest: ".gemini/settings.json  (project)",
+		file: "embed_hosts/gemini.json",
+	},
 	"vscode": {
-		Dest: ".vscode/settings.json  (mcp.servers key)",
+		Dest: ".vscode/mcp.json  (workspace)",
 		file: "embed_hosts/vscode.json",
 	},
 	"antigravity": {

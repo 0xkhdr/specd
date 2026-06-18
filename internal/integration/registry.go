@@ -55,12 +55,14 @@ func MustRegistry(adapters ...HostAdapter) *Registry {
 	return registry
 }
 
-// DefaultRegistry contains the project-scoped CLI coding-agent adapters.
+// DefaultRegistry contains the supported project-scoped coding-agent adapters.
 func DefaultRegistry() *Registry {
 	return MustRegistry(
 		NewClaudeCodeAdapter(),
 		NewCodexAdapter(),
+		NewCursorAdapter(),
 		NewGeminiAdapter(),
+		NewVSCodeAdapter(),
 	)
 }
 

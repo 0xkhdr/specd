@@ -57,9 +57,9 @@ func TestGeminiProjectAdapterPreservesSettingsAndIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestDefaultRegistryIncludesWaveFiveCLIAdapters(t *testing.T) {
+func TestDefaultRegistryIncludesSupportedProjectAdapters(t *testing.T) {
 	got := DefaultRegistry().Names()
-	want := []string{"claude-code", "codex", "gemini"}
+	want := []string{"claude-code", "codex", "cursor", "gemini", "vscode"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("DefaultRegistry names = %v, want %v", got, want)
 	}

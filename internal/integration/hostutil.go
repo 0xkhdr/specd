@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -62,6 +63,10 @@ func specdServer(root string) map[string]any {
 }
 
 func inspectJSONServer(root, host, target string, scope Scope) (HostState, []byte, error) {
+	return inspectJSONServerAtPath(root, host, target, scope, []string{"mcpServers"})
+}
+
+func inspectJSONServerAtPath(root, host, target string, scope Scope, keyPath []string) (HostState, []byte, error) {
 	state := HostState{Host: host, Scope: scope, Target: target}
 	data, err := os.ReadFile(target)
 	if os.IsNotExist(err) {
@@ -84,12 +89,20 @@ func inspectJSONServer(root, host, target string, scope Scope) (HostState, []byt
 	} else if err != io.EOF {
 		return state, nil, fmt.Errorf("parse %s: %w", target, err)
 	}
-	servers, ok := document["mcpServers"].(map[string]any)
-	if !ok {
-		state.Reason = "mcpServers object is absent"
-		return state, nil, nil
+	parent := document
+	for _, key := range keyPath {
+		value, ok := parent[key]
+		if !ok {
+			state.Reason = strings.Join(keyPath, ".") + " object is absent"
+			return state, nil, nil
+		}
+		next, ok := value.(map[string]any)
+		if !ok {
+			return state, nil, fmt.Errorf("JSON key %q is not an object", key)
+		}
+		parent = next
 	}
-	server, ok := servers[specdServerName]
+	server, ok := parent[specdServerName]
 	if !ok {
 		state.Reason = "specd server is not registered"
 		return state, nil, nil
@@ -120,6 +133,78 @@ func inspectJSONServer(root, host, target string, scope Scope) (HostState, []byt
 		}
 	}
 	return state, canonical, nil
+}
+
+func installWorkspaceJSON(
+	plan HostPlan,
+	deps AdapterDeps,
+	target string,
+	keyPath []string,
+	server map[string]any,
+	nextAction string,
+) (HostResult, error) {
+	result := HostResult{
+		Host:       plan.Host,
+		Status:     "configured",
+		Targets:    []string{target},
+		Backups:    []string{},
+		Warnings:   []string{},
+		NextAction: nextAction,
+	}
+	if err := validateConfigTarget(plan.Root, target); err != nil {
+		return result, err
+	}
+	before, _, err := inspectJSONServerAtPath(plan.Root, plan.Host, target, plan.Scope, keyPath)
+	if err != nil {
+		result.Status = "manual"
+		result.Warnings = []string{err.Error()}
+		result.NextAction = "repair the host configuration or merge the generated specd snippet manually"
+		return result, nil
+	}
+	if before.Registered {
+		if before.Owned {
+			return result, nil
+		}
+		if before.Reason == "specd server registration differs from the owned manifest entry" {
+			return result, fmt.Errorf("%s registration ownership mismatch at %s", plan.Host, target)
+		}
+		result.Status = "existing"
+		result.Warnings = append(result.Warnings, "matching unowned specd registration left unchanged")
+		return result, nil
+	}
+	if before.Fingerprint != "" {
+		return result, fmt.Errorf("%s has an existing unowned specd registration at %s", plan.Host, target)
+	}
+
+	merged, err := MergeJSONServer(JSONMergeOptions{
+		Root:       plan.Root,
+		Target:     target,
+		KeyPath:    keyPath,
+		ServerName: specdServerName,
+		Server:     server,
+		Now:        deps.Now,
+	})
+	if err != nil {
+		result.Status = "manual"
+		result.Warnings = []string{err.Error()}
+		result.NextAction = "repair the host configuration or merge the generated specd snippet manually"
+		return result, nil
+	}
+	if merged.Backup != "" {
+		result.Backups = append(result.Backups, merged.Backup)
+	}
+	after, canonical, err := inspectJSONServerAtPath(plan.Root, plan.Host, target, plan.Scope, keyPath)
+	if err != nil {
+		return result, err
+	}
+	if !after.Registered {
+		return result, fmt.Errorf("%s workspace merge did not install the expected project registration", plan.Host)
+	}
+	if err := recordIntegration(plan.Root, plan.Host, plan.Scope, target, "project-json", canonical, deps.Now()); err != nil {
+		return result, fmt.Errorf("record %s integration: %w", plan.Host, err)
+	}
+	result.Changed = merged.Changed
+	return result, nil
 }
 
 func matchesSpecdServer(server any, root string) bool {

@@ -2,7 +2,7 @@
   "mcpServers": {
     "specd": {
       "command": "specd",
-      "args": ["mcp", "--root", "${workspaceFolder}"]
+      "args": ["mcp", "--root", "/path/to/your/project"]
     }
   }
 }

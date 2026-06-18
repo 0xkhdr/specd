@@ -218,7 +218,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 7 — IDE adapters and compatibility
 
-- [ ] T21 — Implement Cursor workspace adapter
+- [x] T21 — Implement Cursor workspace adapter
   - why: Cursor is a major coding-agent host and currently requires manual snippet merge.
   - role: builder
   - files: internal/integration/cursor.go, internal/integration/cursor_test.go, internal/mcp/embed_hosts/cursor.json
@@ -228,7 +228,7 @@ in parallel when file ownership does not overlap.
   - depends: T11, T12, T13, T14, T20
   - requirements: R3.1, R3.2, R3.5, R6.4
 
-- [ ] T22 — Implement VS Code workspace adapter
+- [x] T22 — Implement VS Code workspace adapter
   - why: VS Code supports workspace MCP configuration and guided host management.
   - role: builder
   - files: internal/integration/vscode.go, internal/integration/vscode_test.go, internal/mcp/embed_hosts/vscode.json
@@ -238,7 +238,7 @@ in parallel when file ownership does not overlap.
   - depends: T11, T12, T13, T14, T20
   - requirements: R3.1, R3.2, R3.5, R6.4
 
-- [ ] T23 — Expand host compatibility matrix and drift guards
+- [x] T23 — Expand host compatibility matrix and drift guards
   - why: Worldwide harness claims must be test-backed and honest as host schemas evolve.
   - role: builder
   - files: internal/integration/conformance_test.go, internal/mcp/host_compat_test.go, docs/agent-harness-compat.md

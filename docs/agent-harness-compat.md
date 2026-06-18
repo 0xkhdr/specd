@@ -1,41 +1,40 @@
 # Agent-Harness Compatibility Matrix
 
-> Source spec: `regression-agent-harness-value` (R3), built on
-> `regression-mcp-transport`. Cells are verified by
-> `internal/mcp` tests (`go test ./internal/mcp/ -run 'Host|Transport'`).
-> Honest by construction: `TestHostCompatibilityMatrix` fails if this set drifts
-> from the host registry in `internal/mcp/hosts.go`.
+This matrix is the tested support contract for coding-agent integration. The
+adapter registry, embedded `specd mcp --config` snippets, and the host rows below
+are kept in sync by `Compatibility`, `Conformance`, and `Host` tests.
 
 ## Transports
 
-| Transport   | Status    | Notes |
-|-------------|-----------|-------|
-| stdio       | supported | Default. JSON-RPC 2.0 over stdin/stdout; runs until EOF. Auto-detects newline vs Content-Length framing. |
-| HTTP `/rpc` | supported | Opt-in (`--http`). Byte-identical dispatch to stdio (`TestHTTPTransportParity`). Binds loopback by default. |
-| HTTP `/sse` | supported | Opt-in. Same dispatch, response wrapped as one SSE `data:` frame. |
+| Transport | Status | Notes |
+|---|---|---|
+| stdio | supported | Default local transport. JSON-RPC 2.0 over stdin/stdout with newline and Content-Length framing. |
+| HTTP `/rpc` | supported | Opt-in with `specd mcp --http`; loopback by default. |
+| HTTP `/sse` | supported | Opt-in SSE response framing over the same dispatcher. |
 
-## Hosts × transport
+## Hosts
 
-All shipped host config snippets (`specd mcp --config <host>`) target **stdio**.
-HTTP/SSE is for hosts that cannot spawn a stdio child (browser/remote agents) and
-is not tied to a named host snippet.
+`project` in the Adapter column means `specd init --agent <host>` can detect and
+inspect that host. `snippet` means only deterministic manual configuration is
+shipped. Named host integrations use stdio; HTTP remains a manual endpoint path.
 
-| Host           | stdio (config snippet) | HTTP/SSE | Notes |
-|----------------|------------------------|----------|-------|
-| claude-desktop | supported              | n/a      | `claude_desktop_config.json`. |
-| cursor         | supported              | n/a      | `.cursor/mcp.json` or global. |
-| vscode         | supported              | n/a      | `mcp.servers` key. Some VS Code extensions use Content-Length framing — handled by auto-detect. |
-| antigravity    | supported              | n/a      | `.agents/mcp_config.json` workspace-local or per-CLI global. |
-| codex          | supported              | n/a      | `~/.codex/config.toml` (TOML, not JSON). |
-| browser/remote | unsupported (stdio)    | supported | No stdio child possible; use `specd mcp --http`. No prebuilt snippet — point the host at the loopback endpoint. |
+| Host | Adapter | Detection | Project install | Global install | stdio | HTTP | Verification depth | Known limits |
+|---|---|---|---|---|---|---|---|---|
+| antigravity | snippet | unsupported | manual | manual | supported | manual | config snippet only | No managed adapter or ownership inspection. |
+| claude-code | project | executable or `.mcp.json` | native CLI | unsupported | supported | manual | config shape, root, ownership, MCP probe | Host restart/reload remains user-controlled. |
+| claude-desktop | snippet | unsupported | unsupported | manual | supported | manual | config snippet only | Global desktop config is never mutated automatically. |
+| codex | project | executable or `.codex/config.toml` | manual | unsupported | supported | manual | TOML entry and project root inspection | Current official CLI lacks safe project-scoped registration. |
+| cursor | project | executable or `.cursor/mcp.json` | atomic JSON merge | unsupported | supported | manual | schema, root, ownership, MCP probe | User may need to enable/reload the server in Tools & MCP. |
+| gemini | project | executable or `.gemini/settings.json` | native CLI | unsupported | supported | manual | config shape, root, ownership, MCP probe | Host trust/allow settings are preserved but not managed. |
+| vscode | project | executable or `.vscode/mcp.json` | atomic JSON merge | unsupported | supported | manual | schema, root, ownership, MCP probe | Workspace trust and server start approval remain user-controlled. |
 
-## Known limitations (recorded, not implied away)
+## Drift and safety policy
 
-- No host snippet ships for HTTP/SSE; integrators wire the loopback endpoint
-  manually. R3 records this explicitly rather than implying universal one-command
-  setup.
-- HTTP defaults to loopback (`127.0.0.1:8765`); exposing it externally requires an
-  explicit address and is the integrator's security decision — spec contents stay
-  on-host by default.
-- Each cell above is asserted by a working `tools/call` (stdio) or transport-parity
-  test (HTTP). Cells not exercised by a test are marked `n/a`, never `supported`.
+- Project adapters never mutate user/global configuration.
+- JSON workspace adapters preserve unrelated keys, back up existing files,
+  reject symlink escapes, and fall back to manual guidance on invalid or unknown
+  schema.
+- Unsupported cells are explicit; no transport, install scope, or verification
+  depth is inferred from another host.
+- Local MCP configuration is executable code. Review and trust project files
+  before starting a server.

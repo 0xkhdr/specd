@@ -1,6 +1,11 @@
 package mcp_test
 
 import (
+	"bufio"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -9,18 +14,13 @@ import (
 	th "github.com/0xkhdr/specd/internal/testharness"
 )
 
-// documentedHosts is the set of MCP hosts docs/mcp-guide.md promises support for
-// (the "Supported values:" line under Host Configuration). The matrix test below
-// asserts the host registry matches this set exactly, so the docs never imply
-// support specd does not ship, nor hide a host it does. R3.1.
-var documentedHosts = []string{"antigravity", "claude-desktop", "codex", "cursor", "vscode"}
-
 // TestHostCompatibilityMatrix verifies every documented host integration path:
 // (a) `--config <host>` produces a non-empty snippet with the project root
 // substituted, and (b) the transport those snippets target (stdio) yields a
 // working tool call. The registry must equal the documented set — no silent
 // drift in either direction. R3.1 / R3.3.
 func TestHostCompatibilityMatrix(t *testing.T) {
+	documentedHosts := documentedCompatibilityHosts(t)
 	// Registry ↔ docs parity: honest support surface, no implied coverage.
 	got := mcp.HostNames()
 	if strings.Join(got, ",") != strings.Join(documentedHosts, ",") {
@@ -70,4 +70,49 @@ func TestHostCompatibilityMatrix(t *testing.T) {
 	if _, ok := res["content"]; !ok {
 		t.Fatalf("stdio tool call has no content payload: %v", res)
 	}
+}
+
+func documentedCompatibilityHosts(t *testing.T) []string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate host compatibility test")
+	}
+	path := filepath.Join(filepath.Dir(file), "..", "..", "docs", "agent-harness-compat.md")
+	handle, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Close()
+
+	var hosts []string
+	scanner := bufio.NewScanner(handle)
+	inHosts := false
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "## Hosts" {
+			inHosts = true
+			continue
+		}
+		if inHosts && strings.HasPrefix(line, "## ") {
+			break
+		}
+		if !inHosts || !strings.HasPrefix(line, "|") {
+			continue
+		}
+		cells := strings.Split(strings.Trim(line, "|"), "|")
+		if len(cells) == 0 {
+			continue
+		}
+		host := strings.TrimSpace(cells[0])
+		if host == "Host" || strings.HasPrefix(host, "---") {
+			continue
+		}
+		hosts = append(hosts, host)
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(hosts)
+	return hosts
 }

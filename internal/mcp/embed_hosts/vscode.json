@@ -1,11 +1,9 @@
 {
-  "mcp": {
-    "servers": {
-      "specd": {
-        "type": "stdio",
-        "command": "specd",
-        "args": ["mcp", "--root", "${workspaceFolder}"]
-      }
+  "servers": {
+    "specd": {
+      "type": "stdio",
+      "command": "specd",
+      "args": ["mcp", "--root", "/path/to/your/project"]
     }
   }
 }

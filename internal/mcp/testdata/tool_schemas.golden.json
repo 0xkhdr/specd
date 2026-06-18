@@ -128,7 +128,7 @@
     "properties": {
       "agent": {
         "type": "string",
-        "description": "Coding-agent selection: auto, all, none, codex, claude-code, or gemini"
+        "description": "Coding-agent selection: auto, all, none, codex, claude-code, cursor, gemini, or vscode"
       },
       "args": {
         "type": "array",
