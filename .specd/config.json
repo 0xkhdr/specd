@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "defaultVerify": "go test ./internal/core/... -cover -race",
-  "report": { "format": "md", "autoRefreshSeconds": 0 },
-  "roles": { "subagentMode": "inline" },
-  "promotionThreshold": 3,
-  "gates": { "traceability": "warn", "acceptance": "off", "scope": "off", "custom": [] },
-  "verify": { "sandbox": "none" }
-}
