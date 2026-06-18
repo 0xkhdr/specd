@@ -76,6 +76,36 @@ func TestProbeFailures(t *testing.T) {
 	})
 }
 
+// TestProbeDeterministic asserts the probe's machine-contract fields
+// (protocol version, tool count) are stable across runs. Latency is excluded:
+// it is wall-clock and must never gate CI (task T26, R4.1).
+func TestProbeDeterministic(t *testing.T) {
+	first, err := Probe(context.Background(), nil, time.Second)
+	if err != nil {
+		t.Fatalf("first probe: %v", err)
+	}
+	second, err := Probe(context.Background(), nil, time.Second)
+	if err != nil {
+		t.Fatalf("second probe: %v", err)
+	}
+	if first.ProtocolVersion != second.ProtocolVersion {
+		t.Errorf("ProtocolVersion drift: %q vs %q", first.ProtocolVersion, second.ProtocolVersion)
+	}
+	if first.ToolCount != second.ToolCount {
+		t.Errorf("ToolCount drift: %d vs %d", first.ToolCount, second.ToolCount)
+	}
+}
+
+// BenchmarkProbe records the in-process MCP handshake + tools/list latency
+// baseline (docs/agent-harness-baselines.md, success metric p95 < 500ms).
+func BenchmarkProbe(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if _, err := Probe(context.Background(), nil, time.Second); err != nil {
+			b.Fatalf("probe: %v", err)
+		}
+	}
+}
+
 func writeProbeResult(w io.Writer, id int, result any) error {
 	return json.NewEncoder(w).Encode(map[string]any{
 		"jsonrpc": "2.0",

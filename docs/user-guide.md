@@ -49,12 +49,62 @@ specd update --force
 
 ### Initialize a project
 
+The golden path is one command in your project root:
+
 ```bash
-specd init              # in your project root
+cd <your-project>
+specd init --agent auto
 ```
 
-This scaffolds `.specd/` with default templates, steering files, roles, and
-`AGENTS.md`.
+This scaffolds `.specd/` (default templates, steering files, roles, skills,
+`config.json`) and merges `AGENTS.md`, **then** detects your coding agent, installs
+project-scoped MCP registration for it, and verifies the integration with an
+in-process MCP handshake. A rerun on a healthy project makes **zero byte changes**.
+
+#### Choosing how hosts are configured
+
+| Invocation | Behavior |
+|---|---|
+| `specd init --agent auto` | Detect hosts; in an interactive terminal, configure the **one** unambiguous host. In CI / non-TTY or when several are detected, scaffold only and report suggested actions (no mutation). |
+| `specd init --agent claude-code --yes` | Configure one named host, non-interactively. |
+| `specd init --agent all --yes` | Configure **every** detected supported host. |
+| `specd init --agent none` | Scaffold only; touch no host config. |
+| `specd init --agent codex --dry-run --json` | Print exact proposed mutations/commands as JSON; write nothing. |
+
+**Consent & scope rules:**
+
+- **Project scope is the default.** Generated config lives under your repo
+  (`.mcp.json`, `.cursor/mcp.json`, `.gemini/settings.json`, …).
+- **Global host config is never modified** without `--scope global` **and** explicit
+  consent (`--yes` or an interactive confirmation).
+- `--yes` authorizes only documented, non-destructive, project-scoped changes.
+- Existing host config must parse before any mutation; specd fails closed and creates
+  a timestamped backup before changing an existing file.
+- Unrelated MCP servers and settings in a host config are always preserved.
+
+Supported managed adapters (auto-detect + install): **claude-code, codex, cursor,
+gemini, vscode**. **antigravity** and **claude-desktop** ship deterministic manual
+snippets only (`specd mcp --config <host>`). See
+[mcp-guide.md](mcp-guide.md) and [agent-harness-compat.md](agent-harness-compat.md)
+for the full host matrix and trust boundaries.
+
+#### Verify and repair
+
+```bash
+specd doctor          # scaffold + MCP server + host-registration health, with remedies
+specd doctor --fix    # apply safe, project-scoped, specd-owned repairs only
+specd init --repair   # restore missing managed files without overwriting your edits
+specd init --refresh  # update only specd-managed assets and AGENTS.md marker sections
+```
+
+#### Air-gapped / manual setup
+
+No network and no host CLI is fine — scaffold offline, then paste a snippet:
+
+```bash
+specd init --agent none
+specd mcp --config claude-code   # ready-to-merge config for the chosen host
+```
 
 ### Bootstrap project context (recommended)
 

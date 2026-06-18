@@ -89,3 +89,49 @@ This guide helps developers and AI agents diagnose and resolve issues, validatio
     export SPECD_VERIFY_TIMEOUT_MS=1200000 # Increase to 20 minutes
     specd verify <slug> <task-id>
     ```
+
+---
+
+## 5. Onboarding & MCP Integration
+
+Start with `specd doctor` — it separates the three failure layers (scaffold, MCP
+server, host registration) and prints a remediation command for each. Add `--json`
+for machine output, `--fix` to apply safe project-scoped repairs.
+
+### "managed scaffold incomplete" / missing `.specd/` files
+* **Cause**: Some specd-managed files were deleted or never written.
+* **Remediation**: `specd init --repair` restores missing managed assets **without**
+  overwriting your edits. Use `specd init --refresh` to update specd-managed assets
+  and `AGENTS.md` marker sections only.
+
+### "my coding agent isn't detected"
+* **Cause**: The host executable isn't on `PATH`, or no project config marker exists.
+* **Remediation**:
+  * Confirm the CLI resolves (`command -v codex` / `claude` / `gemini`).
+  * Configure a named host explicitly: `specd init --agent claude-code --yes`.
+  * If the host is unmanaged (antigravity, claude-desktop), use a manual snippet:
+    `specd mcp --config <host>`.
+
+### "host config present but agent doesn't see specd tools"
+* **Cause**: The host needs a restart/reload to pick up a new MCP server, or the
+  server failed to start. specd never restarts the host for you.
+* **Remediation**:
+  * Run `specd doctor` to confirm the MCP handshake passes server-side.
+  * Reload/restart the host (e.g. VS Code window reload; enable the server in
+    Cursor's Tools & MCP). Trust/approval prompts are host-controlled.
+
+### "global scope requires explicit consent" (exit `2`)
+* **Cause**: `--scope global` was requested non-interactively without `--yes`.
+* **Remediation**: specd never edits global/user config silently. Re-run with
+  `--scope global --yes`, or stay project-scoped (the default).
+
+### "existing host config did not parse" (init fails closed)
+* **Cause**: The target config file (e.g. `.mcp.json`) is malformed, so specd refuses
+  to mutate it.
+* **Remediation**: Fix the JSON/TOML by hand, then re-run. specd backs up an existing
+  config (timestamped) before any change and only modifies its own server entry.
+
+### `specd init --dry-run`
+* Preview exactly which files and host commands a run would execute — and the absolute
+  `specd` path that would be registered — without writing anything. Pair with `--json`
+  for scripted review.

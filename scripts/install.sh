@@ -69,6 +69,52 @@ verify_checksum() {
   ok "Checksum verified"
 }
 
+# setup_path — ensure BIN_DIR is registered in the user's shell configs when it is
+# not already on PATH. Mutates only shell rc files, never the project directory.
+setup_path() {
+  case ":${PATH}:" in
+    *:"${BIN_DIR}":*) return 0 ;;
+  esac
+  LINE="export PATH=\"\${HOME}/.local/bin:\${PATH}\" # specd"
+  for rc in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
+    if [ -f "$rc" ] && ! grep -q "# specd" "$rc"; then
+      printf '\n%s\n' "$LINE" >> "$rc"
+    fi
+  done
+  warn "${BIN_DIR} added to PATH in shell configs (new shells only)."
+}
+
+# finish <label> — verify the freshly installed binary runs, print its absolute
+# path, give accurate PATH guidance for the current shell, and hand off to
+# project-scoped onboarding. Never initializes the installer's working directory.
+finish() {
+  label="$1"
+
+  # Fail closed: a binary that cannot run or report a version is not "installed".
+  # Note: piping to head would mask the binary's exit status, so check the file is
+  # executable and that it actually produced a version line.
+  [ -x "$BIN" ] || die "Installed binary at ${BIN} did not run. Check permissions and retry."
+  REPORTED="$("$BIN" version 2>/dev/null | head -n1)"
+  [ -n "$REPORTED" ] || die "Installed binary at ${BIN} did not run. Check permissions and retry."
+
+  ok "${label} → ${BIN}"
+  log "Verified: ${REPORTED}"
+
+  printf '\n'
+  case ":${PATH}:" in
+    *:"${BIN_DIR}":*)
+      log "${BLUE}Next: connect specd to your coding agent.${RESET}"
+      printf '[specd]   cd <your-project> && specd init --agent auto\n' ;;
+    *)
+      warn "${BIN_DIR} is not on PATH in this shell yet."
+      log "Open a new terminal, then:"
+      printf '[specd]   cd <your-project> && specd init --agent auto\n'
+      log "Or run it now using the full path:"
+      printf '[specd]   cd <your-project> && %s init --agent auto\n' "$BIN" ;;
+  esac
+  log "The installer does not initialize the directory you ran it from."
+}
+
 build_from_source() {
   command -v go >/dev/null 2>&1 || die "Go is required to build from source. Install Go 1.22+ and retry."
 
@@ -90,22 +136,8 @@ build_from_source() {
   chmod +x "$BIN"
   rm -rf "$TMPDIR"
 
-  # --- PATH ---
-  case ":${PATH}:" in
-    *:"${BIN_DIR}":*) ;;
-    *)
-      LINE="export PATH=\"\${HOME}/.local/bin:\${PATH}\" # specd"
-      for rc in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
-        if [ -f "$rc" ] && ! grep -q "# specd" "$rc"; then
-          printf '\n%s\n' "$LINE" >> "$rc"
-        fi
-      done
-      warn "${BIN_DIR} added to PATH in shell configs. Run: source ~/.bashrc"
-      ;;
-  esac
-
-  ok "Built and installed specd from source → ${BIN}"
-  printf '[specd] %sRun '\''specd init'\'' in your project root to get started.%s\n' "${BLUE}" "${RESET}"
+  setup_path
+  finish "Built and installed specd from source"
 }
 
 main() {
@@ -197,22 +229,12 @@ main() {
   chmod +x "$BIN"
   rm -rf "$TMPDIR"
 
-  # --- PATH ---
-  case ":${PATH}:" in
-    *:"${BIN_DIR}":*) ;;
-    *)
-      LINE="export PATH=\"\${HOME}/.local/bin:\${PATH}\" # specd"
-      for rc in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.profile"; do
-        if [ -f "$rc" ] && ! grep -q "# specd" "$rc"; then
-          printf '\n%s\n' "$LINE" >> "$rc"
-        fi
-      done
-      warn "${BIN_DIR} added to PATH in shell configs. Run: source ~/.bashrc"
-      ;;
-  esac
-
-  ok "Installed specd ${VERSION} → ${BIN}"
-  printf '[specd] %sRun '\''specd init'\'' in your project root to get started.%s\n' "${BLUE}" "${RESET}"
+  setup_path
+  finish "Installed specd ${VERSION}"
 }
 
-main "$@"
+# Allow tests to source this script as a library (exercise individual functions)
+# without triggering a real install. Set SPECD_INSTALL_LIB=1 to suppress main.
+if [ -z "${SPECD_INSTALL_LIB:-}" ]; then
+  main "$@"
+fi

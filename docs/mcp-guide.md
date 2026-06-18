@@ -245,8 +245,44 @@ The following tools are exposed automatically. Refer to the
 
 ## Host Configuration
 
+### Automated setup (recommended)
+
+For the managed adapters — **claude-code, codex, cursor, gemini, vscode** — you do not
+need to edit any config by hand. `specd init` detects the host and registers the
+server for you, **project-scoped**:
+
+```bash
+specd init --agent auto            # detect and configure the unambiguous host
+specd init --agent claude-code --yes
+specd init --agent all --yes       # every detected host
+specd doctor                       # verify registration + MCP handshake
+```
+
+Where the host ships a stable CLI, specd uses it (`claude mcp add --scope project`,
+`gemini mcp add --scope project`); otherwise it performs a targeted JSON merge that
+preserves your other servers. See [agent-harness-compat.md](agent-harness-compat.md)
+for the per-host install method and verification depth.
+
+#### Trust boundaries
+
+- **Project scope by default.** specd writes only inside your repo. Global/user host
+  config is never modified without `--scope global` **and** explicit consent.
+- **Fail closed.** Existing host config must parse before any change; on a mutation
+  specd writes a timestamped backup first and reports its path.
+- **Preservation.** Unrelated MCP servers and settings are never removed or rewritten.
+- **No secrets.** Environment secrets are never copied into generated config.
+- **Host-native trust stands.** specd never bypasses a host's own trust/approval
+  prompt, and never starts or controls the agent. Restart/reload of the host stays
+  user-controlled.
+- specd records what it created in `.specd/integrations.json` so repair/uninstall only
+  touches specd-owned entries.
+
+### Manual snippets (air-gapped / unmanaged hosts)
+
 `specd mcp --config <host>` prints a ready-to-paste config snippet for any supported host and
-exits without starting the server. Combine with `--root` to substitute your project path:
+exits without starting the server. Use it when there is no host CLI, for the
+snippet-only hosts (**antigravity**, **claude-desktop**), or when you prefer to merge
+config yourself. Combine with `--root` to substitute your project path:
 
 ```bash
 specd mcp --config cursor

@@ -41,8 +41,17 @@ Run the concurrency stress harness (many processes hammering one spec):
 Or run the whole CI gate locally in one shot:
 
 ```sh
-make ci    # lint + race test + count=2 + coverage floor + stress
+make ci    # lint + race test + count=2 + coverage floor + perf-gate + stress
 ```
+
+The `perf-gate` step runs the onboarding deterministic-output checks
+(`-run 'Deterministic|BenchmarkContract' -count=2`): byte-stable `init --json`
+receipts and stable MCP probe contract fields. Latency baselines are recorded with
+`make bench` and **reviewed, not gated** (no flaky wall-clock CI assertions) — see
+[docs/agent-harness-baselines.md](docs/agent-harness-baselines.md). Supported vs
+snippet-only host evidence lives in
+[docs/agent-harness-compat.md](docs/agent-harness-compat.md) and is parity-checked
+against the registry by `TestHostCompatibilityMatrix`.
 
 ## Test strategy
 
@@ -166,7 +175,7 @@ rather than chasing print-formatting lines.
 | Job | Runs on | Gate |
 |---|---|---|
 | `lint` | ubuntu | `gofmt -l` (fail on output), `go vet`, `shellcheck scripts/` |
-| `test` | ubuntu + macOS | `go test -race -count=1 -coverprofile`, then `-count=2` |
+| `test` | ubuntu + macOS | `go test -race -count=1 -coverprofile`, then `-count=2` (includes the onboarding deterministic-output gate; also runnable standalone via `make perf-gate`) |
 | `coverage-floor` | ubuntu | `scripts/coverage-check.sh` |
 | `stress` | ubuntu | `scripts/stress.sh` cross-process contention |
 | `build` | ubuntu + macOS + Windows | `go build` |

@@ -16,6 +16,11 @@
 # even though no surviving line lost coverage. The floors below sit just under the
 # new measured coverage; raise them as the remaining core paths gain tests.
 #
+# This is a statement-coverage gate only. Onboarding performance and
+# deterministic-output checks are a SEPARATE gate (`make perf-gate`,
+# docs/agent-harness-baselines.md) — they assert byte-stable init receipts, not
+# coverage, and CI runs both.
+#
 # Usage: ./scripts/coverage-check.sh
 #   OVERALL_MIN  minimum total statement coverage   (default 65)
 #   CORE_MIN     minimum internal/core coverage     (default 60)

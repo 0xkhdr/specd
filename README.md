@@ -16,7 +16,7 @@ By defining clear phase transitions and validating structural correctness with d
 - 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
 - 🔒 **Sandboxed Verify & Rollback**: Run `verify:` under `bwrap`/container isolation (fail-closed if absent) and optionally stash the working tree on failure (`--revert-on-fail`).
 - 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd program` resolves which whole specs are runnable across a multi-spec program.
-- 🔌 **Agent-Agnostic + MCP**: Teaches any command-running agent (Claude Code, Cursor, Aider, etc.) via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). Use `specd mcp --config <host>` to generate a ready-to-paste config snippet for Claude Desktop, Cursor, VS Code, and others.
+- 🔌 **Agent-Agnostic + MCP auto-setup**: Teaches any command-running agent via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). `specd init --agent auto` detects supported coding agents and installs **project-scoped** MCP registration for you — managed adapters for **claude-code, codex, cursor, gemini, and vscode** (host-native CLI or a safe JSON merge), plus deterministic `--config` snippets for **antigravity** and **claude-desktop**. `specd doctor` verifies the integration end to end.
 - 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd serve`), a frontier event stream (`specd watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
 - 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd schema` / `specd validate --schema`), shareable scaffold bundles (`specd init --pack`), and read-only audit `replay`/`diff`.
 
@@ -80,14 +80,63 @@ specd update --force
 
 ## Quick Start
 
-### Initializing a Project
+### Golden path: install → init → ask your agent
 
-After installing, run `specd init` in any project root to get started:
+After installing, the fastest path from a fresh repo to an agent driving `specd` is
+**one command**:
 
 ```sh
-# Scaffolds .specd/ structure, roles, steering config, and AGENTS.md
-specd init
+cd <your-project>
+specd init --agent auto
 ```
+
+`specd init --agent auto` does four things in order:
+
+1. **Scaffolds** `.specd/` (roles, steering, skills, `config.json`) and merges
+   `AGENTS.md` — idempotent and atomic; a rerun on a healthy project changes no bytes.
+2. **Detects** supported coding agents on your machine (executable + project config).
+3. **Configures project-scoped MCP** for the detected agent — preferring the host's
+   own CLI (`claude mcp add --scope project`, `gemini mcp add --scope project`) or a
+   safe JSON merge that preserves your other servers. Project scope is the default;
+   global config is never touched without `--scope global` and explicit consent.
+4. **Verifies** the integration with an in-process MCP handshake + `tools/list`, then
+   prints one next action.
+
+Then just ask your agent:
+
+> "Read specd context and help me create a spec for &lt;feature&gt;."
+
+**Explicit / scripted** (works non-interactively, no prompts):
+
+```sh
+specd init --agent claude-code --yes      # configure one named host
+specd init --agent all --yes              # configure every detected host
+specd init --agent codex --dry-run --json # preview exact mutations, write nothing
+specd init --agent none                   # scaffold only, no host config
+```
+
+`--agent auto` configures a host automatically only when exactly one is detected in an
+interactive terminal. In CI / non-TTY, or when several hosts are detected, `auto`
+scaffolds and reports suggested host actions instead of mutating anything.
+
+**Check / repair** an existing setup:
+
+```sh
+specd doctor                  # scaffold + MCP server + host registration health
+specd doctor --fix            # safe, project-scoped, specd-owned repairs only
+specd init --repair           # restore missing managed files (keeps your edits)
+```
+
+**Air-gapped / manual** (no host CLI, or you prefer to paste config yourself):
+
+```sh
+specd init --agent none
+specd mcp --config claude-code   # print a ready-to-merge snippet for the host
+```
+
+See [docs/user-guide.md](docs/user-guide.md) for the full onboarding guide,
+[docs/mcp-guide.md](docs/mcp-guide.md) for host details and trust boundaries, and
+[docs/troubleshooting.md](docs/troubleshooting.md) for `doctor` remediation.
 
 ### Creating and Running a Spec
 

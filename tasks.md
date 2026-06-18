@@ -250,7 +250,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 8 — Installer, documentation, and release proof
 
-- [ ] T24 — Improve installer handoff
+- [x] T24 — Improve installer handoff
   - why: Installation must lead directly to agent-aware project onboarding without initializing arbitrary directories.
   - role: builder
   - files: scripts/install.sh, scripts/install_test.sh, README.md, docs/user-guide.md
@@ -260,7 +260,7 @@ in parallel when file ownership does not overlap.
   - depends: T18, T20
   - requirements: R5.3, R6.2
 
-- [ ] T25 — Rewrite golden-path onboarding docs
+- [x] T25 — Rewrite golden-path onboarding docs
   - why: Market-ready onboarding should begin with user outcome and agent prompt.
   - role: builder
   - files: README.md, docs/user-guide.md, docs/mcp-guide.md, docs/command-reference.md, docs/troubleshooting.md
@@ -270,7 +270,7 @@ in parallel when file ownership does not overlap.
   - depends: T19, T20, T23, T24
   - requirements: R3.1, R4.5, R5.3, R6.3
 
-- [ ] T26 — Add onboarding performance and deterministic-output gates
+- [x] T26 — Add onboarding performance and deterministic-output gates
   - why: Smooth onboarding needs measurable latency and stable machine contracts.
   - role: builder
   - files: internal/cmd/init_benchmark_test.go, internal/mcp/probe_test.go, docs/agent-harness-baselines.md, Makefile, scripts/coverage-check.sh
@@ -280,7 +280,7 @@ in parallel when file ownership does not overlap.
   - depends: T20, T23
   - requirements: R1.3, R4.1, R5.2
 
-- [ ] T27 — Run full production release gate
+- [x] T27 — Run full production release gate
   - why: Init changes touch file safety, MCP protocol, host config, docs, and cross-platform behavior.
   - role: verifier
   - files: Makefile, TESTING.md, docs/agent-harness-compat.md
