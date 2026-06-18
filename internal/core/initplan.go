@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 const InitResultSchemaVersion = 1
@@ -32,6 +33,9 @@ type InitAction struct {
 
 type InitPlan struct {
 	Root     string        `json:"root"`
+	Mode     string        `json:"mode"`
+	DryRun   bool          `json:"dryRun"`
+	Fresh    bool          `json:"fresh"`
 	Actions  []InitAction  `json:"actions"`
 	Warnings []InitWarning `json:"warnings"`
 }
@@ -147,12 +151,44 @@ func (r *InitResult) Normalize() {
 type InitExecutor struct {
 	WriteFile   func(path, content string) error
 	MergeAgents func(path, content string, force bool) error
+	MkdirTemp   func(dir, pattern string) (string, error)
+	Rename      func(oldPath, newPath string) error
+	RemoveAll   func(path string) error
 }
 
 func DefaultInitExecutor() InitExecutor {
 	return InitExecutor{
 		WriteFile:   AtomicWrite,
 		MergeAgents: MergeAgentsMD,
+		MkdirTemp:   os.MkdirTemp,
+		Rename:      os.Rename,
+		RemoveAll:   os.RemoveAll,
+	}
+}
+
+func ValidateInitOptions(options InitOptions) error {
+	modes := 0
+	for _, enabled := range []bool{options.Force, options.Repair, options.Refresh} {
+		if enabled {
+			modes++
+		}
+	}
+	if modes > 1 {
+		return fmt.Errorf("--repair, --refresh, and --force are mutually exclusive")
+	}
+	return nil
+}
+
+func InitMode(options InitOptions) string {
+	switch {
+	case options.Force:
+		return "force"
+	case options.Repair:
+		return "repair"
+	case options.Refresh:
+		return "refresh"
+	default:
+		return "init"
 	}
 }
 
@@ -162,13 +198,29 @@ func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(str
 	if options.Root == "" {
 		return InitPlan{}, fmt.Errorf("init root is required")
 	}
+	if err := ValidateInitOptions(options); err != nil {
+		return InitPlan{}, err
+	}
 	if err := ValidateScaffoldManifest(assets, readTemplate); err != nil {
 		return InitPlan{}, err
 	}
+	_, specdErr := os.Stat(filepath.Join(options.Root, ".specd"))
 	plan := InitPlan{
 		Root:     options.Root,
+		Mode:     InitMode(options),
+		DryRun:   options.DryRun,
+		Fresh:    os.IsNotExist(specdErr),
 		Actions:  make([]InitAction, 0, len(assets)),
 		Warnings: []InitWarning{},
+	}
+	if specdErr != nil && !os.IsNotExist(specdErr) {
+		return InitPlan{}, fmt.Errorf("inspect .specd: %w", specdErr)
+	}
+	if options.Force {
+		plan.Warnings = append(plan.Warnings, InitWarning{
+			Code:    "destructive-force",
+			Message: "--force replaces all scaffold files and resets AGENTS.md, including user content outside managed markers",
+		})
 	}
 	for _, asset := range assets {
 		content, err := readTemplate(asset.Template)
@@ -184,18 +236,38 @@ func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(str
 		}
 		switch asset.Policy {
 		case ScaffoldMarkerMerge:
-			action.Kind = "merge"
-			action.Description = "merge managed marker section"
-			action.Destructive = options.Force
+			_, statErr := os.Stat(target)
+			if statErr != nil && !os.IsNotExist(statErr) {
+				return InitPlan{}, fmt.Errorf("inspect %s: %w", target, statErr)
+			}
+			switch {
+			case options.Repair && statErr == nil:
+				action.Kind = "skip"
+				action.Description = "preserve existing file during repair"
+			default:
+				if statErr == nil && !options.Force {
+					if _, err := ValidateAgentsMD(target); err != nil {
+						return InitPlan{}, fmt.Errorf("inspect %s: %w", target, err)
+					}
+				}
+				action.Kind = "merge"
+				action.Description = "merge managed marker section"
+				action.Destructive = options.Force
+			}
 		case ScaffoldCreate:
-			if _, err := os.Stat(target); err == nil && !options.Force {
+			_, statErr := os.Stat(target)
+			if statErr == nil && !options.Force && !(options.Refresh && asset.Refresh) {
 				action.Kind = "skip"
 				action.Description = "preserve existing file"
-			} else if err != nil && !os.IsNotExist(err) {
-				return InitPlan{}, fmt.Errorf("inspect %s: %w", target, err)
+			} else if statErr != nil && !os.IsNotExist(statErr) {
+				return InitPlan{}, fmt.Errorf("inspect %s: %w", target, statErr)
 			} else {
 				action.Kind = "write"
-				action.Description = "write embedded scaffold asset"
+				if statErr == nil {
+					action.Description = "replace managed scaffold asset"
+				} else {
+					action.Description = "write embedded scaffold asset"
+				}
 				action.Destructive = options.Force
 			}
 		}
@@ -206,7 +278,27 @@ func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(str
 
 func ExecuteInitPlan(plan InitPlan, force bool, executor InitExecutor) InitResult {
 	result := NewInitResult(plan.Root)
+	result.Mode = plan.Mode
 	result.Warnings = append(result.Warnings, plan.Warnings...)
+	if plan.DryRun {
+		for _, action := range plan.Actions {
+			rel := initRelativePath(plan.Root, action.Target)
+			switch action.Kind {
+			case "skip":
+				result.Files.Skipped = append(result.Files.Skipped, rel)
+			case "write":
+				result.Files.Written = append(result.Files.Written, rel)
+			case "merge":
+				result.Files.Updated = append(result.Files.Updated, rel)
+			}
+		}
+		result.Status = "planned"
+		result.Normalize()
+		return result
+	}
+	if plan.Fresh {
+		return executeFreshInitPlan(plan, force, executor, result)
+	}
 	for _, action := range plan.Actions {
 		rel := initRelativePath(plan.Root, action.Target)
 		var err error
@@ -239,6 +331,69 @@ func ExecuteInitPlan(plan InitPlan, force bool, executor InitExecutor) InitResul
 			}
 		}
 	}
+	result.Normalize()
+	return result
+}
+
+func executeFreshInitPlan(plan InitPlan, force bool, executor InitExecutor, result InitResult) InitResult {
+	stage, err := executor.MkdirTemp(plan.Root, ".specd.init-*")
+	if err != nil {
+		return failedInitResult(result, ".specd", "stage-failed", err)
+	}
+	defer executor.RemoveAll(stage)
+
+	staged := make([]string, 0, len(plan.Actions))
+	for _, action := range plan.Actions {
+		rel := initRelativePath(plan.Root, action.Target)
+		if action.Kind == "skip" || !strings.HasPrefix(rel, ".specd/") {
+			continue
+		}
+		stageTarget := filepath.Join(stage, filepath.FromSlash(strings.TrimPrefix(rel, ".specd/")))
+		if action.Kind != "write" {
+			return failedInitResult(result, rel, "stage-failed", fmt.Errorf("unsupported staged action %q", action.Kind))
+		}
+		if err := executor.WriteFile(stageTarget, action.Content); err != nil {
+			return failedInitResult(result, rel, "stage-failed", err)
+		}
+		staged = append(staged, rel)
+	}
+	if err := executor.Rename(stage, filepath.Join(plan.Root, ".specd")); err != nil {
+		return failedInitResult(result, ".specd", "commit-failed", err)
+	}
+	result.Files.Written = append(result.Files.Written, staged...)
+
+	for _, action := range plan.Actions {
+		rel := initRelativePath(plan.Root, action.Target)
+		if strings.HasPrefix(rel, ".specd/") {
+			continue
+		}
+		switch action.Kind {
+		case "skip":
+			result.Files.Skipped = append(result.Files.Skipped, rel)
+		case "merge":
+			if err := executor.MergeAgents(action.Target, action.Content, force); err != nil {
+				result = failedInitResult(result, rel, "external-merge-failed", err)
+				result.Warnings = append(result.Warnings, InitWarning{
+					Code:    "residual-scaffold",
+					Message: ".specd was committed successfully; the original external file was preserved and can be repaired with `specd init --repair`",
+				})
+				result.Normalize()
+				return result
+			}
+			result.Files.Updated = append(result.Files.Updated, rel)
+		}
+	}
+	result.Normalize()
+	return result
+}
+
+func failedInitResult(result InitResult, path, code string, err error) InitResult {
+	result.Status = "failed"
+	result.Files.Failed = append(result.Files.Failed, path)
+	result.Warnings = append(result.Warnings, InitWarning{
+		Code:    code,
+		Message: fmt.Sprintf("%s: %v", path, err),
+	})
 	result.Normalize()
 	return result
 }

@@ -89,12 +89,21 @@ func runInit(args cli.Args, executor core.InitExecutor) int {
 		return core.ExitGate
 	}
 	if ref := args.Str("pack"); ref != "" {
+		if args.Bool("repair") || args.Bool("refresh") || args.Bool("dry-run") {
+			return usageExit("--pack cannot be combined with --repair, --refresh, or --dry-run")
+		}
 		return applyPack(root, ref, args)
 	}
 	options := core.InitOptions{
-		Root:  root,
-		Force: args.Bool("force"),
-		Scope: "project",
+		Root:    root,
+		Force:   args.Bool("force"),
+		Repair:  args.Bool("repair"),
+		Refresh: args.Bool("refresh"),
+		DryRun:  args.Bool("dry-run"),
+		Scope:   "project",
+	}
+	if err := core.ValidateInitOptions(options); err != nil {
+		return usageExit(err.Error())
 	}
 	plan, err := core.PlanInit(options, core.DefaultScaffoldManifest(), core.ReadTemplate)
 	if err != nil {
@@ -119,7 +128,18 @@ func emitInitResult(result core.InitResult, jsonOut bool) int {
 		}
 	} else {
 		ready := len(result.Files.Written) + len(result.Files.Updated) + len(result.Files.Skipped)
-		if result.Status == "ready" {
+		if result.Status == "planned" {
+			core.Info(fmt.Sprintf("specd init %s dry run in %s", result.Mode, result.Root))
+			for _, path := range result.Files.Written {
+				core.Info("would write: " + path)
+			}
+			for _, path := range result.Files.Updated {
+				core.Info("would update: " + path)
+			}
+			for _, path := range result.Files.Skipped {
+				core.Info("would preserve: " + path)
+			}
+		} else if result.Status == "ready" {
 			core.Info(fmt.Sprintf("Initialized specd in %s", result.Root))
 			core.Info(fmt.Sprintf("Project assets: %d ready, 0 failed", ready))
 			core.Info("Next: " + result.NextAction.Text)
@@ -143,7 +163,7 @@ func emitInitResult(result core.InitResult, jsonOut bool) int {
 			}
 		}
 	}
-	if result.Status != "ready" {
+	if result.Status != "ready" && result.Status != "planned" {
 		return core.ExitGate
 	}
 	return core.ExitOK

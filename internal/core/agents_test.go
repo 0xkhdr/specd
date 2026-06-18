@@ -86,24 +86,19 @@ func TestMergeSection_MarkerAbsentAppends(t *testing.T) {
 	}
 }
 
-func TestMergeSection_MalformedMarkerFallsBackToAppend(t *testing.T) {
-	// begin marker present but end marker missing (or before begin): treat as
-	// markerless and append rather than corrupting the file.
+func TestMergeSection_MalformedMarkerFailsSafely(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "F.md")
 	if err := os.WriteFile(path, []byte("<!--B-->\ndangling, no end\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err != nil {
-		t.Fatal(err)
+	before, _ := os.ReadFile(path)
+	if err := MergeSection(path, "<!--B-->", "<!--E-->", "body"); err == nil {
+		t.Fatal("MergeSection succeeded with malformed markers")
 	}
 	got, _ := os.ReadFile(path)
-	// Original dangling content preserved, new full section appended.
-	if !strings.Contains(string(got), "dangling, no end") {
-		t.Errorf("original content lost: %q", got)
-	}
-	if !strings.Contains(string(got), "<!--B-->\nbody\n<!--E-->") {
-		t.Errorf("section not appended on malformed marker: %q", got)
+	if string(got) != string(before) {
+		t.Errorf("malformed file changed:\n%s", got)
 	}
 }
 
@@ -272,5 +267,24 @@ func TestMergeAgentsMD_NoMarkersAppends(t *testing.T) {
 	}
 	if !strings.Contains(contentStr, testTemplate) {
 		t.Error("template not added")
+	}
+}
+
+func TestMergeAgentsMDDuplicateMarkersFailWithoutWrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "AGENTS.md")
+	initial := markerBegin() + "\none\n" + markerEnd() + "\n" +
+		markerBegin() + "\ntwo\n" + markerEnd() + "\n"
+	if err := os.WriteFile(path, []byte(initial), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := MergeAgentsMD(path, testTemplate, false); err == nil {
+		t.Fatal("duplicate markers accepted")
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != initial {
+		t.Fatal("duplicate marker failure modified AGENTS.md")
 	}
 }

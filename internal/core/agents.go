@@ -18,11 +18,13 @@ func MergeSection(path, begin, end, body string) error {
 	if ec == "" {
 		return AtomicWrite(path, section+"\n")
 	}
-	if i := strings.Index(ec, begin); i >= 0 {
-		if j := strings.Index(ec, end); j > i {
-			merged := ec[:i] + section + ec[j+len(end):]
-			return AtomicWrite(path, merged)
-		}
+	beginIdx, endIdx, present, err := managedSectionBounds(ec, begin, end)
+	if err != nil {
+		return err
+	}
+	if present {
+		merged := ec[:beginIdx] + section + ec[endIdx+len(end):]
+		return AtomicWrite(path, merged)
 	}
 	if !strings.HasSuffix(ec, "\n") {
 		ec += "\n"
@@ -50,32 +52,28 @@ func MergeAgentsMD(path, template string, force bool) error {
 	var existingContent string
 	if err == nil {
 		existingContent = string(existing)
+	} else if !os.IsNotExist(err) {
+		return err
 	}
 
-	// Force: reset to default
 	if force || existingContent == "" {
 		result := markerBegin() + "\n" + template + "\n" + markerEnd() + "\n"
 		return AtomicWrite(path, result)
 	}
 
-	// Check if markers already exist
 	beginMarker := markerBegin()
 	endMarker := markerEnd()
-
-	if strings.Contains(existingContent, beginMarker) && strings.Contains(existingContent, endMarker) {
-		// Markers present: replace content between them, preserve rest
-		beginIdx := strings.Index(existingContent, beginMarker)
-		endIdx := strings.Index(existingContent, endMarker)
-
-		if beginIdx < endIdx {
-			before := existingContent[:beginIdx]
-			after := existingContent[endIdx+len(endMarker):]
-			merged := before + beginMarker + "\n" + template + "\n" + endMarker + after
-			return AtomicWrite(path, merged)
-		}
+	beginIdx, endIdx, present, err := managedSectionBounds(existingContent, beginMarker, endMarker)
+	if err != nil {
+		return err
+	}
+	if present {
+		before := existingContent[:beginIdx]
+		after := existingContent[endIdx+len(endMarker):]
+		merged := before + beginMarker + "\n" + template + "\n" + endMarker + after
+		return AtomicWrite(path, merged)
 	}
 
-	// No markers: append template with markers
 	var result string
 	if !strings.HasSuffix(existingContent, "\n") {
 		result = existingContent + "\n"
@@ -85,4 +83,33 @@ func MergeAgentsMD(path, template string, force bool) error {
 	result += "\n" + beginMarker + "\n" + template + "\n" + endMarker + "\n"
 
 	return AtomicWrite(path, result)
+}
+
+func ValidateAgentsMD(path string) (bool, error) {
+	content, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	_, _, present, err := managedSectionBounds(string(content), markerBegin(), markerEnd())
+	return present, err
+}
+
+func managedSectionBounds(content, begin, end string) (beginIdx, endIdx int, present bool, err error) {
+	beginCount := strings.Count(content, begin)
+	endCount := strings.Count(content, end)
+	if beginCount == 0 && endCount == 0 {
+		return 0, 0, false, nil
+	}
+	if beginCount != 1 || endCount != 1 {
+		return 0, 0, false, fmt.Errorf("managed marker section is malformed: found %d begin and %d end markers", beginCount, endCount)
+	}
+	beginIdx = strings.Index(content, begin)
+	endIdx = strings.Index(content, end)
+	if endIdx < beginIdx {
+		return 0, 0, false, fmt.Errorf("managed marker section is malformed: end marker precedes begin marker")
+	}
+	return beginIdx, endIdx, true, nil
 }

@@ -6,7 +6,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 1 — Correctness and contracts
 
-- [ ] T1 — Add failing init-write regression coverage
+- [x] T1 — Add failing init-write regression coverage
   - why: Current init can print write errors then return success; lock expected behavior before refactor.
   - role: builder
   - files: internal/cmd/init_test.go, internal/cmd/commands_test.go, internal/testharness/
@@ -16,7 +16,7 @@ in parallel when file ownership does not overlap.
   - depends: —
   - requirements: R1.1, R5.1
 
-- [ ] T2 — Define versioned init result and plan models
+- [x] T2 — Define versioned init result and plan models
   - why: Reliable dry-run, JSON output, doctor, and host setup need one deterministic contract.
   - role: builder
   - files: internal/core/initplan.go, internal/core/initplan_test.go
@@ -26,7 +26,7 @@ in parallel when file ownership does not overlap.
   - depends: —
   - requirements: R1.2, R5.2, R5.4
 
-- [ ] T3 — Replace init file arrays with scaffold manifest
+- [x] T3 — Replace init file arrays with scaffold manifest
   - why: One manifest must drive init, repair, refresh, doctor, and template parity.
   - role: builder
   - files: internal/core/scaffold.go, internal/core/scaffold_test.go, internal/cmd/init.go
@@ -36,7 +36,7 @@ in parallel when file ownership does not overlap.
   - depends: T2
   - requirements: R1.3, R1.4, R1.5
 
-- [ ] T4 — Implement fail-closed init executor
+- [x] T4 — Implement fail-closed init executor
   - why: Init must never report readiness after partial required failure.
   - role: builder
   - files: internal/core/initplan.go, internal/cmd/init.go, internal/cmd/init_test.go
@@ -48,7 +48,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 2 — Safe lifecycle modes
 
-- [ ] T5 — Add dry-run, repair, and refresh modes
+- [x] T5 — Add dry-run, repair, and refresh modes
   - why: Users need safe preview and recovery without destructive broad force.
   - role: builder
   - files: internal/cli/args.go, internal/core/commands.go, internal/core/initplan.go, internal/cmd/init.go, internal/cmd/init_test.go
@@ -58,7 +58,7 @@ in parallel when file ownership does not overlap.
   - depends: T4
   - requirements: R1.4, R1.5, R5.4
 
-- [ ] T6 — Harden AGENTS.md merge and force semantics
+- [x] T6 — Harden AGENTS.md merge and force semantics
   - why: Existing `--force` resets full AGENTS.md and can destroy user content.
   - role: builder
   - files: internal/core/agents.go, internal/core/agents_test.go, internal/cmd/init.go
@@ -68,7 +68,7 @@ in parallel when file ownership does not overlap.
   - depends: T5
   - requirements: R1.4, R1.5
 
-- [ ] T7 — Add first-init staging and rollback behavior
+- [x] T7 — Add first-init staging and rollback behavior
   - why: Per-file atomic writes do not make full initialization atomic.
   - role: builder
   - files: internal/core/initplan.go, internal/core/io.go, internal/core/initplan_test.go, internal/cmd/init_test.go

@@ -20,6 +20,7 @@ type ScaffoldAsset struct {
 	Target   string         `json:"target"`
 	Policy   ScaffoldPolicy `json:"policy"`
 	Required bool           `json:"required"`
+	Refresh  bool           `json:"refresh"`
 }
 
 // DefaultScaffoldManifest is the single source of truth for files installed by
@@ -35,6 +36,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Target:   ".specd/steering/" + name,
 			Policy:   ScaffoldCreate,
 			Required: true,
+			Refresh:  name == "reasoning.md" || name == "workflow.md",
 		})
 	}
 	for _, name := range []string{"investigator.md", "builder.md", "reviewer.md", "verifier.md"} {
@@ -43,6 +45,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Target:   ".specd/roles/" + name,
 			Policy:   ScaffoldCreate,
 			Required: true,
+			Refresh:  true,
 		})
 	}
 	for _, name := range []string{
@@ -54,6 +57,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Target:   ".specd/skills/" + name + "/SKILL.md",
 			Policy:   ScaffoldCreate,
 			Required: true,
+			Refresh:  true,
 		})
 	}
 	assets = append(assets,

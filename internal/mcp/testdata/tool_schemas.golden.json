@@ -104,14 +104,18 @@
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd init [--force] [--pack \u003cname\u003e]",
+        "description": "Positional arguments, in order. Usage: specd init [--dry-run] [--repair|--refresh|--force]",
         "items": {
           "type": "string"
         }
       },
+      "dry-run": {
+        "type": "boolean",
+        "description": "Preview exact actions without writing"
+      },
       "force": {
         "type": "boolean",
-        "description": "Overwrite existing files"
+        "description": "Destructively overwrite all scaffold files and AGENTS.md"
       },
       "list-packs": {
         "type": "boolean",
@@ -120,6 +124,14 @@
       "pack": {
         "type": "string",
         "description": "Apply a spec pack by built-in name or http(s) URL"
+      },
+      "refresh": {
+        "type": "boolean",
+        "description": "Refresh frozen managed assets and AGENTS.md markers"
+      },
+      "repair": {
+        "type": "boolean",
+        "description": "Restore missing managed assets only"
       },
       "sha256": {
         "type": "string",

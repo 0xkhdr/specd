@@ -27,11 +27,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "init", Category: "lifecycle",
 		Description: "Scaffold .specd/ + AGENTS.md",
-		Usage:       "specd init [--force] [--list-packs] [--pack <name|url> [--sha256 <hex>]]", Synopsis: "specd init [--force] [--pack <name>]",
-		LongDescription: "Scaffolds the .specd/ directory, roles, steering config, and AGENTS.md in the current working directory. With --list-packs, lists the embedded spec packs. With --pack, transactionally applies a pack instead of the default scaffold: a bare name resolves to a built-in; an http(s) URL is a remote pack and requires a pinned --sha256 (fail-closed — a digest mismatch writes nothing).",
-		Flags:           []FlagMeta{{Name: "force", Type: "boolean", Description: "Overwrite existing files"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Pack resolve/apply failed"}, {2, "Usage error"}, {3, ".specd/ already exists (without --force)"}},
-		Examples:        []string{"specd init", "specd init --force", "specd init --list-packs", "specd init --pack go-service"},
+		Usage:       "specd init [--dry-run] [--repair|--refresh|--force] [--list-packs] [--pack <name|url> [--sha256 <hex>]]", Synopsis: "specd init [--dry-run] [--repair|--refresh|--force]",
+		LongDescription: "Scaffolds the .specd/ directory, roles, steering config, and AGENTS.md in the current working directory. --repair restores missing assets only. --refresh updates frozen managed assets and the AGENTS.md marker section while preserving authored steering. --force destructively replaces all scaffold files and AGENTS.md. --dry-run previews exact actions without writing. With --list-packs, lists embedded packs. With --pack, transactionally applies a pack.",
+		Flags:           []FlagMeta{{Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Initialization or pack operation failed"}, {2, "Usage error"}},
+		Examples:        []string{"specd init", "specd init --dry-run", "specd init --repair", "specd init --refresh", "specd init --force", "specd init --list-packs", "specd init --pack go-service"},
 	},
 	{
 		Command: "new", Category: "lifecycle",

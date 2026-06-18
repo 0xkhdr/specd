@@ -111,7 +111,9 @@ func initTestRoot(t *testing.T) string {
 func initWriteFailure(target string) core.InitExecutor {
 	executor := core.DefaultInitExecutor()
 	executor.WriteFile = func(path, content string) error {
-		if strings.HasSuffix(filepath.ToSlash(path), target) {
+		normalized := filepath.ToSlash(path)
+		stageTarget := strings.TrimPrefix(target, ".specd/")
+		if strings.HasSuffix(normalized, target) || strings.HasSuffix(normalized, "/"+stageTarget) {
 			return errors.New("injected write failure")
 		}
 		return core.AtomicWrite(path, content)
@@ -153,4 +155,94 @@ func captureInitOutput(t *testing.T, args cli.Args, executor core.InitExecutor) 
 	_ = readOut.Close()
 	_ = readErr.Close()
 	return stdout, stderr, code
+}
+
+func TestInitDryRunWritesNothingAndListsActions(t *testing.T) {
+	root := initTestRoot(t)
+	stdout, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{"--dry-run"}), core.DefaultInitExecutor())
+	if code != core.ExitOK || stderr != "" {
+		t.Fatalf("exit=%d stderr=%q", code, stderr)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".specd")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run wrote .specd: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run wrote AGENTS.md: %v", err)
+	}
+	for _, want := range []string{"would write: .specd/config.json", "would update: AGENTS.md"} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("dry-run output missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
+func TestInitRepairAndRefreshPreserveUserContent(t *testing.T) {
+	root := initTestRoot(t)
+	if _, _, code := captureInitOutput(t, cli.Args{Flags: map[string]string{}}, core.DefaultInitExecutor()); code != core.ExitOK {
+		t.Fatalf("initial init exit=%d", code)
+	}
+	product := filepath.Join(root, ".specd", "steering", "product.md")
+	role := filepath.Join(root, ".specd", "roles", "builder.md")
+	agents := filepath.Join(root, "AGENTS.md")
+	if err := os.WriteFile(product, []byte("user product\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(role); err != nil {
+		t.Fatal(err)
+	}
+	currentAgents, _ := os.ReadFile(agents)
+	if err := os.WriteFile(agents, []byte("preamble\n"+string(currentAgents)+"postamble\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{"--repair"}), core.DefaultInitExecutor()); code != core.ExitOK {
+		t.Fatalf("repair exit=%d stderr=%q", code, stderr)
+	}
+	if got, _ := os.ReadFile(product); string(got) != "user product\n" {
+		t.Fatalf("repair overwrote product.md: %q", got)
+	}
+	if _, err := os.Stat(role); err != nil {
+		t.Fatalf("repair did not restore role: %v", err)
+	}
+
+	if _, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{"--refresh"}), core.DefaultInitExecutor()); code != core.ExitOK {
+		t.Fatalf("refresh exit=%d stderr=%q", code, stderr)
+	}
+	if got, _ := os.ReadFile(product); string(got) != "user product\n" {
+		t.Fatalf("refresh overwrote authored product.md: %q", got)
+	}
+	gotAgents, _ := os.ReadFile(agents)
+	if !strings.HasPrefix(string(gotAgents), "preamble\n") || !strings.HasSuffix(string(gotAgents), "postamble\n") {
+		t.Fatalf("refresh lost AGENTS.md user content:\n%s", gotAgents)
+	}
+}
+
+func TestInitModeConflictReturnsUsage(t *testing.T) {
+	initTestRoot(t)
+	_, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{"--repair", "--refresh"}), core.DefaultInitExecutor())
+	if code != core.ExitUsage {
+		t.Fatalf("exit=%d want=%d", code, core.ExitUsage)
+	}
+	if !strings.Contains(stderr, "mutually exclusive") {
+		t.Fatalf("stderr=%q", stderr)
+	}
+}
+
+func TestInitRefreshRejectsMalformedAgentsWithoutWrite(t *testing.T) {
+	root := initTestRoot(t)
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("<!-- SPECD INIT: BEGIN v1 (do not edit between markers) -->\nbroken\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	_, _, code := captureInitOutput(t, cli.ParseArgs([]string{"--refresh"}), core.DefaultInitExecutor())
+	if code != core.ExitGate {
+		t.Fatalf("exit=%d want=%d", code, core.ExitGate)
+	}
+	after, _ := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if string(after) != string(before) {
+		t.Fatal("malformed AGENTS.md changed")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".specd")); !os.IsNotExist(err) {
+		t.Fatalf("preflight failure wrote .specd: %v", err)
+	}
 }

@@ -112,3 +112,113 @@ func TestExecuteInitPlanStopsAfterRequiredFailure(t *testing.T) {
 		t.Fatalf("failed = %#v", result.Files.Failed)
 	}
 }
+
+func TestInitPlanRepairRestoresOnlyMissingFiles(t *testing.T) {
+	root := t.TempDir()
+	existing := filepath.Join(root, ".specd", "existing")
+	if err := AtomicWrite(existing, "user"); err != nil {
+		t.Fatal(err)
+	}
+	assets := []ScaffoldAsset{
+		{Template: "existing", Target: ".specd/existing", Policy: ScaffoldCreate, Required: true, Refresh: true},
+		{Template: "missing", Target: ".specd/missing", Policy: ScaffoldCreate, Required: true, Refresh: true},
+	}
+	plan, err := PlanInit(InitOptions{Root: root, Repair: true}, assets, func(name string) (string, error) {
+		return name, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Actions[0].Kind != "skip" || plan.Actions[1].Kind != "write" {
+		t.Fatalf("repair actions = %#v", plan.Actions)
+	}
+}
+
+func TestInitPlanRefreshPreservesAuthoredAssets(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"managed", "authored"} {
+		if err := AtomicWrite(filepath.Join(root, ".specd", name), "user"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assets := []ScaffoldAsset{
+		{Template: "managed", Target: ".specd/managed", Policy: ScaffoldCreate, Required: true, Refresh: true},
+		{Template: "authored", Target: ".specd/authored", Policy: ScaffoldCreate, Required: true},
+	}
+	plan, err := PlanInit(InitOptions{Root: root, Refresh: true}, assets, func(name string) (string, error) {
+		return name + "-template", nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Actions[0].Kind != "write" || plan.Actions[1].Kind != "skip" {
+		t.Fatalf("refresh actions = %#v", plan.Actions)
+	}
+}
+
+func TestExecuteFreshInitRollbackBeforeCommit(t *testing.T) {
+	root := t.TempDir()
+	plan := InitPlan{
+		Root:  root,
+		Mode:  "init",
+		Fresh: true,
+		Actions: []InitAction{
+			{Kind: "write", Target: filepath.Join(root, ".specd", "first"), Content: "a", Required: true},
+			{Kind: "write", Target: filepath.Join(root, ".specd", "second"), Content: "b", Required: true},
+		},
+	}
+	executor := DefaultInitExecutor()
+	executor.WriteFile = func(path, content string) error {
+		if strings.HasSuffix(filepath.ToSlash(path), "/second") {
+			return os.ErrPermission
+		}
+		return AtomicWrite(path, content)
+	}
+	result := ExecuteInitPlan(plan, false, executor)
+	if result.Status != "failed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".specd")); !os.IsNotExist(err) {
+		t.Fatalf("rollback left .specd behind: %v", err)
+	}
+	matches, err := filepath.Glob(filepath.Join(root, ".specd.init-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("rollback left staging dirs: %v", matches)
+	}
+}
+
+func TestExecuteFreshInitExternalMergeFailurePreservesOriginal(t *testing.T) {
+	root := t.TempDir()
+	agents := filepath.Join(root, "AGENTS.md")
+	if err := os.WriteFile(agents, []byte("user content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan := InitPlan{
+		Root:  root,
+		Mode:  "init",
+		Fresh: true,
+		Actions: []InitAction{
+			{Kind: "write", Target: filepath.Join(root, ".specd", "asset"), Content: "a", Required: true},
+			{Kind: "merge", Target: agents, Content: "managed", Required: true},
+		},
+	}
+	executor := DefaultInitExecutor()
+	executor.MergeAgents = func(string, string, bool) error { return os.ErrPermission }
+	result := ExecuteInitPlan(plan, false, executor)
+	if result.Status != "failed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	got, err := os.ReadFile(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "user content\n" {
+		t.Fatalf("AGENTS.md changed: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".specd", "asset")); err != nil {
+		t.Fatalf("committed scaffold missing: %v", err)
+	}
+}
