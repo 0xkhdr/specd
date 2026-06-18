@@ -80,7 +80,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 3 — MCP discovery quality
 
-- [ ] T8 — Implement MCP protocol version negotiation
+- [x] T8 — Implement MCP protocol version negotiation
   - why: Fixed `2024-11-05` response ignores current MCP lifecycle negotiation contract.
   - role: builder
   - files: internal/mcp/server.go, internal/mcp/server_test.go, internal/mcp/integration_test.go
@@ -90,7 +90,7 @@ in parallel when file ownership does not overlap.
   - depends: —
   - requirements: R4.3, R6.4
 
-- [ ] T9 — Add concise MCP server instructions
+- [x] T9 — Add concise MCP server instructions
   - why: Hosts can discover tools but lack server-wide workflow guidance.
   - role: builder
   - files: internal/mcp/server.go, internal/mcp/server_test.go, internal/core/embed_templates/AGENTS.md
@@ -100,7 +100,7 @@ in parallel when file ownership does not overlap.
   - depends: T8
   - requirements: R4.4, R6.3
 
-- [ ] T10 — Build reusable in-process MCP health probe
+- [x] T10 — Build reusable in-process MCP health probe
   - why: Init and doctor need proof that server negotiates and exposes baseline tools.
   - role: builder
   - files: internal/mcp/probe.go, internal/mcp/probe_test.go

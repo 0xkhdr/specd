@@ -20,6 +20,7 @@ MCP is needed — if you can run a shell command, you can run this harness.
    - `specd check <spec>` — before claiming any phase complete (and CI runs it on every push).
    - `specd approve <spec>` — record a human approval: advances the planning phase
      (requirements → design → tasks → executing), or clears a midreq `awaiting-approval` gate.
+   - `specd verify <spec> <id>` — run the task's declared verification command and record its result.
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
 
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
@@ -62,6 +63,7 @@ specd approve my-feature         # approve design → tasks
 specd approve my-feature         # approve tasks  → executing
 # execute loop:
 specd next my-feature            # -> focused task
+specd verify my-feature T1       # run declared verification and record the result
 specd task my-feature T1 --status complete --evidence "commit abc123; npm test PASS"
 # when the last task is done the spec enters `verifying`:
 specd approve my-feature         # accept spec-level verification → complete

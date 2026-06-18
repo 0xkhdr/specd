@@ -134,7 +134,7 @@ func driveIntegration(t *testing.T, h *th.Harness, requests ...string) []map[str
 }
 
 // TestMCPWireContract exercises the four-step sequence required by R6:
-//  1. initialize  → protocol version "2024-11-05" and tools capability
+//  1. initialize  → negotiated protocol version and tools capability
 //  2. tools/list  → specd_status present with readOnlyHint annotation
 //  3. tools/call specd_status → result carries structuredContent
 //  4. unknown tool call → -32602 without connection teardown (recovery call follows)
@@ -152,7 +152,7 @@ func TestMCPWireContract(t *testing.T) {
 		Build()
 
 	resps := driveIntegration(t, h,
-		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"integration-test","version":"1"}}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
 		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":["widget"]}}}`,
@@ -171,8 +171,8 @@ func TestMCPWireContract(t *testing.T) {
 		if !ok {
 			t.Fatalf("initialize result not an object: %v", resps[0])
 		}
-		if got := init["protocolVersion"]; got != "2024-11-05" {
-			t.Errorf("protocolVersion = %q, want %q", got, "2024-11-05")
+		if got := init["protocolVersion"]; got != "2025-11-25" {
+			t.Errorf("protocolVersion = %q, want %q", got, "2025-11-25")
 		}
 		caps, ok := init["capabilities"].(map[string]any)
 		if !ok {

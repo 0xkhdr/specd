@@ -13,8 +13,18 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// protocolVersion is the MCP revision this server speaks.
-const protocolVersion = "2024-11-05"
+const (
+	latestProtocolVersion = "2025-11-25"
+	legacyProtocolVersion = "2024-11-05"
+	serverInstructions    = "Call specd_status or specd_context first. Never edit .specd/state.json or tasks.md checkboxes directly. Use specd_check before approval. Run specd_verify and provide passing evidence before completing tasks."
+)
+
+// supportedProtocolVersions is newest-first so fallback negotiation is stable.
+var supportedProtocolVersions = []string{
+	latestProtocolVersion,
+	"2025-06-18",
+	legacyProtocolVersion,
+}
 
 // Dispatcher runs a registered specd command and reports whether it was known.
 // It mirrors cmd.Dispatch exactly; injecting it keeps this package free of an
@@ -69,7 +79,7 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher) {
 func route(req rpcRequest, dispatch Dispatcher) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
-		return initializeResult(), nil
+		return initializeResult(req.Params), nil
 	case "ping", "notifications/initialized", "notifications/cancelled":
 		return map[string]any{}, nil
 	case "tools/list":
@@ -81,12 +91,39 @@ func route(req rpcRequest, dispatch Dispatcher) (any, *rpcError) {
 	}
 }
 
-func initializeResult() map[string]any {
+type initializeParams struct {
+	ProtocolVersion string `json:"protocolVersion"`
+}
+
+func initializeResult(rawParams json.RawMessage) map[string]any {
+	var params initializeParams
+	_ = json.Unmarshal(rawParams, &params)
+
 	return map[string]any{
-		"protocolVersion": protocolVersion,
+		"protocolVersion": negotiateProtocolVersion(params.ProtocolVersion),
 		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
-		"serverInfo":      map[string]any{"name": "specd", "version": core.Version},
+		"serverInfo": map[string]any{
+			"name":        "specd",
+			"title":       "specd",
+			"version":     core.Version,
+			"description": "Deterministic spec-driven coding harness",
+		},
+		"instructions": serverInstructions,
 	}
+}
+
+func negotiateProtocolVersion(requested string) string {
+	// Pre-negotiation clients sent no version and expected the historical
+	// revision. Retain that compatibility while negotiating all valid requests.
+	if requested == "" {
+		return legacyProtocolVersion
+	}
+	for _, supported := range supportedProtocolVersions {
+		if requested == supported {
+			return requested
+		}
+	}
+	return latestProtocolVersion
 }
 
 type callParams struct {

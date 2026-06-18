@@ -54,6 +54,61 @@ func result(t *testing.T, resp map[string]any) map[string]any {
 	return r
 }
 
+func TestInitializeProtocolVersionNegotiation(t *testing.T) {
+	cases := []struct {
+		name   string
+		params string
+		want   string
+	}{
+		{"newest", `{"protocolVersion":"2025-11-25"}`, "2025-11-25"},
+		{"previous", `{"protocolVersion":"2025-06-18"}`, "2025-06-18"},
+		{"legacy", `{"protocolVersion":"2024-11-05"}`, "2024-11-05"},
+		{"unsupported falls back to latest", `{"protocolVersion":"2099-01-01"}`, "2025-11-25"},
+		{"missing preserves old client compatibility", `{}`, "2024-11-05"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resps := drive(t, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":`+tc.params+`}`)
+			if got := result(t, resps[0])["protocolVersion"]; got != tc.want {
+				t.Errorf("protocolVersion = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestInitializeInstructionsAgentBudget(t *testing.T) {
+	resps := drive(t, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}`)
+	init := result(t, resps[0])
+	instructions, ok := init["instructions"].(string)
+	if !ok || instructions == "" {
+		t.Fatalf("instructions missing: %v", init)
+	}
+	if len(instructions) > 512 {
+		t.Fatalf("instructions use %d bytes, want <= 512", len(instructions))
+	}
+	for _, phrase := range []string{
+		"specd_status or specd_context first",
+		"Never edit .specd/state.json or tasks.md checkboxes directly",
+		"specd_check before approval",
+		"specd_verify",
+		"passing evidence",
+	} {
+		if !strings.Contains(instructions, phrase) {
+			t.Errorf("instructions missing %q: %q", phrase, instructions)
+		}
+	}
+
+	agents, err := core.ReadTemplate("AGENTS.md")
+	if err != nil {
+		t.Fatalf("ReadTemplate(AGENTS.md): %v", err)
+	}
+	for _, phrase := range []string{"specd context", "Never hand-edit `state.json`", "specd check", "specd verify", "--evidence"} {
+		if !strings.Contains(agents, phrase) {
+			t.Errorf("embedded AGENTS.md missing rule corresponding to instructions: %q", phrase)
+		}
+	}
+}
+
 // TestToolsCall drives tools/call into the real handlers and checks the result
 // payload: read-only status returns structured JSON, verify runs the task's
 // command, and a non-zero exit maps to isError (R3).
@@ -144,7 +199,7 @@ func TestMCPEndToEnd(t *testing.T) {
 	seedSpec(h, "auth")
 
 	resps := drive(t,
-		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`, // notification: no response
 		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":["auth"]}}}`,
