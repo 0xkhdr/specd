@@ -26,7 +26,7 @@
 
 ## Wave 2 — Shipped Defaults
 
-- [ ] T3 — Update embedded config and effective-policy rendering
+- [x] T3 — Update embedded config and effective-policy rendering
   - why: Keep scaffolded projects and machine consumers aligned with the new policy.
   - role: builder
   - files: internal/core/embed_templates/config.json, internal/core/embed.go, internal/core/specfiles_test.go

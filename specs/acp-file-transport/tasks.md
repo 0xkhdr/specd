@@ -2,7 +2,7 @@
 
 ## Wave 2 — ACP Protocol
 
-- [ ] T1 — Define ACP models and schema
+- [x] T1 — Define ACP models and schema
   - why: All producers and consumers need one versioned contract.
   - role: builder
   - files: internal/core/acp.go, internal/core/schema/v1.json, internal/core/schema_test.go

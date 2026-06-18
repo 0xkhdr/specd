@@ -106,7 +106,7 @@ var DefaultConfig = Config{
 	Report:             ReportCfg{Format: "md", AutoRefreshSeconds: 0},
 	Roles:              RolesCfg{SubagentMode: "inline"},
 	PromotionThreshold: 3,
-	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off"},
+	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off", Custom: []CustomGateCfg{}},
 	Verify:             VerifyCfg{Sandbox: "none"},
 	Orchestration: OrchestrationCfg{
 		Enabled:                  false,

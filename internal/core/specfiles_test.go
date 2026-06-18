@@ -1,8 +1,10 @@
 package core
 
 import (
+	"encoding/json"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -252,5 +254,46 @@ func TestOrchestrationConfigFailClosedValidation(t *testing.T) {
 				t.Fatalf("orchestration = %#v, want fail-closed defaults %#v", got.Orchestration, DefaultConfig.Orchestration)
 			}
 		})
+	}
+}
+
+func TestConfigPolicyDeterministicRendering(t *testing.T) {
+	first, err := MarshalEffectiveOrchestrationPolicy(DefaultConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := MarshalEffectiveOrchestrationPolicy(DefaultConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatalf("policy rendering is not deterministic:\n%s\n%s", first, second)
+	}
+
+	var got OrchestrationCfg
+	if err := json.Unmarshal(first, &got); err != nil {
+		t.Fatalf("rendered policy is invalid JSON: %v", err)
+	}
+	if !reflect.DeepEqual(got, DefaultConfig.Orchestration) {
+		t.Fatalf("rendered policy = %#v, want %#v", got, DefaultConfig.Orchestration)
+	}
+	for _, forbidden := range []string{"secret", "token", "password", "credential", "apiKey", "environment"} {
+		if strings.Contains(strings.ToLower(string(first)), strings.ToLower(forbidden)) {
+			t.Fatalf("rendered policy contains forbidden field %q: %s", forbidden, first)
+		}
+	}
+}
+
+func TestInitConfigPolicyDeterministic(t *testing.T) {
+	raw, err := ReadTemplate("config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shipped Config
+	if err := json.Unmarshal([]byte(raw), &shipped); err != nil {
+		t.Fatalf("embedded config is invalid JSON: %v", err)
+	}
+	if !reflect.DeepEqual(shipped, DefaultConfig) {
+		t.Fatalf("embedded config = %#v, want DefaultConfig %#v", shipped, DefaultConfig)
 	}
 }

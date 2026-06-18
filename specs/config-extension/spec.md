@@ -67,6 +67,7 @@ Add explicit orchestration policy without changing specd's defaults: zero LLM ca
 - V4 Limits are enforced at dispatch time, not treated as advisory metadata.
 - V5 Automated approval cannot clear `awaiting-approval` caused by high/critical mid-requirements.
 - V6 JSON output is deterministic and contains no absolute paths, credentials, or environment dumps.
+- V7 The embedded `config.json` decodes exactly to `DefaultConfig`; empty list fields serialize as `[]`, never `null`.
 
 ## 6. Interfaces
 

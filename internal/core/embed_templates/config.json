@@ -5,5 +5,22 @@
   "roles": { "subagentMode": "inline" },
   "promotionThreshold": 3,
   "gates": { "traceability": "warn", "acceptance": "off", "scope": "off", "custom": [] },
-  "verify": { "sandbox": "none" }
+  "verify": { "sandbox": "none" },
+  "orchestration": {
+    "enabled": false,
+    "approvalPolicy": "manual",
+    "workerMode": "host",
+    "maxWorkers": 4,
+    "maxRetries": 2,
+    "sessionTimeoutMinutes": 120,
+    "hostReportedCostLimitUSD": 0,
+    "transport": {
+      "kind": "file",
+      "pollIntervalMillis": 500,
+      "messageTTLSeconds": 3600,
+      "leaseSeconds": 120,
+      "heartbeatSeconds": 30
+    },
+    "program": { "maxConcurrentSpecs": 2 }
+  }
 }
