@@ -99,12 +99,40 @@
       }
     }
   },
+  "specd_doctor": {
+    "type": "object",
+    "properties": {
+      "agent": {
+        "type": "string",
+        "description": "Inspect one host or all detected hosts"
+      },
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd doctor [--agent \u003cname|all\u003e] [--fix] [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "fix": {
+        "type": "boolean",
+        "description": "Repair safe project-scoped scaffold and registration state"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "Output one deterministic JSON document"
+      }
+    }
+  },
   "specd_init": {
     "type": "object",
     "properties": {
+      "agent": {
+        "type": "string",
+        "description": "Coding-agent selection: auto, all, none, codex, claude-code, or gemini"
+      },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd init [--dry-run] [--repair|--refresh|--force]",
+        "description": "Positional arguments, in order. Usage: specd init [--agent \u003cname\u003e] [--yes] [--dry-run]",
         "items": {
           "type": "string"
         }
@@ -117,9 +145,17 @@
         "type": "boolean",
         "description": "Destructively overwrite all scaffold files and AGENTS.md"
       },
+      "json": {
+        "type": "boolean",
+        "description": "Output one versioned InitResult document"
+      },
       "list-packs": {
         "type": "boolean",
         "description": "List the embedded spec packs and exit"
+      },
+      "non-interactive": {
+        "type": "boolean",
+        "description": "Disable prompts"
       },
       "pack": {
         "type": "string",
@@ -133,9 +169,21 @@
         "type": "boolean",
         "description": "Restore missing managed assets only"
       },
+      "scope": {
+        "type": "string",
+        "description": "Integration scope (default project)"
+      },
       "sha256": {
         "type": "string",
         "description": "Pinned SHA256 digest required for a remote --pack URL"
+      },
+      "verbose": {
+        "type": "boolean",
+        "description": "Include detailed path results"
+      },
+      "yes": {
+        "type": "boolean",
+        "description": "Accept non-destructive project-scoped integration changes"
       }
     }
   },

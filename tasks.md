@@ -186,7 +186,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 6 — Init orchestration and doctor
 
-- [ ] T18 — Integrate agent selection and consent into init
+- [x] T18 — Integrate agent selection and consent into init
   - why: Scaffold and adapters must form one smooth, safe first-run flow.
   - role: builder
   - files: internal/cmd/init.go, internal/core/commands.go, internal/cli/args.go, internal/cmd/init_test.go
@@ -196,7 +196,7 @@ in parallel when file ownership does not overlap.
   - depends: T5, T7, T10, T12, T15, T16, T17
   - requirements: R2.3, R2.4, R3.1, R5.1, R5.3
 
-- [ ] T19 — Add `specd doctor`
+- [x] T19 — Add `specd doctor`
   - why: Users need one command to diagnose scaffold, MCP server, and host registration.
   - role: builder
   - files: internal/cmd/doctor.go, internal/cmd/doctor_test.go, internal/cmd/registry.go, internal/core/commands.go, main.go
@@ -206,7 +206,7 @@ in parallel when file ownership does not overlap.
   - depends: T10, T11, T13, T18
   - requirements: R4.5, R5.2, R5.3
 
-- [ ] T20 — Finalize concise human and JSON onboarding receipts
+- [x] T20 — Finalize concise human and JSON onboarding receipts
   - why: First-run output must communicate readiness and one next action, not only file inventory.
   - role: builder
   - files: internal/cmd/init.go, internal/cmd/doctor.go, internal/core/output.go, internal/cmd/json_contract_test.go, internal/cmd/agent_budget_test.go

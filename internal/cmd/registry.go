@@ -19,6 +19,7 @@ type Command struct {
 // Registry lists every dispatchable command in help-display order.
 var Registry = []Command{
 	{"init", RunInit},
+	{"doctor", RunDoctor},
 	{"new", RunNew},
 	{"approve", RunApprove},
 	{"decision", RunDecision},
@@ -44,21 +45,14 @@ var Registry = []Command{
 	{"uninstall", RunUninstall},
 }
 
-var registryByName = func() map[string]Command {
-	m := make(map[string]Command, len(Registry))
-	for _, c := range Registry {
-		m[c.Name] = c
-	}
-	return m
-}()
-
 // Dispatch runs the handler registered for command. It returns (exitCode, true)
 // when the command is known, or (0, false) when it is not — letting the caller
 // render the unknown-command help path.
 func Dispatch(command string, args cli.Args) (int, bool) {
-	c, ok := registryByName[command]
-	if !ok {
-		return 0, false
+	for _, registered := range Registry {
+		if registered.Name == command {
+			return registered.Run(args), true
+		}
 	}
-	return c.Run(args), true
+	return 0, false
 }

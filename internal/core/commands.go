@@ -26,12 +26,21 @@ type CommandMeta struct {
 var Commands = []CommandMeta{
 	{
 		Command: "init", Category: "lifecycle",
-		Description: "Scaffold .specd/ + AGENTS.md",
-		Usage:       "specd init [--dry-run] [--repair|--refresh|--force] [--list-packs] [--pack <name|url> [--sha256 <hex>]]", Synopsis: "specd init [--dry-run] [--repair|--refresh|--force]",
-		LongDescription: "Scaffolds the .specd/ directory, roles, steering config, and AGENTS.md in the current working directory. --repair restores missing assets only. --refresh updates frozen managed assets and the AGENTS.md marker section while preserving authored steering. --force destructively replaces all scaffold files and AGENTS.md. --dry-run previews exact actions without writing. With --list-packs, lists embedded packs. With --pack, transactionally applies a pack.",
-		Flags:           []FlagMeta{{Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}},
+		Description: "Scaffold project assets and configure coding agents",
+		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|gemini>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
+		LongDescription: "Scaffolds .specd/ and AGENTS.md, passively detects supported coding-agent hosts, optionally installs project-scoped MCP registration, verifies the in-process MCP server, and returns one next action. Non-interactive auto-detection never mutates host configuration unless --yes is supplied. Global scope requires explicit consent.",
+		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, or gemini"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Initialization or pack operation failed"}, {2, "Usage error"}},
-		Examples:        []string{"specd init", "specd init --dry-run", "specd init --repair", "specd init --refresh", "specd init --force", "specd init --list-packs", "specd init --pack go-service"},
+		Examples:        []string{"specd init --agent auto --yes", "specd init --agent none --non-interactive", "specd init --agent all --dry-run --json", "specd init --repair"},
+	},
+	{
+		Command: "doctor", Category: "inspection",
+		Description: "Diagnose scaffold, MCP, and coding-agent registration",
+		Usage:       "specd doctor [--agent <name|all>] [--fix] [--json]", Synopsis: "specd doctor [--agent <name|all>] [--fix] [--json]",
+		LongDescription: "Checks the current project binary, required scaffold assets, in-process MCP handshake and baseline tools, detected coding-agent hosts, and project registration state. --fix repairs only safe project-scoped state and refuses conflicting or unowned registrations.",
+		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Inspect one host or all detected hosts"}, {Name: "fix", Type: "boolean", Description: "Repair safe project-scoped scaffold and registration state"}, {Name: "json", Type: "boolean", Description: "Output one deterministic JSON document"}},
+		ExitCodes:       []ExitCodeMeta{{0, "All requested checks pass"}, {1, "One or more health checks failed"}, {2, "Usage error"}},
+		Examples:        []string{"specd doctor", "specd doctor --agent codex --json", "specd doctor --fix"},
 	},
 	{
 		Command: "new", Category: "lifecycle",
