@@ -2,7 +2,7 @@
 
 ## Wave 6 — Brain Models
 
-- [ ] T1 — Define snapshots, decisions, sessions, and policy boundaries
+- [x] T1 — Define snapshots, decisions, sessions, and policy boundaries
   - why: The controller needs explicit pure inputs and outputs before side effects are added.
   - role: builder
   - files: internal/core/orchestration.go, internal/core/orchestration_test.go
@@ -14,7 +14,7 @@
 
 ## Wave 7 — Brain Sensing
 
-- [ ] T2 — Implement authoritative snapshot sensing
+- [x] T2 — Implement authoritative snapshot sensing
   - why: Brain decisions must use existing specd truth and helpers.
   - role: builder
   - files: internal/core/orchestration_sense.go, internal/core/orchestration_sense_test.go
@@ -26,7 +26,7 @@
 
 ## Wave 8 — Brain Decisions
 
-- [ ] T3 — Implement pure deterministic decision table
+- [x] T3 — Implement pure deterministic decision table
   - why: Scheduling behavior must be reviewable and reproducible.
   - role: builder
   - files: internal/core/orchestration_decide.go, internal/core/orchestration_decide_test.go

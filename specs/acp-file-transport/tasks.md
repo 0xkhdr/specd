@@ -26,7 +26,7 @@
 
 ## Wave 4 — Atomic Event Store
 
-- [ ] T3 — Implement atomic immutable event writer
+- [x] T3 — Implement atomic immutable event writer
   - why: Concurrent workers require durable messages with no partial visibility or overwrite.
   - role: builder
   - files: internal/core/acp_store.go, internal/core/acp_store_test.go
@@ -38,7 +38,7 @@
 
 ## Wave 5 — Idempotent Delivery
 
-- [ ] T4 — Implement idempotent event reader and cursor
+- [x] T4 — Implement idempotent event reader and cursor
   - why: At-least-once delivery must be safe across retries and restarts.
   - role: builder
   - files: internal/core/acp_store.go, internal/core/acp_cursor.go, internal/core/acp_store_test.go
@@ -50,7 +50,7 @@
 
 ## Wave 6 — Worker Leases
 
-- [ ] T5 — Implement worker leases, heartbeat, TTL, and reclaim
+- [x] T5 — Implement worker leases, heartbeat, TTL, and reclaim
   - why: Work ownership must survive crashes without accepting stale evidence.
   - role: builder
   - files: internal/core/acp_lease.go, internal/core/acp_lease_test.go
@@ -62,7 +62,7 @@
 
 ## Wave 7 — Archive and Replay
 
-- [ ] T6 — Implement archive, replay integration, and retention cleanup
+- [x] T6 — Implement archive, replay integration, and retention cleanup
   - why: Sessions must remain auditable without unbounded runtime growth.
   - role: builder
   - files: internal/core/acp_archive.go, internal/core/replay.go, internal/cmd/replay.go, internal/core/acp_archive_test.go
@@ -74,7 +74,7 @@
 
 ## Wave 8 — ACP Stress and Security
 
-- [ ] T7 — Add ACP cross-process stress and hostile-input suite
+- [x] T7 — Add ACP cross-process stress and hostile-input suite
   - why: Transport correctness is integrity-critical under adversarial input and concurrency.
   - role: verifier
   - files: scripts/stress-acp.sh, internal/core/acp_security_test.go, Makefile

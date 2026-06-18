@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 3 complete; awaiting human review
+Status: implementation in progress; Wave 8 complete; awaiting human review
 Last updated: 2026-06-18
-Implementation progress: 5/37 tasks complete
+Implementation progress: 15/37 tasks complete
 
 ## Program Outcome
 
@@ -22,11 +22,11 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 1 | Configuration validation | 1 | complete |
 | 2 | Shipped defaults and ACP protocol | 2 | complete |
 | 3 | Runtime path security | 1 | complete |
-| 4 | Atomic ACP event store | 1 | pending |
-| 5 | Idempotent ACP delivery | 1 | pending |
-| 6 | Worker leases and Brain models | 2 | pending |
-| 7 | ACP archive, Brain sensing, Pinky mission contract | 3 | pending |
-| 8 | ACP stress, Brain decisions, Pinky claims | 3 | pending |
+| 4 | Atomic ACP event store | 1 | complete |
+| 5 | Idempotent ACP delivery | 1 | complete |
+| 6 | Worker leases and Brain models | 2 | complete |
+| 7 | ACP archive, Brain sensing, Pinky mission contract | 3 | complete |
+| 8 | ACP stress, Brain decisions, Pinky claims | 3 | complete |
 | 9 | Brain reconciliation, Pinky reporting, program decisions | 3 | pending |
 | 10 | Brain recovery and Pinky evidence | 2 | pending |
 | 11 | Brain CLI, Pinky CLI, program child scheduling | 3 | pending |
@@ -59,10 +59,10 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | Spec | Tasks | Complete | Current state | Next task |
 |---|---:|---:|---|---|
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
-| acp-file-transport | 7 | 2 | in progress | T3 |
-| brain-core | 8 | 0 | proposed | blocked by ACP store/delivery |
-| pinky-core | 7 | 0 | proposed | blocked by ACP store/delivery |
-| program-orchestration | 5 | 0 | proposed | blocked by brain-core/T3 |
+| acp-file-transport | 7 | 7 | complete | — |
+| brain-core | 8 | 3 | in progress | T4 (Wave 9) |
+| pinky-core | 7 | 2 | in progress | T3 (Wave 9) |
+| program-orchestration | 5 | 0 | proposed | T1 (Wave 9) |
 | mcp-integration | 6 | 0 | proposed | blocked by Brain/Pinky/program CLI |
 
 ## Review Decisions Requested
@@ -83,6 +83,18 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   type without changing sender direction, so direction validation masked the
   intended payload diagnostics. Fixtures now satisfy earlier gates; no new
   invariant was needed because directionality already has a dedicated test.
+- Backprop B3 / 2026-06-18: the ACP permission fixture created every missing
+  parent with read-only permissions, so setup failed before exercising the
+  intended session-directory denial; cursor corruption diagnostics also lacked
+  a consistent prefix. The fixture now constrains only the target directory and
+  cursor validation errors are labeled consistently. No new invariant was
+  needed because this was test construction and diagnostic classification, not
+  a product contract gap.
+- Backprop B4 / 2026-06-18: Wave 7/8 implementation exposed mechanical
+  test-construction errors: terminal ACP direction must remain Pinky→Brain
+  after changing message type, and stress replay must read fixture session
+  actually written. Fixed fixtures. No new invariant added because ACP
+  direction and ordered replay already have dedicated tests.
 - Wave 0 / `config-extension/T1`: added backward-compatible orchestration,
   transport, and program configuration models with field-level defaults.
   Verification passed:
@@ -113,6 +125,62 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   runtime components. Verification passed:
   `go test ./internal/core/... -run 'TestRuntimePath' -count=2`,
   `make build`, `make test`, and `make ci`.
+- Wave 4 / `acp-file-transport/T3`: added per-session cross-process sequence
+  allocation, immutable no-overwrite event publication, fsync-before-publish,
+  private runtime permissions, stale-lock recovery, existing-log validation,
+  and gap/rollback/duplicate rejection. Verification passed:
+  `go test ./internal/core/... -run 'TestACPStore.*(Write|Concurrent|Permission)' -race -count=2`,
+  `make build`, `make test`, and `make ci`.
+- Wave 5 / `acp-file-transport/T4`: added ordered fail-closed event reads,
+  explicit atomic consumer cursors, replay deduplication by `messageId`, and
+  cursor advancement rules that cannot skip unreconciled events while allowing
+  acknowledged duplicates. Verification passed:
+  `go test ./internal/core/... -run 'TestACPStore.*(Read|Cursor|Duplicate|Corrupt)' -count=2`,
+  `make build`, `make test`, and `make ci`.
+- Wave 6 / `acp-file-transport/T5`: added atomic worker claim, bounded heartbeat
+  renewal, message-TTL enforcement, idempotent release, attempt-monotonic
+  reclaim, unique worker identity history, and terminal-report ownership
+  validation using the injected clock. Verification passed:
+  `go test ./internal/core/... -run 'TestACPLease' -race -count=2`,
+  `make build`, `make test`, and `make ci`.
+- Wave 6 / `brain-core/T1`: added closed orchestration action, lifecycle, and
+  escalation enums; bounded policy conversion; snapshot, decision, session,
+  lease, failure, and task models; validation for every current status/gate;
+  and canonical deterministic JSON with sorted non-null lists. Verification
+  passed:
+  `go test ./internal/core/... -run 'TestOrchestrationModel' -count=2`,
+  `make build`, `make test`, and `make ci`.
+
+- Wave 7 / `acp-file-transport/T6`: added terminal-session ACP archive
+  sealing, ordered archived replay through core/CLI replay path, and
+  validated retention cleanup constrained to runtime archive IDs.
+  Verification passed:
+  `go test ./internal/core/... ./internal/cmd/... -run 'TestACPArchive|TestReplay.*ACP' -count=2`,
+  and `make ci`.
+- Wave 7 / `brain-core/T2`: added authoritative orchestration snapshot sensing
+  from `LoadSpec`, runnable frontier, verification failures, lifecycle gates,
+  and active ACP leases without shelling out. Verification passed:
+  `go test ./internal/core/... -run 'TestOrchestrationSense' -count=2`,
+  and `make ci`.
+- Wave 7 / `pinky-core/T1`: added deterministic Pinky mission contract with
+  authority, attempt/deadline/heartbeat, task contract fields, verify command,
+  dependencies, requirements, and dispatch digest. Verification passed:
+  `go test ./internal/core/... ./internal/cmd/... -run 'TestPinkyMission|TestDispatch' -count=2`,
+  and `make ci`.
+- Wave 8 / `acp-file-transport/T7`: added ACP hostile-input/security and
+  stress coverage for traversal, symlinks, oversized payloads, concurrent
+  writers, stale leases, and `scripts/stress-acp.sh`/`make stress-acp`.
+  Verification passed: `make ci`.
+- Wave 8 / `brain-core/T3`: added pure deterministic decision table mapping
+  snapshots plus policy to approval, dispatch, wait, escalation, and complete
+  actions with stable idempotency keys. Verification passed:
+  `go test ./internal/core/... -run 'TestOrchestrationDecide' -count=20`,
+  and `make ci`.
+- Wave 8 / `pinky-core/T2`: added Pinky claim, heartbeat, and release core
+  operations over ACP leases, rejecting duplicate/stale/wrong ownership.
+  Verification passed:
+  `go test ./internal/core/... -run 'TestPinky.*(Claim|Heartbeat|Release)' -race -count=2`,
+  and `make ci`.
 
 ## Progress Update Rules
 

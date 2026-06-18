@@ -3,7 +3,7 @@ VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo "dev
 LDFLAGS  = -s -w -X main.version=$(VERSION)
 BIN      = specd
 
-.PHONY: all build install test test-order cover cover-check fmt-check lint shellcheck stress perf-gate bench ci clean
+.PHONY: all build install test test-order cover cover-check fmt-check lint shellcheck stress stress-acp perf-gate bench ci clean
 
 all: build
 
@@ -41,6 +41,9 @@ shellcheck:
 # Cross-process concurrency stress (Stage 07 F6).
 stress: build
 	./scripts/stress.sh
+
+stress-acp:
+	./scripts/stress-acp.sh
 
 # Onboarding deterministic-output gate (T26). Byte-stability of init receipts and
 # probe contract fields, run twice to catch order/iteration dependence. No

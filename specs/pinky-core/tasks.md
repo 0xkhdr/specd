@@ -2,7 +2,7 @@
 
 ## Wave 7 — Pinky Mission Contract
 
-- [ ] T1 — Define mission and worker report models
+- [x] T1 — Define mission and worker report models
   - why: Hosts need a stable contract derived from existing dispatch semantics.
   - role: builder
   - files: internal/core/pinky.go, internal/core/pinky_test.go, internal/cmd/dispatch.go
@@ -14,7 +14,7 @@
 
 ## Wave 8 — Pinky Claims
 
-- [ ] T2 — Implement claim, heartbeat, and release core operations
+- [x] T2 — Implement claim, heartbeat, and release core operations
   - why: A host must prove current ownership before acting.
   - role: builder
   - files: internal/core/pinky.go, internal/core/pinky_claim.go, internal/core/pinky_claim_test.go
