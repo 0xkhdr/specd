@@ -3,18 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
-
-var steeringFiles = []string{"reasoning.md", "workflow.md", "product.md", "tech.md", "structure.md", "memory.md"}
-var roleFiles = []string{"investigator.md", "builder.md", "reviewer.md", "verifier.md"}
-var skillFiles = []string{
-	"specd-foundations", "specd-steering", "specd-requirements",
-	"specd-design", "specd-tasks", "specd-execute",
-}
 
 // listPacks renders the embedded built-in packs as text, or JSON under
 // SPECD_JSON. It performs no filesystem writes.
@@ -84,6 +76,10 @@ func applyPack(root, ref string, args cli.Args) int {
 }
 
 func RunInit(args cli.Args) int {
+	return runInit(args, core.DefaultInitExecutor())
+}
+
+func runInit(args cli.Args, executor core.InitExecutor) int {
 	if args.Bool("list-packs") {
 		return listPacks()
 	}
@@ -95,71 +91,60 @@ func RunInit(args cli.Args) int {
 	if ref := args.Str("pack"); ref != "" {
 		return applyPack(root, ref, args)
 	}
-	force := args.Bool("force")
-	var written, skipped, merged []string
-
-	place := func(dest, tmplPath string) {
-		if _, err := os.Stat(dest); err == nil && !force {
-			skipped = append(skipped, dest)
-			return
-		}
-		content, err := core.ReadTemplate(tmplPath)
-		if err != nil {
-			core.Error(fmt.Sprintf("missing template %s: %v", tmplPath, err))
-			return
-		}
-		if err := core.AtomicWrite(dest, content); err != nil {
-			core.Error(fmt.Sprintf("write %s: %v", dest, err))
-			return
-		}
-		written = append(written, dest)
+	options := core.InitOptions{
+		Root:  root,
+		Force: args.Bool("force"),
+		Scope: "project",
 	}
-
-	for _, f := range steeringFiles {
-		place(core.SteeringDir(root)+"/"+f, "steering/"+f)
-	}
-	for _, f := range roleFiles {
-		place(core.RolesDir(root)+"/"+f, "roles/"+f)
-	}
-	for _, s := range skillFiles {
-		place(core.SkillsDir(root)+"/"+s+"/SKILL.md", "skills/"+s+"/SKILL.md")
-	}
-	place(core.ConfigPath(root), "config.json")
-
-	// AGENTS.md: merge with markers for idempotent updates
-	agentsPath := core.AgentsPath(root)
-	content, err := core.ReadTemplate("AGENTS.md")
+	plan, err := core.PlanInit(options, core.DefaultScaffoldManifest(), core.ReadTemplate)
 	if err != nil {
-		core.Error(fmt.Sprintf("missing template AGENTS.md: %v", err))
-		return core.ExitGate
+		result := core.NewInitResult(root)
+		result.Status = "failed"
+		result.Warnings = append(result.Warnings, core.InitWarning{
+			Code:    "preflight-failed",
+			Message: err.Error(),
+		})
+		result.Normalize()
+		return emitInitResult(result, args.Bool("json"))
 	}
-	if err := core.MergeAgentsMD(agentsPath, content, force); err != nil {
-		core.Error(fmt.Sprintf("merge %s: %v", agentsPath, err))
-		return core.ExitGate
-	}
-	merged = append(merged, agentsPath)
+	result := core.ExecuteInitPlan(plan, options.Force, executor)
+	return emitInitResult(result, args.Bool("json"))
+}
 
-	rel := func(p string) string { return strings.TrimPrefix(p, root+"/") }
-	if len(written) > 0 {
-		core.Info(fmt.Sprintf("specd init: wrote %d file(s):", len(written)))
-		for _, w := range written {
-			core.Info("  + " + rel(w))
+func emitInitResult(result core.InitResult, jsonOut bool) int {
+	result.Normalize()
+	if jsonOut || core.IsJSONMode() {
+		if err := core.PrintJSON(result); err != nil {
+			return specdExit(err)
+		}
+	} else {
+		ready := len(result.Files.Written) + len(result.Files.Updated) + len(result.Files.Skipped)
+		if result.Status == "ready" {
+			core.Info(fmt.Sprintf("Initialized specd in %s", result.Root))
+			core.Info(fmt.Sprintf("Project assets: %d ready, 0 failed", ready))
+			core.Info("Next: " + result.NextAction.Text)
+			if len(result.Files.Written) > 0 {
+				core.Info(fmt.Sprintf("wrote %d file(s)", len(result.Files.Written)))
+			}
+			if len(result.Files.Updated) > 0 {
+				core.Info(fmt.Sprintf("updated %d managed file(s)", len(result.Files.Updated)))
+			}
+			if len(result.Files.Skipped) > 0 {
+				core.Info(fmt.Sprintf("skipped %d existing file(s)", len(result.Files.Skipped)))
+			}
+		} else {
+			core.Error(fmt.Sprintf("specd init failed in %s", result.Root))
+			core.Error(fmt.Sprintf("Project assets: %d ready, %d failed", ready, len(result.Files.Failed)))
+			for _, path := range result.Files.Failed {
+				core.Error("failed: " + path)
+			}
+			for _, warning := range result.Warnings {
+				core.Error(warning.Message)
+			}
 		}
 	}
-	if len(merged) > 0 {
-		core.Info(fmt.Sprintf("merged %d file(s) with markers:", len(merged)))
-		for _, m := range merged {
-			core.Info("  ↻ " + rel(m))
-		}
-	}
-	if len(skipped) > 0 {
-		core.Info(fmt.Sprintf("skipped %d existing file(s) (use --force to overwrite):", len(skipped)))
-		for _, s := range skipped {
-			core.Info("  · " + rel(s))
-		}
-	}
-	if len(written) == 0 && len(merged) == 0 && len(skipped) == 0 {
-		core.Info("specd init: nothing to do")
+	if result.Status != "ready" {
+		return core.ExitGate
 	}
 	return core.ExitOK
 }

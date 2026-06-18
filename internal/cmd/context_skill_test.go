@@ -20,8 +20,13 @@ func TestPhaseSkill(t *testing.T) {
 		core.StatusComplete:     "specd-foundations",
 	}
 	shipped := map[string]bool{}
-	for _, s := range skillFiles {
-		shipped[s] = true
+	for _, asset := range core.DefaultScaffoldManifest() {
+		const prefix = ".specd/skills/"
+		if !strings.HasPrefix(asset.Target, prefix) {
+			continue
+		}
+		name := strings.TrimSuffix(strings.TrimPrefix(asset.Target, prefix), "/SKILL.md")
+		shipped[name] = true
 	}
 	for status, want := range cases {
 		got := phaseSkill(status)
