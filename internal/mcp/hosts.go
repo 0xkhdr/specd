@@ -1,9 +1,11 @@
 package mcp
 
 import (
+	"context"
 	"embed"
-	"sort"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/integration"
 )
 
 //go:embed embed_hosts
@@ -40,6 +42,78 @@ var hostRegistry = map[string]HostEntry{
 	},
 }
 
+type legacyHostAdapter struct {
+	name  string
+	entry HostEntry
+}
+
+func (a legacyHostAdapter) Name() string { return a.name }
+
+func (a legacyHostAdapter) Scopes() []integration.Scope {
+	return []integration.Scope{integration.ScopeProject, integration.ScopeGlobal}
+}
+
+func (a legacyHostAdapter) Detect(string) integration.Detection {
+	return integration.Detection{
+		Host:       a.name,
+		Scopes:     a.Scopes(),
+		Method:     "manual-snippet",
+		Confidence: integration.ConfidenceNone,
+		Reason:     "legacy snippet adapter does not perform host detection",
+	}
+}
+
+func (a legacyHostAdapter) Plan(root string, scope integration.Scope) (integration.HostPlan, error) {
+	return integration.HostPlan{
+		Host:  a.name,
+		Root:  root,
+		Scope: scope,
+		Actions: []integration.HostAction{{
+			Kind:        "manual",
+			Target:      a.entry.Dest,
+			Description: "merge the generated MCP snippet into the host configuration",
+			Args:        []string{},
+		}},
+		Warnings: []string{},
+	}, nil
+}
+
+func (a legacyHostAdapter) Install(context.Context, integration.HostPlan) (integration.HostResult, error) {
+	return integration.HostResult{
+		Host:       a.name,
+		Status:     "manual",
+		Targets:    []string{a.entry.Dest},
+		Backups:    []string{},
+		Warnings:   []string{},
+		NextAction: "merge the generated MCP snippet into the host configuration",
+	}, nil
+}
+
+func (a legacyHostAdapter) Inspect(string, integration.Scope) (integration.HostState, error) {
+	return integration.HostState{
+		Host:   a.name,
+		Reason: "manual snippet adapter cannot inspect host configuration",
+	}, nil
+}
+
+func (a legacyHostAdapter) Verify(string) integration.Verification {
+	return integration.Verification{
+		Host:   a.name,
+		Status: "manual",
+		Reason: "manual snippet adapter cannot verify host registration",
+	}
+}
+
+var adapterRegistry = newLegacyAdapterRegistry()
+
+func newLegacyAdapterRegistry() *integration.Registry {
+	adapters := make([]integration.HostAdapter, 0, len(hostRegistry))
+	for name, entry := range hostRegistry {
+		adapters = append(adapters, legacyHostAdapter{name: name, entry: entry})
+	}
+	return integration.MustRegistry(adapters...)
+}
+
 // HostConfig returns the dest hint and config content for the named MCP host.
 // The content string has /path/to/your/project replaced with root when root is
 // non-empty. Returns ("", "", false) for an unknown host name.
@@ -61,10 +135,5 @@ func HostConfig(name, root string) (dest, content string, ok bool) {
 
 // HostNames returns the sorted list of supported MCP host names.
 func HostNames() []string {
-	names := make([]string, 0, len(hostRegistry))
-	for k := range hostRegistry {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-	return names
+	return adapterRegistry.Names()
 }

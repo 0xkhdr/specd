@@ -41,4 +41,7 @@ func SkillsDir(root string) string     { return filepath.Join(root, ".specd", "s
 func SpecsDir(root string) string      { return filepath.Join(root, ".specd", "specs") }
 func SpecDir(root, slug string) string { return filepath.Join(root, ".specd", "specs", slug) }
 func ConfigPath(root string) string    { return filepath.Join(root, ".specd", "config.json") }
-func AgentsPath(root string) string    { return filepath.Join(root, "AGENTS.md") }
+func IntegrationsPath(root string) string {
+	return filepath.Join(root, ".specd", "integrations.json")
+}
+func AgentsPath(root string) string { return filepath.Join(root, "AGENTS.md") }

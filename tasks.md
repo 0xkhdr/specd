@@ -112,7 +112,7 @@ in parallel when file ownership does not overlap.
 
 ## Wave 4 — Host adapter framework
 
-- [ ] T11 — Define host adapter registry and conformance suite
+- [x] T11 — Define host adapter registry and conformance suite
   - why: Snippet-only map cannot support detection, install, inspect, verify, or repair.
   - role: builder
   - files: internal/integration/adapter.go, internal/integration/registry.go, internal/integration/conformance_test.go, internal/mcp/hosts.go
@@ -122,7 +122,7 @@ in parallel when file ownership does not overlap.
   - depends: T2
   - requirements: R2.1, R2.2, R3.3, R6.4
 
-- [ ] T12 — Implement host detection engine
+- [x] T12 — Implement host detection engine
   - why: Init needs evidence-backed supported-agent discovery without guessing.
   - role: builder
   - files: internal/integration/detect.go, internal/integration/detect_test.go
@@ -132,7 +132,7 @@ in parallel when file ownership does not overlap.
   - depends: T11
   - requirements: R2.1, R2.2, R2.3, R2.4
 
-- [ ] T13 — Add integration ownership manifest
+- [x] T13 — Add integration ownership manifest
   - why: Repair and removal require proof of which host entries specd owns.
   - role: builder
   - files: internal/integration/manifest.go, internal/integration/manifest_test.go, internal/core/paths.go
@@ -142,7 +142,7 @@ in parallel when file ownership does not overlap.
   - depends: T11
   - requirements: R3.4, R3.5
 
-- [ ] T14 — Add safe JSON project-config merge utility
+- [x] T14 — Add safe JSON project-config merge utility
   - why: Cursor, VS Code, Gemini, and Claude project configs may contain unrelated user settings.
   - role: builder
   - files: internal/integration/jsonmerge.go, internal/integration/jsonmerge_test.go
