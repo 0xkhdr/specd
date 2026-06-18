@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // CodexAdapter uses a manual project config by default because the current
@@ -181,7 +183,7 @@ func inspectCodexProject(root, target string) (HostState, []byte, error) {
 		return state, canonical, nil
 	}
 	state.Reason = "specd server is registered for this project"
-	manifest, err := LoadManifest(coreIntegrationsPath(root))
+	manifest, err := LoadManifest(core.IntegrationsPath(root))
 	if err != nil {
 		return state, canonical, err
 	}
@@ -246,8 +248,4 @@ func codexServerBlock(content string) string {
 		}
 	}
 	return strings.Join(lines[start:end], "\n")
-}
-
-func coreIntegrationsPath(root string) string {
-	return filepath.Join(root, ".specd", "integrations.json")
 }

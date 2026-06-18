@@ -23,12 +23,25 @@ func (a *VSCodeAdapter) Name() string { return "vscode" }
 func (a *VSCodeAdapter) Scopes() []Scope { return []Scope{ScopeProject} }
 
 func (a *VSCodeAdapter) Detect(root string) Detection {
-	return a.deps.Detector.Detect(root, a.Name(), DetectionProbe{
+	res := a.deps.Detector.Detect(root, a.Name(), DetectionProbe{
 		Executable:    "code",
 		ProjectConfig: ".vscode/mcp.json",
 		Scopes:        a.Scopes(),
 		Method:        "project-json",
 	})
+	if res.Executable != "" {
+		return res
+	}
+	resInsiders := a.deps.Detector.Detect(root, a.Name(), DetectionProbe{
+		Executable:    "code-insiders",
+		ProjectConfig: ".vscode/mcp.json",
+		Scopes:        a.Scopes(),
+		Method:        "project-json",
+	})
+	if resInsiders.Executable != "" {
+		return resInsiders
+	}
+	return res
 }
 
 func (a *VSCodeAdapter) Plan(root string, scope Scope) (HostPlan, error) {

@@ -116,3 +116,25 @@ func assertJSONServerAtPath(t *testing.T, target string, path []string, name str
 		t.Fatalf("server %q missing from %#v", name, current)
 	}
 }
+
+func TestVSCodeAdapterDetectInsiders(t *testing.T) {
+	root := t.TempDir()
+	adapter := NewVSCodeAdapterWithDeps(AdapterDeps{
+		Detector: Detector{
+			LookPath: func(name string) (string, error) {
+				if name == "code-insiders" {
+					return "/fixture/bin/code-insiders", nil
+				}
+				return "", os.ErrNotExist
+			},
+			Stat: os.Stat,
+		},
+	})
+	detection := adapter.Detect(root)
+	if !detection.Detected {
+		t.Fatalf("expected detected for code-insiders")
+	}
+	if detection.Executable != "/fixture/bin/code-insiders" {
+		t.Errorf("expected executable /fixture/bin/code-insiders, got %s", detection.Executable)
+	}
+}

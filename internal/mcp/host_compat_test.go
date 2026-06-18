@@ -2,6 +2,7 @@ package mcp_test
 
 import (
 	"bufio"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/integration"
 	"github.com/0xkhdr/specd/internal/mcp"
 	th "github.com/0xkhdr/specd/internal/testharness"
 )
@@ -115,4 +117,58 @@ func documentedCompatibilityHosts(t *testing.T) []string {
 	}
 	sort.Strings(hosts)
 	return hosts
+}
+
+func TestHostConfigTemplateSync(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate host compatibility test")
+	}
+	embedDir := filepath.Join(filepath.Dir(file), "embed_hosts")
+	entries, err := os.ReadDir(embedDir)
+	if err != nil {
+		t.Fatalf("failed to read embed_hosts directory: %v", err)
+	}
+
+	dirHosts := make(map[string]string)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		ext := filepath.Ext(name)
+		hostName := strings.TrimSuffix(name, ext)
+		dirHosts[hostName] = ext
+	}
+
+	defaultRegistry := integration.DefaultRegistry()
+	for _, name := range defaultRegistry.Names() {
+		if _, ok := dirHosts[name]; !ok {
+			t.Errorf("host adapter %q in default registry has no template in embed_hosts/", name)
+		}
+	}
+
+	for _, name := range mcp.HostNames() {
+		if _, ok := dirHosts[name]; !ok {
+			t.Errorf("host %q in mcp.HostNames() has no template in embed_hosts/", name)
+		}
+	}
+
+	for hostName, ext := range dirHosts {
+		path := filepath.Join(embedDir, hostName+ext)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("failed to read template %q: %v", path, err)
+			continue
+		}
+		if len(content) == 0 {
+			t.Errorf("template %q is empty", path)
+		}
+		if ext == ".json" {
+			var js map[string]any
+			if err := json.Unmarshal(content, &js); err != nil {
+				t.Errorf("template %q has invalid JSON: %v", path, err)
+			}
+		}
+	}
 }

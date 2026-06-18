@@ -204,6 +204,47 @@ func TestJSONContracts(t *testing.T) {
 			t.Errorf("from/status = %q/%q, want requirements/design", got.From, got.Status)
 		}
 	})
+
+	t.Run("doctor", func(t *testing.T) {
+		h := th.New(t)
+		h.RunExpect(core.ExitOK, "init", "--agent", "none", "--non-interactive")
+		res := h.RunExpect(core.ExitGate, "doctor", "--json")
+		var got struct {
+			SchemaVersion int    `json:"schemaVersion"`
+			Status        string `json:"status"`
+			Root          string `json:"root"`
+			Checks        []struct {
+				Name        string `json:"name"`
+				Status      string `json:"status"`
+				Detail      string `json:"detail"`
+				Remediation string `json:"remediation"`
+			} `json:"checks"`
+			Hosts []struct {
+				Name        string `json:"name"`
+				Detected    bool   `json:"detected"`
+				Registered  bool   `json:"registered"`
+				Owned       bool   `json:"owned"`
+				Status      string `json:"status"`
+				Reason      string `json:"reason"`
+				Remediation string `json:"remediation"`
+			} `json:"hosts"`
+			Remediations []string `json:"remediations"`
+			NextAction   string   `json:"nextAction"`
+		}
+		mustUnmarshal(t, res.Stdout, &got)
+		if got.SchemaVersion != 1 {
+			t.Errorf("schemaVersion = %d, want 1", got.SchemaVersion)
+		}
+		if got.Status != "unhealthy" {
+			t.Errorf("status = %q, want unhealthy", got.Status)
+		}
+		if got.Root == "" {
+			t.Errorf("root is empty")
+		}
+		if got.Checks == nil || got.Hosts == nil || got.Remediations == nil {
+			t.Errorf("checks/hosts/remediations must serialize as non-null arrays, got %+v", got)
+		}
+	})
 }
 
 // TestJSONErrorPath drives R2.3: a command that fails still emits a
@@ -239,6 +280,7 @@ func TestJSONErrorPath(t *testing.T) {
 // for non-terminal consumers.
 func TestJSONNoANSI(t *testing.T) {
 	h := th.New(t)
+	h.RunExpect(core.ExitOK, "init", "--agent", "none", "--non-interactive")
 	build := func(h *th.Harness) string {
 		return h.Spec("auth").
 			Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
@@ -265,6 +307,12 @@ func TestJSONNoANSI(t *testing.T) {
 			}
 		})
 	}
+	t.Run("doctor", func(t *testing.T) {
+		res := h.RunExpect(core.ExitGate, "doctor", "--json")
+		if strings.ContainsRune(res.Stdout, '\x1b') {
+			t.Errorf("doctor --json stdout contains ANSI escape: %q", res.Stdout)
+		}
+	})
 }
 
 // TestJSONUninstall covers the uninstall --json contract on a clean HOME (no

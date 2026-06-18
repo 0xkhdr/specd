@@ -102,6 +102,9 @@ specd init --agent auto
 4. **Verifies** the integration with an in-process MCP handshake + `tools/list`, then
    prints one next action.
 
+> [!NOTE]
+> Restart or reload your coding agent / IDE to pick up MCP configuration.
+
 Then just ask your agent:
 
 > "Read specd context and help me create a spec for &lt;feature&gt;."

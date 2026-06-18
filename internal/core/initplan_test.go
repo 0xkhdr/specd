@@ -222,3 +222,43 @@ func TestExecuteFreshInitExternalMergeFailurePreservesOriginal(t *testing.T) {
 		t.Fatalf("committed scaffold missing: %v", err)
 	}
 }
+
+func TestExecuteFreshInitRollbackUserFileSurvival(t *testing.T) {
+	root := t.TempDir()
+	userFile := filepath.Join(root, "user_file.txt")
+	if err := os.WriteFile(userFile, []byte("important user data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan := InitPlan{
+		Root:  root,
+		Mode:  "init",
+		Fresh: true,
+		Actions: []InitAction{
+			{Kind: "write", Target: filepath.Join(root, ".specd", "first"), Content: "a", Required: true},
+			{Kind: "write", Target: filepath.Join(root, ".specd", "second"), Content: "b", Required: true},
+		},
+	}
+	executor := DefaultInitExecutor()
+	executor.WriteFile = func(path, content string) error {
+		if strings.HasSuffix(filepath.ToSlash(path), "/second") {
+			return os.ErrPermission
+		}
+		return AtomicWrite(path, content)
+	}
+	result := ExecuteInitPlan(plan, false, executor)
+	if result.Status != "failed" {
+		t.Fatalf("status = %q", result.Status)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".specd")); !os.IsNotExist(err) {
+		t.Fatalf("rollback left .specd behind: %v", err)
+	}
+
+	got, err := os.ReadFile(userFile)
+	if err != nil {
+		t.Fatalf("user file did not survive rollback: %v", err)
+	}
+	if string(got) != "important user data" {
+		t.Fatalf("user file content changed: %q", got)
+	}
+}
