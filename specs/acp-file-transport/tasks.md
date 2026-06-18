@@ -14,7 +14,7 @@
 
 ## Wave 3 — Runtime Paths
 
-- [ ] T2 — Implement runtime path and containment helpers
+- [x] T2 — Implement runtime path and containment helpers
   - why: Untrusted IDs must never escape `.specd/runtime`.
   - role: builder
   - files: internal/core/runtime_paths.go, internal/core/runtime_paths_test.go

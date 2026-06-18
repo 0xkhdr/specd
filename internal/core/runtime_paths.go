@@ -1,0 +1,222 @@
+package core
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+const (
+	ACPRuntimeIDMaxBytes  = 128
+	acpEventSequenceWidth = 20
+)
+
+var acpRuntimeSegmentRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+
+// ACPRuntimePaths derives paths beneath .specd/runtime after validating every
+// untrusted segment and rejecting symlinks in existing runtime components.
+type ACPRuntimePaths struct {
+	root       string
+	runtimeDir string
+}
+
+func NewACPRuntimePaths(root string) (ACPRuntimePaths, error) {
+	if root == "" {
+		return ACPRuntimePaths{}, fmt.Errorf("acp runtime: project root is required")
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return ACPRuntimePaths{}, fmt.Errorf("acp runtime: resolve project root: %w", err)
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return ACPRuntimePaths{}, fmt.Errorf("acp runtime: resolve project root: %w", err)
+	}
+	paths := ACPRuntimePaths{
+		root:       resolvedRoot,
+		runtimeDir: filepath.Join(resolvedRoot, ".specd", "runtime"),
+	}
+	if err := paths.validate(paths.runtimeDir); err != nil {
+		return ACPRuntimePaths{}, err
+	}
+	return paths, nil
+}
+
+func RuntimeDir(root string) (string, error) {
+	paths, err := NewACPRuntimePaths(root)
+	if err != nil {
+		return "", err
+	}
+	return paths.RuntimeDir()
+}
+
+func (p ACPRuntimePaths) RuntimeDir() (string, error) {
+	return p.checked(p.runtimeDir)
+}
+
+func (p ACPRuntimePaths) SessionsDir() (string, error) {
+	return p.join("sessions")
+}
+
+func (p ACPRuntimePaths) ArchivesDir() (string, error) {
+	return p.join("archives")
+}
+
+func (p ACPRuntimePaths) SessionDir(sessionID string) (string, error) {
+	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
+		return "", err
+	}
+	return p.join("sessions", sessionID)
+}
+
+func (p ACPRuntimePaths) SessionPath(sessionID string) (string, error) {
+	return p.sessionJoin(sessionID, "session.json")
+}
+
+func (p ACPRuntimePaths) EventsDir(sessionID string) (string, error) {
+	return p.sessionJoin(sessionID, "events")
+}
+
+func (p ACPRuntimePaths) EventPath(sessionID string, sequence uint64, messageID string) (string, error) {
+	name, err := ACPEventFilename(sequence, messageID)
+	if err != nil {
+		return "", err
+	}
+	return p.sessionJoin(sessionID, "events", name)
+}
+
+func (p ACPRuntimePaths) WorkersDir(sessionID string) (string, error) {
+	return p.sessionJoin(sessionID, "workers")
+}
+
+func (p ACPRuntimePaths) WorkerDir(sessionID, workerID string) (string, error) {
+	if err := validateACPRuntimeSegment("worker ID", workerID); err != nil {
+		return "", err
+	}
+	return p.sessionJoin(sessionID, "workers", workerID)
+}
+
+func (p ACPRuntimePaths) LeasePath(sessionID, workerID string) (string, error) {
+	return p.workerJoin(sessionID, workerID, "lease.json")
+}
+
+func (p ACPRuntimePaths) CursorPath(sessionID, workerID string) (string, error) {
+	return p.workerJoin(sessionID, workerID, "cursor.json")
+}
+
+func (p ACPRuntimePaths) ArtifactsDir(sessionID string) (string, error) {
+	return p.sessionJoin(sessionID, "artifacts")
+}
+
+func (p ACPRuntimePaths) ArtifactPath(sessionID, artifactID string) (string, error) {
+	if err := validateACPRuntimeSegment("artifact ID", artifactID); err != nil {
+		return "", err
+	}
+	return p.sessionJoin(sessionID, "artifacts", artifactID)
+}
+
+func (p ACPRuntimePaths) ArchivePath(sessionID string) (string, error) {
+	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
+		return "", err
+	}
+	return p.join("archives", sessionID)
+}
+
+func (p ACPRuntimePaths) sessionJoin(sessionID string, elems ...string) (string, error) {
+	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
+		return "", err
+	}
+	return p.join(append([]string{"sessions", sessionID}, elems...)...)
+}
+
+func (p ACPRuntimePaths) workerJoin(sessionID, workerID string, elems ...string) (string, error) {
+	if err := validateACPRuntimeSegment("worker ID", workerID); err != nil {
+		return "", err
+	}
+	return p.sessionJoin(sessionID, append([]string{"workers", workerID}, elems...)...)
+}
+
+func (p ACPRuntimePaths) join(elems ...string) (string, error) {
+	path := filepath.Join(append([]string{p.runtimeDir}, elems...)...)
+	return p.checked(path)
+}
+
+func (p ACPRuntimePaths) checked(path string) (string, error) {
+	if err := p.validate(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func (p ACPRuntimePaths) validate(path string) error {
+	if p.root == "" || p.runtimeDir == "" {
+		return fmt.Errorf("acp runtime: uninitialized path helper")
+	}
+	pathAbs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("acp runtime: resolve path: %w", err)
+	}
+	if !pathWithin(p.runtimeDir, pathAbs) {
+		return fmt.Errorf("acp runtime: path escapes runtime directory")
+	}
+
+	rel, err := filepath.Rel(p.root, pathAbs)
+	if err != nil {
+		return fmt.Errorf("acp runtime: resolve relative path: %w", err)
+	}
+	current := p.root
+	for _, component := range strings.Split(rel, string(filepath.Separator)) {
+		if component == "" || component == "." {
+			continue
+		}
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		switch {
+		case err == nil && info.Mode()&os.ModeSymlink != 0:
+			return fmt.Errorf("acp runtime: path component %s is a symlink", current)
+		case err == nil:
+			continue
+		case os.IsNotExist(err):
+			return nil
+		default:
+			return fmt.Errorf("acp runtime: inspect path component %s: %w", current, err)
+		}
+	}
+	return nil
+}
+
+func validateACPOpaqueID(name, value string) error {
+	if len(value) != 32 || !acpIDRE.MatchString(value) {
+		return fmt.Errorf("acp runtime: invalid %s", name)
+	}
+	return nil
+}
+
+func validateACPRuntimeSegment(name, value string) error {
+	if value == "" || len(value) > ACPRuntimeIDMaxBytes || !acpRuntimeSegmentRE.MatchString(value) {
+		return fmt.Errorf("acp runtime: invalid %s", name)
+	}
+	if filepath.IsAbs(value) || filepath.Base(value) != value || strings.ContainsAny(value, `/\`) {
+		return fmt.Errorf("acp runtime: invalid %s", name)
+	}
+	return nil
+}
+
+func pathWithin(base, path string) bool {
+	rel, err := filepath.Rel(base, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func ACPEventFilename(sequence uint64, messageID string) (string, error) {
+	if sequence == 0 {
+		return "", fmt.Errorf("acp runtime: event sequence must be greater than zero")
+	}
+	if err := validateACPOpaqueID("message ID", messageID); err != nil {
+		return "", err
+	}
+	return strings.Repeat("0", acpEventSequenceWidth-len(strconv.FormatUint(sequence, 10))) +
+		strconv.FormatUint(sequence, 10) + "-" + messageID + ".json", nil
+}

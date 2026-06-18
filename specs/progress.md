@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 2 complete; awaiting human review
+Status: implementation in progress; Wave 3 complete; awaiting human review
 Last updated: 2026-06-18
-Implementation progress: 4/37 tasks complete
+Implementation progress: 5/37 tasks complete
 
 ## Program Outcome
 
@@ -21,7 +21,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 0 | Configuration model | 1 | complete |
 | 1 | Configuration validation | 1 | complete |
 | 2 | Shipped defaults and ACP protocol | 2 | complete |
-| 3 | Runtime path security | 1 | pending |
+| 3 | Runtime path security | 1 | complete |
 | 4 | Atomic ACP event store | 1 | pending |
 | 5 | Idempotent ACP delivery | 1 | pending |
 | 6 | Worker leases and Brain models | 2 | pending |
@@ -59,7 +59,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | Spec | Tasks | Complete | Current state | Next task |
 |---|---:|---:|---|---|
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
-| acp-file-transport | 7 | 1 | in progress | T2 |
+| acp-file-transport | 7 | 2 | in progress | T3 |
 | brain-core | 8 | 0 | proposed | blocked by ACP store/delivery |
 | pinky-core | 7 | 0 | proposed | blocked by ACP store/delivery |
 | program-orchestration | 5 | 0 | proposed | blocked by brain-core/T3 |
@@ -105,6 +105,13 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   rejection, deterministic validation for versions/IDs/direction/slugs/tasks/
   roles/timestamps/limits, and JSON Schema parity coverage. Verification passed:
   `go test ./internal/core/... -run 'TestACP|TestSchema' -count=2`,
+  `make build`, `make test`, and `make ci`.
+- Wave 3 / `acp-file-transport/T2`: added canonical runtime path derivation for
+  sessions, events, workers, leases, cursors, archives, and artifacts with
+  strict opaque/segment ID validation, deterministic event filenames, canonical
+  project roots, lexical containment, and fail-closed rejection of symlinked
+  runtime components. Verification passed:
+  `go test ./internal/core/... -run 'TestRuntimePath' -count=2`,
   `make build`, `make test`, and `make ci`.
 
 ## Progress Update Rules
