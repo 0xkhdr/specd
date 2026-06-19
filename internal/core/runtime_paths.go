@@ -118,6 +118,25 @@ func (p ACPRuntimePaths) ArtifactPath(sessionID, artifactID string) (string, err
 	return p.sessionJoin(sessionID, "artifacts", artifactID)
 }
 
+func (p ACPRuntimePaths) ProgramChildrenDir() (string, error) {
+	return p.join("program", "children")
+}
+
+func (p ACPRuntimePaths) ProgramChildDir(slug string) (string, error) {
+	if err := ValidateSlug(slug); err != nil {
+		return "", fmt.Errorf("acp runtime: invalid program child: %w", err)
+	}
+	return p.join("program", "children", slug)
+}
+
+func (p ACPRuntimePaths) ProgramChildLeasePath(slug string) (string, error) {
+	dir, err := p.ProgramChildDir(slug)
+	if err != nil {
+		return "", err
+	}
+	return p.checked(filepath.Join(dir, "lease.json"))
+}
+
 func (p ACPRuntimePaths) ArchivePath(sessionID string) (string, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return "", err

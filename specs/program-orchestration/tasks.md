@@ -14,7 +14,7 @@
 
 ## Wave 11 — Program Child Scheduling
 
-- [ ] T2 — Implement child lease and bounded step scheduling
+- [x] T2 — Implement child lease and bounded step scheduling ✓ complete · evidence: go test ./internal/core/... -run 'TestProgramOrchestration.*(Lease|Capacity|Frontier)' -race -count=2; go test ./internal/core/... -run 'TestProgramOrchestration|TestOrchestration' -race -count=2; make ci · 2026-06-19
   - why: Parent orchestration must prevent duplicate Spec Brains and goroutine sprawl.
   - role: builder
   - files: internal/core/program_orchestration.go, internal/core/program_orchestration_test.go

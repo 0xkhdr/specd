@@ -2,7 +2,7 @@
 
 Status: implementation in progress; Wave 11 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 22/37 tasks complete
+Implementation progress: 23/37 tasks complete
 
 ## Program Outcome
 
@@ -29,7 +29,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 8 | ACP stress, Brain decisions, Pinky claims | 3 | complete |
 | 9 | Brain reconciliation, Pinky reporting, program decisions | 3 | complete |
 | 10 | Brain recovery and Pinky evidence | 2 | complete |
-| 11 | Brain CLI, Pinky CLI, program child scheduling | 3 | pending |
+| 11 | Brain CLI, Pinky CLI, program child scheduling | 3 | complete |
 | 12 | Brain/Pinky guidance and program failure controls | 3 | pending |
 | 13 | Fake host and program CLI | 2 | pending |
 | 14 | Brain/program hardening and generated MCP tools | 3 | pending |
@@ -62,7 +62,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | acp-file-transport | 7 | 7 | complete | — |
 | brain-core | 8 | 6 | in progress | T7 (Wave 12) |
 | pinky-core | 7 | 5 | in progress | T6 (Wave 12) |
-| program-orchestration | 5 | 1 | in progress | T2 (Wave 10) |
+| program-orchestration | 5 | 2 | in progress | T3 (Wave 12) |
 | mcp-integration | 6 | 0 | proposed | blocked by Brain/Pinky/program CLI |
 
 ## Review Decisions Requested
@@ -234,6 +234,10 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 - Wave 11 / `pinky-core/T5`: added `specd pinky claim|heartbeat|progress|report|block|release`,
   registry metadata, mission JSON input, report argument validation, and focused command tests.
   Evidence: `go test ./internal/cmd -run 'Test(Brain|Pinky)'`, `go test ./...`.
+- Wave 11 / `program-orchestration/T2`: added runtime-backed child Brain leases, bounded one-step child scheduling, program capacity enforcement, terminal-completion lease release, and deterministic wave/slug stepping. Verification passed:
+  `go test ./internal/core/... -run 'TestProgramOrchestration.*(Lease|Capacity|Frontier)' -race -count=2`,
+  `go test ./internal/core/... -run 'TestProgramOrchestration|TestOrchestration' -race -count=2`,
+  `make ci`.
 
 ## Progress Update Rules
 
