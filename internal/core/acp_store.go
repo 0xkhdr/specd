@@ -25,9 +25,18 @@ type acpEventFile struct {
 	messageID string
 }
 
+// acpLockEntry is a per-session-path in-process mutex with a reference count so
+// the registry can drop entries once no goroutine holds or waits on them —
+// otherwise the map grows one entry per session for the life of the process
+// (a leak for a long-running `specd serve`/daemon).
+type acpLockEntry struct {
+	mu   sync.Mutex
+	refs int
+}
+
 var (
 	acpStoreLocksMu sync.Mutex
-	acpStoreLocks   = map[string]*sync.Mutex{}
+	acpStoreLocks   = map[string]*acpLockEntry{}
 )
 
 func NewACPStore(root string) (*ACPStore, error) {
@@ -53,17 +62,26 @@ func (s *ACPStore) WriteEvent(envelope ACPEnvelope) (ACPEnvelope, error) {
 
 	var written ACPEnvelope
 	err := s.withSessionLock(envelope.SessionID, func() error {
-		events, err := s.readAllEvents(envelope.SessionID)
+		// Sequence allocation and the duplicate-messageId check are derivable from
+		// filenames alone (sequence + messageId are both encoded in the name), so we
+		// avoid reading and re-validating every event payload on every write — the
+		// O(n²) parse cost flagged in the production review. Full parse+validate is
+		// reserved for ReadEvents consumers that actually need payloads.
+		files, err := s.eventFiles(envelope.SessionID)
 		if err != nil {
 			return err
 		}
-		for _, event := range events {
-			if event.MessageID == envelope.MessageID {
+		next, err := nextACPSequence(files)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			if file.messageID == envelope.MessageID {
 				return fmt.Errorf("acp store: duplicate messageId %s", envelope.MessageID)
 			}
 		}
 
-		envelope.Sequence = uint64(len(events)) + 1
+		envelope.Sequence = next
 		if err := ValidateACPEnvelope(envelope); err != nil {
 			return err
 		}
@@ -218,15 +236,24 @@ func (s *ACPStore) withSessionLock(sessionID string, fn func() error) error {
 	lockPath := filepath.Join(sessionDir, ".store.lock")
 
 	acpStoreLocksMu.Lock()
-	mu := acpStoreLocks[lockPath]
-	if mu == nil {
-		mu = &sync.Mutex{}
-		acpStoreLocks[lockPath] = mu
+	entry := acpStoreLocks[lockPath]
+	if entry == nil {
+		entry = &acpLockEntry{}
+		acpStoreLocks[lockPath] = entry
 	}
+	entry.refs++
 	acpStoreLocksMu.Unlock()
 
-	mu.Lock()
-	defer mu.Unlock()
+	entry.mu.Lock()
+	defer func() {
+		entry.mu.Unlock()
+		acpStoreLocksMu.Lock()
+		entry.refs--
+		if entry.refs == 0 {
+			delete(acpStoreLocks, lockPath)
+		}
+		acpStoreLocksMu.Unlock()
+	}()
 
 	deadline := time.Now().Add(acpStoreLockTimeout)
 	for {
