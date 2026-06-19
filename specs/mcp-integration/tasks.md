@@ -38,7 +38,7 @@
 
 ## Wave 17 — Host Compatibility
 
-- [ ] T4 — Extend doctor and compatibility evidence
+- [x] T4 — Extend doctor and compatibility evidence ✓ complete · evidence: go test ./internal/mcp/... ./internal/cmd/... -run 'Test.*(Probe|Doctor|Compatibility)' -count=2; make ci · 2026-06-19
   - why: Supported hosts need verifiable orchestration capability without provider-specific integration.
   - role: builder
   - files: internal/mcp/probe.go, internal/cmd/doctor.go, docs/agent-harness-compat.md, internal/mcp/probe_test.go

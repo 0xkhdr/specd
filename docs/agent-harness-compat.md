@@ -17,16 +17,32 @@ are kept in sync by `Compatibility`, `Conformance`, and `Host` tests.
 `project` in the Adapter column means `specd init --agent <host>` can detect and
 inspect that host. `snippet` means only deterministic manual configuration is
 shipped. Named host integrations use stdio; HTTP remains a manual endpoint path.
+`Brain/Pinky tools` means `specd doctor` can prove the server exposes
+`specd_brain` and `specd_pinky`; it does **not** mean specd can spawn, reload, or
+trust a coding-agent host.
 
-| Host | Adapter | Detection | Project install | Global install | stdio | HTTP | Verification depth | Known limits |
-|---|---|---|---|---|---|---|---|---|
-| antigravity | snippet | unsupported | manual | manual | supported | manual | config snippet only | No managed adapter or ownership inspection. |
-| claude-code | project | executable or `.mcp.json` | native CLI | unsupported | supported | manual | config shape, root, ownership, MCP probe | Host restart/reload remains user-controlled. |
-| claude-desktop | snippet | unsupported | unsupported | manual | supported | manual | config snippet only | Global desktop config is never mutated automatically. |
-| codex | project | executable or `.codex/config.toml` | manual | unsupported | supported | manual | TOML entry and project root inspection | Current official CLI lacks safe project-scoped registration. |
-| cursor | project | executable or `.cursor/mcp.json` | atomic JSON merge | unsupported | supported | manual | schema, root, ownership, MCP probe | User may need to enable/reload the server in Tools & MCP. |
-| gemini | project | executable or `.gemini/settings.json` | native CLI | unsupported | supported | manual | config shape, root, ownership, MCP probe | Host trust/allow settings are preserved but not managed. |
-| vscode | project | executable or `.vscode/mcp.json` | atomic JSON merge | unsupported | supported | manual | schema, root, ownership, MCP probe | Workspace trust and server start approval remain user-controlled. |
+| Host | Adapter | Detection | Project install | Global install | stdio | HTTP | Brain/Pinky tools | Host lifecycle requirements | Verification depth | Known limits |
+|---|---|---|---|---|---|---|---|---|---|---|
+| antigravity | snippet | unsupported | manual | manual | supported | manual | server probe only | User merges snippet and starts/reloads host. | config snippet only | No managed adapter or ownership inspection. |
+| claude-code | project | executable or `.mcp.json` | native CLI | unsupported | supported | manual | server probe + registered config | User restarts/reloads host if tools are not visible. | config shape, root, ownership, MCP probe | Host restart/reload remains user-controlled. |
+| claude-desktop | snippet | unsupported | unsupported | manual | supported | manual | server probe only | User edits global config and restarts desktop app. | config snippet only | Global desktop config is never mutated automatically. |
+| codex | project | executable or `.codex/config.toml` | manual | unsupported | supported | manual | server probe + registered config | User merges/reloads project MCP config according to host support. | TOML entry and project root inspection | Current official CLI lacks safe project-scoped registration. |
+| cursor | project | executable or `.cursor/mcp.json` | atomic JSON merge | unsupported | supported | manual | server probe + registered config | User enables/reloads server in Tools & MCP. | schema, root, ownership, MCP probe | User may need to enable/reload the server in Tools & MCP. |
+| gemini | project | executable or `.gemini/settings.json` | native CLI | unsupported | supported | manual | server probe + registered config | User preserves trust/allow settings and reloads host if needed. | config shape, root, ownership, MCP probe | Host trust/allow settings are preserved but not managed. |
+| vscode | project | executable or `.vscode/mcp.json` | atomic JSON merge | unsupported | supported | manual | server probe + registered config | User approves workspace trust and starts/reloads MCP server. | schema, root, ownership, MCP probe | Workspace trust and server start approval remain user-controlled. |
+
+## Orchestration compatibility boundary
+
+`specd doctor` now separates two evidence layers:
+
+1. **Server capability:** in-process MCP initialize + `tools/list`, requiring the
+   baseline CLI tools plus `specd_brain` and `specd_pinky`.
+2. **Host lifecycle:** host-managed reload/trust/start behavior. specd may write
+   or verify project-scoped MCP configuration for supported adapters, but the
+   host remains responsible for starting agents and invoking Pinky tools.
+
+No compatibility row claims provider-specific model access, background agent
+spawn control, host process termination, or automatic trust approval.
 
 ## Drift and safety policy
 

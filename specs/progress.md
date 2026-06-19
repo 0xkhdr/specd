@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 16 complete; awaiting human review
+Status: implementation in progress; Wave 17 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 34/37 tasks complete
+Implementation progress: 35/37 tasks complete
 
 ## Program Outcome
 
@@ -35,7 +35,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 14 | Brain/program hardening and generated MCP tools | 3 | complete |
 | 15 | Configuration docs and CLI/MCP parity | 2 | complete |
 | 16 | Bounded MCP interactions | 1 | complete |
-| 17 | Host compatibility | 1 | pending |
+| 17 | Host compatibility | 1 | complete |
 | 18 | MCP end-to-end lifecycle | 1 | pending |
 | 19 | Documentation and full CI | 1 | pending |
 
@@ -63,7 +63,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | brain-core | 8 | 8 | complete | — |
 | pinky-core | 7 | 7 | complete | — |
 | program-orchestration | 5 | 5 | complete | — |
-| mcp-integration | 6 | 3 | in progress | T4 (Wave 17) |
+| mcp-integration | 6 | 4 | in progress | T5 (Wave 18) |
 
 ## Review Decisions Requested
 
@@ -275,6 +275,9 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   `make ci`.
 - Wave 16 / `mcp-integration/T3`: added bounded MCP server instructions, capped stdio and HTTP/SSE request payloads with JSON-RPC error envelopes, and rejected unbounded MCP `watch` calls unless `--once` is used without streaming transports. Verification passed:
   `go test ./internal/mcp/... -run 'TestMCP.*(Bounded|Instructions|HTTP|SSE|Malformed)' -count=2`,
+  `make ci`.
+- Wave 17 / `mcp-integration/T4`: extended MCP probe evidence to require `specd_brain` and `specd_pinky`, added doctor JSON/text evidence that separates server capability from host-managed reload/trust/start lifecycle, and updated the host compatibility matrix without claiming provider-specific agent-spawn control. Verification passed:
+  `go test ./internal/mcp/... ./internal/cmd/... -run 'Test.*(Probe|Doctor|Compatibility)' -count=2`,
   `make ci`.
 
 ## Progress Update Rules

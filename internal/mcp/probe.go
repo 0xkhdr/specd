@@ -25,6 +25,11 @@ var baselineTools = []string{
 	"specd_task",
 }
 
+var orchestrationTools = []string{
+	"specd_brain",
+	"specd_pinky",
+}
+
 type ProbeFailureKind string
 
 const (
@@ -51,10 +56,12 @@ func (e *ProbeError) Unwrap() error {
 }
 
 type ProbeResult struct {
-	ProtocolVersion string        `json:"protocolVersion"`
-	ToolCount       int           `json:"toolCount"`
-	Latency         time.Duration `json:"-"`
-	LatencyMillis   int64         `json:"latencyMillis"`
+	ProtocolVersion    string        `json:"protocolVersion"`
+	ToolCount          int           `json:"toolCount"`
+	RequiredTools      []string      `json:"requiredTools"`
+	OrchestrationTools []string      `json:"orchestrationTools"`
+	Latency            time.Duration `json:"-"`
+	LatencyMillis      int64         `json:"latencyMillis"`
 }
 
 type probeServer func(io.Reader, io.Writer, Dispatcher) error
@@ -142,7 +149,8 @@ func probe(ctx context.Context, dispatch Dispatcher, timeout time.Duration, serv
 	for _, tool := range listed.Tools {
 		available[tool.Name] = true
 	}
-	for _, required := range baselineTools {
+	requiredTools := requiredProbeTools()
+	for _, required := range requiredTools {
 		if !available[required] {
 			return ProbeResult{}, &ProbeError{
 				Kind: ProbeFailureMissingTool,
@@ -154,11 +162,20 @@ func probe(ctx context.Context, dispatch Dispatcher, timeout time.Duration, serv
 
 	latency := time.Since(started)
 	return ProbeResult{
-		ProtocolVersion: initialized.ProtocolVersion,
-		ToolCount:       len(listed.Tools),
-		Latency:         latency,
-		LatencyMillis:   latency.Milliseconds(),
+		ProtocolVersion:    initialized.ProtocolVersion,
+		ToolCount:          len(listed.Tools),
+		RequiredTools:      requiredTools,
+		OrchestrationTools: append([]string(nil), orchestrationTools...),
+		Latency:            latency,
+		LatencyMillis:      latency.Milliseconds(),
 	}, nil
+}
+
+func requiredProbeTools() []string {
+	tools := make([]string, 0, len(baselineTools)+len(orchestrationTools))
+	tools = append(tools, baselineTools...)
+	tools = append(tools, orchestrationTools...)
+	return tools
 }
 
 func probeWrite(ctx context.Context, w io.Writer, value any) error {
