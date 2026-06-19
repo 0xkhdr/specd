@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -360,6 +362,106 @@ func TestProgramOrchestrationComplete(t *testing.T) {
 	if result.Decision.Action != ProgramDecisionComplete {
 		t.Fatalf("decision=%#v, want complete", result.Decision)
 	}
+	session, err := LoadProgramSession(root, parentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.Status != OrchestrationSessionComplete {
+		t.Fatalf("program session status = %s, want complete", session.Status)
+	}
+}
+
+// TestDriveProgramOrchestrationCrossSpecWalk is the GAP-7 golden test: a
+// 3-spec linear program (auth → api → web) of *fresh* specs, each at
+// `requirements` with no planning artifacts, is driven to full completion by the
+// program driver loop alone. A stub worker does the creative work (authoring
+// artifacts, completing execution tasks with evidence). It proves the loop
+// re-resolves the frontier and advances to the next spec automatically on child
+// completion, with zero model call in core.
+func TestDriveProgramOrchestrationCrossSpecWalk(t *testing.T) {
+	root := t.TempDir()
+	specs := []string{"auth", "api", "web"}
+	for _, slug := range specs {
+		if err := os.MkdirAll(SpecDir(root, slug), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		st := InitialState(slug, slug)
+		st.Status = StatusRequirements
+		st.Phase = PhaseForStatus(StatusRequirements)
+		if err := SaveState(root, slug, &st); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Linear dependency chain: api depends on auth, web depends on api.
+	if err := SaveProgram(root, ProgramManifest{Version: ProgramVersion, DependsOn: map[string][]string{
+		"api": {"auth"},
+		"web": {"api"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, policy := programTestPolicy(t)
+	policy.ApprovalPolicy = "planning"
+	cfg.ApprovalPolicy = "planning"
+	cfg.Program.MaxConcurrentSpecs = 1
+	parentID := strings.Repeat("8", 32)
+
+	authored := map[string]bool{}
+	dispatched := []string{}
+	worker := func(d ProgramDriverDispatch) error {
+		dec := d.Dispatch.Decision
+		dispatched = append(dispatched, d.Slug+":"+string(dec.Action)+":"+dec.TaskID+dec.Artifact)
+		switch dec.Action {
+		case OrchestrationDispatchAuthor:
+			authored[d.Slug+"/"+dec.Artifact] = true
+			return os.WriteFile(filepath.Join(SpecDir(root, d.Slug), dec.Artifact), []byte(artifactFixture(dec.Artifact)), 0o644)
+		case OrchestrationDispatch:
+			// Stand in for the host's execute → verify → approve responsibility.
+			// The orchestration core marks the child *session* complete at
+			// `verifying` but deliberately never auto-clears the acceptance-evidence
+			// gate (`specd approve` Case 2 is verifier/host-owned, by design), so a
+			// stub worker that only reached `verifying` would stall the program
+			// frontier forever. Landing the spec at `complete` with evidence
+			// emulates the verifier worker that a real host would dispatch.
+			st, err := LoadState(root, d.Slug)
+			if err != nil {
+				return err
+			}
+			ts := st.Tasks[dec.TaskID]
+			ts.Status = TaskComplete
+			ts.Verification = &VerificationRecord{Verified: true, ExitCode: 0, Command: "go test ./..."}
+			st.Tasks[dec.TaskID] = ts
+			st.Status = StatusComplete
+			st.Phase = PhaseForStatus(StatusComplete)
+			return SaveState(root, d.Slug, st)
+		}
+		return nil
+	}
+
+	result, err := DriveProgramOrchestration(root, parentID, policy, cfg, ProgramDriverOptions{MaxSteps: 400, Worker: worker})
+	if err != nil {
+		t.Fatalf("program drive failed: %v (dispatched=%v)", err, dispatched)
+	}
+	if result.Outcome != DriverComplete {
+		t.Fatalf("outcome = %s, want complete (dispatched=%v)", result.Outcome, dispatched)
+	}
+
+	// Every spec must have authored all three planning artifacts and reached complete.
+	for _, slug := range specs {
+		for _, artifact := range []string{"requirements.md", "design.md", "tasks.md"} {
+			if !authored[slug+"/"+artifact] {
+				t.Fatalf("spec %s never authored %s (dispatched=%v)", slug, artifact, dispatched)
+			}
+		}
+		st, err := LoadState(root, slug)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if st.Status != StatusComplete {
+			t.Fatalf("spec %s status = %s, want complete (dispatched=%v)", slug, st.Status, dispatched)
+		}
+	}
+
 	session, err := LoadProgramSession(root, parentID)
 	if err != nil {
 		t.Fatal(err)

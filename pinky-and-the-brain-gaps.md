@@ -147,7 +147,9 @@ The design decision tree starts with "Is `.specd/` initialized? Is steering boot
 
 ---
 
-### GAP-7 (P1) — Program Brain reuses per-spec planning gap; no autonomous cross-spec walk proven
+### GAP-7 (P1) — Program Brain reuses per-spec planning gap; no autonomous cross-spec walk proven — ✅ DONE
+
+> **Implemented (Milestone B):** `DriveProgramOrchestration` (`orchestration_driver.go`) — the program-scoped peer of `DriveOrchestration`. It loops `StepProgramOrchestration` and hands every child dispatch to the same host worker callback (`ProgramDriverDispatch{Slug, ChildSessionID, Dispatch}`), blocking per dispatch, until the program session reaches a terminal `ProgramDecision` (`complete | escalate`), with stall/max-step guards. Surfaced as `specd brain run --program [--worker-cmd] [--max-steps]` (`brain.go`, reusing the single-spec shell-out worker contract via `brainRunProgramWorker`). **Frontier auto-advance verified:** `StepProgramOrchestration` already calls `releaseCompleteProgramChildren` → rebuild snapshot → `DecideProgram` at the top of every step, so the loop advances to the next spec on child completion with **no external nudge** — no fix needed there. **The "stops between specs" cause that *was* found:** children stall at `verifying` because the `verifying → complete` acceptance-evidence gate (`specd approve` Case 2) is verifier/host-owned by design — core marks the child *session* complete but never auto-clears the spec's evidence gate, so `releaseCompleteProgramChildren` (keyed on spec `StatusComplete`) never fires. The golden test's stub worker stands in for that verifier+approve step (the host's job), preserving Invariant 2. Test: `TestDriveProgramOrchestrationCrossSpecWalk` — a 3-spec linear program (`auth → api → web`) of *fresh* `requirements`-stage specs driven to full completion (all 9 artifacts authored, all 3 specs `complete`, program session `complete`) by the loop alone with a stub worker, zero model call in core.
 
 `StepProgramOrchestration` resolves the program frontier and delegates to per-spec stepping. But since per-spec stepping can't author planning artifacts (GAP-1), a program of *fresh* specs stalls the same way, only wider. Also unverified: does the program loop **re-resolve the frontier and advance to the next spec automatically** on child completion, or does it need an external nudge per spec?
 
@@ -195,10 +197,10 @@ The design's ACP defined a `query` message (Pinky → Brain: "I need clarificati
 
 *Exit:* a workspace → `specd brain run <slug> --bootstrap --worker-cmd <w>` → completed spec, every gate honored, no manual artifact authoring. Verified by the `orchestration_driver_test.go` golden test (fresh `requirements` spec → `complete` with a stub worker) and an end-to-end CLI drive. *Retained gate:* final `verifying → complete` still requires the acceptance-evidence gate (`specd approve` Case 2 / a verifier worker) — by design, the evidence invariant is never auto-cleared.
 
-### Milestone B — Safety & ergonomics — P1
+### Milestone B — Safety & ergonomics — P1 — ✅ COMPLETE
 5. ✅ **GAP-4** enforce cost/time limits → escalate.
 6. ✅ **GAP-5** intent-level MCP tools (`brain_orchestrate` etc.).
-7. **GAP-7** program-level end-to-end golden test + fixes.
+7. ✅ **GAP-7** program-level end-to-end golden test + driver loop (`brain run --program`).
 
 ### Milestone C — Trust, context, scale — P2
 8. **GAP-8** `replay` timeline + `brain why`.

@@ -103,6 +103,115 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 	return DriverResult{Steps: opts.MaxSteps, Outcome: DriverMaxSteps, Final: last}, nil
 }
 
+// Program-scoped reference driver loop (GAP-7).
+//
+// DriveOrchestration drives a single spec. DriveProgramOrchestration is its
+// program-level peer: it loops StepProgramOrchestration, and whenever a child
+// step dispatches a mission it hands that mission to the same kind of host
+// worker callback, blocks until the worker returns, then steps again — until the
+// program session reaches a terminal decision (complete | escalate).
+//
+// The per-spec frontier already re-resolves on every program step
+// (StepProgramOrchestration releases complete children and re-runs DecideProgram
+// before dispatching), so the loop advances to the next spec automatically on
+// child completion with no external nudge. This loop proves that cross-spec walk
+// end-to-end while keeping the no-LLM-in-core boundary: all creative work stays
+// in the host Worker callback.
+
+// ProgramDriverDispatch is the unit handed to a worker during a program drive:
+// the child spec/session that produced the dispatch plus the dispatching
+// decision and its claimable mission.
+type ProgramDriverDispatch struct {
+	Slug           string
+	ChildSessionID string
+	Dispatch       DriverDispatch
+}
+
+// ProgramDriverOptions configures a program drive. Worker is the host callback
+// that runs one child mission to a reported terminal state; a nil Worker stops
+// the loop at the first child dispatch. MaxSteps bounds total program steps;
+// MaxWaits bounds consecutive non-progress steps before reporting a stall.
+type ProgramDriverOptions struct {
+	MaxSteps int
+	MaxWaits int
+	Worker   func(ProgramDriverDispatch) error
+}
+
+// ProgramDriverResult reports how a program drive ended.
+type ProgramDriverResult struct {
+	Steps   int             `json:"steps"`
+	Outcome DriverOutcome   `json:"outcome"`
+	Final   ProgramDecision `json:"final"`
+}
+
+// DriveProgramOrchestration runs the reference loop against an already-resolvable
+// program (parentSessionID is created on first step if absent).
+func DriveProgramOrchestration(root, parentSessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg, opts ProgramDriverOptions) (ProgramDriverResult, error) {
+	if opts.MaxSteps <= 0 {
+		opts.MaxSteps = 200
+	}
+	if opts.MaxWaits <= 0 {
+		opts.MaxWaits = 8
+	}
+	waits := 0
+	var last ProgramDecision
+	for step := 1; step <= opts.MaxSteps; step++ {
+		res, err := StepProgramOrchestration(root, parentSessionID, policy, cfg)
+		if err != nil {
+			return ProgramDriverResult{Steps: step, Outcome: DriverStalled, Final: last}, err
+		}
+		last = res.Decision
+		switch res.Decision.Action {
+		case ProgramDecisionComplete:
+			return ProgramDriverResult{Steps: step, Outcome: DriverComplete, Final: last}, nil
+		case ProgramDecisionEscalate:
+			return ProgramDriverResult{Steps: step, Outcome: DriverEscalated, Final: last}, nil
+		}
+
+		// Hand each child dispatch to the worker; track whether the step made any
+		// real progress so the loop can stall-close instead of spinning forever.
+		progressed := len(res.Started) > 0
+		for _, child := range res.Stepped {
+			switch child.Result.Decision.Action {
+			case OrchestrationDispatch, OrchestrationDispatchAuthor:
+				if opts.Worker == nil {
+					return ProgramDriverResult{Steps: step, Outcome: DriverWorkerStop, Final: last}, nil
+				}
+				mission, err := driverMissionFor(root, child.Slug, child.SessionID, child.Result.Decision, cfg)
+				if err != nil {
+					return ProgramDriverResult{Steps: step, Outcome: DriverStalled, Final: last}, err
+				}
+				dispatch := ProgramDriverDispatch{
+					Slug:           child.Slug,
+					ChildSessionID: child.SessionID,
+					Dispatch:       DriverDispatch{Decision: child.Result.Decision, Mission: mission},
+				}
+				if err := opts.Worker(dispatch); err != nil {
+					return ProgramDriverResult{Steps: step, Outcome: DriverStalled, Final: last}, fmt.Errorf("program driver: worker failed for %s/%s: %w", child.Slug, child.Result.Decision.TaskID, err)
+				}
+				progressed = true
+			case OrchestrationAdvancePhase, OrchestrationCompleteSession, OrchestrationIdle:
+				progressed = true
+			case OrchestrationEscalate:
+				// A child escalated: StepProgramOrchestration has marked the program
+				// session failed; surface it now rather than waiting a step.
+				return ProgramDriverResult{Steps: step, Outcome: DriverEscalated, Final: last}, nil
+			case OrchestrationRequestApproval:
+				return ProgramDriverResult{Steps: step, Outcome: DriverAwaiting, Final: last}, nil
+			}
+		}
+		if progressed {
+			waits = 0
+			continue
+		}
+		waits++
+		if waits >= opts.MaxWaits {
+			return ProgramDriverResult{Steps: step, Outcome: DriverStalled, Final: last}, nil
+		}
+	}
+	return ProgramDriverResult{Steps: opts.MaxSteps, Outcome: DriverMaxSteps, Final: last}, nil
+}
+
 // driverMissionFor rebuilds the claimable mission for a dispatch decision. Build
 // is deterministic, so the rebuilt mission matches the one the engine recorded
 // (same dispatch digest) — the worker can claim it directly.

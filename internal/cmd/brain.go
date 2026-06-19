@@ -39,6 +39,12 @@ func RunBrain(args cli.Args) int {
 		}
 		return brainStart(root, args.Pos[1], args)
 	case "run":
+		if args.Bool("program") {
+			if len(args.Pos) != 1 {
+				return usageExit("usage: specd brain run --program [--approval-policy <policy>] [--worker-cmd <cmd>] [--max-steps <n>] [--session <id>] [--json]")
+			}
+			return brainRunProgram(root, args)
+		}
 		if len(args.Pos) != 2 {
 			return usageExit("usage: specd brain run <slug> [--approval-policy <policy>] [--worker-cmd <cmd>] [--bootstrap] [--max-steps <n>] [--session <id>] [--json]")
 		}
@@ -191,6 +197,63 @@ func brainRun(root, slug string, args cli.Args) int {
 		return core.ExitOK
 	}
 	return core.ExitOK
+}
+
+// brainRunProgram is the program-scoped reference driver loop (GAP-7): one call
+// drives a whole multi-spec program to a terminal outcome, re-resolving the
+// frontier and advancing to the next spec automatically on child completion.
+// Creative work is delegated to the host worker command (--worker-cmd); with no
+// --worker-cmd the loop stops at the first child dispatch.
+func brainRunProgram(root string, args cli.Args) int {
+	policy, cfg, ok := brainRunPolicy(root, args)
+	if !ok {
+		return core.ExitUsage
+	}
+	parentID := args.Str("session")
+	if parentID == "" {
+		id, err := core.NewACPID()
+		if err != nil {
+			return specdExit(err)
+		}
+		parentID = id
+	}
+
+	maxSteps := 200
+	if args.Has("max-steps") {
+		n, ok := parsePositiveIntFlag(args, "max-steps")
+		if !ok {
+			return core.ExitUsage
+		}
+		maxSteps = n
+	}
+
+	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(root, args.Str("worker-cmd"))}
+	result, err := core.DriveProgramOrchestration(root, parentID, policy, cfg, opts)
+	if err != nil {
+		return specdExit(err)
+	}
+	if args.Bool("json") {
+		if err := core.PrintJSON(map[string]any{"session": parentID, "result": result}); err != nil {
+			return specdExit(err)
+		}
+	} else {
+		fmt.Printf("brain run --program: %s after %d step(s) — final decision: %s (%s)\n", result.Outcome, result.Steps, result.Final.Action, result.Final.Reason)
+	}
+	return core.ExitOK
+}
+
+// brainRunProgramWorker adapts the single-spec worker callback to the program
+// driver: each child dispatch reuses the same shell-out contract (mission via
+// temp file + SPECD_* env). An empty workerCmd returns nil — the loop then stops
+// at the first child dispatch.
+func brainRunProgramWorker(root, workerCmd string) func(core.ProgramDriverDispatch) error {
+	inner := brainRunWorker(root, workerCmd)
+	if inner == nil {
+		return nil
+	}
+	return func(d core.ProgramDriverDispatch) error {
+		return inner(d.Dispatch)
+	}
 }
 
 // brainRunSession resolves the session to drive: an explicit --session, an
