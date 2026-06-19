@@ -22,8 +22,8 @@ MCP is needed — if you can run a shell command, you can run this harness.
      (requirements → design → tasks → executing), or clears a midreq `awaiting-approval` gate.
    - `specd verify <spec> <id>` — run the task's declared verification command and record its result.
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
-   - `specd brain <start|step|status|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration. (MCP: `specd_brain`)
-   - `specd pinky <claim|heartbeat|progress|report|block|release> [flags]` — record deterministic worker leases, telemetry, progress, and terminal reports. (MCP: `specd_pinky`)
+   - `specd brain <start|run|step|status|why|directive|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration and bounded worker directives. (MCP: `specd_brain`)
+   - `specd pinky <claim|heartbeat|progress|query|report|block|release|inbox> [flags]` — record deterministic worker leases, telemetry, bounded queries, progress, and terminal reports. (MCP: `specd_pinky`)
 
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
    builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic
@@ -50,7 +50,7 @@ before, so you pay context only for the work in front of you.
 | `specd-tasks` | Entering the tasks phase (wave DAG, 7 task keys, `task-schema`/`dag` gates). |
 | `specd-execute` | Entering executing/verifying (the next→verify→complete loop + `evidence` gate). |
 | `specd-brain` | Entering orchestration (sensing, deterministic stepping, program scheduling, no-LLM boundary). |
-| `specd-pinky` | Operating a Pinky worker (context, claim, heartbeat, progress, blocker, report, release). |
+| `specd-pinky` | Operating a Pinky worker (context, claim, heartbeat, progress, query/inbox, blocker, report, release). |
 
 ## Quickstart
 

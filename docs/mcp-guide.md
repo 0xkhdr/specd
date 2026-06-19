@@ -294,10 +294,11 @@ feeding it the mission JSON, and calling Pinky tools:
 
 1. `specd_pinky` with `args: ["claim"]` and `mission: "<path-or->"` to acquire the ACP lease.
 2. `specd_pinky` with `args: ["heartbeat"]` before lease expiry while work continues.
-3. `specd_pinky` with `args: ["progress"]` or `["block"]` for telemetry/blockers.
-4. Run the task's normal `specd verify <slug> <task>` command through the host shell.
-5. `specd_pinky` with `args: ["report"]` and a matching `verification-ref` to submit terminal evidence.
-6. `specd_pinky` with `args: ["release"]` when abandoning or after terminal handling.
+3. `specd_pinky` with `args: ["progress"]` for telemetry, or `args: ["query"]` with `text` for a bounded mid-task clarification.
+4. Poll `specd_pinky` with `args: ["inbox"]` for Brain directives; if no bounded answer is possible, use `args: ["block"]` and stop.
+5. Run the task's normal `specd verify <slug> <task>` command through the host shell.
+6. `specd_pinky` with `args: ["report"]` and a matching `verification-ref` to submit terminal evidence.
+7. `specd_pinky` with `args: ["release"]` when abandoning or after terminal handling.
 
 Pinky reports complete a task only when they bind to the matching passing verification record, the
 reported changed files match the recorded verify scope, and the task's evidence gate accepts the
@@ -313,6 +314,9 @@ are not completion proof by themselves.
 - If a host crashes, restart the MCP server, call `specd_brain status`, then `step`. Brain recovers
   from persisted session files and the ACP event log, reclaims expired leases, and retries within
   the configured retry budget.
+- If a worker needs a small clarification, it may send `query`; the host/Brain replies with
+  `brain directive` and the worker reads it from `pinky inbox`. If the question cannot be bounded,
+  use `block` and stop.
 - If a worker sees a cancellation directive, it should stop at a safe point, report cancellation or
   release the lease, and let the next Brain step converge.
 

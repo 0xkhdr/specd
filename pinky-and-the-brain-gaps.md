@@ -181,11 +181,9 @@ Worker context today = `specd context <spec>` + `roles/<role>.md` + mission file
 
 ---
 
-### GAP-10 (P2) — Sub-agent communication is one-way request/report; no mid-task `query`
+### GAP-10 (P2) — Sub-agent communication is one-way request/report; no mid-task `query` — ✅ DONE
 
-The design's ACP defined a `query` message (Pinky → Brain: "I need clarification") and `directive` (Brain → Pinky: correction/reassign). The shipped Pinky verbs are `claim|heartbeat|progress|report|block|release` — **no `query`**. A blocked worker must fully `block` and stop rather than ask a bounded question and continue. For long autonomous runs this forces unnecessary escalations.
-
-**Action (optional, scale):** add a lightweight `query`/`directive` round-trip, or explicitly document that "block + re-dispatch with augmented mission" is the sanctioned substitute. Decide deliberately; don't leave it as an unspoken omission.
+> **Implemented (Milestone C):** chose the lightweight ACP round-trip. `specd pinky query` records a leased worker question (`query`, Pinky → Brain), `specd brain directive` records an operator/Brain response (`directive`, Brain → Pinky) with optional `--in-reply-to`, and `specd pinky inbox` returns directives for that worker. The path reuses the existing ACP schema/direction validation, active-lease gate, message TTL, append-only event log, and directive action enum (`continue|retry|cancel|reassign|escalate`). Worker skills/templates and docs now define when to query vs. block. Tests cover query→directive→inbox and invalid directives.
 
 ---
 
@@ -207,7 +205,7 @@ The design's ACP defined a `query` message (Pinky → Brain: "I need clarificati
 ### Milestone C — Trust, context, scale — P2
 8. ✅ **GAP-8** `replay` timeline + `brain why`.
 9. ✅ **GAP-9** mission-context manifest with token budget.
-10. **GAP-10** decide `query`/`directive` vs. documented block-and-redispatch.
+10. ✅ **GAP-10** lightweight `query`/`directive` round-trip + worker docs.
 
 ---
 

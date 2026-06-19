@@ -13,7 +13,7 @@ import (
 
 func RunPinky(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|report|block|release> ...")
+		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|inbox> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -67,6 +67,25 @@ func RunPinky(args cli.Args) int {
 			return specdExit(err)
 		}
 		return printCommandResult(args, event)
+	case "query":
+		report, ok := pinkyQueryArgs(args)
+		if len(args.Pos) != 1 || !ok {
+			return usageExit("usage: specd pinky query --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --text <question> [--json]")
+		}
+		event, err := core.RecordPinkyQuery(root, report, cfg)
+		if err != nil {
+			return specdExit(err)
+		}
+		return printCommandResult(args, event)
+	case "inbox":
+		if len(args.Pos) != 1 || args.Str("session") == "" || args.Str("worker") == "" {
+			return usageExit("usage: specd pinky inbox --session <id> --worker <id> [--json]")
+		}
+		inbox, err := core.ReadPinkyInbox(root, args.Str("session"), args.Str("worker"))
+		if err != nil {
+			return specdExit(err)
+		}
+		return printCommandResult(args, inbox)
 	case "report":
 		report, ok := pinkyTerminalArgs(args)
 		if len(args.Pos) != 1 || !ok {
@@ -87,7 +106,7 @@ func RunPinky(args cli.Args) int {
 		}
 		return core.ExitOK
 	default:
-		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|report|block|release> ...")
+		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|inbox> ...")
 	}
 }
 
@@ -194,6 +213,21 @@ func pinkyBlockArgs(args cli.Args) (core.PinkyBlockerReport, bool) {
 		TaskID:    args.Str("task"),
 		Attempt:   attempt,
 		Reason:    args.Str("reason"),
+	}, true
+}
+
+func pinkyQueryArgs(args cli.Args) (core.PinkyQueryReport, bool) {
+	attempt, ok := parsePositiveIntFlag(args, "attempt")
+	if !ok || args.Str("session") == "" || args.Str("worker") == "" || args.Str("spec") == "" || args.Str("task") == "" || args.Str("text") == "" {
+		return core.PinkyQueryReport{}, false
+	}
+	return core.PinkyQueryReport{
+		SessionID: args.Str("session"),
+		WorkerID:  args.Str("worker"),
+		Spec:      args.Str("spec"),
+		TaskID:    args.Str("task"),
+		Attempt:   attempt,
+		Text:      args.Str("text"),
 	}, true
 }
 

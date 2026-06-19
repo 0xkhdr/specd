@@ -51,6 +51,32 @@ func testRegistryHas(name string) bool {
 	return false
 }
 
+func TestPinkyQueryArgs(t *testing.T) {
+	report, ok := pinkyQueryArgs(cli.ParseArgs([]string{
+		"--session", "s",
+		"--worker", "w",
+		"--spec", "spec",
+		"--task", "T1",
+		"--attempt", "1",
+		"--text", "clarify scope",
+	}))
+	if !ok {
+		t.Fatal("pinkyQueryArgs rejected valid query")
+	}
+	if report.SessionID != "s" || report.WorkerID != "w" || report.TaskID != "T1" || report.Text != "clarify scope" {
+		t.Fatalf("unexpected query args: %+v", report)
+	}
+	if _, ok := pinkyQueryArgs(cli.ParseArgs([]string{
+		"--session", "s",
+		"--worker", "w",
+		"--spec", "spec",
+		"--task", "T1",
+		"--attempt", "1",
+	})); ok {
+		t.Fatal("pinkyQueryArgs accepted missing text")
+	}
+}
+
 func TestPinkyReportArgs(t *testing.T) {
 	report, ok := pinkyTerminalArgs(cli.ParseArgs([]string{
 		"--session", "s",

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -89,6 +90,82 @@ func TestPinkyProgressBlockReportCancel(t *testing.T) {
 	}
 	if cancelled.Type != ACPMessageCancelled {
 		t.Fatalf("cancel event = %#v, want cancelled", cancelled)
+	}
+}
+
+func TestPinkyQueryDirectiveInbox(t *testing.T) {
+	root := writePinkySpec(t)
+	sessionID := strings.Repeat("8", 32)
+	cfg := DefaultConfig.Orchestration
+	now := time.Date(2026, 6, 18, 12, 0, 0, 0, time.UTC)
+	restore := setCoreClock(func() time.Time { return now })
+	defer restore()
+
+	mission, err := BuildPinkyMission(root, "demo", sessionID, "worker-a", "T1", 1, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ClaimPinkyMission(root, mission, cfg); err != nil {
+		t.Fatal(err)
+	}
+	query, err := RecordPinkyQuery(root, PinkyQueryReport{
+		SessionID: sessionID,
+		WorkerID:  "worker-a",
+		Spec:      "demo",
+		TaskID:    "T1",
+		Attempt:   1,
+		Text:      "Should this include docs?",
+	}, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if query.Type != ACPMessageQuery || query.Sequence != 1 || query.From != "pinky-worker-a" || query.To != "brain" {
+		t.Fatalf("query event = %#v", query)
+	}
+
+	directive, err := RecordBrainDirective(root, BrainDirective{
+		SessionID: sessionID,
+		WorkerID:  "worker-a",
+		Spec:      "demo",
+		TaskID:    "T1",
+		Attempt:   1,
+		Action:    "continue",
+		Reason:    "docs not required for this task",
+		InReplyTo: query.MessageID,
+	}, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if directive.Type != ACPMessageDirective || directive.Sequence != 2 || directive.From != "brain" || directive.To != "pinky-worker-a" || directive.InReplyTo != query.MessageID {
+		t.Fatalf("directive event = %#v", directive)
+	}
+	var payload ACPDirectivePayload
+	if err := json.Unmarshal(directive.Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Action != "continue" || payload.Reason == "" {
+		t.Fatalf("directive payload = %#v", payload)
+	}
+
+	inbox, err := ReadPinkyInbox(root, sessionID, "worker-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inbox.Directives) != 1 || inbox.Directives[0].MessageID != directive.MessageID {
+		t.Fatalf("inbox = %#v, want directive %s", inbox, directive.MessageID)
+	}
+
+	_, err = RecordBrainDirective(root, BrainDirective{
+		SessionID: sessionID,
+		WorkerID:  "worker-a",
+		Spec:      "demo",
+		TaskID:    "T1",
+		Attempt:   1,
+		Action:    "invalid",
+		Reason:    "nope",
+	}, cfg)
+	if err == nil || !strings.Contains(err.Error(), "invalid action") {
+		t.Fatalf("invalid directive error = %v, want invalid action", err)
 	}
 }
 

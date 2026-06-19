@@ -128,8 +128,9 @@ Trust boundary:
 - **Brain** senses specd state and records one bounded decision per step. It is a
   deterministic controller, not an LLM.
 - **Pinky** is a worker contract executed by the host. specd writes missions,
-  leases, progress, blockers, reports, and cancellation directives over ACP
-  files; it never spawns provider agents or kills host processes.
+  leases, progress, bounded queries, directives, blockers, reports, and
+  cancellation directives over ACP files; it never spawns provider agents or
+  kills host processes.
 - **Host telemetry** (`host-tokens`, `host-cost`, `duration-ms`) is evidence
   supplied by the host and stored verbatim. specd does not compute token usage,
   price model calls, or trust telemetry as completion proof.
@@ -243,6 +244,12 @@ The core stays deterministic: the driver loop and briefs are orchestration glue;
 all authoring/execution happens inside the host worker. The final
 `verifying → complete` transition still requires the acceptance-evidence gate and
 is never auto-cleared.
+
+Mid-task clarification is explicit: a leased worker may send `specd pinky query --text "..."`
+and keep working only up to the next safe waiting point. Brain or the host replies with
+`specd brain directive ... --in-reply-to <query-message-id>`, and workers poll
+`specd pinky inbox` for directives. This avoids full blocker escalation for bounded questions
+while preserving the file-backed ACP audit trail.
 
 Cancellation is cooperative: `specd_brain cancel` records intent, and a later
 step emits cancellation directives for active leases. Hosts must deliver that

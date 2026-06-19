@@ -1,6 +1,6 @@
 ---
 name: specd-pinky
-description: Execute a Pinky worker mission from a host coding agent. Load after receiving a mission or before running `specd pinky claim|heartbeat|progress|report|block|release`. Covers authority, context loading, verification, cancellation, and telemetry trust labels.
+description: Execute a Pinky worker mission from a host coding agent. Load after receiving a mission or before running `specd pinky claim|heartbeat|progress|query|report|block|release|inbox`. Covers authority, context loading, verification, queries/directives, cancellation, and telemetry trust labels.
 ---
 
 # specd pinky
@@ -23,11 +23,12 @@ Load the mission's `contextManifest` in order. Required items are the role contr
 - Investigator, reviewer, and verifier are read-only except ACP progress/blocker/report messages.
 - Never flip `tasks.md` checkboxes. Never edit `state.json`. Never forge evidence refs.
 
-## Progress, blockers, cancellation
+## Progress, queries, blockers, cancellation
 
 - Heartbeat before lease expiry.
 - Report meaningful progress with `specd pinky progress`.
-- If blocked, use `specd pinky block` with exact blocker and stop after one retry.
+- For a bounded clarification that may let work continue, send `specd pinky query --text "..."`, then poll `specd pinky inbox` for a Brain directive. Obey `continue`, `retry`, `cancel`, `reassign`, or `escalate` exactly.
+- If no bounded answer can unblock you, use `specd pinky block` with exact blocker and stop after one retry.
 - On cancel directive, stop at next safe point and acknowledge; specd does not promise process termination.
 
 ## Verification and completion

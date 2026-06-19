@@ -28,6 +28,32 @@ type PinkyBlockerReport struct {
 	Reason    string
 }
 
+type PinkyQueryReport struct {
+	SessionID string
+	WorkerID  string
+	Spec      string
+	TaskID    string
+	Attempt   int
+	Text      string
+}
+
+type BrainDirective struct {
+	SessionID string
+	WorkerID  string
+	Spec      string
+	TaskID    string
+	Attempt   int
+	Action    string
+	Reason    string
+	InReplyTo string
+}
+
+type PinkyInbox struct {
+	SessionID  string        `json:"sessionId"`
+	WorkerID   string        `json:"workerId"`
+	Directives []ACPEnvelope `json:"directives"`
+}
+
 type PinkyTerminalReport struct {
 	SessionID       string
 	WorkerID        string
@@ -51,6 +77,71 @@ func RecordPinkyProgress(root string, report PinkyProgressReport, cfg Orchestrat
 func RecordPinkyBlocker(root string, report PinkyBlockerReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	payload := ACPBlockerPayload{Reason: report.Reason}
 	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageBlocker, payload, cfg)
+}
+
+func RecordPinkyQuery(root string, report PinkyQueryReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
+	payload := ACPQueryPayload{Text: report.Text}
+	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageQuery, payload, cfg)
+}
+
+func RecordBrainDirective(root string, directive BrainDirective, cfg OrchestrationCfg) (ACPEnvelope, error) {
+	store, err := NewACPStore(root)
+	if err != nil {
+		return ACPEnvelope{}, err
+	}
+	if err := store.ValidateActiveLease(directive.SessionID, directive.WorkerID, directive.Spec, directive.TaskID, directive.Attempt); err != nil {
+		return ACPEnvelope{}, err
+	}
+	payload := ACPDirectivePayload{Action: directive.Action, Reason: directive.Reason}
+	envelope, err := NewACPEnvelope(ACPMessageDirective, payload)
+	if err != nil {
+		return ACPEnvelope{}, err
+	}
+	messageID, err := NewACPID()
+	if err != nil {
+		return ACPEnvelope{}, err
+	}
+	now := Clock().UTC()
+	envelope.MessageID = messageID
+	envelope.SessionID = directive.SessionID
+	envelope.CreatedAt = now.Format(time.RFC3339Nano)
+	envelope.ExpiresAt = now.Add(time.Duration(cfg.Transport.MessageTTLSeconds) * time.Second).Format(time.RFC3339Nano)
+	envelope.From = "brain"
+	envelope.To = "pinky-" + directive.WorkerID
+	envelope.Spec = directive.Spec
+	envelope.Task = directive.TaskID
+	envelope.Attempt = directive.Attempt
+	envelope.InReplyTo = directive.InReplyTo
+	written, err := store.WriteEvent(envelope)
+	if err != nil {
+		return ACPEnvelope{}, fmt.Errorf("brain directive: append event: %w", err)
+	}
+	return written, nil
+}
+
+func ReadPinkyInbox(root, sessionID, workerID string) (PinkyInbox, error) {
+	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
+		return PinkyInbox{}, err
+	}
+	if err := validateACPRuntimeSegment("worker ID", workerID); err != nil {
+		return PinkyInbox{}, err
+	}
+	store, err := NewACPStore(root)
+	if err != nil {
+		return PinkyInbox{}, err
+	}
+	events, err := store.readAllEvents(sessionID)
+	if err != nil {
+		return PinkyInbox{}, err
+	}
+	to := "pinky-" + workerID
+	out := PinkyInbox{SessionID: sessionID, WorkerID: workerID, Directives: []ACPEnvelope{}}
+	for _, event := range events {
+		if event.Type == ACPMessageDirective && event.To == to {
+			out.Directives = append(out.Directives, event)
+		}
+	}
+	return out, nil
 }
 
 func RecordPinkyTerminalReport(root string, report PinkyTerminalReport, cfg OrchestrationCfg) (ACPEnvelope, error) {

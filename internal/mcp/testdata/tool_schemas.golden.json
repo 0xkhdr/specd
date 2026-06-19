@@ -119,20 +119,32 @@
   "specd_brain": {
     "type": "object",
     "properties": {
+      "action": {
+        "type": "string",
+        "description": "directive action: continue, retry, cancel, reassign, or escalate"
+      },
       "approval-policy": {
         "type": "string",
         "description": "required approval policy for start/step"
       },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|status|step|why|pause|resume|cancel\u003e ... [--program]",
+        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|run|status|step|why|directive|pause|resume|cancel\u003e ... [--program]",
         "items": {
           "type": "string"
         }
       },
+      "attempt": {
+        "type": "string",
+        "description": "positive attempt number for directive"
+      },
       "cost-limit": {
         "type": "string",
         "description": "optional host-reported cost limit"
+      },
+      "in-reply-to": {
+        "type": "string",
+        "description": "query message id this directive answers"
       },
       "json": {
         "type": "boolean",
@@ -150,13 +162,29 @@
         "type": "boolean",
         "description": "operate on the cross-spec program session instead of one spec"
       },
+      "reason": {
+        "type": "string",
+        "description": "directive reason"
+      },
       "session": {
         "type": "string",
         "description": "explicit orchestration session id"
       },
+      "spec": {
+        "type": "string",
+        "description": "spec slug for directive"
+      },
+      "task": {
+        "type": "string",
+        "description": "task id for directive"
+      },
       "timeout-seconds": {
         "type": "string",
         "description": "required session timeout for start/step"
+      },
+      "worker": {
+        "type": "string",
+        "description": "worker id for directive"
       }
     },
     "additionalProperties": false
@@ -439,7 +467,7 @@
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|heartbeat|progress|report|block|release\u003e ...",
+        "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|brief|heartbeat|progress|query|report|block|release|inbox\u003e ...",
         "items": {
           "type": "string"
         }
@@ -503,6 +531,10 @@
       "task": {
         "type": "string",
         "description": "task id"
+      },
+      "text": {
+        "type": "string",
+        "description": "bounded Pinky query text"
       },
       "verification-ref": {
         "type": "string",

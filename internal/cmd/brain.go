@@ -15,7 +15,7 @@ import (
 
 func RunBrain(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd brain <start|run|status|step|why|pause|resume|cancel> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -65,6 +65,8 @@ func RunBrain(args cli.Args) int {
 			return usageExit("usage: specd brain why --session <id> [--json]")
 		}
 		return brainWhy(root, args)
+	case "directive":
+		return brainDirective(root, args)
 	case "status":
 		if args.Bool("program") {
 			if len(args.Pos) != 1 || args.Str("session") == "" {
@@ -96,7 +98,7 @@ func RunBrain(args cli.Args) int {
 		}
 		return brainSessionControl(root, args, core.CancelOrchestration, "cancel")
 	default:
-		return usageExit("usage: specd brain <start|status|step|pause|resume|cancel> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel> ...")
 	}
 }
 
@@ -141,6 +143,31 @@ func brainProgramStep(root, parentSessionID string, args cli.Args) int {
 		return specdExit(err)
 	}
 	return printCommandResult(args, result)
+}
+
+func brainDirective(root string, args cli.Args) int {
+	if len(args.Pos) != 1 || args.Str("session") == "" || args.Str("worker") == "" || args.Str("spec") == "" || args.Str("task") == "" || args.Str("action") == "" || args.Str("reason") == "" {
+		return usageExit("usage: specd brain directive --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --action <continue|retry|cancel|reassign|escalate> --reason <text> [--in-reply-to <message-id>] [--json]")
+	}
+	attempt, ok := parsePositiveIntFlag(args, "attempt")
+	if !ok {
+		return usageExit("specd brain directive: --attempt must be a positive integer")
+	}
+	cfg := core.LoadConfig(root).Orchestration
+	event, err := core.RecordBrainDirective(root, core.BrainDirective{
+		SessionID: args.Str("session"),
+		WorkerID:  args.Str("worker"),
+		Spec:      args.Str("spec"),
+		TaskID:    args.Str("task"),
+		Attempt:   attempt,
+		Action:    args.Str("action"),
+		Reason:    args.Str("reason"),
+		InReplyTo: args.Str("in-reply-to"),
+	}, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, event)
 }
 
 func brainProgramStatus(root string, args cli.Args) int {

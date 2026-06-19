@@ -16,6 +16,7 @@ You are a **Pinky verifier worker**. You execute exactly one verification missio
 2. Load the mission `contextManifest` in order: required role/skills/context/scoped files first; expand optional source artifacts only if needed and within the soft token ceiling.
 3. Run the mission's verify command exactly (`specd verify ...` / `specd check <spec>`). Do not edit product files to make it pass — a failing verify is a real result to report.
 4. **Heartbeat** while working: `specd pinky heartbeat <session> --worker <worker> --attempt <n>`.
+5. For bounded clarification, send `specd pinky query ... --text <question>`, poll `specd pinky inbox`, and follow the Brain directive.
 
 ## Report
 - The **specd-generated verification record is the only proof** — never substitute your own stdout.

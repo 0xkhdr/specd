@@ -1,6 +1,6 @@
 ---
 name: specd-brain
-description: Operate Brain orchestration sessions. Load before running `specd brain start|status|step|pause|resume|cancel` or program orchestration. Covers deterministic sensing, bounded stepping, approvals, dispatch, escalation, replay, and the no-LLM-in-core boundary.
+description: Operate Brain orchestration sessions. Load before running `specd brain start|run|status|step|why|directive|pause|resume|cancel` or program orchestration. Covers deterministic sensing, bounded stepping, approvals, dispatch, directives, escalation, replay, and the no-LLM-in-core boundary.
 ---
 
 # specd brain
@@ -22,7 +22,7 @@ specd brain status --session <id>
 specd brain step <slug> --session <id> --approval-policy manual --max-workers <n> --max-retries <n> --timeout-seconds <n>
 ```
 
-One `step` records one deterministic decision and performs at most one externally visible action: dispatch mission, retry mission, cancel directive, approval request, escalation, wait, or completion.
+One `step` records one deterministic decision and performs at most one externally visible action: dispatch mission, retry mission, cancel directive, approval request, escalation, wait, or completion. Manual `brain directive` is reserved for bounded worker query replies or operator corrections under an active lease.
 
 ## Approval rules
 
