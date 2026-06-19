@@ -172,6 +172,46 @@ Typical host loop:
 6. The host repeats bounded `specd_brain status` / `step` calls until the
    session completes, pauses, escalates, or waits for human approval.
 
+### Beginning-to-delivery: authoring frontier, `brain run`, and worker briefs
+
+Brain drives both **planning** and **execution**, not just execution:
+
+- **Authoring frontier.** When a spec is in `requirements`, `design`, or `tasks`
+  and the phase artifact is missing or fails its gate, Brain emits a
+  `dispatch-authoring` decision (a mission to author that artifact, verified by
+  `specd check`). Under `planning`/`session` approval policy it dispatches and,
+  once the gate passes, emits `advance-phase` to ratchet to the next status —
+  the same gate `specd approve` enforces. Under `manual` it requests human
+  approval instead. Execution tasks never run before the `tasks → executing`
+  gate clears.
+
+- **Reference driver loop.** `specd brain run <slug>` ties steps to worker
+  spawns: it steps, hands each dispatched mission to a host worker, blocks until
+  the worker reports (the dispatch→spawn contract), and stops on a terminal
+  outcome (`complete | escalated | awaiting-approval | worker-stop | max-steps |
+  stalled`). It defaults to the `planning` policy and is re-runnable (it resumes
+  an active session). `--worker-cmd '<shell>'` receives each mission via
+  `SPECD_MISSION` (a temp JSON path) plus `SPECD_SESSION/WORKER/SPEC/TASK/ROLE`
+  env; with no `--worker-cmd` the loop stops at the first dispatch so an operator
+  can wire a worker by hand.
+
+- **Pre-spec preflight.** `specd brain run --bootstrap` creates a missing spec
+  (`specd new`) before driving. A missing `.specd` workspace or steering fails
+  closed with the remedy command (`specd init` / `specd init --repair`).
+
+- **Worker briefs and agent templates.** `specd pinky brief --session <id>
+  --worker <id> --spec <slug> (--task <id> | --artifact <name>) [--json]` renders
+  a paste-ready, context-engineered worker brief (or, with `--json`, the
+  claimable mission). `specd init` installs Claude Code sub-agent definitions at
+  `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md`, each a thin
+  shell that loads the role + `specd-pinky` skill and runs claim → execute →
+  verify → report.
+
+The core stays deterministic: the driver loop and briefs are orchestration glue;
+all authoring/execution happens inside the host worker. The final
+`verifying → complete` transition still requires the acceptance-evidence gate and
+is never auto-cleared.
+
 Cancellation is cooperative: `specd_brain cancel` records intent, and a later
 step emits cancellation directives for active leases. Hosts must deliver that
 signal to their workers and stop them safely; specd never kills provider or

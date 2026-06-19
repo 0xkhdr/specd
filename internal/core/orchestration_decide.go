@@ -35,7 +35,12 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 	case len(snapshot.ActiveLeases) >= policy.MaxWorkers:
 		decision.Action = OrchestrationWait
 		decision.Reason = "worker limit reached"
-	case len(snapshot.Runnable) > 0:
+	case len(snapshot.Runnable) > 0 && isExecutionStatus(snapshot.Status):
+		// The execution frontier only dispatches once the spec is executing.
+		// During planning statuses, tasks.md may already be reconciled into
+		// state (LoadSpec auto-reconciles), but those tasks must not run before
+		// the tasks→executing gate is cleared — authoring/advance branches below
+		// own the planning phases.
 		task := firstUnleasedRunnable(snapshot.Runnable, snapshot.ActiveLeases)
 		if task.ID == "" {
 			decision.Action = OrchestrationWait
@@ -46,6 +51,37 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 		decision.TaskID = task.ID
 		decision.Attempt = task.Attempt
 		decision.Reason = "dispatch next runnable task"
+	case snapshot.Authoring != nil:
+		// Planning-phase artifact is absent or failing its gate. Author it under
+		// autonomy; defer to a human under the manual policy. (GAP-1)
+		work := snapshot.Authoring
+		if !planningAutonomyAllowed(policy.ApprovalPolicy) {
+			decision.Action = OrchestrationRequestApproval
+			decision.Reason = fmt.Sprintf("manual policy: author %s before continuing", work.Artifact)
+			break
+		}
+		if authoringLeased(work.WorkID, snapshot.ActiveLeases) {
+			decision.Action = OrchestrationWait
+			decision.Reason = fmt.Sprintf("authoring %s already in flight", work.Artifact)
+			break
+		}
+		decision.Action = OrchestrationDispatchAuthor
+		decision.TaskID = work.WorkID
+		decision.Attempt = 1
+		decision.Artifact = work.Artifact
+		decision.Reason = fmt.Sprintf("dispatch authoring mission for %s", work.Artifact)
+	case snapshot.PlanningReady:
+		// Current planning artifact passes its gate; the phase is ready to
+		// advance. Ratchet under autonomy; request human approval under manual.
+		artifact := planningArtifactForStatus(snapshot.Status)
+		if !planningAutonomyAllowed(policy.ApprovalPolicy) {
+			decision.Action = OrchestrationRequestApproval
+			decision.Reason = fmt.Sprintf("manual policy: approve %s phase", snapshot.Status)
+			break
+		}
+		decision.Action = OrchestrationAdvancePhase
+		decision.Artifact = artifact
+		decision.Reason = fmt.Sprintf("%s gate satisfied — advance phase", snapshot.Status)
 	case snapshot.Status == StatusVerifying:
 		decision.Action = OrchestrationCompleteSession
 		decision.Reason = "no runnable tasks and spec verifying"
@@ -58,6 +94,38 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 		return OrchestrationDecision{}, err
 	}
 	return decision, nil
+}
+
+// planningAutonomyAllowed reports whether the approval policy lets the brain
+// author planning artifacts and ratchet planning phases without a human. The
+// `manual` policy never does; `planning` and `session` do. Mid-requirement
+// human-only gates (GateAwaitingApproval) are checked earlier and are never
+// auto-cleared by this path.
+func planningAutonomyAllowed(approvalPolicy string) bool {
+	return approvalPolicy == "planning" || approvalPolicy == "session"
+}
+
+// isExecutionStatus reports whether the spec is in a phase where the task DAG
+// runs. Planning statuses (requirements/design/tasks) are owned by the authoring
+// frontier instead.
+func isExecutionStatus(status SpecStatus) bool {
+	return status == StatusExecuting || status == StatusBlocked
+}
+
+func authoringLeased(workID string, leases []OrchestrationLeaseSnapshot) bool {
+	for _, lease := range leases {
+		if lease.TaskID == workID {
+			return true
+		}
+	}
+	return false
+}
+
+func planningArtifactForStatus(status SpecStatus) string {
+	if step, ok := authoringSteps[status]; ok {
+		return step.Artifact
+	}
+	return ""
 }
 
 func retryableFailuresExhausted(failures []OrchestrationFailure, maxRetries int) bool {

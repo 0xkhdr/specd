@@ -16,6 +16,8 @@ const (
 	OrchestrationIdle            OrchestrationAction = "idle"
 	OrchestrationRequestApproval OrchestrationAction = "request-approval"
 	OrchestrationDispatch        OrchestrationAction = "dispatch"
+	OrchestrationDispatchAuthor  OrchestrationAction = "dispatch-authoring"
+	OrchestrationAdvancePhase    OrchestrationAction = "advance-phase"
 	OrchestrationWait            OrchestrationAction = "wait"
 	OrchestrationRetry           OrchestrationAction = "retry"
 	OrchestrationCancel          OrchestrationAction = "cancel"
@@ -93,6 +95,26 @@ type OrchestrationSnapshot struct {
 	ActiveLeases     []OrchestrationLeaseSnapshot `json:"activeLeases"`
 	RecentFailures   []OrchestrationFailure       `json:"recentFailures"`
 	SessionExpiresAt string                       `json:"sessionExpiresAt"`
+	// Authoring is the planning-phase frontier: present when the spec is in a
+	// planning status (requirements/design/tasks) and the phase artifact is
+	// absent or fails `specd check`. It is the authoring counterpart of
+	// Runnable for the execution DAG. PlanningReady is true when the spec is in
+	// a planning status and the current artifact already passes its gate (the
+	// phase is ready to advance).
+	Authoring    *OrchestrationAuthoring `json:"authoring,omitempty"`
+	PlanningReady bool                   `json:"planningReady"`
+}
+
+// OrchestrationAuthoring is a synthetic, single authoring work item describing
+// the phase artifact a worker must produce to clear the current planning gate.
+// Planning is sequential (one artifact at a time), so the frontier is at most
+// one item.
+type OrchestrationAuthoring struct {
+	WorkID   string   `json:"workId"`   // reserved authoring ID (A1/A2/A3)
+	Artifact string   `json:"artifact"` // e.g. "requirements.md"
+	Gate     string   `json:"gate"`     // gate the artifact must clear
+	Role     string   `json:"role"`     // worker role for the mission
+	Issues   []string `json:"issues"`   // current `specd check`-shaped reasons
 }
 
 type OrchestrationEscalation struct {
@@ -106,6 +128,9 @@ type OrchestrationDecision struct {
 	Spec           string                  `json:"spec"`
 	TaskID         string                  `json:"taskId,omitempty"`
 	Attempt        int                     `json:"attempt,omitempty"`
+	// Artifact is set on dispatch-authoring / advance-phase decisions: the
+	// planning artifact (e.g. "design.md") the decision concerns.
+	Artifact       string                  `json:"artifact,omitempty"`
 	Reason         string                  `json:"reason"`
 	IdempotencyKey string                  `json:"idempotencyKey"`
 	Escalation     OrchestrationEscalation `json:"escalation"`
@@ -247,6 +272,16 @@ func ValidateOrchestrationDecision(decision OrchestrationDecision) error {
 	}
 	if decision.Attempt < 0 || (decision.Attempt > 0 && decision.TaskID == "") {
 		return fmt.Errorf("orchestration model: invalid attempt")
+	}
+	switch decision.Action {
+	case OrchestrationDispatchAuthor, OrchestrationAdvancePhase:
+		if authoringArtifactID(decision.Artifact) == "" {
+			return fmt.Errorf("orchestration model: %s requires a known planning artifact", decision.Action)
+		}
+	default:
+		if decision.Artifact != "" {
+			return fmt.Errorf("orchestration model: artifact only valid on authoring decisions")
+		}
 	}
 	if err := validateACPText("decision reason", decision.Reason, true); err != nil {
 		return fmt.Errorf("orchestration model: %w", err)
@@ -400,6 +435,7 @@ func validTaskStatus(status TaskStatus) bool {
 func validOrchestrationAction(action OrchestrationAction) bool {
 	switch action {
 	case OrchestrationIdle, OrchestrationRequestApproval, OrchestrationDispatch,
+		OrchestrationDispatchAuthor, OrchestrationAdvancePhase,
 		OrchestrationWait, OrchestrationRetry, OrchestrationCancel,
 		OrchestrationReplan, OrchestrationEscalate, OrchestrationCompleteSession:
 		return true

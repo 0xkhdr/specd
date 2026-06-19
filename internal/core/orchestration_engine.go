@@ -68,6 +68,13 @@ func StepOrchestration(root, slug, sessionID string, policy OrchestrationPolicy,
 			return struct{}{}, err
 		}
 		result.Event = event
+		// advance-phase is an effecting decision with no worker dispatch: ratchet
+		// the planning phase here, under the same gate `specd approve` enforces.
+		if decision.Action == OrchestrationAdvancePhase {
+			if _, _, err := AdvancePlanningPhase(root, slug); err != nil {
+				return struct{}{}, err
+			}
+		}
 		if hasSession {
 			switch decision.Action {
 			case OrchestrationCompleteSession:
@@ -165,7 +172,7 @@ func recordOrchestrationDecision(root, sessionID string, decision OrchestrationD
 		return nil, err
 	}
 	switch decision.Action {
-	case OrchestrationDispatch, OrchestrationRetry, OrchestrationCancel:
+	case OrchestrationDispatch, OrchestrationDispatchAuthor, OrchestrationRetry, OrchestrationCancel:
 	default:
 		return nil, nil
 	}
@@ -185,8 +192,14 @@ func recordOrchestrationDecision(root, sessionID string, decision OrchestrationD
 	var messageType ACPMessageType
 	var payload any
 	switch decision.Action {
-	case OrchestrationDispatch, OrchestrationRetry:
-		mission, err := BuildPinkyMission(root, decision.Spec, sessionID, orchestrationWorkerID(decision), decision.TaskID, decision.Attempt, cfg)
+	case OrchestrationDispatch, OrchestrationRetry, OrchestrationDispatchAuthor:
+		var mission PinkyMission
+		var err error
+		if decision.Action == OrchestrationDispatchAuthor {
+			mission, err = BuildAuthoringMission(root, decision.Spec, sessionID, orchestrationWorkerID(decision), decision.Artifact, cfg)
+		} else {
+			mission, err = BuildPinkyMission(root, decision.Spec, sessionID, orchestrationWorkerID(decision), decision.TaskID, decision.Attempt, cfg)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -450,6 +463,13 @@ func sessionEventCount(store *ACPStore, sessionID string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(len(events)), nil
+}
+
+// ActiveOrchestrationSessionForSpec returns the running/paused/cancelling
+// session for a spec, or nil if none. It lets a driver resume an in-flight
+// session instead of failing closed against the one-session-per-spec rule.
+func ActiveOrchestrationSessionForSpec(root, slug string) (*OrchestrationSession, error) {
+	return activeOrchestrationSessionForSpec(root, slug, "")
 }
 
 func activeOrchestrationSessionForSpec(root, slug, exceptSessionID string) (*OrchestrationSession, error) {

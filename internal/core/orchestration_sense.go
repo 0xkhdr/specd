@@ -26,6 +26,12 @@ func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		RecentFailures:   senseRecentFailures(loaded.State),
 		SessionExpiresAt: expires.Format(time.RFC3339Nano),
 	}
+	snapshot.Authoring, snapshot.PlanningReady = senseAuthoring(
+		loaded.State.Status,
+		ReadArtifact(root, slug, "requirements.md"),
+		ReadArtifact(root, slug, "design.md"),
+		loaded.Doc,
+	)
 	store, err := NewACPStore(root)
 	if err != nil {
 		return OrchestrationSnapshot{}, err

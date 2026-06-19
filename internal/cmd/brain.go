@@ -1,8 +1,13 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -10,7 +15,7 @@ import (
 
 func RunBrain(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd brain <start|status|step|pause|resume|cancel> ...")
+		return usageExit("usage: specd brain <start|run|status|step|pause|resume|cancel> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -33,6 +38,11 @@ func RunBrain(args cli.Args) int {
 			return usageExit("usage: specd brain start <slug> --approval-policy <policy> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]")
 		}
 		return brainStart(root, args.Pos[1], args)
+	case "run":
+		if len(args.Pos) != 2 {
+			return usageExit("usage: specd brain run <slug> [--approval-policy <policy>] [--worker-cmd <cmd>] [--bootstrap] [--max-steps <n>] [--session <id>] [--json]")
+		}
+		return brainRun(root, args.Pos[1], args)
 	case "step":
 		if args.Bool("program") {
 			if len(args.Pos) != 1 || args.Str("session") == "" {
@@ -129,6 +139,187 @@ func brainProgramStatus(root string, args cli.Args) int {
 		return specdExit(err)
 	}
 	return printCommandResult(args, report)
+}
+
+// brainRun is the reference driver loop (GAP-2/GAP-6): a bare or partial repo is
+// brought to a sensable spec (preflight), then driven step→spawn→step to a
+// terminal outcome. Creative work is delegated to a host worker command
+// (--worker-cmd); core stays deterministic. With no --worker-cmd the loop stops
+// at the first dispatch and prints the mission to wire a worker manually.
+func brainRun(root, slug string, args cli.Args) int {
+	// Pre-spec preflight (GAP-6): ensure the spec exists before sensing.
+	if items := core.OrchestrationPreflight(root, slug); len(items) > 0 {
+		if !brainRunBootstrap(root, slug, args, items) {
+			return core.ExitGate
+		}
+	}
+
+	policy, cfg, ok := brainRunPolicy(root, args)
+	if !ok {
+		return core.ExitUsage
+	}
+	sessionID, resumed, err := brainRunSession(root, slug, args, policy)
+	if err != nil {
+		return specdExit(err)
+	}
+	if resumed && !args.Bool("json") {
+		fmt.Printf("brain run: resuming active session %s\n", sessionID)
+	}
+
+	maxSteps := 100
+	if args.Has("max-steps") {
+		n, ok := parsePositiveIntFlag(args, "max-steps")
+		if !ok {
+			return core.ExitUsage
+		}
+		maxSteps = n
+	}
+
+	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(root, args.Str("worker-cmd"))}
+	result, err := core.DriveOrchestration(root, slug, sessionID, policy, cfg, opts)
+	if err != nil {
+		return specdExit(err)
+	}
+	if args.Bool("json") {
+		if err := core.PrintJSON(map[string]any{"session": sessionID, "result": result}); err != nil {
+			return specdExit(err)
+		}
+	} else {
+		fmt.Printf("brain run: %s after %d step(s) — final decision: %s (%s)\n", result.Outcome, result.Steps, result.Final.Action, result.Final.Reason)
+	}
+	if result.Outcome == core.DriverComplete {
+		return core.ExitOK
+	}
+	return core.ExitOK
+}
+
+// brainRunSession resolves the session to drive: an explicit --session, an
+// existing active session for the spec (resumed), or a freshly started one. This
+// makes `brain run` safely re-runnable against the one-session-per-spec rule.
+func brainRunSession(root, slug string, args cli.Args, policy core.OrchestrationPolicy) (string, bool, error) {
+	if id := args.Str("session"); id != "" {
+		// Caller named a session: start it if new, otherwise drive it as-is.
+		if _, err := core.StartOrchestrationSession(root, slug, id, "brain-run", policy); err != nil {
+			if existing, lookupErr := core.ActiveOrchestrationSessionForSpec(root, slug); lookupErr == nil && existing != nil && existing.SessionID == id {
+				return id, true, nil
+			}
+			return "", false, err
+		}
+		return id, false, nil
+	}
+	if existing, err := core.ActiveOrchestrationSessionForSpec(root, slug); err == nil && existing != nil {
+		return existing.SessionID, true, nil
+	}
+	id, err := core.NewACPID()
+	if err != nil {
+		return "", false, err
+	}
+	if _, err := core.StartOrchestrationSession(root, slug, id, "brain-run", policy); err != nil {
+		return "", false, err
+	}
+	return id, false, nil
+}
+
+// brainRunBootstrap applies the deterministic preflight remedies it can
+// (creating the spec); it never fabricates a workspace or steering. Returns true
+// if the spec is now ready to drive.
+func brainRunBootstrap(root, slug string, args cli.Args, items []core.PreflightItem) bool {
+	for _, item := range items {
+		if item.Kind == "spec" && args.Bool("bootstrap") {
+			if code := RunNew(cli.Args{Pos: []string{slug}, Flags: map[string]string{}}); code != core.ExitOK {
+				errLine("brain run: bootstrap `%s` failed", item.Remedy)
+				return false
+			}
+			continue
+		}
+		errLine("brain run: blocked — %s. Fix with `%s`%s.", item.Message, item.Remedy, bootstrapHint(item))
+		return false
+	}
+	return true
+}
+
+func bootstrapHint(item core.PreflightItem) string {
+	if item.Kind == "spec" {
+		return " (or pass --bootstrap)"
+	}
+	return ""
+}
+
+// brainRunWorker returns a DriveOrchestration worker callback that shells out to
+// workerCmd per dispatch, passing the mission via a temp file and SPECD_* env.
+// An empty workerCmd returns nil — the loop then stops at the first dispatch.
+func brainRunWorker(root, workerCmd string) func(core.DriverDispatch) error {
+	if workerCmd == "" {
+		return nil
+	}
+	return func(d core.DriverDispatch) error {
+		raw, err := json.MarshalIndent(d.Mission, "", "  ")
+		if err != nil {
+			return err
+		}
+		f, err := os.CreateTemp("", "specd-mission-*.json")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(f.Name())
+		if _, err := f.Write(raw); err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+
+		cmd := exec.Command("sh", "-c", workerCmd)
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		cmd.Env = append(os.Environ(),
+			"SPECD_MISSION="+f.Name(),
+			"SPECD_SESSION="+d.Mission.SessionID,
+			"SPECD_WORKER="+d.Mission.WorkerID,
+			"SPECD_SPEC="+d.Mission.Spec,
+			"SPECD_TASK="+d.Mission.TaskID,
+			"SPECD_ROLE="+d.Mission.Role,
+			"SPECD_ARTIFACT="+filepath.Base(strings.Join(d.Mission.Files, " ")),
+		)
+		return cmd.Run()
+	}
+}
+
+// brainRunPolicy builds a policy with sane defaults (planning autonomy) so a
+// drive needs no flag plumbing; any provided brain flag overrides a default.
+func brainRunPolicy(root string, args cli.Args) (core.OrchestrationPolicy, core.OrchestrationCfg, bool) {
+	policy, err := core.NewOrchestrationPolicy(core.LoadConfig(root).Orchestration)
+	if err != nil {
+		errLine("brain run: %v", err)
+		return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
+	}
+	policy.ApprovalPolicy = "planning"
+	if v := args.Str("approval-policy"); v != "" {
+		policy.ApprovalPolicy = v
+	}
+	if args.Has("max-workers") {
+		if n, ok := parsePositiveIntFlag(args, "max-workers"); ok {
+			policy.MaxWorkers = n
+		} else {
+			return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
+		}
+	}
+	if args.Has("max-retries") {
+		if n, ok := parseNonNegativeIntFlag(args, "max-retries"); ok {
+			policy.MaxRetries = n
+		} else {
+			return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
+		}
+	}
+	if err := core.ValidateOrchestrationPolicy(policy); err != nil {
+		errLine("brain run: %v", err)
+		return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
+	}
+	cfg := core.LoadConfig(root).Orchestration
+	cfg.SessionTimeoutMinutes = policy.SessionTimeoutSeconds / 60
+	cfg.ApprovalPolicy = policy.ApprovalPolicy
+	cfg.MaxWorkers = policy.MaxWorkers
+	cfg.MaxRetries = policy.MaxRetries
+	cfg.HostReportedCostLimitUSD = policy.HostReportedCostLimitUSD
+	return policy, cfg, true
 }
 
 func brainPolicyAndConfig(root string, args cli.Args) (core.OrchestrationPolicy, core.OrchestrationCfg, bool) {

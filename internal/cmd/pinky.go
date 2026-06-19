@@ -13,7 +13,7 @@ import (
 
 func RunPinky(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd pinky <claim|heartbeat|progress|report|block|release> ...")
+		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|report|block|release> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -35,6 +35,8 @@ func RunPinky(args cli.Args) int {
 			return specdExit(err)
 		}
 		return printCommandResult(args, claim)
+	case "brief":
+		return runPinkyBrief(root, cfg, args)
 	case "heartbeat":
 		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
 		if len(args.Pos) != 1 || !ok {
@@ -85,8 +87,54 @@ func RunPinky(args cli.Args) int {
 		}
 		return core.ExitOK
 	default:
-		return usageExit("usage: specd pinky <claim|heartbeat|progress|report|block|release> ...")
+		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|report|block|release> ...")
 	}
+}
+
+// runPinkyBrief renders a paste-ready worker brief (and, with --json, the
+// claimable mission JSON) for one mission. It bridges a Brain dispatch decision
+// to an actual worker prompt without any ad-hoc context assembly (GAP-3). It
+// builds either an execution mission (--task) or a planning authoring mission
+// (--artifact).
+func runPinkyBrief(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	if len(args.Pos) != 1 {
+		return usageExit("usage: specd pinky brief --session <id> --worker <id> --spec <slug> (--task <id> [--attempt <n>] | --artifact <name>) [--json]")
+	}
+	session, worker, spec := args.Str("session"), args.Str("worker"), args.Str("spec")
+	if session == "" || worker == "" || spec == "" {
+		return usageExit("specd pinky brief: --session, --worker, and --spec are required")
+	}
+	task, artifact := args.Str("task"), args.Str("artifact")
+	if (task == "") == (artifact == "") {
+		return usageExit("specd pinky brief: pass exactly one of --task or --artifact")
+	}
+
+	var mission core.PinkyMission
+	var err error
+	if artifact != "" {
+		mission, err = core.BuildAuthoringMission(root, spec, session, worker, artifact, cfg)
+	} else {
+		attempt := 1
+		if args.Has("attempt") {
+			n, ok := parsePositiveIntFlag(args, "attempt")
+			if !ok {
+				return usageExit("specd pinky brief: --attempt must be a positive integer")
+			}
+			attempt = n
+		}
+		mission, err = core.BuildPinkyMission(root, spec, session, worker, task, attempt, cfg)
+	}
+	if err != nil {
+		return specdExit(err)
+	}
+	if args.Bool("json") {
+		if err := core.PrintJSON(mission); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	fmt.Print(core.RenderMissionBrief(mission))
+	return core.ExitOK
 }
 
 func readPinkyMission(path string) (core.PinkyMission, error) {

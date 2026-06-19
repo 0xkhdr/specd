@@ -61,6 +61,16 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Refresh:  true,
 		})
 	}
+	// Worker-agent definitions (GAP-3): Claude Code sub-agents that turn a Brain
+	// dispatch into a running Pinky worker with zero ad-hoc prompt writing.
+	for _, role := range []string{"builder", "investigator", "reviewer", "verifier"} {
+		assets = append(assets, ScaffoldAsset{
+			Template: "agents/pinky-" + role + ".md",
+			Target:   ".claude/agents/pinky-" + role + ".md",
+			Policy:   ScaffoldCreate,
+			Required: true,
+		})
+	}
 	assets = append(assets,
 		ScaffoldAsset{
 			Template: "config.json",

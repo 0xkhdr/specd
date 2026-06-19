@@ -370,6 +370,14 @@ func executeFreshInitPlan(plan InitPlan, force bool, executor InitExecutor, resu
 		switch action.Kind {
 		case "skip":
 			result.Files.Skipped = append(result.Files.Skipped, rel)
+		case "write":
+			// External (non-.specd) scaffold assets, e.g. .claude/agents/*.
+			// Written directly to their target (AtomicWrite creates parents);
+			// they live outside the staged .specd tree.
+			if err := executor.WriteFile(action.Target, action.Content); err != nil {
+				return failedInitResult(result, rel, "external-write-failed", err)
+			}
+			result.Files.Written = append(result.Files.Written, rel)
 		case "merge":
 			if err := executor.MergeAgents(action.Target, action.Content, force); err != nil {
 				result = failedInitResult(result, rel, "external-merge-failed", err)

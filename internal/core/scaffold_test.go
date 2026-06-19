@@ -58,8 +58,8 @@ func TestScaffoldManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 		targets := SortedScaffoldTargets(assets)
-		if len(targets) != 22 {
-			t.Fatalf("target count = %d, want 22", len(targets))
+		if len(targets) != 26 {
+			t.Fatalf("target count = %d, want 26", len(targets))
 		}
 		for i := 1; i < len(targets); i++ {
 			if targets[i] == targets[i-1] {
@@ -96,6 +96,10 @@ func TestScaffoldManifest(t *testing.T) {
 
 	t.Run("default target set remains compatible", func(t *testing.T) {
 		want := []string{
+			".claude/agents/pinky-builder.md",
+			".claude/agents/pinky-investigator.md",
+			".claude/agents/pinky-reviewer.md",
+			".claude/agents/pinky-verifier.md",
 			".specd/config.json",
 			".specd/roles/brain.md",
 			".specd/roles/builder.md",

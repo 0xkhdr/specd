@@ -38,7 +38,12 @@ const (
 var (
 	acpIDRE      = regexp.MustCompile(`^[a-f0-9]{32}$`)
 	acpPartyRE   = regexp.MustCompile(`^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$`)
-	acpTaskIDRE  = regexp.MustCompile(`^T[0-9]+$`)
+	// acpTaskIDRE accepts both execution task IDs (T<n>, parsed from tasks.md)
+	// and reserved authoring work IDs (A<n>, synthesized for planning-phase
+	// artifact missions — see authoringWorkID). Authoring IDs never originate
+	// from tasks.md, so widening the shared matcher does not loosen any
+	// tasks.md-sourced validation in practice.
+	acpTaskIDRE  = regexp.MustCompile(`^[TA][0-9]+$`)
 	acpDigestRE  = regexp.MustCompile(`^[a-f0-9]{64}$`)
 	acpActionSet = sliceToSet([]string{"retry", "cancel", "reassign", "escalate", "continue"})
 	// acpAuthorityActionSet enumerates worker capabilities carried in a mission's
