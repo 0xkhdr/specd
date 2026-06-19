@@ -36,7 +36,10 @@ type Dispatcher func(command string, args cli.Args) (int, bool)
 // and writes framed responses to w. A malformed request never tears down the
 // loop: it yields a JSON-RPC error and the server keeps reading (R5). All
 // diagnostics belong on stderr; r/w carry only protocol bytes.
-func Serve(r io.Reader, w io.Writer, dispatch Dispatcher) error {
+//
+// cfg carries the loaded project config so tools/list can filter the advertised
+// tool set; a nil cfg means "expose everything" (backward-compatible default).
+func Serve(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config) error {
 	c := newConn(r, w)
 	for {
 		raw, err := c.readMessage()
@@ -50,11 +53,11 @@ func Serve(r io.Reader, w io.Writer, dispatch Dispatcher) error {
 			}
 			return err
 		}
-		c.handle(raw, dispatch)
+		c.handle(raw, dispatch, cfg)
 	}
 }
 
-func (c *conn) handle(raw []byte, dispatch Dispatcher) {
+func (c *conn) handle(raw []byte, dispatch Dispatcher, cfg *core.Config) {
 	var req rpcRequest
 	if err := json.Unmarshal(raw, &req); err != nil {
 		_ = c.writeMessage(rpcResponse{Jsonrpc: "2.0", Error: &rpcError{Code: errParse, Message: "parse error: " + err.Error()}})
@@ -65,7 +68,7 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher) {
 		return
 	}
 
-	result, rerr := route(req, dispatch)
+	result, rerr := route(req, dispatch, cfg)
 
 	// A request without an id is a notification — acknowledge nothing.
 	if len(req.ID) == 0 {
@@ -80,14 +83,14 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher) {
 	_ = c.writeMessage(resp)
 }
 
-func route(req rpcRequest, dispatch Dispatcher) (any, *rpcError) {
+func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
 		return initializeResult(req.Params), nil
 	case "ping", "notifications/initialized", "notifications/cancelled":
 		return map[string]any{}, nil
 	case "tools/list":
-		return map[string]any{"tools": buildTools()}, nil
+		return map[string]any{"tools": buildTools(cfg)}, nil
 	case "tools/call":
 		return callTool(req.Params, dispatch)
 	default:

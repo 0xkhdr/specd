@@ -26,7 +26,7 @@ func newOrchestrationMCPClient(t *testing.T, httpSSE bool) orchestrationMCPClien
 	client := orchestrationMCPClient{t: t}
 	if httpSSE {
 		addr := freePort(t)
-		go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+		go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch, nil) }()
 		waitReady(t, addr)
 		client.base = "http://" + addr
 	}

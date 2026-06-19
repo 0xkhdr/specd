@@ -297,3 +297,58 @@ func TestInitConfigPolicyDeterministic(t *testing.T) {
 		t.Fatalf("embedded config = %#v, want DefaultConfig %#v", shipped, DefaultConfig)
 	}
 }
+
+// TestConfigMCPAbsentBlock verifies an absent mcp block leaves MCPConfig zero
+// and Configured() false — the backward-compatible passthrough contract (R1).
+func TestConfigMCPAbsentBlock(t *testing.T) {
+	got := LoadConfig(t.TempDir())
+	if got.MCP.Configured() {
+		t.Errorf("absent mcp block reported Configured()=true: %#v", got.MCP)
+	}
+	if got.MCP.IncludeOrchestration != nil {
+		t.Errorf("IncludeOrchestration = %v, want nil when key absent", *got.MCP.IncludeOrchestration)
+	}
+}
+
+// TestConfigMCPPartialMerge overlays only the supplied fields and preserves the
+// "unset vs explicit false" distinction for IncludeOrchestration (spec §8 risk).
+func TestConfigMCPPartialMerge(t *testing.T) {
+	root := t.TempDir()
+	raw := `{"mcp":{"expose":"essential","essentialTools":["status","verify"],"includeMeta":true}}`
+	if err := AtomicWrite(ConfigPath(root), raw); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	got := LoadConfig(root)
+	if got.MCP.Expose != "essential" {
+		t.Errorf("Expose = %q, want essential", got.MCP.Expose)
+	}
+	if len(got.MCP.EssentialTools) != 2 || got.MCP.EssentialTools[0] != "status" {
+		t.Errorf("EssentialTools = %v, want [status verify]", got.MCP.EssentialTools)
+	}
+	if !got.MCP.IncludeMeta {
+		t.Error("IncludeMeta = false, want true")
+	}
+	// includeOrchestration absent from JSON must stay nil, not become false.
+	if got.MCP.IncludeOrchestration != nil {
+		t.Errorf("IncludeOrchestration = %v, want nil (key omitted)", *got.MCP.IncludeOrchestration)
+	}
+}
+
+// TestConfigMCPExplicitFalse confirms an explicit includeOrchestration:false is
+// preserved as a non-nil pointer, distinct from the unset case.
+func TestConfigMCPExplicitFalse(t *testing.T) {
+	root := t.TempDir()
+	if err := AtomicWrite(ConfigPath(root), `{"mcp":{"includeOrchestration":false}}`); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	got := LoadConfig(root)
+	if got.MCP.IncludeOrchestration == nil {
+		t.Fatal("IncludeOrchestration = nil, want explicit false pointer")
+	}
+	if *got.MCP.IncludeOrchestration {
+		t.Error("IncludeOrchestration = true, want false")
+	}
+	if !got.MCP.Configured() {
+		t.Error("Configured() = false despite explicit mcp block")
+	}
+}

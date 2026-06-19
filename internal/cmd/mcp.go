@@ -36,6 +36,12 @@ func RunMCP(args cli.Args) int {
 		}
 	}
 
+	// Load the project config once (cwd is already the project root after any
+	// --root chdir above) so tools/list can filter the advertised tool set. A
+	// missing config yields DefaultConfig, whose zero-value mcp block means
+	// "expose everything" — byte-identical to the pre-config surface.
+	cfg := core.LoadConfig(".")
+
 	// --http <addr> opts into the HTTP/SSE transport adapter for hosts that
 	// cannot speak stdio. Absent, the stdio path below is used. A bare --http
 	// (no value) defaults to loopback:8765.
@@ -43,14 +49,14 @@ func RunMCP(args cli.Args) int {
 		if addr == "true" {
 			addr = ""
 		}
-		if err := mcp.ServeHTTP(addr, Dispatch); err != nil {
+		if err := mcp.ServeHTTP(addr, Dispatch, &cfg); err != nil {
 			core.Error("mcp: " + err.Error())
 			return core.ExitGate
 		}
 		return core.ExitOK
 	}
 
-	if err := mcp.Serve(os.Stdin, os.Stdout, Dispatch); err != nil {
+	if err := mcp.Serve(os.Stdin, os.Stdout, Dispatch, &cfg); err != nil {
 		core.Error("mcp: " + err.Error())
 		return core.ExitGate
 	}

@@ -19,7 +19,7 @@ var updateGolden = flag.Bool("update", false, "rewrite golden schema snapshot")
 // one tool per non-meta command, correct namespacing, and read-only annotations
 // matching the spec's R4 classification.
 func TestToolsList(t *testing.T) {
-	tools := buildTools()
+	tools := buildTools(nil)
 
 	// Parity: one command-mirror tool per non-meta core.Commands entry (R2) plus
 	// the intent-level tools (GAP-5). Adding a command/intent tool without it
@@ -131,7 +131,7 @@ func TestToolsList(t *testing.T) {
 // help-display order) so reordering commands is not a spurious failure.
 func TestToolSchemaGolden(t *testing.T) {
 	schemas := map[string]jsonSchema{}
-	for _, tl := range buildTools() {
+	for _, tl := range buildTools(nil) {
 		schemas[tl.Name] = tl.InputSchema
 	}
 	got, err := json.MarshalIndent(schemas, "", "  ")
@@ -168,7 +168,7 @@ func TestToolSchemaGolden(t *testing.T) {
 // properties map, an ordered string-array `args`, and a concrete type on every
 // flag property. A host must be able to consume every advertised schema.
 func TestToolSchemaValidity(t *testing.T) {
-	for _, tl := range buildTools() {
+	for _, tl := range buildTools(nil) {
 		if tl.Name == "" {
 			t.Error("tool with empty name")
 		}

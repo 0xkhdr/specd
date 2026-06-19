@@ -64,7 +64,7 @@ type ProbeResult struct {
 	LatencyMillis      int64         `json:"latencyMillis"`
 }
 
-type probeServer func(io.Reader, io.Writer, Dispatcher) error
+type probeServer func(io.Reader, io.Writer, Dispatcher, *core.Config) error
 
 // Probe performs an in-process MCP lifecycle check without executing a shell or
 // starting a network listener.
@@ -90,7 +90,9 @@ func probe(ctx context.Context, dispatch Dispatcher, timeout time.Duration, serv
 	}()
 
 	go func() {
-		serveErr := serve(serverIn, serverOut, dispatch)
+		// Probe is a health check, not a config-scoped session: pass nil so the
+		// full baseline+orchestration tool set is advertised and assertable.
+		serveErr := serve(serverIn, serverOut, dispatch, nil)
 		_ = serverOut.CloseWithError(serveErr)
 	}()
 

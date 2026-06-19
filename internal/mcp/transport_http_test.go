@@ -22,7 +22,7 @@ import (
 func stdioResult(t *testing.T, request string) map[string]any {
 	t.Helper()
 	var out bytes.Buffer
-	if err := mcp.Serve(strings.NewReader(request+"\n"), &out, cmd.Dispatch); err != nil {
+	if err := mcp.Serve(strings.NewReader(request+"\n"), &out, cmd.Dispatch, nil); err != nil {
 		t.Fatalf("stdio Serve: %v", err)
 	}
 	var resp map[string]any
@@ -96,7 +96,7 @@ func TestHTTPTransportParity(t *testing.T) {
 
 	// 2. Start the HTTP adapter on a free loopback port.
 	addr := freePort(t)
-	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch, nil) }()
 	base := "http://" + addr
 	waitReady(t, addr)
 
@@ -122,7 +122,7 @@ func TestHTTPTransportParity(t *testing.T) {
 // TestHTTPLoopbackDefault asserts a bare port binds loopback, never a public
 // interface, so spec contents stay on-host by default (R4.2).
 func TestHTTPLoopbackDefault(t *testing.T) {
-	go func() { _ = mcp.ServeHTTP(":8799", cmd.Dispatch) }()
+	go func() { _ = mcp.ServeHTTP(":8799", cmd.Dispatch, nil) }()
 	waitReady(t, "127.0.0.1:8799")
 	if c, err := net.DialTimeout("tcp", "127.0.0.1:8799", time.Second); err == nil {
 		_ = c.Close()
@@ -157,7 +157,7 @@ func TestHTTPTransportMatrix(t *testing.T) {
 	}
 
 	addr := freePort(t)
-	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch, nil) }()
 	base := "http://" + addr
 	waitReady(t, addr)
 
@@ -175,7 +175,7 @@ func TestHTTPTransportMatrix(t *testing.T) {
 // contract for transport-level vs protocol-level failures.
 func TestHTTPMalformedRequest(t *testing.T) {
 	addr := freePort(t)
-	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch, nil) }()
 	base := "http://" + addr
 	waitReady(t, addr)
 
@@ -216,7 +216,7 @@ func TestHTTPMalformedRequest(t *testing.T) {
 
 func TestMCPHTTPMalformedOversizedRequest(t *testing.T) {
 	addr := freePort(t)
-	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch, nil) }()
 	base := "http://" + addr
 	waitReady(t, addr)
 
@@ -257,7 +257,7 @@ func TestMCPHTTPMalformedOversizedRequest(t *testing.T) {
 // JSON-RPC result the /rpc endpoint returns.
 func TestSSEFraming(t *testing.T) {
 	addr := freePort(t)
-	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch, nil) }()
 	base := "http://" + addr
 	waitReady(t, addr)
 

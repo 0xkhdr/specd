@@ -18,7 +18,7 @@ func drive(t *testing.T, requests ...string) []map[string]any {
 	t.Helper()
 	in := strings.NewReader(strings.Join(requests, "\n") + "\n")
 	var out bytes.Buffer
-	if err := mcp.Serve(in, &out, cmd.Dispatch); err != nil {
+	if err := mcp.Serve(in, &out, cmd.Dispatch, nil); err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
 	var resps []map[string]any

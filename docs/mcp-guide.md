@@ -251,6 +251,38 @@ The following tools are exposed automatically. Refer to the
 
 ---
 
+## Configuring the Tool Surface
+
+By default every tool above is advertised. For hosts that benefit from a smaller
+surface, an optional `mcp` block in `.specd/config.json` filters what
+`tools/list` returns. **The block is opt-in: omit it and the advertised set is
+byte-identical to the default — no behavioural change.**
+
+```jsonc
+{
+  "mcp": {
+    "expose": "essential",                      // "all" (default) | "essential"
+    "essentialTools": ["status", "context",     // command/intent names kept under "essential"
+                       "check", "next", "verify",
+                       "task", "approve", "report"],
+    "includeMeta": false,                        // expose update/uninstall/schema (default false)
+    "includeOrchestration": null                 // null => derive from orchestration.enabled
+  }
+}
+```
+
+| Field | Effect |
+|---|---|
+| `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set. An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
+| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `status, context, check, next, verify, task, approve, report`. |
+| `includeMeta` | When false (default) the install-maintenance tools `specd_update`, `specd_uninstall`, and the spec-pack-author tool `specd_schema` are hidden from MCP (they remain available on the CLI). |
+| `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
+
+Filtering only ever *hides* tools — it never grants new authority, and tool
+order stays deterministic (command order, then intent order).
+
+---
+
 ## Orchestration through MCP
 
 Brain/Pinky orchestration is exposed through generated tools, not custom MCP business logic.

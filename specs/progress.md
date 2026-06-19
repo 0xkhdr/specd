@@ -26,7 +26,7 @@ passes its acceptance criteria.
 Threads `*core.Config` into `buildTools` and adds the `mcp` config block. Every
 later wave consumes this plumbing.
 
-- [ ] **mcp-config-tool-filtering** — `MCPConfig` struct, `expose` modes, meta/orchestration gating, `buildTools(cfg)`.
+- [x] **mcp-config-tool-filtering** — `MCPConfig` struct, `expose` modes, meta/orchestration gating, `buildTools(cfg)`.
 
 ### Wave 2 — Surface reduction + alternate channels
 All depend on Wave 1's `buildTools(cfg)` signature + config block.

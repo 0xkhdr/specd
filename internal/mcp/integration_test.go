@@ -332,7 +332,7 @@ func driveIntegration(t *testing.T, h *th.Harness, requests ...string) []map[str
 	_ = h // harness keeps the cwd fixture alive for the duration
 	input := strings.Join(requests, "\n") + "\n"
 	var out strings.Builder
-	if err := mcp.Serve(strings.NewReader(input), &out, cmd.Dispatch); err != nil {
+	if err := mcp.Serve(strings.NewReader(input), &out, cmd.Dispatch, nil); err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
 	var resps []map[string]any

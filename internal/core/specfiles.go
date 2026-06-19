@@ -19,6 +19,27 @@ type Config struct {
 	Gates              GatesCfg         `json:"gates"`
 	Verify             VerifyCfg        `json:"verify"`
 	Orchestration      OrchestrationCfg `json:"orchestration"`
+	MCP                MCPConfig        `json:"mcp"`
+}
+
+// MCPConfig tunes which tools the native MCP server advertises on tools/list.
+// Its zero value is the backward-compatible contract: an absent `mcp` block
+// leaves every field zero, which the tool builder treats as "expose everything"
+// — byte-identical to pre-config output. IncludeOrchestration is a *bool so an
+// unset value (nil) is distinguishable from an explicit false: nil means "derive
+// from orchestration.enabled".
+type MCPConfig struct {
+	Expose               string   `json:"expose"`               // "all" (default) | "essential"
+	EssentialTools       []string `json:"essentialTools"`       // commands/intents kept under expose:"essential"
+	IncludeMeta          bool     `json:"includeMeta"`          // include install-mutating tools (update/uninstall/schema)
+	IncludeOrchestration *bool    `json:"includeOrchestration"` // nil => derive from orchestration.enabled
+}
+
+// Configured reports whether an `mcp` block was supplied (any field set). A
+// fully zero-value MCPConfig means no block was present, so the tool builder
+// falls back to full passthrough for strict backward compatibility.
+func (m MCPConfig) Configured() bool {
+	return m.Expose != "" || m.IncludeMeta || len(m.EssentialTools) > 0 || m.IncludeOrchestration != nil
 }
 
 type OrchestrationCfg struct {
@@ -159,6 +180,12 @@ func LoadConfig(root string) Config {
 				MaxConcurrentSpecs *int `json:"maxConcurrentSpecs"`
 			} `json:"program"`
 		} `json:"orchestration"`
+		MCP *struct {
+			Expose               *string  `json:"expose"`
+			EssentialTools       []string `json:"essentialTools"`
+			IncludeMeta          *bool    `json:"includeMeta"`
+			IncludeOrchestration *bool    `json:"includeOrchestration"`
+		} `json:"mcp"`
 	}
 	if err := json.Unmarshal([]byte(*raw), &partial); err != nil {
 		return DefaultConfig
@@ -252,6 +279,21 @@ func LoadConfig(root string) Config {
 			Warn("orchestration config rejected: " + err.Error() + " — using disabled defaults")
 			cfg.Orchestration = DefaultConfig.Orchestration
 		}
+	}
+	if partial.MCP != nil {
+		// Overlay only supplied fields so a missing key keeps its zero value.
+		// IncludeOrchestration is copied verbatim (including nil) to preserve the
+		// "unset vs. explicit false" distinction the tool builder relies on.
+		if partial.MCP.Expose != nil {
+			cfg.MCP.Expose = *partial.MCP.Expose
+		}
+		if partial.MCP.EssentialTools != nil {
+			cfg.MCP.EssentialTools = partial.MCP.EssentialTools
+		}
+		if partial.MCP.IncludeMeta != nil {
+			cfg.MCP.IncludeMeta = *partial.MCP.IncludeMeta
+		}
+		cfg.MCP.IncludeOrchestration = partial.MCP.IncludeOrchestration
 	}
 	return cfg
 }

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 func TestProbeHealthyServer(t *testing.T) {
@@ -39,7 +41,7 @@ func TestProbeHealthyServer(t *testing.T) {
 
 func TestProbeFailures(t *testing.T) {
 	t.Run("malformed response", func(t *testing.T) {
-		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher) error {
+		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher, _ *core.Config) error {
 			_, _ = bufio.NewReader(r).ReadBytes('\n')
 			_, err := io.WriteString(w, "not-json\n")
 			return err
@@ -48,7 +50,7 @@ func TestProbeFailures(t *testing.T) {
 	})
 
 	t.Run("timeout", func(t *testing.T) {
-		_, err := probe(context.Background(), nil, 20*time.Millisecond, func(r io.Reader, _ io.Writer, _ Dispatcher) error {
+		_, err := probe(context.Background(), nil, 20*time.Millisecond, func(r io.Reader, _ io.Writer, _ Dispatcher, _ *core.Config) error {
 			_, err := io.Copy(io.Discard, r)
 			return err
 		})
@@ -56,7 +58,7 @@ func TestProbeFailures(t *testing.T) {
 	})
 
 	t.Run("protocol mismatch", func(t *testing.T) {
-		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher) error {
+		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher, _ *core.Config) error {
 			_, _ = bufio.NewReader(r).ReadBytes('\n')
 			return writeProbeResult(w, 1, map[string]any{"protocolVersion": legacyProtocolVersion})
 		})
@@ -64,7 +66,7 @@ func TestProbeFailures(t *testing.T) {
 	})
 
 	t.Run("missing baseline tool", func(t *testing.T) {
-		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher) error {
+		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher, _ *core.Config) error {
 			reader := bufio.NewReader(r)
 			_, _ = reader.ReadBytes('\n')
 			if err := writeProbeResult(w, 1, map[string]any{"protocolVersion": latestProtocolVersion}); err != nil {
@@ -83,7 +85,7 @@ func TestProbeFailures(t *testing.T) {
 	})
 
 	t.Run("missing orchestration tool", func(t *testing.T) {
-		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher) error {
+		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher, _ *core.Config) error {
 			reader := bufio.NewReader(r)
 			_, _ = reader.ReadBytes('\n')
 			if err := writeProbeResult(w, 1, map[string]any{"protocolVersion": latestProtocolVersion}); err != nil {

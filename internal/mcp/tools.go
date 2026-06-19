@@ -1,6 +1,11 @@
 package mcp
 
-import "github.com/0xkhdr/specd/internal/core"
+import (
+	"fmt"
+	"os"
+
+	"github.com/0xkhdr/specd/internal/core"
+)
 
 // toolPrefix namespaces specd commands as MCP tools so a host sees specd_status,
 // specd_verify, etc. — recognisable and collision-free in a shared tool list.
@@ -22,6 +27,82 @@ var readOnlyCommands = map[string]bool{
 // destructiveCommands mutate the install itself rather than spec state; they are
 // additionally flagged so a host can warn before invoking them.
 var destructiveCommands = map[string]bool{"uninstall": true, "update": true}
+
+// metaRiskCommands are spec-pack-author / install-maintenance tools hidden from
+// the default MCP surface (spec R4); they reappear only under includeMeta:true.
+// schema is reclassified here (spec §5.5): it stays a CLI command, but is no
+// longer advertised as an MCP tool by default.
+var metaRiskCommands = map[string]bool{"update": true, "uninstall": true, "schema": true}
+
+// orchestrationCommands gate the Brain/Pinky surface (spec R5). They are hidden
+// unless orchestration is included (explicitly via includeOrchestration or
+// derived from orchestration.enabled). Every intent tool is `brain_*`, so the
+// same gate hides all of intentTools.
+var orchestrationCommands = map[string]bool{"brain": true, "pinky": true}
+
+// defaultEssentialTools is the built-in expose:"essential" set used when
+// mcp.essentialTools is empty (spec R3a): the minimal day-to-day driving loop.
+var defaultEssentialTools = []string{
+	"status", "context", "check", "next", "verify", "task", "approve", "report",
+}
+
+// exposurePlan is the resolved, pure allow-policy derived from a *core.Config.
+// buildTools consults it per tool so the loop stays a thin filter and the
+// resolution logic is table-testable in isolation (spec §5.3).
+type exposurePlan struct {
+	// passthrough emits every non-meta tool with no gating — the backward-compat
+	// path for an absent `mcp` block (spec R1).
+	passthrough          bool
+	essential            bool
+	essentialSet         map[string]bool
+	includeMeta          bool
+	includeOrchestration bool
+}
+
+// resolveMCPExposure turns config into an exposurePlan (pure; no I/O except the
+// R6 diagnostic, which goes to stderr — never the protocol stream). A nil or
+// unconfigured config yields passthrough so tests and absent blocks match today.
+func resolveMCPExposure(cfg *core.Config) exposurePlan {
+	if cfg == nil || !cfg.MCP.Configured() {
+		return exposurePlan{passthrough: true}
+	}
+	mc := cfg.MCP
+
+	expose := mc.Expose
+	switch expose {
+	case "", "all":
+		expose = "all"
+	case "essential":
+		// keep
+	default:
+		// R6: an unknown mode degrades to "all" plus one stderr diagnostic.
+		fmt.Fprintf(os.Stderr, "specd mcp: unknown expose mode %q; treating as \"all\"\n", mc.Expose)
+		expose = "all"
+	}
+
+	// R5a: an unset includeOrchestration derives from orchestration.enabled.
+	includeOrch := cfg.Orchestration.Enabled
+	if mc.IncludeOrchestration != nil {
+		includeOrch = *mc.IncludeOrchestration
+	}
+
+	plan := exposurePlan{
+		essential:            expose == "essential",
+		includeMeta:          mc.IncludeMeta,
+		includeOrchestration: includeOrch,
+	}
+	if plan.essential {
+		names := mc.EssentialTools
+		if len(names) == 0 {
+			names = defaultEssentialTools
+		}
+		plan.essentialSet = make(map[string]bool, len(names))
+		for _, n := range names {
+			plan.essentialSet[n] = true
+		}
+	}
+	return plan
+}
 
 type toolAnnotations struct {
 	ReadOnlyHint    bool `json:"readOnlyHint"`
@@ -88,15 +169,40 @@ func commandToTool(c core.CommandMeta) toolDef {
 // the intent-level orchestration tools (GAP-5). A new command surfaces as a
 // passthrough tool with no separate registration; intent tools give a model a
 // single high-level affordance over the same deterministic primitives.
-func buildTools() []toolDef {
+// A nil cfg (or an absent `mcp` block) yields the full, pre-config set so
+// existing hosts see byte-identical output (spec R1). Otherwise the resolved
+// exposurePlan filters by expose mode, meta gating, and orchestration gating
+// while preserving deterministic command-then-intent order (spec R7).
+func buildTools(cfg *core.Config) []toolDef {
+	plan := resolveMCPExposure(cfg)
 	tools := make([]toolDef, 0, len(core.Commands)+len(intentTools))
 	for _, c := range core.Commands {
 		if metaCommands[c.Command] {
 			continue
 		}
+		if !plan.passthrough {
+			if metaRiskCommands[c.Command] && !plan.includeMeta {
+				continue
+			}
+			if orchestrationCommands[c.Command] && !plan.includeOrchestration {
+				continue
+			}
+			if plan.essential && !plan.essentialSet[c.Command] {
+				continue
+			}
+		}
 		tools = append(tools, commandToTool(c))
 	}
 	for _, it := range intentTools {
+		if !plan.passthrough {
+			// Every intent tool is `brain_*`, so the orchestration gate hides them all.
+			if !plan.includeOrchestration {
+				continue
+			}
+			if plan.essential && !plan.essentialSet[it.name] {
+				continue
+			}
+		}
 		tools = append(tools, it.def())
 	}
 	return tools

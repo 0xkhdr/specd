@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // ServeHTTP exposes the same JSON-RPC dispatch as the stdio Serve loop over an
@@ -22,21 +24,22 @@ import (
 // concurrent dispatch would interleave captured output (R7). The stdio path is
 // untouched, so leaving --http unset keeps today's behaviour byte-identical
 // (R4.3). Stdlib-only, no third-party MCP SDK (R4.4).
-func ServeHTTP(addr string, dispatch Dispatcher) error {
+func ServeHTTP(addr string, dispatch Dispatcher, cfg *core.Config) error {
 	srv := &http.Server{
 		Addr:    loopbackAddr(addr),
-		Handler: httpHandler(dispatch),
+		Handler: httpHandler(dispatch, cfg),
 	}
 	return srv.ListenAndServe()
 }
 
-// httpHandler builds the /rpc and /sse routes sharing one dispatch mutex.
-func httpHandler(dispatch Dispatcher) http.Handler {
+// httpHandler builds the /rpc and /sse routes sharing one dispatch mutex. cfg is
+// threaded through to tools/list filtering exactly as on the stdio path.
+func httpHandler(dispatch Dispatcher, cfg *core.Config) http.Handler {
 	var mu sync.Mutex
 	dispatchLocked := func(raw []byte) []byte {
 		mu.Lock()
 		defer mu.Unlock()
-		return dispatchOnce(raw, dispatch)
+		return dispatchOnce(raw, dispatch, cfg)
 	}
 
 	mux := http.NewServeMux()
@@ -95,10 +98,10 @@ func httpHandler(dispatch Dispatcher) http.Handler {
 // conn.handle/route path as the stdio loop, capturing the framed response into
 // a buffer. A notification (no id) yields no bytes, matching stdio. The conn has
 // no reader because handle never reads — it only routes the bytes it is given.
-func dispatchOnce(raw []byte, dispatch Dispatcher) []byte {
+func dispatchOnce(raw []byte, dispatch Dispatcher, cfg *core.Config) []byte {
 	var buf bytes.Buffer
 	c := &conn{w: &buf, mode: framingNewline}
-	c.handle(raw, dispatch)
+	c.handle(raw, dispatch, cfg)
 	return bytes.TrimRight(buf.Bytes(), "\n")
 }
 

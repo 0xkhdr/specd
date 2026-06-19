@@ -77,7 +77,7 @@ func TestMCPMalformedOversizedStdioRequest(t *testing.T) {
 	tooLargeMsg := `{"jsonrpc":"2.0","id":1,"method":"ping","pad":"` + strings.Repeat("x", maxRPCBody) + `"}`
 	tooLarge := tooLargeMsg + "\n" + `{"jsonrpc":"2.0","id":2,"method":"ping"}` + "\n"
 	var out bytes.Buffer
-	err := Serve(strings.NewReader(tooLarge), &out, func(string, cli.Args) (int, bool) { return 0, true })
+	err := Serve(strings.NewReader(tooLarge), &out, func(string, cli.Args) (int, bool) { return 0, true }, nil)
 	if err != nil {
 		t.Fatalf("Serve: %v", err)
 	}
