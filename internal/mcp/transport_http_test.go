@@ -214,6 +214,43 @@ func TestHTTPMalformedRequest(t *testing.T) {
 	})
 }
 
+func TestMCPHTTPMalformedOversizedRequest(t *testing.T) {
+	addr := freePort(t)
+	go func() { _ = mcp.ServeHTTP(addr, cmd.Dispatch) }()
+	base := "http://" + addr
+	waitReady(t, addr)
+
+	tooLarge := strings.Repeat("x", 1<<20+1)
+	for _, path := range []string{"/rpc", "/sse"} {
+		t.Run(path, func(t *testing.T) {
+			resp, err := http.Post(base+path, "application/json", strings.NewReader(tooLarge))
+			if err != nil {
+				t.Fatalf("POST %s: %v", path, err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d, want 200 MCP error envelope", resp.StatusCode)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			body = bytes.TrimSpace(bytes.TrimPrefix(bytes.TrimSpace(body), []byte("data:")))
+			var m map[string]any
+			if err := json.Unmarshal(body, &m); err != nil {
+				t.Fatalf("response not JSON: %q: %v", string(body), err)
+			}
+			e, ok := m["error"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected JSON-RPC error envelope, got %v", m)
+			}
+			if code := e["code"].(float64); code != -32600 {
+				t.Errorf("error code = %v, want -32600", code)
+			}
+			if !strings.Contains(e["message"].(string), "message exceeds") {
+				t.Errorf("error message = %q, want size diagnostic", e["message"])
+			}
+		})
+	}
+}
+
 // TestSSEFraming asserts the /sse endpoint emits MCP-compliant SSE framing
 // (R3.2): a text/event-stream content type and a body framed as `data: <json>`
 // terminated by a blank line, with the unwrapped payload being the same

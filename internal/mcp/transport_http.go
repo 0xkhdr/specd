@@ -8,11 +8,6 @@ import (
 	"sync"
 )
 
-// maxRPCBody caps a single HTTP JSON-RPC request body. A spec command's argv is
-// tiny; this only guards against a runaway client, mirroring stdio's line-based
-// reads which are bounded by the host.
-const maxRPCBody = 1 << 20 // 1 MiB
-
 // ServeHTTP exposes the same JSON-RPC dispatch as the stdio Serve loop over an
 // opt-in HTTP transport (R4). It is a second front door onto the identical
 // request router — it adds transport, never business logic:
@@ -50,14 +45,15 @@ func httpHandler(dispatch Dispatcher) http.Handler {
 			http.Error(w, "POST required", http.StatusMethodNotAllowed)
 			return
 		}
-		raw, err := readBody(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		raw, rerr := readBody(r)
+		var resp []byte
+		if rerr.err != nil {
+			resp = rpcErrorResponse(rerr.rpcError())
+		} else {
+			resp = dispatchLocked(raw)
 		}
-		resp := dispatchLocked(raw)
 		w.Header().Set("Content-Type", "application/json")
-		// JSON-RPC carries its own error envelope, so even a parse error is a
+		// JSON-RPC carries its own error envelope, so even a parse/size error is a
 		// 200 with an error body — clients parse the result uniformly.
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(resp)
@@ -67,15 +63,20 @@ func httpHandler(dispatch Dispatcher) http.Handler {
 			http.Error(w, "GET or POST required", http.StatusMethodNotAllowed)
 			return
 		}
-		raw, err := readBody(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
+		raw, rerr := readBody(r)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 		w.WriteHeader(http.StatusOK)
+		if rerr.err != nil {
+			_, _ = w.Write([]byte("data: "))
+			_, _ = w.Write(rpcErrorResponse(rerr.rpcError()))
+			_, _ = w.Write([]byte("\n\n"))
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+			return
+		}
 		if len(bytes.TrimSpace(raw)) == 0 {
 			return // an empty stream open is a valid no-op
 		}
@@ -101,10 +102,27 @@ func dispatchOnce(raw []byte, dispatch Dispatcher) []byte {
 	return bytes.TrimRight(buf.Bytes(), "\n")
 }
 
+func rpcErrorResponse(rerr *rpcError) []byte {
+	var buf bytes.Buffer
+	c := &conn{w: &buf, mode: framingNewline}
+	_ = c.writeMessage(rpcResponse{Jsonrpc: "2.0", Error: rerr})
+	return bytes.TrimRight(buf.Bytes(), "\n")
+}
+
 // readBody reads a bounded request body.
-func readBody(r *http.Request) ([]byte, error) {
+func readBody(r *http.Request) ([]byte, rpcReadError) {
 	defer r.Body.Close()
-	return io.ReadAll(io.LimitReader(r.Body, maxRPCBody))
+	if r.ContentLength > maxRPCBody {
+		return nil, oversizedRPCError()
+	}
+	raw, err := io.ReadAll(io.LimitReader(r.Body, maxRPCBody+1))
+	if err != nil {
+		return nil, rpcReadError{err: &rpcError{Code: errInvalidRequest, Message: "read body: " + err.Error()}}
+	}
+	if len(raw) > maxRPCBody {
+		return nil, oversizedRPCError()
+	}
+	return raw, rpcReadError{}
 }
 
 // loopbackAddr defaults an empty or host-less address to loopback so the

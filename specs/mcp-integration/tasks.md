@@ -26,7 +26,7 @@
 
 ## Wave 16 — Bounded MCP Interactions
 
-- [ ] T3 — Harden bounded session interactions and server instructions
+- [x] T3 — Harden bounded session interactions and server instructions ✓ complete · evidence: go test ./internal/mcp/... -run 'TestMCP.*(Bounded|Instructions|HTTP|SSE|Malformed)' -count=2; make ci · 2026-06-19
   - why: MCP requests must not block indefinitely or misstate host-control capabilities.
   - role: builder
   - files: internal/mcp/server.go, internal/mcp/transport.go, internal/mcp/transport_http.go, internal/mcp/server_test.go

@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 15 complete; awaiting human review
+Status: implementation in progress; Wave 16 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 33/37 tasks complete
+Implementation progress: 34/37 tasks complete
 
 ## Program Outcome
 
@@ -34,7 +34,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 13 | Fake host and program CLI | 2 | complete |
 | 14 | Brain/program hardening and generated MCP tools | 3 | complete |
 | 15 | Configuration docs and CLI/MCP parity | 2 | complete |
-| 16 | Bounded MCP interactions | 1 | pending |
+| 16 | Bounded MCP interactions | 1 | complete |
 | 17 | Host compatibility | 1 | pending |
 | 18 | MCP end-to-end lifecycle | 1 | pending |
 | 19 | Documentation and full CI | 1 | pending |
@@ -63,7 +63,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | brain-core | 8 | 8 | complete | — |
 | pinky-core | 7 | 7 | complete | — |
 | program-orchestration | 5 | 5 | complete | — |
-| mcp-integration | 6 | 2 | in progress | T3 (Wave 16) |
+| mcp-integration | 6 | 3 | in progress | T4 (Wave 17) |
 
 ## Review Decisions Requested
 
@@ -272,6 +272,9 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   `make ci`.
 - Wave 15 / `mcp-integration/T2`: added CLI/MCP parity coverage for orchestration status and Brain mutations, plus approval mutation, invalid session IDs, evidence-gate failures, and cancellation semantics using equivalent fresh workspaces for CLI and MCP paths. Verification passed:
   `go test ./internal/mcp/... -run 'Test.*(CLI.*MCP.*Parity|Orchestration)' -count=2`,
+  `make ci`.
+- Wave 16 / `mcp-integration/T3`: added bounded MCP server instructions, capped stdio and HTTP/SSE request payloads with JSON-RPC error envelopes, and rejected unbounded MCP `watch` calls unless `--once` is used without streaming transports. Verification passed:
+  `go test ./internal/mcp/... -run 'TestMCP.*(Bounded|Instructions|HTTP|SSE|Malformed)' -count=2`,
   `make ci`.
 
 ## Progress Update Rules

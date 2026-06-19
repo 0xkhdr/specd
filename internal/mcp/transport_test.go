@@ -2,8 +2,11 @@ package mcp
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/cli"
 )
 
 // TestTransport covers framed read/write in both newline and Content-Length
@@ -68,6 +71,37 @@ func TestTransport(t *testing.T) {
 			t.Fatalf("raw = %s", raw)
 		}
 	})
+}
+
+func TestMCPMalformedOversizedStdioRequest(t *testing.T) {
+	tooLargeMsg := `{"jsonrpc":"2.0","id":1,"method":"ping","pad":"` + strings.Repeat("x", maxRPCBody) + `"}`
+	tooLarge := tooLargeMsg + "\n" + `{"jsonrpc":"2.0","id":2,"method":"ping"}` + "\n"
+	var out bytes.Buffer
+	err := Serve(strings.NewReader(tooLarge), &out, func(string, cli.Args) (int, bool) { return 0, true })
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	var responses []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var resp map[string]any
+		if err := json.Unmarshal([]byte(line), &resp); err != nil {
+			t.Fatalf("response not JSON: %q: %v", line, err)
+		}
+		responses = append(responses, resp)
+	}
+	if len(responses) != 2 {
+		t.Fatalf("got %d responses, want 2: %v", len(responses), responses)
+	}
+	e, ok := responses[0]["error"].(map[string]any)
+	if !ok || e["code"].(float64) != -32600 {
+		t.Fatalf("oversized response = %v, want -32600 error", responses[0])
+	}
+	if _, ok := responses[1]["result"]; !ok {
+		t.Fatalf("server did not recover after oversized line: %v", responses[1])
+	}
 }
 
 func itoa(n int) string {

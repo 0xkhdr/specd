@@ -16,7 +16,7 @@ import (
 const (
 	latestProtocolVersion = "2025-11-25"
 	legacyProtocolVersion = "2024-11-05"
-	serverInstructions    = "Call specd_status or specd_context first. Never edit .specd/state.json or tasks.md checkboxes directly. Use specd_check before approval. Run specd_verify and provide passing evidence before completing tasks."
+	serverInstructions    = "Call specd_status/context first. MCP is bounded: use brain start/step/status and watch --once only; host runs Pinky workers. Never edit state/tasks checkboxes. Approval is policy-gated; completion needs specd_verify evidence. Cancellation is cooperative."
 )
 
 // supportedProtocolVersions is newest-first so fallback negotiation is stable.
@@ -43,6 +43,10 @@ func Serve(r io.Reader, w io.Writer, dispatch Dispatcher) error {
 		if err != nil {
 			if err == io.EOF {
 				return nil
+			}
+			if rerr, ok := err.(rpcReadError); ok {
+				_ = c.writeMessage(rpcResponse{Jsonrpc: "2.0", Error: rerr.rpcError()})
+				continue
 			}
 			return err
 		}
@@ -151,10 +155,13 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 	// Force structured handler output: append --json (a no-op for commands that
 	// lack the flag) and set SPECD_JSON so JSON-mode suppression fires too.
 	argv = append(argv, "--json")
+	args := cli.ParseArgs(argv)
+	if err := enforceBoundedToolCall(command, args); err != nil {
+		return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
+	}
 	restoreEnv := setJSONMode()
 	defer restoreEnv()
 
-	args := cli.ParseArgs(argv)
 	var known bool
 	stdout, stderr, code := capture(func() int {
 		rc, k := dispatch(command, args)
@@ -200,6 +207,19 @@ func toolResult(stdout, stderr string, code int) map[string]any {
 // through cli.ParseArgs: the "args" array supplies ordered positionals, and each
 // remaining key becomes a flag (booleans as bare --flag, others as --flag value).
 // Flags are emitted in sorted order for deterministic argv.
+func enforceBoundedToolCall(command string, args cli.Args) error {
+	if command != "watch" {
+		return nil
+	}
+	if args.Str("sse") != "" || args.Str("webhook") != "" {
+		return fmt.Errorf("specd_watch over MCP does not allow --sse or --webhook; use CLI for streaming transports")
+	}
+	if !args.Bool("once") {
+		return fmt.Errorf("specd_watch over MCP requires --once so one request stays bounded")
+	}
+	return nil
+}
+
 func buildArgv(arguments map[string]any) ([]string, error) {
 	var argv []string
 	if raw, ok := arguments["args"]; ok && raw != nil {
