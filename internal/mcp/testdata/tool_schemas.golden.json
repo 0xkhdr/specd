@@ -13,7 +13,8 @@
         "type": "boolean",
         "description": "Output in JSON format"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_brain": {
     "type": "object",
@@ -24,7 +25,7 @@
       },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: Run bounded Brain or program session control.",
+        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|status|step|pause|resume|cancel\u003e ... [--program]",
         "items": {
           "type": "string"
         }
@@ -57,7 +58,8 @@
         "type": "string",
         "description": "required session timeout for start/step"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_check": {
     "type": "object",
@@ -72,7 +74,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_context": {
     "type": "object",
@@ -87,7 +90,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_decision": {
     "type": "object",
@@ -103,7 +107,8 @@
         "type": "string",
         "description": "ID of the decision being superseded"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_diff": {
     "type": "object",
@@ -126,7 +131,8 @@
         "type": "string",
         "description": "Target git ref (default: working tree)"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_dispatch": {
     "type": "object",
@@ -141,7 +147,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_doctor": {
     "type": "object",
@@ -165,7 +172,8 @@
         "type": "boolean",
         "description": "Output one deterministic JSON document"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_init": {
     "type": "object",
@@ -229,7 +237,8 @@
         "type": "boolean",
         "description": "Accept non-destructive project-scoped integration changes"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_memory": {
     "type": "object",
@@ -262,7 +271,8 @@
       "source": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_midreq": {
     "type": "object",
@@ -284,7 +294,8 @@
       "interpretation": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_new": {
     "type": "object",
@@ -300,7 +311,8 @@
         "type": "string",
         "description": "The title of the spec"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_next": {
     "type": "object",
@@ -319,14 +331,15 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_pinky": {
     "type": "object",
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: Manage Pinky worker lease and report events.",
+        "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|heartbeat|progress|report|block|release\u003e ...",
         "items": {
           "type": "string"
         }
@@ -338,6 +351,22 @@
       "changed-files": {
         "type": "string",
         "description": "comma-separated changed files"
+      },
+      "duration-ms": {
+        "type": "string",
+        "description": "host-reported task duration in milliseconds"
+      },
+      "git-head": {
+        "type": "string",
+        "description": "git commit observed by the host worker"
+      },
+      "host-cost": {
+        "type": "string",
+        "description": "host-reported cost (stored, not computed)"
+      },
+      "host-tokens": {
+        "type": "string",
+        "description": "host-reported token count (stored, not computed)"
       },
       "json": {
         "type": "boolean",
@@ -383,7 +412,8 @@
         "type": "string",
         "description": "worker id"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_program": {
     "type": "object",
@@ -401,7 +431,8 @@
       "on": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_replay": {
     "type": "object",
@@ -413,7 +444,8 @@
           "type": "string"
         }
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_report": {
     "type": "object",
@@ -435,7 +467,8 @@
         "type": "boolean",
         "description": "Emit a deterministic PR summary instead of the full report"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_schema": {
     "type": "object",
@@ -451,7 +484,8 @@
         "type": "string",
         "description": "Schema version to emit (default: current)"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_serve": {
     "type": "object",
@@ -467,7 +501,8 @@
           "type": "string"
         }
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_status": {
     "type": "object",
@@ -482,7 +517,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_task": {
     "type": "object",
@@ -517,7 +553,8 @@
       "unverified": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_uninstall": {
     "type": "object",
@@ -541,7 +578,8 @@
         "type": "boolean",
         "description": "Machine-readable output"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_update": {
     "type": "object",
@@ -557,7 +595,8 @@
         "type": "boolean",
         "description": "Force update even if already up to date"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_validate": {
     "type": "object",
@@ -580,7 +619,8 @@
         "type": "string",
         "description": "Schema version to validate against (default: current)"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_verify": {
     "type": "object",
@@ -609,7 +649,8 @@
       "status": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_watch": {
     "type": "object",
@@ -637,7 +678,8 @@
         "type": "string",
         "description": "POST each frontier event to this URL"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_waves": {
     "type": "object",
@@ -652,6 +694,7 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   }
 }

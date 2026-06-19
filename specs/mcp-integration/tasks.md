@@ -2,7 +2,7 @@
 
 ## Wave 14 — Generated MCP Tool Surface
 
-- [ ] T1 — Expose Brain and Pinky through command metadata
+- [x] T1 — Expose Brain and Pinky through command metadata ✓ complete · evidence: go test ./internal/mcp/... ./internal/cmd/... -run 'Test.*Tool|TestRegistryMatchesHelp' -count=2; make build; make ci · 2026-06-19
   - why: MCP tools must remain generated from the canonical CLI registry.
   - role: builder
   - files: internal/core/commands.go, internal/mcp/tools.go, internal/mcp/tools_test.go, internal/mcp/testdata/tool_schemas.golden.json

@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 13 complete; awaiting human review
+Status: implementation in progress; Wave 14 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 28/37 tasks complete
+Implementation progress: 31/37 tasks complete
 
 ## Program Outcome
 
@@ -32,7 +32,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 11 | Brain CLI, Pinky CLI, program child scheduling | 3 | complete |
 | 12 | Brain/Pinky guidance and program failure controls | 3 | complete |
 | 13 | Fake host and program CLI | 2 | complete |
-| 14 | Brain/program hardening and generated MCP tools | 3 | pending |
+| 14 | Brain/program hardening and generated MCP tools | 3 | complete |
 | 15 | Configuration docs and CLI/MCP parity | 2 | pending |
 | 16 | Bounded MCP interactions | 1 | pending |
 | 17 | Host compatibility | 1 | pending |
@@ -60,10 +60,10 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 |---|---:|---:|---|---|
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
 | acp-file-transport | 7 | 7 | complete | — |
-| brain-core | 8 | 7 | in progress | T8 (Wave 14) |
+| brain-core | 8 | 8 | complete | — |
 | pinky-core | 7 | 7 | complete | — |
-| program-orchestration | 5 | 4 | in progress | T5 (Wave 14) |
-| mcp-integration | 6 | 0 | proposed | T1 (Wave 14) |
+| program-orchestration | 5 | 5 | complete | — |
+| mcp-integration | 6 | 1 | in progress | T2 (Wave 15) |
 
 ## Review Decisions Requested
 
@@ -255,6 +255,18 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   `make ci`.
 - Wave 13 / `program-orchestration/T4`: extended `specd brain` with program start/step/status/pause/resume/cancel, deterministic program status JSON with counts, waves, frontier, critical path, child snapshots, and escalation, while preserving existing `specd program` JSON output and fail-closed approval policy validation. Verification passed:
   `go test ./internal/integration/... ./internal/core/... ./internal/cmd/... -race -count=2`,
+  `make ci`.
+- Backprop B6 / 2026-06-19: Wave 14 active-session hardening initially scanned the current session directory after the lock directory existed but before `session.json` was written, causing fresh starts to fail with `orchestration engine: session not found`. Fixed the scan to skip the session under creation before loading persisted sessions. No new invariant was needed because the new fake-host lifecycle test and existing program orchestration tests catch this class.
+- Wave 14 / `brain-core/T8`: added deterministic fake-host Brain lifecycle coverage for approval gating, pause/resume, retry after failed verification, evidence-gated completion, session completion, and same-spec active-session contention; added `scripts/stress-orchestration.sh` and CI wiring. Verification passed:
+  `go test ./internal/integration/... ./internal/core/... -run 'TestFakeHostBrainLifecycle|TestFakeHostProgram|TestOrchestrationEngine|TestProgramOrchestration' -race -count=2`,
+  `./scripts/stress-orchestration.sh`,
+  `make ci`.
+- Wave 14 / `program-orchestration/T5`: added fake-host program lifecycle coverage for parallel wave scheduling, restart recovery, parent contention, fail-fast escalation, dependent start prevention, and all-complete termination; added `scripts/stress-program.sh` and CI wiring. Verification passed:
+  `go test ./internal/integration/... ./internal/core/... -run 'TestFakeHostBrainLifecycle|TestFakeHostProgram|TestOrchestrationEngine|TestProgramOrchestration' -race -count=2`,
+  `./scripts/stress-program.sh`,
+  `make ci`.
+- Wave 14 / `mcp-integration/T1`: hardened generated MCP tool schemas with closed `additionalProperties:false`, completed Brain/Pinky command metadata including Pinky terminal report telemetry flags, refreshed golden schemas, and added parity assertions for orchestration tool annotations and flags. Verification passed:
+  `go test ./internal/mcp/... ./internal/cmd/... -run 'Test.*Tool|TestRegistryMatchesHelp' -count=2`,
   `make ci`.
 
 ## Progress Update Rules

@@ -69,6 +69,25 @@ func TestToolsList(t *testing.T) {
 			t.Errorf("specd_verify missing string 'status' flag prop")
 		}
 	}
+
+	brain := byName["specd_brain"]
+	if brain.Annotations.ReadOnlyHint || brain.Annotations.DestructiveHint {
+		t.Errorf("specd_brain annotations = %+v, want mutating non-destructive", brain.Annotations)
+	}
+	for _, flag := range []string{"program", "session", "approval-policy", "max-workers", "max-retries", "timeout-seconds", "cost-limit", "json"} {
+		if _, ok := brain.InputSchema.Properties[flag]; !ok {
+			t.Errorf("specd_brain missing orchestration flag %q", flag)
+		}
+	}
+	pinky := byName["specd_pinky"]
+	if pinky.Annotations.ReadOnlyHint || pinky.Annotations.DestructiveHint {
+		t.Errorf("specd_pinky annotations = %+v, want mutating non-destructive", pinky.Annotations)
+	}
+	for _, flag := range []string{"mission", "session", "worker", "spec", "task", "attempt", "percent", "message", "reason", "verification-ref", "summary", "changed-files", "git-head", "duration-ms", "host-tokens", "host-cost", "json"} {
+		if _, ok := pinky.InputSchema.Properties[flag]; !ok {
+			t.Errorf("specd_pinky missing worker flag %q", flag)
+		}
+	}
 }
 
 // TestToolSchemaGolden snapshots every tool's name → input-schema mapping to a
@@ -121,6 +140,9 @@ func TestToolSchemaValidity(t *testing.T) {
 			t.Error("tool with empty name")
 		}
 		s := tl.InputSchema
+		if s.AdditionalProperties {
+			t.Errorf("%s: additionalProperties = true, want false", tl.Name)
+		}
 		if s.Type != "object" {
 			t.Errorf("%s: inputSchema.type = %q, want object", tl.Name, s.Type)
 		}

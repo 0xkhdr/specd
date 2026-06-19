@@ -35,8 +35,9 @@ type schemaProp struct {
 }
 
 type jsonSchema struct {
-	Type       string                `json:"type"`
-	Properties map[string]schemaProp `json:"properties"`
+	Type                 string                `json:"type"`
+	Properties           map[string]schemaProp `json:"properties"`
+	AdditionalProperties bool                  `json:"additionalProperties"`
 }
 
 type toolDef struct {
@@ -68,7 +69,7 @@ func commandToTool(c core.CommandMeta) toolDef {
 	return toolDef{
 		Name:        toolPrefix + c.Command,
 		Description: c.Description,
-		InputSchema: jsonSchema{Type: "object", Properties: props},
+		InputSchema: jsonSchema{Type: "object", Properties: props, AdditionalProperties: false},
 		Annotations: toolAnnotations{
 			ReadOnlyHint:    readOnlyCommands[c.Command],
 			DestructiveHint: destructiveCommands[c.Command],

@@ -86,7 +86,7 @@
 
 ## Wave 14 — Brain End-to-End Hardening
 
-- [ ] T8 — Add deterministic fake-host lifecycle and stress coverage
+- [x] T8 — Add deterministic fake-host lifecycle and stress coverage ✓ complete · evidence: make build; make ci · 2026-06-19
   - why: The complete controller must be proven without a real model provider.
   - role: verifier
   - files: internal/integration/orchestration_test.go, internal/testharness/orchestration.go, scripts/stress-orchestration.sh, Makefile

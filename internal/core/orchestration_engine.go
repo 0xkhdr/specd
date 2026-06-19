@@ -68,6 +68,18 @@ func StepOrchestration(root, slug, sessionID string, policy OrchestrationPolicy,
 			return struct{}{}, err
 		}
 		result.Event = event
+		if hasSession {
+			switch decision.Action {
+			case OrchestrationCompleteSession:
+				if _, err := markOrchestrationSessionStatus(root, sessionID, OrchestrationSessionComplete); err != nil {
+					return struct{}{}, err
+				}
+			case OrchestrationEscalate:
+				if _, err := markOrchestrationSessionStatus(root, sessionID, OrchestrationSessionFailed); err != nil {
+					return struct{}{}, err
+				}
+			}
+		}
 		return struct{}{}, nil
 	})
 	return result, err
@@ -236,37 +248,49 @@ func StartOrchestrationSession(root, slug, sessionID, owner string, policy Orche
 	if err := ValidateOrchestrationPolicy(policy); err != nil {
 		return OrchestrationSession{}, err
 	}
+	if _, err := LoadSpec(root, slug); err != nil {
+		return OrchestrationSession{}, err
+	}
 	store, err := NewACPStore(root)
 	if err != nil {
 		return OrchestrationSession{}, err
 	}
-	var created OrchestrationSession
-	err = store.withSessionLock(sessionID, func() error {
-		if _, err := LoadOrchestrationSession(root, sessionID); err == nil {
-			return fmt.Errorf("orchestration engine: session %s already exists", sessionID)
-		} else if !errors.Is(err, errOrchestrationSessionNotFound) {
-			return err
-		}
-		now := Clock().UTC()
-		session := OrchestrationSession{
-			Version:      OrchestrationModelVersion,
-			SessionID:    sessionID,
-			Spec:         slug,
-			Owner:        owner,
-			Status:       OrchestrationSessionRunning,
-			Policy:       policy,
-			CreatedAt:    now.Format(time.RFC3339Nano),
-			UpdatedAt:    now.Format(time.RFC3339Nano),
-			ExpiresAt:    orchestrationSessionExpiry(now, policy).Format(time.RFC3339Nano),
-			LastSequence: 0,
-		}
-		if err := saveOrchestrationSession(root, session); err != nil {
-			return err
-		}
-		created = session
-		return nil
+	return WithSpecLock[OrchestrationSession](root, slug, func() (OrchestrationSession, error) {
+		var created OrchestrationSession
+		err = store.withSessionLock(sessionID, func() error {
+			if _, err := LoadOrchestrationSession(root, sessionID); err == nil {
+				return fmt.Errorf("orchestration engine: session %s already exists", sessionID)
+			} else if !errors.Is(err, errOrchestrationSessionNotFound) {
+				return err
+			}
+			active, err := activeOrchestrationSessionForSpec(root, slug, sessionID)
+			if err != nil {
+				return err
+			}
+			if active != nil {
+				return fmt.Errorf("orchestration engine: spec %s already has active session %s", slug, active.SessionID)
+			}
+			now := Clock().UTC()
+			session := OrchestrationSession{
+				Version:      OrchestrationModelVersion,
+				SessionID:    sessionID,
+				Spec:         slug,
+				Owner:        owner,
+				Status:       OrchestrationSessionRunning,
+				Policy:       policy,
+				CreatedAt:    now.Format(time.RFC3339Nano),
+				UpdatedAt:    now.Format(time.RFC3339Nano),
+				ExpiresAt:    orchestrationSessionExpiry(now, policy).Format(time.RFC3339Nano),
+				LastSequence: 0,
+			}
+			if err := saveOrchestrationSession(root, session); err != nil {
+				return err
+			}
+			created = session
+			return nil
+		})
+		return created, err
 	})
-	return created, err
 }
 
 // PauseOrchestration suspends new dispatch. It is idempotent (paused→paused) and
@@ -426,6 +450,50 @@ func sessionEventCount(store *ACPStore, sessionID string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(len(events)), nil
+}
+
+func activeOrchestrationSessionForSpec(root, slug, exceptSessionID string) (*OrchestrationSession, error) {
+	paths, err := NewACPRuntimePaths(root)
+	if err != nil {
+		return nil, err
+	}
+	dir, err := paths.SessionsDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("orchestration engine: read sessions: %w", err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if err := validateACPOpaqueID("session ID", entry.Name()); err != nil {
+			return nil, err
+		}
+		if entry.Name() == exceptSessionID {
+			continue
+		}
+		session, err := LoadOrchestrationSession(root, entry.Name())
+		if errors.Is(err, errOrchestrationSessionNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if session.Spec != slug {
+			continue
+		}
+		switch session.Status {
+		case OrchestrationSessionRunning, OrchestrationSessionPaused, OrchestrationSessionCancelling:
+			return &session, nil
+		}
+	}
+	return nil, nil
 }
 
 func loadOrchestrationSessionIfExists(root, sessionID string) (OrchestrationSession, bool, error) {

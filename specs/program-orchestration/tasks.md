@@ -50,7 +50,7 @@
 
 ## Wave 14 — Program Stress and Recovery
 
-- [ ] T5 — Add multi-process program stress and recovery tests
+- [x] T5 — Add multi-process program stress and recovery tests ✓ complete · evidence: make build; make ci · 2026-06-19
   - why: Cross-spec scheduling combines the highest concurrency risks.
   - role: verifier
   - files: internal/integration/program_orchestration_test.go, scripts/stress-program.sh, Makefile
