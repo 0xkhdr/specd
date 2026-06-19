@@ -93,6 +93,12 @@ state, locks, gates, verification records, and ACP file transport as the normal
 CLI. They do **not** call an LLM and do **not** spawn provider-specific agents;
 the host remains responsible for executing Pinky missions.
 
+MCP exposes these commands as generated tools, not MCP-only handlers:
+`specd_brain` receives `brain` subcommands in `args`, and `specd_pinky` receives
+`pinky` subcommands in `args`. Every call is bounded. Use repeated `status` and
+`step` calls for polling/reconciliation; do not expect one MCP request to wait
+for a worker lifecycle to finish.
+
 | Command | Description | Exit codes |
 |---|---|---|
 | `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]` | Start or step one spec orchestration session. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
@@ -104,7 +110,7 @@ the host remains responsible for executing Pinky missions.
 | `specd pinky claim --mission <path\|-> [--json]` | Host worker claims a Brain-issued mission under an ACP lease | `0` ok, `1` invalid/stale/duplicate claim, `2` usage, `3` not found |
 | `specd pinky heartbeat --session <id> --worker <id> --attempt <n> [--json]` | Renew the worker lease before expiry | same |
 | `specd pinky progress --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> --message <text> [--json]` | Record host-reported progress as ACP evidence; it is telemetry, not proof of completion | same |
-| `specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]` | Record terminal worker evidence. Completion is accepted only when it binds to a matching passing `specd verify` record and satisfies the task scope/evidence gates | same |
+| `specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]` | Record terminal worker evidence. Completion is accepted only when it binds to a matching passing `specd verify` record and satisfies the task scope/evidence gates. Host-reported tokens/cost/duration are stored verbatim as telemetry, not proof | same |
 | `specd pinky block --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --reason <text> [--json]` | Record a worker blocker for Brain reconciliation | same |
 | `specd pinky release --session <id> --worker <id> --attempt <n>` | Release a claim idempotently | same |
 

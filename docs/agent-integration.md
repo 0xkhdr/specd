@@ -152,6 +152,35 @@ Backward compatibility: older `.specd/config.json` files with no
 modes, secret-shaped fields, invalid costs, or unsafe timing relationships fail
 closed to the disabled defaults.
 
+### Driving Brain/Pinky from MCP hosts
+
+MCP hosts use the generated `specd_brain` and `specd_pinky` tools. The `args`
+array is the normal CLI subcommand list; flags are ordinary tool arguments.
+There are no MCP-only orchestration commands.
+
+Typical host loop:
+
+1. Call `specd_brain` with `args: ["start", "<slug>"]` and explicit
+   `approval-policy`, `max-workers`, `max-retries`, and `timeout-seconds`.
+2. Read the bounded JSON result. If Brain dispatches a mission, the host starts
+   or assigns its own worker; specd does not spawn one.
+3. The worker calls `specd_pinky` with `args: ["claim"]`, then heartbeat,
+   progress/block, and terminal report calls while holding the lease.
+4. The worker runs the task's `specd verify` command through the host shell.
+5. The worker reports completion with `specd_pinky args: ["report"]` and the
+   matching `verification-ref`; Brain later steps and reconciles the event log.
+6. The host repeats bounded `specd_brain status` / `step` calls until the
+   session completes, pauses, escalates, or waits for human approval.
+
+Cancellation is cooperative: `specd_brain cancel` records intent, and a later
+step emits cancellation directives for active leases. Hosts must deliver that
+signal to their workers and stop them safely; specd never kills provider or
+editor processes.
+
+Recovery is file-backed: after a host or MCP restart, call `specd_brain status`
+for the persisted session and continue with `step`. Expired leases are reclaimed
+by Brain within policy, and duplicate Pinky terminal reports are idempotent.
+
 ## Cross-spec programs
 
 For multi-spec efforts, declare dependencies between whole specs:

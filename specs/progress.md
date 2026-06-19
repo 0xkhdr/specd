@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 18 complete; awaiting human review
+Status: implementation complete; Wave 19 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 36/37 tasks complete
+Implementation progress: 37/37 tasks complete
 
 ## Program Outcome
 
@@ -37,7 +37,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 16 | Bounded MCP interactions | 1 | complete |
 | 17 | Host compatibility | 1 | complete |
 | 18 | MCP end-to-end lifecycle | 1 | complete |
-| 19 | Documentation and full CI | 1 | pending |
+| 19 | Documentation and full CI | 1 | complete |
 
 ## Dependency Spine
 
@@ -63,7 +63,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | brain-core | 8 | 8 | complete | — |
 | pinky-core | 7 | 7 | complete | — |
 | program-orchestration | 5 | 5 | complete | — |
-| mcp-integration | 6 | 5 | in progress | T6 (Wave 19) |
+| mcp-integration | 6 | 6 | complete | — |
 
 ## Review Decisions Requested
 
@@ -281,6 +281,8 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   `make ci`.
 - Wave 18 / `mcp-integration/T5`: added MCP orchestration lifecycle coverage that drives Brain start/status/pause/resume/step/cancel and Pinky claim/heartbeat/progress/block/report/release through stdio and alternating HTTP `/rpc` + `/sse`, reconciles fake-worker evidence, verifies retry and cooperative cancellation convergence, and compares final state/event summaries across transports. Verification passed:
   `go test ./internal/mcp/... -race -count=2`,
+  `make ci`.
+- Wave 19 / `mcp-integration/T6`: updated MCP, agent integration, troubleshooting, and command reference documentation for generated `specd_brain`/`specd_pinky` tools, bounded polling/stepping, host-owned worker lifecycle, approvals, evidence binding, cooperative cancellation, and file-backed recovery without promising embedded LLM execution. Verification passed:
   `make ci`.
 
 ## Progress Update Rules

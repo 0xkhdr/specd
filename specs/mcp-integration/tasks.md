@@ -62,7 +62,7 @@
 
 ## Wave 19 — Documentation and Full Gate
 
-- [ ] T6 — Update MCP and agent integration documentation
+- [x] T6 — Update MCP and agent integration documentation ✓ complete · evidence: make ci · 2026-06-19
   - why: Users need an accurate workflow and trust model.
   - role: builder
   - files: docs/mcp-guide.md, docs/agent-integration.md, docs/troubleshooting.md, docs/command-reference.md
