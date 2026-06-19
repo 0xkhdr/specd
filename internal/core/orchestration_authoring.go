@@ -120,6 +120,7 @@ func BuildAuthoringMission(root, slug, sessionID, workerID, artifact string, cfg
 		},
 	}
 	_ = loaded // LoadSpec validates the spec exists; its body is not needed here.
+	mission.ContextManifest = BuildMissionContextManifest(mission)
 	mission.DispatchDigest = pinkyMissionDigest(mission)
 	if err := validatePinkyMission(mission); err != nil {
 		return PinkyMission{}, err

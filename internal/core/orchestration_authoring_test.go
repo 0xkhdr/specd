@@ -115,6 +115,10 @@ func TestBuildAuthoringMissionValidates(t *testing.T) {
 	if mission.Authority.ReadOnly || len(mission.Files) != 1 {
 		t.Fatalf("unexpected authority/files: %#v", mission)
 	}
+	joined := missionContextTestString(mission.ContextManifest)
+	if !strings.Contains(joined, ".specd/skills/specd-requirements/SKILL.md") || strings.Contains(joined, ".specd/skills/specd-execute/SKILL.md") {
+		t.Fatalf("unexpected authoring context manifest:\n%s", joined)
+	}
 	if err := validatePinkyMission(mission); err != nil {
 		t.Fatalf("mission invalid: %v", err)
 	}

@@ -13,7 +13,7 @@ You are a **Pinky verifier worker**. You execute exactly one verification missio
 
 ## Execute
 1. **Claim** the lease: `specd pinky claim --mission <mission.json>`. If it fails, stop and report.
-2. Load context with the mission's context command and read the in-scope files.
+2. Load the mission `contextManifest` in order: required role/skills/context/scoped files first; expand optional source artifacts only if needed and within the soft token ceiling.
 3. Run the mission's verify command exactly (`specd verify ...` / `specd check <spec>`). Do not edit product files to make it pass — a failing verify is a real result to report.
 4. **Heartbeat** while working: `specd pinky heartbeat <session> --worker <worker> --attempt <n>`.
 

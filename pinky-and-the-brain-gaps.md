@@ -167,7 +167,9 @@ There is `replay.go` and a decision/event log, but the design promised "every Br
 
 ---
 
-### GAP-9 (P2) — Context-engineering assets for workers are thin
+### GAP-9 (P2) — Context-engineering assets for workers are thin — ✅ DONE
+
+> **Implemented (Milestone C):** Pinky missions now carry a deterministic `contextManifest` (`PinkyMission.ContextManifest`, emitted in mission JSON and ACP mission payloads) with read order, phase-scoped skill, required vs optional items, per-item token hints, and a soft token ceiling. `RenderMissionBrief` prints the manifest as the canonical worker context contract. Worker templates and `specd-pinky` guidance now tell hosts to follow the manifest instead of assembling context ad hoc. Tests cover execution manifests, authoring manifests, ACP/schema conformance.
 
 Worker context today = `specd context <spec>` + `roles/<role>.md` + mission files. For a *worldwide* harness, the worker prompt budget is the scarce resource. Missing:
 
@@ -204,7 +206,7 @@ The design's ACP defined a `query` message (Pinky → Brain: "I need clarificati
 
 ### Milestone C — Trust, context, scale — P2
 8. ✅ **GAP-8** `replay` timeline + `brain why`.
-9. **GAP-9** mission-context manifest with token budget.
+9. ✅ **GAP-9** mission-context manifest with token budget.
 10. **GAP-10** decide `query`/`directive` vs. documented block-and-redispatch.
 
 ---

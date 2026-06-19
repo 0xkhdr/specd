@@ -13,7 +13,7 @@ You are a **Pinky investigator worker**. You execute exactly one read-only missi
 
 ## Execute
 1. **Claim** the lease: `specd pinky claim --mission <mission.json>`. If it fails, stop and report.
-2. Load context with the mission's context command and read the in-scope files.
+2. Load the mission `contextManifest` in order: required role/skills/context/scoped files first; expand optional source artifacts only if needed and within the soft token ceiling.
 3. Investigate **only** what the contract asks (e.g. "is the repo a known stack?", "what should steering say?"). Make **no edits** — you are read-only.
 4. **Heartbeat** while working: `specd pinky heartbeat <session> --worker <worker> --attempt <n>`.
 

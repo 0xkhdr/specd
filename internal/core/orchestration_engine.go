@@ -205,15 +205,16 @@ func recordOrchestrationDecision(root, sessionID string, decision OrchestrationD
 		}
 		messageType = ACPMessageMission
 		payload = ACPMissionPayload{
-			DispatchDigest: mission.DispatchDigest,
-			Role:           mission.Role,
-			ContextCommand: mission.ContextCommand,
-			Contract:       mission.Contract,
-			Files:          append([]string{}, mission.Files...),
-			Acceptance:     mission.Acceptance,
-			VerifyCommand:  mission.VerifyCommand,
-			Dependencies:   append([]string{}, mission.Dependencies...),
-			Authority:      mission.Authority,
+			DispatchDigest:  mission.DispatchDigest,
+			Role:            mission.Role,
+			ContextCommand:  mission.ContextCommand,
+			ContextManifest: mission.ContextManifest,
+			Contract:        mission.Contract,
+			Files:           append([]string{}, mission.Files...),
+			Acceptance:      mission.Acceptance,
+			VerifyCommand:   mission.VerifyCommand,
+			Dependencies:    append([]string{}, mission.Dependencies...),
+			Authority:       mission.Authority,
 		}
 	case OrchestrationCancel:
 		messageType = ACPMessageDirective

@@ -29,13 +29,8 @@ func RenderMissionBrief(mission PinkyMission) string {
 		fmt.Fprintf(&sb, "- title: %s\n", mission.Title)
 	}
 
-	sb.WriteString("\n## Context to load (in order)\n")
-	fmt.Fprintf(&sb, "1. Role contract: `.specd/roles/%s.md`\n", mission.Role)
-	sb.WriteString("2. Pinky skill: `.specd/skills/specd-pinky/SKILL.md`\n")
-	fmt.Fprintf(&sb, "3. Spec context: run `%s`\n", mission.ContextCommand)
-	if len(mission.Files) > 0 {
-		fmt.Fprintf(&sb, "4. Files in scope: %s\n", strings.Join(backticked(mission.Files), ", "))
-	}
+	sb.WriteString("\n## Context manifest (minimal sufficient context)\n")
+	renderContextManifest(&sb, mission.ContextManifest)
 
 	sb.WriteString("\n## Contract (bounded — do only this)\n")
 	fmt.Fprintf(&sb, "%s\n", mission.Contract)
@@ -61,6 +56,31 @@ func RenderMissionBrief(mission PinkyMission) string {
 	fmt.Fprintf(&sb, "4. On done (after verify passes): `specd pinky report ...` with the verify record, then `specd pinky release ...`\n")
 	fmt.Fprintf(&sb, "\nMission JSON to claim with is emitted by `specd pinky brief ... --json`.\n")
 	return sb.String()
+}
+
+func renderContextManifest(sb *strings.Builder, manifest MissionContextManifest) {
+	fmt.Fprintf(sb, "- soft token ceiling: %d\n", manifest.SoftTokenCeiling)
+	fmt.Fprintf(sb, "- strategy: %s\n\n", manifest.Strategy)
+	sb.WriteString("| # | kind | load | mode | required | hint | why |\n")
+	sb.WriteString("|---|---|---|---|---|---|---|\n")
+	for _, item := range manifest.Items {
+		fmt.Fprintf(sb, "| %d | %s | %s | %s | %t | %d | %s |\n",
+			item.Order,
+			item.Kind,
+			contextItemLoad(item),
+			item.Mode,
+			item.Required,
+			item.TokenHint,
+			item.Rationale,
+		)
+	}
+}
+
+func contextItemLoad(item MissionContextItem) string {
+	if item.Command != "" {
+		return "`" + item.Command + "`"
+	}
+	return "`" + item.Path + "`"
 }
 
 func readOnlySuffix(readonly bool) string {

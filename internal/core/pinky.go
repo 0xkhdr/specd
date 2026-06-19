@@ -10,25 +10,26 @@ import (
 )
 
 type PinkyMission struct {
-	Version        int          `json:"version"`
-	SessionID      string       `json:"sessionId"`
-	WorkerID       string       `json:"workerId"`
-	Spec           string       `json:"spec"`
-	TaskID         string       `json:"taskId"`
-	Attempt        int          `json:"attempt"`
-	Deadline       string       `json:"deadline"`
-	HeartbeatEvery int          `json:"heartbeatEverySeconds"`
-	Role           string       `json:"role"`
-	Title          string       `json:"title"`
-	ContextCommand string       `json:"contextCommand"`
-	Contract       string       `json:"contract"`
-	Files          []string     `json:"files"`
-	Acceptance     string       `json:"acceptance"`
-	VerifyCommand  string       `json:"verifyCommand"`
-	Dependencies   []string     `json:"dependencies"`
-	Requirements   []int        `json:"requirements"`
-	Authority      ACPAuthority `json:"authority"`
-	DispatchDigest string       `json:"dispatchDigest"`
+	Version         int                    `json:"version"`
+	SessionID       string                 `json:"sessionId"`
+	WorkerID        string                 `json:"workerId"`
+	Spec            string                 `json:"spec"`
+	TaskID          string                 `json:"taskId"`
+	Attempt         int                    `json:"attempt"`
+	Deadline        string                 `json:"deadline"`
+	HeartbeatEvery  int                    `json:"heartbeatEverySeconds"`
+	Role            string                 `json:"role"`
+	Title           string                 `json:"title"`
+	ContextCommand  string                 `json:"contextCommand"`
+	ContextManifest MissionContextManifest `json:"contextManifest"`
+	Contract        string                 `json:"contract"`
+	Files           []string               `json:"files"`
+	Acceptance      string                 `json:"acceptance"`
+	VerifyCommand   string                 `json:"verifyCommand"`
+	Dependencies    []string               `json:"dependencies"`
+	Requirements    []int                  `json:"requirements"`
+	Authority       ACPAuthority           `json:"authority"`
+	DispatchDigest  string                 `json:"dispatchDigest"`
 }
 
 type PinkyClaim struct {
@@ -80,6 +81,7 @@ func BuildPinkyMission(root, slug, sessionID, workerID, taskID string, attempt i
 	}
 	sort.Strings(mission.Files)
 	sort.Strings(mission.Dependencies)
+	mission.ContextManifest = BuildMissionContextManifest(mission)
 	mission.DispatchDigest = pinkyMissionDigest(mission)
 	if err := validatePinkyMission(mission); err != nil {
 		return PinkyMission{}, err
@@ -196,6 +198,9 @@ func validatePinkyMission(m PinkyMission) error {
 	}
 	if m.HeartbeatEvery < minHeartbeatSeconds || m.HeartbeatEvery > maxHeartbeatSeconds {
 		return fmt.Errorf("pinky: heartbeat interval outside policy bounds")
+	}
+	if err := validateMissionContextManifest(m.ContextManifest, true); err != nil {
+		return err
 	}
 	if err := validateACPText("contract", m.Contract, true); err != nil {
 		return err

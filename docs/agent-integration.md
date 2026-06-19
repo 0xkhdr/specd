@@ -232,10 +232,12 @@ Brain drives both **planning** and **execution**, not just execution:
 - **Worker briefs and agent templates.** `specd pinky brief --session <id>
   --worker <id> --spec <slug> (--task <id> | --artifact <name>) [--json]` renders
   a paste-ready, context-engineered worker brief (or, with `--json`, the
-  claimable mission). `specd init` installs Claude Code sub-agent definitions at
-  `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md`, each a thin
-  shell that loads the role + `specd-pinky` skill and runs claim → execute →
-  verify → report.
+  claimable mission). Each mission carries a deterministic `contextManifest`:
+  required role + Pinky skill + one phase-scoped skill + `specd context` + scoped
+  files, optional source artifacts, and a soft token ceiling so different hosts
+  package the same minimal sufficient context. `specd init` installs Claude Code
+  sub-agent definitions at `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md`, each a thin
+  shell that follows the manifest and runs claim → execute → verify → report.
 
 The core stays deterministic: the driver loop and briefs are orchestration glue;
 all authoring/execution happens inside the host worker. The final

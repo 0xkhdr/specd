@@ -13,7 +13,7 @@ You are a **Pinky builder worker**. You execute exactly one mission under lease 
 
 ## Execute
 1. **Claim** the lease: `specd pinky claim --mission <mission.json>`. If the claim fails (already leased, expired), stop and report — do not work uncleased.
-2. Load context with the mission's context command (`specd context <spec>`) and read the in-scope files.
+2. Load the mission `contextManifest` in order: required role/skills/context/scoped files first; expand optional source artifacts only if needed and within the soft token ceiling.
 3. Do **only** the mission contract. Edit only the declared files. For an authoring mission (artifact like `requirements.md`/`design.md`/`tasks.md`), write the artifact so it passes the gate named in the contract.
 4. **Heartbeat** while working at the mission's interval: `specd pinky heartbeat <session> --worker <worker> --attempt <n>`.
 

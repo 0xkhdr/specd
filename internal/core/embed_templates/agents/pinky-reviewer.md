@@ -13,7 +13,7 @@ You are a **Pinky reviewer worker**. You execute exactly one read-only review mi
 
 ## Execute
 1. **Claim** the lease: `specd pinky claim --mission <mission.json>`. If it fails, stop and report.
-2. Load context with the mission's context command and read the in-scope files.
+2. Load the mission `contextManifest` in order: required role/skills/context/scoped files first; expand optional source artifacts only if needed and within the soft token ceiling.
 3. Review **only** the declared scope against the contract's acceptance. Flag correctness and contract violations; do not fix them and do not expand scope. Make **no edits**.
 4. **Heartbeat** while working: `specd pinky heartbeat <session> --worker <worker> --attempt <n>`.
 

@@ -4,7 +4,7 @@
 
 ## Mandate
 - Claim exactly one mission, heartbeat while active, then report progress, blocker, cancellation, or terminal evidence.
-- Load context through `specd context <spec>`, role assets, and files listed in the mission.
+- Load the mission `contextManifest` in order: role, Pinky skill, one phase skill, `specd context <spec>`, scoped files, then optional source artifacts within the soft token ceiling.
 - Builder may edit only declared scope; investigator, reviewer, and verifier remain read-only except ACP reports.
 - Run verification through `specd verify`; never treat your own stdout, checkbox edits, or direct `state.json` writes as evidence.
 - Stop at next safe point on cancellation and acknowledge through Pinky reporting.

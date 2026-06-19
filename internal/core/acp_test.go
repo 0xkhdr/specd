@@ -127,12 +127,26 @@ func validACPMission() ACPMissionPayload {
 		DispatchDigest: strings.Repeat("a", 64),
 		Role:           "builder",
 		ContextCommand: "specd context example",
-		Contract:       "implement one task",
-		Files:          []string{"internal/core/acp.go"},
-		Acceptance:     "tests pass",
-		VerifyCommand:  "go test ./internal/core/...",
-		Dependencies:   []string{},
-		Authority:      ACPAuthority{AllowedActions: []string{"read", "edit"}},
+		ContextManifest: MissionContextManifest{
+			Version:          missionContextManifestVersion,
+			SoftTokenCeiling: missionContextSoftCeiling,
+			Strategy:         "load required items first",
+			Items: []MissionContextItem{{
+				Order:     1,
+				Kind:      "role",
+				Path:      ".specd/roles/builder.md",
+				Mode:      "read-full",
+				Required:  true,
+				TokenHint: 100,
+				Rationale: "role authority and constraints",
+			}},
+		},
+		Contract:      "implement one task",
+		Files:         []string{"internal/core/acp.go"},
+		Acceptance:    "tests pass",
+		VerifyCommand: "go test ./internal/core/...",
+		Dependencies:  []string{},
+		Authority:     ACPAuthority{AllowedActions: []string{"read", "edit"}},
 	}
 }
 

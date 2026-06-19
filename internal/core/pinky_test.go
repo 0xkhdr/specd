@@ -35,6 +35,51 @@ func TestPinkyMissionDeterministic(t *testing.T) {
 	}
 }
 
+func TestPinkyMissionContextManifest(t *testing.T) {
+	root := writePinkySpec(t)
+	sessionID := strings.Repeat("4", 32)
+	mission, err := BuildPinkyMission(root, "demo", sessionID, "pinky-a", "T1", 1, DefaultConfig.Orchestration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := mission.ContextManifest
+	if manifest.SoftTokenCeiling != missionContextSoftCeiling || len(manifest.Items) == 0 {
+		t.Fatalf("unexpected manifest: %#v", manifest)
+	}
+	joined := missionContextTestString(manifest)
+	for _, want := range []string{
+		".specd/roles/builder.md",
+		".specd/skills/specd-pinky/SKILL.md",
+		".specd/skills/specd-execute/SKILL.md",
+		"specd context demo",
+		"internal/core/demo.go",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("manifest missing %q:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "specd-steering") {
+		t.Fatalf("execution manifest loaded unrelated steering skill:\n%s", joined)
+	}
+	brief := RenderMissionBrief(mission)
+	if !strings.Contains(brief, "## Context manifest") || !strings.Contains(brief, "soft token ceiling") {
+		t.Fatalf("brief did not render context manifest:\n%s", brief)
+	}
+}
+
+func missionContextTestString(manifest MissionContextManifest) string {
+	var sb strings.Builder
+	for _, item := range manifest.Items {
+		sb.WriteString(item.Kind)
+		sb.WriteByte(' ')
+		sb.WriteString(item.Path)
+		sb.WriteByte(' ')
+		sb.WriteString(item.Command)
+		sb.WriteByte('\n')
+	}
+	return sb.String()
+}
+
 func TestPinkyClaimHeartbeatRelease(t *testing.T) {
 	root := writePinkySpec(t)
 	sessionID := strings.Repeat("5", 32)

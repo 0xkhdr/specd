@@ -14,7 +14,7 @@ specd pinky claim <session> <worker> --mission <mission.json>
 specd context <spec>
 ```
 
-Load the mission, `.specd/roles/<role>.md`, the phase skill, and only files named by the mission unless more context is needed to satisfy the same task.
+Load the mission's `contextManifest` in order. Required items are the role contract, Pinky skill, one phase-scoped skill, `specd context <spec>`, and scoped files. Optional source artifacts stay collapsed unless needed; stop expanding optional context before the soft token ceiling.
 
 ## Authority
 

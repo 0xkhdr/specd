@@ -81,15 +81,16 @@ type ACPAuthority struct {
 }
 
 type ACPMissionPayload struct {
-	DispatchDigest string       `json:"dispatchDigest"`
-	Role           string       `json:"role"`
-	ContextCommand string       `json:"contextCommand"`
-	Contract       string       `json:"contract"`
-	Files          []string     `json:"files"`
-	Acceptance     string       `json:"acceptance"`
-	VerifyCommand  string       `json:"verifyCommand"`
-	Dependencies   []string     `json:"dependencies"`
-	Authority      ACPAuthority `json:"authority"`
+	DispatchDigest  string                 `json:"dispatchDigest"`
+	Role            string                 `json:"role"`
+	ContextCommand  string                 `json:"contextCommand"`
+	ContextManifest MissionContextManifest `json:"contextManifest,omitempty"`
+	Contract        string                 `json:"contract"`
+	Files           []string               `json:"files"`
+	Acceptance      string                 `json:"acceptance"`
+	VerifyCommand   string                 `json:"verifyCommand"`
+	Dependencies    []string               `json:"dependencies"`
+	Authority       ACPAuthority           `json:"authority"`
 }
 
 type ACPAcceptedPayload struct {
@@ -260,6 +261,9 @@ func validateACPPayload(messageType ACPMessageType, task string, raw []byte) err
 			return fmt.Errorf("invalid role %q", payload.Role)
 		}
 		if err := validateACPText("contextCommand", payload.ContextCommand, true); err != nil {
+			return err
+		}
+		if err := validateMissionContextManifest(payload.ContextManifest, false); err != nil {
 			return err
 		}
 		if err := validateACPText("contract", payload.Contract, true); err != nil {
