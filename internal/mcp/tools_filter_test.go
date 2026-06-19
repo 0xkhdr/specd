@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -95,7 +96,9 @@ func TestResolveMCPExposure(t *testing.T) {
 }
 
 // TestEssentialDefaultSet covers AC2/R3a: expose:"essential" with no explicit
-// set yields exactly the eight default tools, all command-mirror specd_*.
+// set yields exactly the default tools. The default set mixes composite tools
+// (already namespaced, e.g. specd_inspect) with atomic command mirrors (bare
+// command names, prefixed with specd_), so each entry is resolved by shape.
 func TestEssentialDefaultSet(t *testing.T) {
 	cfg := &core.Config{MCP: core.MCPConfig{Expose: "essential"}}
 	tools := buildTools(cfg)
@@ -103,9 +106,19 @@ func TestEssentialDefaultSet(t *testing.T) {
 		t.Fatalf("essential tool count = %d, want %d", len(tools), len(defaultEssentialTools))
 	}
 	names := toolNames(tools)
-	for _, cmd := range defaultEssentialTools {
-		if !names[toolPrefix+cmd] {
-			t.Errorf("essential set missing %s%s", toolPrefix, cmd)
+	for _, entry := range defaultEssentialTools {
+		want := entry
+		if !strings.HasPrefix(entry, toolPrefix) {
+			want = toolPrefix + entry
+		}
+		if !names[want] {
+			t.Errorf("essential set missing %s", want)
+		}
+	}
+	// The composite read tools must be in the default essential surface (AC7).
+	for _, c := range []string{"specd_inspect", "specd_read", "specd_query"} {
+		if !names[c] {
+			t.Errorf("essential set missing composite %s", c)
 		}
 	}
 }

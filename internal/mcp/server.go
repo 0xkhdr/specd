@@ -93,6 +93,17 @@ func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config) (any, *rpcErro
 		return map[string]any{"tools": buildTools(cfg)}, nil
 	case "tools/call":
 		return callTool(req.Params, dispatch)
+	case "resources/list":
+		root, _ := core.FindSpecdRoot("")
+		return handleResourcesList(root), nil
+	case "resources/read":
+		root, _ := core.FindSpecdRoot("")
+		return handleResourceRead(root, uriFromParams(req.Params))
+	case "prompts/list":
+		return handlePromptsList(), nil
+	case "prompts/get":
+		p := parsePromptGet(req.Params)
+		return handlePromptGet(p.Name, p.Arguments)
 	default:
 		return nil, &rpcError{Code: errMethodNotFound, Message: "method not found: " + req.Method}
 	}
@@ -108,7 +119,11 @@ func initializeResult(rawParams json.RawMessage) map[string]any {
 
 	return map[string]any{
 		"protocolVersion": negotiateProtocolVersion(params.ProtocolVersion),
-		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
+		"capabilities": map[string]any{
+			"tools":     map[string]any{"listChanged": false},
+			"resources": map[string]any{"listChanged": false},
+			"prompts":   map[string]any{"listChanged": false},
+		},
 		"serverInfo": map[string]any{
 			"name":        "specd",
 			"title":       "specd",
@@ -152,6 +167,16 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 	// for the same dispatcher; they carry no positional "args" array.
 	if it, ok := intentByName[p.Name]; ok {
 		command, argv, err := it.translate(p.Arguments)
+		if err != nil {
+			return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
+		}
+		return runTool(command, argv, dispatch)
+	}
+
+	// Composite tools (spec A2/A4) are dispatch wrappers that validate a view/action
+	// enum and translate to an atomic command + argv, routed through the same path.
+	if ct, ok := compositeByName[p.Name]; ok {
+		command, argv, err := ct.translate(p.Arguments)
 		if err != nil {
 			return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
 		}

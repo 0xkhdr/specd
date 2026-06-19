@@ -42,8 +42,12 @@ var orchestrationCommands = map[string]bool{"brain": true, "pinky": true}
 
 // defaultEssentialTools is the built-in expose:"essential" set used when
 // mcp.essentialTools is empty (spec R3a): the minimal day-to-day driving loop.
+// It prefers the composite read tools (specd_inspect/read/query) over their
+// atomic predecessors so the essential surface stays small (composite spec AC7),
+// keeping the mutating loop commands (verify/task/approve) as atomics.
 var defaultEssentialTools = []string{
-	"status", "context", "check", "next", "verify", "task", "approve", "report",
+	"specd_inspect", "specd_read", "specd_query",
+	"verify", "task", "approve",
 }
 
 // exposurePlan is the resolved, pure allow-policy derived from a *core.Config.
@@ -113,6 +117,9 @@ type schemaProp struct {
 	Type        string      `json:"type"`
 	Description string      `json:"description,omitempty"`
 	Items       *schemaProp `json:"items,omitempty"`
+	// Enum advertises the closed set of allowed values for a string property
+	// (used by composite tools' view/action selectors). Omitted when empty.
+	Enum []string `json:"enum,omitempty"`
 }
 
 type jsonSchema struct {
@@ -192,6 +199,23 @@ func buildTools(cfg *core.Config) []toolDef {
 			}
 		}
 		tools = append(tools, commandToTool(c))
+	}
+	// Composite tools (spec A2/A4) are emitted only when a config is present: the
+	// passthrough path must stay byte-identical to the pre-composite surface
+	// (cross-cutting invariant 1), so an absent `mcp` block sees no composites.
+	// Under expose:"all" they augment the atomics; under "essential" only those
+	// named in the essential set appear. Orchestration composites follow the same
+	// gate as the brain_* intents.
+	if !plan.passthrough {
+		for _, ct := range compositeTools {
+			if compositeOrchestration[ct.name] && !plan.includeOrchestration {
+				continue
+			}
+			if plan.essential && !plan.essentialSet[ct.name] {
+				continue
+			}
+			tools = append(tools, ct.def())
+		}
 	}
 	for _, it := range intentTools {
 		if !plan.passthrough {

@@ -25,6 +25,9 @@ type intentArg struct {
 	typ         string // "string" or "boolean"
 	description string
 	required    bool
+	// enum, when non-empty, advertises the closed set of allowed string values to
+	// the host so a composite's view/action property is self-documenting.
+	enum []string
 }
 
 // intentTool is a semantic tool plus the translation from its named arguments to
@@ -45,7 +48,7 @@ type intentTool struct {
 func (t intentTool) def() toolDef {
 	props := make(map[string]schemaProp, len(t.args))
 	for _, a := range t.args {
-		props[a.name] = schemaProp{Type: a.typ, Description: a.description}
+		props[a.name] = schemaProp{Type: a.typ, Description: a.description, Enum: a.enum}
 	}
 	return toolDef{
 		Name:        t.name,

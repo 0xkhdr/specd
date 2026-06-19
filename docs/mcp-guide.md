@@ -262,9 +262,9 @@ byte-identical to the default — no behavioural change.**
 {
   "mcp": {
     "expose": "essential",                      // "all" (default) | "essential"
-    "essentialTools": ["status", "context",     // command/intent names kept under "essential"
-                       "check", "next", "verify",
-                       "task", "approve", "report"],
+    "essentialTools": ["specd_inspect",          // command/composite/intent names kept under "essential"
+                       "specd_read", "specd_query",
+                       "verify", "task", "approve"],
     "includeMeta": false,                        // expose update/uninstall/schema (default false)
     "includeOrchestration": null                 // null => derive from orchestration.enabled
   }
@@ -274,12 +274,62 @@ byte-identical to the default — no behavioural change.**
 | Field | Effect |
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set. An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
-| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `status, context, check, next, verify, task, approve, report`. |
+| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_inspect, specd_read, specd_query, verify, task, approve` (the composites cover the read surface). |
 | `includeMeta` | When false (default) the install-maintenance tools `specd_update`, `specd_uninstall`, and the spec-pack-author tool `specd_schema` are hidden from MCP (they remain available on the CLI). |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
 Filtering only ever *hides* tools — it never grants new authority, and tool
 order stays deterministic (command order, then intent order).
+
+---
+
+## Composite tools
+
+Composite tools collapse the 1:1 command→tool mapping into a handful of
+view-/action-routed verbs. They are **dispatch wrappers**: each validates its
+selector against a fixed allowlist, then routes to the same handler the atomic
+tool would — identical output, no new authority. They appear whenever an `mcp`
+block is present (an absent block keeps the pre-composite surface byte-for-byte).
+
+| Tool | Selector | Routes to |
+|------|----------|-----------|
+| `specd_inspect` | `view`: `status\|waves\|context\|check\|validate\|replay\|diff` | the matching read command |
+| `specd_read` | `view`: `report` (+ `format: md\|html`) | `report` (streaming `serve`/`watch` stay CLI-only over MCP) |
+| `specd_query` | `view`: `next\|dispatch` | `next`/`dispatch` |
+| `specd_orchestrate` | `action`: `start\|step\|status\|why\|pause\|resume\|cancel` | the matching `brain` sub-action |
+| `specd_worker` | `action`: `claim\|heartbeat\|progress\|query\|report\|block\|release\|inbox` | the matching `pinky` sub-action |
+
+An unknown or missing `view`/`action` returns an MCP error naming the valid
+values — no dispatch. `specd_orchestrate`/`specd_worker` follow the orchestration
+gate (hidden when orchestration is excluded). The atomic `specd_*` and `brain_*`
+tools remain under `expose:"all"` for back-compat.
+
+## Resources
+
+The MCP `resources` capability exposes spec artifacts and steering files for
+direct host reads, so reading context no longer costs a tool call.
+
+- `resources/list` enumerates every existing artifact (`requirements.md`,
+  `design.md`, `tasks.md`, `decisions.md`, `memory.md`, `mid-requirements.md`,
+  `state.json`) per spec plus `.specd/steering/*.md`, in deterministic order.
+- `resources/read` returns content by URI with the right mime
+  (`text/markdown`, `application/json`).
+- URI scheme: `specd://specs/<slug>/<artifact>` and `specd://steering/<file>`.
+- Read-only and strictly contained: any URI resolving outside `.specd/` is
+  rejected before a byte is read, and unknown/traversal URIs return a
+  resource-not-found error with no filesystem disclosure.
+
+## Prompts
+
+The MCP `prompts` capability serves specd's phase and role guidance as reusable,
+deterministic templates (embedded — no network, no LLM).
+
+- `prompts/list` returns four phase prompts (`phase/requirements`,
+  `phase/design`, `phase/tasks`, `phase/execute`) and two role prompts
+  (`role/builder`, `role/investigator`) with declared arguments.
+- `prompts/get` renders a prompt's messages. Phase prompts accept an optional
+  `slug` that injects a one-line spec-context header.
+- Identical inputs always render identical messages.
 
 ---
 
