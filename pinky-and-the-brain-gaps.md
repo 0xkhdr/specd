@@ -104,7 +104,9 @@ For Claude Code specifically, the natural worker is a **`Task` sub-agent** (or a
 
 ---
 
-### GAP-4 (P1) — Cost / budget limit is declared but not enforced
+### GAP-4 (P1) — Cost / budget limit is declared but not enforced — ✅ DONE
+
+> **Implemented (Milestone B):** `SenseOrchestration` now accumulates host-reported cost across a session's evidence events (`senseHostReportedCost` + `parseHostCostUSD` in `orchestration_limits.go`, dedup by MessageID, fail-soft on unparseable untrusted input) into `snapshot.AccumulatedCostUSD`, and surfaces a fixed wall-clock `snapshot.SessionExpired` from `session.ExpiresAt`. Two new `DecideOrchestration` branches escalate with `EscalationPolicyViolation` — `costLimitExceeded` (when `sum(host-cost) ≥ limit > 0`) and session timeout — placed before dispatch so the brain halts instead of scheduling more work. Cost stays labeled advisory/untrusted; a limit of `0` disables enforcement. Tests: `TestOrchestrationCostLimitEscalates`, `TestOrchestrationSessionTimeoutEscalates`, `TestParseHostCostUSD`, and end-to-end `TestOrchestrationCostLimitEndToEnd` (real evidence → step escalates → session marked failed).
 
 `hostReportedCostLimitUSD` lives in policy (`orchestration.go:55`) and config, but it is **host-reported and explicitly untrusted** (`agent-integration.md:133-135`), and **no decision branch stops the session when cumulative reported cost exceeds the limit.** `DecideOrchestration` never reads cost. The design doc lists "cost explosion" as a High risk (§13.3) with "cost limits" as the mitigation — the mitigation is not wired.
 
@@ -192,7 +194,7 @@ The design's ACP defined a `query` message (Pinky → Brain: "I need clarificati
 *Exit:* a workspace → `specd brain run <slug> --bootstrap --worker-cmd <w>` → completed spec, every gate honored, no manual artifact authoring. Verified by the `orchestration_driver_test.go` golden test (fresh `requirements` spec → `complete` with a stub worker) and an end-to-end CLI drive. *Retained gate:* final `verifying → complete` still requires the acceptance-evidence gate (`specd approve` Case 2 / a verifier worker) — by design, the evidence invariant is never auto-cleared.
 
 ### Milestone B — Safety & ergonomics — P1
-5. **GAP-4** enforce cost/time limits → escalate.
+5. ✅ **GAP-4** enforce cost/time limits → escalate.
 6. **GAP-5** intent-level MCP tools (`brain_orchestrate` etc.).
 7. **GAP-7** program-level end-to-end golden test + fixes.
 

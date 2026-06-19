@@ -133,6 +133,14 @@ Trust boundary:
 - **Host telemetry** (`host-tokens`, `host-cost`, `duration-ms`) is evidence
   supplied by the host and stored verbatim. specd does not compute token usage,
   price model calls, or trust telemetry as completion proof.
+- **Advisory cost / time brakes.** Although host-reported cost stays untrusted,
+  the brain still acts on it: it sums `host-cost` across a session's reports and,
+  when the total reaches `hostReportedCostLimitUSD` (`> 0`), the next `step`
+  escalates with `policy-violation` instead of dispatching more work. A session
+  that outlives its `sessionTimeoutMinutes` wall-clock deadline escalates the
+  same way. Both are advisory halts (the input is untrusted) but they force a
+  terminal decision rather than relying on lease expiry. `0` disables the cost
+  brake.
 - **Completion proof** still requires a passing `specd verify` record (or the
   existing manual proof path for read-only roles) and `--evidence`. Pinky reports
   are accepted only when they bind to the matching verification record and task

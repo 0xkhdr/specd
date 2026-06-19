@@ -56,6 +56,16 @@ func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		}
 		return snapshot.ActiveLeases[i].WorkerID < snapshot.ActiveLeases[j].WorkerID
 	})
+	cost, err := senseHostReportedCost(root, sessionID)
+	if err != nil {
+		return OrchestrationSnapshot{}, err
+	}
+	snapshot.AccumulatedCostUSD = cost
+	expired, err := senseSessionExpired(root, sessionID)
+	if err != nil {
+		return OrchestrationSnapshot{}, err
+	}
+	snapshot.SessionExpired = expired
 	if err := ValidateOrchestrationSnapshot(snapshot); err != nil {
 		return OrchestrationSnapshot{}, err
 	}

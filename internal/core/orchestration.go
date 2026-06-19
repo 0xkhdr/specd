@@ -103,6 +103,14 @@ type OrchestrationSnapshot struct {
 	// phase is ready to advance).
 	Authoring    *OrchestrationAuthoring `json:"authoring,omitempty"`
 	PlanningReady bool                   `json:"planningReady"`
+	// AccumulatedCostUSD is the sum of host-reported cost across the session's
+	// evidence events. It is hostReported and untrusted — it never gates
+	// completion — but it drives the advisory cost-limit escalation (GAP-4).
+	AccumulatedCostUSD float64 `json:"accumulatedCostUSD"`
+	// SessionExpired is true when the session's fixed wall-clock deadline
+	// (session.ExpiresAt, set at start from sessionTimeoutSeconds) has passed.
+	// It forces a terminal escalation rather than relying on lease expiry alone.
+	SessionExpired bool `json:"sessionExpired"`
 }
 
 // OrchestrationAuthoring is a synthetic, single authoring work item describing
@@ -207,6 +215,11 @@ func ValidateOrchestrationSnapshot(snapshot OrchestrationSnapshot) error {
 	}
 	if _, err := parseACPTime("sessionExpiresAt", snapshot.SessionExpiresAt); err != nil {
 		return err
+	}
+	if math.IsNaN(snapshot.AccumulatedCostUSD) ||
+		math.IsInf(snapshot.AccumulatedCostUSD, 0) ||
+		snapshot.AccumulatedCostUSD < 0 {
+		return fmt.Errorf("orchestration model: accumulatedCostUSD must be finite and non-negative")
 	}
 	runnableIDs := make(map[string]struct{}, len(snapshot.Runnable))
 	for _, task := range snapshot.Runnable {
