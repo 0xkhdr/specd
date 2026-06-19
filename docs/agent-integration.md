@@ -10,7 +10,8 @@ to drive the `specd` workflow.
 3. [Role personas](#role-personas)
 4. [Subagent coordination modes](#subagent-coordination-modes)
 5. [Context engineering](#context-engineering)
-6. [Cross-spec programs](#cross-spec-programs)
+6. [Brain/Pinky orchestration](#brainpinky-orchestration)
+7. [Cross-spec programs](#cross-spec-programs)
 
 ---
 
@@ -97,6 +98,59 @@ Output sections:
    - Uncovered requirements: requirements with no task mappings
 
 ---
+
+## Brain/Pinky orchestration
+
+Brain/Pinky is an optional deterministic orchestration layer. It is disabled by
+default in `.specd/config.json`:
+
+```json
+"orchestration": {
+  "enabled": false,
+  "approvalPolicy": "manual",
+  "workerMode": "host",
+  "maxWorkers": 4,
+  "maxRetries": 2,
+  "sessionTimeoutMinutes": 120,
+  "hostReportedCostLimitUSD": 0,
+  "transport": {
+    "kind": "file",
+    "pollIntervalMillis": 500,
+    "messageTTLSeconds": 3600,
+    "leaseSeconds": 120,
+    "heartbeatSeconds": 30
+  },
+  "program": { "maxConcurrentSpecs": 2 }
+}
+```
+
+Trust boundary:
+- **Brain** senses specd state and records one bounded decision per step. It is a
+  deterministic controller, not an LLM.
+- **Pinky** is a worker contract executed by the host. specd writes missions,
+  leases, progress, blockers, reports, and cancellation directives over ACP
+  files; it never spawns provider agents or kills host processes.
+- **Host telemetry** (`host-tokens`, `host-cost`, `duration-ms`) is evidence
+  supplied by the host and stored verbatim. specd does not compute token usage,
+  price model calls, or trust telemetry as completion proof.
+- **Completion proof** still requires a passing `specd verify` record (or the
+  existing manual proof path for read-only roles) and `--evidence`. Pinky reports
+  are accepted only when they bind to the matching verification record and task
+  scope.
+
+Approval policy:
+- `manual` (default): all approvals remain human-driven.
+- `planning`: Brain may advance normal requirements/design/tasks planning gates
+  when gates pass, but cannot clear mid-requirement gates.
+- `session`: Brain may act inside the active orchestration session, subject to
+  the same gates, locks, retries, and evidence rules.
+- High/critical mid-requirement gates are always human-only; automation cannot
+  clear them under any policy.
+
+Backward compatibility: older `.specd/config.json` files with no
+`orchestration` block load as disabled/manual/host/file defaults. Unsupported
+modes, secret-shaped fields, invalid costs, or unsafe timing relationships fail
+closed to the disabled defaults.
 
 ## Cross-spec programs
 

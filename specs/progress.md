@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 14 complete; awaiting human review
+Status: implementation in progress; Wave 15 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 31/37 tasks complete
+Implementation progress: 33/37 tasks complete
 
 ## Program Outcome
 
@@ -33,7 +33,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 12 | Brain/Pinky guidance and program failure controls | 3 | complete |
 | 13 | Fake host and program CLI | 2 | complete |
 | 14 | Brain/program hardening and generated MCP tools | 3 | complete |
-| 15 | Configuration docs and CLI/MCP parity | 2 | pending |
+| 15 | Configuration docs and CLI/MCP parity | 2 | complete |
 | 16 | Bounded MCP interactions | 1 | pending |
 | 17 | Host compatibility | 1 | pending |
 | 18 | MCP end-to-end lifecycle | 1 | pending |
@@ -58,12 +58,12 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 
 | Spec | Tasks | Complete | Current state | Next task |
 |---|---:|---:|---|---|
-| config-extension | 4 | 3 | in progress | T4 (Wave 15) |
+| config-extension | 4 | 4 | complete | — |
 | acp-file-transport | 7 | 7 | complete | — |
 | brain-core | 8 | 8 | complete | — |
 | pinky-core | 7 | 7 | complete | — |
 | program-orchestration | 5 | 5 | complete | — |
-| mcp-integration | 6 | 1 | in progress | T2 (Wave 15) |
+| mcp-integration | 6 | 2 | in progress | T3 (Wave 16) |
 
 ## Review Decisions Requested
 
@@ -267,6 +267,11 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   `make ci`.
 - Wave 14 / `mcp-integration/T1`: hardened generated MCP tool schemas with closed `additionalProperties:false`, completed Brain/Pinky command metadata including Pinky terminal report telemetry flags, refreshed golden schemas, and added parity assertions for orchestration tool annotations and flags. Verification passed:
   `go test ./internal/mcp/... ./internal/cmd/... -run 'Test.*Tool|TestRegistryMatchesHelp' -count=2`,
+  `make ci`.
+- Wave 15 / `config-extension/T4`: documented orchestration policy fields, defaults, bounds, approval authority, host telemetry semantics, high/critical mid-requirement human-only gates, and backward-compatible fail-closed migration behavior in the command reference, agent integration guide, and validation/security gates. Verification passed:
+  `make ci`.
+- Wave 15 / `mcp-integration/T2`: added CLI/MCP parity coverage for orchestration status and Brain mutations, plus approval mutation, invalid session IDs, evidence-gate failures, and cancellation semantics using equivalent fresh workspaces for CLI and MCP paths. Verification passed:
+  `go test ./internal/mcp/... -run 'Test.*(CLI.*MCP.*Parity|Orchestration)' -count=2`,
   `make ci`.
 
 ## Progress Update Rules

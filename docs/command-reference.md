@@ -12,6 +12,7 @@ the `config.json` schema. This mirrors the embedded registry; run
 - [Format & history commands](#format--history-commands)
 - [Record commands](#record-commands)
 - [Program commands](#program-commands)
+- [Orchestration commands](#orchestration-commands)
 - [Meta commands](#meta-commands)
 - [Environment variables](#environment-variables)
 - [Argument grammar](#argument-grammar)
@@ -84,6 +85,28 @@ See [Validation Gates](./validation-gates.md) for what each `check` gate enforce
 | `specd program unlink <spec> --on <dep>` | Remove an inter-spec dependency | `0` ok, `2` usage |
 
 Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
+
+## Orchestration commands
+
+`specd brain` and `specd pinky` are deterministic controllers over the same
+state, locks, gates, verification records, and ACP file transport as the normal
+CLI. They do **not** call an LLM and do **not** spawn provider-specific agents;
+the host remains responsible for executing Pinky missions.
+
+| Command | Description | Exit codes |
+|---|---|---|
+| `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]` | Start or step one spec orchestration session. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
+| `specd brain step <slug> --session <id> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]` | Advance an existing spec session by one bounded decision | same |
+| `specd brain status --session <id> [--json]` | Read persisted session state | `0` ok, `1` invalid/missing session, `2` usage |
+| `specd brain pause\|resume\|cancel --session <id> [--json]` | Persist cooperative session control. `cancel` records intent; later steps emit cancellation directives but never kill host processes | `0` ok, `1` invalid/terminal session, `2` usage |
+| `specd brain start --program [--session <id>] ... [--json]` / `specd brain step --program --session <id> ... [--json]` | Schedule child specs from the program DAG under the same explicit policy limits | same |
+| `specd brain status\|pause\|resume\|cancel --program --session <id> [--json]` | Read/control a parent program session | same |
+| `specd pinky claim --mission <path\|-> [--json]` | Host worker claims a Brain-issued mission under an ACP lease | `0` ok, `1` invalid/stale/duplicate claim, `2` usage, `3` not found |
+| `specd pinky heartbeat --session <id> --worker <id> --attempt <n> [--json]` | Renew the worker lease before expiry | same |
+| `specd pinky progress --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> --message <text> [--json]` | Record host-reported progress as ACP evidence; it is telemetry, not proof of completion | same |
+| `specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]` | Record terminal worker evidence. Completion is accepted only when it binds to a matching passing `specd verify` record and satisfies the task scope/evidence gates | same |
+| `specd pinky block --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --reason <text> [--json]` | Record a worker blocker for Brain reconciliation | same |
+| `specd pinky release --session <id> --worker <id> --attempt <n>` | Release a claim idempotently | same |
 
 ## Meta commands
 
@@ -197,19 +220,54 @@ contract simple. Distinguish the two by the command you invoked, not the code.
     "scope": "off",
     "custom": []
   },
-  "verify": { "sandbox": "none" }
+  "verify": { "sandbox": "none" },
+  "orchestration": {
+    "enabled": false,
+    "approvalPolicy": "manual",
+    "workerMode": "host",
+    "maxWorkers": 4,
+    "maxRetries": 2,
+    "sessionTimeoutMinutes": 120,
+    "hostReportedCostLimitUSD": 0,
+    "transport": {
+      "kind": "file",
+      "pollIntervalMillis": 500,
+      "messageTTLSeconds": 3600,
+      "leaseSeconds": 120,
+      "heartbeatSeconds": 30
+    },
+    "program": { "maxConcurrentSpecs": 2 }
+  }
 }
 ```
 
-| Key | Default | Effect |
-|---|---|---|
-| `defaultVerify` | `npm test` | Fallback `verify:` command; set it to your detected test command when bootstrapping steering (see the `specd-steering` skill) |
-| `report.format` | `md` | Default `specd report` format (`md` or `html`) |
-| `report.autoRefreshSeconds` | `0` | HTML report auto-refresh interval (`0` = off) |
-| `roles.subagentMode` | `inline` | `inline` or `delegate` subagent coordination |
-| `promotionThreshold` | `3` | Recurrences before a learning is suggested for `memory promote` |
-| `gates.traceability` | `warn` | `warn` or `error` — severity of the traceability gate |
-| `gates.acceptance` | `off` | `off`, `warn`, or `error` — per-criterion acceptance gate |
-| `gates.scope` | `off` | `off`/`*` = no-op, else `warn`/`error` — flags verify-time changed files outside a task's `files:` contract |
-| `gates.custom` | `[]` | List of external [custom gates](./custom-gates.md) (`{name, command, severity}`) run after the core pipeline |
-| `verify.sandbox` | `none` | Isolation backend for `specd verify`: `none`, `bwrap`, or `container` (fail-closed if the isolator is absent). See [SECURITY.md](../SECURITY.md) |
+| Key | Default | Bounds / values | Effect |
+|---|---|---|---|
+| `defaultVerify` | `npm test` | string | Fallback `verify:` command; set it to your detected test command when bootstrapping steering (see the `specd-steering` skill) |
+| `report.format` | `md` | `md`, `html` | Default `specd report` format |
+| `report.autoRefreshSeconds` | `0` | integer | HTML report auto-refresh interval (`0` = off) |
+| `roles.subagentMode` | `inline` | `inline`, `delegate` | Subagent coordination. Delegation requires host support; specd never spawns provider agents itself |
+| `promotionThreshold` | `3` | integer | Recurrences before a learning is suggested for `memory promote` |
+| `gates.traceability` | `warn` | `warn`, `error` | Severity of the traceability gate |
+| `gates.acceptance` | `off` | `off`, `warn`, `error` | Per-criterion acceptance gate |
+| `gates.scope` | `off` | `off`/`*`, `warn`, `error` | Flags verify-time changed files outside a task's `files:` contract |
+| `gates.custom` | `[]` | list | External [custom gates](./custom-gates.md) (`{name, command, severity}`) run after the core pipeline |
+| `verify.sandbox` | `none` | `none`, `bwrap`, `container` | Isolation backend for `specd verify` (fail-closed if the isolator is absent). See [SECURITY.md](../SECURITY.md) |
+| `orchestration.enabled` | `false` | boolean | Opt-in switch for Brain/Pinky workflows. Fresh and legacy projects are disabled by default |
+| `orchestration.approvalPolicy` | `manual` | `manual`, `planning`, `session` | Approval authority. `manual` requires human approval at every approval gate. `planning` may advance requirements/design/tasks gates only. `session` may act inside the current orchestration session. No policy can clear high/critical mid-requirement gates; those remain human-only |
+| `orchestration.workerMode` | `host` | `host` only | Pinky missions are executed by the external host; specd performs no LLM/provider calls |
+| `orchestration.maxWorkers` | `4` | `1..64` | Concurrent worker lease budget |
+| `orchestration.maxRetries` | `2` | `0..10` | Retry budget for failed/reclaimed work |
+| `orchestration.sessionTimeoutMinutes` | `120` | `1..1440` | Session expiry used by Brain decisions |
+| `orchestration.hostReportedCostLimitUSD` | `0` | finite `>=0` | Optional budget over host-reported telemetry. `0` means no cost cap. Values are recorded verbatim and never priced by specd |
+| `orchestration.transport.kind` | `file` | `file` only | ACP transport backend |
+| `orchestration.transport.pollIntervalMillis` | `500` | `50..60000` | Recommended host polling interval |
+| `orchestration.transport.messageTTLSeconds` | `3600` | `60..86400` | ACP message freshness window |
+| `orchestration.transport.leaseSeconds` | `120` | `10..3600`, must be `<= messageTTLSeconds` | Worker lease duration |
+| `orchestration.transport.heartbeatSeconds` | `30` | `1..1200`, must be `< leaseSeconds` | Host heartbeat cadence |
+| `orchestration.program.maxConcurrentSpecs` | `2` | `1..64` | Parent program child-session concurrency |
+
+Backward compatibility: missing `orchestration` fields decode to these defaults.
+Malformed, unsupported, secret-shaped, `NaN`/`Inf`, or out-of-range authority
+config fails closed to disabled/manual defaults; bounded integers clamp through
+one warning path where safe.

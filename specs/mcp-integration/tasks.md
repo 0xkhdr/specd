@@ -14,7 +14,7 @@
 
 ## Wave 15 — CLI/MCP Parity
 
-- [ ] T2 — Add orchestration CLI/MCP parity tests
+- [x] T2 — Add orchestration CLI/MCP parity tests ✓ complete · evidence: go test ./internal/mcp/... -run 'Test.*(CLI.*MCP.*Parity|Orchestration)' -count=2; make ci · 2026-06-19
   - why: Transport-specific business logic would undermine specd's architecture.
   - role: verifier
   - files: internal/mcp/integration_test.go, internal/mcp/server_test.go

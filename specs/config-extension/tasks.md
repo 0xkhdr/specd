@@ -38,7 +38,7 @@
 
 ## Wave 15 — Configuration Documentation
 
-- [ ] T4 — Document policy, authority, and migration behavior
+- [x] T4 — Document policy, authority, and migration behavior ✓ complete · evidence: make ci · 2026-06-19
   - why: Users must understand when automation can approve or dispatch work.
   - role: builder
   - files: docs/command-reference.md, docs/agent-integration.md, docs/validation-gates.md
