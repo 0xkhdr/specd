@@ -394,9 +394,16 @@ state (see the [Command Reference](./command-reference.md)):
 | `specd serve <slug>` | Live read-only HTML dashboard + `GET /api/report` JSON |
 | `specd watch [--once] [--sse <addr>] [--webhook <url>]` | Stream a `FrontierEvent` on every runnable-set change |
 | `specd replay <slug>` | Deterministic audit timeline from on-disk records |
-| `specd diff <slug> --from <ref> [--to <ref>]` | Diff a spec's artifacts across git refs |
 | `specd schema` · `specd validate <slug> --schema` | Emit / check against the open-spec-format JSON Schema |
 | `specd mcp` | Drive the whole workflow from an MCP client |
+
+### Autonomous Orchestration (Brain/Pinky)
+
+For automated pipelines, `specd` provides an optional, deterministic orchestration layer:
+- **The Brain** (`specd brain`) processes state and makes stepping decisions.
+- **Pinky** (`specd pinky`) executes worker claims under lease without network or LLM calls in the core.
+
+For configuration and integration details, see the [Agent Integration Guide](./agent-integration.md#brainpinky-orchestration).
 
 ---
 
