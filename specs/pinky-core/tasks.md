@@ -74,7 +74,7 @@
 
 ## Wave 13 — Fake Host and Compatibility
 
-- [ ] T7 — Build deterministic fake worker and lifecycle tests
+- [x] T7 — Build deterministic fake worker and lifecycle tests ✓ complete · evidence: go test ./internal/integration/... ./internal/core/... ./internal/cmd/... -race -count=2 · 2026-06-19
   - why: CI needs complete coverage without an LLM or provider SDK.
   - role: verifier
   - files: internal/testharness/pinky.go, internal/integration/pinky_test.go

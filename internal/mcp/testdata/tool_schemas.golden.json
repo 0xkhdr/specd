@@ -24,7 +24,7 @@
       },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: Run bounded Brain session control.",
+        "description": "Positional arguments, in order. Usage: Run bounded Brain or program session control.",
         "items": {
           "type": "string"
         }
@@ -44,6 +44,10 @@
       "max-workers": {
         "type": "string",
         "description": "required worker concurrency limit for start/step"
+      },
+      "program": {
+        "type": "boolean",
+        "description": "operate on the cross-spec program session instead of one spec"
       },
       "session": {
         "type": "string",

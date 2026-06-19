@@ -231,9 +231,10 @@ var Commands = []CommandMeta{
 		Command:     "brain",
 		Category:    "orchestration",
 		Description: "Drive deterministic Brain orchestration sessions.",
-		Usage:       "brain <start|status|step|pause|resume|cancel> ...",
-		Synopsis:    "Run bounded Brain session control.",
+		Usage:       "brain <start|status|step|pause|resume|cancel> ... [--program]",
+		Synopsis:    "Run bounded Brain or program session control.",
 		Flags: []FlagMeta{
+			{Name: "program", Type: "boolean", Description: "operate on the cross-spec program session instead of one spec"},
 			{Name: "session", Type: "string", Description: "explicit orchestration session id"},
 			{Name: "approval-policy", Type: "string", Description: "required approval policy for start/step"},
 			{Name: "max-workers", Type: "string", Description: "required worker concurrency limit for start/step"},
@@ -243,7 +244,7 @@ var Commands = []CommandMeta{
 			{Name: "json", Type: "boolean", Description: "emit JSON"},
 		},
 		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate or validation failure"}, {2, "Usage error"}, {3, "Workspace or session not found"}},
-		Examples:  []string{"specd brain start my-spec --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain step my-spec --session session-1 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200"},
+		Examples:  []string{"specd brain start my-spec --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain start --program --session 11111111111111111111111111111111 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain step my-spec --session 11111111111111111111111111111111 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200"},
 	},
 	{
 		Command:     "pinky",

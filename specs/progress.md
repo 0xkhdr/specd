@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 12 complete; awaiting human review
+Status: implementation in progress; Wave 13 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 26/37 tasks complete
+Implementation progress: 28/37 tasks complete
 
 ## Program Outcome
 
@@ -31,7 +31,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 10 | Brain recovery and Pinky evidence | 2 | complete |
 | 11 | Brain CLI, Pinky CLI, program child scheduling | 3 | complete |
 | 12 | Brain/Pinky guidance and program failure controls | 3 | complete |
-| 13 | Fake host and program CLI | 2 | pending |
+| 13 | Fake host and program CLI | 2 | complete |
 | 14 | Brain/program hardening and generated MCP tools | 3 | pending |
 | 15 | Configuration docs and CLI/MCP parity | 2 | pending |
 | 16 | Bounded MCP interactions | 1 | pending |
@@ -61,9 +61,9 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
 | acp-file-transport | 7 | 7 | complete | — |
 | brain-core | 8 | 7 | in progress | T8 (Wave 14) |
-| pinky-core | 7 | 6 | in progress | T7 (Wave 13) |
-| program-orchestration | 5 | 3 | in progress | T4 (Wave 13) |
-| mcp-integration | 6 | 0 | proposed | blocked by Brain/Pinky/program CLI |
+| pinky-core | 7 | 7 | complete | — |
+| program-orchestration | 5 | 4 | in progress | T5 (Wave 14) |
+| mcp-integration | 6 | 0 | proposed | T1 (Wave 14) |
 
 ## Review Decisions Requested
 
@@ -249,6 +249,12 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 - Wave 12 / `program-orchestration/T3`: added persisted parent program sessions, fail-fast child escalation, replay-linked child session IDs in snapshots, cooperative parent pause/cancel propagation to active child Brain sessions, restart-stable control state, and completion derived only from authoritative child spec states. Verification passed:
   `go test ./internal/core/... ./internal/cmd/... -run 'Test.*Embed.*Brain|Test.*Embed.*Pinky|TestInit|TestProgramOrchestration.*(Escalate|Pause|Cancel|Recovery|Complete)' -race -count=2`,
   `go test ./internal/core/... -run 'TestProgramOrchestration|TestOrchestration' -race -count=2`,
+  `make ci`.
+- Wave 13 / `pinky-core/T7`: added deterministic fake Pinky worker harness using the public CLI/core host contract, covering success, blocker, retry, cooperative cancel, lease expiry, duplicate terminal report idempotency, and scope-violation rejection without network or provider SDK. Verification passed:
+  `go test ./internal/integration/... ./internal/core/... ./internal/cmd/... -race -count=2`,
+  `make ci`.
+- Wave 13 / `program-orchestration/T4`: extended `specd brain` with program start/step/status/pause/resume/cancel, deterministic program status JSON with counts, waves, frontier, critical path, child snapshots, and escalation, while preserving existing `specd program` JSON output and fail-closed approval policy validation. Verification passed:
+  `go test ./internal/integration/... ./internal/core/... ./internal/cmd/... -race -count=2`,
   `make ci`.
 
 ## Progress Update Rules

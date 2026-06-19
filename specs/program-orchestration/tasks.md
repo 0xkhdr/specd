@@ -38,7 +38,7 @@
 
 ## Wave 13 — Program CLI and Reporting
 
-- [ ] T4 — Extend Brain CLI with program sessions
+- [x] T4 — Extend Brain CLI with program sessions ✓ complete · evidence: go test ./internal/integration/... ./internal/core/... ./internal/cmd/... -race -count=2 · 2026-06-19
   - why: Program orchestration should share the canonical Brain interface.
   - role: builder
   - files: internal/cmd/brain.go, internal/cmd/program.go, internal/core/commands.go, internal/cmd/program_test.go
