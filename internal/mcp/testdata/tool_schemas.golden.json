@@ -15,6 +15,46 @@
       }
     }
   },
+  "specd_brain": {
+    "type": "object",
+    "properties": {
+      "approval-policy": {
+        "type": "string",
+        "description": "required approval policy for start/step"
+      },
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: Run bounded Brain session control.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "cost-limit": {
+        "type": "string",
+        "description": "optional host-reported cost limit"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "emit JSON"
+      },
+      "max-retries": {
+        "type": "string",
+        "description": "required retry limit for start/step"
+      },
+      "max-workers": {
+        "type": "string",
+        "description": "required worker concurrency limit for start/step"
+      },
+      "session": {
+        "type": "string",
+        "description": "explicit orchestration session id"
+      },
+      "timeout-seconds": {
+        "type": "string",
+        "description": "required session timeout for start/step"
+      }
+    }
+  },
   "specd_check": {
     "type": "object",
     "properties": {
@@ -274,6 +314,70 @@
       },
       "json": {
         "type": "boolean"
+      }
+    }
+  },
+  "specd_pinky": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: Manage Pinky worker lease and report events.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "attempt": {
+        "type": "string",
+        "description": "positive attempt number"
+      },
+      "changed-files": {
+        "type": "string",
+        "description": "comma-separated changed files"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "emit JSON"
+      },
+      "message": {
+        "type": "string",
+        "description": "progress message"
+      },
+      "mission": {
+        "type": "string",
+        "description": "mission JSON path or - for claim"
+      },
+      "percent": {
+        "type": "string",
+        "description": "progress percent"
+      },
+      "reason": {
+        "type": "string",
+        "description": "blocker reason"
+      },
+      "session": {
+        "type": "string",
+        "description": "session id"
+      },
+      "spec": {
+        "type": "string",
+        "description": "spec slug"
+      },
+      "summary": {
+        "type": "string",
+        "description": "terminal summary"
+      },
+      "task": {
+        "type": "string",
+        "description": "task id"
+      },
+      "verification-ref": {
+        "type": "string",
+        "description": "terminal verification reference"
+      },
+      "worker": {
+        "type": "string",
+        "description": "worker id"
       }
     }
   },

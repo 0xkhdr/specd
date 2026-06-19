@@ -50,7 +50,7 @@
 
 ## Wave 11 — Pinky CLI
 
-- [ ] T5 — Add Pinky CLI and registry metadata
+- [x] T5 — Add Pinky CLI and registry metadata
   - why: Hosts require one canonical interface that MCP can expose automatically.
   - role: builder
   - files: internal/cmd/pinky.go, internal/cmd/registry.go, internal/core/commands.go, internal/cmd/pinky_test.go

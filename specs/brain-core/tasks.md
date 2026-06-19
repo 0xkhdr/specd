@@ -62,7 +62,7 @@
 
 ## Wave 11 — Brain CLI
 
-- [ ] T6 — Add Brain CLI and registry metadata
+- [x] T6 — Add Brain CLI and registry metadata
   - why: CLI is the canonical orchestration interface and MCP source.
   - role: builder
   - files: internal/cmd/brain.go, internal/cmd/registry.go, internal/core/commands.go, internal/cmd/brain_test.go

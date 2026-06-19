@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 10 complete; awaiting human review
+Status: implementation in progress; Wave 11 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 20/37 tasks complete
+Implementation progress: 22/37 tasks complete
 
 ## Program Outcome
 
@@ -60,8 +60,8 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 |---|---:|---:|---|---|
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
 | acp-file-transport | 7 | 7 | complete | — |
-| brain-core | 8 | 5 | in progress | T6 (Wave 11) |
-| pinky-core | 7 | 4 | in progress | T5 (Wave 11) |
+| brain-core | 8 | 6 | in progress | T7 (Wave 12) |
+| pinky-core | 7 | 5 | in progress | T6 (Wave 12) |
 | program-orchestration | 5 | 1 | in progress | T2 (Wave 10) |
 | mcp-integration | 6 | 0 | proposed | blocked by Brain/Pinky/program CLI |
 
@@ -227,6 +227,13 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   vocabularies into `acpAuthorityActionSet` and corrected the `validACPMission`
   fixture, which had used placeholder directive verbs. No new product invariant;
   the authority/directive split is now enforced by the engine dispatch test.
+
+- Wave 11 / `brain-core/T6`: added `specd brain start|status|step|pause|resume|cancel`,
+  registry metadata, explicit orchestration policy validation, and focused command tests.
+  Evidence: `go test ./internal/cmd -run 'Test(Brain|Pinky)'`, `go test ./...`.
+- Wave 11 / `pinky-core/T5`: added `specd pinky claim|heartbeat|progress|report|block|release`,
+  registry metadata, mission JSON input, report argument validation, and focused command tests.
+  Evidence: `go test ./internal/cmd -run 'Test(Brain|Pinky)'`, `go test ./...`.
 
 ## Progress Update Rules
 
