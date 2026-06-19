@@ -173,6 +173,10 @@
             { "$ref": "#/$defs/ACPDirectivePayload" },
             { "$ref": "#/$defs/ACPCancelledPayload" }
           ]
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": true
         }
       }
     },

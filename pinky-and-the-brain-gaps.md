@@ -203,7 +203,7 @@ The design's ACP defined a `query` message (Pinky → Brain: "I need clarificati
 7. ✅ **GAP-7** program-level end-to-end golden test + driver loop (`brain run --program`).
 
 ### Milestone C — Trust, context, scale — P2
-8. **GAP-8** `replay` timeline + `brain why`.
+8. ✅ **GAP-8** `replay` timeline + `brain why`.
 9. **GAP-9** mission-context manifest with token budget.
 10. **GAP-10** decide `query`/`directive` vs. documented block-and-redispatch.
 

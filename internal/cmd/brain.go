@@ -15,7 +15,7 @@ import (
 
 func RunBrain(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd brain <start|run|status|step|pause|resume|cancel> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|pause|resume|cancel> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -60,6 +60,11 @@ func RunBrain(args cli.Args) int {
 			return usageExit("usage: specd brain step <slug> --session <id> --approval-policy <policy> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]")
 		}
 		return brainStep(root, args.Pos[1], args.Str("session"), args)
+	case "why":
+		if len(args.Pos) != 1 {
+			return usageExit("usage: specd brain why --session <id> [--json]")
+		}
+		return brainWhy(root, args)
 	case "status":
 		if args.Bool("program") {
 			if len(args.Pos) != 1 || args.Str("session") == "" {
@@ -461,6 +466,31 @@ func brainSessionControl(root string, args cli.Args, fn func(string, string) (co
 		return specdExit(err)
 	}
 	return printCommandResult(args, session)
+}
+
+func brainWhy(root string, args cli.Args) int {
+	sessionID := args.Str("session")
+	if sessionID == "" {
+		return usageExit("usage: specd brain why --session <id> [--json]")
+	}
+	store, err := core.NewACPStore(root)
+	if err != nil {
+		return specdExit(err)
+	}
+	events, err := store.ReplaySessionEvents(sessionID)
+	if err != nil {
+		return specdExit(err)
+	}
+	event, ok := core.ExplainCurrentSessionDecision(events)
+	if !ok {
+		return specdExit(core.NotFoundError(fmt.Sprintf("no events for session %q", sessionID)))
+	}
+	if args.Bool("json") || core.IsJSONMode() {
+		return printCommandResult(args, event)
+	}
+	fmt.Printf("brain why — %s\n", sessionID)
+	fmt.Printf(" %s\n", core.FormatSessionTimelineEvent(event))
+	return core.ExitOK
 }
 
 func brainProgramSessionControl(root string, args cli.Args, fn func(string, string) (core.ProgramSession, error), verb string) int {

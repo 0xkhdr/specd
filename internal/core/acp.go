@@ -36,8 +36,8 @@ const (
 )
 
 var (
-	acpIDRE      = regexp.MustCompile(`^[a-f0-9]{32}$`)
-	acpPartyRE   = regexp.MustCompile(`^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$`)
+	acpIDRE    = regexp.MustCompile(`^[a-f0-9]{32}$`)
+	acpPartyRE = regexp.MustCompile(`^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$`)
 	// acpTaskIDRE accepts both execution task IDs (T<n>, parsed from tasks.md)
 	// and reserved authoring work IDs (A<n>, synthesized for planning-phase
 	// artifact missions — see authoringWorkID). Authoring IDs never originate
@@ -58,20 +58,21 @@ var (
 )
 
 type ACPEnvelope struct {
-	Version   string          `json:"version"`
-	MessageID string          `json:"messageId"`
-	SessionID string          `json:"sessionId"`
-	Sequence  uint64          `json:"sequence"`
-	CreatedAt string          `json:"createdAt"`
-	ExpiresAt string          `json:"expiresAt"`
-	Type      ACPMessageType  `json:"type"`
-	From      string          `json:"from"`
-	To        string          `json:"to"`
-	Spec      string          `json:"spec"`
-	Task      string          `json:"task,omitempty"`
-	Attempt   int             `json:"attempt"`
-	InReplyTo string          `json:"inReplyTo,omitempty"`
-	Payload   json.RawMessage `json:"payload"`
+	Version   string                 `json:"version"`
+	MessageID string                 `json:"messageId"`
+	SessionID string                 `json:"sessionId"`
+	Sequence  uint64                 `json:"sequence"`
+	CreatedAt string                 `json:"createdAt"`
+	ExpiresAt string                 `json:"expiresAt"`
+	Type      ACPMessageType         `json:"type"`
+	From      string                 `json:"from"`
+	To        string                 `json:"to"`
+	Spec      string                 `json:"spec"`
+	Task      string                 `json:"task,omitempty"`
+	Attempt   int                    `json:"attempt"`
+	InReplyTo string                 `json:"inReplyTo,omitempty"`
+	Payload   json.RawMessage        `json:"payload"`
+	Decision  *OrchestrationDecision `json:"decision,omitempty"`
 }
 
 type ACPAuthority struct {

@@ -235,6 +235,7 @@ func recordOrchestrationDecision(root, sessionID string, decision OrchestrationD
 	envelope.Spec = decision.Spec
 	envelope.Task = decision.TaskID
 	envelope.Attempt = decision.Attempt
+	envelope.Decision = &decision
 	written, err := store.WriteEvent(envelope)
 	if err != nil {
 		return nil, fmt.Errorf("orchestration engine: record decision: %w", err)

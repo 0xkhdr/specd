@@ -24,18 +24,19 @@ func RunReplay(args cli.Args) int {
 		if err != nil {
 			return specdExit(err)
 		}
+		timeline := core.ReplaySessionTimeline(events)
 		if core.IsJSONMode() {
-			if events == nil {
-				events = []core.ACPEnvelope{}
+			if timeline == nil {
+				timeline = []core.SessionTimelineEvent{}
 			}
-			if err := core.PrintJSON(events); err != nil {
+			if err := core.PrintJSON(timeline); err != nil {
 				return specdExit(err)
 			}
 			return core.ExitOK
 		}
-		fmt.Printf("acp replay — %s (%d event%s)\n", sessionID, len(events), plural(len(events)))
-		for _, event := range events {
-			fmt.Printf(" %020d %-10s %s -> %s %s\n", event.Sequence, event.Type, event.From, event.To, event.Task)
+		fmt.Printf("acp replay — %s (%d event%s)\n", sessionID, len(timeline), plural(len(timeline)))
+		for _, event := range timeline {
+			fmt.Printf(" %s\n", core.FormatSessionTimelineEvent(event))
 		}
 		return core.ExitOK
 	}

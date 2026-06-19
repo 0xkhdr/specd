@@ -104,6 +104,7 @@ for a worker lifecycle to finish.
 | `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]` | Start or step one spec orchestration session. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
 | `specd brain step <slug> --session <id> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]` | Advance an existing spec session by one bounded decision | same |
 | `specd brain status --session <id> [--json]` | Read persisted session state | `0` ok, `1` invalid/missing session, `2` usage |
+| `specd brain why --session <id> [--json]` | Explain the latest replayable Brain decision for a session | `0` ok, `1` invalid/missing session, `2` usage |
 | `specd brain pause\|resume\|cancel --session <id> [--json]` | Persist cooperative session control. `cancel` records intent; later steps emit cancellation directives but never kill host processes | `0` ok, `1` invalid/terminal session, `2` usage |
 | `specd brain start --program [--session <id>] ... [--json]` / `specd brain step --program --session <id> ... [--json]` | Schedule child specs from the program DAG under the same explicit policy limits | same |
 | `specd brain status\|pause\|resume\|cancel --program --session <id> [--json]` | Read/control a parent program session | same |

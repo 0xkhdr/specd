@@ -231,8 +231,8 @@ var Commands = []CommandMeta{
 		Command:     "brain",
 		Category:    "orchestration",
 		Description: "Drive deterministic Brain orchestration sessions.",
-		Usage:       "specd brain <start|status|step|pause|resume|cancel> ... [--program]",
-		Synopsis:    "specd brain <start|status|step|pause|resume|cancel> ... [--program]",
+		Usage:       "specd brain <start|status|step|why|pause|resume|cancel> ... [--program]",
+		Synopsis:    "specd brain <start|status|step|why|pause|resume|cancel> ... [--program]",
 		Flags: []FlagMeta{
 			{Name: "program", Type: "boolean", Description: "operate on the cross-spec program session instead of one spec"},
 			{Name: "session", Type: "string", Description: "explicit orchestration session id"},

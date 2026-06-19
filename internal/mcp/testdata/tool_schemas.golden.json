@@ -125,7 +125,7 @@
       },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|status|step|pause|resume|cancel\u003e ... [--program]",
+        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|status|step|why|pause|resume|cancel\u003e ... [--program]",
         "items": {
           "type": "string"
         }
