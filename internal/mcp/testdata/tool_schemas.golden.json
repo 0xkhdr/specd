@@ -337,6 +337,34 @@
         "type": "boolean",
         "description": "Disable prompts"
       },
+      "orchestration": {
+        "type": "string",
+        "description": "Enable Brain/Pinky and set approval policy (manual, planning, session)"
+      },
+      "orchestration-cost-limit": {
+        "type": "string",
+        "description": "Host-reported cost brake in USD (default 0)"
+      },
+      "orchestration-mode": {
+        "type": "string",
+        "description": "Subagent coordination mode: inline or delegate (default delegate)"
+      },
+      "orchestration-retries": {
+        "type": "string",
+        "description": "Retry budget for failed/reclaimed work (0..10, default 2)"
+      },
+      "orchestration-sandbox": {
+        "type": "string",
+        "description": "Default verify sandbox: none, bwrap, or container (default none)"
+      },
+      "orchestration-timeout": {
+        "type": "string",
+        "description": "Session wall-clock timeout in minutes (1..1440, default 120)"
+      },
+      "orchestration-workers": {
+        "type": "string",
+        "description": "Max concurrent Pinky workers (1..64, default 4)"
+      },
       "pack": {
         "type": "string",
         "description": "Apply a spec pack by built-in name or http(s) URL"

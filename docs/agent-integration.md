@@ -101,8 +101,9 @@ Output sections:
 
 ## Brain/Pinky orchestration
 
-Brain/Pinky is an optional deterministic orchestration layer. It is disabled by
-default in `.specd/config.json`:
+Brain/Pinky is an optional deterministic orchestration layer. You can enable and configure the entire orchestration stack at bootstrap time using the `--orchestration` CLI flag during `specd init` (see the [User Guide](./user-guide.md#one-command-autonomous-setup)).
+
+Alternatively, you can manually edit `.specd/config.json` post-init (where it is disabled by default):
 
 ```json
 "orchestration": {

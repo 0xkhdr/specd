@@ -24,6 +24,7 @@ MCP is needed — if you can run a shell command, you can run this harness.
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
    - `specd brain <start|run|step|status|why|directive|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration and bounded worker directives. (MCP: `specd_brain`)
    - `specd pinky <claim|heartbeat|progress|query|report|block|release|inbox> [flags]` — record deterministic worker leases, telemetry, bounded queries, progress, and terminal reports. (MCP: `specd_pinky`)
+   - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
 
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
    builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic

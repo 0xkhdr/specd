@@ -101,8 +101,8 @@ type OrchestrationSnapshot struct {
 	// Runnable for the execution DAG. PlanningReady is true when the spec is in
 	// a planning status and the current artifact already passes its gate (the
 	// phase is ready to advance).
-	Authoring    *OrchestrationAuthoring `json:"authoring,omitempty"`
-	PlanningReady bool                   `json:"planningReady"`
+	Authoring     *OrchestrationAuthoring `json:"authoring,omitempty"`
+	PlanningReady bool                    `json:"planningReady"`
 	// AccumulatedCostUSD is the sum of host-reported cost across the session's
 	// evidence events. It is hostReported and untrusted — it never gates
 	// completion — but it drives the advisory cost-limit escalation (GAP-4).
@@ -131,11 +131,11 @@ type OrchestrationEscalation struct {
 }
 
 type OrchestrationDecision struct {
-	Version        int                     `json:"version"`
-	Action         OrchestrationAction     `json:"action"`
-	Spec           string                  `json:"spec"`
-	TaskID         string                  `json:"taskId,omitempty"`
-	Attempt        int                     `json:"attempt,omitempty"`
+	Version int                 `json:"version"`
+	Action  OrchestrationAction `json:"action"`
+	Spec    string              `json:"spec"`
+	TaskID  string              `json:"taskId,omitempty"`
+	Attempt int                 `json:"attempt,omitempty"`
 	// Artifact is set on dispatch-authoring / advance-phase decisions: the
 	// planning artifact (e.g. "design.md") the decision concerns.
 	Artifact       string                  `json:"artifact,omitempty"`

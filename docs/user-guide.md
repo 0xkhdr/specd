@@ -403,7 +403,30 @@ For automated pipelines, `specd` provides an optional, deterministic orchestrati
 - **The Brain** (`specd brain`) processes state and makes stepping decisions.
 - **Pinky** (`specd pinky`) executes worker claims under lease without network or LLM calls in the core.
 
-For configuration and integration details, see the [Agent Integration Guide](./agent-integration.md#brainpinky-orchestration).
+#### One-Command Autonomous Setup
+
+You can enable and configure the entire Brain/Pinky orchestration stack at project bootstrap time using the `--orchestration` flag with `specd init`. 
+
+```sh
+specd init --agent auto --orchestration session --yes
+```
+
+This command:
+1. Scaffolds `.specd/config.json` with `"orchestration.enabled": true`.
+2. Registers the MCP server on your host agent (e.g., Claude Code).
+3. Configures subagent mode to `"delegate"`, allowing Pinky workers to spawn in isolated context windows.
+4. Installs the worker subagent definitions under `.claude/agents/pinky-*.md`.
+
+##### Configuration Options
+- `--orchestration <manual|planning|session>`: Enable orchestration and set the approval policy. Defaults to `planning`.
+- `--orchestration-workers <1..64>`: Max concurrent Pinky workers (default: `4`).
+- `--orchestration-retries <0..10>`: Max retries for failed tasks (default: `2`).
+- `--orchestration-timeout <minutes>`: Session wall-clock timeout in minutes (default: `120`).
+- `--orchestration-cost-limit <usd>`: Host-reported cost brake in USD (default: `0` / disabled).
+- `--orchestration-mode <inline|delegate>`: Subagent coordination mode (default: `delegate`).
+- `--orchestration-sandbox <none|bwrap|container>`: Default task verification sandbox (default: `none`).
+
+For more details on orchestration configuration, see the [Agent Integration Guide](./agent-integration.md#brainpinky-orchestration).
 
 ---
 

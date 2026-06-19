@@ -116,6 +116,7 @@ specd init --agent claude-code --yes      # configure one named host
 specd init --agent all --yes              # configure every detected host
 specd init --agent codex --dry-run --json # preview exact mutations, write nothing
 specd init --agent none                   # scaffold only, no host config
+specd init --agent auto --orchestration session --yes # bootstrap full autonomy from day one
 ```
 
 `--agent auto` configures a host automatically only when exactly one is detected in an

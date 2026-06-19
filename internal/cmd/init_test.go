@@ -246,3 +246,165 @@ func TestInitRefreshRejectsMalformedAgentsWithoutWrite(t *testing.T) {
 		t.Fatalf("preflight failure wrote .specd: %v", err)
 	}
 }
+
+func TestInitOrchestrationFlags(t *testing.T) {
+	t.Run("bare --orchestration defaults to planning", func(t *testing.T) {
+		root := initTestRoot(t)
+		_, _, code := captureInitOutput(t, cli.ParseArgs([]string{"--non-interactive", "--orchestration"}), core.DefaultInitExecutor())
+		if code != core.ExitOK {
+			t.Fatalf("exit = %d, want %d", code, core.ExitOK)
+		}
+		cfg := core.LoadConfig(root)
+		if !cfg.Orchestration.Enabled || cfg.Orchestration.ApprovalPolicy != "planning" {
+			t.Fatalf("unexpected orchestration config: %+v", cfg.Orchestration)
+		}
+		if cfg.Orchestration.MaxWorkers != 4 || cfg.Orchestration.MaxRetries != 2 || cfg.Orchestration.SessionTimeoutMinutes != 120 {
+			t.Fatalf("unexpected orchestration defaults: %+v", cfg.Orchestration)
+		}
+	})
+
+	t.Run("--orchestration session full autonomy with custom workers", func(t *testing.T) {
+		root := initTestRoot(t)
+		_, _, code := captureInitOutput(t, cli.ParseArgs([]string{
+			"--non-interactive",
+			"--orchestration", "session",
+			"--orchestration-workers", "8",
+			"--orchestration-retries", "3",
+			"--orchestration-timeout", "240",
+			"--orchestration-cost-limit", "10.5",
+			"--orchestration-mode", "delegate",
+		}), core.DefaultInitExecutor())
+		if code != core.ExitOK {
+			t.Fatalf("exit = %d, want %d", code, core.ExitOK)
+		}
+		cfg := core.LoadConfig(root)
+		if !cfg.Orchestration.Enabled || cfg.Orchestration.ApprovalPolicy != "session" {
+			t.Fatalf("unexpected orchestration config: %+v", cfg.Orchestration)
+		}
+		if cfg.Orchestration.MaxWorkers != 8 {
+			t.Fatalf("maxWorkers = %d, want 8", cfg.Orchestration.MaxWorkers)
+		}
+		if cfg.Orchestration.MaxRetries != 3 {
+			t.Fatalf("maxRetries = %d, want 3", cfg.Orchestration.MaxRetries)
+		}
+		if cfg.Orchestration.SessionTimeoutMinutes != 240 {
+			t.Fatalf("sessionTimeoutMinutes = %d, want 240", cfg.Orchestration.SessionTimeoutMinutes)
+		}
+		if cfg.Orchestration.HostReportedCostLimitUSD != 10.5 {
+			t.Fatalf("hostReportedCostLimitUSD = %f, want 10.5", cfg.Orchestration.HostReportedCostLimitUSD)
+		}
+		if cfg.Roles.SubagentMode != "delegate" {
+			t.Fatalf("roles.subagentMode = %q, want delegate", cfg.Roles.SubagentMode)
+		}
+	})
+
+	t.Run("invalid policy returns usage exit", func(t *testing.T) {
+		initTestRoot(t)
+		_, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{"--non-interactive", "--orchestration", "foo"}), core.DefaultInitExecutor())
+		if code != core.ExitUsage {
+			t.Fatalf("exit = %d, want %d", code, core.ExitUsage)
+		}
+		if !strings.Contains(stderr, "invalid policy") {
+			t.Fatalf("unexpected error message: %q", stderr)
+		}
+	})
+
+	t.Run("workers out of bounds clamped with warning", func(t *testing.T) {
+		root := initTestRoot(t)
+		stdout, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{
+			"--non-interactive",
+			"--orchestration", "session",
+			"--orchestration-workers", "100",
+		}), core.DefaultInitExecutor())
+		if code != core.ExitOK {
+			t.Fatalf("exit = %d, want %d, stderr=%q", code, core.ExitOK, stderr)
+		}
+		cfg := core.LoadConfig(root)
+		if cfg.Orchestration.MaxWorkers != 64 {
+			t.Fatalf("maxWorkers = %d, want 64", cfg.Orchestration.MaxWorkers)
+		}
+		if !strings.Contains(stdout+stderr, "outside [1,64] — using 64") {
+			t.Fatalf("warning missing from output: stdout=%q stderr=%q", stdout, stderr)
+		}
+	})
+
+	t.Run("dry-run does not write but lists write config.json", func(t *testing.T) {
+		root := initTestRoot(t)
+		stdout, _, code := captureInitOutput(t, cli.ParseArgs([]string{
+			"--dry-run",
+			"--orchestration", "session",
+		}), core.DefaultInitExecutor())
+		if code != core.ExitOK {
+			t.Fatalf("exit = %d, want %d", code, core.ExitOK)
+		}
+		if _, err := os.Stat(filepath.Join(root, ".specd", "config.json")); !os.IsNotExist(err) {
+			t.Fatalf("config.json should not exist in dry run")
+		}
+		if !strings.Contains(stdout, "would write: .specd/config.json") {
+			t.Fatalf("dry-run missing would write config.json: %s", stdout)
+		}
+	})
+
+	t.Run("invalid cost limit returns usage error", func(t *testing.T) {
+		initTestRoot(t)
+		_, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{
+			"--non-interactive",
+			"--orchestration", "session",
+			"--orchestration-cost-limit", "abc",
+		}), core.DefaultInitExecutor())
+		if code != core.ExitUsage {
+			t.Fatalf("exit = %d, want %d", code, core.ExitUsage)
+		}
+		if !strings.Contains(stderr, "invalid cost limit") {
+			t.Fatalf("unexpected error message: %q", stderr)
+		}
+	})
+
+	t.Run("sandbox selection bwrap fails closed if bwrap not in path", func(t *testing.T) {
+		originalPath := os.Getenv("PATH")
+		os.Setenv("PATH", "")
+		defer os.Setenv("PATH", originalPath)
+
+		initTestRoot(t)
+		_, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{
+			"--non-interactive",
+			"--orchestration", "session",
+			"--orchestration-sandbox", "bwrap",
+		}), core.DefaultInitExecutor())
+		if code != core.ExitGate {
+			t.Fatalf("exit = %d, want %d", code, core.ExitGate)
+		}
+		if !strings.Contains(stderr, "bubblewrap not found on PATH") {
+			t.Fatalf("unexpected error message: %q", stderr)
+		}
+	})
+
+	t.Run("updating orchestration configuration on already initialized project", func(t *testing.T) {
+		root := initTestRoot(t)
+		if _, _, code := captureInitOutput(t, cli.ParseArgs([]string{"--non-interactive", "--agent", "none"}), core.DefaultInitExecutor()); code != core.ExitOK {
+			t.Fatalf("initial init exit=%d", code)
+		}
+		cfgBefore := core.LoadConfig(root)
+		if cfgBefore.Orchestration.Enabled {
+			t.Fatalf("expected orchestration disabled initially")
+		}
+
+		stdout, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{
+			"--non-interactive",
+			"--orchestration", "session",
+			"--orchestration-workers", "12",
+			"--agent", "none",
+		}), core.DefaultInitExecutor())
+		if code != core.ExitOK {
+			t.Fatalf("exit = %d, want %d, stderr=%q stdout=%q", code, core.ExitOK, stderr, stdout)
+		}
+
+		cfgAfter := core.LoadConfig(root)
+		if !cfgAfter.Orchestration.Enabled || cfgAfter.Orchestration.ApprovalPolicy != "session" {
+			t.Fatalf("expected orchestration enabled after update")
+		}
+		if cfgAfter.Orchestration.MaxWorkers != 12 {
+			t.Fatalf("maxWorkers = %d, want 12", cfgAfter.Orchestration.MaxWorkers)
+		}
+	})
+}

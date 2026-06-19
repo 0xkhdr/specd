@@ -3,11 +3,14 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -177,6 +180,152 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		return emitInitResult(result, args.Bool("json"))
 	}
 
+	// Parse and apply orchestration settings
+	var orchConfig *core.OrchestrationCfg
+	var rolesSubagentMode *string
+	var verifySandbox *string
+	var initWarnings []core.InitWarning
+
+	if args.Has("orchestration") {
+		orchPolicy := args.Str("orchestration")
+		if orchPolicy == "true" || orchPolicy == "" {
+			orchPolicy = "planning"
+		}
+		validPolicies := []string{"manual", "planning", "session"}
+		valid := false
+		for _, p := range validPolicies {
+			if p == orchPolicy {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return usageExit(fmt.Sprintf("--orchestration: invalid policy %q, expected manual|planning|session", orchPolicy))
+		}
+
+		workers := 4
+		if args.Has("orchestration-workers") {
+			w, err := strconv.Atoi(args.Str("orchestration-workers"))
+			if err != nil {
+				return usageExit("invalid --orchestration-workers: must be an integer")
+			}
+			workers = clamp(w, 1, 64, "maxWorkers", &initWarnings)
+		}
+
+		retries := 2
+		if args.Has("orchestration-retries") {
+			r, err := strconv.Atoi(args.Str("orchestration-retries"))
+			if err != nil {
+				return usageExit("invalid --orchestration-retries: must be an integer")
+			}
+			retries = clamp(r, 0, 10, "maxRetries", &initWarnings)
+		}
+
+		timeout := 120
+		if args.Has("orchestration-timeout") {
+			tVal, err := strconv.Atoi(args.Str("orchestration-timeout"))
+			if err != nil {
+				return usageExit("invalid --orchestration-timeout: must be an integer")
+			}
+			timeout = clamp(tVal, 1, 1440, "sessionTimeoutMinutes", &initWarnings)
+		}
+
+		costLimit := 0.0
+		if args.Has("orchestration-cost-limit") {
+			cl, err := parseCostLimit(args.Str("orchestration-cost-limit"))
+			if err != nil {
+				return usageExit(err.Error())
+			}
+			costLimit = cl
+		}
+
+		mode := "delegate"
+		if args.Has("orchestration-mode") {
+			mode = args.Str("orchestration-mode")
+			if mode != "inline" && mode != "delegate" {
+				return usageExit("invalid --orchestration-mode: must be inline or delegate")
+			}
+		}
+
+		sandbox := "none"
+		if args.Has("orchestration-sandbox") {
+			sandbox = args.Str("orchestration-sandbox")
+			if sandbox != "none" && sandbox != "bwrap" && sandbox != "container" {
+				return usageExit("invalid --orchestration-sandbox: must be none, bwrap, or container")
+			}
+			if _, err := core.SelectRunner(sandbox); err != nil {
+				return specdExit(err)
+			}
+		}
+
+		if mode == "delegate" && selectionName == "none" {
+			msg := "Delegate mode requires a compatible host agent. Use --orchestration-mode inline or install an agent."
+			core.Warn(msg)
+			initWarnings = append(initWarnings, core.InitWarning{
+				Code:    "orchestration-agent-mismatch",
+				Message: msg,
+			})
+		}
+
+		orchConfig = &core.OrchestrationCfg{
+			Enabled:                  true,
+			ApprovalPolicy:           orchPolicy,
+			WorkerMode:               "host",
+			MaxWorkers:               workers,
+			MaxRetries:               retries,
+			SessionTimeoutMinutes:    timeout,
+			HostReportedCostLimitUSD: costLimit,
+			Transport: core.TransportCfg{
+				Kind:               "file",
+				PollIntervalMillis: 500,
+				MessageTTLSeconds:  3600,
+				LeaseSeconds:       120,
+				HeartbeatSeconds:   30,
+			},
+			Program: core.ProgramCfg{
+				MaxConcurrentSpecs: 2,
+			},
+		}
+		rolesSubagentMode = &mode
+		verifySandbox = &sandbox
+
+		// Update target config action in plan.Actions
+		configTarget := filepath.Join(options.Root, ".specd", "config.json")
+		for i, action := range plan.Actions {
+			if action.Target == configTarget {
+				var cfg core.Config
+				if _, statErr := os.Stat(configTarget); statErr == nil && !options.Force {
+					cfg = core.LoadConfig(options.Root)
+				} else {
+					if err := json.Unmarshal([]byte(action.Content), &cfg); err != nil {
+						cfg = core.DefaultConfig
+					}
+				}
+
+				if orchConfig != nil {
+					cfg.Orchestration = *orchConfig
+				}
+				if rolesSubagentMode != nil {
+					cfg.Roles.SubagentMode = *rolesSubagentMode
+				}
+				if verifySandbox != nil {
+					cfg.Verify.Sandbox = *verifySandbox
+				}
+
+				newContent, err := json.MarshalIndent(cfg, "", "  ")
+				if err != nil {
+					return specdExit(err)
+				}
+				plan.Actions[i].Content = string(newContent) + "\n"
+				if action.Kind == "skip" {
+					plan.Actions[i].Kind = "write"
+					plan.Actions[i].Description = "update orchestration config"
+				}
+				break
+			}
+		}
+	}
+
 	if runtime.Registry == nil {
 		runtime.Registry = integration.DefaultRegistry()
 	}
@@ -230,6 +379,23 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 			}
 		}
 	}
+
+	result.Warnings = append(result.Warnings, initWarnings...)
+	if orchConfig != nil {
+		if len(selected.Selected) > 0 {
+			host := selected.Selected[0]
+			agentDisplay := host
+			if host == "claude-code" {
+				agentDisplay = "Claude Code"
+			} else if host == "cursor" {
+				agentDisplay = "Cursor"
+			}
+			result.NextAction.Text = fmt.Sprintf("Restart %s to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", agentDisplay, orchConfig.ApprovalPolicy)
+		} else {
+			result.NextAction.Text = fmt.Sprintf("Restart your agent to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", orchConfig.ApprovalPolicy)
+		}
+	}
+
 	return emitInitResult(result, args.Bool("json"), args.Bool("verbose"))
 }
 
@@ -396,4 +562,34 @@ func printInitPaths(result core.InitResult) {
 			core.Info(group.label + ": " + path)
 		}
 	}
+}
+
+func clamp(val, min, max int, name string, warnings *[]core.InitWarning) int {
+	if val < min {
+		msg := fmt.Sprintf("orchestration.%s: %d outside [%d,%d] — using %d", name, val, min, max, min)
+		*warnings = append(*warnings, core.InitWarning{Code: "orchestration-clamp", Message: msg})
+		core.Warn(msg)
+		return min
+	}
+	if val > max {
+		msg := fmt.Sprintf("orchestration.%s: %d outside [%d,%d] — using %d", name, val, min, max, max)
+		*warnings = append(*warnings, core.InitWarning{Code: "orchestration-clamp", Message: msg})
+		core.Warn(msg)
+		return max
+	}
+	return val
+}
+
+func parseCostLimit(s string) (float64, error) {
+	if s == "" {
+		return 0, nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid cost limit: must be a non-negative number")
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) || f < 0 {
+		return 0, fmt.Errorf("invalid cost limit: must be a non-negative number")
+	}
+	return f, nil
 }
