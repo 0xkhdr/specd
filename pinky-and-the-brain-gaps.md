@@ -118,7 +118,9 @@ For Claude Code specifically, the natural worker is a **`Task` sub-agent** (or a
 
 ---
 
-### GAP-5 (P1) — No high-level MCP orchestration verb; raw CLI passthrough only
+### GAP-5 (P1) — No high-level MCP orchestration verb; raw CLI passthrough only — ✅ DONE
+
+> **Implemented (Milestone B):** six intent-level MCP tools (`internal/mcp/intent.go`) — `brain_orchestrate`, `brain_status`, `brain_approve`, `brain_pause`, `brain_resume`, `brain_cancel` — modelled with named arguments (no positional `args` array) and translated to the same deterministic `brain`/`approve` primitives (no new core authority). `brain_orchestrate(spec[,goal,worker_cmd,…])` wraps `brain run` (bootstraps a missing spec via `goal`→`--title`, planning policy default, stops at first dispatch without a `worker_cmd`). Routed in `callTool` ahead of the raw `specd_*` passthrough, which is retained for power users; `serverInstructions` now points hosts at the intent layer first. Validation fails closed (missing required / wrong-typed args → invalid-params, never dispatches). Tests: `intent_test.go` (`TestIntentToolTranslation`, `TestIntentToolValidation`) + updated tool-list/golden/e2e parity counts via exported `IntentToolCount`. Docs: `agent-integration.md` "Driving Brain/Pinky from MCP hosts".
 
 MCP exposes `specd_brain` / `specd_pinky` as **generic `args`-array passthrough** (`agent-integration.md:155-159`, `mcp.go` re-dispatches via `cmd.Dispatch`). There is **no** `brain_orchestrate(goal, spec, constraints)` semantic tool as the design doc promised (§7.1).
 
@@ -195,7 +197,7 @@ The design's ACP defined a `query` message (Pinky → Brain: "I need clarificati
 
 ### Milestone B — Safety & ergonomics — P1
 5. ✅ **GAP-4** enforce cost/time limits → escalate.
-6. **GAP-5** intent-level MCP tools (`brain_orchestrate` etc.).
+6. ✅ **GAP-5** intent-level MCP tools (`brain_orchestrate` etc.).
 7. **GAP-7** program-level end-to-end golden test + fixes.
 
 ### Milestone C — Trust, context, scale — P2

@@ -1,4 +1,104 @@
 {
+  "brain_approve": {
+    "type": "object",
+    "properties": {
+      "spec": {
+        "type": "string",
+        "description": "Spec slug whose gate to clear / phase to advance."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_cancel": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_orchestrate": {
+    "type": "object",
+    "properties": {
+      "approval_policy": {
+        "type": "string",
+        "description": "Override the approval policy (default: planning). One of manual|planning|session."
+      },
+      "goal": {
+        "type": "string",
+        "description": "One-line goal/title used when bootstrapping a new spec."
+      },
+      "max_steps": {
+        "type": "string",
+        "description": "Maximum Brain steps before the driver stops (safety bound)."
+      },
+      "no_bootstrap": {
+        "type": "boolean",
+        "description": "Do not auto-create a missing spec; fail closed instead."
+      },
+      "session": {
+        "type": "string",
+        "description": "Resume or name a specific session id instead of the active one."
+      },
+      "spec": {
+        "type": "string",
+        "description": "Spec slug to orchestrate (created if absent)."
+      },
+      "worker_cmd": {
+        "type": "string",
+        "description": "Shell command run per Pinky dispatch; receives the mission via SPECD_* env. Omit to stop at the first dispatch."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_pause": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_resume": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_status": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_approve": {
     "type": "object",
     "properties": {

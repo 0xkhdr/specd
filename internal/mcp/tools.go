@@ -45,6 +45,12 @@ type toolDef struct {
 	Description string          `json:"description"`
 	InputSchema jsonSchema      `json:"inputSchema"`
 	Annotations toolAnnotations `json:"annotations"`
+
+	// intent marks a semantic, intent-level tool (GAP-5) that wraps the
+	// deterministic primitives with sane defaults rather than mirroring one
+	// command 1:1. Such tools model named arguments instead of a positional
+	// "args" array and are translated to an argv before dispatch.
+	intent bool
 }
 
 // commandToTool maps one command's help metadata to an MCP tool definition.
@@ -77,16 +83,21 @@ func commandToTool(c core.CommandMeta) toolDef {
 	}
 }
 
-// buildTools generates the MCP tool list from core.Commands — the same schema
-// that backs `specd help --json` — in stable help-display order, excluding meta
-// commands. A new command surfaces as a tool with no separate registration.
+// buildTools generates the MCP tool list: one command-mirror tool per non-meta
+// core.Commands entry (raw passthrough, stable help-display order) followed by
+// the intent-level orchestration tools (GAP-5). A new command surfaces as a
+// passthrough tool with no separate registration; intent tools give a model a
+// single high-level affordance over the same deterministic primitives.
 func buildTools() []toolDef {
-	tools := make([]toolDef, 0, len(core.Commands))
+	tools := make([]toolDef, 0, len(core.Commands)+len(intentTools))
 	for _, c := range core.Commands {
 		if metaCommands[c.Command] {
 			continue
 		}
 		tools = append(tools, commandToTool(c))
+	}
+	for _, it := range intentTools {
+		tools = append(tools, it.def())
 	}
 	return tools
 }

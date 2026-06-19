@@ -162,11 +162,33 @@ closed to the disabled defaults.
 
 ### Driving Brain/Pinky from MCP hosts
 
-MCP hosts use the generated `specd_brain` and `specd_pinky` tools. The `args`
-array is the normal CLI subcommand list; flags are ordinary tool arguments.
-There are no MCP-only orchestration commands.
+MCP hosts have two layers. Prefer the **intent-level tools** for orchestration;
+drop to the raw passthrough only when you need a flag the intent tools do not
+surface.
 
-Typical host loop:
+**Intent-level tools (recommended).** Six semantic tools wrap the deterministic
+primitives with sane policy defaults — one clear affordance per intent, no flag
+plumbing. They add no new core authority; each translates to a `specd_brain`/
+`approve` invocation the passthrough could already produce.
+
+| Tool | Wraps | Key arguments |
+|---|---|---|
+| `brain_orchestrate` | `brain run` | `spec` (required), `goal`, `worker_cmd`, `approval_policy` (default `planning`), `max_steps`, `session`, `no_bootstrap` |
+| `brain_status` | `brain status` | `session` (required), `program` |
+| `brain_approve` | `approve` | `spec` (required) |
+| `brain_pause` / `brain_resume` / `brain_cancel` | `brain pause`/`resume`/`cancel` | `session` (required), `program` |
+
+`brain_orchestrate` bootstraps a missing spec (using `goal` as its title), then
+runs the Brain loop to completion under the planning policy. Supply `worker_cmd`
+to execute Pinky dispatches; without one the loop stops at the first dispatch so
+the host can run the worker itself. Start-and-monitor is one tool call carrying a
+goal + spec — no `--approval-policy`/`--max-workers`/… plumbing.
+
+**Raw passthrough (power users).** The generated `specd_brain` and `specd_pinky`
+tools remain. The `args` array is the normal CLI subcommand list; flags are
+ordinary tool arguments.
+
+Typical raw host loop:
 
 1. Call `specd_brain` with `args: ["start", "<slug>"]` and explicit
    `approval-policy`, `max-workers`, `max-retries`, and `timeout-seconds`.

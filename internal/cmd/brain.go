@@ -226,7 +226,11 @@ func brainRunSession(root, slug string, args cli.Args, policy core.Orchestration
 func brainRunBootstrap(root, slug string, args cli.Args, items []core.PreflightItem) bool {
 	for _, item := range items {
 		if item.Kind == "spec" && args.Bool("bootstrap") {
-			if code := RunNew(cli.Args{Pos: []string{slug}, Flags: map[string]string{}}); code != core.ExitOK {
+			newFlags := map[string]string{}
+			if title := args.Str("title"); title != "" {
+				newFlags["title"] = title
+			}
+			if code := RunNew(cli.Args{Pos: []string{slug}, Flags: newFlags}); code != core.ExitOK {
 				errLine("brain run: bootstrap `%s` failed", item.Remedy)
 				return false
 			}

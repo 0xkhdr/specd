@@ -16,7 +16,7 @@ import (
 const (
 	latestProtocolVersion = "2025-11-25"
 	legacyProtocolVersion = "2024-11-05"
-	serverInstructions    = "Call specd_status/context first. MCP is bounded: use brain start/step/status and watch --once only; host runs Pinky workers. Never edit state/tasks checkboxes. Approval is policy-gated; completion needs specd_verify evidence. Cancellation is cooperative."
+	serverInstructions    = "Call specd_status/context first. Prefer intent tools brain_orchestrate/brain_status/brain_pause/brain_resume/brain_cancel/brain_approve; raw specd_brain start/step/status stays for power users. MCP is bounded: watch --once only; host runs Pinky workers. Never edit state/tasks checkboxes. Approval is policy-gated; completion needs specd_verify evidence. Cancellation is cooperative."
 )
 
 // supportedProtocolVersions is newest-first so fallback negotiation is stable.
@@ -144,6 +144,17 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 	if err := json.Unmarshal(rawParams, &p); err != nil {
 		return nil, &rpcError{Code: errInvalidParams, Message: "invalid params: " + err.Error()}
 	}
+
+	// Intent-level tools (GAP-5) translate named arguments into a command + argv
+	// for the same dispatcher; they carry no positional "args" array.
+	if it, ok := intentByName[p.Name]; ok {
+		command, argv, err := it.translate(p.Arguments)
+		if err != nil {
+			return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
+		}
+		return runTool(command, argv, dispatch)
+	}
+
 	command, ok := strings.CutPrefix(p.Name, toolPrefix)
 	if !ok || metaCommands[command] {
 		return nil, &rpcError{Code: errInvalidParams, Message: "unknown tool: " + p.Name}
@@ -152,6 +163,15 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 	if err != nil {
 		return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
 	}
+	return runTool(command, argv, dispatch)
+}
+
+// runTool dispatches a resolved command+argv with SPECD_JSON semantics: it
+// appends --json (a no-op for commands that lack the flag), enforces bounded
+// streaming, captures stdout/stderr, and maps the exit code to the MCP result.
+// Both raw passthrough and intent tools funnel through here so they share
+// identical capture, error, and panic-recovery behaviour (R3).
+func runTool(command string, argv []string, dispatch Dispatcher) (any, *rpcError) {
 	// Force structured handler output: append --json (a no-op for commands that
 	// lack the flag) and set SPECD_JSON so JSON-mode suppression fires too.
 	argv = append(argv, "--json")
@@ -169,7 +189,7 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 		return rc
 	})
 	if !known {
-		return nil, &rpcError{Code: errInvalidParams, Message: "unknown tool: " + p.Name}
+		return nil, &rpcError{Code: errInvalidParams, Message: "unknown tool: " + toolPrefix + command}
 	}
 
 	return toolResult(stdout, stderr, code), nil

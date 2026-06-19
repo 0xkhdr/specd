@@ -88,6 +88,7 @@ func TestMCPInstructionsAgentBudget(t *testing.T) {
 	}
 	for _, phrase := range []string{
 		"specd_status/context first",
+		"brain_orchestrate",
 		"brain start/step/status",
 		"watch --once only",
 		"host runs Pinky workers",
@@ -249,8 +250,8 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Errorf("initialize serverInfo = %v", init["serverInfo"])
 	}
 
-	// tools/list — parity with non-meta command count (R2).
-	wantTools := 0
+	// tools/list — parity with non-meta command count (R2) plus intent tools.
+	wantTools := mcp.IntentToolCount
 	for _, c := range core.Commands {
 		if c.Command != "help" && c.Command != "version" && c.Command != "mcp" {
 			wantTools++

@@ -21,16 +21,17 @@ var updateGolden = flag.Bool("update", false, "rewrite golden schema snapshot")
 func TestToolsList(t *testing.T) {
 	tools := buildTools()
 
-	// Parity: exactly one tool per non-meta core.Commands entry (R2). Adding a
-	// command without it surfacing as a tool fails here.
-	wantCount := 0
+	// Parity: one command-mirror tool per non-meta core.Commands entry (R2) plus
+	// the intent-level tools (GAP-5). Adding a command/intent tool without it
+	// surfacing here fails the test.
+	wantCount := len(intentTools)
 	for _, c := range core.Commands {
 		if !metaCommands[c.Command] {
 			wantCount++
 		}
 	}
 	if len(tools) != wantCount {
-		t.Fatalf("tool count = %d, want %d (one per non-meta command)", len(tools), wantCount)
+		t.Fatalf("tool count = %d, want %d (one per non-meta command + %d intent tools)", len(tools), wantCount, len(intentTools))
 	}
 
 	byName := map[string]toolDef{}
@@ -53,13 +54,45 @@ func TestToolsList(t *testing.T) {
 		t.Error("specd_verify should be readOnlyHint:false")
 	}
 
-	// Each tool carries an object input schema with an ordered args array.
+	// Each command-mirror tool carries an object input schema with an ordered
+	// args array; intent tools model named properties instead (no args array).
 	for _, tl := range tools {
 		if tl.InputSchema.Type != "object" {
 			t.Errorf("%s inputSchema.type = %q, want object", tl.Name, tl.InputSchema.Type)
 		}
+		if tl.intent {
+			if _, ok := tl.InputSchema.Properties["args"]; ok {
+				t.Errorf("intent tool %s should not expose a positional args array", tl.Name)
+			}
+			continue
+		}
 		if p, ok := tl.InputSchema.Properties["args"]; !ok || p.Type != "array" {
 			t.Errorf("%s missing args array property", tl.Name)
+		}
+	}
+
+	// Intent tools (GAP-5) are present with their semantic argument surface.
+	orch := byName["brain_orchestrate"]
+	if orch.Name == "" || !orch.intent {
+		t.Fatal("brain_orchestrate intent tool missing")
+	}
+	for _, prop := range []string{"spec", "goal", "worker_cmd", "approval_policy", "max_steps"} {
+		if _, ok := orch.InputSchema.Properties[prop]; !ok {
+			t.Errorf("brain_orchestrate missing argument %q", prop)
+		}
+	}
+	if _, ok := orch.InputSchema.Properties["args"]; ok {
+		t.Error("brain_orchestrate must not carry a positional args array")
+	}
+	if !byName["brain_status"].Annotations.ReadOnlyHint {
+		t.Error("brain_status should be readOnlyHint:true")
+	}
+	if byName["brain_orchestrate"].Annotations.ReadOnlyHint {
+		t.Error("brain_orchestrate mutates state; readOnlyHint must be false")
+	}
+	for _, name := range []string{"brain_orchestrate", "brain_status", "brain_approve", "brain_pause", "brain_resume", "brain_cancel"} {
+		if _, ok := byName[name]; !ok {
+			t.Errorf("intent tool %s not exposed", name)
 		}
 	}
 
@@ -150,9 +183,11 @@ func TestToolSchemaValidity(t *testing.T) {
 			t.Errorf("%s: nil properties", tl.Name)
 			continue
 		}
-		args, ok := s.Properties["args"]
-		if !ok || args.Type != "array" || args.Items == nil || args.Items.Type != "string" {
-			t.Errorf("%s: args must be an array of strings, got %+v", tl.Name, args)
+		if !tl.intent {
+			args, ok := s.Properties["args"]
+			if !ok || args.Type != "array" || args.Items == nil || args.Items.Type != "string" {
+				t.Errorf("%s: args must be an array of strings, got %+v", tl.Name, args)
+			}
 		}
 		for name, p := range s.Properties {
 			if p.Type != "string" && p.Type != "boolean" && p.Type != "array" {
