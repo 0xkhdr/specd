@@ -1,7 +1,11 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -109,4 +113,162 @@ func appendPinkyEvent(root, sessionID, workerID, spec, taskID string, attempt in
 		return ACPEnvelope{}, fmt.Errorf("pinky report: append event: %w", err)
 	}
 	return written, nil
+}
+
+// PinkyEvidenceResult reports the outcome of reconciling a worker's terminal
+// report: the immutable ACP evidence event that was recorded and the completion
+// result from the existing task-integrity path.
+type PinkyEvidenceResult struct {
+	Event      ACPEnvelope        `json:"event"`
+	Completion CompleteTaskResult `json:"completion"`
+}
+
+// ReconcilePinkyEvidence turns an untrusted worker terminal report into a real
+// task completion — but only through specd's own integrity paths. It records the
+// report as an immutable ACP event (lease-gated, idempotent), then accepts it
+// only when it references the matching specd-generated verification record, the
+// git head and declared file scope agree, and the role is permitted. Completion
+// itself runs through core.CompleteTask, the same path `specd task --status
+// complete` uses, so Pinky never becomes a second verification or completion
+// mechanism (R4.6, R4.7, R4.8, R4.14). It is idempotent: a duplicate report
+// re-records nothing and re-completes nothing.
+func ReconcilePinkyEvidence(root string, report PinkyTerminalReport, cfg OrchestrationCfg) (PinkyEvidenceResult, error) {
+	// 1. Record the worker's claim. RecordPinkyTerminalReport validates that the
+	//    reporter still owns an active lease (V2) and is idempotent, so a forged
+	//    or expired worker is rejected here before any state is touched.
+	event, err := RecordPinkyTerminalReport(root, report, cfg)
+	if err != nil {
+		return PinkyEvidenceResult{}, err
+	}
+
+	loaded, err := LoadSpec(root, report.Spec)
+	if err != nil {
+		return PinkyEvidenceResult{}, err
+	}
+	task, ok := loaded.State.Tasks[report.TaskID]
+	if !ok {
+		return PinkyEvidenceResult{}, fmt.Errorf("pinky evidence: unknown task %s", report.TaskID)
+	}
+	docTask := FindTask(loaded.Doc, report.TaskID)
+	if docTask == nil {
+		return PinkyEvidenceResult{}, fmt.Errorf("pinky evidence: unknown task %s", report.TaskID)
+	}
+
+	// 2. Read-only roles have no edit authority and no runnable verify command;
+	//    they cannot submit verified completion evidence (R4.6, V5).
+	if IsReadonlyRole(task.Role) {
+		return PinkyEvidenceResult{}, GateError(fmt.Sprintf("pinky evidence: task %s role %q is read-only — it cannot submit verified completion evidence", report.TaskID, task.Role))
+	}
+
+	// 3. The verification record must be specd-generated and passing. A missing or
+	//    failed record fails closed.
+	rec := task.Verification
+	if rec == nil || !rec.Verified {
+		return PinkyEvidenceResult{}, GateError(fmt.Sprintf("pinky evidence: task %s has no passing specd verification record — run `specd verify %s %s`", report.TaskID, report.Spec, report.TaskID))
+	}
+
+	// 4. The verify command on record must still match the task's `verify:` line;
+	//    a changed command means the record is stale.
+	if rec.Command != docTask.Meta["verify"] {
+		return PinkyEvidenceResult{}, GateError(fmt.Sprintf("pinky evidence: task %s verification is stale — recorded command (%s) ≠ current verify line (%s)", report.TaskID, rec.Command, docTask.Meta["verify"]))
+	}
+
+	// 5. The report must reference the exact specd record. A forged ACP evidence
+	//    payload carries a ref that will not match.
+	if report.VerificationRef != VerificationRef(rec) {
+		return PinkyEvidenceResult{}, GateError(fmt.Sprintf("pinky evidence: task %s verificationRef does not match the specd record — refusing forged evidence", report.TaskID))
+	}
+
+	// 6. The git head the worker reports must equal the record's head; otherwise
+	//    the verification ran against a different tree (stale head).
+	if report.GitHead != verificationGitHead(rec) {
+		return PinkyEvidenceResult{}, GateError(fmt.Sprintf("pinky evidence: task %s git head %q does not match the verified head %q", report.TaskID, report.GitHead, verificationGitHead(rec)))
+	}
+
+	// 7. The worker's claimed changed files must equal the record's changed files;
+	//    a divergent claim is rejected.
+	if !sameStringSet(report.ChangedFiles, rec.ChangedFiles) {
+		return PinkyEvidenceResult{}, GateError(fmt.Sprintf("pinky evidence: task %s reported changed files do not match the verification record", report.TaskID))
+	}
+
+	// 8. Scope gate: when configured as `error`, any recorded change outside the
+	//    declared `files:` contract fails closed (R4.14).
+	if err := enforcePinkyScope(root, docTask, rec); err != nil {
+		return PinkyEvidenceResult{}, err
+	}
+
+	// 9. Complete through the single integrity path (dependencies, gate, verified
+	//    record). Idempotent: a duplicate report finds the task already complete.
+	req := CompleteTaskRequest{Idempotent: true}
+	if report.HostTokens > 0 {
+		tokens := report.HostTokens
+		req.Tokens = &tokens
+	}
+	if strings.TrimSpace(report.HostCost) != "" {
+		cost := report.HostCost
+		req.Cost = &cost
+	}
+	completion, err := CompleteTask(root, report.Spec, report.TaskID, req)
+	if err != nil {
+		return PinkyEvidenceResult{}, err
+	}
+	return PinkyEvidenceResult{Event: event, Completion: completion}, nil
+}
+
+// VerificationRef is the canonical reference a worker must echo back to claim a
+// specd verification record. It binds the command, git head, and run timestamp,
+// so any change to the verified work changes the ref.
+func VerificationRef(rec *VerificationRecord) string {
+	if rec == nil {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(strings.Join([]string{
+		rec.Command,
+		verificationGitHead(rec),
+		rec.RanAt,
+	}, "\x1f")))
+	return hex.EncodeToString(sum[:16])
+}
+
+func verificationGitHead(rec *VerificationRecord) string {
+	if rec == nil || rec.GitHead == nil {
+		return ""
+	}
+	return *rec.GitHead
+}
+
+// enforcePinkyScope reuses the existing scope-gate semantics: when scope is
+// `error`, a recorded changed file outside the task's declared glob contract is a
+// hard failure. Other modes (off/warn/`*`) and `*` contracts opt out.
+func enforcePinkyScope(root string, docTask *ParsedTask, rec *VerificationRecord) error {
+	mode := LoadConfig(root).Gates.Scope
+	if mode != "error" {
+		return nil
+	}
+	patterns := parseFilesContract(docTask.Meta["files"])
+	if len(patterns) == 0 || containsStr(patterns, "*") {
+		return nil
+	}
+	for _, f := range rec.ChangedFiles {
+		if !matchesAnyGlob(f, patterns) {
+			return GateError(fmt.Sprintf("pinky evidence: task %s changed '%s' outside its declared files contract (%s)", docTask.ID, f, strings.Join(patterns, ", ")))
+		}
+	}
+	return nil
+}
+
+func sameStringSet(a, b []string) bool {
+	left := append([]string{}, a...)
+	right := append([]string{}, b...)
+	sort.Strings(left)
+	sort.Strings(right)
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 9 complete; awaiting human review
+Status: implementation in progress; Wave 10 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 18/37 tasks complete
+Implementation progress: 20/37 tasks complete
 
 ## Program Outcome
 
@@ -27,8 +27,8 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 6 | Worker leases and Brain models | 2 | complete |
 | 7 | ACP archive, Brain sensing, Pinky mission contract | 3 | complete |
 | 8 | ACP stress, Brain decisions, Pinky claims | 3 | complete |
-| 9 | Brain reconciliation, Pinky reporting, program decisions | 3 | pending |
-| 10 | Brain recovery and Pinky evidence | 2 | pending |
+| 9 | Brain reconciliation, Pinky reporting, program decisions | 3 | complete |
+| 10 | Brain recovery and Pinky evidence | 2 | complete |
 | 11 | Brain CLI, Pinky CLI, program child scheduling | 3 | pending |
 | 12 | Brain/Pinky guidance and program failure controls | 3 | pending |
 | 13 | Fake host and program CLI | 2 | pending |
@@ -60,8 +60,8 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 |---|---:|---:|---|---|
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
 | acp-file-transport | 7 | 7 | complete | — |
-| brain-core | 8 | 4 | in progress | T5 (Wave 10) |
-| pinky-core | 7 | 3 | in progress | T4 (Wave 10) |
+| brain-core | 8 | 5 | in progress | T6 (Wave 11) |
+| pinky-core | 7 | 4 | in progress | T5 (Wave 11) |
 | program-orchestration | 5 | 1 | in progress | T2 (Wave 10) |
 | mcp-integration | 6 | 0 | proposed | blocked by Brain/Pinky/program CLI |
 
@@ -197,6 +197,28 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   over the child-spec DAG with capacity, cycle, orphan, and blocker handling.
   Verification passed:
   `go test ./internal/core/... -run 'TestProgramOrchestration' -count=20`,
+  and `make ci`.
+- Wave 10 / `brain-core/T5`: added persisted session lifecycle controls
+  (start/pause/resume/cancel) under the session lock with atomic private
+  session.json writes; made `StepOrchestration` lifecycle-aware so pause stops
+  new dispatch, cancellation issues one cooperative cancel directive per active
+  lease (never claiming host-process termination) and drains to complete; added
+  privileged expired-lease reclamation enabling retry at the next attempt; and
+  file-only recovery that reconciles `lastSequence` from the committed event log
+  and converges at every event boundary. Verification passed:
+  `go test ./internal/core/... -run 'TestOrchestration.*(Pause|Resume|Cancel|Recovery|Retry)' -race -count=2`,
+  and `make ci`.
+- Wave 10 / `pinky-core/T4`: routed worker completion through one shared
+  `core.CompleteTask` integrity path (also used by `specd task --status
+  complete`), and added `ReconcilePinkyEvidence`, which records the lease-gated
+  immutable ACP evidence event then accepts it only when it references the
+  matching specd verification record (binding command, git head, and run time),
+  the reported changed files equal the record and stay inside the declared scope
+  contract under `scope=error`, and the role is not read-only — completing
+  idempotently. Forged refs, stale heads, changed verify commands, undeclared
+  files, missing records, non-owners, and read-only roles all fail closed.
+  Verification passed:
+  `go test ./internal/core/... ./internal/cmd/... -run 'TestPinky.*Evidence|TestTask.*Gate|TestVerify' -count=2`,
   and `make ci`.
 - Backprop B5 / 2026-06-19: Wave 9 engine integration exposed that mission
   authority `allowedActions` were validated against the directive verb set

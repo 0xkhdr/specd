@@ -38,7 +38,7 @@
 
 ## Wave 10 — Pinky Evidence
 
-- [ ] T4 — Reconcile worker completion through existing integrity paths
+- [x] T4 — Reconcile worker completion through existing integrity paths
   - why: Pinky must not create a second verification or task-completion mechanism.
   - role: builder
   - files: internal/core/pinky_report.go, internal/cmd/verify.go, internal/cmd/task.go, internal/core/pinky_evidence_test.go

@@ -50,7 +50,7 @@
 
 ## Wave 10 — Brain Recovery Controls
 
-- [ ] T5 — Implement pause, resume, cancel, retry, and recovery
+- [x] T5 — Implement pause, resume, cancel, retry, and recovery
   - why: Autonomous sessions need explicit operational control.
   - role: builder
   - files: internal/core/orchestration_engine.go, internal/core/orchestration_recovery_test.go

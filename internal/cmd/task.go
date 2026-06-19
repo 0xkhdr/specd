@@ -31,87 +31,6 @@ func applyTelemetryAnnotations(args cli.Args, ts *core.TaskState) {
 	}
 }
 
-func deriveStatus(state *core.State) {
-	vals := make([]core.TaskState, 0, len(state.Tasks))
-	for _, t := range state.Tasks {
-		vals = append(vals, t)
-	}
-	if len(vals) == 0 {
-		return
-	}
-	started := false
-	for _, t := range vals {
-		if t.Status != core.TaskPending {
-			started = true
-			break
-		}
-	}
-	if !started {
-		return
-	}
-	allComplete := true
-	for _, t := range vals {
-		if t.Status != core.TaskComplete {
-			allComplete = false
-			break
-		}
-	}
-	if allComplete {
-		if state.Status != core.StatusComplete {
-			state.Status = core.StatusVerifying
-		}
-	} else {
-		next := core.NextRunnable(core.DagTasksFromState(state))
-		if next.Kind == core.NextAllBlocked {
-			state.Status = core.StatusBlocked
-		} else {
-			state.Status = core.StatusExecuting
-		}
-	}
-	state.Phase = core.PhaseForStatus(state.Status)
-}
-
-// validateComplete enforces the complete-status evidence gate and returns the
-// evidence string to record. It mutates nothing; on any gate failure it returns
-// a *core.SpecdError (GateError) with the same message the inline gate emitted.
-func validateComplete(state *core.State, ts core.TaskState, docTask *core.ParsedTask, slug, id string, args cli.Args) (string, *core.SpecdError) {
-	for _, d := range ts.Depends {
-		if dep, ok := state.Tasks[d]; !ok || dep.Status != core.TaskComplete {
-			return "", core.GateError(fmt.Sprintf("task %s: cannot complete — dependencies not complete: %s", id, d))
-		}
-	}
-	evidence := args.Str("evidence")
-	if args.Bool("unverified") {
-		if evidence == "" {
-			return "", core.GateError(fmt.Sprintf("task %s: --status complete --unverified requires non-empty --evidence", id))
-		}
-	} else {
-		verifyLine := ""
-		if v, ok := docTask.Meta["verify"]; ok {
-			verifyLine = v
-		}
-		rec := ts.Verification
-		if rec == nil || !rec.Verified {
-			return "", core.GateError(fmt.Sprintf("task %s: --status complete requires a passing `specd verify %s %s` (exit 0) first — or pass --unverified with --evidence for a manual proof", id, slug, id))
-		}
-		if rec.Command != verifyLine {
-			return "", core.GateError(fmt.Sprintf("task %s: verification is stale — recorded command (%s) ≠ current verify line (%s); re-run `specd verify %s %s`", id, rec.Command, verifyLine, slug, id))
-		}
-	}
-	derived := ""
-	if ts.Verification != nil && ts.Verification.Verified {
-		gitHead := "no-git"
-		if ts.Verification.GitHead != nil {
-			gitHead = *ts.Verification.GitHead
-		}
-		derived = fmt.Sprintf("verified: `%s` → exit 0 @ %s (%s)", ts.Verification.Command, gitHead, ts.Verification.RanAt)
-	}
-	if evidence == "" {
-		evidence = derived
-	}
-	return evidence, nil
-}
-
 var validTaskStatuses = map[core.TaskStatus]bool{
 	core.TaskComplete: true,
 	core.TaskBlocked:  true,
@@ -141,6 +60,13 @@ func RunTask(args cli.Args) int {
 	}
 	newStatus := core.TaskStatus(statusStr)
 
+	// Completion goes through the single core integrity path (the same one the
+	// Pinky evidence reconciler uses), so dependency/verification/gate rules and
+	// the state.json + tasks.md mutation live in exactly one place.
+	if newStatus == core.TaskComplete {
+		return runTaskComplete(root, slug, id, args)
+	}
+
 	rc, err := core.WithSpecLock[int](root, slug, func() (int, error) {
 		loaded, err := core.LoadSpec(root, slug)
 		if err != nil {
@@ -160,29 +86,8 @@ func RunTask(args cli.Args) int {
 		}
 
 		reason := args.Str("reason")
-		stamp := core.NowISO()
 
 		switch newStatus {
-		case core.TaskComplete:
-			ev, serr := validateComplete(state, ts, docTask, slug, id, args)
-			if serr != nil {
-				return specdExit(serr), nil
-			}
-			ts.Status = core.TaskComplete
-			ts.Evidence = &ev
-			ts.FinishedAt = &stamp
-			if ts.StartedAt == nil {
-				ts.StartedAt = &stamp
-			}
-			ts.Blocker = nil
-			core.RemoveBlocker(state, id)
-			docTask.Checked = true
-			docTask.Annotation = &core.Annotation{Kind: core.AnnotComplete, Evidence: ev, Ts: stamp}
-			// Capture running→complete elapsed via the injectable clock.
-			if ts.StartedAt != nil {
-				ensureTelemetry(&ts).DurationMs = core.DurationMsBetween(*ts.StartedAt, stamp)
-			}
-
 		case core.TaskBlocked:
 			if reason == "" {
 				return specdExit(core.GateError(fmt.Sprintf("task %s: --status blocked requires --reason", id))), nil
@@ -196,6 +101,7 @@ func RunTask(args cli.Args) int {
 		case core.TaskRunning:
 			ts.Status = core.TaskRunning
 			if ts.StartedAt == nil {
+				stamp := core.NowISO()
 				ts.StartedAt = &stamp
 			}
 			ts.Blocker = nil
@@ -225,15 +131,12 @@ func RunTask(args cli.Args) int {
 		if err := core.AtomicWrite(tasksPath, updated); err != nil {
 			return specdExit(err), err
 		}
-		deriveStatus(state)
+		core.DeriveSpecStatus(state)
 		if err := core.SaveState(root, slug, state); err != nil {
 			return specdExit(err), err
 		}
 
 		fmt.Printf("task %s → %s\n", id, newStatus)
-		if newStatus == core.TaskComplete && ts.Evidence != nil {
-			fmt.Printf("  evidence: %s\n", *ts.Evidence)
-		}
 		if newStatus == core.TaskBlocked {
 			fmt.Printf("  blocked: %s\n", reason)
 		}
@@ -243,4 +146,32 @@ func RunTask(args cli.Args) int {
 		return specdExit(err)
 	}
 	return rc
+}
+
+// runTaskComplete drives the complete transition through core.CompleteTask and
+// renders the same output the inline path used to. Telemetry flags are forwarded
+// as verbatim annotations.
+func runTaskComplete(root, slug, id string, args cli.Args) int {
+	req := core.CompleteTaskRequest{
+		Evidence:   args.Str("evidence"),
+		Unverified: args.Bool("unverified"),
+		Force:      args.Bool("force"),
+	}
+	if args.Has("tokens") {
+		if n, err := strconv.Atoi(args.Str("tokens")); err == nil {
+			req.Tokens = &n
+		}
+	}
+	if args.Has("cost") {
+		c := args.Str("cost")
+		req.Cost = &c
+	}
+
+	res, err := core.CompleteTask(root, slug, id, req)
+	if err != nil {
+		return specdExit(err)
+	}
+	fmt.Printf("task %s → %s\n", id, core.TaskComplete)
+	fmt.Printf("  evidence: %s\n", res.Evidence)
+	return core.ExitOK
 }

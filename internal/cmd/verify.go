@@ -264,6 +264,9 @@ func printVerifyResult(slug, id string, rec *core.VerificationRecord) int {
 		fmt.Printf("  stderr tail:\n%s\n", rec.StderrTail)
 	}
 	if rec.Verified {
+		// A Pinky worker echoes this ref in its terminal report so specd can bind
+		// the report to this exact verification record (see ReconcilePinkyEvidence).
+		fmt.Printf("  evidenceRef: %s\n", core.VerificationRef(rec))
 		fmt.Printf("  complete with: specd task %s %s --status complete\n", slug, id)
 		return core.ExitOK
 	}
