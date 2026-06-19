@@ -223,6 +223,152 @@ func TestProgramOrchestrationFrontier(t *testing.T) {
 	}
 }
 
+func TestProgramOrchestrationEscalate(t *testing.T) {
+	root := t.TempDir()
+	scaffoldSpec(t, root, "a", StatusExecuting)
+	scaffoldSpec(t, root, "b", StatusExecuting)
+	if err := SaveProgram(root, ProgramManifest{Version: ProgramVersion, DependsOn: map[string][]string{"b": {"a"}}}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, policy := programTestPolicy(t)
+	cfg.Program.MaxConcurrentSpecs = 2
+	parentID := strings.Repeat("3", 32)
+	lease, err := AcquireProgramChildLease(root, parentID, "a", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureProgramChildSession(root, lease, policy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := markProgramChildLeaseEscalated(root, parentID, "a"); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Decision.Action != ProgramDecisionEscalate || !reflect.DeepEqual(result.Decision.Specs, []string{"a"}) || len(result.Started) != 0 {
+		t.Fatalf("decision=%#v started=%d, want escalate a without new work", result.Decision, len(result.Started))
+	}
+	session, err := LoadProgramSession(root, parentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.Status != OrchestrationSessionFailed {
+		t.Fatalf("program session status = %s, want failed", session.Status)
+	}
+}
+
+func TestProgramOrchestrationPause(t *testing.T) {
+	root := t.TempDir()
+	scaffoldSpec(t, root, "a", StatusExecuting)
+	scaffoldSpec(t, root, "b", StatusExecuting)
+	cfg, policy := programTestPolicy(t)
+	cfg.Program.MaxConcurrentSpecs = 1
+	parentID := strings.Repeat("4", 32)
+	first, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Started) != 1 {
+		t.Fatalf("started=%d, want 1", len(first.Started))
+	}
+	if _, err := PauseProgramOrchestration(root, parentID); err != nil {
+		t.Fatal(err)
+	}
+	child, err := LoadOrchestrationSession(root, first.Started[0].ChildSessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if child.Status != OrchestrationSessionPaused {
+		t.Fatalf("child status = %s, want paused", child.Status)
+	}
+	second, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Decision.Action != ProgramDecisionWait || len(second.Started) != 0 || len(second.Stepped) != 0 {
+		t.Fatalf("paused step decision=%#v started=%d stepped=%d", second.Decision, len(second.Started), len(second.Stepped))
+	}
+}
+
+func TestProgramOrchestrationCancel(t *testing.T) {
+	root := t.TempDir()
+	scaffoldSpec(t, root, "a", StatusExecuting)
+	cfg, policy := programTestPolicy(t)
+	parentID := strings.Repeat("5", 32)
+	first, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Started) != 1 {
+		t.Fatalf("started=%d, want 1", len(first.Started))
+	}
+	if _, err := CancelProgramOrchestration(root, parentID); err != nil {
+		t.Fatal(err)
+	}
+	child, err := LoadOrchestrationSession(root, first.Started[0].ChildSessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if child.Status != OrchestrationSessionCancelling {
+		t.Fatalf("child status = %s, want cancelling", child.Status)
+	}
+	second, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Decision.Action != ProgramDecisionWait || second.Decision.Reason != "program cancelling — cooperative cancel propagated" {
+		t.Fatalf("cancel step decision=%#v", second.Decision)
+	}
+}
+
+func TestProgramOrchestrationRecovery(t *testing.T) {
+	root := t.TempDir()
+	scaffoldSpec(t, root, "a", StatusExecuting)
+	cfg, policy := programTestPolicy(t)
+	parentID := strings.Repeat("6", 32)
+	if _, err := StepProgramOrchestration(root, parentID, policy, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PauseProgramOrchestration(root, parentID); err != nil {
+		t.Fatal(err)
+	}
+	before, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before.Decision, after.Decision) || !reflect.DeepEqual(before.Snapshot, after.Snapshot) {
+		t.Fatalf("paused recovery changed:\nbefore=%#v\nafter=%#v", before, after)
+	}
+}
+
+func TestProgramOrchestrationComplete(t *testing.T) {
+	root := t.TempDir()
+	scaffoldSpec(t, root, "a", StatusComplete)
+	cfg, policy := programTestPolicy(t)
+	parentID := strings.Repeat("7", 32)
+	result, err := StepProgramOrchestration(root, parentID, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Decision.Action != ProgramDecisionComplete {
+		t.Fatalf("decision=%#v, want complete", result.Decision)
+	}
+	session, err := LoadProgramSession(root, parentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.Status != OrchestrationSessionComplete {
+		t.Fatalf("program session status = %s, want complete", session.Status)
+	}
+}
+
 func programTestPolicy(t *testing.T) (OrchestrationCfg, OrchestrationPolicy) {
 	t.Helper()
 	now := time.Date(2026, 6, 19, 12, 0, 0, 0, time.UTC)

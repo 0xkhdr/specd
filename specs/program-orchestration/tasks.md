@@ -26,7 +26,7 @@
 
 ## Wave 12 — Program Failure Controls
 
-- [ ] T3 — Implement fail-fast escalation and parent controls
+- [x] T3 — Implement fail-fast escalation and parent controls ✓ complete · evidence: go test ./internal/core/... ./internal/cmd/... -run 'Test.*Embed.*Brain|Test.*Embed.*Pinky|TestInit|TestProgramOrchestration.*(Escalate|Pause|Cancel|Recovery|Complete)' -race -count=2; go test ./internal/core/... -run 'TestProgramOrchestration|TestOrchestration' -race -count=2; make ci · 2026-06-19
   - why: Program-level failure semantics must be explicit and recoverable.
   - role: builder
   - files: internal/core/program_orchestration.go, internal/core/program_orchestration_test.go

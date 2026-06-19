@@ -74,7 +74,7 @@
 
 ## Wave 12 — Brain Guidance
 
-- [ ] T7 — Add embedded Brain guidance
+- [x] T7 — Add embedded Brain guidance ✓ complete · evidence: go test ./internal/core/... ./internal/cmd/... -run 'Test.*Embed.*Brain|Test.*Embed.*Pinky|TestInit|TestProgramOrchestration.*(Escalate|Pause|Cancel|Recovery|Complete)' -race -count=2; go test ./internal/core/... -run 'TestProgramOrchestration|TestOrchestration' -race -count=2; make ci · 2026-06-19
   - why: Agent hosts need a portable constitution aligned with actual controller behavior.
   - role: builder
   - files: internal/core/embed_templates/roles/brain.md, internal/core/embed_templates/skills/specd-brain/SKILL.md, internal/core/embed.go

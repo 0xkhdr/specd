@@ -62,7 +62,7 @@
 
 ## Wave 12 — Pinky Guidance
 
-- [ ] T6 — Add embedded Pinky role and skill guidance
+- [x] T6 — Add embedded Pinky role and skill guidance ✓ complete · evidence: go test ./internal/core/... ./internal/cmd/... -run 'Test.*Embed.*Brain|Test.*Embed.*Pinky|TestInit|TestProgramOrchestration.*(Escalate|Pause|Cancel|Recovery|Complete)' -race -count=2; go test ./internal/core/... -run 'TestProgramOrchestration|TestOrchestration' -race -count=2; make ci · 2026-06-19
   - why: Any compatible coding-agent host should execute the same mission protocol.
   - role: builder
   - files: internal/core/embed_templates/roles/pinky.md, internal/core/embed_templates/skills/specd-pinky/SKILL.md, internal/core/embed.go

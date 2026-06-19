@@ -118,6 +118,17 @@ func (p ACPRuntimePaths) ArtifactPath(sessionID, artifactID string) (string, err
 	return p.sessionJoin(sessionID, "artifacts", artifactID)
 }
 
+func (p ACPRuntimePaths) ProgramSessionsDir() (string, error) {
+	return p.join("program", "sessions")
+}
+
+func (p ACPRuntimePaths) ProgramSessionPath(sessionID string) (string, error) {
+	if err := validateACPOpaqueID("program session ID", sessionID); err != nil {
+		return "", err
+	}
+	return p.join("program", "sessions", sessionID+".json")
+}
+
 func (p ACPRuntimePaths) ProgramChildrenDir() (string, error) {
 	return p.join("program", "children")
 }

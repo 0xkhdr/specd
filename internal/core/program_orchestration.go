@@ -21,13 +21,29 @@ const (
 )
 
 type ProgramChildSnapshot struct {
-	Slug     string     `json:"slug"`
-	Status   SpecStatus `json:"status"`
-	Wave     int        `json:"wave"`
-	Depends  []string   `json:"depends"`
-	Complete bool       `json:"complete"`
-	Blocked  bool       `json:"blocked"`
-	Active   bool       `json:"active"`
+	Slug           string     `json:"slug"`
+	Status         SpecStatus `json:"status"`
+	Wave           int        `json:"wave"`
+	Depends        []string   `json:"depends"`
+	Complete       bool       `json:"complete"`
+	Blocked        bool       `json:"blocked"`
+	Active         bool       `json:"active"`
+	Escalated      bool       `json:"escalated"`
+	ChildSessionID string     `json:"childSessionId,omitempty"`
+}
+
+type ProgramChildRuntime struct {
+	Active         bool
+	Escalated      bool
+	ChildSessionID string
+}
+
+type ProgramSession struct {
+	Version         int                        `json:"version"`
+	ParentSessionID string                     `json:"parentSessionId"`
+	Status          OrchestrationSessionStatus `json:"status"`
+	CreatedAt       string                     `json:"createdAt"`
+	UpdatedAt       string                     `json:"updatedAt"`
 }
 
 type ProgramSnapshot struct {
@@ -48,24 +64,34 @@ type ProgramDecision struct {
 }
 
 func BuildProgramSnapshot(graph ProgramGraph, active map[string]bool, capacity int) (ProgramSnapshot, error) {
+	runtime := make(map[string]ProgramChildRuntime, len(active))
+	for slug, isActive := range active {
+		runtime[slug] = ProgramChildRuntime{Active: isActive}
+	}
+	return BuildProgramSnapshotWithRuntime(graph, runtime, capacity)
+}
+
+func BuildProgramSnapshotWithRuntime(graph ProgramGraph, runtime map[string]ProgramChildRuntime, capacity int) (ProgramSnapshot, error) {
 	if capacity < 1 {
 		return ProgramSnapshot{}, fmt.Errorf("program orchestration: capacity must be positive")
 	}
 	children := make([]ProgramChildSnapshot, 0, len(graph.Specs))
 	activeCount := 0
 	for _, spec := range graph.Specs {
-		isActive := active[spec.Slug]
-		if isActive {
+		childRuntime := runtime[spec.Slug]
+		if childRuntime.Active {
 			activeCount++
 		}
 		children = append(children, ProgramChildSnapshot{
-			Slug:     spec.Slug,
-			Status:   spec.Status,
-			Wave:     spec.Wave,
-			Depends:  append([]string{}, spec.DependsOn...),
-			Complete: spec.Complete,
-			Blocked:  spec.Status == StatusBlocked,
-			Active:   isActive,
+			Slug:           spec.Slug,
+			Status:         spec.Status,
+			Wave:           spec.Wave,
+			Depends:        append([]string{}, spec.DependsOn...),
+			Complete:       spec.Complete,
+			Blocked:        spec.Status == StatusBlocked,
+			Active:         childRuntime.Active,
+			Escalated:      childRuntime.Escalated,
+			ChildSessionID: childRuntime.ChildSessionID,
 		})
 	}
 	return ProgramSnapshot{
@@ -95,6 +121,12 @@ func DecideProgram(snapshot ProgramSnapshot) (ProgramDecision, error) {
 		return decision, nil
 	}
 	for _, child := range snapshot.Children {
+		if child.Escalated {
+			decision.Action = ProgramDecisionEscalate
+			decision.Reason = "child spec escalated"
+			decision.Specs = []string{child.Slug}
+			return decision, nil
+		}
 		if child.Blocked {
 			decision.Action = ProgramDecisionEscalate
 			decision.Reason = "child spec blocked"
@@ -167,8 +199,9 @@ func programRunnableChildren(children []ProgramChildSnapshot) []string {
 type ProgramChildLeaseStatus string
 
 const (
-	ProgramChildLeaseActive   ProgramChildLeaseStatus = "active"
-	ProgramChildLeaseReleased ProgramChildLeaseStatus = "released"
+	ProgramChildLeaseActive    ProgramChildLeaseStatus = "active"
+	ProgramChildLeaseReleased  ProgramChildLeaseStatus = "released"
+	ProgramChildLeaseEscalated ProgramChildLeaseStatus = "escalated"
 )
 
 type ProgramChildLease struct {
@@ -180,6 +213,7 @@ type ProgramChildLease struct {
 	AcquiredAt      string                  `json:"acquiredAt"`
 	LeaseUntil      string                  `json:"leaseUntil"`
 	ReleasedAt      string                  `json:"releasedAt,omitempty"`
+	EscalatedAt     string                  `json:"escalatedAt,omitempty"`
 }
 
 type ProgramChildStep struct {
@@ -211,6 +245,10 @@ func StepProgramOrchestration(root, parentSessionID string, policy Orchestration
 	if err := ValidateOrchestrationConfig(&cfg); err != nil {
 		return ProgramStepResult{}, err
 	}
+	programSession, err := ensureProgramSession(root, parentSessionID)
+	if err != nil {
+		return ProgramStepResult{}, err
+	}
 
 	graph, err := BuildProgram(root, nil)
 	if err != nil {
@@ -219,19 +257,62 @@ func StepProgramOrchestration(root, parentSessionID string, policy Orchestration
 	if err := releaseCompleteProgramChildren(root, graph); err != nil {
 		return ProgramStepResult{}, err
 	}
-	active, err := activeProgramChildren(root)
+	runtime, err := programChildRuntime(root)
 	if err != nil {
 		return ProgramStepResult{}, err
 	}
-	snapshot, err := BuildProgramSnapshot(graph, active, cfg.Program.MaxConcurrentSpecs)
+	snapshot, err := BuildProgramSnapshotWithRuntime(graph, runtime, cfg.Program.MaxConcurrentSpecs)
 	if err != nil {
 		return ProgramStepResult{}, err
 	}
+	result := ProgramStepResult{Snapshot: snapshot, Started: []ProgramChildLease{}, Stepped: []ProgramChildStep{}, Leases: []ProgramChildLease{}}
+
+	switch programSession.Status {
+	case OrchestrationSessionPaused:
+		result.Decision = programControlDecision(ProgramDecisionWait, "program paused — new child dispatch suspended")
+		result.Leases, err = LoadProgramChildLeases(root)
+		return result, err
+	case OrchestrationSessionCancelling:
+		if err := propagateProgramControl(root, parentSessionID, CancelOrchestration); err != nil {
+			return ProgramStepResult{}, err
+		}
+		leases, err := LoadProgramChildLeases(root)
+		if err != nil {
+			return ProgramStepResult{}, err
+		}
+		result.Leases = leases
+		active := programLeasesToStep(graph, leases, parentSessionID, cfg.Program.MaxConcurrentSpecs)
+		if len(active) == 0 {
+			if _, err := markProgramSessionStatus(root, parentSessionID, OrchestrationSessionComplete); err != nil {
+				return ProgramStepResult{}, err
+			}
+			result.Decision = programControlDecision(ProgramDecisionComplete, "program cancelled — no active child leases remain")
+			return result, nil
+		}
+		result.Decision = programControlDecision(ProgramDecisionWait, "program cancelling — cooperative cancel propagated")
+		for _, lease := range active {
+			step, err := StepOrchestration(root, lease.Slug, lease.ChildSessionID, policy, cfg)
+			if err != nil {
+				return ProgramStepResult{}, err
+			}
+			result.Stepped = append(result.Stepped, ProgramChildStep{Slug: lease.Slug, SessionID: lease.ChildSessionID, Result: step})
+		}
+		return result, nil
+	case OrchestrationSessionComplete:
+		result.Decision = programControlDecision(ProgramDecisionComplete, "program session complete")
+		result.Leases, err = LoadProgramChildLeases(root)
+		return result, err
+	case OrchestrationSessionFailed:
+		result.Decision = programControlDecision(ProgramDecisionEscalate, "program session failed — no new child dispatch")
+		result.Leases, err = LoadProgramChildLeases(root)
+		return result, err
+	}
+
 	decision, err := DecideProgram(snapshot)
 	if err != nil {
 		return ProgramStepResult{}, err
 	}
-	result := ProgramStepResult{Snapshot: snapshot, Decision: decision, Started: []ProgramChildLease{}, Stepped: []ProgramChildStep{}, Leases: []ProgramChildLease{}}
+	result.Decision = decision
 	if decision.Action == ProgramDecisionStart {
 		for _, slug := range decision.Specs {
 			lease, err := AcquireProgramChildLease(root, parentSessionID, slug, cfg)
@@ -250,7 +331,16 @@ func StepProgramOrchestration(root, parentSessionID string, policy Orchestration
 		return ProgramStepResult{}, err
 	}
 	result.Leases = leases
-	if decision.Action == ProgramDecisionEscalate || decision.Action == ProgramDecisionComplete {
+	if decision.Action == ProgramDecisionEscalate {
+		if _, err := markProgramSessionStatus(root, parentSessionID, OrchestrationSessionFailed); err != nil {
+			return ProgramStepResult{}, err
+		}
+		return result, nil
+	}
+	if decision.Action == ProgramDecisionComplete {
+		if _, err := markProgramSessionStatus(root, parentSessionID, OrchestrationSessionComplete); err != nil {
+			return ProgramStepResult{}, err
+		}
 		return result, nil
 	}
 	for _, lease := range programLeasesToStep(graph, leases, parentSessionID, cfg.Program.MaxConcurrentSpecs) {
@@ -259,8 +349,216 @@ func StepProgramOrchestration(root, parentSessionID string, policy Orchestration
 			return ProgramStepResult{}, err
 		}
 		result.Stepped = append(result.Stepped, ProgramChildStep{Slug: lease.Slug, SessionID: lease.ChildSessionID, Result: step})
+		if step.Decision.Action == OrchestrationEscalate {
+			if _, err := markProgramChildLeaseEscalated(root, parentSessionID, lease.Slug); err != nil {
+				return ProgramStepResult{}, err
+			}
+			if _, err := markProgramSessionStatus(root, parentSessionID, OrchestrationSessionFailed); err != nil {
+				return ProgramStepResult{}, err
+			}
+			break
+		}
 	}
-	return result, nil
+	result.Leases, err = LoadProgramChildLeases(root)
+	return result, err
+}
+
+func programControlDecision(action ProgramDecisionAction, reason string) ProgramDecision {
+	return ProgramDecision{Version: OrchestrationModelVersion, Action: action, Reason: reason}
+}
+
+func PauseProgramOrchestration(root, parentSessionID string) (ProgramSession, error) {
+	session, err := updateProgramSession(root, parentSessionID, OrchestrationSessionPaused)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	if err := propagateProgramControl(root, parentSessionID, PauseOrchestration); err != nil {
+		return ProgramSession{}, err
+	}
+	return session, nil
+}
+
+func ResumeProgramOrchestration(root, parentSessionID string) (ProgramSession, error) {
+	session, err := updateProgramSession(root, parentSessionID, OrchestrationSessionRunning)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	if err := propagateProgramControl(root, parentSessionID, ResumeOrchestration); err != nil {
+		return ProgramSession{}, err
+	}
+	return session, nil
+}
+
+func CancelProgramOrchestration(root, parentSessionID string) (ProgramSession, error) {
+	session, err := updateProgramSession(root, parentSessionID, OrchestrationSessionCancelling)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	if err := propagateProgramControl(root, parentSessionID, CancelOrchestration); err != nil {
+		return ProgramSession{}, err
+	}
+	return session, nil
+}
+
+func LoadProgramSession(root, parentSessionID string) (ProgramSession, error) {
+	if err := validateACPOpaqueID("program session ID", parentSessionID); err != nil {
+		return ProgramSession{}, err
+	}
+	paths, err := NewACPRuntimePaths(root)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	path, err := paths.ProgramSessionPath(parentSessionID)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return ProgramSession{}, fmt.Errorf("%w: %s", errOrchestrationSessionNotFound, parentSessionID)
+	}
+	if err != nil {
+		return ProgramSession{}, fmt.Errorf("program orchestration: read session: %w", err)
+	}
+	var session ProgramSession
+	if err := decodeACPStrict(raw, &session); err != nil {
+		return ProgramSession{}, fmt.Errorf("program orchestration: corrupt session: %w", err)
+	}
+	if err := validateProgramSession(session); err != nil {
+		return ProgramSession{}, fmt.Errorf("program orchestration: corrupt session: %w", err)
+	}
+	return session, nil
+}
+
+func ensureProgramSession(root, parentSessionID string) (ProgramSession, error) {
+	session, err := LoadProgramSession(root, parentSessionID)
+	if err == nil {
+		return session, nil
+	}
+	if !errors.Is(err, errOrchestrationSessionNotFound) {
+		return ProgramSession{}, err
+	}
+	now := Clock().UTC().Format(time.RFC3339Nano)
+	session = ProgramSession{
+		Version:         OrchestrationModelVersion,
+		ParentSessionID: parentSessionID,
+		Status:          OrchestrationSessionRunning,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if err := saveProgramSession(root, session); err != nil {
+		return ProgramSession{}, err
+	}
+	return session, nil
+}
+
+func updateProgramSession(root, parentSessionID string, status OrchestrationSessionStatus) (ProgramSession, error) {
+	if !validSessionStatus(status) || status == OrchestrationSessionFailed {
+		return ProgramSession{}, fmt.Errorf("program orchestration: invalid program session status %q", status)
+	}
+	session, err := ensureProgramSession(root, parentSessionID)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	switch session.Status {
+	case OrchestrationSessionComplete, OrchestrationSessionFailed:
+		return ProgramSession{}, fmt.Errorf("program orchestration: cannot update a %s session", session.Status)
+	}
+	session.Status = status
+	session.UpdatedAt = Clock().UTC().Format(time.RFC3339Nano)
+	if err := saveProgramSession(root, session); err != nil {
+		return ProgramSession{}, err
+	}
+	return session, nil
+}
+
+func markProgramSessionStatus(root, parentSessionID string, status OrchestrationSessionStatus) (ProgramSession, error) {
+	if !validSessionStatus(status) {
+		return ProgramSession{}, fmt.Errorf("program orchestration: invalid program session status %q", status)
+	}
+	session, err := ensureProgramSession(root, parentSessionID)
+	if err != nil {
+		return ProgramSession{}, err
+	}
+	session.Status = status
+	session.UpdatedAt = Clock().UTC().Format(time.RFC3339Nano)
+	if err := saveProgramSession(root, session); err != nil {
+		return ProgramSession{}, err
+	}
+	return session, nil
+}
+
+func saveProgramSession(root string, session ProgramSession) error {
+	if err := validateProgramSession(session); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return fmt.Errorf("program orchestration: encode session: %w", err)
+	}
+	raw = append(raw, '\n')
+	paths, err := NewACPRuntimePaths(root)
+	if err != nil {
+		return err
+	}
+	path, err := paths.ProgramSessionPath(session.ParentSessionID)
+	if err != nil {
+		return err
+	}
+	if err := atomicWritePrivate(path, raw); err != nil {
+		return fmt.Errorf("program orchestration: save session: %w", err)
+	}
+	return nil
+}
+
+func validateProgramSession(session ProgramSession) error {
+	if session.Version != OrchestrationModelVersion {
+		return fmt.Errorf("unsupported version %d", session.Version)
+	}
+	if err := validateACPOpaqueID("program session ID", session.ParentSessionID); err != nil {
+		return err
+	}
+	if !validSessionStatus(session.Status) {
+		return fmt.Errorf("unsupported status %q", session.Status)
+	}
+	created, err := parseACPTime("program session createdAt", session.CreatedAt)
+	if err != nil {
+		return err
+	}
+	updated, err := parseACPTime("program session updatedAt", session.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	if updated.Before(created) {
+		return fmt.Errorf("updatedAt precedes createdAt")
+	}
+	return nil
+}
+
+func propagateProgramControl(root, parentSessionID string, control func(string, string) (OrchestrationSession, error)) error {
+	leases, err := LoadProgramChildLeases(root)
+	if err != nil {
+		return err
+	}
+	now := Clock().UTC()
+	for _, lease := range leases {
+		if lease.ParentSessionID != parentSessionID || !programChildLeaseIsActive(lease, now) {
+			continue
+		}
+		session, err := LoadOrchestrationSession(root, lease.ChildSessionID)
+		if errors.Is(err, errOrchestrationSessionNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if session.Status == OrchestrationSessionComplete || session.Status == OrchestrationSessionFailed {
+			continue
+		}
+		if _, err := control(root, lease.ChildSessionID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func AcquireProgramChildLease(root, parentSessionID, slug string, cfg OrchestrationCfg) (ProgramChildLease, error) {
@@ -331,6 +629,7 @@ func ReleaseProgramChildLease(root, parentSessionID, slug string) (ProgramChildL
 		}
 		lease.Status = ProgramChildLeaseReleased
 		lease.ReleasedAt = Clock().UTC().Format(time.RFC3339Nano)
+		lease.EscalatedAt = ""
 		if err := saveProgramChildLease(root, lease); err != nil {
 			return err
 		}
@@ -338,6 +637,37 @@ func ReleaseProgramChildLease(root, parentSessionID, slug string) (ProgramChildL
 		return nil
 	})
 	return released, err
+}
+
+func markProgramChildLeaseEscalated(root, parentSessionID, slug string) (ProgramChildLease, error) {
+	var escalated ProgramChildLease
+	err := withProgramChildLeaseLock(root, slug, func() error {
+		lease, ok, err := loadProgramChildLease(root, slug)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("program orchestration: child %s has no lease", slug)
+		}
+		if lease.ParentSessionID != parentSessionID {
+			return fmt.Errorf("program orchestration: child %s is owned by parent session %s", slug, lease.ParentSessionID)
+		}
+		if lease.Status == ProgramChildLeaseEscalated {
+			escalated = lease
+			return nil
+		}
+		if lease.Status == ProgramChildLeaseReleased {
+			return fmt.Errorf("program orchestration: child %s lease already released", slug)
+		}
+		lease.Status = ProgramChildLeaseEscalated
+		lease.EscalatedAt = Clock().UTC().Format(time.RFC3339Nano)
+		if err := saveProgramChildLease(root, lease); err != nil {
+			return err
+		}
+		escalated = lease
+		return nil
+	})
+	return escalated, err
 }
 
 func LoadProgramChildLeases(root string) ([]ProgramChildLease, error) {
@@ -384,7 +714,10 @@ func releaseCompleteProgramChildren(root string, graph ProgramGraph) error {
 	}
 	now := Clock().UTC()
 	for _, lease := range leases {
-		if !complete[lease.Slug] || !programChildLeaseIsActive(lease, now) {
+		if !complete[lease.Slug] || lease.Status == ProgramChildLeaseReleased {
+			continue
+		}
+		if !programChildLeaseIsActive(lease, now) && lease.Status != ProgramChildLeaseEscalated {
 			continue
 		}
 		if _, err := releaseProgramChildLeaseAnyParent(root, lease.Slug); err != nil {
@@ -410,6 +743,7 @@ func releaseProgramChildLeaseAnyParent(root, slug string) (ProgramChildLease, er
 		}
 		lease.Status = ProgramChildLeaseReleased
 		lease.ReleasedAt = Clock().UTC().Format(time.RFC3339Nano)
+		lease.EscalatedAt = ""
 		if err := saveProgramChildLease(root, lease); err != nil {
 			return err
 		}
@@ -420,18 +754,38 @@ func releaseProgramChildLeaseAnyParent(root, slug string) (ProgramChildLease, er
 }
 
 func activeProgramChildren(root string) (map[string]bool, error) {
+	runtime, err := programChildRuntime(root)
+	if err != nil {
+		return nil, err
+	}
+	active := map[string]bool{}
+	for slug, childRuntime := range runtime {
+		if childRuntime.Active {
+			active[slug] = true
+		}
+	}
+	return active, nil
+}
+
+func programChildRuntime(root string) (map[string]ProgramChildRuntime, error) {
 	leases, err := LoadProgramChildLeases(root)
 	if err != nil {
 		return nil, err
 	}
 	now := Clock().UTC()
-	active := map[string]bool{}
+	runtime := map[string]ProgramChildRuntime{}
 	for _, lease := range leases {
+		childRuntime := runtime[lease.Slug]
+		childRuntime.ChildSessionID = lease.ChildSessionID
 		if programChildLeaseIsActive(lease, now) {
-			active[lease.Slug] = true
+			childRuntime.Active = true
 		}
+		if lease.Status == ProgramChildLeaseEscalated {
+			childRuntime.Escalated = true
+		}
+		runtime[lease.Slug] = childRuntime
 	}
-	return active, nil
+	return runtime, nil
 }
 
 func programLeasesToStep(graph ProgramGraph, leases []ProgramChildLease, parentSessionID string, capacity int) []ProgramChildLease {
@@ -538,7 +892,7 @@ func validateProgramChildLease(lease ProgramChildLease) error {
 	if err := ValidateSlug(lease.Slug); err != nil {
 		return fmt.Errorf("invalid child slug: %w", err)
 	}
-	if lease.Status != ProgramChildLeaseActive && lease.Status != ProgramChildLeaseReleased {
+	if lease.Status != ProgramChildLeaseActive && lease.Status != ProgramChildLeaseReleased && lease.Status != ProgramChildLeaseEscalated {
 		return fmt.Errorf("unsupported status %q", lease.Status)
 	}
 	acquired, err := parseACPTime("program child lease acquiredAt", lease.AcquiredAt)
@@ -552,7 +906,8 @@ func validateProgramChildLease(lease ProgramChildLease) error {
 	if !leaseUntil.After(acquired) {
 		return fmt.Errorf("invalid lease time ordering")
 	}
-	if lease.Status == ProgramChildLeaseReleased {
+	switch lease.Status {
+	case ProgramChildLeaseReleased:
 		released, err := parseACPTime("program child lease releasedAt", lease.ReleasedAt)
 		if err != nil {
 			return err
@@ -560,8 +915,24 @@ func validateProgramChildLease(lease ProgramChildLease) error {
 		if released.Before(acquired) {
 			return fmt.Errorf("releasedAt precedes acquiredAt")
 		}
-	} else if lease.ReleasedAt != "" {
-		return fmt.Errorf("active lease has releasedAt")
+		if lease.EscalatedAt != "" {
+			return fmt.Errorf("released lease has escalatedAt")
+		}
+	case ProgramChildLeaseEscalated:
+		escalated, err := parseACPTime("program child lease escalatedAt", lease.EscalatedAt)
+		if err != nil {
+			return err
+		}
+		if escalated.Before(acquired) {
+			return fmt.Errorf("escalatedAt precedes acquiredAt")
+		}
+		if lease.ReleasedAt != "" {
+			return fmt.Errorf("escalated lease has releasedAt")
+		}
+	default:
+		if lease.ReleasedAt != "" || lease.EscalatedAt != "" {
+			return fmt.Errorf("active lease has terminal time")
+		}
 	}
 	return nil
 }
