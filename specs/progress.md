@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 17 complete; awaiting human review
+Status: implementation in progress; Wave 18 complete; awaiting human review
 Last updated: 2026-06-19
-Implementation progress: 35/37 tasks complete
+Implementation progress: 36/37 tasks complete
 
 ## Program Outcome
 
@@ -36,7 +36,7 @@ Deliver deterministic, resumable orchestration while preserving specd's defining
 | 15 | Configuration docs and CLI/MCP parity | 2 | complete |
 | 16 | Bounded MCP interactions | 1 | complete |
 | 17 | Host compatibility | 1 | complete |
-| 18 | MCP end-to-end lifecycle | 1 | pending |
+| 18 | MCP end-to-end lifecycle | 1 | complete |
 | 19 | Documentation and full CI | 1 | pending |
 
 ## Dependency Spine
@@ -63,7 +63,7 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 | brain-core | 8 | 8 | complete | — |
 | pinky-core | 7 | 7 | complete | — |
 | program-orchestration | 5 | 5 | complete | — |
-| mcp-integration | 6 | 4 | in progress | T5 (Wave 18) |
+| mcp-integration | 6 | 5 | in progress | T6 (Wave 19) |
 
 ## Review Decisions Requested
 
@@ -278,6 +278,9 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   `make ci`.
 - Wave 17 / `mcp-integration/T4`: extended MCP probe evidence to require `specd_brain` and `specd_pinky`, added doctor JSON/text evidence that separates server capability from host-managed reload/trust/start lifecycle, and updated the host compatibility matrix without claiming provider-specific agent-spawn control. Verification passed:
   `go test ./internal/mcp/... ./internal/cmd/... -run 'Test.*(Probe|Doctor|Compatibility)' -count=2`,
+  `make ci`.
+- Wave 18 / `mcp-integration/T5`: added MCP orchestration lifecycle coverage that drives Brain start/status/pause/resume/step/cancel and Pinky claim/heartbeat/progress/block/report/release through stdio and alternating HTTP `/rpc` + `/sse`, reconciles fake-worker evidence, verifies retry and cooperative cancellation convergence, and compares final state/event summaries across transports. Verification passed:
+  `go test ./internal/mcp/... -race -count=2`,
   `make ci`.
 
 ## Progress Update Rules

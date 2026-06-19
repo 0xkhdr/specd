@@ -50,7 +50,7 @@
 
 ## Wave 18 — MCP End-to-End
 
-- [ ] T5 — Add stdio and HTTP/SSE orchestration lifecycle tests
+- [x] T5 — Add stdio and HTTP/SSE orchestration lifecycle tests ✓ complete · evidence: go test ./internal/mcp/... -race -count=2; make ci · 2026-06-19
   - why: The public remote-driving path must prove the full contract.
   - role: verifier
   - files: internal/mcp/orchestration_integration_test.go
