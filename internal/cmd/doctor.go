@@ -25,23 +25,33 @@ type doctorCheck struct {
 }
 
 type doctorHost struct {
-	Name        string `json:"name"`
-	Detected    bool   `json:"detected"`
-	Registered  bool   `json:"registered"`
-	Owned       bool   `json:"owned"`
-	Status      string `json:"status"`
-	Reason      string `json:"reason"`
-	Remediation string `json:"remediation"`
+	Name             string `json:"name"`
+	Detected         bool   `json:"detected"`
+	Registered       bool   `json:"registered"`
+	Owned            bool   `json:"owned"`
+	Status           string `json:"status"`
+	Reason           string `json:"reason"`
+	Remediation      string `json:"remediation"`
+	LifecycleSupport string `json:"lifecycleSupport"`
+	ReloadRequired   bool   `json:"reloadRequired"`
+	TrustRequired    bool   `json:"trustRequired"`
+}
+
+type doctorOrchestration struct {
+	ServerCapability string   `json:"serverCapability"`
+	Tools            []string `json:"tools"`
+	HostLifecycle    string   `json:"hostLifecycle"`
 }
 
 type doctorResult struct {
-	SchemaVersion int           `json:"schemaVersion"`
-	Status        string        `json:"status"`
-	Root          string        `json:"root"`
-	Checks        []doctorCheck `json:"checks"`
-	Hosts         []doctorHost  `json:"hosts"`
-	Remediations  []string      `json:"remediations"`
-	NextAction    string        `json:"nextAction"`
+	SchemaVersion int                 `json:"schemaVersion"`
+	Status        string              `json:"status"`
+	Root          string              `json:"root"`
+	Checks        []doctorCheck       `json:"checks"`
+	Hosts         []doctorHost        `json:"hosts"`
+	Orchestration doctorOrchestration `json:"orchestration"`
+	Remediations  []string            `json:"remediations"`
+	NextAction    string              `json:"nextAction"`
 }
 
 type doctorRuntime struct {
@@ -71,8 +81,13 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		Root:          root,
 		Checks:        []doctorCheck{},
 		Hosts:         []doctorHost{},
-		Remediations:  []string{},
-		NextAction:    "No action required.",
+		Orchestration: doctorOrchestration{
+			ServerCapability: "unknown",
+			Tools:            []string{},
+			HostLifecycle:    "host-managed; specd exposes MCP tools but does not spawn, reload, or trust coding-agent hosts",
+		},
+		Remediations: []string{},
+		NextAction:   "No action required.",
 	}
 
 	executable, execErr := os.Executable()
@@ -111,12 +126,15 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 	}
 
 	if probe, probeErr := runtime.Probe(context.Background(), nil, 2*time.Second); probeErr != nil {
+		result.Orchestration.ServerCapability = "unavailable"
 		addDoctorFailure(&result, "mcp", probeErr.Error(), "run `specd doctor` after rebuilding or reinstalling specd")
 	} else {
+		result.Orchestration.ServerCapability = "available"
+		result.Orchestration.Tools = append([]string(nil), probe.OrchestrationTools...)
 		result.Checks = append(result.Checks, doctorCheck{
 			Name:   "mcp",
 			Status: "pass",
-			Detail: fmt.Sprintf("protocol %s; %d tools", probe.ProtocolVersion, probe.ToolCount),
+			Detail: fmt.Sprintf("protocol %s; %d tools; orchestration tools: %s", probe.ProtocolVersion, probe.ToolCount, strings.Join(probe.OrchestrationTools, ", ")),
 		})
 	}
 
@@ -129,6 +147,7 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		adapter, _ := runtime.Registry.Get(name)
 		detection := detectionForHost(detections, name)
 		host := doctorHost{Name: name, Detected: detection.Detected}
+		host.LifecycleSupport, host.ReloadRequired, host.TrustRequired = doctorHostLifecycle(name)
 		state, inspectErr := adapter.Inspect(root, integration.ScopeProject)
 		if inspectErr != nil {
 			host.Status = "fail"
@@ -230,6 +249,9 @@ func normalizeDoctorResult(result *doctorResult) {
 	if result.Remediations == nil {
 		result.Remediations = []string{}
 	}
+	if result.Orchestration.Tools == nil {
+		result.Orchestration.Tools = []string{}
+	}
 	sort.Slice(result.Checks, func(i, j int) bool { return result.Checks[i].Name < result.Checks[j].Name })
 	sort.Slice(result.Hosts, func(i, j int) bool { return result.Hosts[i].Name < result.Hosts[j].Name })
 	sort.Strings(result.Remediations)
@@ -252,6 +274,20 @@ func firstRemediation(remediations []string) string {
 		return "Review the failed doctor checks."
 	}
 	return remediations[0]
+}
+
+func doctorHostLifecycle(name string) (support string, reloadRequired, trustRequired bool) {
+	support = "host-managed; specd registers project MCP config only and does not spawn Pinky agents"
+	switch name {
+	case "claude-code", "cursor", "gemini":
+		return support + "; reload or enable the MCP server in the host if tools are not visible", true, false
+	case "vscode":
+		return support + "; reload the workspace, approve workspace trust, and start the MCP server in VS Code", true, true
+	case "codex":
+		return support + "; merge or reload project MCP config according to Codex host support", true, false
+	default:
+		return support, false, false
+	}
 }
 
 func emitDoctorResult(result doctorResult, jsonOut bool) int {

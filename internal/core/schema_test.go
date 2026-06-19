@@ -20,7 +20,12 @@ func TestSchemaParse(t *testing.T) {
 	if doc.ID == "" {
 		t.Error("schema missing $id")
 	}
-	for _, name := range []string{"State", "TaskState", "VerificationRecord", "CriterionRecord", "Blocker"} {
+	for _, name := range []string{
+		"State", "TaskState", "VerificationRecord", "CriterionRecord", "Blocker",
+		"ACPEnvelope", "ACPAuthority", "MissionContextManifest", "MissionContextItem",
+		"ACPMissionPayload", "ACPAcceptedPayload", "ACPHeartbeatPayload", "ACPProgressPayload", "ACPEvidencePayload",
+		"ACPBlockerPayload", "ACPQueryPayload", "ACPDirectivePayload", "ACPCancelledPayload",
+	} {
 		if _, ok := doc.Defs[name]; !ok {
 			t.Errorf("schema $defs missing %q", name)
 		}
@@ -71,11 +76,24 @@ func TestSchemaConformance(t *testing.T) {
 	}
 
 	types := map[string]reflect.Type{
-		"State":              reflect.TypeOf(State{}),
-		"TaskState":          reflect.TypeOf(TaskState{}),
-		"VerificationRecord": reflect.TypeOf(VerificationRecord{}),
-		"CriterionRecord":    reflect.TypeOf(CriterionRecord{}),
-		"Blocker":            reflect.TypeOf(Blocker{}),
+		"State":                  reflect.TypeOf(State{}),
+		"TaskState":              reflect.TypeOf(TaskState{}),
+		"VerificationRecord":     reflect.TypeOf(VerificationRecord{}),
+		"CriterionRecord":        reflect.TypeOf(CriterionRecord{}),
+		"Blocker":                reflect.TypeOf(Blocker{}),
+		"ACPEnvelope":            reflect.TypeOf(ACPEnvelope{}),
+		"ACPAuthority":           reflect.TypeOf(ACPAuthority{}),
+		"MissionContextManifest": reflect.TypeOf(MissionContextManifest{}),
+		"MissionContextItem":     reflect.TypeOf(MissionContextItem{}),
+		"ACPMissionPayload":      reflect.TypeOf(ACPMissionPayload{}),
+		"ACPAcceptedPayload":     reflect.TypeOf(ACPAcceptedPayload{}),
+		"ACPHeartbeatPayload":    reflect.TypeOf(ACPHeartbeatPayload{}),
+		"ACPProgressPayload":     reflect.TypeOf(ACPProgressPayload{}),
+		"ACPEvidencePayload":     reflect.TypeOf(ACPEvidencePayload{}),
+		"ACPBlockerPayload":      reflect.TypeOf(ACPBlockerPayload{}),
+		"ACPQueryPayload":        reflect.TypeOf(ACPQueryPayload{}),
+		"ACPDirectivePayload":    reflect.TypeOf(ACPDirectivePayload{}),
+		"ACPCancelledPayload":    reflect.TypeOf(ACPCancelledPayload{}),
 	}
 
 	for name, rt := range types {

@@ -4,18 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
-
-// argsFrom builds a cli.Args from flag key/value pairs for table tests.
-func argsFrom(flags map[string]string) cli.Args {
-	a := cli.Args{Flags: map[string]string{}}
-	for k, v := range flags {
-		a.Flags[k] = v
-	}
-	return a
-}
 
 func TestValidateComplete(t *testing.T) {
 	const slug, id = "demo", "T1"
@@ -95,7 +85,7 @@ func TestValidateComplete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ev, serr := validateComplete(tt.state, tt.ts, tt.docTask, slug, id, argsFrom(tt.flags))
+			ev, serr := core.ValidateTaskCompletion(tt.state, tt.ts, tt.docTask, slug, id, tt.flags["evidence"], tt.flags["unverified"] == "true")
 			if tt.wantErr {
 				if serr == nil {
 					t.Fatalf("expected error, got nil (ev=%q)", ev)
@@ -184,7 +174,7 @@ func TestDeriveStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			origStatus := tt.state.Status
 			origPhase := tt.state.Phase
-			deriveStatus(tt.state)
+			core.DeriveSpecStatus(tt.state)
 			if tt.noChange {
 				if tt.state.Status != origStatus || tt.state.Phase != origPhase {
 					t.Fatalf("expected no change, got status=%q phase=%q", tt.state.Status, tt.state.Phase)

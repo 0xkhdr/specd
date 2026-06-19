@@ -3,7 +3,7 @@ VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo "dev
 LDFLAGS  = -s -w -X main.version=$(VERSION)
 BIN      = specd
 
-.PHONY: all build install test test-order cover cover-check fmt-check lint shellcheck stress perf-gate bench ci clean
+.PHONY: all build install test test-order cover cover-check fmt-check lint shellcheck stress stress-acp stress-orchestration stress-program perf-gate bench ci clean
 
 all: build
 
@@ -42,6 +42,15 @@ shellcheck:
 stress: build
 	./scripts/stress.sh
 
+stress-acp:
+	./scripts/stress-acp.sh
+
+stress-orchestration:
+	./scripts/stress-orchestration.sh
+
+stress-program:
+	./scripts/stress-program.sh
+
 # Onboarding deterministic-output gate (T26). Byte-stability of init receipts and
 # probe contract fields, run twice to catch order/iteration dependence. No
 # wall-clock assertions — latency is tracked via `make bench`, not gated.
@@ -54,7 +63,7 @@ bench:
 	$(GO) test ./internal/cmd/... ./internal/mcp/... -run '^$$' -bench 'Init|Probe|Detection' -benchmem
 
 # Everything CI runs, locally.
-ci: lint test test-order cover-check perf-gate stress
+ci: lint test test-order cover-check perf-gate stress stress-acp stress-orchestration stress-program
 
 clean:
 	rm -f $(BIN) coverage.out coverage-core.out

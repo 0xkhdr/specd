@@ -26,7 +26,7 @@ type ScaffoldAsset struct {
 // DefaultScaffoldManifest is the single source of truth for files installed by
 // the default init flow. Its order is the deterministic execution order.
 func DefaultScaffoldManifest() []ScaffoldAsset {
-	assets := make([]ScaffoldAsset, 0, 18)
+	assets := make([]ScaffoldAsset, 0, 22)
 	for _, name := range []string{
 		"reasoning.md", "workflow.md", "product.md",
 		"tech.md", "structure.md", "memory.md",
@@ -39,7 +39,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Refresh:  name == "reasoning.md" || name == "workflow.md",
 		})
 	}
-	for _, name := range []string{"investigator.md", "builder.md", "reviewer.md", "verifier.md"} {
+	for _, name := range []string{"investigator.md", "builder.md", "reviewer.md", "verifier.md", "brain.md", "pinky.md"} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "roles/" + name,
 			Target:   ".specd/roles/" + name,
@@ -51,6 +51,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 	for _, name := range []string{
 		"specd-foundations", "specd-steering", "specd-requirements",
 		"specd-design", "specd-tasks", "specd-execute",
+		"specd-brain", "specd-pinky",
 	} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "skills/" + name + "/SKILL.md",
@@ -58,6 +59,16 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Policy:   ScaffoldCreate,
 			Required: true,
 			Refresh:  true,
+		})
+	}
+	// Worker-agent definitions (GAP-3): Claude Code sub-agents that turn a Brain
+	// dispatch into a running Pinky worker with zero ad-hoc prompt writing.
+	for _, role := range []string{"builder", "investigator", "reviewer", "verifier"} {
+		assets = append(assets, ScaffoldAsset{
+			Template: "agents/pinky-" + role + ".md",
+			Target:   ".claude/agents/pinky-" + role + ".md",
+			Policy:   ScaffoldCreate,
+			Required: true,
 		})
 	}
 	assets = append(assets,

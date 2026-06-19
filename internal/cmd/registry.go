@@ -25,6 +25,8 @@ var Registry = []Command{
 	{"decision", RunDecision},
 	{"midreq", RunMidreq},
 	{"memory", RunMemory},
+	{"brain", RunBrain},
+	{"pinky", RunPinky},
 	{"next", RunNext},
 	{"dispatch", RunDispatch},
 	{"program", RunProgram},

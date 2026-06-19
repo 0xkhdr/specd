@@ -1,4 +1,104 @@
 {
+  "brain_approve": {
+    "type": "object",
+    "properties": {
+      "spec": {
+        "type": "string",
+        "description": "Spec slug whose gate to clear / phase to advance."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_cancel": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_orchestrate": {
+    "type": "object",
+    "properties": {
+      "approval_policy": {
+        "type": "string",
+        "description": "Override the approval policy (default: planning). One of manual|planning|session."
+      },
+      "goal": {
+        "type": "string",
+        "description": "One-line goal/title used when bootstrapping a new spec."
+      },
+      "max_steps": {
+        "type": "string",
+        "description": "Maximum Brain steps before the driver stops (safety bound)."
+      },
+      "no_bootstrap": {
+        "type": "boolean",
+        "description": "Do not auto-create a missing spec; fail closed instead."
+      },
+      "session": {
+        "type": "string",
+        "description": "Resume or name a specific session id instead of the active one."
+      },
+      "spec": {
+        "type": "string",
+        "description": "Spec slug to orchestrate (created if absent)."
+      },
+      "worker_cmd": {
+        "type": "string",
+        "description": "Shell command run per Pinky dispatch; receives the mission via SPECD_* env. Omit to stop at the first dispatch."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_pause": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_resume": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
+  "brain_status": {
+    "type": "object",
+    "properties": {
+      "program": {
+        "type": "boolean",
+        "description": "Target a program (cross-spec) session instead of a single spec."
+      },
+      "session": {
+        "type": "string",
+        "description": "Orchestration session id to act on."
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_approve": {
     "type": "object",
     "properties": {
@@ -13,7 +113,81 @@
         "type": "boolean",
         "description": "Output in JSON format"
       }
-    }
+    },
+    "additionalProperties": false
+  },
+  "specd_brain": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "description": "directive action: continue, retry, cancel, reassign, or escalate"
+      },
+      "approval-policy": {
+        "type": "string",
+        "description": "required approval policy for start/step"
+      },
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|run|status|step|why|directive|pause|resume|cancel\u003e ... [--program]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "attempt": {
+        "type": "string",
+        "description": "positive attempt number for directive"
+      },
+      "cost-limit": {
+        "type": "string",
+        "description": "optional host-reported cost limit"
+      },
+      "in-reply-to": {
+        "type": "string",
+        "description": "query message id this directive answers"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "emit JSON"
+      },
+      "max-retries": {
+        "type": "string",
+        "description": "required retry limit for start/step"
+      },
+      "max-workers": {
+        "type": "string",
+        "description": "required worker concurrency limit for start/step"
+      },
+      "program": {
+        "type": "boolean",
+        "description": "operate on the cross-spec program session instead of one spec"
+      },
+      "reason": {
+        "type": "string",
+        "description": "directive reason"
+      },
+      "session": {
+        "type": "string",
+        "description": "explicit orchestration session id"
+      },
+      "spec": {
+        "type": "string",
+        "description": "spec slug for directive"
+      },
+      "task": {
+        "type": "string",
+        "description": "task id for directive"
+      },
+      "timeout-seconds": {
+        "type": "string",
+        "description": "required session timeout for start/step"
+      },
+      "worker": {
+        "type": "string",
+        "description": "worker id for directive"
+      }
+    },
+    "additionalProperties": false
   },
   "specd_check": {
     "type": "object",
@@ -28,7 +202,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_context": {
     "type": "object",
@@ -43,7 +218,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_decision": {
     "type": "object",
@@ -59,7 +235,8 @@
         "type": "string",
         "description": "ID of the decision being superseded"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_diff": {
     "type": "object",
@@ -82,7 +259,8 @@
         "type": "string",
         "description": "Target git ref (default: working tree)"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_dispatch": {
     "type": "object",
@@ -97,7 +275,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_doctor": {
     "type": "object",
@@ -121,7 +300,8 @@
         "type": "boolean",
         "description": "Output one deterministic JSON document"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_init": {
     "type": "object",
@@ -185,7 +365,8 @@
         "type": "boolean",
         "description": "Accept non-destructive project-scoped integration changes"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_memory": {
     "type": "object",
@@ -218,7 +399,8 @@
       "source": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_midreq": {
     "type": "object",
@@ -240,7 +422,8 @@
       "interpretation": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_new": {
     "type": "object",
@@ -256,7 +439,8 @@
         "type": "string",
         "description": "The title of the spec"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_next": {
     "type": "object",
@@ -275,7 +459,93 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
+  },
+  "specd_pinky": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|brief|heartbeat|progress|query|report|block|release|inbox\u003e ...",
+        "items": {
+          "type": "string"
+        }
+      },
+      "attempt": {
+        "type": "string",
+        "description": "positive attempt number"
+      },
+      "changed-files": {
+        "type": "string",
+        "description": "comma-separated changed files"
+      },
+      "duration-ms": {
+        "type": "string",
+        "description": "host-reported task duration in milliseconds"
+      },
+      "git-head": {
+        "type": "string",
+        "description": "git commit observed by the host worker"
+      },
+      "host-cost": {
+        "type": "string",
+        "description": "host-reported cost (stored, not computed)"
+      },
+      "host-tokens": {
+        "type": "string",
+        "description": "host-reported token count (stored, not computed)"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "emit JSON"
+      },
+      "message": {
+        "type": "string",
+        "description": "progress message"
+      },
+      "mission": {
+        "type": "string",
+        "description": "mission JSON path or - for claim"
+      },
+      "percent": {
+        "type": "string",
+        "description": "progress percent"
+      },
+      "reason": {
+        "type": "string",
+        "description": "blocker reason"
+      },
+      "session": {
+        "type": "string",
+        "description": "session id"
+      },
+      "spec": {
+        "type": "string",
+        "description": "spec slug"
+      },
+      "summary": {
+        "type": "string",
+        "description": "terminal summary"
+      },
+      "task": {
+        "type": "string",
+        "description": "task id"
+      },
+      "text": {
+        "type": "string",
+        "description": "bounded Pinky query text"
+      },
+      "verification-ref": {
+        "type": "string",
+        "description": "terminal verification reference"
+      },
+      "worker": {
+        "type": "string",
+        "description": "worker id"
+      }
+    },
+    "additionalProperties": false
   },
   "specd_program": {
     "type": "object",
@@ -293,7 +563,8 @@
       "on": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_replay": {
     "type": "object",
@@ -305,7 +576,8 @@
           "type": "string"
         }
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_report": {
     "type": "object",
@@ -327,7 +599,8 @@
         "type": "boolean",
         "description": "Emit a deterministic PR summary instead of the full report"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_schema": {
     "type": "object",
@@ -343,7 +616,8 @@
         "type": "string",
         "description": "Schema version to emit (default: current)"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_serve": {
     "type": "object",
@@ -359,7 +633,8 @@
           "type": "string"
         }
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_status": {
     "type": "object",
@@ -374,7 +649,8 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_task": {
     "type": "object",
@@ -409,7 +685,8 @@
       "unverified": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_uninstall": {
     "type": "object",
@@ -433,7 +710,8 @@
         "type": "boolean",
         "description": "Machine-readable output"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_update": {
     "type": "object",
@@ -449,7 +727,8 @@
         "type": "boolean",
         "description": "Force update even if already up to date"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_validate": {
     "type": "object",
@@ -472,7 +751,8 @@
         "type": "string",
         "description": "Schema version to validate against (default: current)"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_verify": {
     "type": "object",
@@ -501,7 +781,8 @@
       "status": {
         "type": "string"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_watch": {
     "type": "object",
@@ -529,7 +810,8 @@
         "type": "string",
         "description": "POST each frontier event to this URL"
       }
-    }
+    },
+    "additionalProperties": false
   },
   "specd_waves": {
     "type": "object",
@@ -544,6 +826,7 @@
       "json": {
         "type": "boolean"
       }
-    }
+    },
+    "additionalProperties": false
   }
 }

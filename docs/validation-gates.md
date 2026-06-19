@@ -101,6 +101,31 @@ driven by the `specd-steering` skill — the agent inspects the repo and authors
 files itself. The harness scaffolds (`init`) and enforces specs (`check`); it does
 not perceive the stack or police steering freshness.
 
+## Orchestration gates and authority
+
+Brain/Pinky automation does not bypass validation. Brain reads the same
+`state.json`, `tasks.md`, verification records, locks, CAS revisions, runnable
+frontier, and mid-requirement gates used by the CLI. Pinky completion flows
+through the same `CompleteTask` integrity path as `specd task --status complete`.
+
+Authority is configured under `orchestration` in `.specd/config.json` and is
+fail-closed:
+- Default is `enabled:false`, `approvalPolicy:"manual"`, `workerMode:"host"`,
+  `transport.kind:"file"`.
+- `manual` keeps all approval gates human-only.
+- `planning` may advance normal requirements/design/tasks planning gates only
+  after gates pass.
+- `session` may act inside an active orchestration session, still subject to all
+  gates, locks, retries, and evidence checks.
+- No policy can clear high/critical mid-requirement gates; those remain
+  human-only approval gates.
+
+Host telemetry (`host-tokens`, `host-cost`, `duration-ms`) is stored verbatim as
+reported evidence. It is never treated as trusted proof of completion and specd
+never prices or validates model-provider usage. Cooperative cancellation records
+intent and emits directives; the external host remains responsible for stopping
+worker processes.
+
 ## Security model
 
 `tasks.md` is **agent-authored input**, not trusted config. The harness treats
@@ -127,3 +152,8 @@ every `verify:` line and every env var as hostile until validated.
 - **Env vars.** All `SPECD_*` integer vars are parsed through
   `core.EnvInt(name, def, min, max)`, which clamps to range and emits one
   warning on malformed input instead of silently falling back.
+- **Orchestration config.** Missing fields load backward-compatible defaults.
+  Unsupported worker/transport modes, unsupported approval policies,
+  secret-shaped fields, invalid cost values, and unsafe timing relationships are
+  rejected and orchestration falls back to disabled/manual defaults. Bounds are
+  documented in [Command Reference](./command-reference.md#config-file-specdconfigjson).

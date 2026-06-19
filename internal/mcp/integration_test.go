@@ -20,6 +20,25 @@ import (
 // invocation would print. This is the ground truth an MCP tool call must match.
 func captureCLI(t *testing.T, command string, argv ...string) map[string]any {
 	t.Helper()
+	out := captureCLIOutcome(t, command, argv...)
+	if out.Code != core.ExitOK {
+		t.Fatalf("CLI %s exit = %d, want 0\nstdout: %s\nstderr: %s", command, out.Code, out.Stdout, out.Stderr)
+	}
+	if out.Structured == nil {
+		t.Fatalf("CLI %s output not JSON: %q", command, out.Stdout)
+	}
+	return out.Structured
+}
+
+type cliOutcome struct {
+	Code       int
+	Stdout     string
+	Stderr     string
+	Structured map[string]any
+}
+
+func captureCLIOutcome(t *testing.T, command string, argv ...string) cliOutcome {
+	t.Helper()
 	prev, had := os.LookupEnv("SPECD_JSON")
 	os.Setenv("SPECD_JSON", "1")
 	defer func() {
@@ -33,30 +52,63 @@ func captureCLI(t *testing.T, command string, argv ...string) map[string]any {
 	// The MCP path forces structured output by appending --json to the argv
 	// (mirrored here) in addition to SPECD_JSON; commands gate JSON on the flag.
 	argv = append(append([]string{}, argv...), "--json")
-	orig := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	_, known := cmd.Dispatch(command, cli.ParseArgs(argv))
-	_ = w.Close()
-	os.Stdout = orig
-	if !known {
-		t.Fatalf("CLI command %q not known to dispatch", command)
+	stdout, stderr, code := captureStreams(func() int {
+		rc, known := cmd.Dispatch(command, cli.ParseArgs(argv))
+		if !known {
+			t.Fatalf("CLI command %q not known to dispatch", command)
+		}
+		return rc
+	})
+	out := cliOutcome{Code: code, Stdout: stdout, Stderr: stderr}
+	if trimmed := strings.TrimSpace(stdout); trimmed != "" {
+		var m map[string]any
+		if json.Unmarshal([]byte(trimmed), &m) == nil {
+			out.Structured = m
+		}
 	}
-	out, _ := io.ReadAll(r)
-	var m map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimSpace(string(out))), &m); err != nil {
-		t.Fatalf("CLI %s output not JSON: %q: %v", command, out, err)
-	}
-	return m
+	return out
+}
+
+func captureStreams(fn func() int) (stdout, stderr string, code int) {
+	origOut, origErr := os.Stdout, os.Stderr
+	rOut, wOut, _ := os.Pipe()
+	rErr, wErr, _ := os.Pipe()
+	os.Stdout, os.Stderr = wOut, wErr
+	outCh, errCh := readPipe(rOut), readPipe(rErr)
+	code = fn()
+	_ = wOut.Close()
+	_ = wErr.Close()
+	os.Stdout, os.Stderr = origOut, origErr
+	return <-outCh, <-errCh, code
+}
+
+func readPipe(r *os.File) <-chan string {
+	ch := make(chan string, 1)
+	go func() {
+		raw, _ := io.ReadAll(r)
+		_ = r.Close()
+		ch <- string(raw)
+	}()
+	return ch
 }
 
 // mcpStructured drives a single tools/call through the MCP stdio loop and
 // returns the tool result's structuredContent object.
 func mcpStructured(t *testing.T, tool string, args ...string) map[string]any {
 	t.Helper()
-	argsJSON, _ := json.Marshal(args)
+	r := mcpToolResult(t, tool, map[string]any{"args": args})
+	sc, ok := r["structuredContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("tools/call %s missing structuredContent: %v", tool, r)
+	}
+	return sc
+}
+
+func mcpToolResult(t *testing.T, tool string, arguments map[string]any) map[string]any {
+	t.Helper()
+	argsJSON, _ := json.Marshal(arguments)
 	req := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"` + tool +
-		`","arguments":{"args":` + string(argsJSON) + `}}}`
+		`","arguments":` + string(argsJSON) + `}}`
 	resps := driveIntegration(t, &th.Harness{}, req)
 	if len(resps) != 1 {
 		t.Fatalf("got %d responses, want 1", len(resps))
@@ -65,11 +117,7 @@ func mcpStructured(t *testing.T, tool string, args ...string) map[string]any {
 	if !ok {
 		t.Fatalf("tools/call %s returned no result: %v", tool, resps[0])
 	}
-	sc, ok := r["structuredContent"].(map[string]any)
-	if !ok {
-		t.Fatalf("tools/call %s missing structuredContent: %v", tool, r)
-	}
-	return sc
+	return r
 }
 
 // TestCLIMCPParity asserts that for a representative set of read-only tools the
@@ -106,6 +154,174 @@ func TestCLIMCPParity(t *testing.T) {
 					c.tool, c.command, got, want)
 			}
 		})
+	}
+}
+
+func TestOrchestrationCLIMCPParity(t *testing.T) {
+	const sessionID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	cases := []struct {
+		name      string
+		setup     func(*th.Harness)
+		command   string
+		cliArgs   []string
+		tool      string
+		arguments map[string]any
+	}{
+		{
+			name:      "brain status structured payload",
+			setup:     func(h *th.Harness) { seedOrchestrationParitySession(t, h, "brain-status", sessionID) },
+			command:   "brain",
+			cliArgs:   []string{"status", "--session", sessionID},
+			tool:      "specd_brain",
+			arguments: map[string]any{"args": []string{"status"}, "session": sessionID},
+		},
+		{
+			name:      "brain pause mutation",
+			setup:     func(h *th.Harness) { seedOrchestrationParitySession(t, h, "brain-pause", sessionID) },
+			command:   "brain",
+			cliArgs:   []string{"pause", "--session", sessionID},
+			tool:      "specd_brain",
+			arguments: map[string]any{"args": []string{"pause"}, "session": sessionID},
+		},
+		{
+			name: "brain resume mutation",
+			setup: func(h *th.Harness) {
+				seedOrchestrationParitySession(t, h, "brain-resume", sessionID)
+				if _, err := core.PauseOrchestration(h.Root, sessionID); err != nil {
+					t.Fatalf("pause seeded session: %v", err)
+				}
+			},
+			command:   "brain",
+			cliArgs:   []string{"resume", "--session", sessionID},
+			tool:      "specd_brain",
+			arguments: map[string]any{"args": []string{"resume"}, "session": sessionID},
+		},
+		{
+			name:      "brain cancellation mutation",
+			setup:     func(h *th.Harness) { seedOrchestrationParitySession(t, h, "brain-cancel", sessionID) },
+			command:   "brain",
+			cliArgs:   []string{"cancel", "--session", sessionID},
+			tool:      "specd_brain",
+			arguments: map[string]any{"args": []string{"cancel"}, "session": sessionID},
+		},
+		{
+			name: "approval mutation",
+			setup: func(h *th.Harness) {
+				h.Spec("approval").
+					Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+					Status(core.StatusRequirements).
+					Build()
+			},
+			command:   "approve",
+			cliArgs:   []string{"approval"},
+			tool:      "specd_approve",
+			arguments: map[string]any{"args": []string{"approval"}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assertCLIMCPToolParity(t, tc.setup, tc.command, tc.cliArgs, tc.tool, tc.arguments)
+		})
+	}
+}
+
+func TestOrchestrationCLIMCPParityErrors(t *testing.T) {
+	cases := []struct {
+		name      string
+		setup     func(*th.Harness)
+		command   string
+		cliArgs   []string
+		tool      string
+		arguments map[string]any
+	}{
+		{
+			name:      "invalid session ID error",
+			setup:     func(*th.Harness) {},
+			command:   "brain",
+			cliArgs:   []string{"status", "--session", "not-valid"},
+			tool:      "specd_brain",
+			arguments: map[string]any{"args": []string{"status"}, "session": "not-valid"},
+		},
+		{
+			name: "evidence gate failure",
+			setup: func(h *th.Harness) {
+				h.Spec("evidence-failure").
+					Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+					FullDesign().
+					AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+					Status(core.StatusExecuting).
+					Build()
+			},
+			command:   "task",
+			cliArgs:   []string{"evidence-failure", "T1", "--status", "complete", "--evidence", "claimed"},
+			tool:      "specd_task",
+			arguments: map[string]any{"args": []string{"evidence-failure", "T1"}, "status": "complete", "evidence": "claimed"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assertCLIMCPToolParity(t, tc.setup, tc.command, tc.cliArgs, tc.tool, tc.arguments)
+		})
+	}
+}
+
+func seedOrchestrationParitySession(t *testing.T, h *th.Harness, slug, sessionID string) {
+	t.Helper()
+	h.Spec(slug).
+		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+	policy, err := core.NewOrchestrationPolicy(core.LoadConfig(h.Root).Orchestration)
+	if err != nil {
+		t.Fatalf("policy: %v", err)
+	}
+	if _, err := core.StartOrchestrationSession(h.Root, slug, sessionID, "parity-test", policy); err != nil {
+		t.Fatalf("start orchestration session: %v", err)
+	}
+}
+
+func assertCLIMCPToolParity(t *testing.T, setup func(*th.Harness), command string, cliArgs []string, tool string, arguments map[string]any) {
+	t.Helper()
+	cliHarness := th.New(t)
+	setup(cliHarness)
+	want := captureCLIOutcome(t, command, cliArgs...)
+
+	mcpHarness := th.New(t)
+	setup(mcpHarness)
+	got := mcpToolResult(t, tool, arguments)
+
+	wantIsError := want.Code != core.ExitOK
+	if got["isError"] != wantIsError {
+		t.Fatalf("MCP isError = %v, want %v (CLI exit %d); result=%v", got["isError"], wantIsError, want.Code, got)
+	}
+	if want.Structured != nil {
+		sc, ok := got["structuredContent"].(map[string]any)
+		if !ok {
+			t.Fatalf("MCP %s missing structuredContent: %v", tool, got)
+		}
+		if !reflect.DeepEqual(sc, want.Structured) {
+			t.Fatalf("MCP %s structuredContent != CLI %s\n  mcp: %v\n  cli: %v", tool, command, sc, want.Structured)
+		}
+		return
+	}
+	if !wantIsError {
+		t.Fatalf("CLI %s succeeded without JSON stdout; stdout=%q stderr=%q", command, want.Stdout, want.Stderr)
+	}
+	content, ok := got["content"].([]any)
+	if !ok || len(content) == 0 {
+		t.Fatalf("MCP error result missing content: %v", got)
+	}
+	text, _ := content[0].(map[string]any)["text"].(string)
+	wantText := strings.TrimSpace(want.Stderr)
+	if wantText == "" {
+		wantText = strings.TrimSpace(want.Stdout)
+	}
+	if wantText != "" && !strings.Contains(text, wantText) {
+		t.Fatalf("MCP error text does not include CLI diagnostic\n  mcp: %q\n  cli: %q", text, wantText)
 	}
 }
 

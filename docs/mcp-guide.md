@@ -1,12 +1,12 @@
 # Model Context Protocol (MCP) Integration Guide
 
 `specd` ships with a native, zero-dependency Model Context Protocol (MCP) server that runs over
-standard input/output (`stdio`). This allows MCP hosts (Claude Desktop, Cursor, VS Code, and
-others) to discover, inspect, and invoke the entire `specd` toolset without network calls or
-external APIs.
+standard input/output (`stdio`) or optional loopback HTTP/SSE. This allows MCP hosts (Claude
+Desktop, Cursor, VS Code, and others) to discover, inspect, and invoke the entire `specd`
+toolset without provider SDKs or external APIs.
 
 The MCP server is a thin JSON-RPC 2.0 transport over the existing CLI handlers; it adds no
-business logic and introduces no new binary dependencies.
+business logic, performs no LLM calls, and introduces no new binary dependencies.
 
 ---
 
@@ -158,8 +158,12 @@ needed**: a new command added to `core.Commands` surfaces as a tool with the nex
 
 ### Naming
 All tools are prefixed `specd_` to prevent collisions in the host's shared tool list:
-`specd_status`, `specd_next`, `specd_task`, etc.
+`specd_status`, `specd_next`, `specd_task`, `specd_brain`, `specd_pinky`, etc.
 (`internal/mcp/tools.go:7`, `toolPrefix`)
+
+Brain and Pinky use the same generated-command shape as every other command: call
+`specd_brain` or `specd_pinky` and pass the CLI subcommand in `args`. There is no second
+MCP-only naming convention.
 
 ### Input schema
 Each tool's input schema has:
@@ -218,6 +222,7 @@ The following tools are exposed automatically. Refer to the
 | MCP Tool | CLI Analog | Primary Purpose | Read-Only |
 |---|---|---|---|
 | `specd_init` | `specd init` | Scaffold `.specd/` directory and role configurations | No |
+| `specd_doctor` | `specd doctor` | Diagnose scaffold, MCP server, and host registration health | Yes |
 | `specd_new` | `specd new` | Create a new spec with artifact stubs | No |
 | `specd_approve` | `specd approve` | Clear phase approval gate | No |
 | `specd_decision` | `specd decision` | Record architectural decision (ADR) | No |
@@ -238,8 +243,82 @@ The following tools are exposed automatically. Refer to the
 | `specd_replay` | `specd replay` | Render spec audit event timeline | Yes |
 | `specd_diff` | `specd diff` | Show git diff of spec artifacts | Yes |
 | `specd_program` | `specd program` | Manage inter-spec dependency graph | No |
+| `specd_brain` | `specd brain` | Start, step, inspect, pause, resume, or cancel deterministic Brain sessions | No for mutations; status is read-only |
+| `specd_pinky` | `specd pinky` | Host worker claim, heartbeat, progress, report, block, and release operations | No |
+| `specd_schema` | `specd schema` | Emit embedded spec-format JSON Schema | Yes |
 | `specd_update` | `specd update` | Update the specd binary | No (destructive) |
 | `specd_uninstall` | `specd uninstall` | Remove specd from the system | No (destructive) |
+
+---
+
+## Orchestration through MCP
+
+Brain/Pinky orchestration is exposed through generated tools, not custom MCP business logic.
+The MCP request is always one bounded CLI invocation; it never waits for an LLM worker to finish.
+Hosts must run their own worker loop and call Pinky tools as work progresses.
+
+### Brain control loop
+
+A host starts or attaches a Brain session, then polls status or steps one decision at a time:
+
+```json
+{
+  "name": "specd_brain",
+  "arguments": {
+    "args": ["start", "my-feature"],
+    "approval-policy": "manual",
+    "max-workers": "2",
+    "max-retries": "2",
+    "timeout-seconds": "7200",
+    "json": true
+  }
+}
+```
+
+```json
+{
+  "name": "specd_brain",
+  "arguments": { "args": ["step", "my-feature"], "session": "<session-id>", "approval-policy": "manual", "max-workers": "2", "max-retries": "2", "timeout-seconds": "7200", "json": true }
+}
+```
+
+Use `specd_brain` with `args: ["status"]` for a bounded read of persisted session state.
+Use `args: ["pause"]`, `["resume"]`, or `["cancel"]` to persist cooperative controls. `cancel`
+records intent and causes later Brain steps to emit cancellation directives; specd never kills host
+processes.
+
+### Pinky worker lifecycle
+
+When Brain emits a mission event, the host is responsible for starting or selecting a worker,
+feeding it the mission JSON, and calling Pinky tools:
+
+1. `specd_pinky` with `args: ["claim"]` and `mission: "<path-or->"` to acquire the ACP lease.
+2. `specd_pinky` with `args: ["heartbeat"]` before lease expiry while work continues.
+3. `specd_pinky` with `args: ["progress"]` for telemetry, or `args: ["query"]` with `text` for a bounded mid-task clarification.
+4. Poll `specd_pinky` with `args: ["inbox"]` for Brain directives; if no bounded answer is possible, use `args: ["block"]` and stop.
+5. Run the task's normal `specd verify <slug> <task>` command through the host shell.
+6. `specd_pinky` with `args: ["report"]` and a matching `verification-ref` to submit terminal evidence.
+7. `specd_pinky` with `args: ["release"]` when abandoning or after terminal handling.
+
+Pinky reports complete a task only when they bind to the matching passing verification record, the
+reported changed files match the recorded verify scope, and the task's evidence gate accepts the
+proof. Host-reported tokens, cost, duration, summaries, and progress are stored as telemetry; they
+are not completion proof by themselves.
+
+### Approval, recovery, and bounded polling
+
+- Manual approval remains the default. `planning` and `session` policies never clear high/critical
+  mid-requirement gates.
+- MCP `watch` must be called with `--once` unless the transport is a streaming host path; for
+  orchestration, prefer repeated bounded `specd_brain status` / `step` calls.
+- If a host crashes, restart the MCP server, call `specd_brain status`, then `step`. Brain recovers
+  from persisted session files and the ACP event log, reclaims expired leases, and retries within
+  the configured retry budget.
+- If a worker needs a small clarification, it may send `query`; the host/Brain replies with
+  `brain directive` and the worker reads it from `pinky inbox`. If the question cannot be bounded,
+  use `block` and stop.
+- If a worker sees a cancellation directive, it should stop at a safe point, report cancellation or
+  release the lease, and let the next Brain step converge.
 
 ---
 

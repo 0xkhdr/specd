@@ -119,13 +119,14 @@ your-project/
 │   ├── config.json               # Project configuration
 │   ├── program.json              # Cross-spec dependencies
 │   ├── state.json                # Machine state (auto-managed)
-│   ├── skills/                   # The skill pack (specd-foundations, specd-steering, per-stage)
+│   ├── skills/                   # The skill pack (foundations, steering, stages, specd-brain, specd-pinky)
 │   ├── steering/                 # Constitution (durable rules)
 │   │   ├── reasoning.md  workflow.md  product.md
 │   │   ├── tech.md       structure.md memory.md
 │   ├── roles/                    # Role prompts
-│   │   ├── investigator.md  builder.md
-│   │   └── reviewer.md       verifier.md
+│   │   ├── investigator.md  builder.md  reviewer.md
+│   │   └── verifier.md      brain.md    pinky.md
+│   ├── subagents/                # Orchestration runtime sessions, logs, and leases (auto-created)
 │   └── specs/
 │       └── my-feature/
 │           ├── state.json            # Spec-specific state

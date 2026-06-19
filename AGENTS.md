@@ -145,8 +145,6 @@ Source comments cite `SPEC §x` as historical rationale for the retired spec —
 - Add a command → add `internal/cmd/<cmd>.go`, register in `cmd.Registry`
   (`internal/cmd/registry.go`), add a `CommandMeta` in `internal/core/commands.go`, add tests.
   `TestRegistryMatchesHelp` fails if dispatch and help disagree.
-- Modify templates → edit `internal/core/embed_templates/`, rebuild, verify `specd init` still
-  works in a temp dir.
 - Change the `state.json` shape → update `internal/core/state.go` and add a migration if existing
   files could be misread.
 
@@ -173,15 +171,20 @@ MCP is needed — if you can run a shell command, you can run this harness.
    - `specd check <spec>` — before claiming any phase complete (and CI runs it on every push).
    - `specd approve <spec>` — record a human approval: advances the planning phase
      (requirements → design → tasks → executing), or clears a midreq `awaiting-approval` gate.
+   - `specd verify <spec> <id>` — run the task's declared verification command and record its result.
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
+   - `specd brain <start|step|status|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration. (MCP: `specd_brain`)
+   - `specd pinky <claim|heartbeat|progress|report|block|release> [flags]` — record deterministic worker leases, telemetry, progress, and terminal reports. (MCP: `specd_pinky`)
 
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
-   builder (write ONE task), reviewer (read-only audit), verifier (run checks). If your host has
-   native subagents and `config.json.roles.subagentMode = "delegate"`, delegate; otherwise run
-   the role inline under the same constraints.
+   builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic
+   controller), or pinky (host worker). If your host has native subagents and
+   `config.json.roles.subagentMode = "delegate"`, delegate; otherwise run the role inline
+   under the same constraints.
 
 5. **Evidence gate.** Never mark a task complete without a passing verify or a manual proof, and
-   pass that proof as `--evidence`. A builder's word is not evidence.
+   pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
+   must bind to a matching verification record; host-reported telemetry (tokens, cost, duration) is stored as metadata and is not proof of correctness.
 
 ## Skills — progressive disclosure
 
@@ -197,6 +200,8 @@ before, so you pay context only for the work in front of you.
 | `specd-design` | Entering the design phase (the 7 `design.md` sections + the `design` gate). |
 | `specd-tasks` | Entering the tasks phase (wave DAG, 7 task keys, `task-schema`/`dag` gates). |
 | `specd-execute` | Entering executing/verifying (the next→verify→complete loop + `evidence` gate). |
+| `specd-brain` | Entering orchestration (sensing, deterministic stepping, program scheduling, no-LLM boundary). |
+| `specd-pinky` | Operating a Pinky worker (context, claim, heartbeat, progress, blocker, report, release). |
 
 ## Quickstart
 
@@ -213,9 +218,17 @@ specd approve my-feature         # human approves → advances to design
 specd check my-feature           # gate: design + tasks + DAG
 specd approve my-feature         # approve design → tasks
 specd approve my-feature         # approve tasks  → executing
-# execute loop:
+# execute loop (manual):
 specd next my-feature            # -> focused task
+specd verify my-feature T1       # run declared verification and record the result
 specd task my-feature T1 --status complete --evidence "commit abc123; npm test PASS"
+# execute loop (orchestrated):
+# specd brain start my-feature --approval-policy manual --max-workers 4
+# specd pinky claim --mission mission.json
+# specd pinky heartbeat --session s --worker w --attempt 1
+# specd verify my-feature T1
+# specd pinky report --session s --worker w --spec my-feature --task T1 --attempt 1 --verification-ref ref --summary "done"
+# specd brain step my-feature --session s
 # when the last task is done the spec enters `verifying`:
 specd approve my-feature         # accept spec-level verification → complete
 specd report my-feature          # snapshot
@@ -229,5 +242,48 @@ Each feature lives in `.specd/specs/<slug>/` with six artifacts:
 
 The markdown files are your authored truth for *intent*. `state.json` is machine truth for
 *status* — the CLI keeps `tasks.md` checkboxes and `state.json` in sync. Do not touch it directly.
-
 <!-- SPECD INIT: END v1 -->
+
+
+<!-- headroom:rtk-instructions -->
+# RTK (Rust Token Killer) - Token-Optimized Commands
+
+When running shell commands, **always prefix with `rtk`**. This reduces context
+usage by 60-90% with zero behavior change. If rtk has no filter for a command,
+it passes through unchanged — so it is always safe to use.
+
+## Key Commands
+```bash
+# Git (59-80% savings)
+rtk git status          rtk git diff            rtk git log
+
+# Files & Search (60-75% savings)
+rtk ls <path>           rtk read <file>         rtk grep <pattern>
+rtk find <pattern>      rtk diff <file>
+
+# Test (90-99% savings) — shows failures only
+rtk pytest tests/       rtk cargo test          rtk test <cmd>
+
+# Build & Lint (80-90% savings) — shows errors only
+rtk tsc                 rtk lint                rtk cargo build
+rtk prettier --check    rtk mypy                rtk ruff check
+
+# Analysis (70-90% savings)
+rtk err <cmd>           rtk log <file>          rtk json <file>
+rtk summary <cmd>       rtk deps                rtk env
+
+# GitHub (26-87% savings)
+rtk gh pr view <n>      rtk gh run list         rtk gh issue list
+
+# Infrastructure (85% savings)
+rtk docker ps           rtk kubectl get         rtk docker logs <c>
+
+# Package managers (70-90% savings)
+rtk pip list            rtk pnpm install        rtk npm run <script>
+```
+
+## Rules
+- In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
+- For debugging, use raw command without rtk prefix
+- `rtk proxy <cmd>` runs command without filtering but tracks usage
+<!-- /headroom:rtk-instructions -->

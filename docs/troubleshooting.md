@@ -135,3 +135,59 @@ for machine output, `--fix` to apply safe project-scoped repairs.
 * Preview exactly which files and host commands a run would execute — and the absolute
   `specd` path that would be registered — without writing anything. Pair with `--json`
   for scripted review.
+
+---
+
+## 6. MCP Brain/Pinky Orchestration
+
+### Host cannot find `specd_brain` or `specd_pinky`
+* **Cause**: The host is running an older `specd` binary, has not restarted after an
+  upgrade, or connected to a different project/binary than expected.
+* **Remediation**:
+  * Run `specd doctor --json` and confirm tool discovery includes `specd_brain`
+    and `specd_pinky`.
+  * Restart/reload the MCP host. Tool lists are fixed for the MCP process
+    lifetime (`listChanged: false`).
+  * Verify the registered command path with `specd init --dry-run --json` or the
+    host config file.
+
+### Brain session stays in `wait` with pending missions
+* **Cause**: Brain only writes deterministic mission events. The MCP host must
+  start or assign a worker that calls `specd_pinky claim`; specd does not spawn
+  an LLM/provider agent.
+* **Remediation**:
+  * Inspect `specd_brain status --session <id> --json` through the host.
+  * Claim the mission with `specd_pinky args: ["claim"]` and the mission path or
+    stdin payload.
+  * Keep heartbeating until terminal report or release.
+
+### Pinky report rejected despite worker success
+* **Cause**: Terminal reports are telemetry until they bind to a matching passing
+  `specd verify` record. Mismatched `verification-ref`, git head, verify command,
+  changed files, read-only role, stale lease, or undeclared scope fails closed.
+* **Remediation**:
+  * Run `specd verify <slug> <task>` and capture the verification ref from the
+    recorded output/state.
+  * Re-submit `specd_pinky report` with the same `session`, `worker`, `attempt`,
+    `spec`, `task`, `verification-ref`, and changed-files list recorded by verify.
+  * If scope is wrong, adjust the task `files:` contract or implementation, then
+    re-run verify; do not forge report metadata.
+
+### `cancel` does not stop the worker immediately
+* **Cause**: Cancellation is cooperative. `specd_brain cancel` persists intent;
+  a later Brain step emits cancellation directives. specd never kills host
+  processes.
+* **Remediation**:
+  * Continue bounded `specd_brain step` calls until the cancellation directive is
+    visible to the worker.
+  * Have the host stop the worker at a safe point and release or report the
+    cancellation acknowledgement.
+
+### MCP orchestration after host or server crash
+* **Cause**: The MCP connection is transient; session state and ACP events are
+  persisted on disk.
+* **Remediation**:
+  * Restart the MCP server/host.
+  * Call `specd_brain status --session <id> --json`.
+  * Continue with `specd_brain step`. Brain reconciles the committed event log,
+    reclaims expired leases, and retries within `max-retries`.

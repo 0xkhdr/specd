@@ -15,6 +15,31 @@ func RunReplay(args cli.Args) int {
 	if !ok {
 		return code
 	}
+	if sessionID := args.Str("acp-session"); sessionID != "" {
+		store, err := core.NewACPStore(root)
+		if err != nil {
+			return specdExit(err)
+		}
+		events, err := store.ReplaySessionEvents(sessionID)
+		if err != nil {
+			return specdExit(err)
+		}
+		timeline := core.ReplaySessionTimeline(events)
+		if core.IsJSONMode() {
+			if timeline == nil {
+				timeline = []core.SessionTimelineEvent{}
+			}
+			if err := core.PrintJSON(timeline); err != nil {
+				return specdExit(err)
+			}
+			return core.ExitOK
+		}
+		fmt.Printf("acp replay — %s (%d event%s)\n", sessionID, len(timeline), plural(len(timeline)))
+		for _, event := range timeline {
+			fmt.Printf(" %s\n", core.FormatSessionTimelineEvent(event))
+		}
+		return core.ExitOK
+	}
 	if err := core.RequireSpec(root, slug); err != nil {
 		return specdExit(err)
 	}

@@ -7,6 +7,50 @@ import (
 	"testing"
 )
 
+func TestScaffoldEmbedBrainGuidance(t *testing.T) {
+	role, err := ReadTemplate("roles/brain.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill, err := ReadTemplate("skills/specd-brain/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"zero model/provider SDK, zero LLM calls",
+		"at most one externally visible action per step",
+		"Preserve manual approval by default",
+		"Dispatch only tasks from runnable frontier",
+		"Escalate unknown state",
+	} {
+		if !strings.Contains(role+skill, want) {
+			t.Fatalf("Brain guidance missing %q", want)
+		}
+	}
+}
+
+func TestScaffoldEmbedPinkyGuidance(t *testing.T) {
+	role, err := ReadTemplate("roles/pinky.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill, err := ReadTemplate("skills/specd-pinky/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Never flip `tasks.md` checkboxes",
+		"Never edit `state.json`",
+		"Never forge evidence refs",
+		"Run proof through `specd verify`",
+		"host-reported and untrusted",
+	} {
+		if !strings.Contains(role+skill, want) {
+			t.Fatalf("Pinky guidance missing %q", want)
+		}
+	}
+}
+
 func TestScaffoldManifest(t *testing.T) {
 	t.Run("all templates exist and targets are unique", func(t *testing.T) {
 		assets := DefaultScaffoldManifest()
@@ -14,8 +58,8 @@ func TestScaffoldManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 		targets := SortedScaffoldTargets(assets)
-		if len(targets) != 18 {
-			t.Fatalf("target count = %d, want 18", len(targets))
+		if len(targets) != 26 {
+			t.Fatalf("target count = %d, want 26", len(targets))
 		}
 		for i := 1; i < len(targets); i++ {
 			if targets[i] == targets[i-1] {
@@ -52,14 +96,22 @@ func TestScaffoldManifest(t *testing.T) {
 
 	t.Run("default target set remains compatible", func(t *testing.T) {
 		want := []string{
+			".claude/agents/pinky-builder.md",
+			".claude/agents/pinky-investigator.md",
+			".claude/agents/pinky-reviewer.md",
+			".claude/agents/pinky-verifier.md",
 			".specd/config.json",
+			".specd/roles/brain.md",
 			".specd/roles/builder.md",
 			".specd/roles/investigator.md",
+			".specd/roles/pinky.md",
 			".specd/roles/reviewer.md",
 			".specd/roles/verifier.md",
+			".specd/skills/specd-brain/SKILL.md",
 			".specd/skills/specd-design/SKILL.md",
 			".specd/skills/specd-execute/SKILL.md",
 			".specd/skills/specd-foundations/SKILL.md",
+			".specd/skills/specd-pinky/SKILL.md",
 			".specd/skills/specd-requirements/SKILL.md",
 			".specd/skills/specd-steering/SKILL.md",
 			".specd/skills/specd-tasks/SKILL.md",

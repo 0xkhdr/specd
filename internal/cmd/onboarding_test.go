@@ -72,7 +72,12 @@ func (a *onboardingAdapter) Verify(string) integration.Verification {
 }
 
 func passingProbe(context.Context, mcp.Dispatcher, time.Duration) (mcp.ProbeResult, error) {
-	return mcp.ProbeResult{ProtocolVersion: "2025-11-25", ToolCount: 24}, nil
+	return mcp.ProbeResult{
+		ProtocolVersion:    "2025-11-25",
+		ToolCount:          24,
+		RequiredTools:      []string{"specd_init", "specd_status", "specd_brain", "specd_pinky"},
+		OrchestrationTools: []string{"specd_brain", "specd_pinky"},
+	}, nil
 }
 
 func TestInitAgentSelectionConsentAndScope(t *testing.T) {

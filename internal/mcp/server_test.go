@@ -76,7 +76,7 @@ func TestInitializeProtocolVersionNegotiation(t *testing.T) {
 	}
 }
 
-func TestInitializeInstructionsAgentBudget(t *testing.T) {
+func TestMCPInstructionsAgentBudget(t *testing.T) {
 	resps := drive(t, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}`)
 	init := result(t, resps[0])
 	instructions, ok := init["instructions"].(string)
@@ -87,11 +87,15 @@ func TestInitializeInstructionsAgentBudget(t *testing.T) {
 		t.Fatalf("instructions use %d bytes, want <= 512", len(instructions))
 	}
 	for _, phrase := range []string{
-		"specd_status or specd_context first",
-		"Never edit .specd/state.json or tasks.md checkboxes directly",
-		"specd_check before approval",
-		"specd_verify",
-		"passing evidence",
+		"specd_status/context first",
+		"brain_orchestrate",
+		"brain start/step/status",
+		"watch --once only",
+		"host runs Pinky workers",
+		"Never edit state/tasks checkboxes",
+		"Approval is policy-gated",
+		"specd_verify evidence",
+		"Cancellation is cooperative",
 	} {
 		if !strings.Contains(instructions, phrase) {
 			t.Errorf("instructions missing %q: %q", phrase, instructions)
@@ -106,6 +110,32 @@ func TestInitializeInstructionsAgentBudget(t *testing.T) {
 		if !strings.Contains(agents, phrase) {
 			t.Errorf("embedded AGENTS.md missing rule corresponding to instructions: %q", phrase)
 		}
+	}
+}
+
+func TestMCPBoundedWatchRequiresOnce(t *testing.T) {
+	resps := drive(t,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"specd_watch","arguments":{}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"specd_watch","arguments":{"once":true,"sse":"127.0.0.1:0"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"ping"}`,
+	)
+	if len(resps) != 3 {
+		t.Fatalf("got %d responses, want 3: %v", len(resps), resps)
+	}
+	for i, want := range []string{"requires --once", "does not allow --sse or --webhook"} {
+		e, ok := resps[i]["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("response %d should be an MCP error: %v", i, resps[i])
+		}
+		if e["code"].(float64) != -32602 {
+			t.Errorf("response %d code = %v, want -32602", i, e["code"])
+		}
+		if !strings.Contains(e["message"].(string), want) {
+			t.Errorf("response %d message missing %q: %q", i, want, e["message"])
+		}
+	}
+	if _, ok := resps[2]["result"]; !ok {
+		t.Fatalf("server did not answer ping after bounded-watch errors: %v", resps[2])
 	}
 }
 
@@ -220,8 +250,8 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Errorf("initialize serverInfo = %v", init["serverInfo"])
 	}
 
-	// tools/list — parity with non-meta command count (R2).
-	wantTools := 0
+	// tools/list — parity with non-meta command count (R2) plus intent tools.
+	wantTools := mcp.IntentToolCount
 	for _, c := range core.Commands {
 		if c.Command != "help" && c.Command != "version" && c.Command != "mcp" {
 			wantTools++

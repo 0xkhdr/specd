@@ -1,0 +1,180 @@
+package core
+
+import (
+	"fmt"
+	"sort"
+)
+
+func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPolicy) (OrchestrationDecision, error) {
+	if err := ValidateOrchestrationPolicy(policy); err != nil {
+		return OrchestrationDecision{}, err
+	}
+	if err := ValidateOrchestrationSnapshot(snapshot); err != nil {
+		return OrchestrationDecision{}, err
+	}
+	decision := OrchestrationDecision{
+		Version:    OrchestrationModelVersion,
+		Spec:       snapshot.Spec,
+		Escalation: OrchestrationEscalation{Code: EscalationNone},
+	}
+	switch {
+	case snapshot.Status == StatusComplete:
+		decision.Action = OrchestrationIdle
+		decision.Reason = "spec already complete"
+	case snapshot.Status == StatusBlocked:
+		decision.Action = OrchestrationEscalate
+		decision.Escalation = OrchestrationEscalation{Code: EscalationHumanIntervention, Message: "spec blocked"}
+		decision.Reason = "spec is blocked"
+	case snapshot.Gate == GateAwaitingApproval:
+		decision.Action = OrchestrationRequestApproval
+		decision.Reason = "awaiting human approval"
+	case len(snapshot.RecentFailures) > 0 && retryableFailuresExhausted(snapshot.RecentFailures, policy.MaxRetries):
+		decision.Action = OrchestrationEscalate
+		decision.Escalation = OrchestrationEscalation{Code: EscalationRetriesExhausted, Message: "retry limit reached"}
+		decision.Reason = "retry limit reached"
+	case costLimitExceeded(snapshot, policy):
+		// Host-reported cost is untrusted, but the advisory limit still acts:
+		// halt-and-escalate rather than dispatch more work (GAP-4).
+		decision.Action = OrchestrationEscalate
+		decision.Escalation = OrchestrationEscalation{
+			Code:    EscalationPolicyViolation,
+			Message: fmt.Sprintf("host-reported cost $%.2f reached limit $%.2f (advisory, untrusted)", snapshot.AccumulatedCostUSD, policy.HostReportedCostLimitUSD),
+		}
+		decision.Reason = "host-reported cost limit reached"
+	case snapshot.SessionExpired:
+		// The session's wall-clock deadline forces a terminal decision instead of
+		// waiting for leases to expire one by one (GAP-4).
+		decision.Action = OrchestrationEscalate
+		decision.Escalation = OrchestrationEscalation{Code: EscalationPolicyViolation, Message: "session timeout reached"}
+		decision.Reason = "session timeout reached"
+	case len(snapshot.ActiveLeases) >= policy.MaxWorkers:
+		decision.Action = OrchestrationWait
+		decision.Reason = "worker limit reached"
+	case len(snapshot.Runnable) > 0 && isExecutionStatus(snapshot.Status):
+		// The execution frontier only dispatches once the spec is executing.
+		// During planning statuses, tasks.md may already be reconciled into
+		// state (LoadSpec auto-reconciles), but those tasks must not run before
+		// the tasks→executing gate is cleared — authoring/advance branches below
+		// own the planning phases.
+		task := firstUnleasedRunnable(snapshot.Runnable, snapshot.ActiveLeases)
+		if task.ID == "" {
+			decision.Action = OrchestrationWait
+			decision.Reason = "runnable work already leased"
+			break
+		}
+		decision.Action = OrchestrationDispatch
+		decision.TaskID = task.ID
+		decision.Attempt = task.Attempt
+		decision.Reason = "dispatch next runnable task"
+	case snapshot.Authoring != nil:
+		// Planning-phase artifact is absent or failing its gate. Author it under
+		// autonomy; defer to a human under the manual policy. (GAP-1)
+		work := snapshot.Authoring
+		if !planningAutonomyAllowed(policy.ApprovalPolicy) {
+			decision.Action = OrchestrationRequestApproval
+			decision.Reason = fmt.Sprintf("manual policy: author %s before continuing", work.Artifact)
+			break
+		}
+		if authoringLeased(work.WorkID, snapshot.ActiveLeases) {
+			decision.Action = OrchestrationWait
+			decision.Reason = fmt.Sprintf("authoring %s already in flight", work.Artifact)
+			break
+		}
+		decision.Action = OrchestrationDispatchAuthor
+		decision.TaskID = work.WorkID
+		decision.Attempt = 1
+		decision.Artifact = work.Artifact
+		decision.Reason = fmt.Sprintf("dispatch authoring mission for %s", work.Artifact)
+	case snapshot.PlanningReady:
+		// Current planning artifact passes its gate; the phase is ready to
+		// advance. Ratchet under autonomy; request human approval under manual.
+		artifact := planningArtifactForStatus(snapshot.Status)
+		if !planningAutonomyAllowed(policy.ApprovalPolicy) {
+			decision.Action = OrchestrationRequestApproval
+			decision.Reason = fmt.Sprintf("manual policy: approve %s phase", snapshot.Status)
+			break
+		}
+		decision.Action = OrchestrationAdvancePhase
+		decision.Artifact = artifact
+		decision.Reason = fmt.Sprintf("%s gate satisfied — advance phase", snapshot.Status)
+	case snapshot.Status == StatusVerifying:
+		decision.Action = OrchestrationCompleteSession
+		decision.Reason = "no runnable tasks and spec verifying"
+	default:
+		decision.Action = OrchestrationWait
+		decision.Reason = "no runnable work"
+	}
+	decision.IdempotencyKey = fmt.Sprintf("%s:%d:%s:%s:%d", snapshot.SessionID, snapshot.Revision, decision.Action, decision.TaskID, decision.Attempt)
+	if err := ValidateOrchestrationDecision(decision); err != nil {
+		return OrchestrationDecision{}, err
+	}
+	return decision, nil
+}
+
+// planningAutonomyAllowed reports whether the approval policy lets the brain
+// author planning artifacts and ratchet planning phases without a human. The
+// `manual` policy never does; `planning` and `session` do. Mid-requirement
+// human-only gates (GateAwaitingApproval) are checked earlier and are never
+// auto-cleared by this path.
+func planningAutonomyAllowed(approvalPolicy string) bool {
+	return approvalPolicy == "planning" || approvalPolicy == "session"
+}
+
+// isExecutionStatus reports whether the spec is in a phase where the task DAG
+// runs. Planning statuses (requirements/design/tasks) are owned by the authoring
+// frontier instead.
+func isExecutionStatus(status SpecStatus) bool {
+	return status == StatusExecuting || status == StatusBlocked
+}
+
+func authoringLeased(workID string, leases []OrchestrationLeaseSnapshot) bool {
+	for _, lease := range leases {
+		if lease.TaskID == workID {
+			return true
+		}
+	}
+	return false
+}
+
+func planningArtifactForStatus(status SpecStatus) string {
+	if step, ok := authoringSteps[status]; ok {
+		return step.Artifact
+	}
+	return ""
+}
+
+// costLimitExceeded reports whether cumulative host-reported cost has reached
+// the configured limit. A limit of 0 means "no limit" (disabled).
+func costLimitExceeded(snapshot OrchestrationSnapshot, policy OrchestrationPolicy) bool {
+	return policy.HostReportedCostLimitUSD > 0 &&
+		snapshot.AccumulatedCostUSD >= policy.HostReportedCostLimitUSD
+}
+
+func retryableFailuresExhausted(failures []OrchestrationFailure, maxRetries int) bool {
+	for _, failure := range failures {
+		if failure.Retryable && failure.Attempt <= maxRetries {
+			return false
+		}
+	}
+	return len(failures) > 0
+}
+
+func firstUnleasedRunnable(tasks []OrchestrationTaskSnapshot, leases []OrchestrationLeaseSnapshot) OrchestrationTaskSnapshot {
+	leased := map[string]bool{}
+	for _, lease := range leases {
+		leased[lease.TaskID] = true
+	}
+	candidates := append([]OrchestrationTaskSnapshot{}, tasks...)
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].Wave != candidates[j].Wave {
+			return candidates[i].Wave < candidates[j].Wave
+		}
+		return taskOrdinalLess(candidates[i].ID, candidates[j].ID)
+	})
+	for _, task := range candidates {
+		if !leased[task.ID] {
+			return task
+		}
+	}
+	return OrchestrationTaskSnapshot{}
+}

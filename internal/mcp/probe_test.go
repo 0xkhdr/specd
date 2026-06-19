@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -19,8 +20,14 @@ func TestProbeHealthyServer(t *testing.T) {
 	if result.ProtocolVersion != latestProtocolVersion {
 		t.Errorf("ProtocolVersion = %q, want %q", result.ProtocolVersion, latestProtocolVersion)
 	}
-	if result.ToolCount < len(baselineTools) {
-		t.Errorf("ToolCount = %d, want at least %d", result.ToolCount, len(baselineTools))
+	if result.ToolCount < len(requiredProbeTools()) {
+		t.Errorf("ToolCount = %d, want at least %d", result.ToolCount, len(requiredProbeTools()))
+	}
+	if !reflect.DeepEqual(result.OrchestrationTools, orchestrationTools) {
+		t.Errorf("OrchestrationTools = %v, want %v", result.OrchestrationTools, orchestrationTools)
+	}
+	if !reflect.DeepEqual(result.RequiredTools, requiredProbeTools()) {
+		t.Errorf("RequiredTools = %v, want %v", result.RequiredTools, requiredProbeTools())
 	}
 	if result.Latency <= 0 {
 		t.Errorf("Latency = %v, want positive", result.Latency)
@@ -72,6 +79,27 @@ func TestProbeFailures(t *testing.T) {
 		assertProbeKind(t, err, ProbeFailureMissingTool)
 		if !strings.Contains(err.Error(), "specd_init") {
 			t.Errorf("error = %q, want first missing baseline tool", err)
+		}
+	})
+
+	t.Run("missing orchestration tool", func(t *testing.T) {
+		_, err := probe(context.Background(), nil, time.Second, func(r io.Reader, w io.Writer, _ Dispatcher) error {
+			reader := bufio.NewReader(r)
+			_, _ = reader.ReadBytes('\n')
+			if err := writeProbeResult(w, 1, map[string]any{"protocolVersion": latestProtocolVersion}); err != nil {
+				return err
+			}
+			_, _ = reader.ReadBytes('\n')
+			_, _ = reader.ReadBytes('\n')
+			tools := make([]map[string]any, 0, len(baselineTools))
+			for _, name := range baselineTools {
+				tools = append(tools, map[string]any{"name": name})
+			}
+			return writeProbeResult(w, 2, map[string]any{"tools": tools})
+		})
+		assertProbeKind(t, err, ProbeFailureMissingTool)
+		if !strings.Contains(err.Error(), "specd_brain") {
+			t.Errorf("error = %q, want first missing orchestration tool", err)
 		}
 	})
 }

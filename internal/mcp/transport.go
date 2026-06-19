@@ -21,6 +21,8 @@ const (
 	errInvalidRequest = -32600
 	errMethodNotFound = -32601
 	errInvalidParams  = -32602
+
+	maxRPCBody = 1 << 20 // 1 MiB per JSON-RPC request
 )
 
 // rpcRequest is an incoming JSON-RPC 2.0 message. A request with no id is a
@@ -36,6 +38,15 @@ type rpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data,omitempty"`
+}
+
+type rpcReadError struct{ err *rpcError }
+
+func (e rpcReadError) Error() string       { return e.err.Message }
+func (e rpcReadError) rpcError() *rpcError { return e.err }
+
+func oversizedRPCError() rpcReadError {
+	return rpcReadError{err: &rpcError{Code: errInvalidRequest, Message: fmt.Sprintf("message exceeds %d-byte limit", maxRPCBody)}}
 }
 
 type rpcResponse struct {
@@ -97,16 +108,35 @@ func (c *conn) readMessage() ([]byte, error) {
 	return c.readLine()
 }
 
-// readLine returns the next non-blank newline-delimited message.
+// readLine returns the next non-blank newline-delimited message, capped so a
+// single client line cannot grow memory without bound.
 func (c *conn) readLine() ([]byte, error) {
 	for {
-		line, err := c.r.ReadBytes('\n')
-		if trimmed := bytes.TrimSpace(line); len(trimmed) > 0 {
-			return trimmed, nil
+		var line []byte
+		for {
+			part, err := c.r.ReadSlice('\n')
+			if len(line)+len(part) > maxRPCBody {
+				discardLine(c.r, err)
+				return nil, oversizedRPCError()
+			}
+			line = append(line, part...)
+			if err == bufio.ErrBufferFull {
+				continue
+			}
+			if trimmed := bytes.TrimSpace(line); len(trimmed) > 0 {
+				return trimmed, nil
+			}
+			if err != nil {
+				return nil, err
+			}
+			break
 		}
-		if err != nil {
-			return nil, err
-		}
+	}
+}
+
+func discardLine(r *bufio.Reader, lastErr error) {
+	for lastErr == bufio.ErrBufferFull {
+		_, lastErr = r.ReadSlice('\n')
 	}
 }
 
@@ -132,6 +162,9 @@ func (c *conn) readHeaderFramed() ([]byte, error) {
 	}
 	if length < 0 {
 		return nil, fmt.Errorf("message missing Content-Length header")
+	}
+	if length > maxRPCBody {
+		return nil, oversizedRPCError()
 	}
 	buf := make([]byte, length)
 	if _, err := io.ReadFull(c.r, buf); err != nil {
