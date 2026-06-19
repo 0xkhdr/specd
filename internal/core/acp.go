@@ -36,12 +36,16 @@ const (
 )
 
 var (
-	acpIDRE       = regexp.MustCompile(`^[a-f0-9]{32}$`)
-	acpPartyRE    = regexp.MustCompile(`^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$`)
-	acpTaskIDRE   = regexp.MustCompile(`^T[0-9]+$`)
-	acpDigestRE   = regexp.MustCompile(`^[a-f0-9]{64}$`)
-	acpActionSet  = sliceToSet([]string{"retry", "cancel", "reassign", "escalate", "continue"})
-	acpMessageSet = map[ACPMessageType]bool{
+	acpIDRE      = regexp.MustCompile(`^[a-f0-9]{32}$`)
+	acpPartyRE   = regexp.MustCompile(`^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$`)
+	acpTaskIDRE  = regexp.MustCompile(`^T[0-9]+$`)
+	acpDigestRE  = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	acpActionSet = sliceToSet([]string{"retry", "cancel", "reassign", "escalate", "continue"})
+	// acpAuthorityActionSet enumerates worker capabilities carried in a mission's
+	// authority grant. These are distinct from directive verbs in acpActionSet and
+	// must stay in sync with pinkyAllowedActions.
+	acpAuthorityActionSet = sliceToSet([]string{"read", "edit", "verify", "report"})
+	acpMessageSet         = map[ACPMessageType]bool{
 		ACPMessageMission: true, ACPMessageAccepted: true, ACPMessageHeartbeat: true,
 		ACPMessageProgress: true, ACPMessageEvidence: true, ACPMessageBlocker: true,
 		ACPMessageQuery: true, ACPMessageDirective: true, ACPMessageCancelled: true,
@@ -271,7 +275,7 @@ func validateACPPayload(messageType ACPMessageType, task string, raw []byte) err
 			return fmt.Errorf("authority.allowedActions must contain 1..%d items", ACPMaxListItems)
 		}
 		for _, action := range payload.Authority.AllowedActions {
-			if !acpActionSet[action] {
+			if !acpAuthorityActionSet[action] {
 				return fmt.Errorf("invalid authority action %q", action)
 			}
 		}

@@ -132,7 +132,7 @@ func validACPMission() ACPMissionPayload {
 		Acceptance:     "tests pass",
 		VerifyCommand:  "go test ./internal/core/...",
 		Dependencies:   []string{},
-		Authority:      ACPAuthority{AllowedActions: []string{"continue", "retry"}},
+		Authority:      ACPAuthority{AllowedActions: []string{"read", "edit"}},
 	}
 }
 

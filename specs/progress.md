@@ -1,8 +1,8 @@
 # Pinky & The Brain — Program Progress
 
-Status: implementation in progress; Wave 8 complete; awaiting human review
-Last updated: 2026-06-18
-Implementation progress: 15/37 tasks complete
+Status: implementation in progress; Wave 9 complete; awaiting human review
+Last updated: 2026-06-19
+Implementation progress: 18/37 tasks complete
 
 ## Program Outcome
 
@@ -60,9 +60,9 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
 |---|---:|---:|---|---|
 | config-extension | 4 | 3 | in progress | T4 (Wave 15) |
 | acp-file-transport | 7 | 7 | complete | — |
-| brain-core | 8 | 3 | in progress | T4 (Wave 9) |
-| pinky-core | 7 | 2 | in progress | T3 (Wave 9) |
-| program-orchestration | 5 | 0 | proposed | T1 (Wave 9) |
+| brain-core | 8 | 4 | in progress | T5 (Wave 10) |
+| pinky-core | 7 | 3 | in progress | T4 (Wave 10) |
+| program-orchestration | 5 | 1 | in progress | T2 (Wave 10) |
 | mcp-integration | 6 | 0 | proposed | blocked by Brain/Pinky/program CLI |
 
 ## Review Decisions Requested
@@ -181,6 +181,30 @@ Parallel work is allowed only inside a wave when listed dependencies are complet
   Verification passed:
   `go test ./internal/core/... -run 'TestPinky.*(Claim|Heartbeat|Release)' -race -count=2`,
   and `make ci`.
+- Wave 9 / `brain-core/T4`: added the one-step reconciliation engine wiring
+  sense → decide → record under the spec lock, materializing dispatch/retry
+  missions and cancel directives into idempotent ACP events keyed by the
+  decision idempotency key. Verification passed:
+  `go test ./internal/core/... -run 'TestOrchestrationEngine' -race -count=2`,
+  and `make ci`.
+- Wave 9 / `pinky-core/T3`: added Pinky progress, blocker, terminal evidence,
+  and cancellation-acknowledgement reporting over ACP, lease-validated and with
+  idempotent terminal evidence. Verification passed:
+  `go test ./internal/core/... -run 'TestPinky.*(Progress|Block|Report|Cancel)' -race -count=2`,
+  and `make ci`.
+- Wave 9 / `program-orchestration/T1`: added pure program snapshot construction
+  and the deterministic program decision table (start/wait/escalate/complete)
+  over the child-spec DAG with capacity, cycle, orphan, and blocker handling.
+  Verification passed:
+  `go test ./internal/core/... -run 'TestProgramOrchestration' -count=20`,
+  and `make ci`.
+- Backprop B5 / 2026-06-19: Wave 9 engine integration exposed that mission
+  authority `allowedActions` were validated against the directive verb set
+  (`retry/cancel/...`) rather than worker capabilities (`read/edit/verify/
+  report`), so any real dispatch failed envelope validation. Split the
+  vocabularies into `acpAuthorityActionSet` and corrected the `validACPMission`
+  fixture, which had used placeholder directive verbs. No new product invariant;
+  the authority/directive split is now enforced by the engine dispatch test.
 
 ## Progress Update Rules
 
