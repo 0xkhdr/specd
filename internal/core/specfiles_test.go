@@ -9,14 +9,14 @@ import (
 )
 
 func TestConfigOrchestrationDefault(t *testing.T) {
-	t.Run("missing config", func(t *testing.T) {
+	t.Run("missing_config", func(t *testing.T) {
 		got := LoadConfig(t.TempDir())
 		if !reflect.DeepEqual(got, DefaultConfig) {
 			t.Fatalf("LoadConfig() = %#v, want %#v", got, DefaultConfig)
 		}
 	})
 
-	t.Run("malformed config", func(t *testing.T) {
+	t.Run("malformed_config", func(t *testing.T) {
 		root := t.TempDir()
 		if err := AtomicWrite(ConfigPath(root), `{"orchestration":`); err != nil {
 			t.Fatal(err)

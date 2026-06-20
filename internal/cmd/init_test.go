@@ -38,7 +38,7 @@ func TestInitSkillTemplatesExist(t *testing.T) {
 }
 
 func TestInitRequiredWriteFailure(t *testing.T) {
-	t.Run("human output fails closed", func(t *testing.T) {
+	t.Run("human_output_fails_closed", func(t *testing.T) {
 		root := initTestRoot(t)
 
 		stdout, stderr, code := captureInitOutput(
@@ -61,7 +61,7 @@ func TestInitRequiredWriteFailure(t *testing.T) {
 		}
 	})
 
-	t.Run("json output is one failed result", func(t *testing.T) {
+	t.Run("json_output_is_one_failed_result", func(t *testing.T) {
 		initTestRoot(t)
 
 		stdout, stderr, code := captureInitOutput(
@@ -248,7 +248,7 @@ func TestInitRefreshRejectsMalformedAgentsWithoutWrite(t *testing.T) {
 }
 
 func TestInitOrchestrationFlags(t *testing.T) {
-	t.Run("bare --orchestration defaults to planning", func(t *testing.T) {
+	t.Run("bare_orchestration_defaults_to_planning", func(t *testing.T) {
 		root := initTestRoot(t)
 		_, _, code := captureInitOutput(t, cli.ParseArgs([]string{"--non-interactive", "--orchestration"}), core.DefaultInitExecutor())
 		if code != core.ExitOK {
@@ -263,7 +263,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("--orchestration session full autonomy with custom workers", func(t *testing.T) {
+	t.Run("orchestration_session_full_autonomy_with_custom_workers", func(t *testing.T) {
 		root := initTestRoot(t)
 		_, _, code := captureInitOutput(t, cli.ParseArgs([]string{
 			"--non-interactive",
@@ -298,7 +298,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid policy returns usage exit", func(t *testing.T) {
+	t.Run("invalid_policy_returns_usage_exit", func(t *testing.T) {
 		initTestRoot(t)
 		_, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{"--non-interactive", "--orchestration", "foo"}), core.DefaultInitExecutor())
 		if code != core.ExitUsage {
@@ -309,7 +309,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("workers out of bounds clamped with warning", func(t *testing.T) {
+	t.Run("workers_out_of_bounds_clamped_with_warning", func(t *testing.T) {
 		root := initTestRoot(t)
 		stdout, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{
 			"--non-interactive",
@@ -328,7 +328,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("dry-run does not write but lists write config.json", func(t *testing.T) {
+	t.Run("dry_run_does_not_write_but_lists_write_config_json", func(t *testing.T) {
 		root := initTestRoot(t)
 		stdout, _, code := captureInitOutput(t, cli.ParseArgs([]string{
 			"--dry-run",
@@ -345,7 +345,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid cost limit returns usage error", func(t *testing.T) {
+	t.Run("invalid_cost_limit_returns_usage_error", func(t *testing.T) {
 		initTestRoot(t)
 		_, stderr, code := captureInitOutput(t, cli.ParseArgs([]string{
 			"--non-interactive",
@@ -360,7 +360,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("sandbox selection bwrap fails closed if bwrap not in path", func(t *testing.T) {
+	t.Run("sandbox_selection_bwrap_fails_closed_if_bwrap_not_in_path", func(t *testing.T) {
 		originalPath := os.Getenv("PATH")
 		os.Setenv("PATH", "")
 		defer os.Setenv("PATH", originalPath)
@@ -379,7 +379,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("updating orchestration configuration on already initialized project", func(t *testing.T) {
+	t.Run("updating_orchestration_configuration_on_already_initialized_project", func(t *testing.T) {
 		root := initTestRoot(t)
 		if _, _, code := captureInitOutput(t, cli.ParseArgs([]string{"--non-interactive", "--agent", "none"}), core.DefaultInitExecutor()); code != core.ExitOK {
 			t.Fatalf("initial init exit=%d", code)

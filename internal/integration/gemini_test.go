@@ -56,11 +56,3 @@ func TestGeminiProjectAdapterPreservesSettingsAndIsIdempotent(t *testing.T) {
 		t.Fatalf("state = %#v", state)
 	}
 }
-
-func TestDefaultRegistryIncludesSupportedProjectAdapters(t *testing.T) {
-	got := DefaultRegistry().Names()
-	want := []string{"claude-code", "codex", "cursor", "gemini", "vscode"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("DefaultRegistry names = %v, want %v", got, want)
-	}
-}

@@ -20,6 +20,7 @@ const sampleDoc = `# Tasks — My Feature
 `
 
 func TestParseRoundTrip(t *testing.T) {
+	t.Parallel()
 	doc, err := ParseTasks(sampleDoc)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -39,6 +40,7 @@ func TestParseRoundTrip(t *testing.T) {
 }
 
 func TestParseAnnotationComplete(t *testing.T) {
+	t.Parallel()
 	doc := `# Tasks — X
 
 ## Wave 1
@@ -68,6 +70,7 @@ func TestParseAnnotationComplete(t *testing.T) {
 }
 
 func TestMissingMandatoryKey(t *testing.T) {
+	t.Parallel()
 	doc := `# Tasks — X
 
 ## Wave 1
@@ -95,6 +98,7 @@ func metaBlock(deps string) string {
 }
 
 func TestParseMalformed(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		doc     string
@@ -159,6 +163,7 @@ func TestParseMalformed(t *testing.T) {
 }
 
 func TestParseDependsEmptyElements(t *testing.T) {
+	t.Parallel()
 	got := ParseDepends("T1, , T3,")
 	if len(got) != 2 || got[0] != "T1" || got[1] != "T3" {
 		t.Fatalf("expected [T1 T3], got %v", got)
@@ -166,6 +171,7 @@ func TestParseDependsEmptyElements(t *testing.T) {
 }
 
 func TestAnnotationSeparatorRoundTrip(t *testing.T) {
+	t.Parallel()
 	// Evidence containing the field delimiter, a literal middot, and a newline
 	// must round-trip losslessly through serialize -> parse.
 	tricky := []string{
@@ -211,6 +217,7 @@ func TestAnnotationSeparatorRoundTrip(t *testing.T) {
 }
 
 func TestEncodeDecodeAnnotationField(t *testing.T) {
+	t.Parallel()
 	cases := []string{"", "plain", "a·b", "a\nb", `\already escaped`, "·\n\\·"}
 	for _, c := range cases {
 		if got := decodeAnnotationField(encodeAnnotationField(c)); got != c {
@@ -224,6 +231,7 @@ func TestEncodeDecodeAnnotationField(t *testing.T) {
 }
 
 func TestApplyTaskAnnotation(t *testing.T) {
+	t.Parallel()
 	raw, err := ApplyTaskAnnotation(sampleDoc, "T1", true, &Annotation{
 		Kind: AnnotComplete, Evidence: "passed", Ts: "2024-01-01T00:00:00Z",
 	})
@@ -239,6 +247,7 @@ func TestApplyTaskAnnotation(t *testing.T) {
 }
 
 func TestParseAcceptanceMap(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		in   string

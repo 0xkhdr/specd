@@ -6,7 +6,7 @@ import (
 )
 
 func TestCommitTaskLink(t *testing.T) {
-	t.Run("parse refs deterministic, ordinal-sorted, unique", func(t *testing.T) {
+	t.Run("parse_refs_deterministic_ordinal_sorted_unique", func(t *testing.T) {
 		got := ParseTaskRefs("T10 fix and T2 again, also T2 and INIT12 not a ref")
 		if strings.Join(got, ",") != "T2,T10" {
 			t.Fatalf("ParseTaskRefs = %v, want [T2 T10]", got)
@@ -16,7 +16,7 @@ func TestCommitTaskLink(t *testing.T) {
 		}
 	})
 
-	t.Run("unreferenced commits listed, not dropped", func(t *testing.T) {
+	t.Run("unreferenced_commits_listed_not_dropped", func(t *testing.T) {
 		commits := []Commit{
 			{SHA: "aaaaaaaa1111", Subject: "T1: build parser"},
 			{SHA: "bbbbbbbb2222", Subject: "chore: tidy go.mod"}, // no ref
@@ -45,7 +45,7 @@ func TestCommitTaskLink(t *testing.T) {
 		}
 	})
 
-	t.Run("deterministic across runs", func(t *testing.T) {
+	t.Run("deterministic_across_runs", func(t *testing.T) {
 		commits := []Commit{{SHA: "x", Subject: "T3 T1 T2"}}
 		a := LinkCommits(commits)
 		b := LinkCommits(commits)

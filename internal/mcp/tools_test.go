@@ -5,8 +5,10 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
@@ -195,4 +197,407 @@ func TestToolSchemaValidity(t *testing.T) {
 			}
 		}
 	}
+}
+
+// --- C1: context-manifest tool filtering -----------------------------------
+
+func TestApplyManifestFilterRequiredOptional(t *testing.T) {
+	// AC1: required+optional define the allowlist; everything else is dropped.
+	cand := []toolDef{td("specd_inspect"), td("specd_verify"), td("specd_task"), td("specd_status")}
+	m := core.ContextManifestTools{
+		RequiredTools: []string{"specd_inspect", "specd_verify"},
+		OptionalTools: []string{"specd_task"},
+	}
+	got := names(applyManifestFilter(cand, m))
+	want := []string{"specd_inspect", "specd_verify", "specd_task"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("allowlist = %v, want %v", got, want)
+	}
+}
+
+func TestApplyManifestForbiddenWins(t *testing.T) {
+	// AC2/R3: forbidden excludes a tool even when required/optional would allow it.
+	cand := []toolDef{td("specd_inspect"), td("specd_approve")}
+	m := core.ContextManifestTools{
+		RequiredTools:  []string{"specd_inspect", "specd_approve"},
+		ForbiddenTools: []string{"specd_approve"},
+	}
+	got := names(applyManifestFilter(cand, m))
+	if strings.Join(got, ",") != "specd_inspect" {
+		t.Fatalf("forbidden not excluded: %v", got)
+	}
+}
+
+func TestApplyManifestNoManifestUnchanged(t *testing.T) {
+	// AC4: an empty manifest is a no-op.
+	cand := []toolDef{td("specd_status"), td("specd_verify")}
+	got := applyManifestFilter(cand, core.ContextManifestTools{})
+	if len(got) != len(cand) {
+		t.Fatalf("empty manifest altered list: %v", names(got))
+	}
+}
+
+func TestApplyManifestRequiredGatedOffDiagnostic(t *testing.T) {
+	// AC3/R4: a required tool missing from the (config-gated) candidate set stays
+	// excluded and emits a diagnostic — config safety wins over manifest required.
+	cand := []toolDef{td("specd_status")}
+	m := core.ContextManifestTools{RequiredTools: []string{"specd_status", "specd_update"}}
+	var got []toolDef
+	diag := captureStderr(t, func() { got = applyManifestFilter(cand, m) })
+	if strings.Join(names(got), ",") != "specd_status" {
+		t.Fatalf("gated required leaked into list: %v", names(got))
+	}
+	if !strings.Contains(diag, "specd_update") || !strings.Contains(diag, "config gate") {
+		t.Fatalf("missing R4 diagnostic, got: %q", diag)
+	}
+}
+
+func TestApplyManifestUnknownNameIgnored(t *testing.T) {
+	cand := []toolDef{td("specd_status")}
+	m := core.ContextManifestTools{RequiredTools: []string{"specd_status", "specd_bogus"}}
+	var got []toolDef
+	diag := captureStderr(t, func() { got = applyManifestFilter(cand, m) })
+	if strings.Join(names(got), ",") != "specd_status" {
+		t.Fatalf("unknown name affected output: %v", names(got))
+	}
+	if !strings.Contains(diag, "specd_bogus") || !strings.Contains(diag, "unknown tool") {
+		t.Fatalf("missing unknown-name warning, got: %q", diag)
+	}
+}
+
+// --- C2: host capability negotiation ---------------------------------------
+
+func TestApplyHostPrefsMaxToolsCap(t *testing.T) {
+	// AC1: maxTools caps the emitted count.
+	cand := []toolDef{td("a"), td("b"), td("c"), td("d"), td("e"), td("f")}
+	got := applyHostPrefs(cand, hostPrefs{maxTools: 5}, nil)
+	if len(got) != 5 {
+		t.Fatalf("maxTools=5 emitted %d tools", len(got))
+	}
+}
+
+func TestApplyHostPrefsPreferredNamespaceOrder(t *testing.T) {
+	// AC2: a preferred namespace (named by a member tool) orders its tools first,
+	// preserving relative order within and outside the bucket.
+	cand := []toolDef{td("specd_status"), td("specd_inspect"), td("specd_verify"), td("specd_read")}
+	got := names(applyHostPrefs(cand, hostPrefs{preferredNamespaces: []string{"specd_read"}}, nil))
+	want := []string{"specd_inspect", "specd_read", "specd_status", "specd_verify"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("namespace order = %v, want %v", got, want)
+	}
+}
+
+func TestApplyHostPrefsRequiredSurvivesCap(t *testing.T) {
+	// AC3/R4: required tools beyond maxTools are still all emitted, with a stderr
+	// diagnostic — safety gates win over the cap.
+	cand := []toolDef{td("specd_inspect"), td("specd_verify"), td("specd_task"), td("specd_status")}
+	required := map[string]bool{"specd_inspect": true, "specd_verify": true, "specd_task": true}
+	var got []toolDef
+	diag := captureStderr(t, func() {
+		got = applyHostPrefs(cand, hostPrefs{maxTools: 2}, required)
+	})
+	gm := toolNames(got)
+	for n := range required {
+		if !gm[n] {
+			t.Fatalf("required %s dropped by cap: %v", n, names(got))
+		}
+	}
+	if !strings.Contains(diag, "maxTools=2") {
+		t.Fatalf("missing over-cap diagnostic, got: %q", diag)
+	}
+}
+
+func TestApplyHostPrefsNoHintsNoop(t *testing.T) {
+	// AC4: no hints ⇒ identical slice (order + length).
+	cand := []toolDef{td("a"), td("b"), td("c")}
+	got := applyHostPrefs(cand, hostPrefs{}, nil)
+	if strings.Join(names(got), ",") != "a,b,c" {
+		t.Fatalf("no-hint path altered list: %v", names(got))
+	}
+}
+
+func TestApplyHostPrefsGarbageIsSafe(t *testing.T) {
+	// AC5: a negative maxTools (clamped at parse) and unknown namespaces no-op.
+	cand := []toolDef{td("specd_status"), td("specd_inspect")}
+	hp := parseHostPrefs([]byte(`{"capabilities":{"specd":{"maxTools":-3,"preferredNamespaces":["nope"]}}}`))
+	if hp.maxTools != 0 {
+		t.Fatalf("negative maxTools not clamped: %+v", hp)
+	}
+	// The unknown namespace is dropped at apply time, leaving the list untouched.
+	got := applyHostPrefs(cand, hp, nil)
+	if strings.Join(names(got), ",") != "specd_status,specd_inspect" {
+		t.Fatalf("garbage altered list: %v", names(got))
+	}
+}
+
+func TestParseHostPrefs(t *testing.T) {
+	hp := parseHostPrefs([]byte(`{"capabilities":{"specd":{"maxTools":5,"preferredNamespaces":["read"]}}}`))
+	if hp.maxTools != 5 || len(hp.preferredNamespaces) != 1 || hp.preferredNamespaces[0] != "read" {
+		t.Fatalf("parsed prefs wrong: %+v", hp)
+	}
+}
+
+// boolPtr is a tiny helper so table rows can set IncludeOrchestration to an
+// explicit true/false distinct from the unset (nil) state (spec R5a).
+func boolPtr(b bool) *bool { return &b }
+
+func toolNames(tools []toolDef) map[string]bool {
+	names := make(map[string]bool, len(tools))
+	for _, tl := range tools {
+		names[tl.Name] = true
+	}
+	return names
+}
+
+// TestResolveMCPExposure table-tests the pure allow-policy across the config
+// matrix (spec §7). It asserts the resolved exposurePlan directly so the gating
+// semantics are pinned independently of the buildTools loop.
+func TestResolveMCPExposure(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *core.Config
+		wantPass bool
+		wantEss  bool
+		wantMeta bool
+		wantOrch bool
+	}{
+		{
+			name:     "nil cfg is passthrough",
+			cfg:      nil,
+			wantPass: true,
+		},
+		{
+			name:     "absent mcp block is passthrough",
+			cfg:      &core.Config{},
+			wantPass: true,
+		},
+		{
+			name:     "expose all engages gating with default-off meta/orch",
+			cfg:      &core.Config{MCP: core.MCPConfig{Expose: "all"}},
+			wantPass: false,
+		},
+		{
+			name:     "includeMeta true opens meta gate",
+			cfg:      &core.Config{MCP: core.MCPConfig{Expose: "all", IncludeMeta: true}},
+			wantMeta: true,
+		},
+		{
+			name:     "includeOrchestration explicit true overrides disabled",
+			cfg:      &core.Config{MCP: core.MCPConfig{Expose: "all", IncludeOrchestration: boolPtr(true)}},
+			wantOrch: true,
+		},
+		{
+			name: "unset includeOrchestration derives from enabled",
+			cfg: &core.Config{
+				Orchestration: core.OrchestrationCfg{Enabled: true},
+				MCP:           core.MCPConfig{Expose: "all"},
+			},
+			wantOrch: true,
+		},
+		{
+			name:    "essential mode",
+			cfg:     &core.Config{MCP: core.MCPConfig{Expose: "essential"}},
+			wantEss: true,
+		},
+		{
+			name:     "unknown mode degrades to all",
+			cfg:      &core.Config{MCP: core.MCPConfig{Expose: "bogus"}},
+			wantPass: false,
+			wantEss:  false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan := resolveMCPExposure(tt.cfg)
+			if plan.passthrough != tt.wantPass {
+				t.Errorf("passthrough = %v, want %v", plan.passthrough, tt.wantPass)
+			}
+			if plan.essential != tt.wantEss {
+				t.Errorf("essential = %v, want %v", plan.essential, tt.wantEss)
+			}
+			if plan.includeMeta != tt.wantMeta {
+				t.Errorf("includeMeta = %v, want %v", plan.includeMeta, tt.wantMeta)
+			}
+			if plan.includeOrchestration != tt.wantOrch {
+				t.Errorf("includeOrchestration = %v, want %v", plan.includeOrchestration, tt.wantOrch)
+			}
+		})
+	}
+}
+
+// TestEssentialDefaultSet covers AC2/R3a: expose:"essential" with no explicit
+// set yields exactly the default tools. The default set mixes composite tools
+// (already namespaced, e.g. specd_inspect) with atomic command mirrors (bare
+// command names, prefixed with specd_), so each entry is resolved by shape.
+func TestEssentialDefaultSet(t *testing.T) {
+	cfg := &core.Config{MCP: core.MCPConfig{Expose: "essential"}}
+	tools := buildTools(cfg)
+	if len(tools) != len(defaultEssentialTools) {
+		t.Fatalf("essential tool count = %d, want %d", len(tools), len(defaultEssentialTools))
+	}
+	names := toolNames(tools)
+	for _, entry := range defaultEssentialTools {
+		want := entry
+		if !strings.HasPrefix(entry, toolPrefix) {
+			want = toolPrefix + entry
+		}
+		if !names[want] {
+			t.Errorf("essential set missing %s", want)
+		}
+	}
+	// The composite read tools must be in the default essential surface (AC7).
+	for _, c := range []string{"specd_inspect", "specd_read", "specd_query"} {
+		if !names[c] {
+			t.Errorf("essential set missing composite %s", c)
+		}
+	}
+}
+
+// TestEssentialExplicitSet covers R3: only the named commands/intents survive.
+func TestEssentialExplicitSet(t *testing.T) {
+	cfg := &core.Config{
+		Orchestration: core.OrchestrationCfg{Enabled: true},
+		MCP: core.MCPConfig{
+			Expose:         "essential",
+			EssentialTools: []string{"status", "brain_orchestrate"},
+		},
+	}
+	names := toolNames(buildTools(cfg))
+	if len(names) != 2 {
+		t.Fatalf("got %d tools, want 2: %v", len(names), names)
+	}
+	if !names["specd_status"] || !names["brain_orchestrate"] {
+		t.Errorf("explicit essential set = %v, want specd_status + brain_orchestrate", names)
+	}
+}
+
+// TestIncludeMetaGate covers AC3/R4: meta-risk tools hidden by default, shown
+// only when includeMeta is true.
+func TestIncludeMetaGate(t *testing.T) {
+	hidden := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
+	for cmd := range metaRiskCommands {
+		if hidden[toolPrefix+cmd] {
+			t.Errorf("%s%s exposed with includeMeta:false", toolPrefix, cmd)
+		}
+	}
+	shown := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all", IncludeMeta: true}}))
+	for cmd := range metaRiskCommands {
+		if !shown[toolPrefix+cmd] {
+			t.Errorf("%s%s missing with includeMeta:true", toolPrefix, cmd)
+		}
+	}
+}
+
+// TestOrchestrationGate covers AC4/AC5/R5/R5a: with orchestration disabled the
+// brain/pinky commands and every brain_* intent vanish; enabling brings them back.
+func TestOrchestrationGate(t *testing.T) {
+	off := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
+	for cmd := range orchestrationCommands {
+		if off[toolPrefix+cmd] {
+			t.Errorf("%s%s exposed while orchestration excluded", toolPrefix, cmd)
+		}
+	}
+	for _, it := range intentTools {
+		if off[it.name] {
+			t.Errorf("intent %s exposed while orchestration excluded", it.name)
+		}
+	}
+
+	on := toolNames(buildTools(&core.Config{
+		Orchestration: core.OrchestrationCfg{Enabled: true},
+		MCP:           core.MCPConfig{Expose: "all"},
+	}))
+	if !on["specd_brain"] || !on["specd_pinky"] {
+		t.Error("orchestration commands missing when enabled + expose:all")
+	}
+	for _, it := range intentTools {
+		if !on[it.name] {
+			t.Errorf("intent %s missing when orchestration enabled", it.name)
+		}
+	}
+}
+
+// TestPassthroughEqualsToday covers R1/AC1: an absent mcp block produces the
+// exact same tool list (names and order) as the pre-config nil build.
+func TestPassthroughEqualsToday(t *testing.T) {
+	nilBuild := buildTools(nil)
+	zeroBuild := buildTools(&core.Config{})
+	if len(nilBuild) != len(zeroBuild) {
+		t.Fatalf("zero-config count = %d, nil count = %d", len(zeroBuild), len(nilBuild))
+	}
+	for i := range nilBuild {
+		if nilBuild[i].Name != zeroBuild[i].Name {
+			t.Errorf("order/name drift at %d: nil=%s zero=%s", i, nilBuild[i].Name, zeroBuild[i].Name)
+		}
+	}
+}
+
+// listToolsOverServer runs the real stdio Serve loop with cfg and returns the
+// advertised tool names from tools/list, exercising the full route → buildTools
+// plumbing rather than buildTools in isolation (spec §7 integration).
+func listToolsOverServer(t *testing.T, cfg *core.Config) []string {
+	t.Helper()
+	noop := func(string, cli.Args) (int, bool) { return core.ExitOK, true }
+	input := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+	}, "\n") + "\n"
+
+	var out strings.Builder
+	if err := Serve(strings.NewReader(input), &out, noop, cfg); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	var names []string
+	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+		var resp struct {
+			ID     int `json:"id"`
+			Result struct {
+				Tools []struct {
+					Name string `json:"name"`
+				} `json:"tools"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal([]byte(line), &resp); err != nil {
+			t.Fatalf("bad response %q: %v", line, err)
+		}
+		if resp.ID == 2 {
+			for _, tl := range resp.Result.Tools {
+				names = append(names, tl.Name)
+			}
+		}
+	}
+	return names
+}
+
+// TestServerToolsListFiltered asserts tools/list honours each config variant
+// end-to-end over the wire (spec AC1–AC5).
+func TestServerToolsListFiltered(t *testing.T) {
+	t.Run("absent_block_matches_full_set", func(t *testing.T) {
+		got := len(listToolsOverServer(t, &core.Config{}))
+		want := len(buildTools(nil))
+		if got != want {
+			t.Errorf("absent-block tool count = %d, want %d", got, want)
+		}
+	})
+
+	t.Run("essential_default_set_is_eight", func(t *testing.T) {
+		got := listToolsOverServer(t, &core.Config{MCP: core.MCPConfig{Expose: "essential"}})
+		if len(got) != len(defaultEssentialTools) {
+			t.Errorf("essential count = %d, want %d (%v)", len(got), len(defaultEssentialTools), got)
+		}
+	})
+
+	t.Run("orchestration_enabled_exposes_brain_surface", func(t *testing.T) {
+		got := listToolsOverServer(t, &core.Config{
+			Orchestration: core.OrchestrationCfg{Enabled: true},
+			MCP:           core.MCPConfig{Expose: "all"},
+		})
+		has := map[string]bool{}
+		for _, n := range got {
+			has[n] = true
+		}
+		if !has["specd_brain"] || !has["brain_orchestrate"] {
+			t.Errorf("orchestration tools missing over wire: %v", got)
+		}
+	})
 }

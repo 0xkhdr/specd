@@ -3,7 +3,7 @@ VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo "dev
 LDFLAGS  = -s -w -X main.version=$(VERSION)
 BIN      = specd
 
-.PHONY: all build install test test-order cover cover-check fmt-check lint shellcheck stress stress-acp stress-orchestration stress-program perf-gate bench ci clean
+.PHONY: all build install test test-order cover cover-check fmt-check lint test-lint shellcheck stress stress-acp stress-orchestration stress-program perf-gate bench ci clean
 
 all: build
 
@@ -32,8 +32,13 @@ fmt-check:
 	@unformatted="$$(gofmt -l .)"; \
 	if [ -n "$$unformatted" ]; then echo "not gofmt-clean:"; echo "$$unformatted"; exit 1; fi
 
-lint: fmt-check shellcheck
+lint: fmt-check shellcheck test-lint
 	$(GO) vet ./...
+
+# Structural lint for the test suite (spec.md §7): no banned file suffixes, no
+# space-separated subtest names, no duplicate helpers.
+test-lint:
+	./scripts/test-lint.sh
 
 shellcheck:
 	shellcheck scripts/*.sh

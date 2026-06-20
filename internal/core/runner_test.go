@@ -19,7 +19,7 @@ func TestShRunnerUnchanged(t *testing.T) {
 	}
 	base := RunSpec{Root: t.TempDir(), Shell: "sh", Env: nil, Timeout: 5 * time.Second}
 
-	t.Run("success captures stdout and exit 0", func(t *testing.T) {
+	t.Run("success_captures_stdout_and_exit_0", func(t *testing.T) {
 		s := base
 		s.Command = "printf hello"
 		res := r.Run(context.Background(), s)
@@ -31,7 +31,7 @@ func TestShRunnerUnchanged(t *testing.T) {
 		}
 	})
 
-	t.Run("non-zero exit is preserved", func(t *testing.T) {
+	t.Run("non_zero_exit_is_preserved", func(t *testing.T) {
 		s := base
 		s.Command = "exit 3"
 		res := r.Run(context.Background(), s)
@@ -40,7 +40,7 @@ func TestShRunnerUnchanged(t *testing.T) {
 		}
 	})
 
-	t.Run("stderr captured separately", func(t *testing.T) {
+	t.Run("stderr_captured_separately", func(t *testing.T) {
 		s := base
 		s.Command = "printf oops 1>&2; exit 1"
 		res := r.Run(context.Background(), s)
@@ -49,7 +49,7 @@ func TestShRunnerUnchanged(t *testing.T) {
 		}
 	})
 
-	t.Run("timeout yields 124 + timedOut", func(t *testing.T) {
+	t.Run("timeout_yields_124_timedout", func(t *testing.T) {
 		s := base
 		s.Command = "sleep 5"
 		s.Timeout = 50 * time.Millisecond

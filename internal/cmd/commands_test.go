@@ -1,5 +1,9 @@
 package cmd_test
 
+// Concern (cross-cutting): command dispatch + registry. Exercises core.Commands
+// routing, New/Check/Next/Dispatch and cross-command smoke that spans no single
+// command file. Per-command focused tests live in their <command>_test.go.
+
 import (
 	"encoding/json"
 	"errors"
@@ -27,7 +31,7 @@ func validSpec(h *th.Harness, slug string, status core.SpecStatus) string {
 }
 
 func TestNew(t *testing.T) {
-	t.Run("creates spec and artifacts", func(t *testing.T) {
+	t.Run("creates_spec_and_artifacts", func(t *testing.T) {
 		h := th.New(t)
 		res := h.RunExpect(core.ExitOK, "new", "auth")
 		if !strings.Contains(res.Stdout, "created spec 'auth'") {
@@ -38,7 +42,7 @@ func TestNew(t *testing.T) {
 		h.State("auth").Status(core.StatusRequirements).Phase(core.PhaseAnalyze)
 	})
 
-	t.Run("custom title", func(t *testing.T) {
+	t.Run("custom_title", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitOK, "new", "auth", "--title", "Auth Flow")
 		if got := h.State("auth").Raw().Title; got != "Auth Flow" {
@@ -46,25 +50,25 @@ func TestNew(t *testing.T) {
 		}
 	})
 
-	t.Run("duplicate is a gate error", func(t *testing.T) {
+	t.Run("duplicate_is_a_gate_error", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitOK, "new", "auth")
 		h.RunExpect(core.ExitGate, "new", "auth")
 	})
 
-	t.Run("path-traversal slug rejected", func(t *testing.T) {
+	t.Run("path_traversal_slug_rejected", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitUsage, "new", "../../etc/passwd")
 	})
 
-	t.Run("missing slug is usage error", func(t *testing.T) {
+	t.Run("missing_slug_is_usage_error", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitUsage, "new")
 	})
 }
 
 func TestCheck(t *testing.T) {
-	t.Run("clean spec passes", func(t *testing.T) {
+	t.Run("clean_spec_passes", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusTasks)
 		res := h.RunExpect(core.ExitOK, "check", "auth")
@@ -73,7 +77,7 @@ func TestCheck(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid EARS fails with violations", func(t *testing.T) {
+	t.Run("invalid_ears_fails_with_violations", func(t *testing.T) {
 		h := th.New(t)
 		h.Spec("auth").
 			Req("Bad", "As a user", "this is not an EARS sentence").
@@ -87,7 +91,7 @@ func TestCheck(t *testing.T) {
 		}
 	})
 
-	t.Run("json output", func(t *testing.T) {
+	t.Run("json_output", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusTasks)
 		res := h.RunExpect(core.ExitOK, "check", "auth", "--json")
@@ -96,19 +100,19 @@ func TestCheck(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown spec is not-found", func(t *testing.T) {
+	t.Run("unknown_spec_is_not_found", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitNotFound, "check", "ghost")
 	})
 
-	t.Run("traversal slug is usage error", func(t *testing.T) {
+	t.Run("traversal_slug_is_usage_error", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitUsage, "check", "../../../etc")
 	})
 }
 
 func TestNextAndDispatch(t *testing.T) {
-	t.Run("next surfaces frontier task", func(t *testing.T) {
+	t.Run("next_surfaces_frontier_task", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		res := h.RunExpect(core.ExitOK, "next", "auth")
@@ -117,7 +121,7 @@ func TestNextAndDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("dispatch json lists packets", func(t *testing.T) {
+	t.Run("dispatch_json_lists_packets", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		res := h.RunExpect(core.ExitOK, "dispatch", "auth", "--json")
@@ -126,7 +130,7 @@ func TestNextAndDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("gated spec blocks next", func(t *testing.T) {
+	t.Run("gated_spec_blocks_next", func(t *testing.T) {
 		h := th.New(t)
 		h.Spec("auth").
 			Req("R", "story", "THE SYSTEM SHALL work.").
@@ -139,14 +143,14 @@ func TestNextAndDispatch(t *testing.T) {
 		h.RunExpect(core.ExitOK, "next", "auth", "--force")
 	})
 
-	t.Run("dispatch unknown spec not-found", func(t *testing.T) {
+	t.Run("dispatch_unknown_spec_not_found", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitNotFound, "dispatch", "ghost")
 	})
 }
 
 func TestTaskStatusTransitions(t *testing.T) {
-	t.Run("running then blocked then back to running", func(t *testing.T) {
+	t.Run("running_then_blocked_then_back_to_running", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 
@@ -160,19 +164,19 @@ func TestTaskStatusTransitions(t *testing.T) {
 		h.State("auth").TaskStatus("T1", core.TaskRunning).NoBlockers()
 	})
 
-	t.Run("blocked without reason is gate error", func(t *testing.T) {
+	t.Run("blocked_without_reason_is_gate_error", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitGate, "task", "auth", "T1", "--status", "blocked")
 	})
 
-	t.Run("complete without verification is gate error", func(t *testing.T) {
+	t.Run("complete_without_verification_is_gate_error", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitGate, "task", "auth", "T1", "--status", "complete")
 	})
 
-	t.Run("complete --unverified requires evidence", func(t *testing.T) {
+	t.Run("complete_unverified_requires_evidence", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitGate, "task", "auth", "T1", "--status", "complete", "--unverified")
@@ -180,13 +184,13 @@ func TestTaskStatusTransitions(t *testing.T) {
 		h.State("auth").TaskStatus("T1", core.TaskComplete).TaskEvidence("T1", "manual proof")
 	})
 
-	t.Run("invalid status is usage error", func(t *testing.T) {
+	t.Run("invalid_status_is_usage_error", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitUsage, "task", "auth", "T1", "--status", "frobnicate")
 	})
 
-	t.Run("unknown task is not-found", func(t *testing.T) {
+	t.Run("unknown_task_is_not_found", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitNotFound, "task", "auth", "T99", "--status", "running")
@@ -227,7 +231,7 @@ func TestApproveBlockedByGate(t *testing.T) {
 }
 
 func TestMidreqGating(t *testing.T) {
-	t.Run("high impact sets approval gate", func(t *testing.T) {
+	t.Run("high_impact_sets_approval_gate", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitOK, "midreq", "auth", "Add OAuth", "--impact", "high")
@@ -239,14 +243,14 @@ func TestMidreqGating(t *testing.T) {
 		h.State("auth").Gate(core.GateNone)
 	})
 
-	t.Run("low impact does not gate", func(t *testing.T) {
+	t.Run("low_impact_does_not_gate", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitOK, "midreq", "auth", "tweak copy", "--impact", "low")
 		h.State("auth").Gate(core.GateNone).Turn(1)
 	})
 
-	t.Run("invalid impact is usage error", func(t *testing.T) {
+	t.Run("invalid_impact_is_usage_error", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
 		h.RunExpect(core.ExitUsage, "midreq", "auth", "x", "--impact", "huge")
@@ -272,25 +276,25 @@ func TestStatusAndContextAndWaves(t *testing.T) {
 	h := th.New(t)
 	validSpec(h, "auth", core.StatusExecuting)
 
-	t.Run("status list", func(t *testing.T) {
+	t.Run("status_list", func(t *testing.T) {
 		res := h.RunExpect(core.ExitOK, "status")
 		if !strings.Contains(res.Stdout, "auth") {
 			t.Errorf("status list missing auth: %q", res.Stdout)
 		}
 	})
-	t.Run("status json single", func(t *testing.T) {
+	t.Run("status_json_single", func(t *testing.T) {
 		res := h.RunExpect(core.ExitOK, "status", "auth", "--json")
 		if !strings.Contains(res.Stdout, "\"spec\": \"auth\"") {
 			t.Errorf("status json missing spec: %q", res.Stdout)
 		}
 	})
-	t.Run("context briefing", func(t *testing.T) {
+	t.Run("context_briefing", func(t *testing.T) {
 		res := h.RunExpect(core.ExitOK, "context", "auth")
 		if !strings.Contains(res.Stdout, "PHASE EXECUTE") {
 			t.Errorf("context missing phase label: %q", res.Stdout)
 		}
 	})
-	t.Run("waves json", func(t *testing.T) {
+	t.Run("waves_json", func(t *testing.T) {
 		res := h.RunExpect(core.ExitOK, "waves", "auth", "--json")
 		if !strings.Contains(res.Stdout, "criticalPath") {
 			t.Errorf("waves json missing criticalPath: %q", res.Stdout)
@@ -302,17 +306,17 @@ func TestReport(t *testing.T) {
 	h := th.New(t)
 	validSpec(h, "auth", core.StatusExecuting)
 
-	t.Run("markdown to stdout", func(t *testing.T) {
+	t.Run("markdown_to_stdout", func(t *testing.T) {
 		res := h.RunExpect(core.ExitOK, "report", "auth", "--format", "md")
 		if !strings.Contains(res.Stdout, "Login") {
 			t.Errorf("report missing requirement content: %q", res.Stdout)
 		}
 	})
-	t.Run("html to file", func(t *testing.T) {
+	t.Run("html_to_file", func(t *testing.T) {
 		h.RunExpect(core.ExitOK, "report", "auth", "--format", "html", "--out", "report.html")
 		h.AssertFileContains("report.html", "<html")
 	})
-	t.Run("bad format is usage error", func(t *testing.T) {
+	t.Run("bad_format_is_usage_error", func(t *testing.T) {
 		h.RunExpect(core.ExitUsage, "report", "auth", "--format", "pdf")
 	})
 }
@@ -381,7 +385,7 @@ func TestNoSpecdRootIsNotFound(t *testing.T) {
 }
 
 func TestNewFrom(t *testing.T) {
-	t.Run("--from persists prompt and injects it into requirements.md", func(t *testing.T) {
+	t.Run("from_persists_prompt_and_injects_it_into_requirements_md", func(t *testing.T) {
 		h := th.New(t)
 		const prompt = "Build a rate limiter for the public API"
 		h.RunExpect(core.ExitOK, "new", "ratelimit", "--from", prompt)
@@ -402,7 +406,7 @@ func TestNewFrom(t *testing.T) {
 		}
 	})
 
-	t.Run("no --from is byte-identical to plain new", func(t *testing.T) {
+	t.Run("no_from_is_byte_identical_to_plain_new", func(t *testing.T) {
 		a := th.New(t)
 		a.RunExpect(core.ExitOK, "new", "plain")
 		withReq := a.ReadFile(".specd/specs/plain/requirements.md")
@@ -471,7 +475,7 @@ func TestPRSummary(t *testing.T) {
 	h := th.New(t)
 	validSpec(h, "auth", core.StatusExecuting)
 
-	t.Run("markdown is deterministic and shows gate + waves", func(t *testing.T) {
+	t.Run("markdown_is_deterministic_and_shows_gate_waves", func(t *testing.T) {
 		r1 := h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
 		r2 := h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
 		if r1.Stdout != r2.Stdout {
@@ -484,7 +488,7 @@ func TestPRSummary(t *testing.T) {
 		}
 	})
 
-	t.Run("JSON mode emits structured summary", func(t *testing.T) {
+	t.Run("json_mode_emits_structured_summary", func(t *testing.T) {
 		t.Setenv("SPECD_JSON", "1")
 		res := h.RunExpect(core.ExitOK, "report", "auth", "--pr-summary")
 		var s core.PRSummary
@@ -596,7 +600,7 @@ func TestRevertSafetyGuard(t *testing.T) {
 }
 
 func TestRevertOnFail(t *testing.T) {
-	t.Run("failed verify stashes working tree", func(t *testing.T) {
+	t.Run("failed_verify_stashes_working_tree", func(t *testing.T) {
 		h := th.New(t)
 		h.InitGit()
 		failingVerifySpec(h, "auth", "printf x > dirty.txt; exit 1")
@@ -614,7 +618,7 @@ func TestRevertOnFail(t *testing.T) {
 		h.AssertFileAbsent("dirty.txt")
 	})
 
-	t.Run("passing verify never touches the tree", func(t *testing.T) {
+	t.Run("passing_verify_never_touches_the_tree", func(t *testing.T) {
 		h := th.New(t)
 		h.InitGit()
 		h.Spec("ok").
@@ -633,7 +637,7 @@ func TestRevertOnFail(t *testing.T) {
 		h.AssertFileExists("kept.txt")
 	})
 
-	t.Run("flag unset leaves failed tree dirty", func(t *testing.T) {
+	t.Run("flag_unset_leaves_failed_tree_dirty", func(t *testing.T) {
 		h := th.New(t)
 		h.InitGit()
 		failingVerifySpec(h, "auth", "printf x > dirty.txt; exit 1")
@@ -657,7 +661,7 @@ func TestReplayCmd(t *testing.T) {
 		Status(core.StatusExecuting).
 		Build()
 
-	t.Run("text output lists events read-only", func(t *testing.T) {
+	t.Run("text_output_lists_events_read_only", func(t *testing.T) {
 		res := h.RunExpect(core.ExitOK, "replay", "auth")
 		if !strings.Contains(res.Stdout, "replay — auth") {
 			t.Errorf("missing header: %q", res.Stdout)
@@ -669,7 +673,7 @@ func TestReplayCmd(t *testing.T) {
 		}
 	})
 
-	t.Run("JSON is a typed array", func(t *testing.T) {
+	t.Run("json_is_a_typed_array", func(t *testing.T) {
 		t.Setenv("SPECD_JSON", "1")
 		res := h.RunExpect(core.ExitOK, "replay", "auth")
 		var events []core.TimelineEvent
@@ -678,7 +682,7 @@ func TestReplayCmd(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown spec is not-found", func(t *testing.T) {
+	t.Run("unknown_spec_is_not_found", func(t *testing.T) {
 		h.RunExpect(core.ExitNotFound, "replay", "ghost")
 	})
 }
@@ -689,7 +693,7 @@ func TestServe(t *testing.T) {
 	srv := httptest.NewServer(cmd.NewServeHandler(h.Root, "auth"))
 	defer srv.Close()
 
-	t.Run("GET /s/<slug> renders HTML identical to report", func(t *testing.T) {
+	t.Run("get_s_slug_renders_html_identical_to_report", func(t *testing.T) {
 		resp, err := http.Get(srv.URL + "/s/auth")
 		if err != nil {
 			t.Fatal(err)
@@ -709,7 +713,7 @@ func TestServe(t *testing.T) {
 		}
 	})
 
-	t.Run("GET /api/report returns JSON ReportData", func(t *testing.T) {
+	t.Run("get_api_report_returns_json_reportdata", func(t *testing.T) {
 		resp, err := http.Get(srv.URL + "/api/report")
 		if err != nil {
 			t.Fatal(err)
@@ -724,7 +728,7 @@ func TestServe(t *testing.T) {
 		}
 	})
 
-	t.Run("non-GET is 405", func(t *testing.T) {
+	t.Run("non_get_is_405", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/", nil)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {

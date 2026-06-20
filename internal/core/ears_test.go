@@ -6,6 +6,7 @@ import (
 )
 
 func TestLintEars_stateMachine(t *testing.T) {
+	t.Parallel()
 	// Block 1: a numbered line BEFORE the acceptance marker must not be counted
 	// as a criterion; the two lines after the marker are. Block 2 is fully valid.
 	text := "## Requirement 1: Foo\n" + // 1
@@ -33,6 +34,7 @@ func TestLintEars_stateMachine(t *testing.T) {
 }
 
 func TestMatchEars(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		line   string
 		want   EarsPattern
@@ -57,6 +59,7 @@ func TestMatchEars(t *testing.T) {
 }
 
 func TestMatchEars_FormsAndGuards(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		line   string
@@ -93,6 +96,7 @@ func TestMatchEars_FormsAndGuards(t *testing.T) {
 }
 
 func TestLintEars_valid(t *testing.T) {
+	t.Parallel()
 	doc := `## Requirement 1 — Login
 
 **User story:** As a user I want to log in.
@@ -108,6 +112,7 @@ func TestLintEars_valid(t *testing.T) {
 }
 
 func TestLintEars_missingUserStory(t *testing.T) {
+	t.Parallel()
 	doc := `## Requirement 1
 
 **Acceptance criteria:**
@@ -126,6 +131,7 @@ func TestLintEars_missingUserStory(t *testing.T) {
 }
 
 func TestLintEars_noRequirements(t *testing.T) {
+	t.Parallel()
 	issues := LintEars("# Just a title\n\nNo requirements here.")
 	if len(issues) == 0 {
 		t.Error("expected issue for missing requirements")
@@ -133,6 +139,7 @@ func TestLintEars_noRequirements(t *testing.T) {
 }
 
 func TestEarsCriterionID(t *testing.T) {
+	t.Parallel()
 	text := "## Requirement 1: Login\n" +
 		"**User story:** As a user I want to log in\n" +
 		"**Acceptance criteria:**\n" +

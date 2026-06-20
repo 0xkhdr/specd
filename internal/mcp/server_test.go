@@ -146,7 +146,7 @@ func TestToolsCall(t *testing.T) {
 	h := th.New(t)
 	seedSpec(h, "auth")
 
-	t.Run("read-only status returns structured JSON", func(t *testing.T) {
+	t.Run("read_only_status_returns_structured_json", func(t *testing.T) {
 		resps := drive(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":["auth"]}}}`)
 		r := result(t, resps[0])
 		if r["isError"] != false {
@@ -162,7 +162,7 @@ func TestToolsCall(t *testing.T) {
 		}
 	})
 
-	t.Run("verify runs the task command", func(t *testing.T) {
+	t.Run("verify_runs_the_task_command", func(t *testing.T) {
 		resps := drive(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"specd_verify","arguments":{"args":["auth","T1"]}}}`)
 		r := result(t, resps[0])
 		if r["isError"] != false {
@@ -174,7 +174,7 @@ func TestToolsCall(t *testing.T) {
 		}
 	})
 
-	t.Run("non-zero exit maps to isError", func(t *testing.T) {
+	t.Run("non_zero_exit_maps_to_iserror", func(t *testing.T) {
 		// Unknown spec → not-found exit → isError:true, server stays up.
 		resps := drive(t, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"specd_check","arguments":{"args":["ghost"]}}}`)
 		r := result(t, resps[0])
@@ -187,7 +187,7 @@ func TestToolsCall(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown tool is invalid params", func(t *testing.T) {
+	t.Run("unknown_tool_is_invalid_params", func(t *testing.T) {
 		resps := drive(t, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"specd_bogus","arguments":{}}}`)
 		e, ok := resps[0]["error"].(map[string]any)
 		if !ok {
@@ -200,7 +200,7 @@ func TestToolsCall(t *testing.T) {
 
 	// R1.3: malformed arguments (args must be an array) yield a structured MCP
 	// error, never a crash, and the server stays up to answer the next request.
-	t.Run("invalid argument shape is structured error, server survives", func(t *testing.T) {
+	t.Run("invalid_argument_shape_is_structured_error_server_survives", func(t *testing.T) {
 		resps := drive(t,
 			`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":"not-an-array"}}}`,
 			`{"jsonrpc":"2.0","id":6,"method":"ping"}`,

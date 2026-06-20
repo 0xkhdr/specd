@@ -179,7 +179,7 @@ func TestHTTPMalformedRequest(t *testing.T) {
 	base := "http://" + addr
 	waitReady(t, addr)
 
-	t.Run("wrong method is 405", func(t *testing.T) {
+	t.Run("wrong_method_is_405", func(t *testing.T) {
 		resp, err := http.Get(base + "/rpc")
 		if err != nil {
 			t.Fatalf("GET /rpc: %v", err)
@@ -190,7 +190,7 @@ func TestHTTPMalformedRequest(t *testing.T) {
 		}
 	})
 
-	t.Run("garbage body is MCP parse error", func(t *testing.T) {
+	t.Run("garbage_body_is_mcp_parse_error", func(t *testing.T) {
 		resp, err := http.Post(base+"/rpc", "application/json", strings.NewReader("{not valid json"))
 		if err != nil {
 			t.Fatalf("POST /rpc: %v", err)

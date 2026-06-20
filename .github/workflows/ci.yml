@@ -36,6 +36,11 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      - name: test-suite structural lint
+        # spec.md §7: no banned file suffixes, no space-separated subtest names,
+        # no duplicate helpers. Fails the lint job on re-introduced drift.
+        run: ./scripts/test-lint.sh
+
       - name: shellcheck
         # Pinned (R4.2): no floating @master. Dependabot bumps this ref.
         uses: ludeeus/action-shellcheck@2.0.0

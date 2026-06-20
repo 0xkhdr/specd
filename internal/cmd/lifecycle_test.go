@@ -1,5 +1,9 @@
 package cmd_test
 
+// Concern (cross-cutting): end-to-end CLI lifecycle. Drives a spec through every
+// phase gate via the real CLI, proving the phase machine, frontier, verification
+// and state persistence compose (spec 2.3).
+
 import (
 	"strings"
 	"testing"
@@ -188,7 +192,7 @@ func TestExitCodeTaxonomyCLI(t *testing.T) {
 // TestVerifyExecution exercises the real shell execution path of `verify`,
 // including pass, fail, and the verified-record gate on completion.
 func TestVerifyExecution(t *testing.T) {
-	t.Run("passing command records verified", func(t *testing.T) {
+	t.Run("passing_command_records_verified", func(t *testing.T) {
 		h := th.New(t)
 		h.Spec("auth").
 			Req("R", "story", "THE SYSTEM SHALL work.").
@@ -205,7 +209,7 @@ func TestVerifyExecution(t *testing.T) {
 		}
 	})
 
-	t.Run("failing command is a gate exit and blocks completion", func(t *testing.T) {
+	t.Run("failing_command_is_a_gate_exit_and_blocks_completion", func(t *testing.T) {
 		h := th.New(t)
 		h.Spec("auth").
 			Req("R", "story", "THE SYSTEM SHALL work.").
@@ -223,7 +227,7 @@ func TestVerifyExecution(t *testing.T) {
 		h.RunExpect(core.ExitGate, "task", "auth", "T1", "--status", "complete")
 	})
 
-	t.Run("captures git HEAD when in a repo", func(t *testing.T) {
+	t.Run("captures_git_head_when_in_a_repo", func(t *testing.T) {
 		h := th.New(t)
 		h.InitGit() // skips if git absent
 		h.Spec("auth").

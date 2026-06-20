@@ -50,7 +50,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 	}
 
 	// R1.2: a key reads back the exact state it was written with.
-	t.Run("read returns what was written", func(t *testing.T) {
+	t.Run("read_returns_what_was_written", func(t *testing.T) {
 		root := newSpec("rw")
 		got, err := b.Load(root, "rw")
 		if err != nil || got == nil {
@@ -64,7 +64,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 
 	// R2.1 + R2.3: a write presenting the current revision commits and bumps the
 	// revision, and the revision increases monotonically across serialized writes.
-	t.Run("CAS commits and revision is monotone", func(t *testing.T) {
+	t.Run("cas_commits_and_revision_is_monotone", func(t *testing.T) {
 		root := newSpec("m")
 		prev := -1
 		for i := 0; i < 5; i++ {
@@ -97,7 +97,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 
 	// R2.2: a write presenting a stale revision is rejected, never clobbering the
 	// newer state.
-	t.Run("stale-base CAS fails", func(t *testing.T) {
+	t.Run("stale_base_cas_fails", func(t *testing.T) {
 		root := newSpec("s")
 		stale, _ := b.Load(root, "s") // revision 1
 		// A concurrent writer advances the on-disk revision.
@@ -113,7 +113,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 		assertSchemaValid(t, root, "s")
 	})
 
-	t.Run("reentrant lock does not deadlock", func(t *testing.T) {
+	t.Run("reentrant_lock_does_not_deadlock", func(t *testing.T) {
 		root := newSpec("r")
 		inner := false
 		err := b.WithLock(root, "r", func() error {
@@ -129,7 +129,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 
 	// R3.3: the lock is released on normal completion, so a later acquirer is not
 	// blocked by a previous holder that already returned.
-	t.Run("lock released on completion", func(t *testing.T) {
+	t.Run("lock_released_on_completion", func(t *testing.T) {
 		root := newSpec("rel")
 		if err := b.WithLock(root, "rel", func() error { return nil }); err != nil {
 			t.Fatalf("first acquire: %v", err)
@@ -143,7 +143,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 		}
 	})
 
-	t.Run("32-goroutine serialization has no lost updates", func(t *testing.T) {
+	t.Run("32_goroutine_serialization_has_no_lost_updates", func(t *testing.T) {
 		root := newSpec("c")
 		const n = 32
 		var wg sync.WaitGroup
@@ -183,7 +183,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 	// R4.3: the git backend produces one replayable commit per committed write,
 	// so the commit count tracks the monotone revision exactly.
 	if b.Name() == "git" {
-		t.Run("git commits once per revision", func(t *testing.T) {
+		t.Run("git_commits_once_per_revision", func(t *testing.T) {
 			root := newSpec("g")
 			const extra = 3
 			for i := 0; i < extra; i++ {

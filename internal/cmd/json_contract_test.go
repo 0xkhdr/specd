@@ -1,5 +1,9 @@
 package cmd_test
 
+// Concern (cross-cutting): the machine-readable --json output contract shared by
+// every command. Locks JSON schemas, error envelopes, and no-ANSI guarantees in
+// one place rather than scattering them across per-command files (spec 2.3).
+
 import (
 	"encoding/json"
 	"strings"

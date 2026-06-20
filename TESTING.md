@@ -67,15 +67,34 @@ against the registry by `TestHostCompatibilityMatrix`.
 
 ## Conventions
 
-- **Table-driven** tests with descriptive subtest names
-  (`t.Run("rejects_path_traversal_slug_with_usage_code", ...)`).
+- **One file per source unit**: `slug.go → slug_test.go`, `lock.go →
+  lock_test.go`. The unit file holds *all* of that unit's tests — happy path,
+  edge cases, and regressions. There are no `_more` / `_regression` / `_sweep` /
+  `_scale` / `wave*` dumping-ground files; a regression becomes a subtest named
+  for the defect it guards inside the canonical file.
+- **Cross-cutting suites get a named home** for the *concern*, not a dev stage:
+  `core/backend_conformance_test.go`, `core/concurrency_test.go`,
+  `cmd/lifecycle_test.go`, `cmd/json_contract_test.go`, `mcp/integration_test.go`,
+  `integration/conformance_test.go`. Each declares its concern in a file-level
+  comment.
+- **Table-driven** tests with `snake_case` subtest names describing the asserted
+  outcome (`t.Run("rejects_path_traversal_slug_with_usage_code", ...)`) — never
+  space-separated / sentence-case labels.
 - **Arrange / Act / Assert** comments mark each section in non-trivial tests.
 - **Hermetic**: every test uses `t.TempDir()` and `t.Setenv()`. No network, no
   reliance on the host's git config or real `.specd/` tree.
-- Tests that `Chdir` or touch shared lock state are **not** `t.Parallel()`.
+- **Parallelism is explicit**: pure-function tests with no shared state (the
+  `dag` / `ears` / `tasksparser` / `slug` / `frontier` parsers) call
+  `t.Parallel()`. Tests that `Chdir` or touch shared lock / global state
+  (`os.Stdout`, `core.Clock`) are **not** `t.Parallel()`.
 - The race detector is mandatory for lock/state changes —
   `internal/core/concurrency_test.go` is designed to fail under `-race` if the
   advisory-lock + CAS path ever regresses.
+
+These structural rules are enforced in CI by `./scripts/test-lint.sh` (the
+`make test-lint` target / the `lint` job): it fails on banned file suffixes,
+space-separated subtest names, and duplicate helper definitions within a
+package.
 
 ## Helpers — `internal/testharness`
 
@@ -92,6 +111,21 @@ builders + asserters:
 | `h.State(slug)` | `StateAsserter` — `.Status().Phase().Gate()…` chained assertions |
 | `h.Path(rel)` / `h.SpecPath(slug, name)` | resolve paths under the temp root |
 | `h.InitGit()` / `h.GitCommitAll(msg)` / `h.GitHead()` | git fixtures for verification (gitHead) tests |
+| `testharness.CaptureStderr(t, fn)` / `CaptureStdout` | capture a function's stream writes (shared, replaces per-file `captureStderr`) |
+| `testharness.NewFakeOrchestrationHost(h)` / `NewFakePinkyWorker(h, id)` | drive Brain/Pinky orchestration flows deterministically |
+
+**Helper consolidation (no copy-paste).** A test author never re-implements
+setup. Cross-package, specd-type-free helpers are exported from `testharness`
+(e.g. `CaptureStderr`). Helpers that need a package's unexported types live once
+in that package's `helpers_test.go` (`core/helpers_test.go` holds `ids`,
+`mkState`, `newTestACPStore`; `mcp/helpers_test.go` holds `td`, `names`). The
+full audit and placement rule is in `internal/testharness/HELPERS.md`. Internal
+`package mcp`/`package core` test files cannot import `testharness` (it imports
+`cmd`→`mcp`, a cycle), so those packages keep a documented local mirror; external
+`_test` packages use the shared helper.
+
+The harness is itself tested (`testharness/*_test.go`, ≥ 80% coverage) so a bug
+in the infrastructure surfaces there, not as a confusing failure downstream.
 
 ## State-backend conformance parity
 
@@ -153,8 +187,10 @@ below the floor:
 
 | Scope | Floor (enforced) | Long-term target |
 |---|---|---|
-| overall | `OVERALL_MIN` = **65%** | 85% |
-| `internal/core` (the engine) | `CORE_MIN` = **60%** | 95% |
+| overall | `OVERALL_MIN` = **70%** | 85% |
+| `internal/core` (the engine) | `CORE_MIN` = **70%** | 95% |
+| `internal/mcp` | `MCP_MIN` = **70%** | 85% |
+| `internal/testharness` | `HARNESS_MIN` = **80%** | 90% |
 
 The floors sit just under current measured coverage so a refactor can't
 silently lose tests; the targets are where we're driving them. Raise the floors
@@ -162,11 +198,16 @@ as coverage improves — never lower them to turn a red build green without a
 written justification in the PR.
 
 100% is held on the integrity-critical functions: `ValidateSlug`, the
-`SpecdError` constructors, `WithSpecLock`, and `LoadState`. `SaveState` /
-`migrate` sit in the 90s (uncovered lines are disk-error branches needing fault
-injection). `internal/cmd` is thin command glue; its integrity-relevant
-branches (exit codes, traversal rejection, gate handling) are tested directly
-rather than chasing print-formatting lines.
+`SpecdError` constructors (`UsageError` / `GateError` / `NotFoundError`),
+`WithSpecLock`, and `LoadState`. `SaveState` / `migrate` sit in the 90s
+(uncovered lines are disk-error branches needing fault injection). `internal/cmd`
+is thin command glue; its integrity-relevant branches (exit codes, traversal
+rejection, gate handling) are tested directly rather than chasing
+print-formatting lines.
+
+The **dark-path inventory** — every `internal/core` function still under its
+target, each assigned to a follow-up test task or annotated "won't test:
+<reason>" — lives in `COVERAGE_GAPS.md`.
 
 ## CI & platform matrix
 

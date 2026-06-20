@@ -12,7 +12,7 @@ import (
 // TestTransport covers framed read/write in both newline and Content-Length
 // modes, plus auto-detection on the first byte.
 func TestTransport(t *testing.T) {
-	t.Run("newline framed round trip", func(t *testing.T) {
+	t.Run("newline_framed_round_trip", func(t *testing.T) {
 		in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}` + "\n")
 		var out bytes.Buffer
 		c := newConn(in, &out)
@@ -36,7 +36,7 @@ func TestTransport(t *testing.T) {
 		}
 	})
 
-	t.Run("content length framed round trip", func(t *testing.T) {
+	t.Run("content_length_framed_round_trip", func(t *testing.T) {
 		body := `{"jsonrpc":"2.0","id":2,"method":"ping"}`
 		framed := "Content-Length: " + itoa(len(body)) + "\r\n\r\n" + body
 		var out bytes.Buffer
@@ -61,7 +61,7 @@ func TestTransport(t *testing.T) {
 		}
 	})
 
-	t.Run("blank lines skipped before message", func(t *testing.T) {
+	t.Run("blank_lines_skipped_before_message", func(t *testing.T) {
 		c := newConn(strings.NewReader("\n\n"+`{"method":"x"}`+"\n"), &bytes.Buffer{})
 		raw, err := c.readMessage()
 		if err != nil {

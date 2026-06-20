@@ -52,7 +52,7 @@ func TestScaffoldEmbedPinkyGuidance(t *testing.T) {
 }
 
 func TestScaffoldManifest(t *testing.T) {
-	t.Run("all templates exist and targets are unique", func(t *testing.T) {
+	t.Run("all_templates_exist_and_targets_are_unique", func(t *testing.T) {
 		assets := DefaultScaffoldManifest()
 		if err := ValidateScaffoldManifest(assets, ReadTemplate); err != nil {
 			t.Fatal(err)
@@ -68,7 +68,7 @@ func TestScaffoldManifest(t *testing.T) {
 		}
 	})
 
-	t.Run("missing template fails preflight", func(t *testing.T) {
+	t.Run("missing_template_fails_preflight", func(t *testing.T) {
 		assets := []ScaffoldAsset{{
 			Template: "missing.txt",
 			Target:   ".specd/missing.txt",
@@ -83,7 +83,7 @@ func TestScaffoldManifest(t *testing.T) {
 		}
 	})
 
-	t.Run("duplicate target fails preflight", func(t *testing.T) {
+	t.Run("duplicate_target_fails_preflight", func(t *testing.T) {
 		assets := []ScaffoldAsset{
 			{Template: "a", Target: ".specd/same", Policy: ScaffoldCreate, Required: true},
 			{Template: "b", Target: ".specd/same", Policy: ScaffoldCreate, Required: true},
@@ -94,7 +94,7 @@ func TestScaffoldManifest(t *testing.T) {
 		}
 	})
 
-	t.Run("default target set remains compatible", func(t *testing.T) {
+	t.Run("default_target_set_remains_compatible", func(t *testing.T) {
 		want := []string{
 			".claude/agents/pinky-builder.md",
 			".claude/agents/pinky-investigator.md",

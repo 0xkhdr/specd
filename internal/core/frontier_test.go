@@ -5,15 +5,8 @@ import (
 	"testing"
 )
 
-func mkState(spec string, rev int, tasks ...TaskState) *State {
-	m := map[string]TaskState{}
-	for _, t := range tasks {
-		m[t.ID] = t
-	}
-	return &State{Spec: spec, Revision: rev, Status: StatusExecuting, Tasks: m}
-}
-
 func TestFrontierDetect(t *testing.T) {
+	t.Parallel()
 	det := NewFrontierDetector()
 
 	// T1 (wave 1) runnable; T2 (wave 2) depends on T1.

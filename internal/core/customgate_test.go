@@ -59,7 +59,7 @@ func TestCustomGateRunner(t *testing.T) {
 	ctx := context.Background()
 	in := CustomGateInput{Spec: "auth", Tasks: []CustomGateTaskRef{{ID: "T1"}}}
 
-	t.Run("happy path parses findings and echoes stdin", func(t *testing.T) {
+	t.Run("happy_path_parses_findings_and_echoes_stdin", func(t *testing.T) {
 		// The gate reads stdin and emits a violation only if it saw the spec name,
 		// proving the input contract reaches the subprocess.
 		cmd := `grep -q '"spec":"auth"' && printf '{"violations":[{"location":"tasks.md","message":"nope"}],"warnings":[]}'`
@@ -72,28 +72,28 @@ func TestCustomGateRunner(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid JSON is an error", func(t *testing.T) {
+	t.Run("invalid_json_is_an_error", func(t *testing.T) {
 		_, err := RunCustomGate(ctx, t.TempDir(), "sh", "printf 'not json'", in, 5*time.Second)
 		if err == nil || !strings.Contains(err.Error(), "invalid JSON") {
 			t.Errorf("want invalid-JSON error, got %v", err)
 		}
 	})
 
-	t.Run("non-zero exit is an error", func(t *testing.T) {
+	t.Run("non_zero_exit_is_an_error", func(t *testing.T) {
 		_, err := RunCustomGate(ctx, t.TempDir(), "sh", "exit 2", in, 5*time.Second)
 		if err == nil || !strings.Contains(err.Error(), "non-zero") {
 			t.Errorf("want non-zero error, got %v", err)
 		}
 	})
 
-	t.Run("timeout is an error", func(t *testing.T) {
+	t.Run("timeout_is_an_error", func(t *testing.T) {
 		_, err := RunCustomGate(ctx, t.TempDir(), "sh", "sleep 5", in, 50*time.Millisecond)
 		if err == nil || !strings.Contains(err.Error(), "timed out") {
 			t.Errorf("want timeout error, got %v", err)
 		}
 	})
 
-	t.Run("NUL byte rejected", func(t *testing.T) {
+	t.Run("nul_byte_rejected", func(t *testing.T) {
 		_, err := RunCustomGate(ctx, t.TempDir(), "sh", "echo ok\x00", in, time.Second)
 		if err == nil || !strings.Contains(err.Error(), "NUL") {
 			t.Errorf("want NUL rejection, got %v", err)

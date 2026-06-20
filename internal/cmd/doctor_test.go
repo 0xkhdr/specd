@@ -11,7 +11,7 @@ import (
 )
 
 func TestDoctorHealthFixAndJSON(t *testing.T) {
-	t.Run("missing scaffold reports deterministic unhealthy JSON", func(t *testing.T) {
+	t.Run("missing_scaffold_reports_deterministic_unhealthy_json", func(t *testing.T) {
 		initTestRoot(t)
 		runtime := doctorRuntime{Registry: integration.MustRegistry(), Probe: passingProbe}
 		stdout, stderr, code := captureOutput(t, func() int {
@@ -29,7 +29,7 @@ func TestDoctorHealthFixAndJSON(t *testing.T) {
 		}
 	})
 
-	t.Run("fix repairs scaffold and owned project registration", func(t *testing.T) {
+	t.Run("fix_repairs_scaffold_and_owned_project_registration", func(t *testing.T) {
 		initTestRoot(t)
 		host := &onboardingAdapter{name: "codex", detected: true, scopes: []integration.Scope{integration.ScopeProject}}
 		runtime := doctorRuntime{Registry: integration.MustRegistry(host), Probe: passingProbe}
@@ -41,7 +41,7 @@ func TestDoctorHealthFixAndJSON(t *testing.T) {
 		}
 	})
 
-	t.Run("reports orchestration capability separately from host lifecycle", func(t *testing.T) {
+	t.Run("reports_orchestration_capability_separately_from_host_lifecycle", func(t *testing.T) {
 		initTestRoot(t)
 		host := &onboardingAdapter{name: "vscode", detected: true, scopes: []integration.Scope{integration.ScopeProject}, registered: true, owned: true}
 		runtime := doctorRuntime{Registry: integration.MustRegistry(host), Probe: passingProbe}

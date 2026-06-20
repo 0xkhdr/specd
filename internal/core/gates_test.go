@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -201,5 +202,313 @@ func TestRemoveBlockerNoAlias(t *testing.T) {
 	// Mutating the result must not corrupt the original backing array.
 	if orig[0].Task != "T1" {
 		t.Fatalf("RemoveBlocker aliased original backing array: %v", orig)
+	}
+}
+
+// T4 / R2 + R3 regression closure. Asserts the core primitives that back the
+// phase/gate state machine and evidence-gated task flips. Full CLI-side gate
+// blocking (`specd approve`/`specd task` refusing while awaiting-approval) and
+// the `--unverified` bypass live in internal/cmd and are owned by the
+// regression-cli-cmd spec; here we lock the engine behaviors those depend on.
+
+// R2.1: PhaseReadiness is the planning gate — advancement is blocked (non-empty
+// problems) until the phase artifact passes, and permitted (empty) once it does.
+func TestPhaseReadinessBlocksUntilClean(t *testing.T) {
+	validReq := "## Requirement 1\n**User story:** As a user, I want X.\n\n**Acceptance criteria:**\n1. WHEN a thing happens THE SYSTEM SHALL do Y\n"
+	empty := ""
+
+	// requirements: missing/empty blocks; EARS-valid clears.
+	if p := PhaseReadiness(StatusRequirements, &empty, nil, ParsedTasks{}); len(p) == 0 {
+		t.Error("R2.1: empty requirements must block advancement")
+	}
+	if p := PhaseReadiness(StatusRequirements, &validReq, nil, ParsedTasks{}); len(p) != 0 {
+		t.Errorf("R2.1: valid requirements must clear, got %v", p)
+	}
+
+	// design: missing design.md blocks.
+	if p := PhaseReadiness(StatusDesign, &validReq, nil, ParsedTasks{}); len(p) == 0 {
+		t.Error("R2.1: missing design must block advancement")
+	}
+
+	// tasks: a cyclic task graph blocks.
+	cyclic := ParsedTasks{Tasks: []ParsedTask{
+		{ID: "T1", Wave: 1, Meta: map[string]string{"depends": "T2"}},
+		{ID: "T2", Wave: 1, Meta: map[string]string{"depends": "T1"}},
+	}}
+	p := PhaseReadiness(StatusTasks, &validReq, &validReq, cyclic)
+	if len(p) == 0 {
+		t.Error("R2.1: cyclic tasks must block advancement")
+	}
+}
+
+// R2.1 (data invariant): the planning ratchet is forward-only and offers no
+// transition out of post-approval statuses — the engine cannot skip a gate.
+func TestPhaseAdvanceIsForwardOnlyRatchet(t *testing.T) {
+	if PlanningAdvance[StatusRequirements].Status != StatusDesign {
+		t.Error("requirements must advance to design")
+	}
+	if PlanningAdvance[StatusDesign].Status != StatusTasks {
+		t.Error("design must advance to tasks")
+	}
+	if PlanningAdvance[StatusTasks].Status != StatusExecuting {
+		t.Error("tasks must advance to executing")
+	}
+	for _, terminal := range []SpecStatus{StatusExecuting, StatusVerifying, StatusComplete} {
+		if _, ok := PlanningAdvance[terminal]; ok {
+			t.Errorf("status %s must have no planning advance (gate must intervene)", terminal)
+		}
+	}
+}
+
+// R2.2: a builder task flipped complete without evidence is rejected by the
+// evidence gate; with evidence but no verified record it is still rejected.
+func TestGateEvidenceRejectsUnproven(t *testing.T) {
+	ev := "proof"
+	noEvidence := &State{Tasks: map[string]TaskState{
+		"T1": {ID: "T1", Role: "builder", Status: TaskComplete},
+	}}
+	if v, _ := GateEvidence(CheckCtx{State: noEvidence}); len(v) != 1 || v[0].Gate != "evidence" {
+		t.Fatalf("R2.2: complete-without-evidence must be 1 evidence violation, got %v", v)
+	}
+	noVerified := &State{Tasks: map[string]TaskState{
+		"T1": {ID: "T1", Role: "builder", Status: TaskComplete, Evidence: &ev},
+	}}
+	if v, _ := GateEvidence(CheckCtx{State: noVerified, Slug: "demo"}); len(v) != 1 {
+		t.Fatalf("R2.2: evidence-but-unverified builder must be rejected, got %v", v)
+	}
+}
+
+// R2.3: SaveState persists revision strictly monotonically across writes and
+// never decreases or repeats.
+func TestPhaseStateRevisionMonotonic(t *testing.T) {
+	dir := t.TempDir()
+	slug := "rev-spec"
+	if err := os.MkdirAll(filepath.Join(dir, ".specd", "specs", slug), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	st := InitialState(slug, "Rev Spec")
+	prev := st.Revision
+	for i := 0; i < 5; i++ {
+		if err := SaveState(dir, slug, &st); err != nil {
+			t.Fatalf("save %d: %v", i, err)
+		}
+		if st.Revision != prev+1 {
+			t.Fatalf("revision not monotonic: got %d, want %d", st.Revision, prev+1)
+		}
+		prev = st.Revision
+	}
+}
+
+// R2.4: custom gates run after the ordered core pipeline and in configured
+// order — the gate listing order is a stable contract.
+func TestCustomGatePipelineOrder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("custom gate uses POSIX sh")
+	}
+	baseV, _ := RunGates(minimalCtx(nil))
+	two := []CustomGateCfg{
+		{Name: "first", Command: `echo '{"violations":[{"location":"a","message":"1"}]}'`},
+		{Name: "second", Command: `echo '{"violations":[{"location":"b","message":"2"}]}'`},
+	}
+	v, _ := RunGates(minimalCtx(two))
+	if len(v) != len(baseV)+2 {
+		t.Fatalf("R2.4: want %d violations, got %d", len(baseV)+2, len(v))
+	}
+	// Core findings precede custom; customs appear in config order.
+	if v[len(v)-2].Gate != "custom:first" || v[len(v)-1].Gate != "custom:second" {
+		t.Fatalf("R2.4: custom gate order wrong: %s then %s", v[len(v)-2].Gate, v[len(v)-1].Gate)
+	}
+}
+
+// R3.1: a completed task's evidence and finish timestamp survive a
+// save/load round-trip (the durable proof of a flip).
+func TestTaskFlipPersistsEvidenceAndTimestamp(t *testing.T) {
+	dir := t.TempDir()
+	slug := "ev-spec"
+	if err := os.MkdirAll(filepath.Join(dir, ".specd", "specs", slug), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	st := InitialState(slug, "Ev Spec")
+	ev := "go test ./... → ok"
+	ts := NowISO()
+	st.Tasks = map[string]TaskState{
+		"T1": {ID: "T1", Role: "builder", Status: TaskComplete, Evidence: &ev, FinishedAt: &ts},
+	}
+	if err := SaveState(dir, slug, &st); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadState(dir, slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := loaded.Tasks["T1"]
+	if got.Evidence == nil || *got.Evidence != ev {
+		t.Errorf("R3.1: evidence not persisted: %v", got.Evidence)
+	}
+	if got.FinishedAt == nil || *got.FinishedAt != ts {
+		t.Errorf("R3.1: finish timestamp not persisted: %v", got.FinishedAt)
+	}
+}
+
+// R3.3: telemetry annotations (tokens, cost) are stored verbatim and only
+// summed — never priced or computed. The roll-up of stored per-task values
+// must equal the literal inputs.
+func TestTaskTelemetryStoredNotComputed(t *testing.T) {
+	st := &State{Spec: "tel", Tasks: map[string]TaskState{
+		"T1": {ID: "T1", Wave: 1, Telemetry: &Telemetry{Tokens: 1000, Cost: "0.42"}},
+		"T2": {ID: "T2", Wave: 1, Telemetry: &Telemetry{Tokens: 234, Cost: "0.58"}},
+	}}
+	roll := RollupTelemetry(st)
+	// Tokens are summed verbatim, not derived from any pricing model.
+	if roll.Tokens != 1234 {
+		t.Errorf("R3.3: tokens = %d, want 1234 (verbatim sum)", roll.Tokens)
+	}
+	// Cost is the sum of the annotated strings parsed as-is (0.42 + 0.58).
+	if roll.Cost != 1.0 || !roll.CostAnnotated {
+		t.Errorf("R3.3: cost = %v annotated=%v, want 1.0/true", roll.Cost, roll.CostAnnotated)
+	}
+}
+
+// acceptanceReqMd is a requirements.md whose Requirement 1 has two acceptance
+// criteria, giving stable ids "1.1" and "1.2".
+const acceptanceReqMd = `## Requirement 1 — Login
+
+**User story:** As a user, I want to log in.
+
+**Acceptance criteria:**
+1. When credentials are valid, the system shall grant access.
+2. When credentials are invalid, the system shall deny access.
+`
+
+// acceptanceTasksMd maps T1 to criterion 1.1 via its acceptance metadata.
+const acceptanceTasksMd = `# Tasks — Login
+
+## Wave 1
+- [ ] T1 — implement login
+  - why: users need access
+  - role: builder
+  - files: internal/auth/login.go
+  - contract: login works
+  - acceptance: 1.1=TestLoginValid
+  - verify: go test ./internal/auth/
+  - depends: —
+  - requirements: 1
+`
+
+func mustParse(t *testing.T, md string) *ParsedTasks {
+	t.Helper()
+	doc, err := ParseTasks(md)
+	if err != nil {
+		t.Fatalf("ParseTasks: %v", err)
+	}
+	return &doc
+}
+
+func TestGateAcceptanceOffIsNoop(t *testing.T) {
+	doc := mustParse(t, acceptanceTasksMd)
+	st := &State{Tasks: map[string]TaskState{"T1": {ID: "T1", Status: TaskComplete}}}
+	for _, mode := range []string{"", "off"} {
+		c := CheckCtx{ReqMd: strp(acceptanceReqMd), Doc: doc, State: st, Cfg: Config{Gates: GatesCfg{Acceptance: mode}}}
+		v, w := GateAcceptance(c)
+		if len(v) != 0 || len(w) != 0 {
+			t.Fatalf("acceptance=%q: want no findings, got v=%v w=%v", mode, v, w)
+		}
+	}
+}
+
+func TestGateAcceptanceCompleteWithoutPass(t *testing.T) {
+	doc := mustParse(t, acceptanceTasksMd)
+	st := &State{Tasks: map[string]TaskState{"T1": {ID: "T1", Status: TaskComplete}}}
+
+	// error mode: missing recorded pass is a violation.
+	c := CheckCtx{Slug: "demo", ReqMd: strp(acceptanceReqMd), Doc: doc, State: st, Cfg: Config{Gates: GatesCfg{Acceptance: "error"}}}
+	v, _ := GateAcceptance(c)
+	if len(v) != 1 || v[0].Gate != "acceptance" {
+		t.Fatalf("want 1 acceptance violation, got %v", v)
+	}
+
+	// warn mode: same finding demoted to a warning.
+	c.Cfg.Gates.Acceptance = "warn"
+	v, w := GateAcceptance(c)
+	if len(v) != 0 || len(w) != 1 {
+		t.Fatalf("warn: want 0 violations / 1 warning, got v=%v w=%v", v, w)
+	}
+
+	// Recording the pass clears the finding.
+	st.Acceptance = map[string]CriterionRecord{"1.1": {Status: "pass"}}
+	c.Cfg.Gates.Acceptance = "error"
+	v, _ = GateAcceptance(c)
+	if len(v) != 0 {
+		t.Fatalf("with recorded pass: want 0 violations, got %v", v)
+	}
+}
+
+func TestGateAcceptanceUndefinedCriterionAlwaysError(t *testing.T) {
+	// acceptance maps to 9.9 which is not in requirements.md.
+	md := "# Tasks — X\n\n## Wave 1\n- [ ] T1 — x\n  - why: w\n  - role: builder\n  - files: a.go\n  - contract: c\n  - acceptance: 9.9=TestX\n  - verify: go test ./\n  - depends: —\n  - requirements: 1\n"
+	doc := mustParse(t, md)
+	st := &State{Tasks: map[string]TaskState{"T1": {ID: "T1", Status: TaskPending}}}
+	// Even in warn mode, a broken reference is a hard violation.
+	c := CheckCtx{Slug: "demo", ReqMd: strp(acceptanceReqMd), Doc: doc, State: st, Cfg: Config{Gates: GatesCfg{Acceptance: "warn"}}}
+	v, _ := GateAcceptance(c)
+	if len(v) != 1 {
+		t.Fatalf("want 1 hard violation for undefined criterion, got %v", v)
+	}
+}
+
+func scopeTasksMd(files string) string {
+	return "# Tasks — X\n\n## Wave 1\n- [ ] T1 — x\n  - why: w\n  - role: builder\n  - files: " + files +
+		"\n  - contract: c\n  - acceptance: —\n  - verify: go test ./\n  - depends: —\n  - requirements: 1\n"
+}
+
+func TestGateScopeOffIsNoop(t *testing.T) {
+	doc := mustParse(t, scopeTasksMd("internal/core/login.go"))
+	st := &State{Tasks: map[string]TaskState{"T1": {ID: "T1", Verification: &VerificationRecord{ChangedFiles: []string{"totally/unrelated.go"}}}}}
+	for _, mode := range []string{"", "off", "*"} {
+		c := CheckCtx{Doc: doc, State: st, Cfg: Config{Gates: GatesCfg{Scope: mode}}}
+		v, w := GateScope(c)
+		if len(v) != 0 || len(w) != 0 {
+			t.Fatalf("scope=%q: want no findings, got v=%v w=%v", mode, v, w)
+		}
+	}
+}
+
+func TestGateScopeFlagsOutOfContract(t *testing.T) {
+	doc := mustParse(t, scopeTasksMd("internal/core/*.go"))
+	st := &State{Tasks: map[string]TaskState{"T1": {ID: "T1", Verification: &VerificationRecord{
+		ChangedFiles: []string{"internal/core/login.go", "cmd/main.go"},
+	}}}}
+	c := CheckCtx{Doc: doc, State: st, Cfg: Config{Gates: GatesCfg{Scope: "error"}}}
+	v, _ := GateScope(c)
+	if len(v) != 1 || v[0].Gate != "scope" {
+		t.Fatalf("want 1 scope violation for cmd/main.go, got %v", v)
+	}
+
+	// A "*" contract opts the task out individually.
+	doc2 := mustParse(t, scopeTasksMd("*"))
+	c.Doc = doc2
+	v, _ = GateScope(c)
+	if len(v) != 0 {
+		t.Fatalf("star contract: want 0 violations, got %v", v)
+	}
+}
+
+func TestMatchesAnyGlob(t *testing.T) {
+	cases := []struct {
+		p    string
+		pats []string
+		want bool
+	}{
+		{"internal/core/x.go", []string{"internal/core/*.go"}, true},
+		{"internal/core/sub/x.go", []string{"internal/core/*.go"}, false},
+		{"internal/core/sub/x.go", []string{"internal/core/**"}, true},
+		{"internal/core/x.go", []string{"internal/core"}, true},
+		{"docs/x.md", []string{"internal/core"}, false},
+		{"a.go", []string{"a.go"}, true},
+	}
+	for _, tc := range cases {
+		if got := matchesAnyGlob(tc.p, tc.pats); got != tc.want {
+			t.Errorf("matchesAnyGlob(%q,%v)=%v want %v", tc.p, tc.pats, got, tc.want)
+		}
 	}
 }

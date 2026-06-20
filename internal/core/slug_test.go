@@ -3,6 +3,7 @@ package core
 import "testing"
 
 func TestValidateSlug(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		slug    string

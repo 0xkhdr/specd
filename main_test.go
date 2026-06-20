@@ -90,7 +90,7 @@ func TestRunHelpJSONAndErrors(t *testing.T) {
 // TestRunDispatch drives the full run() → dispatch() → cmd.RunX path against a
 // real seeded project, including the --json env-propagation branches.
 func TestRunDispatch(t *testing.T) {
-	t.Run("status against seeded spec", func(t *testing.T) {
+	t.Run("status_against_seeded_spec", func(t *testing.T) {
 		h := th.New(t)
 		h.Spec("auth").Req("R", "story", "THE SYSTEM SHALL work.").Status(core.StatusRequirements).Build()
 		if got := silentRun([]string{"status"}); got != core.ExitOK {
@@ -98,7 +98,7 @@ func TestRunDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("trailing --json flag enables json mode", func(t *testing.T) {
+	t.Run("trailing_json_flag_enables_json_mode", func(t *testing.T) {
 		h := th.New(t)
 		h.Spec("auth").Req("R", "story", "THE SYSTEM SHALL work.").Status(core.StatusRequirements).Build()
 		if got := silentRun([]string{"status", "auth", "--json"}); got != core.ExitOK {
@@ -106,7 +106,7 @@ func TestRunDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("leading --json token is treated as a global flag", func(t *testing.T) {
+	t.Run("leading_json_token_is_treated_as_a_global_flag", func(t *testing.T) {
 		// `specd --json status` now behaves like `specd status --json`: the
 		// leading flag is stripped, the command runs, and JSON mode is on.
 		h := th.New(t)
@@ -120,7 +120,7 @@ func TestRunDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("SPECD_JSON env matches --json flag", func(t *testing.T) {
+	t.Run("specd_json_env_matches_json_flag", func(t *testing.T) {
 		// Parity contract: `SPECD_JSON=1 specd status` must produce the same JSON
 		// as `specd status --json`. Commands read args.Bool("json"), so the env
 		// var has to be bridged into the flag at the dispatch boundary.
@@ -140,21 +140,21 @@ func TestRunDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown spec propagates not-found", func(t *testing.T) {
+	t.Run("unknown_spec_propagates_not_found", func(t *testing.T) {
 		th.New(t)
 		if got := silentRun([]string{"check", "ghost"}); got != core.ExitNotFound {
 			t.Errorf("check ghost = %d, want %d", got, core.ExitNotFound)
 		}
 	})
 
-	t.Run("missing slug is usage error", func(t *testing.T) {
+	t.Run("missing_slug_is_usage_error", func(t *testing.T) {
 		th.New(t)
 		if got := silentRun([]string{"check"}); got != core.ExitUsage {
 			t.Errorf("check (no slug) = %d, want %d", got, core.ExitUsage)
 		}
 	})
 
-	t.Run("gate violation exits ExitGate", func(t *testing.T) {
+	t.Run("gate_violation_exits_exitgate", func(t *testing.T) {
 		// A non-EARS acceptance criterion fails the EARS gate; check must surface
 		// it as an enforcement failure (ExitGate, 1), not success.
 		h := th.New(t)

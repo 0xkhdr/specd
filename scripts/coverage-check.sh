@@ -21,13 +21,23 @@
 # docs/agent-harness-baselines.md) — they assert byte-stable init receipts, not
 # coverage, and CI runs both.
 #
+# Floors raised by the test-suite rebuild (spec.md §5). The reorg consolidated
+# helpers and gap-filled dark paths — notably bringing internal/testharness from
+# ~8% to >80% — so the ratchet moves up with the measured coverage. The new
+# floors sit just under the post-rebuild measured values
+# (overall ~70, core ~74, mcp ~89, testharness ~81).
+#
 # Usage: ./scripts/coverage-check.sh
-#   OVERALL_MIN  minimum total statement coverage   (default 65)
-#   CORE_MIN     minimum internal/core coverage     (default 60)
+#   OVERALL_MIN  minimum total statement coverage          (default 70)
+#   CORE_MIN     minimum internal/core coverage            (default 70)
+#   MCP_MIN      minimum internal/mcp coverage             (default 70)
+#   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-65}"
-CORE_MIN="${CORE_MIN:-60}"
+OVERALL_MIN="${OVERALL_MIN:-70}"
+CORE_MIN="${CORE_MIN:-70}"
+MCP_MIN="${MCP_MIN:-70}"
+HARNESS_MIN="${HARNESS_MIN:-80}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"
@@ -42,6 +52,12 @@ overall="$(pct coverage.out)"
 go test ./internal/core/... -coverprofile=coverage-core.out >/dev/null
 core="$(pct coverage-core.out)"
 
+go test ./internal/mcp/... -coverprofile=coverage-mcp.out >/dev/null
+mcp="$(pct coverage-mcp.out)"
+
+go test ./internal/testharness/... -coverprofile=coverage-harness.out >/dev/null
+harness="$(pct coverage-harness.out)"
+
 fail=0
 check() {
   local name="$1" got="$2" min="$3"
@@ -55,6 +71,8 @@ check() {
 
 check "overall" "$overall" "$OVERALL_MIN"
 check "internal/core" "$core" "$CORE_MIN"
+check "internal/mcp" "$mcp" "$MCP_MIN"
+check "internal/testharness" "$harness" "$HARNESS_MIN"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "coverage floor not met — add tests or, if intentional, lower the floor with justification." >&2

@@ -1,5 +1,8 @@
 package cmd_test
 
+// Concern (cross-cutting): scaffolding round-trip — a draft authored faithfully
+// to the scaffolding brief is gate-clean end to end.
+
 import (
 	"testing"
 

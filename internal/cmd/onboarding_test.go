@@ -1,5 +1,8 @@
 package cmd
 
+// Concern (cross-cutting): first-run onboarding UX for init — agent selection,
+// consent/scope, and the human-facing receipt/next-action budget.
+
 import (
 	"bytes"
 	"context"
@@ -81,7 +84,7 @@ func passingProbe(context.Context, mcp.Dispatcher, time.Duration) (mcp.ProbeResu
 }
 
 func TestInitAgentSelectionConsentAndScope(t *testing.T) {
-	t.Run("ambiguous non-interactive auto mutates no host", func(t *testing.T) {
+	t.Run("ambiguous_non_interactive_auto_mutates_no_host", func(t *testing.T) {
 		initTestRoot(t)
 		codex := &onboardingAdapter{name: "codex", detected: true, scopes: []integration.Scope{integration.ScopeProject}}
 		claude := &onboardingAdapter{name: "claude-code", detected: true, scopes: []integration.Scope{integration.ScopeProject}}
@@ -112,7 +115,7 @@ func TestInitAgentSelectionConsentAndScope(t *testing.T) {
 		}
 	})
 
-	t.Run("explicit non-interactive host installs", func(t *testing.T) {
+	t.Run("explicit_non_interactive_host_installs", func(t *testing.T) {
 		initTestRoot(t)
 		host := &onboardingAdapter{name: "codex", detected: true, scopes: []integration.Scope{integration.ScopeProject}}
 		runtime := onboardingRuntime{Registry: integration.MustRegistry(host), Probe: passingProbe, Input: strings.NewReader(""), Interactive: func() bool { return false }}
@@ -124,7 +127,7 @@ func TestInitAgentSelectionConsentAndScope(t *testing.T) {
 		}
 	})
 
-	t.Run("interactive ambiguity honors selected host", func(t *testing.T) {
+	t.Run("interactive_ambiguity_honors_selected_host", func(t *testing.T) {
 		initTestRoot(t)
 		codex := &onboardingAdapter{name: "codex", detected: true, scopes: []integration.Scope{integration.ScopeProject}}
 		claude := &onboardingAdapter{name: "claude-code", detected: true, scopes: []integration.Scope{integration.ScopeProject}}
@@ -142,7 +145,7 @@ func TestInitAgentSelectionConsentAndScope(t *testing.T) {
 		}
 	})
 
-	t.Run("unavailable explicit host fails before scaffold", func(t *testing.T) {
+	t.Run("unavailable_explicit_host_fails_before_scaffold", func(t *testing.T) {
 		root := initTestRoot(t)
 		host := &onboardingAdapter{name: "codex", detected: false, scopes: []integration.Scope{integration.ScopeProject}}
 		runtime := onboardingRuntime{Registry: integration.MustRegistry(host), Probe: passingProbe, Interactive: func() bool { return false }}
@@ -157,7 +160,7 @@ func TestInitAgentSelectionConsentAndScope(t *testing.T) {
 		}
 	})
 
-	t.Run("global non-interactive requires yes", func(t *testing.T) {
+	t.Run("global_non_interactive_requires_yes", func(t *testing.T) {
 		initTestRoot(t)
 		host := &onboardingAdapter{name: "codex", detected: true, scopes: []integration.Scope{integration.ScopeProject, integration.ScopeGlobal}}
 		runtime := onboardingRuntime{Registry: integration.MustRegistry(host), Probe: passingProbe, Interactive: func() bool { return false }}
