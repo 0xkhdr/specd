@@ -99,25 +99,34 @@ func (w *phaseWatcher) run(ctx context.Context) {
 // the deterministic slug order ListSpecs returns. It returns false when no spec
 // has loadable state, leaving the seeded list untouched. Read-only throughout.
 func activeStatus() (core.SpecStatus, bool) {
-	root, ok := core.FindSpecdRoot("")
-	if !ok {
-		return "", false
+	_, _, status, ok := activeSpec()
+	return status, ok
+}
+
+// activeSpec resolves the project root plus the furthest-along in-progress spec
+// — the same spec activeStatus/the phase watcher track (statusRank ordering,
+// slug tie-break). It is the active context the context-manifest filter (C1)
+// reads its per-spec tool policy from. Read-only; ok=false when no .specd root
+// or no loadable spec state exists.
+func activeSpec() (root, slug string, status core.SpecStatus, ok bool) {
+	root, found := core.FindSpecdRoot("")
+	if !found {
+		return "", "", "", false
 	}
-	best := core.SpecStatus("")
 	bestRank := -1
-	for _, slug := range core.ListSpecs(root) {
-		state, err := core.LoadState(root, slug)
+	for _, s := range core.ListSpecs(root) {
+		state, err := core.LoadState(root, s)
 		if err != nil || state == nil {
 			continue
 		}
 		if r := statusRank(state.Status); r > bestRank {
-			bestRank, best = r, state.Status
+			bestRank, slug, status = r, s, state.Status
 		}
 	}
 	if bestRank < 0 {
-		return "", false
+		return "", "", "", false
 	}
-	return best, true
+	return root, slug, status, true
 }
 
 // statusRank orders lifecycle statuses by how "active" the work is so the tool

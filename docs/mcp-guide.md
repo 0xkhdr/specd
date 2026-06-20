@@ -311,6 +311,66 @@ closes — no goroutine leak.
   updates (the watcher keeps the shared registry current) but the host must poll
   `tools/list` to observe it. Use stdio for live push.
 
+### Per-spec tool policy (`contextManifest`)
+
+A spec can declare a per-spec tool policy in `.specd/specs/<slug>/manifest.json`
+— the most precise filter layer, composed *after* the config/phase plan. It only
+ever further narrows what the config already permits.
+
+```jsonc
+{
+  "contextManifest": {
+    "requiredTools":  ["specd_inspect", "specd_verify", "specd_task"],
+    "optionalTools":  ["specd_decision", "specd_memory"],
+    "forbiddenTools": ["specd_approve"]
+  }
+}
+```
+
+| Field | Effect |
+|---|---|
+| `requiredTools` | Forced present (subject to config gates — see below) and, with `optionalTools`, forms the allowlist: everything not named is dropped. |
+| `optionalTools` | Allowed alongside `requiredTools`. |
+| `forbiddenTools` | Hard exclude — overrides required/optional/config unconditionally. |
+
+Precedence is `forbidden` > config gate > `required`/`optional` allowlist > phase
+plan. A `requiredTool` the config's `includeMeta`/`includeOrchestration` gate has
+already hidden stays hidden (config safety wins) and the server logs a stderr
+diagnostic. Unknown tool names are ignored with a stderr warning. The policy is
+read-only and applies to the project's active spec (the same furthest-along spec
+the phase watcher tracks). An absent `mcp` config block never applies a manifest,
+so the default surface stays byte-identical.
+
+### Host capability negotiation (`capabilities.specd`)
+
+`initialize` accepts two optional, **non-standard** hints under
+`capabilities.specd`; hosts that omit them are entirely unaffected.
+
+```jsonc
+{
+  "method": "initialize",
+  "params": {
+    "capabilities": {
+      "specd": {
+        "maxTools": 8,
+        "preferredNamespaces": ["read", "orchestration"]
+      }
+    }
+  }
+}
+```
+
+| Field | Effect |
+|---|---|
+| `maxTools` | Caps the emitted tool count. Config/manifest-`required` tools are never dropped to satisfy it — if they alone exceed `maxTools`, all required tools are still emitted plus a stderr diagnostic. `≤ 0` is a no-op. |
+| `preferredNamespaces` | Orders matching-namespace tools first (in the given order) and prefers them when truncating. Namespaces: `read` (`specd_inspect`/`read`/`query`), `orchestration` (`specd_orchestrate`/`worker` + `brain_*`), `meta`, `core`. A namespace may also be named by a member tool (e.g. `specd_read`). |
+
+The negotiated preferences persist for the session and re-apply on every
+`tools/list` (including dynamic re-fetches under `expose:"phase"`). Garbage values
+(negative `maxTools`, unknown namespaces) are ignored safely and never tear down
+`initialize`. Omitting `capabilities.specd` yields byte-identical output to the
+feature-off path.
+
 ---
 
 ## Composite tools

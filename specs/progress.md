@@ -13,8 +13,8 @@
 | [mcp-resources](./mcp-resources/spec.md) | B1 | Medium | Medium | Very High | 2 ✅ |
 | [mcp-prompts](./mcp-prompts/spec.md) | B2 | Medium | Medium | High | 2 ✅ |
 | [mcp-dynamic-tool-list](./mcp-dynamic-tool-list/spec.md) | B3 | Medium | Medium | High | 3 ✅ |
-| [mcp-context-manifest-tools](./mcp-context-manifest-tools/spec.md) | C1 | High | Medium | Medium | 4 |
-| [mcp-host-negotiation](./mcp-host-negotiation/spec.md) | C2 | High | High | Low | 4 |
+| [mcp-context-manifest-tools](./mcp-context-manifest-tools/spec.md) | C1 | High | Medium | Medium | 4 ✅ |
+| [mcp-host-negotiation](./mcp-host-negotiation/spec.md) | C2 | High | High | Low | 4 ✅ |
 
 ## Wave plan
 
@@ -43,8 +43,8 @@ Depends on Wave 1 (filter) and Wave 2 (resources/prompts capabilities to adverti
 ### Wave 4 — Advanced (speculative, future-proof)
 Depends on Wave 1 + Wave 3.
 
-- [ ] **mcp-context-manifest-tools** — per-spec `contextManifest` tool filtering.
-- [ ] **mcp-host-negotiation** — `initialize` `maxTools`/`preferredNamespaces` honouring.
+- [x] **mcp-context-manifest-tools** — per-spec `contextManifest` tool filtering.
+- [x] **mcp-host-negotiation** — `initialize` `maxTools`/`preferredNamespaces` honouring.
 
 ## Cross-cutting invariants (apply to every spec)
 

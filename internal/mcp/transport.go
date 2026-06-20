@@ -90,6 +90,10 @@ type conn struct {
 	// expose:"phase"; the watcher swaps it as the active spec's status changes.
 	// A nil registry means the static buildTools(cfg) path (today's behaviour).
 	registry *toolRegistry
+
+	// prefs holds the session's host-negotiation tool-shaping hints parsed from
+	// initialize (host-negotiation spec C2). Zero value = no hints = no-op.
+	prefs hostPrefs
 }
 
 func newConn(r io.Reader, w io.Writer) *conn {

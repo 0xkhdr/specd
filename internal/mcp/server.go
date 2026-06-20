@@ -110,7 +110,7 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher, cfg *core.Config) {
 		return
 	}
 
-	result, rerr := route(req, dispatch, cfg, c.registry)
+	result, rerr := route(req, dispatch, cfg, c)
 
 	// A request without an id is a notification — acknowledge nothing.
 	if len(req.ID) == 0 {
@@ -125,19 +125,31 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher, cfg *core.Config) {
 	_ = c.writeMessage(resp)
 }
 
-func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) (any, *rpcError) {
+func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, c *conn) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
+		// Parse and persist the host's optional tool-shaping hints for the session
+		// (host-negotiation spec R5); they apply to every subsequent tools/list.
+		c.prefs = parseHostPrefs(req.Params)
 		return initializeResult(req.Params, cfg), nil
 	case "ping", "notifications/initialized", "notifications/cancelled":
 		return map[string]any{}, nil
 	case "tools/list":
 		// Under expose:"phase" the live subset comes from the watcher-maintained
 		// registry; every other mode builds the static list per request.
-		if registry != nil {
-			return map[string]any{"tools": registry.list()}, nil
+		var tools []toolDef
+		if c.registry != nil {
+			tools = c.registry.list()
+		} else {
+			tools = buildTools(cfg)
 		}
-		return map[string]any{"tools": buildTools(cfg)}, nil
+		// Host negotiation is a final view transform (reorder + cap). It is skipped
+		// entirely when the host sent no hints, so output stays identical to the
+		// feature-off path (host-negotiation AC4).
+		if c.prefs.active() {
+			tools = applyHostPrefs(tools, c.prefs, manifestRequiredSet(activeManifest()))
+		}
+		return map[string]any{"tools": tools}, nil
 	case "tools/call":
 		return callTool(req.Params, dispatch)
 	case "resources/list":
@@ -154,10 +166,6 @@ func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, registry *tool
 	default:
 		return nil, &rpcError{Code: errMethodNotFound, Message: "method not found: " + req.Method}
 	}
-}
-
-type initializeParams struct {
-	ProtocolVersion string `json:"protocolVersion"`
 }
 
 func initializeResult(rawParams json.RawMessage, cfg *core.Config) map[string]any {

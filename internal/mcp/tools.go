@@ -234,7 +234,8 @@ func commandToTool(c core.CommandMeta) toolDef {
 // exposurePlan filters by expose mode, meta gating, and orchestration gating
 // while preserving deterministic command-then-intent order (spec R7).
 func buildTools(cfg *core.Config) []toolDef {
-	return buildToolsFromPlan(resolveMCPExposure(cfg))
+	plan := resolveMCPExposure(cfg)
+	return withManifest(plan, buildToolsFromPlan(plan))
 }
 
 // buildPhaseTools resolves the expose:"phase" subset for one lifecycle status
@@ -246,7 +247,18 @@ func buildPhaseTools(cfg *core.Config, status core.SpecStatus) []toolDef {
 	plan := resolveMCPExposure(cfg)
 	plan.essential = true
 	plan.essentialSet = phaseToolNames(status)
-	return buildToolsFromPlan(plan)
+	return withManifest(plan, buildToolsFromPlan(plan))
+}
+
+// withManifest composes the context-manifest filter (C1) onto a config/phase
+// candidate list. The passthrough path (absent `mcp` block) is skipped so it
+// stays byte-identical to the pre-config surface (cross-cutting invariant 1);
+// every configured mode applies the active spec's per-spec tool policy on top.
+func withManifest(plan exposurePlan, tools []toolDef) []toolDef {
+	if plan.passthrough {
+		return tools
+	}
+	return applyManifestFilter(tools, activeManifest())
 }
 
 func buildToolsFromPlan(plan exposurePlan) []toolDef {
