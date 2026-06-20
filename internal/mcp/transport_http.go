@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -25,21 +26,35 @@ import (
 // untouched, so leaving --http unset keeps today's behaviour byte-identical
 // (R4.3). Stdlib-only, no third-party MCP SDK (R4.4).
 func ServeHTTP(addr string, dispatch Dispatcher, cfg *core.Config) error {
+	// expose:"phase" gets a shared registry the watcher keeps current so tools/list
+	// reflects the active phase even over the one-shot HTTP/SSE adapter. The adapter
+	// has no standing server→client stream, so it cannot push
+	// notifications/tools/list_changed — the watcher runs with a nil notify and the
+	// host re-fetches tools/list (the spec §8 graceful-degradation path). Other
+	// modes pass a nil registry and behave exactly as before (R6).
+	var registry *toolRegistry
+	if phaseMode(cfg) {
+		registry = newToolRegistry(buildTools(cfg))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		startPhaseWatcher(ctx, registry, cfg, nil)
+	}
 	srv := &http.Server{
 		Addr:    loopbackAddr(addr),
-		Handler: httpHandler(dispatch, cfg),
+		Handler: httpHandler(dispatch, cfg, registry),
 	}
 	return srv.ListenAndServe()
 }
 
 // httpHandler builds the /rpc and /sse routes sharing one dispatch mutex. cfg is
-// threaded through to tools/list filtering exactly as on the stdio path.
-func httpHandler(dispatch Dispatcher, cfg *core.Config) http.Handler {
+// threaded through to tools/list filtering exactly as on the stdio path; registry
+// (non-nil only under expose:"phase") supplies the live phase subset.
+func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) http.Handler {
 	var mu sync.Mutex
 	dispatchLocked := func(raw []byte) []byte {
 		mu.Lock()
 		defer mu.Unlock()
-		return dispatchOnce(raw, dispatch, cfg)
+		return dispatchOnce(raw, dispatch, cfg, registry)
 	}
 
 	mux := http.NewServeMux()
@@ -98,9 +113,9 @@ func httpHandler(dispatch Dispatcher, cfg *core.Config) http.Handler {
 // conn.handle/route path as the stdio loop, capturing the framed response into
 // a buffer. A notification (no id) yields no bytes, matching stdio. The conn has
 // no reader because handle never reads — it only routes the bytes it is given.
-func dispatchOnce(raw []byte, dispatch Dispatcher, cfg *core.Config) []byte {
+func dispatchOnce(raw []byte, dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) []byte {
 	var buf bytes.Buffer
-	c := &conn{w: &buf, mode: framingNewline}
+	c := &conn{w: &buf, mode: framingNewline, registry: registry}
 	c.handle(raw, dispatch, cfg)
 	return bytes.TrimRight(buf.Bytes(), "\n")
 }

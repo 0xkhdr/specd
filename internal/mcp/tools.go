@@ -50,6 +50,52 @@ var defaultEssentialTools = []string{
 	"verify", "task", "approve",
 }
 
+// planningPhaseTools / executingPhaseTools name the tools advertised under
+// expose:"phase" for each lifecycle band (dynamic-tool-list spec §5.1). Names
+// use the same identifiers as defaultEssentialTools: composites/intents by their
+// full tool name (specd_inspect) and atomics by bare command (check). Planning
+// (requirements/design/tasks) favours inspection + gate-advancing tools;
+// executing favours the drive loop (next/dispatch/verify/task).
+var (
+	planningPhaseTools = []string{
+		"specd_inspect", "specd_read", "specd_query",
+		"check", "approve", "context", "status", "waves",
+	}
+	executingPhaseTools = []string{
+		"specd_inspect", "specd_read",
+		"next", "dispatch", "verify", "task", "status", "context",
+	}
+)
+
+// phaseTools maps a spec's lifecycle status to its advertised tool names
+// (dynamic-tool-list spec §5.1). An unmapped status falls back to the essential
+// set so the surface never empties. Blocked/verifying ride with executing since
+// they share the drive-loop affordances.
+var phaseTools = map[core.SpecStatus][]string{
+	core.StatusRequirements: planningPhaseTools,
+	core.StatusDesign:       planningPhaseTools,
+	core.StatusTasks:        planningPhaseTools,
+	core.StatusExecuting:    executingPhaseTools,
+	core.StatusVerifying:    executingPhaseTools,
+	core.StatusBlocked:      executingPhaseTools,
+	core.StatusComplete:     planningPhaseTools,
+}
+
+// phaseToolNames resolves the allow-set for a status, defaulting to the
+// essential set when a status has no explicit mapping (forward-compatible with
+// any new SpecStatus).
+func phaseToolNames(status core.SpecStatus) map[string]bool {
+	names := phaseTools[status]
+	if names == nil {
+		names = defaultEssentialTools
+	}
+	set := make(map[string]bool, len(names))
+	for _, n := range names {
+		set[n] = true
+	}
+	return set
+}
+
 // exposurePlan is the resolved, pure allow-policy derived from a *core.Config.
 // buildTools consults it per tool so the loop stays a thin filter and the
 // resolution logic is table-testable in isolation (spec §5.3).
@@ -61,6 +107,10 @@ type exposurePlan struct {
 	essentialSet         map[string]bool
 	includeMeta          bool
 	includeOrchestration bool
+	// phase marks expose:"phase" mode. The advertised subset is chosen at runtime
+	// per the active spec's status (the watcher swaps the registry), so the static
+	// plan carries no essentialSet — buildPhaseTools layers the phase allow-set on.
+	phase bool
 }
 
 // resolveMCPExposure turns config into an exposurePlan (pure; no I/O except the
@@ -78,6 +128,8 @@ func resolveMCPExposure(cfg *core.Config) exposurePlan {
 		expose = "all"
 	case "essential":
 		// keep
+	case "phase":
+		// keep: the per-status subset is resolved at runtime (see buildPhaseTools).
 	default:
 		// R6: an unknown mode degrades to "all" plus one stderr diagnostic.
 		fmt.Fprintf(os.Stderr, "specd mcp: unknown expose mode %q; treating as \"all\"\n", mc.Expose)
@@ -92,6 +144,7 @@ func resolveMCPExposure(cfg *core.Config) exposurePlan {
 
 	plan := exposurePlan{
 		essential:            expose == "essential",
+		phase:                expose == "phase",
 		includeMeta:          mc.IncludeMeta,
 		includeOrchestration: includeOrch,
 	}
@@ -181,7 +234,22 @@ func commandToTool(c core.CommandMeta) toolDef {
 // exposurePlan filters by expose mode, meta gating, and orchestration gating
 // while preserving deterministic command-then-intent order (spec R7).
 func buildTools(cfg *core.Config) []toolDef {
+	return buildToolsFromPlan(resolveMCPExposure(cfg))
+}
+
+// buildPhaseTools resolves the expose:"phase" subset for one lifecycle status
+// (dynamic-tool-list spec R2). It reuses the exposurePlan filtering — meta and
+// orchestration gates from config still apply — then narrows to the phase
+// allow-set via the same machinery as expose:"essential", so a phase subset is
+// always a subset of what the operator's config would otherwise permit.
+func buildPhaseTools(cfg *core.Config, status core.SpecStatus) []toolDef {
 	plan := resolveMCPExposure(cfg)
+	plan.essential = true
+	plan.essentialSet = phaseToolNames(status)
+	return buildToolsFromPlan(plan)
+}
+
+func buildToolsFromPlan(plan exposurePlan) []toolDef {
 	tools := make([]toolDef, 0, len(core.Commands)+len(intentTools))
 	for _, c := range core.Commands {
 		if metaCommands[c.Command] {

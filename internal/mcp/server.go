@@ -4,14 +4,43 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"context"
 	"io"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+// toolRegistry holds the tool list advertised by tools/list under expose:"phase"
+// behind an RWMutex so concurrent HTTP dispatch (reads) never races the phase
+// watcher (writes) — dynamic-tool-list spec R4/§5.2. tools/list reads under
+// RLock; the watcher swaps the whole slice under Lock. The slice is treated as
+// immutable after a swap, so a reader holding the returned header is unaffected
+// by a later swap.
+type toolRegistry struct {
+	mu    sync.RWMutex
+	tools []toolDef
+}
+
+func newToolRegistry(tools []toolDef) *toolRegistry {
+	return &toolRegistry{tools: tools}
+}
+
+func (r *toolRegistry) list() []toolDef {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.tools
+}
+
+func (r *toolRegistry) swap(tools []toolDef) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tools = tools
+}
 
 const (
 	latestProtocolVersion = "2025-11-25"
@@ -41,6 +70,19 @@ type Dispatcher func(command string, args cli.Args) (int, bool)
 // tool set; a nil cfg means "expose everything" (backward-compatible default).
 func Serve(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config) error {
 	c := newConn(r, w)
+
+	// expose:"phase" turns on the adaptive tool list: seed a thread-safe registry
+	// and start a watcher that swaps the phase-appropriate subset and pushes a
+	// notifications/tools/list_changed as the active spec advances (R1/R3). The
+	// watcher stops when the input stream closes (the deferred cancel below fires
+	// on return), so no goroutine leaks (R5). Other modes never start it (R6).
+	if phaseMode(cfg) {
+		c.registry = newToolRegistry(buildTools(cfg))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		startPhaseWatcher(ctx, c.registry, cfg, c.notifyToolsListChanged)
+	}
+
 	for {
 		raw, err := c.readMessage()
 		if err != nil {
@@ -68,7 +110,7 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher, cfg *core.Config) {
 		return
 	}
 
-	result, rerr := route(req, dispatch, cfg)
+	result, rerr := route(req, dispatch, cfg, c.registry)
 
 	// A request without an id is a notification — acknowledge nothing.
 	if len(req.ID) == 0 {
@@ -83,13 +125,18 @@ func (c *conn) handle(raw []byte, dispatch Dispatcher, cfg *core.Config) {
 	_ = c.writeMessage(resp)
 }
 
-func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config) (any, *rpcError) {
+func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
-		return initializeResult(req.Params), nil
+		return initializeResult(req.Params, cfg), nil
 	case "ping", "notifications/initialized", "notifications/cancelled":
 		return map[string]any{}, nil
 	case "tools/list":
+		// Under expose:"phase" the live subset comes from the watcher-maintained
+		// registry; every other mode builds the static list per request.
+		if registry != nil {
+			return map[string]any{"tools": registry.list()}, nil
+		}
 		return map[string]any{"tools": buildTools(cfg)}, nil
 	case "tools/call":
 		return callTool(req.Params, dispatch)
@@ -113,14 +160,16 @@ type initializeParams struct {
 	ProtocolVersion string `json:"protocolVersion"`
 }
 
-func initializeResult(rawParams json.RawMessage) map[string]any {
+func initializeResult(rawParams json.RawMessage, cfg *core.Config) map[string]any {
 	var params initializeParams
 	_ = json.Unmarshal(rawParams, &params)
 
+	// listChanged:true only under expose:"phase" — the one mode whose tool list
+	// mutates over the connection's lifetime (dynamic-tool-list spec R1/AC1).
 	return map[string]any{
 		"protocolVersion": negotiateProtocolVersion(params.ProtocolVersion),
 		"capabilities": map[string]any{
-			"tools":     map[string]any{"listChanged": false},
+			"tools":     map[string]any{"listChanged": phaseMode(cfg)},
 			"resources": map[string]any{"listChanged": false},
 			"prompts":   map[string]any{"listChanged": false},
 		},

@@ -13,6 +13,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // JSON-RPC 2.0 error codes (the subset MCP relies on).
@@ -38,6 +39,13 @@ type rpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data,omitempty"`
+}
+
+// rpcNotification is a server→client JSON-RPC notification: a method call with no
+// id, so the client sends no response (dynamic-tool-list spec §5.3).
+type rpcNotification struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Method  string `json:"method"`
 }
 
 type rpcReadError struct{ err *rpcError }
@@ -72,6 +80,16 @@ type conn struct {
 	r    *bufio.Reader
 	w    io.Writer
 	mode framing
+
+	// wmu serialises writes so a server-initiated notification (the phase
+	// watcher's notifications/tools/list_changed) can never interleave its bytes
+	// with a concurrently written response (dynamic-tool-list spec §8 risk, R4).
+	wmu sync.Mutex
+
+	// registry, when non-nil, supplies the live tool list for tools/list under
+	// expose:"phase"; the watcher swaps it as the active spec's status changes.
+	// A nil registry means the static buildTools(cfg) path (today's behaviour).
+	registry *toolRegistry
 }
 
 func newConn(r io.Reader, w io.Writer) *conn {
@@ -180,6 +198,8 @@ func (c *conn) writeMessage(v any) error {
 	if err != nil {
 		return err
 	}
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
 	if c.mode == framingHeader {
 		if _, err := fmt.Fprintf(c.w, "Content-Length: %d\r\n\r\n", len(b)); err != nil {
 			return err
@@ -189,4 +209,12 @@ func (c *conn) writeMessage(v any) error {
 	}
 	_, err = c.w.Write(append(b, '\n'))
 	return err
+}
+
+// notifyToolsListChanged writes a server-initiated JSON-RPC notification (no id)
+// telling the host the tool list changed, so it re-fetches tools/list
+// (dynamic-tool-list spec R3). Writes go through writeMessage's mutex, so a
+// notification never interleaves with an in-flight response.
+func (c *conn) notifyToolsListChanged() {
+	_ = c.writeMessage(rpcNotification{Jsonrpc: "2.0", Method: "notifications/tools/list_changed"})
 }
