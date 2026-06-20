@@ -22,6 +22,7 @@ banned=$(find internal main_test.go -name '*_test.go' 2>/dev/null \
 	| grep -E '_(more|regression|sweep|scale)_test\.go$|wave[0-9]' || true)
 if [ -n "$banned" ]; then
 	fail "banned test-file suffix (_more/_regression/_sweep/_scale/wave*):"
+	# shellcheck disable=SC2001
 	echo "$banned" | sed 's/^/  /' >&2
 fi
 
@@ -29,6 +30,7 @@ fi
 spaces=$(grep -rnE 't\.Run\("[^"]* [^"]*"' --include='*_test.go' internal main_test.go || true)
 if [ -n "$spaces" ]; then
 	fail "space-separated subtest name(s) — use snake_case outcome names:"
+	# shellcheck disable=SC2001
 	echo "$spaces" | sed 's/^/  /' >&2
 fi
 
@@ -43,10 +45,13 @@ for dir in $(find internal -type d | sort); do
 	tests=$(find "$dir" -maxdepth 1 -name '*_test.go' 2>/dev/null)
 	[ -z "$tests" ] && continue
 	# names defined more than once across files in this directory
+	# shellcheck disable=SC2086
 	dupes=$(grep -hoE '^func [a-z][A-Za-z0-9_]*' $tests \
 		| awk '{print $2}' | sort | uniq -d || true)
 	for name in $dupes; do
+		# shellcheck disable=SC2086
 		files=$(grep -lE "^func ${name}\(" $tests | sort -u)
+		# shellcheck disable=SC2001
 		dup_report+="  ${name} (in ${dir}) defined in:\n$(echo "$files" | sed 's/^/    /')\n"
 	done
 done
