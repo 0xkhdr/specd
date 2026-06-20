@@ -12,7 +12,7 @@
 | [mcp-composite-tools](./mcp-composite-tools/spec.md) | A2, A4 | Low | Medium | High | 2 ✅ |
 | [mcp-resources](./mcp-resources/spec.md) | B1 | Medium | Medium | Very High | 2 ✅ |
 | [mcp-prompts](./mcp-prompts/spec.md) | B2 | Medium | Medium | High | 2 ✅ |
-| [mcp-dynamic-tool-list](./mcp-dynamic-tool-list/spec.md) | B3 | Medium | Medium | High | 3 |
+| [mcp-dynamic-tool-list](./mcp-dynamic-tool-list/spec.md) | B3 | Medium | Medium | High | 3 ✅ |
 | [mcp-context-manifest-tools](./mcp-context-manifest-tools/spec.md) | C1 | High | Medium | Medium | 4 |
 | [mcp-host-negotiation](./mcp-host-negotiation/spec.md) | C2 | High | High | Low | 4 |
 
@@ -38,7 +38,7 @@ All depend on Wave 1's `buildTools(cfg)` signature + config block.
 ### Wave 3 — Adaptivity
 Depends on Wave 1 (filter) and Wave 2 (resources/prompts capabilities to advertise).
 
-- [ ] **mcp-dynamic-tool-list** — `listChanged: true`, `notifications/tools/list_changed`, phase watcher, thread-safe tool list.
+- [x] **mcp-dynamic-tool-list** — `listChanged: true`, `notifications/tools/list_changed`, phase watcher, thread-safe tool list.
 
 ### Wave 4 — Advanced (speculative, future-proof)
 Depends on Wave 1 + Wave 3.

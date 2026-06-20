@@ -261,7 +261,7 @@ byte-identical to the default — no behavioural change.**
 ```jsonc
 {
   "mcp": {
-    "expose": "essential",                      // "all" (default) | "essential"
+    "expose": "essential",                      // "all" (default) | "essential" | "phase"
     "essentialTools": ["specd_inspect",          // command/composite/intent names kept under "essential"
                        "specd_read", "specd_query",
                        "verify", "task", "approve"],
@@ -273,13 +273,43 @@ byte-identical to the default — no behavioural change.**
 
 | Field | Effect |
 |---|---|
-| `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set. An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
+| `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
 | `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_inspect, specd_read, specd_query, verify, task, approve` (the composites cover the read surface). |
 | `includeMeta` | When false (default) the install-maintenance tools `specd_update`, `specd_uninstall`, and the spec-pack-author tool `specd_schema` are hidden from MCP (they remain available on the CLI). |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
 Filtering only ever *hides* tools — it never grants new authority, and tool
 order stays deterministic (command order, then intent order).
+
+### Phase-adaptive surface (`expose: "phase"`)
+
+`"phase"` makes the advertised tool list track the active spec's lifecycle
+status, so a host sees the affordances that matter *now* instead of the whole
+surface:
+
+| Status band | Advertised tools |
+|-------------|------------------|
+| `requirements` / `design` / `tasks` (planning) | `specd_inspect`, `specd_read`, `specd_query`, `specd_check`, `specd_approve`, `specd_context`, `specd_status`, `specd_waves` |
+| `executing` / `verifying` / `blocked` | `specd_inspect`, `specd_read`, `specd_next`, `specd_dispatch`, `specd_verify`, `specd_task`, `specd_status`, `specd_context` |
+
+The subset is always a *narrowing* of what `expose` would otherwise permit — the
+`includeMeta`/`includeOrchestration` gates still apply. The "active" status is the
+furthest-along in-progress spec in the project (executing outranks planning).
+
+In this mode the server advertises `capabilities.tools.listChanged: true` and runs
+a background watcher that polls `state.json` (same `SPECD_WATCH_INTERVAL_MS` knob
+as `specd watch`, default 1000ms, plus a short debounce). When the active phase
+changes it swaps the list and emits a `notifications/tools/list_changed` so the
+host re-fetches `tools/list`. The watcher stops cleanly when the stdio stream
+closes — no goroutine leak.
+
+**Host caveats:**
+- Hosts that ignore `notifications/tools/list_changed` simply keep the initial
+  subset — behaviour degrades gracefully, never breaks.
+- The HTTP/SSE transport is request/response with no standing server→client
+  channel, so it cannot *push* notifications. Under `--http` the list still
+  updates (the watcher keeps the shared registry current) but the host must poll
+  `tools/list` to observe it. Use stdio for live push.
 
 ---
 

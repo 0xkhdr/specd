@@ -2,9 +2,9 @@ package mcp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"context"
 	"io"
 	"os"
 	"sort"
