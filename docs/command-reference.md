@@ -64,7 +64,7 @@ See [Validation Gates](./validation-gates.md) for what each `check` gate enforce
 |---|---|---|
 | `specd schema [--version <v>]` | Emit the embedded, versioned [open spec format](./open-spec-format.md) JSON Schema to stdout. Needs no `.specd/` root | `0` ok, `1` unknown version, `2` usage |
 | `specd validate <slug> --schema [--version <v>] [--json]` | Validate a spec's `state.json` against the embedded JSON Schema (structural/format conformance, independent of the semantic gates). Read-only | `0` conformant, `1` violations, `2` usage, `3` not found |
-| `specd replay <slug>` | Reconstruct a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from on-disk audit data. Text, or typed JSON array under `SPECD_JSON` | `0` ok, `2` usage, `3` not found |
+| `specd replay <slug> [--acp-session <id>]` | Reconstruct a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from on-disk audit data, or replay events for a specific orchestration session. Text, or typed JSON array under `SPECD_JSON` | `0` ok, `2` usage, `3` not found |
 | `specd diff <slug> --from <ref> [--to <ref>] [--json]` | Show how a spec's artifacts changed between two git refs — a read-only `git diff --name-status` scoped to the spec dir. `--to` defaults to the working tree. Under `--json`, returns structured file-diff lists. | `0` ok, `1` git diff failed, `2` usage, `3` not found |
 
 ## Record commands
@@ -101,15 +101,18 @@ for a worker lifecycle to finish.
 
 | Command | Description | Exit codes |
 |---|---|---|
-| `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]` | Start or step one spec orchestration session. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
+| `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]` | Start one spec orchestration session and advance it by one step. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
+| `specd brain run <slug> [--approval-policy <policy>] [--worker-cmd <cmd>] [--bootstrap] [--max-steps <n>] [--session <id>] [--json]` | Run the reference single-spec driver loop. Automatically loops step, dispatches missions to a host command, and blocks/reconciles to completion. | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
 | `specd brain step <slug> --session <id> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]` | Advance an existing spec session by one bounded decision | same |
 | `specd brain status --session <id> [--json]` | Read persisted session state | `0` ok, `1` invalid/missing session, `2` usage |
 | `specd brain why --session <id> [--json]` | Explain the latest replayable Brain decision for a session | `0` ok, `1` invalid/missing session, `2` usage |
 | `specd brain directive --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --action <continue\|retry\|cancel\|reassign\|escalate> --reason <text> [--in-reply-to <message-id>] [--json]` | Send a bounded Brain directive to one active Pinky lease, usually in reply to a Pinky query | same |
 | `specd brain pause\|resume\|cancel --session <id> [--json]` | Persist cooperative session control. `cancel` records intent; later steps emit cancellation directives but never kill host processes | `0` ok, `1` invalid/terminal session, `2` usage |
 | `specd brain start --program [--session <id>] ... [--json]` / `specd brain step --program --session <id> ... [--json]` | Schedule child specs from the program DAG under the same explicit policy limits | same |
+| `specd brain run --program [--approval-policy <policy>] [--worker-cmd <cmd>] [--max-steps <n>] [--session <id>] [--json]` | Run the program reference driver loop across multiple dependent specs. | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
 | `specd brain status\|pause\|resume\|cancel --program --session <id> [--json]` | Read/control a parent program session | same |
 | `specd pinky claim --mission <path\|-> [--json]` | Host worker claims a Brain-issued mission under an ACP lease | `0` ok, `1` invalid/stale/duplicate claim, `2` usage, `3` not found |
+| `specd pinky brief --session <id> --worker <id> --spec <slug> (--task <id> [--attempt <n>] \| --artifact <name>) [--json]` | Render a paste-ready worker brief/prompt (or mission JSON under `--json`) for a dispatched task or authoring mission | `0` ok, `2` usage, `3` not found |
 | `specd pinky heartbeat --session <id> --worker <id> --attempt <n> [--json]` | Renew the worker lease before expiry | same |
 | `specd pinky progress --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> --message <text> [--json]` | Record host-reported progress as ACP evidence; it is telemetry, not proof of completion | same |
 | `specd pinky query --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --text <question> [--json]` | Ask one bounded mid-task question without releasing the lease; Brain or the host answers with `brain directive` | same |

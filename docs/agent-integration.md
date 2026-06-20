@@ -99,70 +99,282 @@ Output sections:
 
 ---
 
-## Brain/Pinky orchestration
+## Brain/Pinky Orchestration
 
-Brain/Pinky is an optional deterministic orchestration layer. You can enable and configure the entire orchestration stack at bootstrap time using the `--orchestration` CLI flag during `specd init` (see the [User Guide](./user-guide.md#one-command-autonomous-setup)).
+The **Brain & Pinky model** is `specd`'s native multi-agent orchestration architecture. It transforms the harness from a passive command-line validator into an active, autonomous coordinator.
 
-Alternatively, you can manually edit `.specd/config.json` post-init (where it is disabled by default):
+Unlike traditional orchestration stacks, `specd` separates concerns into two layers:
+1. **The Brain (Deterministic Controller):** A state machine that analyzes the current spec state (requirements, design, task DAG progress) and makes decisions (e.g., "dispatch builder for T1", "await human approval for planning"). **The Brain never calls an LLM and never executes unsafe code directly.**
+2. **Pinky (Ephemeral Execution Workers):** Independent AI agents spawned by your application or host environment. They receive a structured **Mission** from the Brain, claim a temporary filesystem lease, perform the work (using specialized role personas), run the verification tests, and write back evidence.
 
+---
+
+### Architectural Design & Sequence Flow
+
+The interaction between the Host Orchestrator, the `specd` Brain, and Pinky workers is fully file-backed via the **ACP (Agent Communication Protocol)**.
+
+```mermaid
+sequenceDiagram
+    participant Host as Host Orchestrator
+    participant Brain as specd brain
+    participant Pinky as Pinky Worker Agent
+    
+    Host->>Brain: start / step (reconcile & decide)
+    Note over Brain: Check spec gates, DAG wave, active leases
+    
+    alt Decision: Dispatch Mission
+        Brain-->>Host: JSON decision: {"action": "dispatch", "mission": {...}}
+        Host->>Pinky: Spawn worker with Mission Brief
+        Pinky->>Host: specd pinky claim (acquire lock & lease)
+        loop Lease Keepalive
+            Pinky->>Host: specd pinky heartbeat (renew lease)
+        end
+        Pinky->>Pinky: Implement code changes & run tests
+        Pinky->>Host: specd pinky progress (optional telemetry)
+        Pinky->>Host: specd pinky report (evidence + git head + verify ref)
+        Pinky->>Host: Release lease
+    else Decision: Awaiting Approval
+        Brain-->>Host: JSON decision: {"action": "awaiting-approval"}
+        Note over Host: Wait for human input/approval
+    else Decision: Wait
+        Brain-->>Host: JSON decision: {"action": "wait"}
+        Note over Host: Sleep and retry later (tasks busy or blocked)
+    end
+    
+    Host->>Brain: step (reconcile report & advance state)
+```
+
+---
+
+### Step-by-Step Developer Walkthrough
+
+To build your own custom orchestration harness or integrate `specd` into your product, follow this integration workflow.
+
+#### Step 1: Enable Orchestration in configuration
+Enable orchestration during project initialization:
+```bash
+specd init --orchestration planning --orchestration-workers 4
+```
+This writes the configuration blocks into `.specd/config.json`:
 ```json
 "orchestration": {
-  "enabled": false,
-  "approvalPolicy": "manual",
+  "enabled": true,
+  "approvalPolicy": "planning",
   "workerMode": "host",
   "maxWorkers": 4,
   "maxRetries": 2,
   "sessionTimeoutMinutes": 120,
-  "hostReportedCostLimitUSD": 0,
+  "hostReportedCostLimitUSD": 10.00,
   "transport": {
     "kind": "file",
     "pollIntervalMillis": 500,
     "messageTTLSeconds": 3600,
     "leaseSeconds": 120,
     "heartbeatSeconds": 30
-  },
-  "program": { "maxConcurrentSpecs": 2 }
+  }
 }
 ```
 
-Trust boundary:
-- **Brain** senses specd state and records one bounded decision per step. It is a
-  deterministic controller, not an LLM.
-- **Pinky** is a worker contract executed by the host. specd writes missions,
-  leases, progress, bounded queries, directives, blockers, reports, and
-  cancellation directives over ACP files; it never spawns provider agents or
-  kills host processes.
-- **Host telemetry** (`host-tokens`, `host-cost`, `duration-ms`) is evidence
-  supplied by the host and stored verbatim. specd does not compute token usage,
-  price model calls, or trust telemetry as completion proof.
-- **Advisory cost / time brakes.** Although host-reported cost stays untrusted,
-  the brain still acts on it: it sums `host-cost` across a session's reports and,
-  when the total reaches `hostReportedCostLimitUSD` (`> 0`), the next `step`
-  escalates with `policy-violation` instead of dispatching more work. A session
-  that outlives its `sessionTimeoutMinutes` wall-clock deadline escalates the
-  same way. Both are advisory halts (the input is untrusted) but they force a
-  terminal decision rather than relying on lease expiry. `0` disables the cost
-  brake.
-- **Completion proof** still requires a passing `specd verify` record (or the
-  existing manual proof path for read-only roles) and `--evidence`. Pinky reports
-  are accepted only when they bind to the matching verification record and task
-  scope.
+#### Step 2: Start a spec session
+Initiate an orchestration session for a given spec. This generates a unique `session` UUID:
+```bash
+specd brain start my-feature --approval-policy planning --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json
+```
 
-Approval policy:
-- `manual` (default): all approvals remain human-driven.
-- `planning`: Brain may advance normal requirements/design/tasks planning gates
-  when gates pass, but cannot clear mid-requirement gates.
-- `session`: Brain may act inside the active orchestration session, subject to
-  the same gates, locks, retries, and evidence rules.
-- High/critical mid-requirement gates are always human-only; automation cannot
-  clear them under any policy.
+#### Step 3: Run the Polling & Step Loop
+Re-invoke the Brain's stepping handler to reconcile the filesystem database, check worker lease timeouts, and request the next decision:
+```bash
+specd brain step my-feature --session <session-id> --approval-policy planning --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json
+```
+The Brain will output a structured JSON response detailing the latest decision:
+```json
+{
+  "action": "dispatch",
+  "reason": "task T1 is runnable and has no active lease",
+  "mission": {
+    "sessionID": "uuid-session-123",
+    "workerID": "w-T1-attempt-1",
+    "spec": "my-feature",
+    "taskID": "T1",
+    "role": "builder",
+    "deadline": "2026-06-20T17:30:00Z",
+    "files": ["src/login.go", "src/login_test.go"],
+    "verifyCommand": "go test ./src -run TestLogin"
+  }
+}
+```
 
-Backward compatibility: older `.specd/config.json` files with no
-`orchestration` block load as disabled/manual/host/file defaults. Unsupported
-modes, secret-shaped fields, invalid costs, or unsafe timing relationships fail
-closed to the disabled defaults.
+#### Step 4: Ephemeral Worker Execution (The Pinky Lifecycle)
+When the host sees a `dispatch` decision, it spins up an AI worker (e.g. Claude Code or an internal script) and instructs it to drive the Pinky protocol:
 
-### Driving Brain/Pinky from MCP hosts
+1. **Claim the Mission:**
+   The worker starts by claiming the mission to lock in its lease and prevent other workers from taking it:
+   ```bash
+   specd pinky claim --mission mission.json
+   ```
+2. **Keep the Lease Alive:**
+   While doing creative work, the host must periodically send heartbeats before the `leaseSeconds` deadline expires, otherwise the Brain will reclaim and reassign the task:
+   ```bash
+   specd pinky heartbeat --session <session-id> --worker <worker-id> --attempt 1
+   ```
+3. **Emit Progress (Optional):**
+   Send telemetry updates back to the orchestrator:
+   ```bash
+   specd pinky progress --session <session-id> --worker <worker-id> --spec my-feature --task T1 --attempt 1 --percent 50 --message "Implementing OAuth login handler"
+   ```
+4. **Mid-task Queries & Directives:**
+   If the worker encounters a design ambiguity, it can ask a question:
+   ```bash
+   specd pinky query --session <session-id> --worker <worker-id> --spec my-feature --task T1 --attempt 1 --text "Should we support Google OAuth?"
+   ```
+   The Brain halts progress at the next safe boundary and asks the host/user for input, which is written back as a directive:
+   ```bash
+   specd brain directive --session <session-id> --worker <worker-id> --spec my-feature --task T1 --attempt 1 --action continue --reason "Yes, google oauth only" --in-reply-to <message-id>
+   ```
+5. **Run Verification & Report Completion:**
+   Before marking a task complete, the worker **must** run the verification command to get a passing record in the local ledger:
+   ```bash
+   specd verify my-feature T1
+   ```
+   It then writes the final terminal report, citing the verification reference:
+   ```bash
+   specd pinky report --session <session-id> --worker <worker-id> --spec my-feature --task T1 --attempt 1 --verification-ref "verify-rec-456" --summary "OAuth integration finished and tests pass" --git-head "abc123sha" --changed-files "src/login.go,src/login_test.go" --duration-ms 45000 --host-tokens 8500 --host-cost 0.12
+   ```
+
+---
+
+### Reference Implementation: Custom Python Orchestrator
+
+Below is a clean, dependency-free reference implementation of a host loop driving the `specd` Brain and spawning Pinky worker agents.
+
+```python
+import subprocess
+import json
+import time
+import os
+
+def run_specd(cmd_args):
+    """Utility to call specd and return parsed JSON."""
+    result = subprocess.run(
+        ["specd"] + cmd_args + ["--json"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"specd failed: {result.stderr}")
+    return json.loads(result.stdout)
+
+def orchestrate_spec(spec_slug):
+    # 1. Start session
+    print(f"Starting orchestration session for {spec_slug}...")
+    session_data = run_specd([
+        "brain", "start", spec_slug,
+        "--approval-policy", "planning",
+        "--max-workers", "2",
+        "--max-retries", "1",
+        "--timeout-seconds", "3600"
+    ])
+    session_id = session_data["sessionID"]
+    
+    # 2. Main Step-Sense Loop
+    while True:
+        # Ask Brain what to do next
+        step_data = run_specd([
+            "brain", "step", spec_slug,
+            "--session", session_id,
+            "--approval-policy", "planning",
+            "--max-workers", "2",
+            "--max-retries", "1",
+            "--timeout-seconds", "3600"
+        ])
+        
+        action = step_data.get("action")
+        print(f"Brain Decision: {action} - {step_data.get('reason')}")
+        
+        if action == "complete-session":
+            print("Orchestration complete!")
+            break
+            
+        elif action == "escalate" or action == "policy-violation":
+            print(f"Orchestration blocked! Reason: {step_data.get('reason')}")
+            break
+            
+        elif action == "dispatch":
+            # Extract mission details
+            mission = step_data["mission"]
+            execute_pinky_worker(mission)
+            
+        elif action == "wait":
+            # Sleep briefly and poll again
+            time.sleep(2)
+
+def execute_pinky_worker(mission):
+    print(f"Spawning Pinky for task {mission['taskID']} ({mission['role']})")
+    
+    # Save mission to temp file for claim
+    with open("temp_mission.json", "w") as f:
+        json.dump(mission, f)
+        
+    try:
+        # Worker claims the mission
+        run_specd(["pinky", "claim", "--mission", "temp_mission.json"])
+        
+        # Simulate creative agent work...
+        print("Worker is editing code files...")
+        time.sleep(5) 
+        
+        # Run verification tests
+        subprocess.run(["specd", "verify", mission["spec"], mission["taskID"]], check=True)
+        
+        # Report completion back to Pinky ledger
+        run_specd([
+            "pinky", "report",
+            "--session", mission["sessionID"],
+            "--worker", mission["workerID"],
+            "--spec", mission["spec"],
+            "--task", mission["taskID"],
+            "--attempt", "1",
+            "--verification-ref", f"verify-{mission['taskID']}",
+            "--summary", f"Successfully completed {mission['taskID']}",
+            "--changed-files", ",".join(mission.get("files", []))
+        ])
+        print("Worker successfully completed mission and reported evidence.")
+    finally:
+        if os.path.exists("temp_mission.json"):
+            os.remove("temp_mission.json")
+
+if __name__ == "__main__":
+    orchestrate_spec("my-feature")
+```
+
+---
+
+### The Built-in Driver Loop (`brain run`)
+
+If you do not want to implement a custom orchestration loop, `specd` includes a built-in driver command `specd brain run` that automates step-sense polling and worker spawns:
+
+```bash
+specd brain run my-feature --worker-cmd 'python3 my_agent.py'
+```
+
+When using `specd brain run`:
+- The harness manages step polling, timeouts, lease reclaims, and DAG wave progression.
+- `--worker-cmd` is invoked per dispatch. It receives the temporary mission JSON path via the `SPECD_MISSION` environment variable, along with context environment variables (`SPECD_SESSION`, `SPECD_WORKER`, `SPECD_SPEC`, `SPECD_TASK`, `SPECD_ROLE`).
+- A hung or runaway worker is automatically terminated when the mission deadline is reached, thanks to process group isolation.
+
+---
+
+### Trust Boundary & Safety Invariants
+
+Orchestrator clients must respect the following security invariants enforced by the harness:
+
+- **Advisory Cost & Time Brakes:** While host-reported cost is untrusted telemetry, the Brain sums `host-cost` across all session reports. If the sum exceeds `hostReportedCostLimitUSD` (when `> 0`), the Brain halts and escalates with a `policy-violation` to prevent runaway LLM costs.
+- **Evidence Integrity:** A Pinky report is only accepted by the Brain if it matches a passing `specd verify` run recorded in the spec database. A worker cannot bypass validation by reporting success without running the task's tests.
+- **Lease Expiry:** If a worker stops heartbeating or crashes, its lease is automatically reclaimed by the Brain after `leaseSeconds` and rescheduled (up to `maxRetries`), ensuring temporary network failures do not stall development.
+- **Cooperative Cancellation:** `specd brain cancel` does not forcibly terminate processes on the host. Instead, it records cancellation intent in the database. Workers must poll `specd pinky inbox` or check command exits to stop themselves cleanly.
+
+---
+
+## Driving Brain/Pinky from MCP Hosts
 
 MCP hosts have two layers. Prefer the **intent-level tools** for orchestration;
 drop to the raw passthrough only when you need a flag the intent tools do not
@@ -216,20 +428,6 @@ Brain drives both **planning** and **execution**, not just execution:
   the same gate `specd approve` enforces. Under `manual` it requests human
   approval instead. Execution tasks never run before the `tasks → executing`
   gate clears.
-
-- **Reference driver loop.** `specd brain run <slug>` ties steps to worker
-  spawns: it steps, hands each dispatched mission to a host worker, blocks until
-  the worker reports (the dispatch→spawn contract), and stops on a terminal
-  outcome (`complete | escalated | awaiting-approval | worker-stop | max-steps |
-  stalled`). It defaults to the `planning` policy and is re-runnable (it resumes
-  an active session). `--worker-cmd '<shell>'` receives each mission via
-  `SPECD_MISSION` (a temp JSON path) plus `SPECD_SESSION/WORKER/SPEC/TASK/ROLE`
-  env; with no `--worker-cmd` the loop stops at the first dispatch so an operator
-  can wire a worker by hand.
-
-- **Pre-spec preflight.** `specd brain run --bootstrap` creates a missing spec
-  (`specd new`) before driving. A missing `.specd` workspace or steering fails
-  closed with the remedy command (`specd init` / `specd init --repair`).
 
 - **Worker briefs and agent templates.** `specd pinky brief --session <id>
   --worker <id> --spec <slug> (--task <id> | --artifact <name>) [--json]` renders

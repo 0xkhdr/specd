@@ -138,6 +138,10 @@
         "type": "string",
         "description": "positive attempt number for directive"
       },
+      "bootstrap": {
+        "type": "boolean",
+        "description": "automatically bootstrap missing specs during run"
+      },
       "cost-limit": {
         "type": "string",
         "description": "optional host-reported cost limit"
@@ -153,6 +157,10 @@
       "max-retries": {
         "type": "string",
         "description": "required retry limit for start/step"
+      },
+      "max-steps": {
+        "type": "string",
+        "description": "max driver loop steps (default 100 for single, 200 for program)"
       },
       "max-workers": {
         "type": "string",
@@ -182,9 +190,17 @@
         "type": "string",
         "description": "required session timeout for start/step"
       },
+      "title": {
+        "type": "string",
+        "description": "title to use when bootstrapping a missing spec"
+      },
       "worker": {
         "type": "string",
         "description": "worker id for directive"
+      },
+      "worker-cmd": {
+        "type": "string",
+        "description": "host shell command to spawn Pinky workers"
       }
     },
     "additionalProperties": false
@@ -500,6 +516,10 @@
           "type": "string"
         }
       },
+      "artifact": {
+        "type": "string",
+        "description": "the artifact template name for brief (e.g. requirements.md)"
+      },
       "attempt": {
         "type": "string",
         "description": "positive attempt number"
@@ -597,9 +617,13 @@
   "specd_replay": {
     "type": "object",
     "properties": {
+      "acp-session": {
+        "type": "string",
+        "description": "Replay events for a specific orchestration session ID"
+      },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd replay \u003cslug\u003e",
+        "description": "Positional arguments, in order. Usage: specd replay \u003cslug\u003e [--acp-session \u003cid\u003e]",
         "items": {
           "type": "string"
         }

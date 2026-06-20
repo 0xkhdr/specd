@@ -73,12 +73,12 @@ specd next my-feature            # -> focused task
 specd verify my-feature T1       # run declared verification and record the result
 specd task my-feature T1 --status complete --evidence "commit abc123; npm test PASS"
 # execute loop (orchestrated):
-# specd brain start my-feature --approval-policy manual --max-workers 4
+# specd brain start my-feature --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200
 # specd pinky claim --mission mission.json
 # specd pinky heartbeat --session s --worker w --attempt 1
 # specd verify my-feature T1
 # specd pinky report --session s --worker w --spec my-feature --task T1 --attempt 1 --verification-ref ref --summary "done"
-# specd brain step my-feature --session s
+# specd brain step my-feature --session s --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200
 # when the last task is done the spec enters `verifying`:
 specd approve my-feature         # accept spec-level verification → complete
 specd report my-feature          # snapshot

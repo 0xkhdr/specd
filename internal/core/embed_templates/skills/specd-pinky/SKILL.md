@@ -10,7 +10,7 @@ Pinky is a host-executed worker contract. specd validates authority and state tr
 ## Claim and context
 
 ```
-specd pinky claim <session> <worker> --mission <mission.json>
+specd pinky claim --mission <mission.json>
 specd context <spec>
 ```
 
