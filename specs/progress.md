@@ -63,21 +63,21 @@ stress job green in CI.
 
 ---
 
-## Wave 2 — Observability + ratchet (P1) · Status: ⬜
+## Wave 2 — Observability + ratchet (P1) · Status: 🟡
 
 ### 03-observability
-- [ ] W2.1 `log/slog` JSON handler, `SPECD_LOG` env, default `warn`
-- [ ] W2.2 Per-session log file `.specd/sessions/<id>/brain.log`
-- [ ] W2.3 Structured events (dispatch/reclaim/retry/escalate/timeout/complete)
-- [ ] W2.4 Stdout byte-stability test with logging on
-- [ ] W2.5 `brain why`/`status` reads structured timeline
+- [x] W2.1 `log/slog` JSON handler, `SPECD_LOG` env, default `warn`
+- [x] W2.2 Per-session log file `.specd/sessions/<id>/brain.log`
+- [x] W2.3 Structured events (dispatch/reclaim/retry/escalate/timeout/complete)
+- [x] W2.4 Stdout byte-stability test with logging on
+- [x] W2.5 `brain why`/`status` reads structured timeline
 
 ### 04-coverage-ratchet
-- [ ] W2.6 Raise floors to measured-minus-1 (overall 78, core 80, cmd 75)
-- [ ] W2.7 Document 85/95 target + no-floor-lowering rule in script
+- [x] W2.6 Raise floors to measured-minus-1 (local measured: overall 72.9, core 74.7, cmd 63.1, worker 90.8)
+- [x] W2.7 Document 85/95 target + no-floor-lowering rule in script
 
-**Exit gate W2:** ⬜ logs stderr-only · stdout byte-unchanged test green ·
-floors raised, CI green.
+**Exit gate W2:** 🟡 logs stderr-only · stdout byte-unchanged test green ·
+floors raised locally; CI review still required.
 
 ---
 

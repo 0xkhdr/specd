@@ -2,11 +2,17 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
+	"os"
+	"os/exec"
 	"strconv"
+	"syscall"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/obs"
 	"github.com/0xkhdr/specd/internal/worker"
 )
 
@@ -238,7 +244,11 @@ func brainRun(root, slug string, args cli.Args) int {
 		maxSteps = n
 	}
 
-	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(root, args.Str("worker-cmd"))}
+	logger, closer := obs.NewSessionLogger(root, sessionID)
+	if closer != nil {
+		defer closer.Close()
+	}
+	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
 	result, err := core.DriveOrchestration(root, slug, sessionID, policy, cfg, opts)
 	if err != nil {
 		return specdExit(err)
@@ -284,7 +294,11 @@ func brainRunProgram(root string, args cli.Args) int {
 		maxSteps = n
 	}
 
-	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(root, args.Str("worker-cmd"))}
+	logger, closer := obs.NewSessionLogger(root, parentID)
+	if closer != nil {
+		defer closer.Close()
+	}
+	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
 	result, err := core.DriveProgramOrchestration(root, parentID, policy, cfg, opts)
 	if err != nil {
 		return specdExit(err)
@@ -303,8 +317,8 @@ func brainRunProgram(root string, args cli.Args) int {
 // driver: each child dispatch reuses the same shell-out contract (mission via
 // temp file + SPECD_* env). An empty workerCmd returns nil — the loop then stops
 // at the first child dispatch.
-func brainRunProgramWorker(root, workerCmd string) func(core.ProgramDriverDispatch) error {
-	inner := brainRunWorker(root, workerCmd)
+func brainRunProgramWorker(root, workerCmd string, logger *slog.Logger) func(core.ProgramDriverDispatch) error {
+	inner := brainRunWorker(root, workerCmd, logger)
 	if inner == nil {
 		return nil
 	}
@@ -380,7 +394,7 @@ func bootstrapHint(item core.PreflightItem) string {
 // returns an error, which the driver turns into a retryable failure so the next
 // step applies the retry/escalate policy. Because workers now run concurrently
 // (GAP-11), output is line-prefixed with the worker id so logs stay legible.
-func brainRunWorker(root, workerCmd string) func(core.DriverDispatch) error {
+func brainRunWorker(root, workerCmd string, logger *slog.Logger) func(core.DriverDispatch) error {
 	if workerCmd == "" {
 		return nil
 	}
@@ -398,7 +412,13 @@ func brainRunWorker(root, workerCmd string) func(core.DriverDispatch) error {
 			Deadline:  d.Mission.Deadline,
 			Payload:   d.Mission,
 		}
-		_, err := runner.Run(context.Background(), m)
+		ctx := context.Background()
+		res, err := runner.Run(ctx, m)
+		exit := workerExitCode(err)
+		obs.LogEvent(ctx, logger, "complete", m.SessionID, m.WorkerID, m.TaskID, res.Duration, exit)
+		if res.TimedOut {
+			obs.LogEvent(ctx, logger, "timeout", m.SessionID, m.WorkerID, m.TaskID, res.Duration, exit)
+		}
 		return err
 	}
 }
@@ -521,24 +541,44 @@ func brainWhy(root string, args cli.Args) int {
 	if sessionID == "" {
 		return usageExit("usage: specd brain why --session <id> [--json]")
 	}
-	store, err := core.NewACPStore(root)
+	events, err := obs.ReadTimeline(root, sessionID)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return specdExit(core.NotFoundError(fmt.Sprintf("no structured timeline for session %q", sessionID)))
+		}
 		return specdExit(err)
 	}
-	events, err := store.ReplaySessionEvents(sessionID)
-	if err != nil {
-		return specdExit(err)
-	}
-	event, ok := core.ExplainCurrentSessionDecision(events)
-	if !ok {
-		return specdExit(core.NotFoundError(fmt.Sprintf("no events for session %q", sessionID)))
+	if len(events) == 0 {
+		return specdExit(core.NotFoundError(fmt.Sprintf("no structured timeline for session %q", sessionID)))
 	}
 	if args.Bool("json") || core.IsJSONMode() {
-		return printCommandResult(args, event)
+		return printCommandResult(args, map[string]any{"session": sessionID, "events": events})
 	}
 	fmt.Printf("brain why — %s\n", sessionID)
-	fmt.Printf(" %s\n", core.FormatSessionTimelineEvent(event))
+	fmt.Println(" event      worker       task        dur_ms  exit")
+	for _, ev := range events {
+		fmt.Printf(" %-10s %-12s %-10s %-7d %d\n", ev.Event, ev.Worker, ev.Task, ev.DurMS, ev.Exit)
+	}
 	return core.ExitOK
+}
+
+func brainObserver(logger *slog.Logger) core.DriverObserver {
+	return func(ev core.DriverEvent) {
+		obs.LogEvent(context.Background(), logger, ev.Event, ev.Session, ev.Worker, ev.Task, 0, 0)
+	}
+}
+
+func workerExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+			return status.ExitStatus()
+		}
+	}
+	return 1
 }
 
 func brainProgramSessionControl(root string, args cli.Args, fn func(string, string) (core.ProgramSession, error), verb string) int {

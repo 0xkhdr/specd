@@ -6,7 +6,7 @@
 
 ## Wave A — Logger foundation
 
-### [ ] W2.1 — Central `slog` constructor
+### [x] W2.1 — Central `slog` constructor
 - **Files:** `internal/obs/log.go` (new; or `internal/core/logging.go`)
 - **Do:** One exported constructor returning a `*slog.Logger` over
   `slog.NewJSONHandler(os.Stderr, …)`. Level parsed from `SPECD_LOG`
@@ -16,7 +16,7 @@
 - **Done when:** Constructor compiles; unit test asserts level mapping +
   unknown-value fallback; handler target is `os.Stderr`.
 
-### [ ] W2.2 — Per-session log file sink
+### [x] W2.2 — Per-session log file sink
 - **Files:** `internal/obs/log.go`, drive setup in `internal/cmd/brain.go`
 - **Do:** Add a constructor that fans out to **both** stderr and an append file
   `.specd/sessions/<id>/brain.log` (e.g. `slog` over an `io.MultiWriter`, or two
@@ -29,7 +29,7 @@
 
 ## Wave B — Event emission
 
-### [ ] W2.3 — Emit the six driver events
+### [x] W2.3 — Emit the six driver events
 - **Files:** `internal/cmd/brain.go`, `internal/worker/shell_runner.go`,
   lease-reconcile path in `internal/core/program_orchestration.go`
 - **Do:** Emit structured events with the §3.3 schema (`event, session, worker,
@@ -47,7 +47,7 @@
 
 ## Wave C — Stdout contract guard
 
-### [ ] W2.4 — Stdout byte-stability test
+### [x] W2.4 — Stdout byte-stability test
 - **Files:** `internal/cmd/brain_logging_test.go` (new)
 - **Do:** Run a deterministic drive twice — once `SPECD_LOG=` (off), once
   `SPECD_LOG=debug` — capturing stdout separately each time. Assert the two
@@ -60,7 +60,7 @@
 
 ## Wave D — `brain why` timeline
 
-### [ ] W2.5 — Timeline reader + renderer
+### [x] W2.5 — Timeline reader + renderer
 - **Files:** `internal/cmd/brain.go` (`brainWhy`), `internal/cmd/brain_test.go`
 - **Do:** `brainWhy` reads `.specd/sessions/<id>/brain.log`, parses the NDJSON
   events, and renders a timeline (waves, dispatches, reclaims, retries,
@@ -73,9 +73,9 @@
 ---
 
 ## Definition of done (Spec 03)
-- [ ] `SPECD_LOG` level control, default `warn`, stderr-only.
-- [ ] Per-session `brain.log`, best-effort.
-- [ ] Six event types emitted with stable schema.
-- [ ] Stdout byte-stability test green (incl. `SPECD_JSON=1`).
-- [ ] `brain why` timeline (human + JSON), tested.
-- [ ] Stdlib-only intact; update `specs/progress.md` W2.
+- [x] `SPECD_LOG` level control, default `warn`, stderr-only.
+- [x] Per-session `brain.log`, best-effort.
+- [x] Six event types emitted with stable schema.
+- [x] Stdout byte-stability test green (incl. `SPECD_JSON=1`).
+- [x] `brain why` timeline (human + JSON), tested.
+- [x] Stdlib-only intact; update `specs/progress.md` W2.
