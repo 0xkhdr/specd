@@ -98,16 +98,19 @@ func RunReport(args cli.Args) int {
 	if format == "" {
 		format = cfg.Report.Format
 	}
-	if format != "md" && format != "html" {
-		return usageExit("--format must be md or html")
+	if format != "md" && format != "html" && format != "prometheus" {
+		return usageExit("--format must be md, html, or prometheus")
 	}
 
 	data := loadReportData(root, slug, state)
 
 	var out string
-	if format == "html" {
+	switch format {
+	case "html":
 		out = core.RenderHTML(data, cfg.Report.AutoRefreshSeconds)
-	} else {
+	case "prometheus":
+		out = core.RenderPrometheusMetrics(data)
+	default:
 		out = core.RenderMarkdown(data)
 	}
 

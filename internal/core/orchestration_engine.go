@@ -17,6 +17,12 @@ import (
 // distinguish "no session" from a corrupt or unreadable one.
 var errOrchestrationSessionNotFound = errors.New("orchestration engine: session not found")
 
+// IsOrchestrationSessionNotFound reports whether an orchestration lookup missed
+// a persisted session. CLI callers map it to the standard not-found exit code.
+func IsOrchestrationSessionNotFound(err error) bool {
+	return errors.Is(err, errOrchestrationSessionNotFound)
+}
+
 type OrchestrationStepResult struct {
 	Snapshot OrchestrationSnapshot `json:"snapshot"`
 	Decision OrchestrationDecision `json:"decision"`
@@ -329,6 +335,11 @@ func ResumeOrchestration(root, sessionID string) (OrchestrationSession, error) {
 		switch session.Status {
 		case OrchestrationSessionPaused, OrchestrationSessionRunning:
 			session.Status = OrchestrationSessionRunning
+			return nil
+		case OrchestrationSessionComplete:
+			// First-class resume UX treats already-complete sessions as a safe no-op:
+			// operators can rerun the command after recovery without manufacturing a
+			// failure or dispatching more work.
 			return nil
 		default:
 			return fmt.Errorf("orchestration engine: cannot resume a %s session", session.Status)

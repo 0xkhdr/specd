@@ -14,12 +14,12 @@ import (
 // directly to disk, bypassing the CLI gates so tests can start from any desired
 // state. Defaults are chosen so the minimal spec still passes `specd check`.
 type SpecBuilder struct {
-	h      *Harness
-	slug   string
-	title  string
-	reqs   []reqBlock
-	design []designSection
-	tasks  []TaskSpec
+	h             *Harness
+	slug          string
+	title         string
+	reqs          []reqBlock
+	design        []designSection
+	tasks         []TaskSpec
 	status        core.SpecStatus
 	phase         core.Phase
 	gate          core.Gate

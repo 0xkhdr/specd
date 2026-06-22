@@ -183,12 +183,12 @@ var Commands = []CommandMeta{
 	},
 	{
 		Command: "report", Category: "inspection",
-		Description: "Generate markdown or HTML report",
-		Usage:       "specd report <slug> [--format md|html] [--out <path>] [--pr-summary]", Synopsis: "specd report <slug> [--format md|html] [--out <path>] [--pr-summary]",
-		LongDescription: "Compiles a comprehensive HTML or Markdown progress report. With --pr-summary, emits a deterministic, network-free pull-request summary (Markdown, or JSON under SPECD_JSON): wave/task progress, gate status, and the commit↔task link map.",
-		Flags:           []FlagMeta{{Name: "format", Type: "string"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}},
+		Description: "Generate markdown, HTML, or metrics report",
+		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]",
+		LongDescription: "Compiles a comprehensive HTML or Markdown progress report, or an opt-in Prometheus textfile metrics view. With --pr-summary, emits a deterministic, network-free pull-request summary (Markdown, or JSON under SPECD_JSON): wave/task progress, gate status, and the commit↔task link map.",
+		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd report my-feature --format html --out ./report.html"},
+		Examples:        []string{"specd report my-feature --format html --out ./report.html", "specd report my-feature --format prometheus"},
 	},
 	{
 		Command: "serve", Category: "inspection",
@@ -264,7 +264,7 @@ var Commands = []CommandMeta{
 			{Name: "json", Type: "boolean", Description: "emit JSON"},
 		},
 		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate or validation failure"}, {2, "Usage error"}, {3, "Workspace or session not found"}},
-		Examples:  []string{"specd brain run my-spec --worker-cmd './worker.sh'", "specd brain start my-spec --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain directive --session 11111111111111111111111111111111 --worker t1-a1 --spec my-spec --task T1 --attempt 1 --action continue --reason 'docs not required'", "specd brain step my-spec --session 11111111111111111111111111111111 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200"},
+		Examples:  []string{"specd brain run my-spec --worker-cmd './worker.sh'", "specd brain resume --session 11111111111111111111111111111111", "specd brain start my-spec --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain directive --session 11111111111111111111111111111111 --worker t1-a1 --spec my-spec --task T1 --attempt 1 --action continue --reason 'docs not required'", "specd brain step my-spec --session 11111111111111111111111111111111 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200"},
 	},
 	{
 		Command:     "pinky",

@@ -260,8 +260,8 @@ func brainRun(root, slug string, args cli.Args) int {
 	} else {
 		fmt.Printf("brain run: %s after %d step(s) — final decision: %s (%s)\n", result.Outcome, result.Steps, result.Final.Action, result.Final.Reason)
 	}
-	if result.Outcome == core.DriverComplete {
-		return core.ExitOK
+	if result.Outcome == core.DriverEscalated {
+		return core.ExitGate
 	}
 	return core.ExitOK
 }
@@ -309,6 +309,9 @@ func brainRunProgram(root string, args cli.Args) int {
 		}
 	} else {
 		fmt.Printf("brain run --program: %s after %d step(s) — final decision: %s (%s)\n", result.Outcome, result.Steps, result.Final.Action, result.Final.Reason)
+	}
+	if result.Outcome == core.DriverEscalated {
+		return core.ExitGate
 	}
 	return core.ExitOK
 }
@@ -531,6 +534,9 @@ func brainSessionControl(root string, args cli.Args, fn func(string, string) (co
 	}
 	session, err := fn(root, args.Str("session"))
 	if err != nil {
+		if core.IsOrchestrationSessionNotFound(err) {
+			return specdExit(core.NotFoundError(err.Error()))
+		}
 		return specdExit(err)
 	}
 	return printCommandResult(args, session)
@@ -587,6 +593,9 @@ func brainProgramSessionControl(root string, args cli.Args, fn func(string, stri
 	}
 	session, err := fn(root, args.Str("session"))
 	if err != nil {
+		if core.IsOrchestrationSessionNotFound(err) {
+			return specdExit(core.NotFoundError(err.Error()))
+		}
 		return specdExit(err)
 	}
 	return printCommandResult(args, session)

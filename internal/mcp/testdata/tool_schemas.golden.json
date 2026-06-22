@@ -703,13 +703,14 @@
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd report \u003cslug\u003e [--format md|html] [--out \u003cpath\u003e] [--pr-summary]",
+        "description": "Positional arguments, in order. Usage: specd report \u003cslug\u003e [--format md|html|prometheus] [--out \u003cpath\u003e] [--pr-summary]",
         "items": {
           "type": "string"
         }
       },
       "format": {
-        "type": "string"
+        "type": "string",
+        "description": "Output format: md, html, or prometheus"
       },
       "out": {
         "type": "string"

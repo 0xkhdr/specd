@@ -32,15 +32,15 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 		decision.Action = OrchestrationEscalate
 		decision.Escalation = OrchestrationEscalation{Code: EscalationRetriesExhausted, Message: "retry limit reached"}
 		decision.Reason = "retry limit reached"
-	case costLimitExceeded(snapshot, policy):
-		// Host-reported cost is untrusted, but the advisory limit still acts:
-		// halt-and-escalate rather than dispatch more work (GAP-4).
+	case EvaluateCostBrake(snapshot.AccumulatedCostUSD, policy.HostReportedCostLimitUSD) == CostBrakeHalt:
+		// Host-reported cost is untrusted, but the operator brake still acts:
+		// halt-and-escalate rather than dispatch more work (GAP-4/W4).
 		decision.Action = OrchestrationEscalate
 		decision.Escalation = OrchestrationEscalation{
 			Code:    EscalationPolicyViolation,
-			Message: fmt.Sprintf("host-reported cost $%.2f reached limit $%.2f (advisory, untrusted)", snapshot.AccumulatedCostUSD, policy.HostReportedCostLimitUSD),
+			Message: fmt.Sprintf("host-reported cost $%.2f reached hard limit $%.2f (advisory, untrusted)", snapshot.AccumulatedCostUSD, policy.HostReportedCostLimitUSD),
 		}
-		decision.Reason = "host-reported cost limit reached"
+		decision.Reason = "host-reported cost hard limit reached"
 	case snapshot.SessionExpired:
 		// The session's wall-clock deadline forces a terminal decision instead of
 		// waiting for leases to expire one by one (GAP-4).
@@ -141,13 +141,6 @@ func planningArtifactForStatus(status SpecStatus) string {
 		return step.Artifact
 	}
 	return ""
-}
-
-// costLimitExceeded reports whether cumulative host-reported cost has reached
-// the configured limit. A limit of 0 means "no limit" (disabled).
-func costLimitExceeded(snapshot OrchestrationSnapshot, policy OrchestrationPolicy) bool {
-	return policy.HostReportedCostLimitUSD > 0 &&
-		snapshot.AccumulatedCostUSD >= policy.HostReportedCostLimitUSD
 }
 
 func retryableFailuresExhausted(failures []OrchestrationFailure, maxRetries int) bool {

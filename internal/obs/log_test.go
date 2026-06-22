@@ -1,6 +1,7 @@
 package obs
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func TestNewSessionLoggerWritesBrainLog(t *testing.T) {
 	if closer != nil {
 		defer closer.Close()
 	}
-	LogEvent(t.Context(), logger, "dispatch", "s-1", "worker-1", "T1", 0, 0)
+	LogEvent(context.Background(), logger, "dispatch", "s-1", "worker-1", "T1", 0, 0)
 	if closer != nil {
 		closer.Close()
 	}

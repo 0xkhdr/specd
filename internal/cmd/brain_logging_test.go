@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -17,8 +18,8 @@ func TestBrainWhyRendersStructuredTimeline(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("SPECD_LOG", "info")
 	logger, closer := obs.NewSessionLogger(root, "s-why")
-	obs.LogEvent(t.Context(), logger, "dispatch", "s-why", "worker-1", "T1", 0, 0)
-	obs.LogEvent(t.Context(), logger, "complete", "s-why", "worker-1", "T1", 0, 0)
+	obs.LogEvent(context.Background(), logger, "dispatch", "s-why", "worker-1", "T1", 0, 0)
+	obs.LogEvent(context.Background(), logger, "complete", "s-why", "worker-1", "T1", 0, 0)
 	if closer != nil {
 		closer.Close()
 	}
@@ -35,7 +36,7 @@ func TestBrainWhyRendersStructuredTimelineJSON(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("SPECD_LOG", "info")
 	logger, closer := obs.NewSessionLogger(root, "s-json")
-	obs.LogEvent(t.Context(), logger, "timeout", "s-json", "worker-1", "T1", 0, 124)
+	obs.LogEvent(context.Background(), logger, "timeout", "s-json", "worker-1", "T1", 0, 124)
 	if closer != nil {
 		closer.Close()
 	}

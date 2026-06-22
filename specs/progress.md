@@ -100,15 +100,15 @@ works-or-fails-fast with clear message.
 
 ---
 
-## Wave 4 — Harness features (P3) · Status: ⬜
+## Wave 4 — Harness features (P3) · Status: ✅
 
 ### 08-harness-features
-- [ ] W4.1 `specd brain resume --session <id>` first-class + tested
-- [ ] W4.2 New host adapters as agents ship (keep `--config` fallback)
-- [ ] W4.3 Metrics export (Prometheus-textfile / OTLP-JSON output format)
-- [ ] W4.4 Cost-brake enforcement test + soft (80% warn) / hard (100% halt)
+- [x] W4.1 `specd brain resume --session <id>` first-class + tested
+- [x] W4.2 New host adapters as agents ship (keep `--config` fallback)
+- [x] W4.3 Metrics export (Prometheus-textfile / OTLP-JSON output format)
+- [x] W4.4 Cost-brake enforcement test + soft (80% warn) / hard (100% halt)
 
-**Exit gate W4:** ⬜ resume tested · metrics format emitted · cost brake
+**Exit gate W4:** ✅ resume tested · metrics format emitted · cost brake
 deterministic test green.
 
 ---
@@ -124,4 +124,4 @@ From plan §4 — all must be ✅ before the program is complete:
 - [ ] `.golangci.yml` includes `errorlint`+`gosec`+`bodyclose`; CI green
 - [ ] No single non-test file >~700 LOC (`program_orchestration.go` split)
 - [ ] Orchestration on Windows works or fails fast with a clear message
-- [ ] Stdlib-only runtime invariant preserved throughout
+- [x] Stdlib-only runtime invariant preserved throughout

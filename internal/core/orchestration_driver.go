@@ -158,6 +158,7 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 			return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
 		}
 		last = res.Decision
+		emitCostBrakeEvent(opts.Observer, sessionID, res.Snapshot, policy, res.Decision)
 		switch res.Decision.Action {
 		case OrchestrationDispatch, OrchestrationDispatchAuthor:
 			if opts.Worker == nil {
@@ -231,6 +232,20 @@ func emitDriverEvent(observer DriverObserver, event, sessionID string, d DriverD
 		taskID = d.Decision.TaskID
 	}
 	observer(DriverEvent{Event: event, Session: sessionID, Worker: workerID, Task: taskID})
+}
+
+func emitCostBrakeEvent(observer DriverObserver, sessionID string, snapshot OrchestrationSnapshot, policy OrchestrationPolicy, decision OrchestrationDecision) {
+	if observer == nil {
+		return
+	}
+	switch EvaluateCostBrake(snapshot.AccumulatedCostUSD, policy.HostReportedCostLimitUSD) {
+	case CostBrakeWarn:
+		observer(DriverEvent{Event: "cost_warn", Session: sessionID})
+	case CostBrakeHalt:
+		if decision.Action == OrchestrationEscalate {
+			observer(DriverEvent{Event: "cost_halt", Session: sessionID})
+		}
+	}
 }
 
 // awaitReport blocks until a worker reports (then reaps it) or the poll interval
