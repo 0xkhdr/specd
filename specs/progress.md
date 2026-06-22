@@ -45,18 +45,18 @@ observable and tested.
 ## Wave 1 — Autonomous core (P0) · Status: ⬜
 
 ### 01-worker-package
-- [ ] W1.1 Extract `internal/worker` package with `Runner` seam
-- [ ] W1.2 Move exec/worker funcs out of `cmd/brain.go`; CLI keeps arg-parsing
-- [ ] W1.3 Test deadline → SIGKILL-of-process-group
-- [ ] W1.4 Test pipe-drain (post-signal child write, no hang)
-- [ ] W1.5 Test line-writer prefixing across partial/no-newline chunks
-- [ ] W1.6 Test mission env propagation
+- [x] W1.1 Extract `internal/worker` package with `Runner` seam
+- [x] W1.2 Move exec/worker funcs out of `cmd/brain.go`; CLI keeps arg-parsing
+- [x] W1.3 Test deadline → SIGKILL-of-process-group
+- [x] W1.4 Test pipe-drain (post-signal child write, no hang)
+- [x] W1.5 Test line-writer prefixing across partial/no-newline chunks
+- [x] W1.6 Test mission env propagation
 - [ ] W1.7 Reach `internal/worker` ≥90%, `cmd/brain.go` ≥80%
 
 ### 02-crash-recovery
 - [ ] W1.8 Driver-level kill-mid-wave → resume reclaims leases test
 - [ ] W1.9 Assert no double-dispatch after resume
-- [ ] W1.10 `make stress-brain-recovery` CI job
+- [x] W1.10 `make stress-brain-recovery` CI job
 
 **Exit gate W1:** ⬜ `cmd/brain.go` ≥80% · `internal/worker` ≥90% · recovery
 stress job green in CI.

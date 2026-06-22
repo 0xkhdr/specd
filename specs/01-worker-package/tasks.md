@@ -8,14 +8,14 @@
 
 ## Wave A — Create the seam (no behavior change)
 
-### [ ] W1.1 — Create `internal/worker` package skeleton
+### [x] W1.1 — Create `internal/worker` package skeleton
 - **Files:** `internal/worker/worker.go` (new)
 - **Do:** Define `Mission`, `Result`, and `Runner` interface exactly as in
   `spec.md §3.1`. Add package doc comment explaining the seam. No logic yet.
 - **Done when:** `go build ./...` passes; package compiles with the interface
   and structs only.
 
-### [ ] W1.2 — Move the exec mechanism into `ShellRunner`
+### [x] W1.2 — Move the exec mechanism into `ShellRunner`
 - **Files:** `internal/worker/shell_runner.go` (new), `internal/cmd/brain.go`
 - **Do:**
   1. Create `ShellRunner` with injectable `Stdout, Stderr io.Writer` fields
@@ -46,7 +46,7 @@
 
 ## Wave B — Characterization & hardening tests (the point of the spec)
 
-### [ ] W1.4 — Deadline → SIGKILL-of-process-group test
+### [x] W1.4 — Deadline → SIGKILL-of-process-group test
 - **Files:** `internal/worker/shell_runner_test.go` (new)
 - **Do:** Mission whose command is `sh -c 'trap "" TERM; sleep 30 & wait'`
   (forks a child that ignores SIGTERM) with a deadline ~200ms out. Assert:
@@ -55,7 +55,7 @@
   non-POSIX via build tag / `runtime.GOOS` guard.
 - **Done when:** Test proves the **whole group** dies and `Run` does not hang.
 
-### [ ] W1.5 — Pipe-drain (no-hang) test
+### [x] W1.5 — Pipe-drain (no-hang) test
 - **Files:** `internal/worker/shell_runner_test.go`
 - **Do:** Command that, after the deadline fires, keeps a backgrounded writer
   emitting to stdout (orphan holding the pipe). Assert `Run` still returns
@@ -64,7 +64,7 @@
 - **Done when:** Test green and would hang without `WaitDelay` (verify by
   temporarily removing it locally).
 
-### [ ] W1.6 — Line-writer prefixing test
+### [x] W1.6 — Line-writer prefixing test
 - **Files:** `internal/worker/line_writer_test.go` (new)
 - **Do:** Drive `lineWriter` directly with: (a) multiple writes forming one
   line; (b) a chunk with several `\n`; (c) a trailing chunk with **no** newline
@@ -73,7 +73,7 @@
   no mid-line interleave (lock works).
 - **Done when:** All sub-cases pass; output byte-exact against expected.
 
-### [ ] W1.7 — Mission env propagation test
+### [x] W1.7 — Mission env propagation test
 - **Files:** `internal/worker/shell_runner_test.go`
 - **Do:** Mission command = a tiny script that echoes each `SPECD_*` var
   (capture via injected stdout buffer). Assert all seven keys

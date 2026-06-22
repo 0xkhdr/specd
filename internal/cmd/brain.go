@@ -1,22 +1,13 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
-	"strings"
-	"sync"
-	"syscall"
-	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/worker"
 )
 
 func RunBrain(args cli.Args) int {
@@ -393,125 +384,22 @@ func brainRunWorker(root, workerCmd string) func(core.DriverDispatch) error {
 	if workerCmd == "" {
 		return nil
 	}
+	runner := worker.ShellRunner{}
 	return func(d core.DriverDispatch) error {
-		raw, err := json.MarshalIndent(d.Mission, "", "  ")
-		if err != nil {
-			return err
+		m := worker.Mission{
+			Command:   workerCmd,
+			MissionID: d.Mission.DispatchDigest,
+			SessionID: d.Mission.SessionID,
+			WorkerID:  d.Mission.WorkerID,
+			Spec:      d.Mission.Spec,
+			TaskID:    d.Mission.TaskID,
+			Role:      d.Mission.Role,
+			Files:     d.Mission.Files,
+			Deadline:  d.Mission.Deadline,
+			Payload:   d.Mission,
 		}
-		f, err := os.CreateTemp("", "specd-mission-*.json")
-		if err != nil {
-			return err
-		}
-		defer os.Remove(f.Name())
-		if _, err := f.Write(raw); err != nil {
-			f.Close()
-			return err
-		}
-		f.Close()
-
-		ctx, cancel := workerDeadlineContext(d.Mission.Deadline)
-		defer cancel()
-
-		cmd := exec.CommandContext(ctx, "sh", "-c", workerCmd)
-		// Own process group so a timeout kills the shell *and* its children.
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-		cmd.Cancel = func() error {
-			if cmd.Process == nil {
-				return nil
-			}
-			return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-		// Give an already-signalled group a moment to die, then force the pipes
-		// closed so Wait cannot hang on an orphan holding stdout/stderr open.
-		cmd.WaitDelay = 5 * time.Second
-
-		prefix := "[" + d.Mission.WorkerID + "] "
-		outW := newWorkerLineWriter(prefix, os.Stdout)
-		errW := newWorkerLineWriter(prefix, os.Stderr)
-		cmd.Stdout, cmd.Stderr = outW, errW
-		cmd.Env = append(os.Environ(),
-			"SPECD_MISSION="+f.Name(),
-			"SPECD_SESSION="+d.Mission.SessionID,
-			"SPECD_WORKER="+d.Mission.WorkerID,
-			"SPECD_SPEC="+d.Mission.Spec,
-			"SPECD_TASK="+d.Mission.TaskID,
-			"SPECD_ROLE="+d.Mission.Role,
-			"SPECD_ARTIFACT="+workerArtifactHint(d.Mission.Files),
-		)
-		runErr := cmd.Run()
-		outW.Flush()
-		errW.Flush()
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("worker %s for %s timed out at deadline %s", d.Mission.WorkerID, d.Mission.TaskID, d.Mission.Deadline)
-		}
-		return runErr
-	}
-}
-
-// workerDeadlineContext builds a context bounded by the mission deadline. An
-// unparseable or already-past deadline yields a short non-zero budget rather than
-// an instant cancel, so a clock-skewed deadline still lets the worker start.
-func workerDeadlineContext(deadline string) (context.Context, context.CancelFunc) {
-	when, err := time.Parse(time.RFC3339Nano, deadline)
-	if err != nil || !when.After(time.Now()) {
-		return context.WithCancel(context.Background())
-	}
-	return context.WithDeadline(context.Background(), when)
-}
-
-// workerArtifactHint builds the SPECD_ARTIFACT env hint from a mission's file
-// list: the base name of each file, comma-joined. The previous construction
-// base-named a space-joined string and produced garbage for multi-file missions.
-func workerArtifactHint(files []string) string {
-	bases := make([]string, 0, len(files))
-	for _, f := range files {
-		bases = append(bases, filepath.Base(f))
-	}
-	return strings.Join(bases, ",")
-}
-
-// workerOutputMu serializes concurrent workers' writes to the shared stdout/
-// stderr so whole lines from different workers do not interleave mid-line.
-var workerOutputMu sync.Mutex
-
-// workerLineWriter prefixes every complete line written through it with the
-// owning worker's id and flushes whole lines under the shared output lock.
-type workerLineWriter struct {
-	prefix string
-	dst    io.Writer
-	buf    []byte
-}
-
-func newWorkerLineWriter(prefix string, dst io.Writer) *workerLineWriter {
-	return &workerLineWriter{prefix: prefix, dst: dst}
-}
-
-func (w *workerLineWriter) Write(p []byte) (int, error) {
-	workerOutputMu.Lock()
-	defer workerOutputMu.Unlock()
-	w.buf = append(w.buf, p...)
-	for {
-		i := bytes.IndexByte(w.buf, '\n')
-		if i < 0 {
-			break
-		}
-		fmt.Fprint(w.dst, w.prefix)
-		w.dst.Write(w.buf[:i+1])
-		w.buf = w.buf[i+1:]
-	}
-	return len(p), nil
-}
-
-// Flush emits any trailing partial line (no newline) so nothing is dropped when
-// the worker exits.
-func (w *workerLineWriter) Flush() {
-	workerOutputMu.Lock()
-	defer workerOutputMu.Unlock()
-	if len(w.buf) > 0 {
-		fmt.Fprint(w.dst, w.prefix)
-		w.dst.Write(w.buf)
-		fmt.Fprintln(w.dst)
-		w.buf = nil
+		_, err := runner.Run(context.Background(), m)
+		return err
 	}
 }
 

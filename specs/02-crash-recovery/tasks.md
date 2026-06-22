@@ -49,7 +49,7 @@
 
 ## Wave C — CI stress job
 
-### [ ] W1.10a — `make stress-brain-recovery` script
+### [x] W1.10a — `make stress-brain-recovery` script
 - **Files:** `scripts/stress-brain-recovery.sh` (new), `Makefile`
 - **Do:** Mirror `scripts/stress-program.sh`. Loop the recovery scenario N
   times (seeded RNG), randomizing the wave point at which the kill fires; run
@@ -58,7 +58,7 @@
 - **Done when:** `make stress-brain-recovery` runs locally, green, deterministic
   under a fixed seed.
 
-### [ ] W1.10b — Wire into CI
+### [x] W1.10b — Wire into CI
 - **Files:** `.github/workflows/*` (the workflow hosting the existing four
   stress jobs)
 - **Do:** Add a `stress-brain-recovery` job alongside acp/orchestration/program/
