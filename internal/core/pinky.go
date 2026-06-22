@@ -81,7 +81,7 @@ func BuildPinkyMission(root, slug, sessionID, workerID, taskID string, attempt i
 	}
 	sort.Strings(mission.Files)
 	sort.Strings(mission.Dependencies)
-	mission.ContextManifest = BuildMissionContextManifest(mission)
+	mission.ContextManifest = BuildMissionContextManifest(mission, specArtifactReader(root, slug))
 	mission.DispatchDigest = pinkyMissionDigest(mission)
 	if err := validatePinkyMission(mission); err != nil {
 		return PinkyMission{}, err
