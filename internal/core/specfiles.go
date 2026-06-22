@@ -123,7 +123,7 @@ type CustomGateCfg struct {
 
 var DefaultConfig = Config{
 	Version:            1,
-	DefaultVerify:      "npm test",
+	DefaultVerify:      "echo 'specd: defaultVerify is unset — set it to your repo test command (see the specd-steering skill)' >&2; exit 1",
 	Report:             ReportCfg{Format: "md", AutoRefreshSeconds: 0},
 	Roles:              RolesCfg{SubagentMode: "inline"},
 	PromotionThreshold: 3,

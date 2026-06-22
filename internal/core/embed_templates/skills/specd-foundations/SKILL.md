@@ -67,6 +67,8 @@ The Markdown is your authored truth for *intent*. `state.json` is machine truth 
 | `specd-design` | Entering the design phase. The mandatory `design.md` sections + the `design` gate. |
 | `specd-tasks` | Entering the tasks phase. The wave DAG, the seven task keys, acyclicity + the `task-schema`/`dag` gates. |
 | `specd-execute` | Entering executing/verifying. The next→implement→verify→complete loop, roles, `dispatch`, the `evidence` gate. |
+| `specd-brain` | Entering orchestration. Sensing specd-owned state, deterministic stepping, program scheduling, the no-LLM boundary. |
+| `specd-pinky` | Operating a Pinky worker. Context, claim, heartbeat, progress, query/inbox, blocker, report, release under lease. |
 
 Pay context only for the stage you are in. This `specd-foundations` is the only
-always-loaded skill.
+always-loaded skill; it indexes all seven stage skills above.
