@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 )
 
 const (
@@ -53,10 +55,25 @@ func BuildMissionContextManifest(mission PinkyMission, read func(name string) (s
 		Role:           mission.Role,
 		Files:          mission.Files,
 		Mode:           ContextModeMission,
+		HostBudget:     HostContextBudgetFromEnv(),
 		ContextCommand: mission.ContextCommand,
 		Requirements:   mission.Requirements,
 		ReadArtifact:   read,
 	})
+}
+
+// HostContextBudgetFromEnv reads the per-session host context budget that the
+// MCP server exports under SPECD_MAX_CONTEXT_TOKENS before dispatching a tool
+// call (capabilities.specd.maxContextTokens). It is the boundary-layer reader
+// that feeds ContextRequest.HostBudget so the pure engine never touches the
+// environment. Absent or non-numeric => 0 (no host cap), keeping non-MCP
+// invocations byte-identical to the pre-feature path.
+func HostContextBudgetFromEnv() int {
+	v, err := strconv.Atoi(os.Getenv("SPECD_MAX_CONTEXT_TOKENS"))
+	if err != nil || v < 0 {
+		return 0
+	}
+	return v
 }
 
 // specArtifactReader returns a reader closure that feeds the context engine raw

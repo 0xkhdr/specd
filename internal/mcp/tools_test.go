@@ -337,6 +337,59 @@ func TestParseHostPrefs(t *testing.T) {
 	}
 }
 
+// TestNegotiateMaxContextTokens proves capabilities.specd.maxContextTokens is
+// parsed and persisted, and that it does not perturb tool-list negotiation
+// (active() stays driven by maxTools/namespaces only). AC-6.
+func TestNegotiateMaxContextTokens(t *testing.T) {
+	hp := parseHostPrefs([]byte(`{"capabilities":{"specd":{"maxContextTokens":8000}}}`))
+	if hp.maxContextTokens != 8000 {
+		t.Fatalf("maxContextTokens not parsed: %+v", hp)
+	}
+	if hp.active() {
+		t.Fatalf("context budget alone must not activate tool-list shaping: %+v", hp)
+	}
+}
+
+// TestNegotiateMaxContextTokensGarbageIsSafe proves a non-positive or malformed
+// hint clamps to 0 (ignored) instead of capping briefs to nothing, and never
+// tears down the handshake. AC-6 / R6.
+func TestNegotiateMaxContextTokensGarbageIsSafe(t *testing.T) {
+	for _, raw := range []string{
+		`{"capabilities":{"specd":{"maxContextTokens":-4000}}}`,
+		`{"capabilities":{"specd":{"maxContextTokens":"lots"}}}`,
+		`not json at all`,
+	} {
+		if hp := parseHostPrefs([]byte(raw)); hp.maxContextTokens != 0 {
+			t.Fatalf("garbage budget %q not clamped: %+v", raw, hp)
+		}
+	}
+}
+
+// TestCapabilityContextBudgetCapsManifest proves the negotiated budget threads
+// across the in-process dispatch boundary (setContextBudgetEnv ->
+// SPECD_MAX_CONTEXT_TOKENS -> core.HostContextBudgetFromEnv) and caps the
+// effective manifest Budget; omitting it leaves the engine default untouched
+// (byte-identical path). AC-6.
+func TestCapabilityContextBudgetCapsManifest(t *testing.T) {
+	req := core.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "builder", Mode: core.ContextModeBriefing}
+	baseline := core.BuildContextManifest(req).Budget
+
+	restore := setContextBudgetEnv(2500)
+	defer restore()
+	if got := core.HostContextBudgetFromEnv(); got != 2500 {
+		t.Fatalf("budget did not cross the env boundary: got %d", got)
+	}
+	req.HostBudget = core.HostContextBudgetFromEnv()
+	if capped := core.BuildContextManifest(req).Budget; capped != 2500 {
+		t.Fatalf("budget not capped to host hint: got %d (baseline %d)", capped, baseline)
+	}
+
+	restore()
+	if got := core.HostContextBudgetFromEnv(); got != 0 {
+		t.Fatalf("env not restored after tool call: got %d", got)
+	}
+}
+
 // boolPtr is a tiny helper so table rows can set IncludeOrchestration to an
 // explicit true/false distinct from the unset (nil) state (spec R5a).
 func boolPtr(b bool) *bool { return &b }

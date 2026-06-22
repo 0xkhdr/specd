@@ -120,7 +120,8 @@ func RunDispatch(args cli.Args) int {
 		mf := core.BuildContextManifest(core.ContextRequest{
 			Slug: slug, Status: state.Status, TaskID: f.ID, Role: v.Role,
 			Files: core.SplitCSV(v.Meta["files"]), Requirements: reqs,
-			Mode: core.ContextModeDispatch, ReadArtifact: reader,
+			Mode: core.ContextModeDispatch, HostBudget: core.HostContextBudgetFromEnv(),
+			ReadArtifact: reader,
 		})
 		rolePath := manifestRolePath(mf)
 		assets["role/"+v.Role] = rolePath

@@ -99,6 +99,7 @@ func buildContextManifest(root, slug string, state *core.State, doc core.ParsedT
 		Status:       state.Status,
 		Role:         "builder",
 		Mode:         core.ContextModeBriefing,
+		HostBudget:   core.HostContextBudgetFromEnv(),
 		ReadArtifact: core.SpecArtifactReader(root, slug),
 	}
 	if state.Status == core.StatusExecuting {

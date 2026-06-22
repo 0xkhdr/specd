@@ -14,6 +14,10 @@ import (
 type hostPrefs struct {
 	maxTools            int
 	preferredNamespaces []string
+	// maxContextTokens is the host's advertised context window for specd briefs
+	// (capabilities.specd.maxContextTokens). It shapes manifest budgets, not the
+	// tool list, so it is intentionally excluded from active() below. Zero = unset.
+	maxContextTokens int
 }
 
 // active reports whether the host sent any usable hint. When false, tools/list
@@ -30,6 +34,7 @@ type initializeParams struct {
 		Specd struct {
 			MaxTools            int      `json:"maxTools"`
 			PreferredNamespaces []string `json:"preferredNamespaces"`
+			MaxContextTokens    int      `json:"maxContextTokens"`
 		} `json:"specd"`
 	} `json:"capabilities"`
 }
@@ -44,9 +49,15 @@ func parseHostPrefs(rawParams json.RawMessage) hostPrefs {
 	hp := hostPrefs{
 		maxTools:            p.Capabilities.Specd.MaxTools,
 		preferredNamespaces: p.Capabilities.Specd.PreferredNamespaces,
+		maxContextTokens:    p.Capabilities.Specd.MaxContextTokens,
 	}
 	if hp.maxTools < 0 {
 		hp.maxTools = 0
+	}
+	// A non-positive context budget is garbage (R6): clamp to 0 so it is ignored
+	// downstream rather than capping briefs to nothing.
+	if hp.maxContextTokens < 0 {
+		hp.maxContextTokens = 0
 	}
 	return hp
 }
