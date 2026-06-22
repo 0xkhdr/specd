@@ -385,9 +385,10 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		if len(selected.Selected) > 0 {
 			host := selected.Selected[0]
 			agentDisplay := host
-			if host == "claude-code" {
+			switch host {
+			case "claude-code":
 				agentDisplay = "Claude Code"
-			} else if host == "cursor" {
+			case "cursor":
 				agentDisplay = "Cursor"
 			}
 			result.NextAction.Text = fmt.Sprintf("Restart %s to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", agentDisplay, orchConfig.ApprovalPolicy)
@@ -446,9 +447,7 @@ func confirm(input io.Reader, prompt string) bool {
 }
 
 func configureInitAgents(result core.InitResult, selected integration.Selection, options core.InitOptions, runtime onboardingRuntime) core.InitResult {
-	for _, suggestion := range selected.Suggestions {
-		result.Agents.Manual = append(result.Agents.Manual, suggestion)
-	}
+	result.Agents.Manual = append(result.Agents.Manual, selected.Suggestions...)
 	if selected.Ambiguous || (len(selected.Selected) == 0 && len(selected.Suggestions) > 0) {
 		result.Warnings = append(result.Warnings, core.InitWarning{
 			Code:    "agent-selection-required",
@@ -500,7 +499,8 @@ func emitInitResult(result core.InitResult, jsonOut bool, verbose ...bool) int {
 		}
 	} else {
 		ready := len(result.Files.Written) + len(result.Files.Updated) + len(result.Files.Skipped)
-		if result.Status == "planned" {
+		switch result.Status {
+		case "planned":
 			core.Info(fmt.Sprintf("specd init %s dry run in %s", result.Mode, result.Root))
 			for _, path := range result.Files.Written {
 				core.Info("would write: " + path)
@@ -511,7 +511,7 @@ func emitInitResult(result core.InitResult, jsonOut bool, verbose ...bool) int {
 			for _, path := range result.Files.Skipped {
 				core.Info("would preserve: " + path)
 			}
-		} else if result.Status == "ready" {
+		case "ready":
 			core.Info(fmt.Sprintf("Initialized specd in %s", result.Root))
 			core.Info(fmt.Sprintf("Project assets: %d ready, 0 failed", ready))
 			if len(result.Agents.Configured) > 0 {
@@ -530,7 +530,7 @@ func emitInitResult(result core.InitResult, jsonOut bool, verbose ...bool) int {
 			if len(verbose) > 0 && verbose[0] {
 				printInitPaths(result)
 			}
-		} else {
+		default:
 			core.Error(fmt.Sprintf("specd init failed in %s", result.Root))
 			core.Error(fmt.Sprintf("Project assets: %d ready, %d failed", ready, len(result.Files.Failed)))
 			for _, path := range result.Files.Failed {

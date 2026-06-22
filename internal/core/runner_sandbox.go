@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -135,7 +136,8 @@ func runIsolated(parent context.Context, bin string, args []string, spec RunSpec
 	timedOut := ctx.Err() == context.DeadlineExceeded
 	exitCode := 0
 	if runErr != nil {
-		if exitErr, ok := runErr.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(runErr, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = 124

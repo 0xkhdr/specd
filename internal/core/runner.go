@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 )
@@ -65,7 +66,8 @@ func (shRunner) Run(parent context.Context, spec RunSpec) RunResult {
 	timedOut := ctx.Err() == context.DeadlineExceeded
 	exitCode := 0
 	if runErr != nil {
-		if exitErr, ok := runErr.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(runErr, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = 124

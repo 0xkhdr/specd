@@ -1,7 +1,8 @@
+//go:build !windows
+
 package worker
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -51,7 +51,7 @@ func (r ShellRunner) Run(parent context.Context, m Mission) (Result, error) {
 	ctx, cancel := deadlineContext(parent, m.Deadline)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", m.Command)
+	cmd := exec.CommandContext(ctx, "sh", "-c", m.Command) //nolint:gosec // worker command is operator-supplied by design; see SECURITY.md
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
@@ -115,49 +115,4 @@ func artifactHint(files []string) string {
 		bases = append(bases, filepath.Base(f))
 	}
 	return strings.Join(bases, ",")
-}
-
-var outputMu sync.Mutex
-
-type lineWriter struct {
-	prefix string
-	dst    io.Writer
-	buf    []byte
-}
-
-func newLineWriter(prefix string, dst io.Writer) *lineWriter {
-	return &lineWriter{prefix: prefix, dst: dst}
-}
-
-func (w *lineWriter) Write(p []byte) (int, error) {
-	outputMu.Lock()
-	defer outputMu.Unlock()
-	w.buf = append(w.buf, p...)
-	for {
-		i := bytes.IndexByte(w.buf, '\n')
-		if i < 0 {
-			break
-		}
-		if _, err := fmt.Fprint(w.dst, w.prefix); err != nil {
-			return 0, err
-		}
-		if _, err := w.dst.Write(w.buf[:i+1]); err != nil {
-			return 0, err
-		}
-		w.buf = w.buf[i+1:]
-	}
-	return len(p), nil
-}
-
-// Flush emits any trailing partial line (no newline) so nothing is dropped when
-// the worker exits.
-func (w *lineWriter) Flush() {
-	outputMu.Lock()
-	defer outputMu.Unlock()
-	if len(w.buf) > 0 {
-		fmt.Fprint(w.dst, w.prefix)
-		w.dst.Write(w.buf)
-		fmt.Fprintln(w.dst)
-		w.buf = nil
-	}
 }

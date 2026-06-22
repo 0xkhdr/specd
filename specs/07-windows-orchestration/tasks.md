@@ -4,13 +4,13 @@
 > here before implementing** — see `spec.md §3`. Default to **B** if native
 > group-kill cannot be done with `syscall` alone (stdlib-only invariant wins).
 
-> **DECISION:** ______ (A native runner / B fail-fast) — fill in.
+> **DECISION:** B fail-fast — POSIX process-group deadline kills are the production contract; native Windows whole-tree kill would require Job Object plumbing outside the current stdlib-only seam/CI confidence.
 
 ---
 
 ## Wave A — Feasibility gate
 
-### [ ] W3.5 — Decide A vs B
+### [x] W3.5 — Decide A vs B
 - **Files:** working note → this file's DECISION line
 - **Do:** Verify whether Windows whole-tree kill is achievable with **`syscall`
   stdlib only** (no `golang.org/x/sys`). If yes and contained → Option A. If it
@@ -32,7 +32,7 @@
 - **Done when:** Builds on `GOOS=windows`; POSIX build unchanged; shared
   mechanics reused.
 
-### [ ] W3.6-B — (Option B) Fail-fast on Windows
+### [x] W3.6-B — (Option B) Fail-fast on Windows
 - **Files:** `internal/cmd/brain.go` (orchestration entrypoints) or a
   build-tagged guard `internal/worker/runner_windows.go`
 - **Do:** On Windows, the orchestration drive entrypoints return a clear error
@@ -46,7 +46,7 @@
 
 ## Wave C — Test & document
 
-### [ ] W3.6c — Test the chosen path
+### [x] W3.6c — Test the chosen path
 - **Files:** `internal/worker/runner_windows_test.go` (A) or
   `internal/cmd/brain_windows_test.go` (B), build-tagged
 - **Do:**
@@ -56,7 +56,7 @@
     (`//go:build windows` test, or a `GOOS`-guarded table test).
 - **Done when:** Test green on the relevant OS in CI.
 
-### [ ] W3.6d — Document
+### [x] W3.6d — Document
 - **Files:** `README.md`, `AGENTS.md` (orchestration section)
 - **Do:** State the Windows orchestration support level (A: supported; B:
   POSIX-only, use WSL). One clear sentence in each.
@@ -66,8 +66,8 @@
 ---
 
 ## Definition of done (Spec 07)
-- [ ] Windows orchestration **works (A)** or **fails fast with a clear message
+- [x] Windows orchestration **works (A)** or **fails fast with a clear message
       (B)** — no silent `sh` reliance.
-- [ ] OS choice confined to build-tagged runner files (no scattered `GOOS`).
+- [x] OS choice confined to build-tagged runner files (no scattered `GOOS`).
 - [ ] Cross-OS matrix green; stdlib-only invariant intact.
-- [ ] Behavior documented.
+- [x] Behavior documented.

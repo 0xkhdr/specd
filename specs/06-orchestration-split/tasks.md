@@ -7,7 +7,7 @@
 
 ## Wave A — Plan the cut
 
-### [ ] W3.3a — Map functions to bands
+### [x] W3.3a — Map functions to bands
 - **Files:** n/a (working note)
 - **Do:** List every func/type in `program_orchestration.go` and assign each to
   one band (snapshot / decide / step / session / lease) per `spec.md §1`.
@@ -19,7 +19,7 @@
 
 ## Wave B — Move
 
-### [ ] W3.3b — Create band files by relocation
+### [x] W3.3b — Create band files by relocation
 - **Files:** `internal/core/program_snapshot.go`, `program_decide.go`,
   `program_step.go`, `program_session.go`, `program_lease.go` (new);
   `internal/core/program_orchestration.go` (shrink)
@@ -30,7 +30,7 @@
 - **Done when:** `go build ./...` passes; each new file ≤~400 LOC; no file in
   `internal/core` >~700 LOC.
 
-### [ ] W3.4a — Re-home co-located tests (optional)
+### [x] W3.4a — Re-home co-located tests (optional)
 - **Files:** `internal/core/program_orchestration_test.go` (if 1:1 mappable)
 - **Do:** If a test file maps cleanly to a band, move its tests alongside. Do
   **not** split a test file through the middle of a logical group. Skip if it
@@ -52,7 +52,7 @@
 ---
 
 ## Definition of done (Spec 06)
-- [ ] `program_orchestration.go` god-file eliminated; bands ≤~400 LOC each.
-- [ ] No `internal/core` non-test file >~700 LOC.
-- [ ] Exported API unchanged; diff is pure relocation.
+- [x] `program_orchestration.go` god-file eliminated; bands ≤~400 LOC each.
+- [x] No `internal/core` non-test file >~700 LOC.
+- [x] Exported API unchanged; diff is pure relocation.
 - [ ] `-race -count=2 ./...` green.

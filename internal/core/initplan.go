@@ -256,7 +256,7 @@ func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(str
 			}
 		case ScaffoldCreate:
 			_, statErr := os.Stat(target)
-			if statErr == nil && !options.Force && !(options.Refresh && asset.Refresh) {
+			if statErr == nil && !options.Force && (!options.Refresh || !asset.Refresh) {
 				action.Kind = "skip"
 				action.Description = "preserve existing file"
 			} else if statErr != nil && !os.IsNotExist(statErr) {

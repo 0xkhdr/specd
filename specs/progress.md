@@ -84,16 +84,16 @@ floors raised locally; CI review still required.
 ## Wave 3 — Hardening + maintainability (P2) · Status: ⬜
 
 ### 05-lint-hardening
-- [ ] W3.1 Add `errorlint, gosec, bodyclose, gocritic, unconvert, misspell`
+- [x] W3.1 Add `errorlint, gosec, bodyclose, gocritic, unconvert, misspell`
 - [ ] W3.2 Triage + fix first run, CI green
 
 ### 06-orchestration-split
-- [ ] W3.3 Split `program_orchestration.go` into ≤~400-LOC files
-- [ ] W3.4 Tests stay green (mechanical move)
+- [x] W3.3 Split `program_orchestration.go` into ≤~400-LOC files
+- [x] W3.4 Tests stay green (mechanical move)
 
 ### 07-windows-orchestration
-- [ ] W3.5 Decide: non-`sh` Runner OR fail-fast on Windows
-- [ ] W3.6 Implement chosen path behind `Runner` interface
+- [x] W3.5 Decide: non-`sh` Runner OR fail-fast on Windows
+- [x] W3.6 Implement chosen path behind `Runner` interface
 
 **Exit gate W3:** ⬜ new linters green · no non-test file >700 LOC · Windows
 works-or-fails-fast with clear message.

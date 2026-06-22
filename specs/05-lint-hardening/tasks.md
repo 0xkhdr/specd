@@ -7,7 +7,7 @@
 
 ## Wave A — Enable
 
-### [ ] W3.1a — Add linters to config
+### [x] W3.1a — Add linters to config
 - **Files:** `.golangci.yml`
 - **Do:** Add `errorlint, gosec, bodyclose, gocritic, unconvert, misspell` to
   the `linters.enable` list (keep existing five). Add minimal per-linter config

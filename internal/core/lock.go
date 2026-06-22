@@ -143,10 +143,7 @@ func WithSpecLock[T any](root, slug string, fn func() (T, error)) (T, error) {
 
 	// Acquire the cross-process lock file, reclaiming stale ones.
 	deadline := time.Now().Add(timeoutMs())
-	for {
-		if tryAcquire(path) {
-			break
-		}
+	for !tryAcquire(path) {
 		if isStale(path) {
 			os.Remove(path)
 			continue

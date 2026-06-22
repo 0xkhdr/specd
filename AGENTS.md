@@ -175,6 +175,7 @@ MCP is needed — if you can run a shell command, you can run this harness.
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
    - `specd brain <start|step|status|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration. (MCP: `specd_brain`)
    - `specd pinky <claim|heartbeat|progress|report|block|release> [flags]` — record deterministic worker leases, telemetry, progress, and terminal reports. (MCP: `specd_pinky`)
+   - Windows orchestration is POSIX-only and fails fast with a clear WSL message; non-orchestration workflow remains portable.
    - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
 
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),

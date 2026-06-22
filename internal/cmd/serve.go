@@ -113,8 +113,8 @@ func renderIndexHTML(root string) string {
 			if status != "" {
 				meta = fmt.Sprintf(` <span class="meta">— %s · %s</span>`, esc(status), esc(phase))
 			}
-			rows.WriteString(fmt.Sprintf("      <li><a href=\"/s/%s\">%s</a>%s</li>\n",
-				esc(s), esc(title), meta))
+			fmt.Fprintf(&rows, "      <li><a href=\"/s/%s\">%s</a>%s</li>\n",
+				esc(s), esc(title), meta)
 		}
 		rows.WriteString("    </ul>\n")
 	}

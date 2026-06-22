@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -87,10 +88,11 @@ func Serve(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config) erro
 	for {
 		raw, err := c.readMessage()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			if rerr, ok := err.(rpcReadError); ok {
+			var rerr rpcReadError
+			if errors.As(err, &rerr) {
 				_ = c.writeMessage(rpcResponse{Jsonrpc: "2.0", Error: rerr.rpcError()})
 				continue
 			}
