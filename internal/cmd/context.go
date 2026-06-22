@@ -88,6 +88,73 @@ func buildBrief(state *core.State, slug, defaultVerify string) brief {
 	return brief{}
 }
 
+// buildContextManifest assembles the briefing-mode context manifest for a spec
+// through the shared engine. In executing it scopes the manifest to the next
+// runnable task (its role, declared files, covered requirements) so the brief
+// targets the actual frontier work; other phases brief at the phase level. The
+// injected reader lets the engine measure and slice the real artifacts.
+func buildContextManifest(root, slug string, state *core.State, doc core.ParsedTasks) core.MissionContextManifest {
+	req := core.ContextRequest{
+		Slug:         slug,
+		Status:       state.Status,
+		Role:         "builder",
+		Mode:         core.ContextModeBriefing,
+		ReadArtifact: core.SpecArtifactReader(root, slug),
+	}
+	if state.Status == core.StatusExecuting {
+		if next := core.NextRunnable(core.DagTasksFromState(state)); next.Kind == core.NextTask {
+			v := core.ResolveTaskView(doc, state, next.ID)
+			req.TaskID = next.ID
+			req.Role = v.Role
+			req.Files = core.SplitCSV(v.Meta["files"])
+			req.Requirements = v.Requirements
+		}
+	}
+	return core.BuildContextManifest(req)
+}
+
+// manifestJSON projects a context manifest into the additive `contextManifest`
+// JSON block, surfacing the measured accounting (estimatedTokens, budget) and
+// the ordered load items so any host can self-report its context cost.
+func manifestJSON(m core.MissionContextManifest) map[string]interface{} {
+	items := make([]map[string]interface{}, 0, len(m.Items))
+	for _, it := range m.Items {
+		item := map[string]interface{}{
+			"order": it.Order, "kind": it.Kind, "mode": it.Mode,
+			"required": it.Required, "tokenHint": it.TokenHint, "rationale": it.Rationale,
+		}
+		if it.Path != "" {
+			item["path"] = it.Path
+		}
+		if it.Command != "" {
+			item["command"] = it.Command
+		}
+		items = append(items, item)
+	}
+	return map[string]interface{}{
+		"version": m.Version, "softTokenCeiling": m.SoftTokenCeiling, "strategy": m.Strategy,
+		"estimatedTokens": m.EstimatedTokens, "budget": m.Budget, "items": items,
+	}
+}
+
+// printContextManifest renders the manifest's load items as a compact table
+// (required marker, item, mode, ~tokens, why) followed by the budget line so a
+// human reader sees exactly what to load and how close it runs to the ceiling.
+func printContextManifest(m core.MissionContextManifest) {
+	for _, it := range m.Items {
+		ref := it.Path
+		if ref == "" {
+			ref = it.Command
+		}
+		mark := " "
+		if it.Required {
+			mark = "*"
+		}
+		fmt.Printf("  %s %-44s %-18s ~%-5d %s\n", mark, ref, it.Mode, it.TokenHint, it.Rationale)
+	}
+	fmt.Printf("  (* = required)  est %d / budget %d tokens\n", m.EstimatedTokens, m.Budget)
+}
+
 func RunContext(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd context <slug> [--json]")
 	if !ok {
@@ -105,6 +172,7 @@ func RunContext(args cli.Args) int {
 	skill := phaseSkill(state.Status)
 	c := core.CountTasks(state)
 	load := append(baseSteering, b.load...)
+	manifest := buildContextManifest(root, slug, state, loaded.Doc)
 	gated := state.Gate == core.GateAwaitingApproval
 
 	reqMd := core.ReadArtifact(root, slug, "requirements.md")
@@ -132,6 +200,7 @@ func RunContext(args cli.Args) int {
 			"gate": state.Gate, "turn": state.Turn, "counts": c,
 			"phaseLabel": b.phaseLabel, "purpose": b.purpose, "load": load,
 			"skill": skill, "focus": focus, "next": next,
+			"contextManifest": manifestJSON(manifest),
 			"signals": map[string]interface{}{
 				"blockers":              blockers,
 				"latestMidreq":          midreq,
@@ -150,10 +219,8 @@ func RunContext(args cli.Args) int {
 	fmt.Println()
 	fmt.Printf("PHASE %s — %s\n", b.phaseLabel, b.purpose)
 	fmt.Println()
-	fmt.Println("LOAD NOW (minimal — don't dump the rest):")
-	for _, f := range load {
-		fmt.Printf("  - %s\n", f)
-	}
+	fmt.Println("LOAD NOW (minimal — measured budget, don't dump the rest):")
+	printContextManifest(manifest)
 	fmt.Printf("SKILL: %s\n", skill)
 	fmt.Println()
 

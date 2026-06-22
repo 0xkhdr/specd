@@ -61,6 +61,14 @@ func BuildMissionContextManifest(mission PinkyMission, read func(name string) (s
 
 // specArtifactReader returns a reader closure that feeds the context engine raw
 // artifact markdown for a spec, performing the IO outside the pure engine.
+// SpecArtifactReader returns the injected artifact reader the context engine
+// uses for measurement and slicing: it yields the raw markdown for a spec
+// artifact and ok=false when absent. Exported so command surfaces feed the same
+// reader the mission adapter and gates use.
+func SpecArtifactReader(root, slug string) func(name string) (string, bool) {
+	return specArtifactReader(root, slug)
+}
+
 func specArtifactReader(root, slug string) func(name string) (string, bool) {
 	return func(name string) (string, bool) {
 		if raw := ReadArtifact(root, slug, name); raw != nil {

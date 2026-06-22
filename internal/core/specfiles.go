@@ -107,6 +107,14 @@ type GatesCfg struct {
 	// "warn"/"error". It flags verify-time changed files outside a task's
 	// declared `files:` contract.
 	Scope string `json:"scope"`
+	// ContextBudget is the opt-in context-budget gate severity:
+	// "off"/""/"*" = no-op (default), else "warn"/"error". When enabled it builds
+	// the active spec's context manifest and flags it when the required-item token
+	// estimate exceeds the effective budget, naming the heaviest items.
+	ContextBudget string `json:"contextBudget"`
+	// MaxContextTokens optionally caps the gate's effective budget (mirrors the MCP
+	// capabilities.specd.maxContextTokens host hint). 0 = use the derived budget.
+	MaxContextTokens int `json:"maxContextTokens"`
 	// Custom lists external, declarative custom gates run after the core
 	// pipeline. Each is an ordinary subprocess (no Go plugin, no network).
 	Custom []CustomGateCfg `json:"custom"`
@@ -127,7 +135,7 @@ var DefaultConfig = Config{
 	Report:             ReportCfg{Format: "md", AutoRefreshSeconds: 0},
 	Roles:              RolesCfg{SubagentMode: "inline"},
 	PromotionThreshold: 3,
-	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off", Custom: []CustomGateCfg{}},
+	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off", ContextBudget: "off", Custom: []CustomGateCfg{}},
 	Verify:             VerifyCfg{Sandbox: "none"},
 	Orchestration: OrchestrationCfg{
 		Enabled:                  false,
