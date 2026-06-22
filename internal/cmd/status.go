@@ -88,6 +88,7 @@ func RunStatus(args cli.Args) int {
 
 	fmt.Printf("# %s (%s)\n", state.Title, state.Spec)
 	fmt.Printf("status: %s · phase: %s · gate: %s · turn: %d\n", state.Status, state.Phase, state.Gate, state.Turn)
+	fmt.Printf("mode: %s (origin %s)\n", state.EffectiveMode(), modeOriginOrDefault(state))
 	fmt.Printf("tasks: %d complete · %d running · %d pending · %d blocked · %d total\n", c.Complete, c.Running, c.Pending, c.Blocked, c.Total)
 	fmt.Println()
 	fmt.Println(core.WaveGraph(state))

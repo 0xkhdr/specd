@@ -343,7 +343,7 @@ so the default surface stays byte-identical.
 
 ### Host capability negotiation (`capabilities.specd`)
 
-`initialize` accepts two optional, **non-standard** hints under
+`initialize` accepts three optional, **non-standard** hints under
 `capabilities.specd`; hosts that omit them are entirely unaffected.
 
 ```jsonc
@@ -353,7 +353,8 @@ so the default surface stays byte-identical.
     "capabilities": {
       "specd": {
         "maxTools": 8,
-        "preferredNamespaces": ["read", "orchestration"]
+        "preferredNamespaces": ["read", "orchestration"],
+        "maxContextTokens": 8000
       }
     }
   }
@@ -364,6 +365,7 @@ so the default surface stays byte-identical.
 |---|---|
 | `maxTools` | Caps the emitted tool count. Config/manifest-`required` tools are never dropped to satisfy it — if they alone exceed `maxTools`, all required tools are still emitted plus a stderr diagnostic. `≤ 0` is a no-op. |
 | `preferredNamespaces` | Orders matching-namespace tools first (in the given order) and prefers them when truncating. Namespaces: `read` (`specd_inspect`/`read`/`query`), `orchestration` (`specd_orchestrate`/`worker` + `brain_*`), `meta`, `core`. A namespace may also be named by a member tool (e.g. `specd_read`). |
+| `maxContextTokens` | Caps the `budget` of every context manifest produced during the session (Pinky missions, dispatch packets). Threaded into the engine as the host context window. `≤ 0` / garbage is ignored safely; omitting it yields the derived per-phase budget unchanged. |
 
 The negotiated preferences persist for the session and re-apply on every
 `tools/list` (including dynamic re-fetches under `expose:"phase"`). Garbage values
@@ -658,7 +660,6 @@ Run `specd mcp --config codex --root /path/to/your/project` to get a pre-filled 
 | Limitation | Detail |
 |---|---|
 | **Loopback HTTP only** | `specd mcp --http` binds loopback (`127.0.0.1`) by default and is not an authenticated remote endpoint. Do not expose it on a public interface without an authenticating proxy in front. |
-| **No resources or prompts** | Only the `tools` capability is advertised. MCP resources and prompts are not yet implemented. |
-| **Static tool list** | `listChanged` is `false`. The tool list is fixed for the process lifetime; a host must restart the server to pick up newly compiled commands. |
+| **Static tool list (default)** | `tools.listChanged` is `false` except under `expose:"phase"`, where the tool list mutates with the active phase and `listChanged` is advertised `true`. In other modes the list is fixed for the process lifetime. |
 | **Serial tool calls** | Tool calls are processed one at a time. Concurrent calls from the same host are serialised by the stdio loop. |
 | **Host config schema drift** | MCP support in Cursor and VS Code is evolving. Config examples in this guide target the `2024-11-05` protocol revision and may need adjustment for future host versions. |

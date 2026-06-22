@@ -14,7 +14,7 @@ specd validate <slug> --schema   # check a spec's state.json against it
 
 - **`specdSchemaVersion`** (`"1"`) versions *this format standard* — the
   published JSON Schema contract.
-- **`stateSchemaVersion`** (`4`) versions the *on-disk migration shape* of
+- **`stateSchemaVersion`** (`5`) versions the *on-disk migration shape* of
   `state.json` (see `internal/core/state.go`). The two are independent: the
   format standard can gain a new published version without changing the
   migration number, and vice versa.
@@ -55,7 +55,10 @@ The root is a `State` object. The schema defines five `$defs`:
 - **`State`** — `schemaVersion`, `revision`, `spec`, `title`, `status`, `phase`,
   `gate`, `turn`, `createdAt`, `updatedAt`, `tasks` (map of `TaskState`),
   `blockers` (array of `Blocker`); optional `acceptance` (map of
-  `CriterionRecord`) and `prompt`.
+  `CriterionRecord`), `prompt`, and the execution-mode pair `executionMode`
+  (`base` | `orchestrated`) and `modeOrigin` (`default` | `user` |
+  `recommended-accepted`). All optional fields are `omitempty`, so a Base spec
+  that never opted into orchestration keeps a byte-identical `state.json`.
 - **`TaskState`** — `id`, `title`, `role`, `wave`, `depends`, `requirements`,
   `status`; optional `startedAt`, `finishedAt`, `evidence`, `verification`,
   `blocker`, `telemetry`.

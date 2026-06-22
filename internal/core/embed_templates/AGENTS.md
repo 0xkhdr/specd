@@ -3,6 +3,10 @@
 This repo uses **specd**, an agent-agnostic, spec-driven harness (Kiro spec workflow + structured reasoning). You drive it entirely through the `specd` CLI via your shell tool. No API, plugin, or
 MCP is needed — if you can run a shell command, you can run this harness.
 
+**Foundational Split:** specd core is deterministic and makes zero LLM calls — *you* do all
+creative thinking, perceiving, and authoring; the harness only scaffolds and enforces gates.
+Brain schedules deterministically; it never thinks. Don't ask the core to reason.
+
 ## Five rules (non-negotiable)
 
 1. **Load context first.** At the start of every session, read the always-on steering files
@@ -26,15 +30,53 @@ MCP is needed — if you can run a shell command, you can run this harness.
    - `specd pinky <claim|heartbeat|progress|query|report|block|release|inbox> [flags]` — record deterministic worker leases, telemetry, bounded queries, progress, and terminal reports. (MCP: `specd_pinky`)
    - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
 
+   MCP hosts: prefer the **intent-level tools** (`brain_orchestrate`, `brain_status`, …);
+   `specd_brain`/`specd_pinky` are raw passthrough for flags the intent tools don't surface —
+   see `docs/agent-integration.md`.
+
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
    builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic
    controller), or pinky (host worker). If your host has native subagents and
-   `config.json.roles.subagentMode = "delegate"`, delegate; otherwise run the role inline
-   under the same constraints.
+   `config.json.roles.subagentMode = "delegate"`, dispatch Brain missions to the scaffolded
+   `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md` workers; otherwise run
+   the role inline under the same constraints.
 
 5. **Evidence gate.** Never mark a task complete without a passing verify or a manual proof, and
    pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
    must bind to a matching verification record; host-reported telemetry (tokens, cost, duration) is stored as metadata and is not proof of correctness.
+
+## Execution mode — Base vs Orchestrated (per spec, user decides)
+
+Every spec records its own **execution mode** in `state.json` (`specd mode <spec>` shows it).
+Base is the default and the broad-compatibility path; orchestration is always an explicit
+opt-in. Capability vs selection are distinct: project `orchestration.enabled` only *permits*
+orchestration, while a spec's `executionMode` *selects* it.
+
+1. **Default Base.** "create/build/spec X" → author the spec in Base mode. Do **not** start
+   Brain/Pinky. In Base you own every step (`specd next` → implement → `specd verify`).
+2. **Explicit opt-in → Orchestrated.** "use Pinky and the Brain", "orchestrate this", "run it
+   autonomously" → `specd mode <spec> --set orchestrated`, then drive with `specd brain run`.
+   Brain/Pinky **refuse** Base specs, pointing you back here.
+3. **Recommend, don't impose.** After `tasks.md` is approved, consult
+   `specd mode <spec> --recommend --json`. On `suggest`/`strong`, surface a one-line suggestion
+   (e.g. "23 tasks across wide waves — run with Brain/Pinky, or proceed normally?") and **wait
+   for the user**. Never switch without a yes; the verdict is advisory (`userDecides: true`).
+4. **Respect the recorded mode.** On later actions read `spec.executionMode` and follow it —
+   don't re-litigate each turn.
+
+## What loads when
+
+`specd context <spec>` is authoritative for the minimal file set per phase. This table is a
+hint, not a substitute — **re-run `specd context <spec>` each turn; don't trust this from memory**
+(phases change what's in scope).
+
+| Phase | Loads (beyond always-on steering) |
+|-------|-----------------------------------|
+| INTAKE / PERCEIVE / ANALYZE | spec `requirements.md` as it forms |
+| PLAN | `requirements.md`, `design.md`, `tasks.md` |
+| EXECUTE | `tasks.md`, `memory.md` |
+| VERIFY | `tasks.md`, verification records |
+| REFLECT | `memory.md`, `decisions.md` |
 
 ## Skills — progressive disclosure
 
@@ -73,12 +115,15 @@ specd next my-feature            # -> focused task
 specd verify my-feature T1       # run declared verification and record the result
 specd task my-feature T1 --status complete --evidence "commit abc123; npm test PASS"
 # execute loop (orchestrated):
-# specd brain start my-feature --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200
+# orchestration defaults (approvalPolicy, maxWorkers, maxRetries, sessionTimeoutMinutes,
+# leaseSeconds, …) live in config.json.orchestration; set them via `specd init --orchestration*`.
+# Flags below override per-run; omit them to use the configured defaults.
+# specd brain start my-feature
 # specd pinky claim --mission mission.json
 # specd pinky heartbeat --session s --worker w --attempt 1
 # specd verify my-feature T1
 # specd pinky report --session s --worker w --spec my-feature --task T1 --attempt 1 --verification-ref ref --summary "done"
-# specd brain step my-feature --session s --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200
+# specd brain step my-feature --session s
 # when the last task is done the spec enters `verifying`:
 specd approve my-feature         # accept spec-level verification → complete
 specd report my-feature          # snapshot

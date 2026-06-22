@@ -28,7 +28,7 @@ func callIntent(t *testing.T, name string, arguments map[string]any) (string, cl
 	}
 	var gotCmd string
 	var gotArgs cli.Args
-	_, rerr := callTool(params, captureDispatch(&gotCmd, &gotArgs))
+	_, rerr := callTool(params, captureDispatch(&gotCmd, &gotArgs), 0)
 	return gotCmd, gotArgs, rerr
 }
 
@@ -162,7 +162,7 @@ func TestIntentToolValidation(t *testing.T) {
 		_, rerr := callTool(params, func(string, cli.Args) (int, bool) {
 			dispatched = true
 			return core.ExitOK, true
-		})
+		}, 0)
 		if rerr == nil {
 			t.Errorf("%s(%v): want invalid-params error, got nil", tc.name, tc.args)
 		}

@@ -14,7 +14,18 @@ specd pinky claim --mission <mission.json>
 specd context <spec>
 ```
 
-Load the mission's `contextManifest` in order. Required items are the role contract, Pinky skill, one phase-scoped skill, `specd context <spec>`, and scoped files. Optional source artifacts stay collapsed unless needed; stop expanding optional context before the soft token ceiling.
+Load the mission's `contextManifest` in order. Required items are the role contract, Pinky skill, one phase-scoped skill, `specd context <spec>`, and scoped files. Optional source artifacts stay collapsed unless needed.
+
+The manifest is budgeted. `estimatedTokens` sums the required items; `budget` is the effective ceiling for this mission. Load every required item, then expand `reference-if-needed`/optional items only when the contract demands it, and stop before `budget`.
+
+Each item carries a `mode`:
+
+- `read-full` — load the whole artifact.
+- `read-targeted` — the `path` resolves to a **slice**, not the whole file (the task's row in `tasks.md`, only the covered requirement lines, the named design section). Read just that slice; do not re-expand to the full file unless you genuinely need more.
+- `run-command` — run the `command` (e.g. `specd context <spec>`) and read its output.
+- `reference-if-needed` — keep collapsed; open only if the contract requires it.
+
+`tokenHint` is the measured estimate for each item (the slice when targeted), so the running total is real, not a guess.
 
 ## Authority
 

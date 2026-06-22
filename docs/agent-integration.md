@@ -66,20 +66,27 @@ Set in `.specd/config.json` via `roles.subagentMode`:
 ### Frontier dispatch
 
 `specd dispatch <slug> --json` emits one ready-to-run packet per task in the
-current frontier — role prompt, contract, files, acceptance, verify command, and
-the completion command. Pattern for parallel execution:
+current frontier — contract, files, acceptance, verify command, the completion
+command, and a budgeted `contextManifest`. Pattern for parallel execution:
 
 ```bash
 # 1. Get dispatch packets
 specd dispatch my-feature --json
 
-# 2. For each packet, spawn a subagent with its rolePrompt + contract.
+# 2. For each packet, spawn a subagent with its contextManifest + contract.
+#    Resolve the role by name via the shared top-level `assets` map
+#    (`role/<name>` -> path); read it once and reuse across same-role packets.
 # 3. Each subagent:
 #      ... implement task ...
 #      specd verify my-feature T1
 #      specd task my-feature T1 --status complete
 # 4. The orchestrator monitors the frontier and dispatches the next wave.
 ```
+
+Role prompt bytes are emitted **once** per response via `assets`, not inlined per
+packet — a 5-task wave on one role no longer repeats the role prompt 5×. Hosts
+that cannot resolve asset paths pass `--inline-roles` to restore full-text
+`rolePrompt` in every packet (back-compat).
 
 ## Context engineering
 
@@ -91,13 +98,69 @@ specd context my-feature
 
 Output sections:
 1. **Phase briefing** — active phase rules (e.g. "You are in PLAN phase. Do not edit code.").
-2. **Load list** — the minimal file list for the context window.
+2. **LOAD NOW** — the budgeted context manifest: each item with its `mode`,
+   measured `~tokens` (`tokenHint`), and rationale, plus a budget line
+   (`est X / budget Y`).
 3. **Signals**
    - Blockers: currently blocked tasks + reasons
    - Awaiting approval: mid-req change locks
    - Uncovered requirements: requirements with no task mappings
 
+`specd context <slug> --json` adds an additive `contextManifest` block:
+
+```jsonc
+{
+  "contextManifest": {
+    "version": 1,
+    "estimatedTokens": 5400,   // sum of required-item hints
+    "budget": 12000,           // effective ceiling (phase/role/file-count derived, host-capped)
+    "items": [
+      { "order": 1, "kind": "role", "mode": "read-full", "required": true, "tokenHint": 1200, "rationale": "..." }
+    ]
+  }
+}
+```
+
+All three surfaces — `specd context` (A), `specd dispatch` (B), and the Pinky
+mission brief (C) — are produced by one shared engine (`BuildContextManifest`),
+so they agree on what to load and never drift.
+
+**Item modes.** `read-full` loads the whole artifact; `run-command` runs the
+named command; `reference-if-needed` stays collapsed until needed; `read-targeted`
+resolves to a **slice**, not the whole file — the task's row in `tasks.md`, only
+the covered requirement lines, the named design section, or a bounded window of
+recent `memory.md` entries. `tokenHint` measures the slice in targeted mode, so
+the budget reflects real bytes.
+
+**Budget enforcement.** The opt-in `context-budget` gate (off by default) fails
+`specd check` when required-item `estimatedTokens` exceeds `budget`, naming the
+heaviest items. Enable it in `.specd/config.json` under `gates.contextBudget`
+(`"warn"` or `"error"`).
+
 ---
+
+## Execution mode — host decision protocol
+
+Each spec runs in `base` (default) or `orchestrated` mode, recorded in its
+`state.json`. The host agent follows a fixed protocol so behavior is identical
+across runs:
+
+1. **Default Base.** "create/build/spec X" → author in Base; do **not** start
+   Brain/Pinky. In Base the host owns every step.
+2. **Explicit opt-in → Orchestrated.** "use Pinky and the Brain", "orchestrate
+   this", "run autonomously" → `specd mode <slug> --set orchestrated`, then drive
+   with `specd brain run` (or MCP `brain_orchestrate`). Brain/Pinky refuse Base
+   specs.
+3. **Recommend, don't impose.** After `tasks.md` is approved, consult
+   `specd mode <slug> --recommend --json` (or MCP `mode_recommend`). On
+   `suggest`/`strong`, surface a one-line suggestion and **wait for the user** —
+   the verdict is advisory (`userDecides: true`); never switch without a yes.
+4. **Respect the recorded mode.** Later actions read `spec.executionMode` and
+   follow it.
+
+MCP intent tools mirror this surface: `mode_get`, `mode_set`, `mode_recommend`.
+Capability (`orchestration.enabled`) only *permits* orchestration; the spec's
+`executionMode` *selects* it — never conflate them.
 
 ## Brain/Pinky Orchestration
 

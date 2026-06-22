@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -151,7 +152,10 @@ func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, c *conn) (any,
 		}
 		return map[string]any{"tools": tools}, nil
 	case "tools/call":
-		return callTool(req.Params, dispatch)
+		// The session's host context budget (capabilities.specd.maxContextTokens)
+		// is threaded across the in-process dispatch boundary via env, the same
+		// channel SPECD_JSON uses, so manifest-producing commands can size briefs.
+		return callTool(req.Params, dispatch, c.prefs.maxContextTokens)
 	case "resources/list":
 		root, _ := core.FindSpecdRoot("")
 		return handleResourcesList(root), nil
@@ -214,7 +218,7 @@ type callParams struct {
 // SPECD_JSON semantics, capturing its stdout/stderr and mapping its exit code to
 // the MCP result. A non-zero exit becomes isError:true; a handler panic is
 // recovered so one bad call never crashes the server (R3).
-func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
+func callTool(rawParams json.RawMessage, dispatch Dispatcher, contextBudget int) (any, *rpcError) {
 	var p callParams
 	if err := json.Unmarshal(rawParams, &p); err != nil {
 		return nil, &rpcError{Code: errInvalidParams, Message: "invalid params: " + err.Error()}
@@ -227,7 +231,7 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 		if err != nil {
 			return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
 		}
-		return runTool(command, argv, dispatch)
+		return runTool(command, argv, dispatch, contextBudget)
 	}
 
 	// Composite tools (spec A2/A4) are dispatch wrappers that validate a view/action
@@ -237,7 +241,7 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 		if err != nil {
 			return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
 		}
-		return runTool(command, argv, dispatch)
+		return runTool(command, argv, dispatch, contextBudget)
 	}
 
 	command, ok := strings.CutPrefix(p.Name, toolPrefix)
@@ -248,7 +252,7 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 	if err != nil {
 		return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
 	}
-	return runTool(command, argv, dispatch)
+	return runTool(command, argv, dispatch, contextBudget)
 }
 
 // runTool dispatches a resolved command+argv with SPECD_JSON semantics: it
@@ -256,7 +260,7 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher) (any, *rpcError) {
 // streaming, captures stdout/stderr, and maps the exit code to the MCP result.
 // Both raw passthrough and intent tools funnel through here so they share
 // identical capture, error, and panic-recovery behaviour (R3).
-func runTool(command string, argv []string, dispatch Dispatcher) (any, *rpcError) {
+func runTool(command string, argv []string, dispatch Dispatcher, contextBudget int) (any, *rpcError) {
 	// Force structured handler output: append --json (a no-op for commands that
 	// lack the flag) and set SPECD_JSON so JSON-mode suppression fires too.
 	argv = append(argv, "--json")
@@ -266,6 +270,11 @@ func runTool(command string, argv []string, dispatch Dispatcher) (any, *rpcError
 	}
 	restoreEnv := setJSONMode()
 	defer restoreEnv()
+	// Carry the host's context budget to the dispatched command's manifest
+	// builders. Unset (≤0) leaves the env untouched so output is byte-identical
+	// to the pre-feature path (AC-6).
+	restoreBudget := setContextBudgetEnv(contextBudget)
+	defer restoreBudget()
 
 	var known bool
 	stdout, stderr, code := capture(func() int {
@@ -368,6 +377,26 @@ func setJSONMode() func() {
 			os.Setenv("SPECD_JSON", prev)
 		} else {
 			os.Unsetenv("SPECD_JSON")
+		}
+	}
+}
+
+// setContextBudgetEnv exports the host-negotiated context budget under
+// SPECD_MAX_CONTEXT_TOKENS for the duration of a tool call and returns a restore
+// function, mirroring setJSONMode. A non-positive budget is a no-op (env left
+// untouched) so the feature-off path is byte-identical (AC-6).
+func setContextBudgetEnv(budget int) func() {
+	if budget <= 0 {
+		return func() {}
+	}
+	const key = "SPECD_MAX_CONTEXT_TOKENS"
+	prev, had := os.LookupEnv(key)
+	os.Setenv(key, strconv.Itoa(budget))
+	return func() {
+		if had {
+			os.Setenv(key, prev)
+		} else {
+			os.Unsetenv(key)
 		}
 	}
 }

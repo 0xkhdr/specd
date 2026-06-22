@@ -14,7 +14,7 @@ import (
 // baseline so normal spec growth does not flake the test, while a runaway briefing
 // (decoration leak, duplicated payload) still trips it.
 const (
-	budgetContextBytes  = 2048
+	budgetContextBytes  = 3584
 	budgetNextBytes     = 1536
 	budgetDispatchBytes = 4096
 )

@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "defaultVerify": "npm test",
+  "defaultVerify": "echo 'specd: defaultVerify is unset — set it to your repo test command (see the specd-steering skill)' >&2; exit 1",
   "report": { "format": "md", "autoRefreshSeconds": 0 },
   "roles": { "subagentMode": "inline" },
   "promotionThreshold": 3,
-  "gates": { "traceability": "warn", "acceptance": "off", "scope": "off", "custom": [] },
+  "gates": { "traceability": "warn", "acceptance": "off", "scope": "off", "contextBudget": "off", "custom": [] },
   "verify": { "sandbox": "none" },
   "orchestration": {
     "enabled": false,

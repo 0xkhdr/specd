@@ -512,3 +512,39 @@ func TestMatchesAnyGlob(t *testing.T) {
 		}
 	}
 }
+
+func TestGateContextBudget(t *testing.T) {
+	st := &State{Status: StatusExecuting, Tasks: map[string]TaskState{}}
+
+	// Off by default: no config severity => no-op (core pipeline unchanged).
+	if v, w := GateContextBudget(CheckCtx{State: st}); len(v) != 0 || len(w) != 0 {
+		t.Fatalf("default: want 0/0, got v=%v w=%v", v, w)
+	}
+	if v, w := GateContextBudget(CheckCtx{State: st, Cfg: Config{Gates: GatesCfg{ContextBudget: "off"}}}); len(v) != 0 || len(w) != 0 {
+		t.Fatalf("off: want 0/0, got v=%v w=%v", v, w)
+	}
+
+	// Under budget: enabled with the derived ceiling, required estimate fits.
+	under := Config{Gates: GatesCfg{ContextBudget: "error"}}
+	if v, w := GateContextBudget(CheckCtx{State: st, Cfg: under}); len(v) != 0 || len(w) != 0 {
+		t.Fatalf("under budget: want 0/0, got v=%v w=%v", v, w)
+	}
+
+	// Over budget (error): a tight host cap forces the required estimate over the
+	// effective budget; the gate fails and names the heaviest required item.
+	over := Config{Gates: GatesCfg{ContextBudget: "error", MaxContextTokens: 2000}}
+	v, w := GateContextBudget(CheckCtx{State: st, Cfg: over})
+	if len(v) != 1 || len(w) != 0 || v[0].Gate != "context-budget" {
+		t.Fatalf("over budget error: want 1 context-budget violation/0 warnings, got v=%v w=%v", v, w)
+	}
+	if !strings.Contains(v[0].Message, "phase-skill") || !strings.Contains(v[0].Message, "exceeds budget") {
+		t.Fatalf("over budget message should name heaviest item: %q", v[0].Message)
+	}
+
+	// Over budget (warn): same overflow folds into a warning, not a violation.
+	warn := Config{Gates: GatesCfg{ContextBudget: "warn", MaxContextTokens: 2000}}
+	wv, ww := GateContextBudget(CheckCtx{State: st, Cfg: warn})
+	if len(wv) != 0 || len(ww) != 1 {
+		t.Fatalf("over budget warn: want 0 violations/1 warning, got v=%v w=%v", wv, ww)
+	}
+}

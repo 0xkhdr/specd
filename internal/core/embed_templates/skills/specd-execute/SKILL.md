@@ -56,7 +56,8 @@ also flags any completed task lacking proof.
 ```
 # at status verifying: run the config defaultVerify and confirm acceptance holds
 specd verify <slug> --criterion <r>.<n> --status pass --evidence "..."
-specd check <slug>                      # all 7 gates green
+specd check <slug>                      # all 7 gates green:
+                                        #   ears · design · task-schema · dag · sync · traceability · evidence
 specd approve <slug>                    # human accepts verification → complete
 ```
 

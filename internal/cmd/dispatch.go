@@ -11,29 +11,50 @@ import (
 // Field order matches the previous map output (encoder sorts map keys) so the
 // emitted bytes are unchanged.
 type frontierOut struct {
-	Count   int              `json:"count"`
-	Kind    string           `json:"kind"`
-	Packets []dispatchPacket `json:"packets"`
+	Count int    `json:"count"`
+	Kind  string `json:"kind"`
+	// Assets is the shared role-asset map (`role/<name>` -> path) emitted once per
+	// response so a multi-task wave on one role carries the role prompt bytes at
+	// most once. Omitted under --inline-roles (packets carry full text instead).
+	Assets  map[string]string `json:"assets,omitempty"`
+	Packets []dispatchPacket  `json:"packets"`
 }
 
 type dispatchPacket struct {
-	ID           string   `json:"id"`
-	Wave         int      `json:"wave"`
-	Role         string   `json:"role"`
-	RolePrompt   string   `json:"rolePrompt"`
-	Title        string   `json:"title"`
-	Why          string   `json:"why"`
-	Contract     string   `json:"contract"`
-	Files        string   `json:"files"`
-	Acceptance   string   `json:"acceptance"`
-	Verify       string   `json:"verify"`
-	Depends      []string `json:"depends"`
-	Requirements []int    `json:"requirements"`
-	Completion   string   `json:"completion"`
+	ID   string `json:"id"`
+	Wave int    `json:"wave"`
+	Role string `json:"role"`
+	// RolePath references the role asset by path (resolve via the response-level
+	// `assets` map). RolePrompt is only populated under --inline-roles, where the
+	// full role text is inlined per packet for hosts that cannot resolve paths.
+	RolePath        string                       `json:"rolePath"`
+	RolePrompt      string                       `json:"rolePrompt,omitempty"`
+	Title           string                       `json:"title"`
+	Why             string                       `json:"why"`
+	Contract        string                       `json:"contract"`
+	Files           string                       `json:"files"`
+	Acceptance      string                       `json:"acceptance"`
+	Verify          string                       `json:"verify"`
+	Depends         []string                     `json:"depends"`
+	Requirements    []int                        `json:"requirements"`
+	ContextManifest *core.MissionContextManifest `json:"contextManifest,omitempty"`
+	Completion      string                       `json:"completion"`
+}
+
+// manifestRolePath returns the role asset path the context engine resolved for
+// this packet (the first "role"-kind item). It is the canonical path packets
+// reference instead of inlining the role text.
+func manifestRolePath(m core.MissionContextManifest) string {
+	for _, it := range m.Items {
+		if it.Kind == "role" {
+			return it.Path
+		}
+	}
+	return ""
 }
 
 func RunDispatch(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd dispatch <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd dispatch <slug> [--json] [--inline-roles]")
 	if !ok {
 		return code
 	}
@@ -82,6 +103,9 @@ func RunDispatch(args cli.Args) int {
 		return s
 	}
 
+	inlineRoles := args.Bool("inline-roles")
+	reader := core.SpecArtifactReader(root, slug)
+	assets := map[string]string{}
 	packets := make([]dispatchPacket, len(frontier))
 	for i, f := range frontier {
 		v := core.ResolveTaskView(doc, state, f.ID)
@@ -93,17 +117,37 @@ func RunDispatch(args cli.Args) int {
 		if reqs == nil {
 			reqs = []int{}
 		}
-		packets[i] = dispatchPacket{
-			ID: f.ID, Wave: f.Wave, Role: v.Role, RolePrompt: rolePromptFor(v.Role),
+		mf := core.BuildContextManifest(core.ContextRequest{
+			Slug: slug, Status: state.Status, TaskID: f.ID, Role: v.Role,
+			Files: core.SplitCSV(v.Meta["files"]), Requirements: reqs,
+			Mode: core.ContextModeDispatch, HostBudget: core.HostContextBudgetFromEnv(),
+			ReadArtifact: reader,
+		})
+		rolePath := manifestRolePath(mf)
+		assets["role/"+v.Role] = rolePath
+		p := dispatchPacket{
+			ID: f.ID, Wave: f.Wave, Role: v.Role, RolePath: rolePath,
 			Title: v.Title, Why: v.Meta["why"], Contract: v.Meta["contract"], Files: v.Meta["files"],
 			Acceptance: v.Meta["acceptance"], Verify: v.Meta["verify"],
-			Depends: depends, Requirements: reqs,
+			Depends: depends, Requirements: reqs, ContextManifest: &mf,
 			Completion: fmt.Sprintf("specd task %s %s --status complete --evidence \"<proof>\"", slug, f.ID),
 		}
+		if inlineRoles {
+			// Back-compat escape hatch: inline the full role text per packet for
+			// hosts that cannot resolve the shared asset path.
+			p.RolePrompt = rolePromptFor(v.Role)
+		}
+		packets[i] = p
 	}
 
 	if jsonOut {
-		if err := core.PrintJSON(frontierOut{Count: len(packets), Kind: "frontier", Packets: packets}); err != nil {
+		out := frontierOut{Count: len(packets), Kind: "frontier", Assets: assets, Packets: packets}
+		if inlineRoles {
+			// Roles are inlined per packet; drop the shared map to reproduce the
+			// pre-dedupe response shape.
+			out.Assets = nil
+		}
+		if err := core.PrintJSON(out); err != nil {
 			return specdExit(err)
 		}
 		return core.ExitOK
@@ -120,6 +164,7 @@ func RunDispatch(args cli.Args) int {
 		fmt.Printf("      done:   %s\n", p.Completion)
 	}
 	fmt.Println("==============================")
-	fmt.Printf("Full packets (role prompt + contract + files + acceptance): specd dispatch %s --json\n", slug)
+	fmt.Printf("Full packets (shared role assets + context manifest + contract + files): specd dispatch %s --json\n", slug)
+	fmt.Printf("Inline role text per packet (back-compat): specd dispatch %s --json --inline-roles\n", slug)
 	return core.ExitOK
 }

@@ -45,11 +45,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "new", Category: "lifecycle",
 		Description: "Create a spec with six artifacts",
-		Usage:       "specd new <slug> [--title \"...\"]", Synopsis: "specd new <slug> [--title \"...\"]",
-		LongDescription: "Creates a new spec directory under .specd/specs/<slug>/ with six artifact stubs.",
-		Flags:           []FlagMeta{{Name: "title", Type: "string", Description: "The title of the spec"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, ".specd/ not found or spec already exists"}},
-		Examples:        []string{"specd new my-feature", "specd new my-feature --title \"My Feature\""},
+		Usage:       "specd new <slug> [--title \"...\"] [--orchestrated]", Synopsis: "specd new <slug> [--title \"...\"] [--orchestrated]",
+		LongDescription: "Creates a new spec directory under .specd/specs/<slug>/ with six artifact stubs. Specs default to Base execution mode; --orchestrated records executionMode=orchestrated (origin user) and requires project orchestration capability.",
+		Flags:           []FlagMeta{{Name: "title", Type: "string", Description: "The title of the spec"}, {Name: "orchestrated", Type: "boolean", Description: "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Orchestration requested without project capability"}, {2, "Usage error"}, {3, ".specd/ not found or spec already exists"}},
+		Examples:        []string{"specd new my-feature", "specd new my-feature --title \"My Feature\"", "specd new payments --title \"Billing\" --orchestrated"},
 	},
 	{
 		Command: "approve", Category: "lifecycle",
@@ -133,6 +133,15 @@ var Commands = []CommandMeta{
 		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd status", "specd status my-feature --json"},
+	},
+	{
+		Command: "mode", Category: "inspection",
+		Description: "Show or set a spec's execution mode",
+		Usage:       "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]", Synopsis: "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]",
+		LongDescription: "Shows the effective execution mode (base | orchestrated), its origin, and project orchestration capability for a spec. --set records a new per-spec mode (orchestrated requires project capability; switching to base is refused while a Brain session is active). --recommend emits a deterministic, advisory recommendation computed from on-disk spec facts — the user decides.",
+		Flags:           []FlagMeta{{Name: "set", Type: "string", Description: "Set the spec's execution mode: base or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean", Description: "Output in JSON format"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing or session-active refusal"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd mode my-feature", "specd mode my-feature --set orchestrated", "specd mode my-feature --recommend --json"},
 	},
 	{
 		Command: "check", Category: "inspection",

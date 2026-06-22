@@ -43,8 +43,31 @@ func (host *FakeOrchestrationHost) PolicyArgs(sessionID string) []string {
 
 func (host *FakeOrchestrationHost) StartSpec(slug, sessionID string) core.OrchestrationStepResult {
 	host.H.T.Helper()
+	host.EnsureOrchestrated(slug)
 	res := host.H.RunExpect(core.ExitOK, "brain", append([]string{"start", slug}, host.PolicyArgs(sessionID)...)...)
 	return decodeStep(host.H, res.Stdout)
+}
+
+// EnsureOrchestrated records executionMode=orchestrated on the spec so the Brain
+// CLI gate (which refuses Base specs) lets the orchestration host drive it. The
+// host models an already-capable, opted-in project, so it writes the recorded
+// fact directly rather than going through the capability-gated `specd mode --set`.
+func (host *FakeOrchestrationHost) EnsureOrchestrated(slug string) {
+	host.H.T.Helper()
+	if _, err := core.WithSpecLock[int](host.H.Root, slug, func() (int, error) {
+		state, err := core.LoadState(host.H.Root, slug)
+		if err != nil || state == nil {
+			return 0, err
+		}
+		if state.EffectiveMode() == core.ModeOrchestrated {
+			return 0, nil
+		}
+		state.ExecutionMode = core.ModeOrchestrated
+		state.ModeOrigin = core.OriginUser
+		return 0, core.SaveState(host.H.Root, slug, state)
+	}); err != nil {
+		host.H.T.Fatalf("EnsureOrchestrated(%s): %v", slug, err)
+	}
 }
 
 func (host *FakeOrchestrationHost) StepSpec(slug, sessionID string) core.OrchestrationStepResult {

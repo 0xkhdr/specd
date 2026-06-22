@@ -232,6 +232,67 @@ var intentTools = []intentTool{
 		args:        sessionControlArgs,
 		translate:   sessionControlTranslate("cancel"),
 	},
+	{
+		name:        "mode_get",
+		description: "Show a spec's effective execution mode (base | orchestrated), how it was chosen (origin), and whether the project has orchestration capability. Capability only permits orchestration; the spec's mode selects it.",
+		readOnly:    true,
+		args: []intentArg{
+			{name: "spec", typ: "string", description: "Spec slug to inspect.", required: true},
+		},
+		translate: func(args map[string]any) (string, []string, error) {
+			spec, ok, err := argString(args, "spec")
+			if err != nil {
+				return "", nil, err
+			}
+			if !ok {
+				return "", nil, fmt.Errorf("mode_get requires a 'spec' slug")
+			}
+			return "mode", []string{spec}, nil
+		},
+	},
+	{
+		name:        "mode_set",
+		description: "Set a spec's execution mode. 'orchestrated' opts the spec into Brain/Pinky and requires project orchestration capability (fails closed otherwise, emitting the enabling command); 'base' opts back out (refused while a Brain session is active). Never escalate without an explicit user request.",
+		args: []intentArg{
+			{name: "spec", typ: "string", description: "Spec slug to change.", required: true},
+			{name: "mode", typ: "string", description: "Target execution mode.", required: true, enum: []string{"base", "orchestrated"}},
+		},
+		translate: func(args map[string]any) (string, []string, error) {
+			spec, ok, err := argString(args, "spec")
+			if err != nil {
+				return "", nil, err
+			}
+			if !ok {
+				return "", nil, fmt.Errorf("mode_set requires a 'spec' slug")
+			}
+			mode, ok, err := argString(args, "mode")
+			if err != nil {
+				return "", nil, err
+			}
+			if !ok {
+				return "", nil, fmt.Errorf("mode_set requires a 'mode' (base|orchestrated)")
+			}
+			return "mode", []string{spec, "--set", mode}, nil
+		},
+	},
+	{
+		name:        "mode_recommend",
+		description: "Compute a deterministic, advisory execution-mode recommendation for a spec from on-disk countable facts (task count, wave width, distinct roles, cross-spec edges, token estimate). The verdict is userDecides:true — surface it as a suggestion and let the user choose; never switch automatically.",
+		readOnly:    true,
+		args: []intentArg{
+			{name: "spec", typ: "string", description: "Spec slug to evaluate.", required: true},
+		},
+		translate: func(args map[string]any) (string, []string, error) {
+			spec, ok, err := argString(args, "spec")
+			if err != nil {
+				return "", nil, err
+			}
+			if !ok {
+				return "", nil, fmt.Errorf("mode_recommend requires a 'spec' slug")
+			}
+			return "mode", []string{spec, "--recommend"}, nil
+		},
+	},
 }
 
 // IntentToolCount is the number of intent-level tools exposed alongside the

@@ -107,6 +107,20 @@ type GatesCfg struct {
 	// "warn"/"error". It flags verify-time changed files outside a task's
 	// declared `files:` contract.
 	Scope string `json:"scope"`
+	// ContextBudget is the opt-in context-budget gate severity:
+	// "off"/""/"*" = no-op (default), else "warn"/"error". When enabled it builds
+	// the active spec's context manifest and flags it when the required-item token
+	// estimate exceeds the effective budget, naming the heaviest items.
+	ContextBudget string `json:"contextBudget"`
+	// MaxContextTokens optionally caps the gate's effective budget (mirrors the MCP
+	// capabilities.specd.maxContextTokens host hint). 0 = use the derived budget.
+	MaxContextTokens int `json:"maxContextTokens"`
+	// ModeCapability is the opt-in mode-capability gate severity:
+	// "off"/""/"*" = no-op (default), else "warn"/"error". When enabled it flags a
+	// spec recorded as orchestrated while the project lacks orchestration
+	// capability (orchestration.enabled absent/false). Off by default keeps Base
+	// projects clean.
+	ModeCapability string `json:"modeCapability"`
 	// Custom lists external, declarative custom gates run after the core
 	// pipeline. Each is an ordinary subprocess (no Go plugin, no network).
 	Custom []CustomGateCfg `json:"custom"`
@@ -123,11 +137,11 @@ type CustomGateCfg struct {
 
 var DefaultConfig = Config{
 	Version:            1,
-	DefaultVerify:      "npm test",
+	DefaultVerify:      "echo 'specd: defaultVerify is unset — set it to your repo test command (see the specd-steering skill)' >&2; exit 1",
 	Report:             ReportCfg{Format: "md", AutoRefreshSeconds: 0},
 	Roles:              RolesCfg{SubagentMode: "inline"},
 	PromotionThreshold: 3,
-	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off", Custom: []CustomGateCfg{}},
+	Gates:              GatesCfg{Traceability: "warn", Acceptance: "off", Scope: "off", ContextBudget: "off", Custom: []CustomGateCfg{}},
 	Verify:             VerifyCfg{Sandbox: "none"},
 	Orchestration: OrchestrationCfg{
 		Enabled:                  false,
@@ -218,6 +232,9 @@ func LoadConfig(root string) Config {
 		}
 		if partial.Gates.Scope != "" {
 			cfg.Gates.Scope = partial.Gates.Scope
+		}
+		if partial.Gates.ModeCapability != "" {
+			cfg.Gates.ModeCapability = partial.Gates.ModeCapability
 		}
 		if partial.Gates.Custom != nil {
 			cfg.Gates.Custom = partial.Gates.Custom

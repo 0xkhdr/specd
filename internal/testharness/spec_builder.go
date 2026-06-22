@@ -20,10 +20,11 @@ type SpecBuilder struct {
 	reqs   []reqBlock
 	design []designSection
 	tasks  []TaskSpec
-	status core.SpecStatus
-	phase  core.Phase
-	gate   core.Gate
-	turn   int
+	status        core.SpecStatus
+	phase         core.Phase
+	gate          core.Gate
+	turn          int
+	executionMode string // "" => Base default; set via Orchestrated()
 }
 
 type reqBlock struct {
@@ -113,6 +114,10 @@ func (b *SpecBuilder) Gate(g core.Gate) *SpecBuilder { b.gate = g; return b }
 // Turn sets the turn counter.
 func (b *SpecBuilder) Turn(n int) *SpecBuilder { b.turn = n; return b }
 
+// Orchestrated records executionMode=orchestrated (origin user) on the built
+// spec, so Brain/Pinky entrypoints — which refuse Base specs — will drive it.
+func (b *SpecBuilder) Orchestrated() *SpecBuilder { b.executionMode = core.ModeOrchestrated; return b }
+
 // Build writes the spec to disk and returns its slug, failing the test on any
 // error.
 func (b *SpecBuilder) Build() string {
@@ -148,6 +153,10 @@ func (b *SpecBuilder) Build() string {
 	st.Phase = b.phase
 	st.Gate = b.gate
 	st.Turn = b.turn
+	if b.executionMode != "" {
+		st.ExecutionMode = b.executionMode
+		st.ModeOrigin = core.OriginUser
+	}
 
 	if err := core.SaveState(b.h.Root, b.slug, &st); err != nil {
 		t.Fatalf("SpecBuilder.Build: SaveState: %v", err)

@@ -19,9 +19,9 @@ repo; budget includes headroom for spec growth.
 
 | Briefing (`--json`)        | Measured | Budget (bytes) | ~Tokens | ANSI? |
 |----------------------------|---------:|---------------:|--------:|-------|
-| `context <slug>`           |      898 |          2,048 |     512 | none  |
+| `context <slug>`           |    2,942 |          3,584 |     735 | none  |
 | `next <slug>`              |      661 |          1,536 |     384 | none  |
-| `dispatch <slug>`          |    1,829 |          4,096 |   1,024 | none  |
+| `dispatch <slug>`          |    3,110 |          4,096 |     777 | none  |
 
 Rule: if a briefing exceeds its budget the regression test fails and prints the
 measured size (R1.3). Agent output (`--json` / MCP) must contain no ANSI escape

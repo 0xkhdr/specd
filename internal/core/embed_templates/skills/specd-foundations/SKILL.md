@@ -58,6 +58,18 @@ for you — that is your work.
 The Markdown is your authored truth for *intent*. `state.json` is machine truth for
 *status*; mutate it only through `specd` (never flip a `tasks.md` checkbox by hand).
 
+## Execution mode (per spec)
+
+Each spec runs in one of two modes, recorded in its `state.json` (`specd mode <spec>` shows it):
+
+- **base** (default) — the plain lifecycle; you, the host agent, own every step.
+- **orchestrated** — Brain/Pinky may drive it; opt in with `specd mode <spec> --set orchestrated`.
+
+Base is always the default; orchestration is an explicit, per-spec opt-in — never auto-escalate.
+Project `orchestration.enabled` only *permits* orchestration; the spec's mode *selects* it. After
+`tasks.md`, `specd mode <spec> --recommend` gives a deterministic, advisory verdict — surface it as
+a suggestion and let the user decide. See AGENTS.md "Execution mode" for the full protocol.
+
 ## Skill index — load each only when its trigger fires (progressive disclosure)
 
 | Skill | Load when |
@@ -67,6 +79,8 @@ The Markdown is your authored truth for *intent*. `state.json` is machine truth 
 | `specd-design` | Entering the design phase. The mandatory `design.md` sections + the `design` gate. |
 | `specd-tasks` | Entering the tasks phase. The wave DAG, the seven task keys, acyclicity + the `task-schema`/`dag` gates. |
 | `specd-execute` | Entering executing/verifying. The next→implement→verify→complete loop, roles, `dispatch`, the `evidence` gate. |
+| `specd-brain` | Entering orchestration. Sensing specd-owned state, deterministic stepping, program scheduling, the no-LLM boundary. |
+| `specd-pinky` | Operating a Pinky worker. Context, claim, heartbeat, progress, query/inbox, blocker, report, release under lease. |
 
 Pay context only for the stage you are in. This `specd-foundations` is the only
-always-loaded skill.
+always-loaded skill; it indexes all seven stage skills above.

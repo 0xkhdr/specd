@@ -38,6 +38,8 @@ var CheckGates = []CheckGate{
 	GateEvidence,
 	GateAcceptance,
 	GateScope,
+	GateContextBudget,
+	GateModeCapability,
 }
 
 // RunGates runs the full check pipeline: the ordered pure-gate slice followed by
@@ -316,6 +318,116 @@ func GateScope(c CheckCtx) (violations, warnings []Violation) {
 		}
 	}
 	return violations, warnings
+}
+
+// GateContextBudget is the opt-in context-budget gate. It is a no-op unless
+// cfg.Gates.ContextBudget names a severity ("warn"/"error"; "off"/""/"*" disable
+// it — the default, so the core pipeline is unchanged). When enabled it builds
+// the active spec's context manifest through the shared engine and reports when
+// the required-item token estimate exceeds the derived budget, naming the
+// heaviest required items so the offender is actionable.
+func GateContextBudget(c CheckCtx) (violations, warnings []Violation) {
+	mode := c.Cfg.Gates.ContextBudget
+	if mode == "" || mode == "off" || mode == "*" {
+		return nil, nil
+	}
+	if c.State == nil {
+		return nil, nil
+	}
+	m := buildCheckContextManifest(c)
+	if m.Budget <= 0 || m.EstimatedTokens <= m.Budget {
+		return nil, nil
+	}
+	v := Violation{
+		Gate:     "context-budget",
+		Location: "context-manifest",
+		Message: fmt.Sprintf("required context ~%d tokens exceeds budget %d; heaviest: %s",
+			m.EstimatedTokens, m.Budget, strings.Join(heaviestRequiredItems(m, 3), ", ")),
+	}
+	if mode == "error" {
+		return []Violation{v}, nil
+	}
+	return nil, []Violation{v}
+}
+
+// buildCheckContextManifest assembles the context manifest for the spec under
+// check, scoped to the next runnable task when one exists. The injected reader
+// is the only IO, mirroring the other artifact-reading gates.
+// GateModeCapability is the opt-in mode-capability gate. It is a no-op unless
+// cfg.Gates.ModeCapability names a severity ("warn"/"error"; "off"/""/"*"
+// disable it — the default, so Base projects stay clean). When enabled it flags
+// a spec recorded as orchestrated while the project lacks orchestration
+// capability (orchestration.enabled absent/false), pointing at the one enabling
+// command. This catches a spec that opted into orchestration in a project that
+// was never (or no longer is) orchestration-capable.
+func GateModeCapability(c CheckCtx) (violations, warnings []Violation) {
+	mode := c.Cfg.Gates.ModeCapability
+	if mode == "" || mode == "off" || mode == "*" {
+		return nil, nil
+	}
+	if c.State == nil || c.State.EffectiveMode() != ModeOrchestrated {
+		return nil, nil
+	}
+	if c.Cfg.Orchestration.Enabled {
+		return nil, nil
+	}
+	v := Violation{
+		Gate:     "mode-capability",
+		Location: "state.json",
+		Message:  "spec is orchestrated but project has no orchestration capability — enable it with `specd init --orchestration session` (or manual|planning), or switch the spec back with `specd mode <slug> --set base`",
+	}
+	if mode == "error" {
+		return []Violation{v}, nil
+	}
+	return nil, []Violation{v}
+}
+
+func buildCheckContextManifest(c CheckCtx) MissionContextManifest {
+	req := ContextRequest{
+		Slug:         c.Slug,
+		Status:       c.State.Status,
+		Mode:         ContextModeMission,
+		HostBudget:   c.Cfg.Gates.MaxContextTokens,
+		ReadArtifact: specArtifactReader(c.Root, c.Slug),
+	}
+	if next := NextRunnable(DagTasksFromState(c.State)); next.Kind == NextTask && c.Doc != nil {
+		v := ResolveTaskView(*c.Doc, c.State, next.ID)
+		req.TaskID = next.ID
+		req.Role = v.Role
+		req.Files = SplitCSV(v.Meta["files"])
+		req.Requirements = v.Requirements
+	}
+	return BuildContextManifest(req)
+}
+
+// heaviestRequiredItems returns up to n required items, heaviest token hint
+// first, formatted "kind path (~tokens)" for actionable gate output. Ties break
+// on the item's manifest order so the result is deterministic.
+func heaviestRequiredItems(m MissionContextManifest, n int) []string {
+	required := make([]MissionContextItem, 0, len(m.Items))
+	for _, it := range m.Items {
+		if it.Required {
+			required = append(required, it)
+		}
+	}
+	sort.SliceStable(required, func(i, j int) bool {
+		if required[i].TokenHint != required[j].TokenHint {
+			return required[i].TokenHint > required[j].TokenHint
+		}
+		return required[i].Order < required[j].Order
+	})
+	if len(required) > n {
+		required = required[:n]
+	}
+	out := make([]string, 0, len(required))
+	for _, it := range required {
+		ref := it.Path
+		if ref == "" {
+			ref = it.Command
+		}
+		out = append(out, fmt.Sprintf("%s %s (~%d)", it.Kind, ref, it.TokenHint))
+	}
+	return out
 }
 
 // runCustomGates executes each configured external custom gate and folds its

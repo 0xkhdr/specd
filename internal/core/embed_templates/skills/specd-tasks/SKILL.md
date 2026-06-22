@@ -39,6 +39,9 @@ referenced number must exist in `requirements.md`.
 - `task-schema` — every task has the seven keys; `verify` rules respected; at least
   one task defined.
 - `dag` — no missing deps, no cycles, no later-wave dependency.
+- `sync` — `tasks.md` checkboxes and blocked-annotations match `state.json`. This fails
+  when you hand-edit a checkbox (the thing you must never do): fix by reverting the manual
+  edit and flipping status through `specd task <slug> <id> --status ...` instead.
 - `traceability` — requirements ↔ tasks both directions (severity configurable in
   `config.json`; defaults to warn).
 
