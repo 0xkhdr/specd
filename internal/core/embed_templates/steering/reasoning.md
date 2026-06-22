@@ -27,7 +27,7 @@ a non-empty `--evidence`.
 
 | Phase | Question it answers | Output |
 |---|---|---|
-| PERCEIVE | What is being asked? What exists? | context loaded, request classified |
+| PERCEIVE | What is being asked? What exists? | budgeted context loaded (required items in order, `read-targeted` slices not whole files, stop before `budget`), request classified |
 | ANALYZE | What must be true? | `requirements.md` (EARS) |
 | PLAN (design) | How will we satisfy it? | `design.md` |
 | PLAN (tasks) | What atomic units, in what order? | `tasks.md` (wave DAG) |

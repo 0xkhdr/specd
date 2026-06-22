@@ -155,6 +155,58 @@ func TestContextManifestBudgetHostCap(t *testing.T) {
 	}
 }
 
+// TestContextManifestSurfaceParity proves the single-engine invariant (AC-1):
+// the same task built for Surface A (briefing), B (dispatch), and C (mission)
+// references byte-identical items/kinds/order, and a small HostBudget caps the
+// derived Budget identically across all three. Surfaces differ only in how they
+// populate the ContextRequest, never in the engine output for shared inputs.
+func TestContextManifestSurfaceParity(t *testing.T) {
+	reader := fakeArtifacts(map[string]string{
+		"tasks.md":        "## Wave 1\n\n- [ ] T1 — build the thing\n  - files: x.go\n\n- [ ] T2 — other\n",
+		"requirements.md": "- R1: the system SHALL do X.\n- R2: the system SHALL do Y.\n",
+	})
+	mk := func(mode ContextMode) ContextRequest {
+		return ContextRequest{
+			Slug:           "demo",
+			Status:         StatusExecuting,
+			TaskID:         "T1",
+			Role:           "builder",
+			Files:          []string{"x.go"},
+			Mode:           mode,
+			ContextCommand: "specd context demo",
+			Requirements:   []int{1},
+			HostBudget:     3000,
+			ReadArtifact:   reader,
+		}
+	}
+	a := BuildContextManifest(mk(ContextModeBriefing))
+	b := BuildContextManifest(mk(ContextModeDispatch))
+	c := BuildContextManifest(mk(ContextModeMission))
+
+	itemsJSON := func(m MissionContextManifest) string {
+		raw, err := json.Marshal(m.Items)
+		if err != nil {
+			t.Fatalf("marshal items: %v", err)
+		}
+		return string(raw)
+	}
+	wantItems := itemsJSON(a)
+	if itemsJSON(b) != wantItems {
+		t.Fatalf("dispatch items diverge from briefing:\n A=%s\n B=%s", wantItems, itemsJSON(b))
+	}
+	if itemsJSON(c) != wantItems {
+		t.Fatalf("mission items diverge from briefing:\n A=%s\n C=%s", wantItems, itemsJSON(c))
+	}
+	for _, m := range []MissionContextManifest{a, b, c} {
+		if m.Budget != 3000 {
+			t.Fatalf("host budget not honored across surfaces: got %d want 3000", m.Budget)
+		}
+		if m.Version != missionContextManifestVersion {
+			t.Fatalf("version drifted: %d", m.Version)
+		}
+	}
+}
+
 func TestContextManifestEstimatedTokensSumsRequired(t *testing.T) {
 	m := BuildContextManifest(ContextRequest{Slug: "demo", Status: StatusExecuting, TaskID: "T1", Role: "builder", Files: []string{"x.go"}, ContextCommand: "specd context demo"})
 	sum := 0

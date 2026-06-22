@@ -36,7 +36,7 @@ the `config.json` schema. This mirrors the embedded registry; run
 | Command | Description | Exit codes |
 |---|---|---|
 | `specd next <slug> [--all] [--json]` | Get the next runnable task, or the entire frontier with `--all` | `0` ok, `2` usage, `3` not found |
-| `specd dispatch <slug> [--json]` | Emit ready-to-run subagent packets for the frontier | `0` ok, `2` usage, `3` not found |
+| `specd dispatch <slug> [--inline-roles] [--json]` | Emit ready-to-run subagent packets for the frontier. Each packet carries a budgeted `contextManifest`; role prompts are shared once via a top-level `assets` map (`role/<name>` -> path) instead of inlined per packet. `--inline-roles` restores full-text `rolePrompt` in every packet for hosts that cannot resolve asset paths | `0` ok, `2` usage, `3` not found |
 | `specd verify <slug> <id> [--sandbox none\|bwrap\|container] [--revert-on-fail]` | Run the task's `verify:` command and record proof (exit code, output tail, duration, git HEAD, changed files, optional coverage). `--sandbox` overrides `verify.sandbox` for this run (fail-closed if the isolator is absent); `--revert-on-fail` stashes the working tree (recoverable) on a non-zero exit instead of leaving it dirty | `0` pass, `1` fail, `2` usage, `3` not found |
 | `specd verify <slug> --criterion <r>.<n> --status pass\|fail --evidence "..."` | Record a per-acceptance-criterion proof (feeds the [acceptance gate](./validation-gates.md)) | `0` ok, `1` fail, `2` usage, `3` not found |
 | `specd task <slug> <id> --status <s> [--evidence "..."] [--reason "..."] [--unverified] [--force] [--tokens <n>] [--cost <n>]` | Evidence-gated status flip; dual-writes `tasks.md` + `state.json`. `--tokens`/`--cost` annotate telemetry (stored, never computed) | `0` ok, `1` rejected, `2` usage, `3` not found |
@@ -51,7 +51,7 @@ the `config.json` schema. This mirrors the embedded registry; run
 | `specd status [<slug>] [--json]` | Progress board for a spec, or list all specs | `0` ok, `2` usage, `3` not found |
 | `specd check <slug> [--json]` | Run the validation gates on a spec (7 core, plus opt-in acceptance/scope/custom gates) | `0` pass, `1` fail, `2` usage, `3` not found |
 | `specd waves <slug> [--json]` | Wave graph, critical paths, blockers | `0` ok, `2` usage, `3` not found |
-| `specd context <slug> [--json]` | Phase briefing + load list + signals | `0` ok, `2` usage, `3` not found |
+| `specd context <slug> [--json]` | Phase briefing + budgeted `LOAD NOW` manifest (modes, measured `~tokens`, `est X / budget Y`) + signals. `--json` adds an additive `contextManifest` block (`estimatedTokens`, `budget`, `items`) | `0` ok, `2` usage, `3` not found |
 | `specd report <slug> [--format md\|html] [--out <path>] [--pr-summary]` | Generate a snapshot report. `--pr-summary` emits a deterministic, network-free PR summary (Markdown, or JSON under `SPECD_JSON`) — wave/task progress, gate status, and the commit↔task link map | `0` ok, `2` usage, `3` not found |
 | `specd serve <slug> [--addr 127.0.0.1:8765]` | Read-only HTTP dashboard: same HTML as `report --format html` at `GET /`, JSON `ReportData` at `GET /api/report`. No mutating routes | `0` ok, `2` usage, `3` not found |
 | `specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]` | Stream a `FrontierEvent` whenever a spec's runnable task set changes. Read-only. Default NDJSON on stdout; `--sse` serves Server-Sent Events at `GET /events`; `--webhook` POSTs each event with bounded retry/backoff; `--once` does a single pass | `0` ok, `2` usage, `3` not found |

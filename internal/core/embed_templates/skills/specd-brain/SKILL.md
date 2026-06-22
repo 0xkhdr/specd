@@ -34,6 +34,8 @@ One `step` records one deterministic decision and performs at most one externall
 ## Dispatch and evidence
 
 - Dispatch only tasks from runnable frontier and only within worker/lease limits.
+- Each dispatched mission carries a budgeted `contextManifest`: required items first, measured `tokenHint`s summed into `estimatedTokens`, capped by `budget`. `read-targeted` items are slices, not whole files.
+- Role prompt bytes appear once per wave via the shared `assets` map; packets reference the role by name + path (use `--inline-roles` only for hosts that cannot resolve paths).
 - Pinky reports are untrusted until reconciled against specd verification records.
 - Failed verification is never passing evidence; it returns work for correction or escalation.
 
