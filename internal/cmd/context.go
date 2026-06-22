@@ -199,6 +199,7 @@ func RunContext(args cli.Args) int {
 		out := map[string]interface{}{
 			"spec": slug, "title": state.Title, "status": state.Status, "phase": state.Phase,
 			"gate": state.Gate, "turn": state.Turn, "counts": c,
+			"mode": state.EffectiveMode(), "modeOrigin": modeOriginOrDefault(state),
 			"phaseLabel": b.phaseLabel, "purpose": b.purpose, "load": load,
 			"skill": skill, "focus": focus, "next": next,
 			"contextManifest": manifestJSON(manifest),
@@ -216,6 +217,7 @@ func RunContext(args cli.Args) int {
 
 	fmt.Printf("=== CONTEXT: %s ===\n", slug)
 	fmt.Printf("%s · status %s · phase %s · turn %d\n", state.Title, state.Status, state.Phase, state.Turn)
+	fmt.Printf("mode: %s — %s\n", state.EffectiveMode(), modeBriefing(state.EffectiveMode()))
 	fmt.Printf("tasks: %d/%d done · next: %s\n", c.Complete, c.Total, core.NextSummary(state))
 	fmt.Println()
 	fmt.Printf("PHASE %s — %s\n", b.phaseLabel, b.purpose)

@@ -191,3 +191,29 @@ func buildProgramSpec(h *testharness.Harness, slug string, taskStatus core.TaskS
 		Status(specStatus).
 		Build()
 }
+
+// TestModeSwitchToBaseRefusedDuringActiveSession verifies the fail-closed
+// guardrail: a spec cannot be switched back to Base while a Brain session is
+// live (it would orphan the running session). Cancel-first remediation is shown.
+func TestModeSwitchToBaseRefusedDuringActiveSession(t *testing.T) {
+	h := testharness.New(t)
+	h.Spec("live").
+		Req("live", "As a user, I want live.", "THE SYSTEM SHALL satisfy live.").
+		FullDesign().
+		AddTask(testharness.TaskSpec{ID: "T1", Title: "do live", Files: "pass.flag", Verify: "test -f pass.flag", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+	host := testharness.NewFakeOrchestrationHost(h)
+	sessionID := strings.Repeat("e", 32)
+
+	// StartSpec opts the spec into orchestrated mode and starts the session.
+	host.StartSpec("live", sessionID)
+
+	res := h.RunExpect(core.ExitGate, "mode", "live", "--set", "base")
+	if !strings.Contains(res.Out(), "Brain session") || !strings.Contains(res.Out(), "Cancel") {
+		t.Errorf("expected cancel-first refusal, got: %s", res.Out())
+	}
+	if h.State("live").Raw().EffectiveMode() != core.ModeOrchestrated {
+		t.Error("spec must remain orchestrated after refused switch")
+	}
+}

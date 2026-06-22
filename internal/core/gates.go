@@ -39,6 +39,7 @@ var CheckGates = []CheckGate{
 	GateAcceptance,
 	GateScope,
 	GateContextBudget,
+	GateModeCapability,
 }
 
 // RunGates runs the full check pipeline: the ordered pure-gate slice followed by
@@ -352,6 +353,35 @@ func GateContextBudget(c CheckCtx) (violations, warnings []Violation) {
 // buildCheckContextManifest assembles the context manifest for the spec under
 // check, scoped to the next runnable task when one exists. The injected reader
 // is the only IO, mirroring the other artifact-reading gates.
+// GateModeCapability is the opt-in mode-capability gate. It is a no-op unless
+// cfg.Gates.ModeCapability names a severity ("warn"/"error"; "off"/""/"*"
+// disable it — the default, so Base projects stay clean). When enabled it flags
+// a spec recorded as orchestrated while the project lacks orchestration
+// capability (orchestration.enabled absent/false), pointing at the one enabling
+// command. This catches a spec that opted into orchestration in a project that
+// was never (or no longer is) orchestration-capable.
+func GateModeCapability(c CheckCtx) (violations, warnings []Violation) {
+	mode := c.Cfg.Gates.ModeCapability
+	if mode == "" || mode == "off" || mode == "*" {
+		return nil, nil
+	}
+	if c.State == nil || c.State.EffectiveMode() != ModeOrchestrated {
+		return nil, nil
+	}
+	if c.Cfg.Orchestration.Enabled {
+		return nil, nil
+	}
+	v := Violation{
+		Gate:     "mode-capability",
+		Location: "state.json",
+		Message:  "spec is orchestrated but project has no orchestration capability — enable it with `specd init --orchestration session` (or manual|planning), or switch the spec back with `specd mode <slug> --set base`",
+	}
+	if mode == "error" {
+		return []Violation{v}, nil
+	}
+	return nil, []Violation{v}
+}
+
 func buildCheckContextManifest(c CheckCtx) MissionContextManifest {
 	req := ContextRequest{
 		Slug:         c.Slug,

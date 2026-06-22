@@ -139,6 +139,29 @@ heaviest items. Enable it in `.specd/config.json` under `gates.contextBudget`
 
 ---
 
+## Execution mode — host decision protocol
+
+Each spec runs in `base` (default) or `orchestrated` mode, recorded in its
+`state.json`. The host agent follows a fixed protocol so behavior is identical
+across runs:
+
+1. **Default Base.** "create/build/spec X" → author in Base; do **not** start
+   Brain/Pinky. In Base the host owns every step.
+2. **Explicit opt-in → Orchestrated.** "use Pinky and the Brain", "orchestrate
+   this", "run autonomously" → `specd mode <slug> --set orchestrated`, then drive
+   with `specd brain run` (or MCP `brain_orchestrate`). Brain/Pinky refuse Base
+   specs.
+3. **Recommend, don't impose.** After `tasks.md` is approved, consult
+   `specd mode <slug> --recommend --json` (or MCP `mode_recommend`). On
+   `suggest`/`strong`, surface a one-line suggestion and **wait for the user** —
+   the verdict is advisory (`userDecides: true`); never switch without a yes.
+4. **Respect the recorded mode.** Later actions read `spec.executionMode` and
+   follow it.
+
+MCP intent tools mirror this surface: `mode_get`, `mode_set`, `mode_recommend`.
+Capability (`orchestration.enabled`) only *permits* orchestration; the spec's
+`executionMode` *selects* it — never conflate them.
+
 ## Brain/Pinky Orchestration
 
 The **Brain & Pinky model** is `specd`'s native multi-agent orchestration architecture. It transforms the harness from a passive command-line validator into an active, autonomous coordinator.

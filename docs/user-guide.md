@@ -130,6 +130,22 @@ agent's job (the Foundational Split).
 A **spec** is a modular directory representing a single feature, task, or bugfix.
 Its lifecycle has 5 phases driven by a status machine.
 
+### Execution mode (Base vs Orchestrated)
+
+Each spec runs in one of two modes, recorded per spec in its `state.json`:
+
+- **Base** (default) — you drive every step yourself (`specd next` → implement →
+  `specd verify`). This is the default for every new spec.
+- **Orchestrated** — the Brain/Pinky multi-agent layer may drive the spec. Opt in
+  explicitly: `specd new <slug> --orchestrated`, or `specd mode <slug> --set
+  orchestrated` on an existing spec (requires the project to have orchestration
+  enabled via `specd init --orchestration …`).
+
+Inspect or change a spec's mode with `specd mode <slug>`. After your tasks are
+planned, `specd mode <slug> --recommend` prints a deterministic, advisory verdict
+on whether orchestration would pay off — it's a suggestion, you decide. Base is
+always the default and orchestration is never enabled automatically.
+
 ### Status → phase mapping
 
 | Spec status (`state.json`) | Derived phase | Primary activities |

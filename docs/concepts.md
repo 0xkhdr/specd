@@ -28,6 +28,33 @@ strict, local, tool-gated pipeline.
 | **Cost & Telemetry Ledger** | Per-task duration/retries plus annotated token/cost rolled up per wave/spec (stored, never computed). |
 | **Pluggable State Backend** | File backend by default; git-native, or Redis/Postgres behind build tags — the default binary links no DB driver. |
 
+### Execution mode — Base vs Orchestrated
+
+Every spec records a per-spec **execution mode** in its `state.json`, the single
+source of truth (never the chat context, never global config):
+
+- **`base`** (default) — the plain spec-driven lifecycle; the host agent drives
+  every step itself (`specd next` → implement → `specd verify`). Broadest
+  compatibility; works with any command-running agent.
+- **`orchestrated`** — the optional Brain/Pinky multi-agent layer may drive the
+  spec. Opt in with `specd mode <slug> --set orchestrated` (or
+  `specd new <slug> --orchestrated`).
+
+Two ideas are kept strictly separate:
+
+- **Capability** — project `orchestration.enabled` (set at `specd init
+  --orchestration …`) only *permits* orchestration to run in the project.
+- **Selection** — a spec's `executionMode` *selects* it. A capable project may
+  still have specs running Base.
+
+Base is always the default; orchestration is an explicit, per-spec opt-in — no
+heuristic ever flips the mode. After `tasks.md` is approved, `specd mode <slug>
+--recommend` emits a **deterministic, advisory** verdict computed from countable
+facts (task count, wave width, distinct roles, cross-spec edges, token estimate);
+the verdict is marked `userDecides: true` — the host surfaces it as a suggestion
+and the user decides. Brain/Pinky commands refuse a Base spec with a remediation
+message, and a spec cannot be switched back to Base while a Brain session is live.
+
 ### The foundational split
 
 ```

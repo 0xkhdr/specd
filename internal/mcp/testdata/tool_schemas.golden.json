@@ -99,6 +99,44 @@
     },
     "additionalProperties": false
   },
+  "mode_get": {
+    "type": "object",
+    "properties": {
+      "spec": {
+        "type": "string",
+        "description": "Spec slug to inspect."
+      }
+    },
+    "additionalProperties": false
+  },
+  "mode_recommend": {
+    "type": "object",
+    "properties": {
+      "spec": {
+        "type": "string",
+        "description": "Spec slug to evaluate."
+      }
+    },
+    "additionalProperties": false
+  },
+  "mode_set": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "description": "Target execution mode.",
+        "enum": [
+          "base",
+          "orchestrated"
+        ]
+      },
+      "spec": {
+        "type": "string",
+        "description": "Spec slug to change."
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_approve": {
     "type": "object",
     "properties": {
@@ -469,15 +507,44 @@
     },
     "additionalProperties": false
   },
+  "specd_mode": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd mode \u003cslug\u003e [--set base|orchestrated] [--recommend] [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean",
+        "description": "Output in JSON format"
+      },
+      "recommend": {
+        "type": "boolean",
+        "description": "Emit an advisory mode recommendation from countable spec facts"
+      },
+      "set": {
+        "type": "string",
+        "description": "Set the spec's execution mode: base or orchestrated"
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_new": {
     "type": "object",
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd new \u003cslug\u003e [--title \"...\"]",
+        "description": "Positional arguments, in order. Usage: specd new \u003cslug\u003e [--title \"...\"] [--orchestrated]",
         "items": {
           "type": "string"
         }
+      },
+      "orchestrated": {
+        "type": "boolean",
+        "description": "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"
       },
       "title": {
         "type": "string",

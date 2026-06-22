@@ -4,7 +4,7 @@
   "title": "specd open spec format",
   "description": "Versioned, machine-readable description of the specd on-disk artifacts. The Go types in internal/core are the single source of truth; this schema mirrors them and a conformance test fails CI on drift.",
   "specdSchemaVersion": "1",
-  "stateSchemaVersion": 4,
+  "stateSchemaVersion": 5,
   "type": "object",
   "$ref": "#/$defs/State",
   "$defs": {
@@ -26,7 +26,7 @@
         "blockers"
       ],
       "properties": {
-        "schemaVersion": { "type": "integer", "const": 4 },
+        "schemaVersion": { "type": "integer", "const": 5 },
         "revision": { "type": "integer", "minimum": 0 },
         "spec": { "type": "string" },
         "title": { "type": "string" },
@@ -57,7 +57,9 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/CriterionRecord" }
         },
-        "prompt": { "type": "string" }
+        "prompt": { "type": "string" },
+        "executionMode": { "type": "string", "enum": ["base", "orchestrated"] },
+        "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
       }
     },
     "TaskState": {

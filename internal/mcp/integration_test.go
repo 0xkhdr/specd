@@ -1104,6 +1104,7 @@ func seedLifecycleSpec(h *th.Harness, slug, verify string) {
 		FullDesign().
 		AddTask(th.TaskSpec{ID: "T1", Title: "do demo", Files: "pass.flag", Verify: verify, Requirements: []int{1}}).
 		Status(core.StatusExecuting).
+		Orchestrated().
 		Build()
 }
 

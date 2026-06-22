@@ -108,7 +108,29 @@ func RunBrain(args cli.Args) int {
 	}
 }
 
+// requireOrchestratedSpec refuses a Brain entrypoint when the spec is not in
+// orchestrated execution mode. Base is the default and the Brain/Pinky layer
+// must never start a session for a Base spec — the remediation points the host
+// at the explicit opt-in. Returns ok=false with the exit code to return verbatim.
+func requireOrchestratedSpec(root, slug string) (code int, ok bool) {
+	state, err := core.LoadState(root, slug)
+	if err != nil {
+		return specdExit(err), false
+	}
+	if state == nil {
+		return specdExit(core.NotFoundError(fmt.Sprintf("spec '%s' not found", slug))), false
+	}
+	if state.EffectiveMode() != core.ModeOrchestrated {
+		core.Error(fmt.Sprintf("spec '%s' is in base execution mode — Brain/Pinky will not drive it. Opt in first with `specd mode %s --set orchestrated`, or run it manually with `specd next %s`.", slug, slug, slug))
+		return core.ExitGate, false
+	}
+	return core.ExitOK, true
+}
+
 func brainStart(root, slug string, args cli.Args) int {
+	if code, ok := requireOrchestratedSpec(root, slug); !ok {
+		return code
+	}
 	policy, cfg, ok := brainPolicyAndConfig(root, args)
 	if !ok {
 		return core.ExitUsage
@@ -128,6 +150,9 @@ func brainStart(root, slug string, args cli.Args) int {
 }
 
 func brainStep(root, slug, sessionID string, args cli.Args) int {
+	if code, ok := requireOrchestratedSpec(root, slug); !ok {
+		return code
+	}
 	policy, cfg, ok := brainPolicyAndConfig(root, args)
 	if !ok {
 		return core.ExitUsage
@@ -191,6 +216,9 @@ func brainProgramStatus(root string, args cli.Args) int {
 // (--worker-cmd); core stays deterministic. With no --worker-cmd the loop stops
 // at the first dispatch and prints the mission to wire a worker manually.
 func brainRun(root, slug string, args cli.Args) int {
+	if code, ok := requireOrchestratedSpec(root, slug); !ok {
+		return code
+	}
 	// Pre-spec preflight (GAP-6): ensure the spec exists before sensing.
 	if items := core.OrchestrationPreflight(root, slug); len(items) > 0 {
 		if !brainRunBootstrap(root, slug, args, items) {

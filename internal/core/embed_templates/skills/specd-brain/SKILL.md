@@ -7,6 +7,10 @@ description: Operate Brain orchestration sessions. Load before running `specd br
 
 Brain is deterministic controller logic inside specd. It schedules; it does not think creatively, call models, edit source, or bypass gates.
 
+## Mode gate (orchestrated specs only)
+
+Brain drives a spec **only when its execution mode is `orchestrated`**. `specd brain start|step|run` refuse a Base spec with a remediation pointing at `specd mode <slug> --set orchestrated`. Switching a spec back to Base while a Brain session is active is refused — cancel the session first. Orchestration is always an explicit, per-spec opt-in (see `specd-foundations` and AGENTS.md "Execution mode").
+
 ## Boundary
 
 - specd core makes zero LLM calls and imports no provider SDK.

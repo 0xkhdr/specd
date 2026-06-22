@@ -8,7 +8,23 @@ import (
 	"time"
 )
 
-const SchemaVersion = 4
+const SchemaVersion = 5
+
+// Execution mode for a spec. Base is the plain spec-driven lifecycle the host
+// agent drives itself; Orchestrated lets the Brain/Pinky multi-agent layer drive.
+// Mode is per-spec and recorded in state.json (the single source of truth), never
+// inferred from project-wide config — capability permits, mode selects.
+const (
+	ModeBase         = "base"
+	ModeOrchestrated = "orchestrated"
+)
+
+// Origin records how a spec's execution mode was chosen, for audit via replay.
+const (
+	OriginDefault     = "default"              // never opted in; default Base
+	OriginUser        = "user"                 // explicit user opt-in (flag or --set)
+	OriginRecommended = "recommended-accepted" // user accepted a harness recommendation
+)
 
 type SpecStatus string
 
@@ -138,6 +154,25 @@ type State struct {
 	// Prompt is the optional originating `specd new --from` text. omitempty keeps
 	// state.json byte-identical for specs created without --from.
 	Prompt string `json:"prompt,omitempty"`
+	// ExecutionMode is the per-spec execution mode ("base" | "orchestrated").
+	// Empty means Base (see EffectiveMode); omitempty so Base specs keep
+	// byte-identical state.json and pre-mode specs migrate without data change.
+	ExecutionMode string `json:"executionMode,omitempty"`
+	// ModeOrigin records how ExecutionMode was set ("default" | "user" |
+	// "recommended-accepted"), for the replay audit trail. omitempty for the
+	// same byte-stability reason as ExecutionMode.
+	ModeOrigin string `json:"modeOrigin,omitempty"`
+}
+
+// EffectiveMode returns the spec's resolved execution mode, treating an empty
+// ExecutionMode (the omitempty Base default) as ModeBase. This is the single
+// place that maps the stored-or-absent field to a concrete mode, so callers
+// never branch on the empty string.
+func (s State) EffectiveMode() string {
+	if s.ExecutionMode == "" {
+		return ModeBase
+	}
+	return s.ExecutionMode
 }
 
 // Clock is the time source for all spec-state timestamps and human-readable

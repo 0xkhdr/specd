@@ -246,6 +246,12 @@ func RenderMarkdown(d ReportData) string {
 	out = append(out, fmt.Sprintf("> Spec: `%s` · Status: **%s** · Phase: **%s** · Turn: %d",
 		d.State.Spec, d.State.Status, d.State.Phase, d.State.Turn))
 	out = append(out, "")
+	modeOrigin := d.State.ModeOrigin
+	if modeOrigin == "" {
+		modeOrigin = OriginDefault
+	}
+	out = append(out, fmt.Sprintf("> Mode: **%s** (origin %s)", d.State.EffectiveMode(), modeOrigin))
+	out = append(out, "")
 	for _, sec := range buildSections(d) {
 		out = append(out, fmt.Sprintf("## %s %s", sec.Icon, sec.Title))
 		out = append(out, "")

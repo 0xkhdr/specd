@@ -33,6 +33,7 @@ var Registry = []Command{
 	{"verify", RunVerify},
 	{"task", RunTask},
 	{"status", RunStatus},
+	{"mode", RunMode},
 	{"context", RunContext},
 	{"check", RunCheck},
 	{"validate", RunValidate},

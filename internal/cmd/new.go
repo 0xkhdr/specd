@@ -58,6 +58,14 @@ func RunNew(args cli.Args) int {
 	}
 	state := core.InitialState(slug, title)
 	state.Prompt = prompt
+	if args.Bool("orchestrated") {
+		if !core.ProjectOrchestrationEnabled(root) {
+			core.Error("--orchestrated: project has no orchestration capability. Enable it with `specd init --orchestration session` (or manual|planning), then retry.")
+			return core.ExitGate
+		}
+		state.ExecutionMode = core.ModeOrchestrated
+		state.ModeOrigin = core.OriginUser
+	}
 	if err := core.SaveState(root, slug, &state); err != nil {
 		return specdExit(err)
 	}

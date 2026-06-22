@@ -27,6 +27,26 @@ func requireRootAndSlug(args cli.Args, usage string) (root, slug string, code in
 	return root, slug, core.ExitOK, true
 }
 
+// modeOriginOrDefault returns a spec's recorded mode origin, defaulting to
+// "default" for specs that never opted in (empty ModeOrigin). Shared by the
+// status/report/context surfaces that name the execution mode.
+func modeOriginOrDefault(state *core.State) string {
+	if state.ModeOrigin == "" {
+		return core.OriginDefault
+	}
+	return state.ModeOrigin
+}
+
+// modeBriefing returns the one-line briefing naming what the execution mode
+// implies for whoever reads the context: a Base host owns every step itself; an
+// orchestrated spec may be driven by Brain dispatching Pinky workers.
+func modeBriefing(mode string) string {
+	if mode == core.ModeOrchestrated {
+		return "orchestrated — Brain may dispatch Pinky workers across the wave DAG"
+	}
+	return "base — you own every step; drive it with `specd next` / `specd verify`"
+}
+
 func specdExit(err error) int {
 	var se *core.SpecdError
 	if errors.As(err, &se) {

@@ -45,6 +45,25 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
    pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
    must bind to a matching verification record; host-reported telemetry (tokens, cost, duration) is stored as metadata and is not proof of correctness.
 
+## Execution mode — Base vs Orchestrated (per spec, user decides)
+
+Every spec records its own **execution mode** in `state.json` (`specd mode <spec>` shows it).
+Base is the default and the broad-compatibility path; orchestration is always an explicit
+opt-in. Capability vs selection are distinct: project `orchestration.enabled` only *permits*
+orchestration, while a spec's `executionMode` *selects* it.
+
+1. **Default Base.** "create/build/spec X" → author the spec in Base mode. Do **not** start
+   Brain/Pinky. In Base you own every step (`specd next` → implement → `specd verify`).
+2. **Explicit opt-in → Orchestrated.** "use Pinky and the Brain", "orchestrate this", "run it
+   autonomously" → `specd mode <spec> --set orchestrated`, then drive with `specd brain run`.
+   Brain/Pinky **refuse** Base specs, pointing you back here.
+3. **Recommend, don't impose.** After `tasks.md` is approved, consult
+   `specd mode <spec> --recommend --json`. On `suggest`/`strong`, surface a one-line suggestion
+   (e.g. "23 tasks across wide waves — run with Brain/Pinky, or proceed normally?") and **wait
+   for the user**. Never switch without a yes; the verdict is advisory (`userDecides: true`).
+4. **Respect the recorded mode.** On later actions read `spec.executionMode` and follow it —
+   don't re-litigate each turn.
+
 ## What loads when
 
 `specd context <spec>` is authoritative for the minimal file set per phase. This table is a

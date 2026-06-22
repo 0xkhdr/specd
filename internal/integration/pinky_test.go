@@ -133,6 +133,7 @@ func newPinkyHarness(t *testing.T, verify string) *testharness.Harness {
 		FullDesign().
 		AddTask(testharness.TaskSpec{ID: "T1", Title: "do demo", Files: "internal/core/demo.go", Verify: verify}).
 		Status(core.StatusExecuting).
+		Orchestrated().
 		Build()
 	return h
 }
