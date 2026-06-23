@@ -39,9 +39,9 @@
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-77}"
-CORE_MIN="${CORE_MIN:-79}"
-CMD_MIN="${CMD_MIN:-69}"
+OVERALL_MIN="${OVERALL_MIN:-82}"
+CORE_MIN="${CORE_MIN:-87}"
+CMD_MIN="${CMD_MIN:-72}"
 WORKER_MIN="${WORKER_MIN:-90}"
 MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
