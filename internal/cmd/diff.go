@@ -45,7 +45,7 @@ func RunDiff(args cli.Args) int {
 	}
 	gitArgs = append(gitArgs, "--", pathspec)
 
-	out, err := exec.Command("git", gitArgs...).CombinedOutput()
+	out, err := exec.Command("git", gitArgs...).CombinedOutput() //nolint:gosec // git is a fixed binary; args are specd-built refs/pathspecs, not a shell string (see SECURITY.md)
 	if err != nil {
 		return specdExit(core.GateError(fmt.Sprintf("git diff failed (is this a git repo, and are %q/%q valid refs?): %s", from, to, strings.TrimSpace(string(out)))))
 	}

@@ -117,7 +117,7 @@ func downloadBinary(tag, destPath string) error {
 
 	h := sha256.New()
 	if _, err := io.Copy(tmpTar, io.TeeReader(resp.Body, h)); err != nil {
-		tmpTar.Close()
+		_ = tmpTar.Close()
 		return fmt.Errorf("download: %w", err)
 	}
 	if err := tmpTar.Close(); err != nil {
@@ -132,6 +132,11 @@ func downloadBinary(tag, destPath string) error {
 	// Verified — extract the binary and atomically replace destPath.
 	return extractBinary(tmpTarName, destPath)
 }
+
+// maxBinarySize caps how many bytes are extracted from the release tarball, so a
+// crafted archive cannot exhaust disk via a decompression bomb. 512 MiB is well
+// above any real specd binary.
+const maxBinarySize = 512 << 20
 
 // extractBinary reads the verified tarball at tarPath, finds the specd binary,
 // writes it to destPath+".new", and renames it over destPath.
@@ -148,13 +153,13 @@ func extractBinary(tarPath, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("open archive: %w", err)
 	}
-	defer tf.Close()
+	defer func() { _ = tf.Close() }()
 
 	gz, err := gzip.NewReader(tf)
 	if err != nil {
 		return fmt.Errorf("gzip: %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	for {
@@ -167,16 +172,18 @@ func extractBinary(tarPath, destPath string) error {
 		}
 		if filepath.Base(hdr.Name) == "specd" || filepath.Base(hdr.Name) == "specd.exe" {
 			tmp := destPath + ".new"
-			f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+			// 0o755: this is an executable we will rename over the running binary.
+			f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755) //nolint:gosec // G302: the extracted artifact is an executable binary and must be executable.
 			if err != nil {
 				return fmt.Errorf("create tmp: %w", err)
 			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+			// Cap extraction to guard against a decompression bomb (G110).
+			if _, err := io.Copy(f, io.LimitReader(tr, maxBinarySize)); err != nil {
+				_ = f.Close()
 				os.Remove(tmp)
 				return fmt.Errorf("write: %w", err)
 			}
-			f.Close()
+			_ = f.Close()
 			return os.Rename(tmp, destPath)
 		}
 	}

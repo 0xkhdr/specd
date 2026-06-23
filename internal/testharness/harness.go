@@ -37,7 +37,7 @@ func New(t *testing.T) *Harness {
 	t.Helper()
 
 	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, ".specd", "specs"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, ".specd", "specs"), 0o755); err != nil { //nolint:gosec // test harness scaffolding under a throwaway temp dir
 		t.Fatalf("testharness.New: mkdir .specd/specs: %v", err)
 	}
 

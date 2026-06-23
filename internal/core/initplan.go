@@ -256,12 +256,13 @@ func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(str
 			}
 		case ScaffoldCreate:
 			_, statErr := os.Stat(target)
-			if statErr == nil && !options.Force && !(options.Refresh && asset.Refresh) {
+			switch {
+			case statErr == nil && !options.Force && (!options.Refresh || !asset.Refresh):
 				action.Kind = "skip"
 				action.Description = "preserve existing file"
-			} else if statErr != nil && !os.IsNotExist(statErr) {
+			case statErr != nil && !os.IsNotExist(statErr):
 				return InitPlan{}, fmt.Errorf("inspect %s: %w", target, statErr)
-			} else {
+			default:
 				action.Kind = "write"
 				if statErr == nil {
 					action.Description = "replace managed scaffold asset"
@@ -340,7 +341,7 @@ func executeFreshInitPlan(plan InitPlan, force bool, executor InitExecutor, resu
 	if err != nil {
 		return failedInitResult(result, ".specd", "stage-failed", err)
 	}
-	defer executor.RemoveAll(stage)
+	defer func() { _ = executor.RemoveAll(stage) }()
 
 	staged := make([]string, 0, len(plan.Actions))
 	for _, action := range plan.Actions {

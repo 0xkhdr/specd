@@ -10,8 +10,9 @@ to drive the `specd` workflow.
 3. [Role personas](#role-personas)
 4. [Subagent coordination modes](#subagent-coordination-modes)
 5. [Context engineering](#context-engineering)
-6. [Brain/Pinky orchestration](#brainpinky-orchestration)
-7. [Cross-spec programs](#cross-spec-programs)
+6. [Host adapter pattern](#host-adapter-pattern)
+7. [Brain/Pinky orchestration](#brainpinky-orchestration)
+8. [Cross-spec programs](#cross-spec-programs)
 
 ---
 
@@ -161,6 +162,28 @@ across runs:
 MCP intent tools mirror this surface: `mode_get`, `mode_set`, `mode_recommend`.
 Capability (`orchestration.enabled`) only *permits* orchestration; the spec's
 `executionMode` *selects* it — never conflate them.
+
+## Host adapter pattern
+
+Managed host adapters live in `internal/integration`. Add a bespoke adapter only
+when specd can safely detect, plan, install, inspect, and verify a host without
+owning unrelated user configuration. Production adapter checklist:
+
+1. Implement `HostAdapter` in a new `internal/integration/<host>.go` file.
+2. Keep all writes project-scoped unless the user explicitly requested global
+   scope; preserve unrelated JSON/TOML keys and record ownership in
+   `.specd/integrations.json`.
+3. Register the adapter in `DefaultRegistry()` and add unit tests for detect,
+   plan, idempotent install, inspect, and verify.
+4. Add or verify the matching `specd mcp --config <host>` snippet. This snippet
+   fallback is the universal path: every host can still integrate by pasting a
+   generated config even when no managed adapter exists.
+5. Update `docs/agent-harness-compat.md` and `docs/mcp-guide.md` so the support
+   matrix, setup docs, and tests agree.
+
+Never remove the `--config` fallback to force adapter use. Bespoke adapters are
+convenience and safety wrappers; snippets remain the compatibility floor for new
+or experimental agents.
 
 ## Brain/Pinky Orchestration
 

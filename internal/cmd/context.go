@@ -172,7 +172,8 @@ func RunContext(args cli.Args) int {
 	b := buildBrief(state, slug, cfg.DefaultVerify)
 	skill := phaseSkill(state.Status)
 	c := core.CountTasks(state)
-	load := append(baseSteering, b.load...)
+	load := append([]string{}, baseSteering...)
+	load = append(load, b.load...)
 	manifest := buildContextManifest(root, slug, state, loaded.Doc)
 	gated := state.Gate == core.GateAwaitingApproval
 

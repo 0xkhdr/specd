@@ -187,15 +187,18 @@ below the floor:
 
 | Scope | Floor (enforced) | Long-term target |
 |---|---|---|
-| overall | `OVERALL_MIN` = **70%** | 85% |
-| `internal/core` (the engine) | `CORE_MIN` = **70%** | 95% |
-| `internal/mcp` | `MCP_MIN` = **70%** | 85% |
+| overall | `OVERALL_MIN` = **71%** | 85% |
+| `internal/core` (the engine) | `CORE_MIN` = **73%** | 90% → 95% |
+| `internal/cmd` (CLI/orchestration glue) | `CMD_MIN` = **61%** | 80% |
+| `internal/worker` (process seam) | `WORKER_MIN` = **90%** | 95% |
+| `internal/mcp` | `MCP_MIN` = **87%** | 85% |
 | `internal/testharness` | `HARNESS_MIN` = **80%** | 90% |
 
 The floors sit just under current measured coverage so a refactor can't
 silently lose tests; the targets are where we're driving them. Raise the floors
-as coverage improves — never lower them to turn a red build green without a
-written justification in the PR.
+as coverage improves. Floors only ratchet up: never lower one to turn a red
+build green; add tests or document an intentional coverage-shape change in the
+PR.
 
 100% is held on the integrity-critical functions: `ValidateSlug`, the
 `SpecdError` constructors (`UsageError` / `GateError` / `NotFoundError`),

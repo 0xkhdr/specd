@@ -28,6 +28,7 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
    - `specd brain <start|run|step|status|why|directive|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration and bounded worker directives. (MCP: `specd_brain`)
    - `specd pinky <claim|heartbeat|progress|query|report|block|release|inbox> [flags]` — record deterministic worker leases, telemetry, bounded queries, progress, and terminal reports. (MCP: `specd_pinky`)
+   - Windows orchestration is POSIX-only and fails fast with a clear WSL message; non-orchestration workflow remains portable.
    - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
 
    MCP hosts: prefer the **intent-level tools** (`brain_orchestrate`, `brain_status`, …);

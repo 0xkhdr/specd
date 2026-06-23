@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -142,7 +143,7 @@ func (c *conn) readLine() ([]byte, error) {
 				return nil, oversizedRPCError()
 			}
 			line = append(line, part...)
-			if err == bufio.ErrBufferFull {
+			if errors.Is(err, bufio.ErrBufferFull) {
 				continue
 			}
 			if trimmed := bytes.TrimSpace(line); len(trimmed) > 0 {
@@ -157,7 +158,7 @@ func (c *conn) readLine() ([]byte, error) {
 }
 
 func discardLine(r *bufio.Reader, lastErr error) {
-	for lastErr == bufio.ErrBufferFull {
+	for errors.Is(lastErr, bufio.ErrBufferFull) {
 		_, lastErr = r.ReadSlice('\n')
 	}
 }
@@ -177,7 +178,7 @@ func (c *conn) readHeaderFramed() ([]byte, error) {
 		if k, v, ok := strings.Cut(line, ":"); ok && strings.EqualFold(strings.TrimSpace(k), "Content-Length") {
 			n, err := strconv.Atoi(strings.TrimSpace(v))
 			if err != nil {
-				return nil, fmt.Errorf("invalid Content-Length: %v", err)
+				return nil, fmt.Errorf("invalid Content-Length: %w", err)
 			}
 			length = n
 		}

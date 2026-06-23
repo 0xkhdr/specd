@@ -190,9 +190,10 @@ func NextRunnable(tasks []DagTask) NextResult {
 	pending := make([]DagTask, 0, len(remaining))
 	blocked := make([]DagTask, 0, len(remaining))
 	for _, t := range remaining {
-		if t.Status == TaskBlocked {
+		switch t.Status {
+		case TaskBlocked:
 			blocked = append(blocked, t)
-		} else if t.Status == TaskPending {
+		case TaskPending:
 			pending = append(pending, t)
 		}
 	}

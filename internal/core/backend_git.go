@@ -82,7 +82,7 @@ func gitCommitState(root, slug string, rev int) error {
 }
 
 func runGit(root string, args ...string) (string, error) {
-	cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+	cmd := exec.Command("git", append([]string{"-C", root}, args...)...) //nolint:gosec // git is a fixed binary; args are specd-supplied, not a shell string (see SECURITY.md)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

@@ -37,6 +37,18 @@ type DriverDispatch struct {
 	Mission  PinkyMission
 }
 
+// DriverEvent is a stable operational event emitted at the driver boundary.
+type DriverEvent struct {
+	Event   string
+	Session string
+	Worker  string
+	Task    string
+}
+
+// DriverObserver receives best-effort operational events; it must not mutate
+// orchestration state or stdout.
+type DriverObserver func(DriverEvent)
+
 // DriverOptions configures a drive. Worker is the host callback that runs one
 // mission to a reported terminal state; a nil Worker stops the loop at the first
 // dispatch (host-wires-its-own-worker mode). MaxSteps bounds total iterations;
@@ -46,6 +58,7 @@ type DriverOptions struct {
 	MaxSteps int
 	MaxWaits int
 	Worker   func(DriverDispatch) error
+	Observer DriverObserver
 }
 
 // DriverOutcome is the terminal reason a drive stopped.
@@ -95,6 +108,7 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 	inflightKeys := map[string]bool{}
 
 	spawn := func(d DriverDispatch) {
+		emitDriverEvent(opts.Observer, "dispatch", sessionID, d)
 		inflight++
 		inflightKeys[d.Decision.IdempotencyKey] = true
 		go func() { reports <- workerReport{dispatch: d, err: opts.Worker(d)} }()
@@ -106,6 +120,7 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		inflight--
 		delete(inflightKeys, r.dispatch.Decision.IdempotencyKey)
 		if r.err != nil {
+			emitDriverEvent(opts.Observer, "reclaim", sessionID, r.dispatch)
 			return failWorkerDispatch(root, slug, sessionID, r.dispatch, cfg)
 		}
 		return nil
@@ -143,6 +158,7 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 			return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
 		}
 		last = res.Decision
+		emitCostBrakeEvent(opts.Observer, sessionID, res.Snapshot, policy, res.Decision)
 		switch res.Decision.Action {
 		case OrchestrationDispatch, OrchestrationDispatchAuthor:
 			if opts.Worker == nil {
@@ -178,8 +194,12 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		case OrchestrationRequestApproval:
 			return DriverResult{Steps: step, Outcome: DriverAwaiting, Final: last}, drainReports(nil)
 		case OrchestrationEscalate:
+			emitDriverEvent(opts.Observer, "escalate", sessionID, DriverDispatch{Decision: res.Decision})
 			return DriverResult{Steps: step, Outcome: DriverEscalated, Final: last}, drainReports(nil)
 		case OrchestrationWait, OrchestrationCancel, OrchestrationRetry, OrchestrationReplan:
+			if res.Decision.Action == OrchestrationRetry {
+				emitDriverEvent(opts.Observer, "retry", sessionID, DriverDispatch{Decision: res.Decision})
+			}
 			if inflight > 0 {
 				// Workers are running and the engine has no new bounded action: the
 				// only thing that can change state is a worker report, so block for
@@ -197,6 +217,35 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		}
 	}
 	return DriverResult{Steps: opts.MaxSteps, Outcome: DriverMaxSteps, Final: last}, drainReports(nil)
+}
+
+func emitDriverEvent(observer DriverObserver, event, sessionID string, d DriverDispatch) {
+	if observer == nil {
+		return
+	}
+	workerID := d.Mission.WorkerID
+	if workerID == "" {
+		workerID = orchestrationWorkerID(d.Decision)
+	}
+	taskID := d.Mission.TaskID
+	if taskID == "" {
+		taskID = d.Decision.TaskID
+	}
+	observer(DriverEvent{Event: event, Session: sessionID, Worker: workerID, Task: taskID})
+}
+
+func emitCostBrakeEvent(observer DriverObserver, sessionID string, snapshot OrchestrationSnapshot, policy OrchestrationPolicy, decision OrchestrationDecision) {
+	if observer == nil {
+		return
+	}
+	switch EvaluateCostBrake(snapshot.AccumulatedCostUSD, policy.HostReportedCostLimitUSD) {
+	case CostBrakeWarn:
+		observer(DriverEvent{Event: "cost_warn", Session: sessionID})
+	case CostBrakeHalt:
+		if decision.Action == OrchestrationEscalate {
+			observer(DriverEvent{Event: "cost_halt", Session: sessionID})
+		}
+	}
 }
 
 // awaitReport blocks until a worker reports (then reaps it) or the poll interval
@@ -300,6 +349,7 @@ type ProgramDriverOptions struct {
 	MaxSteps int
 	MaxWaits int
 	Worker   func(ProgramDriverDispatch) error
+	Observer DriverObserver
 }
 
 // ProgramDriverResult reports how a program drive ended.
@@ -335,6 +385,7 @@ func DriveProgramOrchestration(root, parentSessionID string, policy Orchestratio
 	inflightKeys := map[string]bool{}
 
 	spawn := func(d ProgramDriverDispatch) {
+		emitDriverEvent(opts.Observer, "dispatch", d.ChildSessionID, d.Dispatch)
 		inflight++
 		inflightKeys[d.Dispatch.Decision.IdempotencyKey] = true
 		go func() { reports <- programWorkerReport{dispatch: d, err: opts.Worker(d)} }()
@@ -343,6 +394,7 @@ func DriveProgramOrchestration(root, parentSessionID string, policy Orchestratio
 		inflight--
 		delete(inflightKeys, r.dispatch.Dispatch.Decision.IdempotencyKey)
 		if r.err != nil {
+			emitDriverEvent(opts.Observer, "reclaim", r.dispatch.ChildSessionID, r.dispatch.Dispatch)
 			return failWorkerDispatch(root, r.dispatch.Slug, r.dispatch.ChildSessionID, r.dispatch.Dispatch, cfg)
 		}
 		return nil
@@ -379,6 +431,7 @@ func DriveProgramOrchestration(root, parentSessionID string, policy Orchestratio
 		case ProgramDecisionComplete:
 			return ProgramDriverResult{Steps: step, Outcome: DriverComplete, Final: last}, drainReports(nil)
 		case ProgramDecisionEscalate:
+			emitDriverEvent(opts.Observer, "escalate", parentSessionID, DriverDispatch{})
 			return ProgramDriverResult{Steps: step, Outcome: DriverEscalated, Final: last}, drainReports(nil)
 		}
 

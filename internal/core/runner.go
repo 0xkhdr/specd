@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 )
@@ -53,7 +54,7 @@ func (shRunner) Run(parent context.Context, spec RunSpec) RunResult {
 	defer cancel()
 
 	t0 := time.Now()
-	cmd := exec.CommandContext(ctx, spec.Shell, "-c", spec.Command)
+	cmd := exec.CommandContext(ctx, spec.Shell, "-c", spec.Command) //nolint:gosec // running operator-authored task commands is the worker's purpose; sandboxing is the operator's responsibility (see SECURITY.md)
 	cmd.Dir = spec.Root
 	cmd.Env = spec.Env
 	var stdout, stderr bytes.Buffer
@@ -65,7 +66,8 @@ func (shRunner) Run(parent context.Context, spec RunSpec) RunResult {
 	timedOut := ctx.Err() == context.DeadlineExceeded
 	exitCode := 0
 	if runErr != nil {
-		if exitErr, ok := runErr.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(runErr, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = 124

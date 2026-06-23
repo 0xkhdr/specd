@@ -63,7 +63,7 @@ func sseHandler(root, specFilter string) http.HandlerFunc {
 func runWatchSSE(addr, root, specFilter string) int {
 	mux := http.NewServeMux()
 	mux.Handle("/events", sseHandler(root, specFilter))
-	srv := &http.Server{Addr: addr, Handler: mux}
+	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -129,6 +129,20 @@ jobs:
       - name: Cross-process contention on one spec
         run: ./scripts/stress.sh
 
+  stress-brain-recovery:
+    name: Brain recovery stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Brain recovery retry/reclaim paths
+        run: ./scripts/stress-brain-recovery.sh
+
   build:
     name: Build (${{ matrix.os }})
     strategy:

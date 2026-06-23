@@ -66,7 +66,7 @@ specd update --force
 
 ### Requirements
 - Linux, macOS, or Windows (amd64 / arm64)
-  - *Windows note*: `specd` is fully compatible with Windows, except that the in-place self-updater (`specd update`) is locked by the OS. Windows users should reinstall manually. Additionally, task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`.
+  - *Windows note*: `specd` is fully compatible with Windows, except that the in-place self-updater (`specd update`) is locked by the OS. Windows users should reinstall manually. Task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`. Brain/Pinky worker orchestration is POSIX-only on Windows and fails fast with: `orchestration requires a POSIX shell (sh); not supported on Windows — run under WSL`.
 - Git (optional — tarball fallback available)
 
 ## For Agents

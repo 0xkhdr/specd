@@ -6,8 +6,10 @@
 # coverage to catch regressions without breaking on noise. Raise them as
 # coverage improves; never lower them to make a red build pass.
 #
-# The documented long-term target (TESTING.md) is higher (85% overall / 95% for
-# internal/core); these gates are the regression floor on the way there.
+# The documented long-term target (TESTING.md) is higher (85% overall / 90% then
+# 95% for internal/core); these gates are the regression floor on the way there.
+# Floors only ratchet up. Do not lower a floor to make a red build pass; add
+# tests or document an intentional coverage-shape change in the PR.
 #
 # Re-baselined when the `boot`/`enrich` subsystem was removed: those files
 # (boot.go, boot_detectors.go, enrich.go, enrich_evidence.go) were heavily tested
@@ -24,19 +26,24 @@
 # Floors raised by the test-suite rebuild (spec.md §5). The reorg consolidated
 # helpers and gap-filled dark paths — notably bringing internal/testharness from
 # ~8% to >80% — so the ratchet moves up with the measured coverage. The new
-# floors sit just under the post-rebuild measured values
-# (overall ~70, core ~74, mcp ~89, testharness ~81).
+# floors sit just under the post-rebuild measured values. Wave 2 adds gates for
+# internal/cmd and internal/worker so orchestration glue and its process seam can
+# no longer silently lose tests.
 #
 # Usage: ./scripts/coverage-check.sh
-#   OVERALL_MIN  minimum total statement coverage          (default 70)
-#   CORE_MIN     minimum internal/core coverage            (default 70)
-#   MCP_MIN      minimum internal/mcp coverage             (default 70)
+#   OVERALL_MIN  minimum total statement coverage          (default 77)
+#   CORE_MIN     minimum internal/core coverage            (default 79)
+#   CMD_MIN      minimum internal/cmd coverage             (default 69)
+#   WORKER_MIN   minimum internal/worker coverage          (default 90)
+#   MCP_MIN      minimum internal/mcp coverage             (default 88)
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-70}"
-CORE_MIN="${CORE_MIN:-70}"
-MCP_MIN="${MCP_MIN:-70}"
+OVERALL_MIN="${OVERALL_MIN:-82}"
+CORE_MIN="${CORE_MIN:-87}"
+CMD_MIN="${CMD_MIN:-72}"
+WORKER_MIN="${WORKER_MIN:-90}"
+MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,6 +58,12 @@ overall="$(pct coverage.out)"
 
 go test ./internal/core/... -coverprofile=coverage-core.out >/dev/null
 core="$(pct coverage-core.out)"
+
+go test ./internal/cmd/... -coverprofile=coverage-cmd.out >/dev/null
+cmd="$(pct coverage-cmd.out)"
+
+go test ./internal/worker/... -coverprofile=coverage-worker.out >/dev/null
+worker="$(pct coverage-worker.out)"
 
 go test ./internal/mcp/... -coverprofile=coverage-mcp.out >/dev/null
 mcp="$(pct coverage-mcp.out)"
@@ -71,6 +84,8 @@ check() {
 
 check "overall" "$overall" "$OVERALL_MIN"
 check "internal/core" "$core" "$CORE_MIN"
+check "internal/cmd" "$cmd" "$CMD_MIN"
+check "internal/worker" "$worker" "$WORKER_MIN"
 check "internal/mcp" "$mcp" "$MCP_MIN"
 check "internal/testharness" "$harness" "$HARNESS_MIN"
 

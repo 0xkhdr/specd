@@ -165,11 +165,12 @@ func programRender(root string, jsonOut bool) int {
 				continue
 			}
 			mark := "·"
-			if s.Complete {
+			switch {
+			case s.Complete:
 				mark = "✓"
-			} else if frontierSet[s.Slug] {
+			case frontierSet[s.Slug]:
 				mark = "▶"
-			} else if s.Status == core.StatusBlocked {
+			case s.Status == core.StatusBlocked:
 				mark = "✗"
 			}
 			deps := ""
@@ -180,13 +181,14 @@ func programRender(root string, jsonOut bool) int {
 		}
 	}
 	fmt.Println()
-	if len(frontierIDs) > 0 {
+	switch {
+	case len(frontierIDs) > 0:
 		fmt.Printf("Runnable now: %s\n", strings.Join(frontierIDs, ", "))
-	} else if next.Kind == core.NextAllComplete {
+	case next.Kind == core.NextAllComplete:
 		fmt.Println("✓ all specs complete.")
-	} else if next.Kind == core.NextAllBlocked {
+	case next.Kind == core.NextAllBlocked:
 		fmt.Printf("⚠ all remaining specs blocked: %s\n", strings.Join(next.Blocked, ", "))
-	} else if next.Kind == core.NextWaiting {
+	case next.Kind == core.NextWaiting:
 		fmt.Printf("… waiting on incomplete specs: %s\n", strings.Join(next.Blocking, ", "))
 	}
 	cp := core.CriticalPath(g.Dag)

@@ -40,7 +40,7 @@ func ReadOrNull(path string) *string {
 // any failure is propagated to the caller.
 func AtomicWrite(path, data string) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // .specd holds non-secret project artifacts; group/other-readable for shared CI checkouts (see SECURITY.md)
 		return err
 	}
 	f, err := os.CreateTemp(dir, fmt.Sprintf(".%d.*.tmp", os.Getpid()))
@@ -49,7 +49,7 @@ func AtomicWrite(path, data string) error {
 	}
 	name := f.Name()
 	defer func() {
-		f.Close()
+		_ = f.Close()
 		os.Remove(name)
 	}()
 	if _, err := f.WriteString(data); err != nil {
@@ -73,19 +73,19 @@ func AtomicWrite(path, data string) error {
 // parent dirs), fsyncs, and propagates any write or close failure so a partial
 // append is never reported as success.
 func AppendFile(path, data string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // .specd holds non-secret project artifacts; group/other-readable for shared CI checkouts (see SECURITY.md)
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) //nolint:gosec // non-secret project artifact; group/other-readable for shared CI checkouts (see SECURITY.md)
 	if err != nil {
 		return err
 	}
 	if _, err := f.WriteString(data); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	// Return the Close error: a deferred Close would swallow a flush failure and

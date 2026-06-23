@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -87,10 +88,11 @@ func Serve(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config) erro
 	for {
 		raw, err := c.readMessage()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			if rerr, ok := err.(rpcReadError); ok {
+			var rerr rpcReadError
+			if errors.As(err, &rerr) {
 				_ = c.writeMessage(rpcResponse{Jsonrpc: "2.0", Error: rerr.rpcError()})
 				continue
 			}
@@ -371,10 +373,10 @@ func buildArgv(arguments map[string]any) ([]string, error) {
 // value, so a tool call never leaks JSON mode into the server's environment.
 func setJSONMode() func() {
 	prev, had := os.LookupEnv("SPECD_JSON")
-	os.Setenv("SPECD_JSON", "1")
+	_ = os.Setenv("SPECD_JSON", "1")
 	return func() {
 		if had {
-			os.Setenv("SPECD_JSON", prev)
+			_ = os.Setenv("SPECD_JSON", prev)
 		} else {
 			os.Unsetenv("SPECD_JSON")
 		}
@@ -391,10 +393,10 @@ func setContextBudgetEnv(budget int) func() {
 	}
 	const key = "SPECD_MAX_CONTEXT_TOKENS"
 	prev, had := os.LookupEnv(key)
-	os.Setenv(key, strconv.Itoa(budget))
+	_ = os.Setenv(key, strconv.Itoa(budget))
 	return func() {
 		if had {
-			os.Setenv(key, prev)
+			_ = os.Setenv(key, prev)
 		} else {
 			os.Unsetenv(key)
 		}

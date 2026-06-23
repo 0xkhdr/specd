@@ -14,12 +14,12 @@ import (
 // directly to disk, bypassing the CLI gates so tests can start from any desired
 // state. Defaults are chosen so the minimal spec still passes `specd check`.
 type SpecBuilder struct {
-	h      *Harness
-	slug   string
-	title  string
-	reqs   []reqBlock
-	design []designSection
-	tasks  []TaskSpec
+	h             *Harness
+	slug          string
+	title         string
+	reqs          []reqBlock
+	design        []designSection
+	tasks         []TaskSpec
 	status        core.SpecStatus
 	phase         core.Phase
 	gate          core.Gate
@@ -125,7 +125,7 @@ func (b *SpecBuilder) Build() string {
 	t.Helper()
 
 	dir := core.SpecDir(b.h.Root, b.slug)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // test harness scaffolding under a throwaway temp dir
 		t.Fatalf("SpecBuilder.Build: mkdir: %v", err)
 	}
 
