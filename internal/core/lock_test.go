@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/schema"
 )
 
 func TestGoIDNonZeroStableAndDistinct(t *testing.T) {
@@ -150,7 +152,7 @@ func TestWithSpecLockStaleReclaimKeepsStateValid(t *testing.T) {
 		t.Fatalf("stale reclaim + write: %v", err)
 	}
 
-	viols, err := ValidateState(readStateRaw(t, root, "s"), SchemaVersionID)
+	viols, err := schema.ValidateState(readStateRaw(t, root, "s"), schema.SchemaVersionID)
 	if err != nil {
 		t.Fatalf("ValidateState: %v", err)
 	}
@@ -185,7 +187,7 @@ func TestConcurrentWritesKeepStateSchemaValid(t *testing.T) {
 					return 0, err
 				}
 				// Every committed write must be schema-valid, not just the last.
-				viols, verr := ValidateState(readStateRaw(t, root, "s"), SchemaVersionID)
+				viols, verr := schema.ValidateState(readStateRaw(t, root, "s"), schema.SchemaVersionID)
 				if verr != nil {
 					return 0, verr
 				}
@@ -205,7 +207,7 @@ func TestConcurrentWritesKeepStateSchemaValid(t *testing.T) {
 	if final.Turn != workers {
 		t.Errorf("R6.1: final Turn = %d, want %d (lost/duplicated updates)", final.Turn, workers)
 	}
-	viols, err := ValidateState(readStateRaw(t, root, "s"), SchemaVersionID)
+	viols, err := schema.ValidateState(readStateRaw(t, root, "s"), schema.SchemaVersionID)
 	if err != nil {
 		t.Fatalf("final ValidateState: %v", err)
 	}

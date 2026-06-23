@@ -1,24 +1,28 @@
-package core
+package schema_test
 
 import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/schema"
 )
 
 func TestSchemaParse(t *testing.T) {
-	doc, err := ParseSchema("")
+	doc, err := schema.ParseSchema("")
 	if err != nil {
 		t.Fatalf("ParseSchema(default): %v", err)
 	}
-	if doc.SpecdSchemaVersion != SchemaVersionID {
-		t.Errorf("specdSchemaVersion = %q, want %q", doc.SpecdSchemaVersion, SchemaVersionID)
+	if doc.SpecdSchemaVersion != schema.SchemaVersionID {
+		t.Errorf("specdSchemaVersion = %q, want %q", doc.SpecdSchemaVersion, schema.SchemaVersionID)
 	}
-	if doc.StateSchemaVersion != SchemaVersion {
-		t.Errorf("stateSchemaVersion = %d, want %d (state.go SchemaVersion)", doc.StateSchemaVersion, SchemaVersion)
+	if doc.StateSchemaVersion != core.SchemaVersion {
+		t.Errorf("stateSchemaVersion = %d, want %d (state.go SchemaVersion)", doc.StateSchemaVersion, core.SchemaVersion)
 	}
 	if doc.ID == "" {
 		t.Error("schema missing $id")
@@ -34,10 +38,10 @@ func TestSchemaParse(t *testing.T) {
 		}
 	}
 	// "v1" alias resolves to the same document; unknown versions fail closed.
-	if _, err := ParseSchema("v1"); err != nil {
+	if _, err := schema.ParseSchema("v1"); err != nil {
 		t.Errorf("ParseSchema(v1): %v", err)
 	}
-	if _, err := Schema("9"); err == nil {
+	if _, err := schema.Schema("9"); err == nil {
 		t.Error("Schema(unknown) must error, got nil")
 	}
 }
@@ -73,30 +77,30 @@ func jsonFields(rt reflect.Type) map[string]bool /* name -> omitempty */ {
 // field without updating schema/v1.json (or vice versa) fails this test, so the
 // schema cannot silently fall out of sync with the source of truth.
 func TestSchemaConformance(t *testing.T) {
-	doc, err := ParseSchema("")
+	doc, err := schema.ParseSchema("")
 	if err != nil {
 		t.Fatalf("ParseSchema: %v", err)
 	}
 
 	types := map[string]reflect.Type{
-		"State":                  reflect.TypeOf(State{}),
-		"TaskState":              reflect.TypeOf(TaskState{}),
-		"VerificationRecord":     reflect.TypeOf(VerificationRecord{}),
-		"CriterionRecord":        reflect.TypeOf(CriterionRecord{}),
-		"Blocker":                reflect.TypeOf(Blocker{}),
-		"ACPEnvelope":            reflect.TypeOf(ACPEnvelope{}),
-		"ACPAuthority":           reflect.TypeOf(ACPAuthority{}),
-		"MissionContextManifest": reflect.TypeOf(MissionContextManifest{}),
-		"MissionContextItem":     reflect.TypeOf(MissionContextItem{}),
-		"ACPMissionPayload":      reflect.TypeOf(ACPMissionPayload{}),
-		"ACPAcceptedPayload":     reflect.TypeOf(ACPAcceptedPayload{}),
-		"ACPHeartbeatPayload":    reflect.TypeOf(ACPHeartbeatPayload{}),
-		"ACPProgressPayload":     reflect.TypeOf(ACPProgressPayload{}),
-		"ACPEvidencePayload":     reflect.TypeOf(ACPEvidencePayload{}),
-		"ACPBlockerPayload":      reflect.TypeOf(ACPBlockerPayload{}),
-		"ACPQueryPayload":        reflect.TypeOf(ACPQueryPayload{}),
-		"ACPDirectivePayload":    reflect.TypeOf(ACPDirectivePayload{}),
-		"ACPCancelledPayload":    reflect.TypeOf(ACPCancelledPayload{}),
+		"State":                  reflect.TypeOf(core.State{}),
+		"TaskState":              reflect.TypeOf(core.TaskState{}),
+		"VerificationRecord":     reflect.TypeOf(core.VerificationRecord{}),
+		"CriterionRecord":        reflect.TypeOf(core.CriterionRecord{}),
+		"Blocker":                reflect.TypeOf(core.Blocker{}),
+		"ACPEnvelope":            reflect.TypeOf(core.ACPEnvelope{}),
+		"ACPAuthority":           reflect.TypeOf(core.ACPAuthority{}),
+		"MissionContextManifest": reflect.TypeOf(core.MissionContextManifest{}),
+		"MissionContextItem":     reflect.TypeOf(core.MissionContextItem{}),
+		"ACPMissionPayload":      reflect.TypeOf(core.ACPMissionPayload{}),
+		"ACPAcceptedPayload":     reflect.TypeOf(core.ACPAcceptedPayload{}),
+		"ACPHeartbeatPayload":    reflect.TypeOf(core.ACPHeartbeatPayload{}),
+		"ACPProgressPayload":     reflect.TypeOf(core.ACPProgressPayload{}),
+		"ACPEvidencePayload":     reflect.TypeOf(core.ACPEvidencePayload{}),
+		"ACPBlockerPayload":      reflect.TypeOf(core.ACPBlockerPayload{}),
+		"ACPQueryPayload":        reflect.TypeOf(core.ACPQueryPayload{}),
+		"ACPDirectivePayload":    reflect.TypeOf(core.ACPDirectivePayload{}),
+		"ACPCancelledPayload":    reflect.TypeOf(core.ACPCancelledPayload{}),
 	}
 
 	for name, rt := range types {
@@ -147,17 +151,27 @@ func TestSchemaConformance(t *testing.T) {
 	}
 }
 
+// readStateRaw returns the raw on-disk state.json bytes for a spec.
+func readStateRaw(t *testing.T, root, slug string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(core.SpecDir(root, slug), "state.json"))
+	if err != nil {
+		t.Fatalf("read state.json: %v", err)
+	}
+	return b
+}
+
 // genState writes a fresh state.json the way `specd new` does (InitialState +
 // CAS save) and returns the on-disk bytes — the real generated artifact.
 func genState(t *testing.T, slug string) []byte {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.MkdirAll(SpecDir(root, slug), 0o755); err != nil {
+	if err := os.MkdirAll(core.SpecDir(root, slug), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	st := InitialState(slug, "Generated "+slug)
-	if _, err := WithSpecLock[int](root, slug, func() (int, error) {
-		return 0, SaveState(root, slug, &st)
+	st := core.InitialState(slug, "Generated "+slug)
+	if _, err := core.WithSpecLock[int](root, slug, func() (int, error) {
+		return 0, core.SaveState(root, slug, &st)
 	}); err != nil {
 		t.Fatalf("save generated state: %v", err)
 	}
@@ -168,7 +182,7 @@ func genState(t *testing.T, slug string) []byte {
 // schema — downstream tooling never chokes on a freshly scaffolded spec.
 func TestGeneratedStateValidatesAgainstSchema(t *testing.T) {
 	raw := genState(t, "fresh")
-	viols, err := ValidateState(raw, SchemaVersionID)
+	viols, err := schema.ValidateState(raw, schema.SchemaVersionID)
 	if err != nil {
 		t.Fatalf("ValidateState: %v", err)
 	}
@@ -187,7 +201,7 @@ func TestSchemaRejectsInvalidArtifact(t *testing.T) {
 	delete(doc, "status") // status is a required State property
 	raw, _ := json.Marshal(doc)
 
-	viols, err := ValidateState(raw, SchemaVersionID)
+	viols, err := schema.ValidateState(raw, schema.SchemaVersionID)
 	if err != nil {
 		t.Fatalf("ValidateState: %v", err)
 	}
@@ -199,15 +213,15 @@ func TestSchemaRejectsInvalidArtifact(t *testing.T) {
 // R1.3: the schema specd serves declares the same versions the state files it
 // validates declare, so `specd schema` and on-disk state can never disagree.
 func TestServedSchemaVersionMatchesState(t *testing.T) {
-	doc, err := ParseSchema("")
+	doc, err := schema.ParseSchema("")
 	if err != nil {
 		t.Fatalf("ParseSchema: %v", err)
 	}
-	if doc.StateSchemaVersion != SchemaVersion {
-		t.Errorf("schema stateSchemaVersion = %d, want %d (state.go SchemaVersion)", doc.StateSchemaVersion, SchemaVersion)
+	if doc.StateSchemaVersion != core.SchemaVersion {
+		t.Errorf("schema stateSchemaVersion = %d, want %d (state.go SchemaVersion)", doc.StateSchemaVersion, core.SchemaVersion)
 	}
-	if doc.SpecdSchemaVersion != SchemaVersionID {
-		t.Errorf("schema specdSchemaVersion = %q, want %q", doc.SpecdSchemaVersion, SchemaVersionID)
+	if doc.SpecdSchemaVersion != schema.SchemaVersionID {
+		t.Errorf("schema specdSchemaVersion = %q, want %q", doc.SpecdSchemaVersion, schema.SchemaVersionID)
 	}
 }
 
@@ -216,12 +230,12 @@ func TestServedSchemaVersionMatchesState(t *testing.T) {
 // ship as a usable scaffold.
 func TestEmbeddedTemplatesAreWellFormed(t *testing.T) {
 	count := 0
-	err := fs.WalkDir(TemplatesFS, "embed_templates", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(core.TemplatesFS, "embed_templates", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
 		count++
-		b, rerr := TemplatesFS.ReadFile(path)
+		b, rerr := core.TemplatesFS.ReadFile(path)
 		if rerr != nil {
 			t.Errorf("read template %s: %v", path, rerr)
 			return nil
@@ -257,7 +271,7 @@ func TestTemplateSchemaLockstepRejectsUnknownField(t *testing.T) {
 	doc["bogusFieldNotInSchema"] = json.RawMessage(`"x"`)
 	raw, _ := json.Marshal(doc)
 
-	viols, err := ValidateState(raw, SchemaVersionID)
+	viols, err := schema.ValidateState(raw, schema.SchemaVersionID)
 	if err != nil {
 		t.Fatalf("ValidateState: %v", err)
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/schema"
 )
 
 // RunSchema writes the embedded JSON Schema for the open spec format to stdout.
@@ -13,7 +14,7 @@ import (
 // version fails closed. It is pure output — no spec, no .specd/ root required —
 // so it works anywhere as the published, machine-readable format contract.
 func RunSchema(args cli.Args) int {
-	doc, err := core.Schema(args.Str("version"))
+	doc, err := schema.Schema(args.Str("version"))
 	if err != nil {
 		return specdExit(err)
 	}
