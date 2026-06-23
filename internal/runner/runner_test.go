@@ -1,4 +1,4 @@
-package core
+package runner
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 func TestShRunnerUnchanged(t *testing.T) {
@@ -62,7 +64,7 @@ func TestShRunnerUnchanged(t *testing.T) {
 
 func TestRecordSandboxField(t *testing.T) {
 	// Default (none) record omits sandbox → byte-compatible with legacy records.
-	rec := VerificationRecord{Command: "go test", Verified: true, RanAt: "2026-01-01T00:00:00Z"}
+	rec := core.VerificationRecord{Command: "go test", Verified: true, RanAt: "2026-01-01T00:00:00Z"}
 	out, err := json.Marshal(rec)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +79,7 @@ func TestRecordSandboxField(t *testing.T) {
 	if !strings.Contains(string(out), "\"sandbox\":\"bwrap\"") {
 		t.Errorf("sandbox not serialized: %s", out)
 	}
-	var back VerificationRecord
+	var back core.VerificationRecord
 	if err := json.Unmarshal(out, &back); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +88,7 @@ func TestRecordSandboxField(t *testing.T) {
 	}
 
 	// Legacy record without the field still parses.
-	var legacy VerificationRecord
+	var legacy core.VerificationRecord
 	if err := json.Unmarshal([]byte(`{"command":"x","verified":true,"ranAt":"t"}`), &legacy); err != nil {
 		t.Fatalf("legacy parse: %v", err)
 	}
@@ -96,7 +98,7 @@ func TestRecordSandboxField(t *testing.T) {
 }
 
 func TestRevertRecord(t *testing.T) {
-	rec := VerificationRecord{Command: "go test", Verified: false, RanAt: "t"}
+	rec := core.VerificationRecord{Command: "go test", Verified: false, RanAt: "t"}
 	out, _ := json.Marshal(rec)
 	if strings.Contains(string(out), "reverted") || strings.Contains(string(out), "stashRef") {
 		t.Errorf("empty revert fields must be omitted: %s", out)
@@ -104,14 +106,14 @@ func TestRevertRecord(t *testing.T) {
 	rec.Reverted = true
 	rec.StashRef = "deadbeef"
 	out, _ = json.Marshal(rec)
-	var back VerificationRecord
+	var back core.VerificationRecord
 	if err := json.Unmarshal(out, &back); err != nil {
 		t.Fatal(err)
 	}
 	if !back.Reverted || back.StashRef != "deadbeef" {
 		t.Errorf("revert fields lost: %+v", back)
 	}
-	var legacy VerificationRecord
+	var legacy core.VerificationRecord
 	if err := json.Unmarshal([]byte(`{"command":"x","verified":true,"ranAt":"t"}`), &legacy); err != nil {
 		t.Fatal(err)
 	}

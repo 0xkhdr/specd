@@ -1,4 +1,4 @@
-package core
+package runner
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ func SelectRunner(name string) (Runner, error) {
 	case "container":
 		return newContainerRunner()
 	default:
-		return nil, GateError(fmt.Sprintf("unknown verify sandbox %q (known: none, bwrap, container)", name))
+		return nil, fmt.Errorf("unknown verify sandbox %q (known: none, bwrap, container)", name)
 	}
 }
 
@@ -37,7 +37,7 @@ type bwrapRunner struct{ bin string }
 func newBwrapRunner() (Runner, error) {
 	bin, err := exec.LookPath("bwrap")
 	if err != nil {
-		return nil, GateError("verify sandbox \"bwrap\": bubblewrap not found on PATH — refusing to run unisolated (install bubblewrap or set verify.sandbox to \"none\")")
+		return nil, fmt.Errorf("verify sandbox \"bwrap\": bubblewrap not found on PATH — refusing to run unisolated (install bubblewrap or set verify.sandbox to \"none\")")
 	}
 	return bwrapRunner{bin: bin}, nil
 }
@@ -82,11 +82,11 @@ func newContainerRunner() (Runner, error) {
 		}
 	}
 	if engine == "" {
-		return nil, GateError("verify sandbox \"container\": neither docker nor podman found on PATH — refusing to run unisolated (install a container engine or set verify.sandbox to \"none\")")
+		return nil, fmt.Errorf("verify sandbox \"container\": neither docker nor podman found on PATH — refusing to run unisolated (install a container engine or set verify.sandbox to \"none\")")
 	}
 	image := strings.TrimSpace(os.Getenv("SPECD_SANDBOX_IMAGE"))
 	if image == "" {
-		return nil, GateError("verify sandbox \"container\": SPECD_SANDBOX_IMAGE is unset — refusing to run without a pinned image (set SPECD_SANDBOX_IMAGE, e.g. \"golang:1.26\")")
+		return nil, fmt.Errorf("verify sandbox \"container\": SPECD_SANDBOX_IMAGE is unset — refusing to run without a pinned image (set SPECD_SANDBOX_IMAGE, e.g. \"golang:1.26\")")
 	}
 	return containerRunner{engine: engine, image: image}, nil
 }

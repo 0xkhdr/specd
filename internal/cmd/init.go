@@ -18,6 +18,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/integration"
 	"github.com/0xkhdr/specd/internal/mcp"
+	"github.com/0xkhdr/specd/internal/runner"
 )
 
 // listPacks renders the embedded built-in packs as text, or JSON under
@@ -253,7 +254,7 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 			if sandbox != "none" && sandbox != "bwrap" && sandbox != "container" {
 				return usageExit("invalid --orchestration-sandbox: must be none, bwrap, or container")
 			}
-			if _, err := core.SelectRunner(sandbox); err != nil {
+			if _, err := runner.SelectRunner(sandbox); err != nil {
 				return specdExit(err)
 			}
 		}

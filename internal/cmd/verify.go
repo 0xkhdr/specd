@@ -14,6 +14,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/runner"
 )
 
 func tailStr(s string, max int) string {
@@ -210,12 +211,12 @@ func RunVerify(args cli.Args) int {
 		if sandbox == "" {
 			sandbox = core.LoadConfig(root).Verify.Sandbox
 		}
-		runner, err := core.SelectRunner(sandbox)
+		rnr, err := runner.SelectRunner(sandbox)
 		if err != nil {
 			return specdExit(err), nil
 		}
 
-		rec := runVerifyCommand(context.Background(), root, shell, command, runner)
+		rec := runVerifyCommand(context.Background(), root, shell, command, rnr)
 
 		// On a failed verify, optionally stash the working tree (recoverable).
 		// Never touches the tree on a passing or default run.
@@ -341,11 +342,11 @@ func recordCriterion(root, slug string, args cli.Args) int {
 // behaviour); this function owns policy (env scrub, timeout) and evidence
 // capture (git head, changed files, coverage). It performs no state IO or
 // presentation — callers handle persistence and output.
-func runVerifyCommand(parent context.Context, root, shell, command string, runner core.Runner) *core.VerificationRecord {
-	core.Info(fmt.Sprintf("run: %s -c %q  (cwd=%s, sandbox=%s)", shell, command, root, runner.Name()))
+func runVerifyCommand(parent context.Context, root, shell, command string, rnr runner.Runner) *core.VerificationRecord {
+	core.Info(fmt.Sprintf("run: %s -c %q  (cwd=%s, sandbox=%s)", shell, command, root, rnr.Name()))
 	startedAt := core.NowISO()
 
-	res := runner.Run(parent, core.RunSpec{
+	res := rnr.Run(parent, runner.RunSpec{
 		Root:    root,
 		Shell:   shell,
 		Command: command,
@@ -368,8 +369,8 @@ func runVerifyCommand(parent context.Context, root, shell, command string, runne
 	}
 	// Only stamp Sandbox for an actually-isolating backend, so the default
 	// ("none") run stays byte-identical to pre-sandbox records.
-	if runner.Name() != "none" {
-		rec.Sandbox = runner.Name()
+	if rnr.Name() != "none" {
+		rec.Sandbox = rnr.Name()
 	}
 	return rec
 }
