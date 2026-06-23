@@ -54,7 +54,7 @@ func (shRunner) Run(parent context.Context, spec RunSpec) RunResult {
 	defer cancel()
 
 	t0 := time.Now()
-	cmd := exec.CommandContext(ctx, spec.Shell, "-c", spec.Command)
+	cmd := exec.CommandContext(ctx, spec.Shell, "-c", spec.Command) //nolint:gosec // running operator-authored task commands is the worker's purpose; sandboxing is the operator's responsibility (see SECURITY.md)
 	cmd.Dir = spec.Root
 	cmd.Env = spec.Env
 	var stdout, stderr bytes.Buffer

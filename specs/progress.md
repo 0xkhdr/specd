@@ -42,7 +42,7 @@ observable and tested.
 
 ---
 
-## Wave 1 — Autonomous core (P0) · Status: ⬜
+## Wave 1 — Autonomous core (P0) · Status: 🟡
 
 ### 01-worker-package
 - [x] W1.1 Extract `internal/worker` package with `Runner` seam
@@ -51,15 +51,19 @@ observable and tested.
 - [x] W1.4 Test pipe-drain (post-signal child write, no hang)
 - [x] W1.5 Test line-writer prefixing across partial/no-newline chunks
 - [x] W1.6 Test mission env propagation
-- [ ] W1.7 Reach `internal/worker` ≥90%, `cmd/brain.go` ≥80%
+- [~] W1.7 Reach `internal/worker` ≥90% (✅ 90.8%), `cmd/brain.go` ≥80%
+  (🟡 aggregate ≈78.5% post-split; all 11 formerly-0% funcs now covered)
 
 ### 02-crash-recovery
-- [ ] W1.8 Driver-level kill-mid-wave → resume reclaims leases test
-- [ ] W1.9 Assert no double-dispatch after resume
+- [x] W1.8 Driver-level kill-mid-wave → resume reclaims leases test
+  (`TestBrainDriverKillReclaimsLease`, `-race -count=2`)
+- [x] W1.9 Assert no double-dispatch after resume
+  (`TestBrainDriverNoDoubleDispatchAcrossKillResume`, `TestBrainResumeIdempotent`)
 - [x] W1.10 `make stress-brain-recovery` CI job
 
-**Exit gate W1:** ⬜ `cmd/brain.go` ≥80% · `internal/worker` ≥90% · recovery
-stress job green in CI.
+**Exit gate W1:** 🟡 `internal/worker` ≥90% ✅ · recovery stress job green ✅ ·
+driver recovery tests green ✅ · `cmd/brain.go` ≥80% 🟡 (≈78.5% aggregate; no
+0% funcs remain).
 
 ---
 
@@ -73,19 +77,24 @@ stress job green in CI.
 - [x] W2.5 `brain why`/`status` reads structured timeline
 
 ### 04-coverage-ratchet
-- [x] W2.6 Raise floors to measured-minus-1 (local measured: overall 72.9, core 74.7, cmd 63.1, worker 90.8)
+- [x] W2.6 Floors ratcheted **up** to locked measured (overall 71→77, core 73→79,
+  cmd 61→69, mcp 87→88; worker 90, harness 80). Stretch targets overall ≥85 /
+  core ≥90 not yet met — see spec03 `tasks.md` T6.
 - [x] W2.7 Document 85/95 target + no-floor-lowering rule in script
 
 **Exit gate W2:** 🟡 logs stderr-only · stdout byte-unchanged test green ·
-floors raised locally; CI review still required.
+floors ratcheted up (gains locked); 85/90 coverage stretch still open.
 
 ---
 
-## Wave 3 — Hardening + maintainability (P2) · Status: ⬜
+## Wave 3 — Hardening + maintainability (P2) · Status: ✅
 
 ### 05-lint-hardening
 - [x] W3.1 Add `errorlint, gosec, bodyclose, gocritic, unconvert, misspell`
-- [ ] W3.2 Triage + fix first run, CI green
+- [x] W3.2 Triage + fix first run, CI green (golangci-lint v2.1.6 installed;
+  37 findings triaged — real fixes for errcheck/gocritic/Setenv, documented
+  config exclusions for systemic gosec G304/G104, narrow `//nolint` for the
+  by-design G204 subprocess/G115/perms sites; `golangci-lint run ./...` exits 0)
 
 ### 06-orchestration-split
 - [x] W3.3 Split `program_orchestration.go` into ≤~400-LOC files
@@ -95,8 +104,8 @@ floors raised locally; CI review still required.
 - [x] W3.5 Decide: non-`sh` Runner OR fail-fast on Windows
 - [x] W3.6 Implement chosen path behind `Runner` interface
 
-**Exit gate W3:** ⬜ new linters green · no non-test file >700 LOC · Windows
-works-or-fails-fast with clear message.
+**Exit gate W3:** ✅ new linters green (`golangci-lint run ./...` exits 0) · no
+non-test file >700 LOC · Windows works-or-fails-fast with clear message.
 
 ---
 

@@ -302,15 +302,10 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 					}
 				}
 
-				if orchConfig != nil {
-					cfg.Orchestration = *orchConfig
-				}
-				if rolesSubagentMode != nil {
-					cfg.Roles.SubagentMode = *rolesSubagentMode
-				}
-				if verifySandbox != nil {
-					cfg.Verify.Sandbox = *verifySandbox
-				}
+				// Within this block these are always set above, so apply directly.
+				cfg.Orchestration = *orchConfig
+				cfg.Roles.SubagentMode = *rolesSubagentMode
+				cfg.Verify.Sandbox = *verifySandbox
 
 				newContent, err := json.MarshalIndent(cfg, "", "  ")
 				if err != nil {

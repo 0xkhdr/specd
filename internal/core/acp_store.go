@@ -200,7 +200,7 @@ func (s *ACPStore) eventFiles(sessionID string) ([]acpEventFile, error) {
 
 func nextACPSequence(files []acpEventFile) (uint64, error) {
 	for i, file := range files {
-		want := uint64(i + 1)
+		want := uint64(i + 1) //nolint:gosec // i is a non-negative slice index; i+1 cannot overflow uint64
 		if file.sequence != want {
 			return 0, fmt.Errorf("acp store: event sequence rollback or gap: got %d, want %d", file.sequence, want)
 		}
@@ -260,7 +260,7 @@ func (s *ACPStore) withSessionLock(sessionID string, fn func() error) error {
 		lock, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
 			if _, writeErr := fmt.Fprintf(lock, "%d %d\n", os.Getpid(), time.Now().UnixMilli()); writeErr != nil {
-				lock.Close()
+				_ = lock.Close()
 				os.Remove(lockPath)
 				return fmt.Errorf("acp store: write session lock: %w", writeErr)
 			}
@@ -304,7 +304,7 @@ func writeImmutablePrivate(path string, data []byte) error {
 	}
 	tempPath := temp.Name()
 	defer func() {
-		temp.Close()
+		_ = temp.Close()
 		os.Remove(tempPath)
 	}()
 	if err := temp.Chmod(0o600); err != nil {
@@ -347,7 +347,7 @@ func atomicWritePrivate(path string, data []byte) error {
 	}
 	tempPath := temp.Name()
 	defer func() {
-		temp.Close()
+		_ = temp.Close()
 		os.Remove(tempPath)
 	}()
 	if err := temp.Chmod(0o600); err != nil {
@@ -373,7 +373,7 @@ func syncDirectory(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer handle.Close()
+	defer func() { _ = handle.Close() }()
 	if err := handle.Sync(); err != nil {
 		return fmt.Errorf("fsync directory: %w", err)
 	}

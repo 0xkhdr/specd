@@ -42,7 +42,7 @@ func (h *Harness) GitHead() string {
 
 func (h *Harness) git(args ...string) string {
 	h.T.Helper()
-	cmd := exec.Command("git", append([]string{"-C", h.Root}, args...)...)
+	cmd := exec.Command("git", append([]string{"-C", h.Root}, args...)...) //nolint:gosec // test harness; git is a fixed binary with test-supplied args
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		h.T.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)

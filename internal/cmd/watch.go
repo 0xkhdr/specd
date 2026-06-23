@@ -41,7 +41,9 @@ func collectChanges(root, specFilter string, det *core.FrontierDetector) []core.
 }
 
 // watchPass writes a compact NDJSON line for every changed frontier and returns
-// the count emitted. Retained for the NDJSON-on-stdout path and its test.
+// the count emitted. Retained for the NDJSON-on-stdout path.
+//
+//nolint:unused // retained NDJSON-on-stdout helper, not yet wired to a command.
 func watchPass(w io.Writer, root, specFilter string, det *core.FrontierDetector) (int, error) {
 	events := collectChanges(root, specFilter, det)
 	for _, ev := range events {

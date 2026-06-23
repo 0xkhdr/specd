@@ -85,11 +85,11 @@ func lockFilePath(root, slug string) string {
 }
 
 func tryAcquire(path string) bool {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644) //nolint:gosec // advisory lock metadata is non-secret; group/other-readable by design
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	fmt.Fprintf(f, "%d %d\n", os.Getpid(), time.Now().UnixMilli())
 	return true
 }

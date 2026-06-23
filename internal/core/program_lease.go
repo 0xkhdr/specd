@@ -228,20 +228,6 @@ func releaseProgramChildLeaseAnyParent(root, slug string) (ProgramChildLease, er
 	return released, err
 }
 
-func activeProgramChildren(root string) (map[string]bool, error) {
-	runtime, err := programChildRuntime(root)
-	if err != nil {
-		return nil, err
-	}
-	active := map[string]bool{}
-	for slug, childRuntime := range runtime {
-		if childRuntime.Active {
-			active[slug] = true
-		}
-	}
-	return active, nil
-}
-
 func programChildRuntime(root string) (map[string]ProgramChildRuntime, error) {
 	leases, err := LoadProgramChildLeases(root)
 	if err != nil {
@@ -465,7 +451,7 @@ func withProgramChildLeaseLock(root, slug string, fn func() error) error {
 		lock, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
 			if _, writeErr := fmt.Fprintf(lock, "%d %d\n", os.Getpid(), time.Now().UnixMilli()); writeErr != nil {
-				lock.Close()
+				_ = lock.Close()
 				os.Remove(lockPath)
 				return fmt.Errorf("program orchestration: write child lease lock: %w", writeErr)
 			}

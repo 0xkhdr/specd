@@ -31,19 +31,19 @@
 # no longer silently lose tests.
 #
 # Usage: ./scripts/coverage-check.sh
-#   OVERALL_MIN  minimum total statement coverage          (default 71)
-#   CORE_MIN     minimum internal/core coverage            (default 73)
-#   CMD_MIN      minimum internal/cmd coverage             (default 61)
+#   OVERALL_MIN  minimum total statement coverage          (default 77)
+#   CORE_MIN     minimum internal/core coverage            (default 79)
+#   CMD_MIN      minimum internal/cmd coverage             (default 69)
 #   WORKER_MIN   minimum internal/worker coverage          (default 90)
-#   MCP_MIN      minimum internal/mcp coverage             (default 87)
+#   MCP_MIN      minimum internal/mcp coverage             (default 88)
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-71}"
-CORE_MIN="${CORE_MIN:-73}"
-CMD_MIN="${CMD_MIN:-61}"
+OVERALL_MIN="${OVERALL_MIN:-77}"
+CORE_MIN="${CORE_MIN:-79}"
+CMD_MIN="${CMD_MIN:-69}"
 WORKER_MIN="${WORKER_MIN:-90}"
-MCP_MIN="${MCP_MIN:-87}"
+MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"

@@ -83,7 +83,7 @@ func cleanPathFile(rc string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(rc+".specd.bak", b, 0o644); err != nil {
+	if err := os.WriteFile(rc+".specd.bak", b, 0o644); err != nil { //nolint:gosec // shell rc backup must stay readable like the rc it mirrors
 		return fmt.Errorf("backup %s: %w", rc, err)
 	}
 	var kept []string
@@ -93,7 +93,7 @@ func cleanPathFile(rc string) error {
 		}
 		kept = append(kept, line)
 	}
-	return os.WriteFile(rc, []byte(strings.Join(kept, "\n")), 0o644)
+	return os.WriteFile(rc, []byte(strings.Join(kept, "\n")), 0o644) //nolint:gosec // rewriting the user's shell rc, which must remain user-readable
 }
 
 func RunUninstall(args cli.Args) int {

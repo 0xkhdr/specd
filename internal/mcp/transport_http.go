@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -40,8 +41,9 @@ func ServeHTTP(addr string, dispatch Dispatcher, cfg *core.Config) error {
 		startPhaseWatcher(ctx, registry, cfg, nil)
 	}
 	srv := &http.Server{
-		Addr:    loopbackAddr(addr),
-		Handler: httpHandler(dispatch, cfg, registry),
+		Addr:              loopbackAddr(addr),
+		Handler:           httpHandler(dispatch, cfg, registry),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return srv.ListenAndServe()
 }

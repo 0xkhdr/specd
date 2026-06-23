@@ -373,10 +373,10 @@ func buildArgv(arguments map[string]any) ([]string, error) {
 // value, so a tool call never leaks JSON mode into the server's environment.
 func setJSONMode() func() {
 	prev, had := os.LookupEnv("SPECD_JSON")
-	os.Setenv("SPECD_JSON", "1")
+	_ = os.Setenv("SPECD_JSON", "1")
 	return func() {
 		if had {
-			os.Setenv("SPECD_JSON", prev)
+			_ = os.Setenv("SPECD_JSON", prev)
 		} else {
 			os.Unsetenv("SPECD_JSON")
 		}
@@ -393,10 +393,10 @@ func setContextBudgetEnv(budget int) func() {
 	}
 	const key = "SPECD_MAX_CONTEXT_TOKENS"
 	prev, had := os.LookupEnv(key)
-	os.Setenv(key, strconv.Itoa(budget))
+	_ = os.Setenv(key, strconv.Itoa(budget))
 	return func() {
 		if had {
-			os.Setenv(key, prev)
+			_ = os.Setenv(key, prev)
 		} else {
 			os.Unsetenv(key)
 		}

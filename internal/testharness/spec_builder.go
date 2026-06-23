@@ -125,7 +125,7 @@ func (b *SpecBuilder) Build() string {
 	t.Helper()
 
 	dir := core.SpecDir(b.h.Root, b.slug)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // test harness scaffolding under a throwaway temp dir
 		t.Fatalf("SpecBuilder.Build: mkdir: %v", err)
 	}
 

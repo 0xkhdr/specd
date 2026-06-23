@@ -61,10 +61,10 @@ func openBrainLog(root, sessionID string) (*os.File, error) {
 		return nil, fmt.Errorf("invalid session id %q", sessionID)
 	}
 	dir := filepath.Join(root, ".specd", "sessions", sessionID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // session dir holds non-secret brain logs; group/other-readable for shared CI checkouts (see SECURITY.md)
 		return nil, err
 	}
-	return os.OpenFile(filepath.Join(dir, "brain.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	return os.OpenFile(filepath.Join(dir, "brain.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644) //nolint:gosec // brain.log is a non-secret diagnostic log; world-readable by design (see SECURITY.md)
 }
 
 type teeHandler struct{ handlers []slog.Handler }
@@ -158,7 +158,7 @@ func ReadTimeline(root, sessionID string) ([]TimelineEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var out []TimelineEvent
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

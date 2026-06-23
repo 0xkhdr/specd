@@ -98,9 +98,10 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 	}
 
 	missing, scaffoldErr := inspectScaffold(root)
-	if scaffoldErr != nil {
+	switch {
+	case scaffoldErr != nil:
 		addDoctorFailure(&result, "scaffold", scaffoldErr.Error(), "run `specd init --repair`")
-	} else if len(missing) > 0 {
+	case len(missing) > 0:
 		if args.Bool("fix") {
 			options := core.InitOptions{Root: root, Repair: true, Scope: string(integration.ScopeProject)}
 			plan, planErr := core.PlanInit(options, core.DefaultScaffoldManifest(), core.ReadTemplate)
@@ -121,7 +122,7 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		} else if scaffoldErr == nil {
 			result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
 		}
-	} else {
+	default:
 		result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
 	}
 

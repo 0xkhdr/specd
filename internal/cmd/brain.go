@@ -1,19 +1,11 @@
 package cmd
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"log/slog"
-	"os"
-	"os/exec"
-	"strconv"
-	"syscall"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/obs"
-	"github.com/0xkhdr/specd/internal/worker"
 )
 
 func RunBrain(args cli.Args) int {
@@ -173,40 +165,6 @@ func brainProgramStep(root, parentSessionID string, args cli.Args) int {
 	return printCommandResult(args, result)
 }
 
-func brainDirective(root string, args cli.Args) int {
-	if len(args.Pos) != 1 || args.Str("session") == "" || args.Str("worker") == "" || args.Str("spec") == "" || args.Str("task") == "" || args.Str("action") == "" || args.Str("reason") == "" {
-		return usageExit("usage: specd brain directive --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --action <continue|retry|cancel|reassign|escalate> --reason <text> [--in-reply-to <message-id>] [--json]")
-	}
-	attempt, ok := parsePositiveIntFlag(args, "attempt")
-	if !ok {
-		return usageExit("specd brain directive: --attempt must be a positive integer")
-	}
-	cfg := core.LoadConfig(root).Orchestration
-	event, err := core.RecordBrainDirective(root, core.BrainDirective{
-		SessionID: args.Str("session"),
-		WorkerID:  args.Str("worker"),
-		Spec:      args.Str("spec"),
-		TaskID:    args.Str("task"),
-		Attempt:   attempt,
-		Action:    args.Str("action"),
-		Reason:    args.Str("reason"),
-		InReplyTo: args.Str("in-reply-to"),
-	}, cfg)
-	if err != nil {
-		return specdExit(err)
-	}
-	return printCommandResult(args, event)
-}
-
-func brainProgramStatus(root string, args cli.Args) int {
-	cfg := core.LoadConfig(root).Orchestration
-	report, err := core.SenseProgramOrchestration(root, args.Str("session"), cfg)
-	if err != nil {
-		return specdExit(err)
-	}
-	return printCommandResult(args, report)
-}
-
 // brainRun is the reference driver loop (GAP-2/GAP-6): a bare or partial repo is
 // brought to a sensable spec (preflight), then driven step→spawn→step to a
 // terminal outcome. Creative work is delegated to a host worker command
@@ -248,7 +206,7 @@ func brainRun(root, slug string, args cli.Args) int {
 	if closer != nil {
 		defer closer.Close()
 	}
-	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
+	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(brainRunner, root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
 	result, err := core.DriveOrchestration(root, slug, sessionID, policy, cfg, opts)
 	if err != nil {
 		return specdExit(err)
@@ -298,7 +256,7 @@ func brainRunProgram(root string, args cli.Args) int {
 	if closer != nil {
 		defer closer.Close()
 	}
-	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
+	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(brainRunner, root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
 	result, err := core.DriveProgramOrchestration(root, parentID, policy, cfg, opts)
 	if err != nil {
 		return specdExit(err)
@@ -314,20 +272,6 @@ func brainRunProgram(root string, args cli.Args) int {
 		return core.ExitGate
 	}
 	return core.ExitOK
-}
-
-// brainRunProgramWorker adapts the single-spec worker callback to the program
-// driver: each child dispatch reuses the same shell-out contract (mission via
-// temp file + SPECD_* env). An empty workerCmd returns nil — the loop then stops
-// at the first child dispatch.
-func brainRunProgramWorker(root, workerCmd string, logger *slog.Logger) func(core.ProgramDriverDispatch) error {
-	inner := brainRunWorker(root, workerCmd, logger)
-	if inner == nil {
-		return nil
-	}
-	return func(d core.ProgramDriverDispatch) error {
-		return inner(d.Dispatch)
-	}
 }
 
 // brainRunSession resolves the session to drive: an explicit --session, an
@@ -355,275 +299,4 @@ func brainRunSession(root, slug string, args cli.Args, policy core.Orchestration
 		return "", false, err
 	}
 	return id, false, nil
-}
-
-// brainRunBootstrap applies the deterministic preflight remedies it can
-// (creating the spec); it never fabricates a workspace or steering. Returns true
-// if the spec is now ready to drive.
-func brainRunBootstrap(root, slug string, args cli.Args, items []core.PreflightItem) bool {
-	for _, item := range items {
-		if item.Kind == "spec" && args.Bool("bootstrap") {
-			newFlags := map[string]string{}
-			if title := args.Str("title"); title != "" {
-				newFlags["title"] = title
-			}
-			if code := RunNew(cli.Args{Pos: []string{slug}, Flags: newFlags}); code != core.ExitOK {
-				errLine("brain run: bootstrap `%s` failed", item.Remedy)
-				return false
-			}
-			continue
-		}
-		errLine("brain run: blocked — %s. Fix with `%s`%s.", item.Message, item.Remedy, bootstrapHint(item))
-		return false
-	}
-	return true
-}
-
-func bootstrapHint(item core.PreflightItem) string {
-	if item.Kind == "spec" {
-		return " (or pass --bootstrap)"
-	}
-	return ""
-}
-
-// brainRunWorker returns a DriveOrchestration worker callback that shells out to
-// workerCmd per dispatch, passing the mission via a temp file and SPECD_* env.
-// An empty workerCmd returns nil — the loop then stops at the first dispatch.
-//
-// Each worker runs under a deadline derived from the mission deadline (GAP-12):
-// a hung or runaway Pinky can no longer stall Brain forever. The command runs in
-// its own process group so a timeout kills the whole tree (`sh -c` spawns
-// children; killing only the shell would orphan them). On timeout the callback
-// returns an error, which the driver turns into a retryable failure so the next
-// step applies the retry/escalate policy. Because workers now run concurrently
-// (GAP-11), output is line-prefixed with the worker id so logs stay legible.
-func brainRunWorker(root, workerCmd string, logger *slog.Logger) func(core.DriverDispatch) error {
-	if workerCmd == "" {
-		return nil
-	}
-	runner := worker.ShellRunner{}
-	return func(d core.DriverDispatch) error {
-		m := worker.Mission{
-			Command:   workerCmd,
-			MissionID: d.Mission.DispatchDigest,
-			SessionID: d.Mission.SessionID,
-			WorkerID:  d.Mission.WorkerID,
-			Spec:      d.Mission.Spec,
-			TaskID:    d.Mission.TaskID,
-			Role:      d.Mission.Role,
-			Files:     d.Mission.Files,
-			Deadline:  d.Mission.Deadline,
-			Payload:   d.Mission,
-		}
-		ctx := context.Background()
-		res, err := runner.Run(ctx, m)
-		exit := workerExitCode(err)
-		obs.LogEvent(ctx, logger, "complete", m.SessionID, m.WorkerID, m.TaskID, res.Duration, exit)
-		if res.TimedOut {
-			obs.LogEvent(ctx, logger, "timeout", m.SessionID, m.WorkerID, m.TaskID, res.Duration, exit)
-		}
-		return err
-	}
-}
-
-// brainRunPolicy builds a policy with sane defaults (planning autonomy) so a
-// drive needs no flag plumbing; any provided brain flag overrides a default.
-func brainRunPolicy(root string, args cli.Args) (core.OrchestrationPolicy, core.OrchestrationCfg, bool) {
-	policy, err := core.NewOrchestrationPolicy(core.LoadConfig(root).Orchestration)
-	if err != nil {
-		errLine("brain run: %v", err)
-		return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
-	}
-	policy.ApprovalPolicy = "planning"
-	if v := args.Str("approval-policy"); v != "" {
-		policy.ApprovalPolicy = v
-	}
-	if args.Has("max-workers") {
-		if n, ok := parsePositiveIntFlag(args, "max-workers"); ok {
-			policy.MaxWorkers = n
-		} else {
-			return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
-		}
-	}
-	if args.Has("max-retries") {
-		if n, ok := parseNonNegativeIntFlag(args, "max-retries"); ok {
-			policy.MaxRetries = n
-		} else {
-			return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
-		}
-	}
-	if err := core.ValidateOrchestrationPolicy(policy); err != nil {
-		errLine("brain run: %v", err)
-		return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
-	}
-	cfg := core.LoadConfig(root).Orchestration
-	cfg.SessionTimeoutMinutes = policy.SessionTimeoutSeconds / 60
-	cfg.ApprovalPolicy = policy.ApprovalPolicy
-	cfg.MaxWorkers = policy.MaxWorkers
-	cfg.MaxRetries = policy.MaxRetries
-	cfg.HostReportedCostLimitUSD = policy.HostReportedCostLimitUSD
-	return policy, cfg, true
-}
-
-func brainPolicyAndConfig(root string, args cli.Args) (core.OrchestrationPolicy, core.OrchestrationCfg, bool) {
-	policy, ok := brainPolicy(args)
-	if !ok {
-		return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
-	}
-	cfg := core.LoadConfig(root).Orchestration
-	cfg.SessionTimeoutMinutes = policy.SessionTimeoutSeconds / 60
-	cfg.ApprovalPolicy = policy.ApprovalPolicy
-	cfg.MaxWorkers = policy.MaxWorkers
-	cfg.MaxRetries = policy.MaxRetries
-	cfg.HostReportedCostLimitUSD = policy.HostReportedCostLimitUSD
-	return policy, cfg, true
-}
-
-func brainStartSessionID(args cli.Args) (string, error) {
-	if args.Str("session") != "" {
-		return args.Str("session"), nil
-	}
-	id, err := core.NewACPID()
-	if err != nil {
-		return "", err
-	}
-	return id, nil
-}
-
-func brainPolicy(args cli.Args) (core.OrchestrationPolicy, bool) {
-	required := []string{"approval-policy", "max-workers", "max-retries", "timeout-seconds"}
-	for _, key := range required {
-		if args.Str(key) == "" {
-			fmt.Printf("missing --%s\n", key)
-			return core.OrchestrationPolicy{}, false
-		}
-	}
-	maxWorkers, ok := parsePositiveIntFlag(args, "max-workers")
-	if !ok {
-		return core.OrchestrationPolicy{}, false
-	}
-	maxRetries, ok := parseNonNegativeIntFlag(args, "max-retries")
-	if !ok {
-		return core.OrchestrationPolicy{}, false
-	}
-	timeout, ok := parsePositiveIntFlag(args, "timeout-seconds")
-	if !ok {
-		return core.OrchestrationPolicy{}, false
-	}
-	cost := 0.0
-	if args.Str("cost-limit") != "" {
-		parsed, err := strconv.ParseFloat(args.Str("cost-limit"), 64)
-		if err != nil || parsed < 0 {
-			fmt.Println("--cost-limit must be a non-negative number")
-			return core.OrchestrationPolicy{}, false
-		}
-		cost = parsed
-	}
-	return core.OrchestrationPolicy{
-		ApprovalPolicy:           args.Str("approval-policy"),
-		MaxWorkers:               maxWorkers,
-		MaxRetries:               maxRetries,
-		SessionTimeoutSeconds:    timeout,
-		HostReportedCostLimitUSD: cost,
-	}, true
-}
-
-func brainSessionControl(root string, args cli.Args, fn func(string, string) (core.OrchestrationSession, error), verb string) int {
-	if len(args.Pos) != 1 || args.Str("session") == "" {
-		return usageExit(fmt.Sprintf("usage: specd brain %s --session <id> [--json]", verb))
-	}
-	session, err := fn(root, args.Str("session"))
-	if err != nil {
-		if core.IsOrchestrationSessionNotFound(err) {
-			return specdExit(core.NotFoundError(err.Error()))
-		}
-		return specdExit(err)
-	}
-	return printCommandResult(args, session)
-}
-
-func brainWhy(root string, args cli.Args) int {
-	sessionID := args.Str("session")
-	if sessionID == "" {
-		return usageExit("usage: specd brain why --session <id> [--json]")
-	}
-	events, err := obs.ReadTimeline(root, sessionID)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return specdExit(core.NotFoundError(fmt.Sprintf("no structured timeline for session %q", sessionID)))
-		}
-		return specdExit(err)
-	}
-	if len(events) == 0 {
-		return specdExit(core.NotFoundError(fmt.Sprintf("no structured timeline for session %q", sessionID)))
-	}
-	if args.Bool("json") || core.IsJSONMode() {
-		return printCommandResult(args, map[string]any{"session": sessionID, "events": events})
-	}
-	fmt.Printf("brain why — %s\n", sessionID)
-	fmt.Println(" event      worker       task        dur_ms  exit")
-	for _, ev := range events {
-		fmt.Printf(" %-10s %-12s %-10s %-7d %d\n", ev.Event, ev.Worker, ev.Task, ev.DurMS, ev.Exit)
-	}
-	return core.ExitOK
-}
-
-func brainObserver(logger *slog.Logger) core.DriverObserver {
-	return func(ev core.DriverEvent) {
-		obs.LogEvent(context.Background(), logger, ev.Event, ev.Session, ev.Worker, ev.Task, 0, 0)
-	}
-}
-
-func workerExitCode(err error) int {
-	if err == nil {
-		return 0
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-			return status.ExitStatus()
-		}
-	}
-	return 1
-}
-
-func brainProgramSessionControl(root string, args cli.Args, fn func(string, string) (core.ProgramSession, error), verb string) int {
-	if len(args.Pos) != 1 || args.Str("session") == "" {
-		return usageExit(fmt.Sprintf("usage: specd brain %s --program --session <id> [--json]", verb))
-	}
-	session, err := fn(root, args.Str("session"))
-	if err != nil {
-		if core.IsOrchestrationSessionNotFound(err) {
-			return specdExit(core.NotFoundError(err.Error()))
-		}
-		return specdExit(err)
-	}
-	return printCommandResult(args, session)
-}
-
-func parsePositiveIntFlag(args cli.Args, key string) (int, bool) {
-	n, err := strconv.Atoi(args.Str(key))
-	if err != nil || n <= 0 {
-		fmt.Printf("--%s must be a positive integer\n", key)
-		return 0, false
-	}
-	return n, true
-}
-
-func parseNonNegativeIntFlag(args cli.Args, key string) (int, bool) {
-	n, err := strconv.Atoi(args.Str(key))
-	if err != nil || n < 0 {
-		fmt.Printf("--%s must be a non-negative integer\n", key)
-		return 0, false
-	}
-	return n, true
-}
-
-func printCommandResult(args cli.Args, v any) int {
-	if args.Bool("json") {
-		core.PrintJSON(v)
-		return core.ExitOK
-	}
-	fmt.Printf("%+v\n", v)
-	return core.ExitOK
 }

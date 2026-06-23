@@ -28,12 +28,13 @@ func ParseArgs(argv []string) Args {
 				args.Flags[key[:eq]] = key[eq+1:]
 				continue
 			}
-			if booleanFlags[key] {
+			switch {
+			case booleanFlags[key]:
 				args.Flags[key] = "true"
-			} else if i+1 < len(argv) && !strings.HasPrefix(argv[i+1], "--") {
+			case i+1 < len(argv) && !strings.HasPrefix(argv[i+1], "--"):
 				i++
 				args.Flags[key] = argv[i]
-			} else {
+			default:
 				args.Flags[key] = "true"
 			}
 		} else {

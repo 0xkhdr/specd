@@ -50,6 +50,7 @@ func DefaultBackend() StateBackend { return fileBackend{} }
 // links no database driver — the registry is empty unless a `specd_*` tag is set.
 var optionalBackends = map[string]func() StateBackend{}
 
+//nolint:unused // called only from build-tagged optional backends (backend_redis.go, backend_postgres.go); unused in the default build.
 func registerOptionalBackend(name string, ctor func() StateBackend) {
 	optionalBackends[name] = ctor
 }

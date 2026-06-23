@@ -109,7 +109,7 @@ func TestParseHostCostUSD(t *testing.T) {
 		"$1.50":     1.5,
 		"2.00":      2,
 		"$1,234.50": 1234.5,
-		"  $3 ":     3,
+		"  $3 ":     3, //nolint:gocritic // intentional surrounding whitespace exercises cost-string trimming
 		"garbage":   0,
 		"-5":        0,
 		"NaN":       0,

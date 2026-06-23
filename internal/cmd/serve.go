@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -36,7 +37,7 @@ func NewServeHandler(root, slug string) http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		io.WriteString(w, renderIndexHTML(root))
+		_, _ = io.WriteString(w, renderIndexHTML(root))
 	})
 
 	// GET /s/<slug> — live report HTML for one spec (R2.2).
@@ -182,7 +183,8 @@ func RunServe(args cli.Args) int {
 	}
 	handler := NewServeHandler(root, slug)
 	fmt.Printf("specd serve: read-only dashboard for '%s' on http://%s/ (Ctrl-C to stop)\n", slug, addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	if err := srv.ListenAndServe(); err != nil {
 		core.Error(err.Error())
 		return core.ExitGate
 	}
