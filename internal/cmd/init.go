@@ -18,13 +18,14 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/integration"
 	"github.com/0xkhdr/specd/internal/mcp"
+	"github.com/0xkhdr/specd/internal/pack"
 	"github.com/0xkhdr/specd/internal/runner"
 )
 
 // listPacks renders the embedded built-in packs as text, or JSON under
 // SPECD_JSON. It performs no filesystem writes.
 func listPacks() int {
-	packs, err := core.BuiltinPacks()
+	packs, err := pack.BuiltinPacks()
 	if err != nil {
 		return specdExit(err)
 	}
@@ -63,11 +64,11 @@ func plural(n int) string {
 // resolves to a built-in; an http(s) URL requires --sha256 (fail-closed). It
 // writes nothing on any resolve/apply error.
 func applyPack(root, ref string, args cli.Args) int {
-	pack, err := core.ResolvePack(ref, args.Str("sha256"))
+	pk, err := pack.ResolvePack(ref, args.Str("sha256"))
 	if err != nil {
 		return specdExit(err)
 	}
-	res, err := core.ApplyPack(root, pack, args.Bool("force"))
+	res, err := pack.ApplyPack(root, pk, args.Bool("force"))
 	if err != nil {
 		return specdExit(err)
 	}
@@ -76,12 +77,12 @@ func applyPack(root, ref string, args cli.Args) int {
 			Pack    string   `json:"pack"`
 			Version string   `json:"version"`
 			Written []string `json:"written"`
-		}{pack.Name, pack.Version, res.Written}); err != nil {
+		}{pk.Name, pk.Version, res.Written}); err != nil {
 			return specdExit(err)
 		}
 		return core.ExitOK
 	}
-	core.Info(fmt.Sprintf("specd init --pack %s (v%s): wrote %d file(s):", pack.Name, pack.Version, len(res.Written)))
+	core.Info(fmt.Sprintf("specd init --pack %s (v%s): wrote %d file(s):", pk.Name, pk.Version, len(res.Written)))
 	for _, w := range res.Written {
 		core.Info("  + " + w)
 	}

@@ -1,9 +1,11 @@
-package core
+package pack
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // PackApplyResult reports what an ApplyPack call did. Written lists the
@@ -36,11 +38,11 @@ func ApplyPack(root string, p *Pack, force bool) (PackApplyResult, error) {
 		abs := filepath.Join(root, filepath.FromSlash(f.Path))
 		if _, err := os.Stat(abs); err == nil {
 			if !force {
-				return res, GateError(fmt.Sprintf("pack %q: %s already exists (use --force to overwrite) — nothing written", p.Name, f.Path))
+				return res, core.GateError(fmt.Sprintf("pack %q: %s already exists (use --force to overwrite) — nothing written", p.Name, f.Path))
 			}
 			res.Skipped = append(res.Skipped, f.Path)
 		}
-		plan = append(plan, planned{abs: abs, rel: f.Path, content: ApplyVars(f.Content, p.Vars)})
+		plan = append(plan, planned{abs: abs, rel: f.Path, content: core.ApplyVars(f.Content, p.Vars)})
 	}
 
 	// Apply phase: write each file, rolling back creations on the first failure.
@@ -55,9 +57,9 @@ func ApplyPack(root string, p *Pack, force bool) (PackApplyResult, error) {
 		if _, err := os.Stat(pl.abs); err == nil {
 			preexisting = true
 		}
-		if err := AtomicWrite(pl.abs, pl.content); err != nil {
+		if err := core.AtomicWrite(pl.abs, pl.content); err != nil {
 			rollback()
-			return PackApplyResult{Pack: p.Name}, GateError(fmt.Sprintf("pack %q: write %s failed (%v) — rolled back", p.Name, pl.rel, err))
+			return PackApplyResult{Pack: p.Name}, core.GateError(fmt.Sprintf("pack %q: write %s failed (%v) — rolled back", p.Name, pl.rel, err))
 		}
 		// Only roll back files this call newly created; never delete a file the
 		// user already had (force-overwrites are left in place on rollback rather

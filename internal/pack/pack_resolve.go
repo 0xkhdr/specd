@@ -1,4 +1,4 @@
-package core
+package pack
 
 import (
 	"crypto/sha256"
@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // maxPackBytes bounds a remote pack download so a hostile or runaway endpoint
@@ -26,7 +28,7 @@ func ResolvePack(ref, sha256Pin string) (*Pack, error) {
 		return resolveRemotePack(ref, sha256Pin)
 	}
 	if strings.TrimSpace(sha256Pin) != "" {
-		return nil, GateError("--sha256 is only meaningful for a remote (http/https) pack reference")
+		return nil, core.GateError("--sha256 is only meaningful for a remote (http/https) pack reference")
 	}
 	return BuiltinPack(ref)
 }
@@ -38,25 +40,25 @@ func isRemoteRef(ref string) bool {
 func resolveRemotePack(url, sha256Pin string) (*Pack, error) {
 	pin := strings.ToLower(strings.TrimSpace(sha256Pin))
 	if pin == "" {
-		return nil, GateError(fmt.Sprintf("remote pack %q requires a pinned --sha256 digest — refusing to fetch unpinned", url))
+		return nil, core.GateError(fmt.Sprintf("remote pack %q requires a pinned --sha256 digest — refusing to fetch unpinned", url))
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, GateError(fmt.Sprintf("fetch pack %q: %v", url, err))
+		return nil, core.GateError(fmt.Sprintf("fetch pack %q: %v", url, err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, GateError(fmt.Sprintf("fetch pack %q: HTTP %d", url, resp.StatusCode))
+		return nil, core.GateError(fmt.Sprintf("fetch pack %q: HTTP %d", url, resp.StatusCode))
 	}
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxPackBytes+1))
 	if err != nil {
-		return nil, GateError(fmt.Sprintf("read pack %q: %v", url, err))
+		return nil, core.GateError(fmt.Sprintf("read pack %q: %v", url, err))
 	}
 	if len(raw) > maxPackBytes {
-		return nil, GateError(fmt.Sprintf("pack %q exceeds the %d-byte limit", url, maxPackBytes))
+		return nil, core.GateError(fmt.Sprintf("pack %q exceeds the %d-byte limit", url, maxPackBytes))
 	}
 
 	return VerifyAndParsePack(raw, pin, url)
@@ -71,7 +73,7 @@ func VerifyAndParsePack(raw []byte, sha256Pin, source string) (*Pack, error) {
 	sum := sha256.Sum256(raw)
 	got := hex.EncodeToString(sum[:])
 	if got != want {
-		return nil, GateError(fmt.Sprintf("pack %q SHA256 mismatch: got %s, pinned %s — refusing to apply", source, got, want))
+		return nil, core.GateError(fmt.Sprintf("pack %q SHA256 mismatch: got %s, pinned %s — refusing to apply", source, got, want))
 	}
 	return ParsePack(raw)
 }
