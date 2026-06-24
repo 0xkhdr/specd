@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
@@ -27,24 +28,24 @@ type dispatchPacket struct {
 	// RolePath references the role asset by path (resolve via the response-level
 	// `assets` map). RolePrompt is only populated under --inline-roles, where the
 	// full role text is inlined per packet for hosts that cannot resolve paths.
-	RolePath        string                       `json:"rolePath"`
-	RolePrompt      string                       `json:"rolePrompt,omitempty"`
-	Title           string                       `json:"title"`
-	Why             string                       `json:"why"`
-	Contract        string                       `json:"contract"`
-	Files           string                       `json:"files"`
-	Acceptance      string                       `json:"acceptance"`
-	Verify          string                       `json:"verify"`
-	Depends         []string                     `json:"depends"`
-	Requirements    []int                        `json:"requirements"`
-	ContextManifest *core.MissionContextManifest `json:"contextManifest,omitempty"`
-	Completion      string                       `json:"completion"`
+	RolePath        string                             `json:"rolePath"`
+	RolePrompt      string                             `json:"rolePrompt,omitempty"`
+	Title           string                             `json:"title"`
+	Why             string                             `json:"why"`
+	Contract        string                             `json:"contract"`
+	Files           string                             `json:"files"`
+	Acceptance      string                             `json:"acceptance"`
+	Verify          string                             `json:"verify"`
+	Depends         []string                           `json:"depends"`
+	Requirements    []int                              `json:"requirements"`
+	ContextManifest *contextpkg.MissionContextManifest `json:"contextManifest,omitempty"`
+	Completion      string                             `json:"completion"`
 }
 
 // manifestRolePath returns the role asset path the context engine resolved for
 // this packet (the first "role"-kind item). It is the canonical path packets
 // reference instead of inlining the role text.
-func manifestRolePath(m core.MissionContextManifest) string {
+func manifestRolePath(m contextpkg.MissionContextManifest) string {
 	for _, it := range m.Items {
 		if it.Kind == "role" {
 			return it.Path
@@ -117,10 +118,10 @@ func RunDispatch(args cli.Args) int {
 		if reqs == nil {
 			reqs = []int{}
 		}
-		mf := core.BuildContextManifest(core.ContextRequest{
+		mf := contextpkg.BuildContextManifest(contextpkg.ContextRequest{
 			Slug: slug, Status: state.Status, TaskID: f.ID, Role: v.Role,
 			Files: core.SplitCSV(v.Meta["files"]), Requirements: reqs,
-			Mode: core.ContextModeDispatch, HostBudget: core.HostContextBudgetFromEnv(),
+			Mode: contextpkg.ContextModeDispatch, HostBudget: core.HostContextBudgetFromEnv(),
 			ReadArtifact: reader,
 		})
 		rolePath := manifestRolePath(mf)

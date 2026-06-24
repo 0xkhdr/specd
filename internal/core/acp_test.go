@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 func TestACPIDGeneration(t *testing.T) {
@@ -127,11 +129,11 @@ func validACPMission() ACPMissionPayload {
 		DispatchDigest: strings.Repeat("a", 64),
 		Role:           "builder",
 		ContextCommand: "specd context example",
-		ContextManifest: MissionContextManifest{
-			Version:          missionContextManifestVersion,
-			SoftTokenCeiling: missionContextSoftCeiling,
+		ContextManifest: contextpkg.MissionContextManifest{
+			Version:          contextpkg.ManifestVersion,
+			SoftTokenCeiling: 12000,
 			Strategy:         "load required items first",
-			Items: []MissionContextItem{{
+			Items: []contextpkg.MissionContextItem{{
 				Order:     1,
 				Kind:      "role",
 				Path:      ".specd/roles/builder.md",

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/spec"
 )
 
 var DesignSections = []string{
@@ -54,25 +56,9 @@ func DesignGate(md *string) []Violation {
 	return v
 }
 
-func PhaseForStatus(status SpecStatus) Phase {
-	switch status {
-	case StatusRequirements:
-		return PhaseAnalyze
-	case StatusDesign:
-		return PhasePlan
-	case StatusTasks:
-		return PhasePlan
-	case StatusExecuting:
-		return PhaseExecute
-	case StatusBlocked:
-		return PhaseExecute
-	case StatusVerifying:
-		return PhaseVerify
-	case StatusComplete:
-		return PhaseReflect
-	}
-	return PhaseAnalyze
-}
+// PhaseForStatus is re-exported from internal/spec so existing core call sites
+// (and PlanningAdvance below) keep working without importing spec directly.
+var PhaseForStatus = spec.PhaseForStatus
 
 type AdvanceTarget struct {
 	Status SpecStatus

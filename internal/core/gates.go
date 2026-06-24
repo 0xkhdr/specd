@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 // CheckCtx is the shared, read-only context every check gate operates over. It
@@ -382,11 +384,11 @@ func GateModeCapability(c CheckCtx) (violations, warnings []Violation) {
 	return nil, []Violation{v}
 }
 
-func buildCheckContextManifest(c CheckCtx) MissionContextManifest {
-	req := ContextRequest{
+func buildCheckContextManifest(c CheckCtx) contextpkg.MissionContextManifest {
+	req := contextpkg.ContextRequest{
 		Slug:         c.Slug,
 		Status:       c.State.Status,
-		Mode:         ContextModeMission,
+		Mode:         contextpkg.ContextModeMission,
 		HostBudget:   c.Cfg.Gates.MaxContextTokens,
 		ReadArtifact: specArtifactReader(c.Root, c.Slug),
 	}
@@ -397,14 +399,14 @@ func buildCheckContextManifest(c CheckCtx) MissionContextManifest {
 		req.Files = SplitCSV(v.Meta["files"])
 		req.Requirements = v.Requirements
 	}
-	return BuildContextManifest(req)
+	return contextpkg.BuildContextManifest(req)
 }
 
 // heaviestRequiredItems returns up to n required items, heaviest token hint
 // first, formatted "kind path (~tokens)" for actionable gate output. Ties break
 // on the item's manifest order so the result is deterministic.
-func heaviestRequiredItems(m MissionContextManifest, n int) []string {
-	required := make([]MissionContextItem, 0, len(m.Items))
+func heaviestRequiredItems(m contextpkg.MissionContextManifest, n int) []string {
+	required := make([]contextpkg.MissionContextItem, 0, len(m.Items))
 	for _, it := range m.Items {
 		if it.Required {
 			required = append(required, it)

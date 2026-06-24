@@ -37,6 +37,8 @@
 #   WORKER_MIN   minimum internal/worker coverage          (default 90)
 #   MCP_MIN      minimum internal/mcp coverage             (default 88)
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
+#   SPEC_MIN     minimum internal/spec coverage            (default 90)
+#   CONTEXT_MIN  minimum internal/context coverage         (default 90)
 set -euo pipefail
 
 OVERALL_MIN="${OVERALL_MIN:-82}"
@@ -45,6 +47,8 @@ CMD_MIN="${CMD_MIN:-72}"
 WORKER_MIN="${WORKER_MIN:-90}"
 MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
+SPEC_MIN="${SPEC_MIN:-90}"
+CONTEXT_MIN="${CONTEXT_MIN:-90}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"
@@ -71,6 +75,12 @@ mcp="$(pct coverage-mcp.out)"
 go test ./internal/testharness/... -coverprofile=coverage-harness.out >/dev/null
 harness="$(pct coverage-harness.out)"
 
+go test ./internal/spec/... -coverprofile=coverage-spec.out >/dev/null
+spec="$(pct coverage-spec.out)"
+
+go test ./internal/context/... -coverprofile=coverage-context.out >/dev/null
+contextcov="$(pct coverage-context.out)"
+
 fail=0
 check() {
   local name="$1" got="$2" min="$3"
@@ -88,6 +98,8 @@ check "internal/cmd" "$cmd" "$CMD_MIN"
 check "internal/worker" "$worker" "$WORKER_MIN"
 check "internal/mcp" "$mcp" "$MCP_MIN"
 check "internal/testharness" "$harness" "$HARNESS_MIN"
+check "internal/spec"         "$spec"    "$SPEC_MIN"
+check "internal/context"      "$contextcov" "$CONTEXT_MIN"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "coverage floor not met — add tests or, if intentional, lower the floor with justification." >&2

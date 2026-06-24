@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 // RenderMissionBrief assembles a fully context-engineered worker brief from a
@@ -58,7 +60,7 @@ func RenderMissionBrief(mission PinkyMission) string {
 	return sb.String()
 }
 
-func renderContextManifest(sb *strings.Builder, manifest MissionContextManifest) {
+func renderContextManifest(sb *strings.Builder, manifest contextpkg.MissionContextManifest) {
 	fmt.Fprintf(sb, "- soft token ceiling: %d\n", manifest.SoftTokenCeiling)
 	fmt.Fprintf(sb, "- strategy: %s\n\n", manifest.Strategy)
 	sb.WriteString("| # | kind | load | mode | required | hint | why |\n")
@@ -76,7 +78,7 @@ func renderContextManifest(sb *strings.Builder, manifest MissionContextManifest)
 	}
 }
 
-func contextItemLoad(item MissionContextItem) string {
+func contextItemLoad(item contextpkg.MissionContextItem) string {
 	if item.Command != "" {
 		return "`" + item.Command + "`"
 	}

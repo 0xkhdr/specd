@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/schema"
 )
@@ -90,8 +91,8 @@ func TestSchemaConformance(t *testing.T) {
 		"Blocker":                reflect.TypeOf(core.Blocker{}),
 		"ACPEnvelope":            reflect.TypeOf(core.ACPEnvelope{}),
 		"ACPAuthority":           reflect.TypeOf(core.ACPAuthority{}),
-		"MissionContextManifest": reflect.TypeOf(core.MissionContextManifest{}),
-		"MissionContextItem":     reflect.TypeOf(core.MissionContextItem{}),
+		"MissionContextManifest": reflect.TypeOf(contextpkg.MissionContextManifest{}),
+		"MissionContextItem":     reflect.TypeOf(contextpkg.MissionContextItem{}),
 		"ACPMissionPayload":      reflect.TypeOf(core.ACPMissionPayload{}),
 		"ACPAcceptedPayload":     reflect.TypeOf(core.ACPAcceptedPayload{}),
 		"ACPHeartbeatPayload":    reflect.TypeOf(core.ACPHeartbeatPayload{}),

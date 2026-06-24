@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -371,8 +372,8 @@ func TestNegotiateMaxContextTokensGarbageIsSafe(t *testing.T) {
 // effective manifest Budget; omitting it leaves the engine default untouched
 // (byte-identical path). AC-6.
 func TestCapabilityContextBudgetCapsManifest(t *testing.T) {
-	req := core.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "builder", Mode: core.ContextModeBriefing}
-	baseline := core.BuildContextManifest(req).Budget
+	req := contextpkg.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "builder", Mode: contextpkg.ContextModeBriefing}
+	baseline := contextpkg.BuildContextManifest(req).Budget
 
 	restore := setContextBudgetEnv(2500)
 	defer restore()
@@ -380,7 +381,7 @@ func TestCapabilityContextBudgetCapsManifest(t *testing.T) {
 		t.Fatalf("budget did not cross the env boundary: got %d", got)
 	}
 	req.HostBudget = core.HostContextBudgetFromEnv()
-	if capped := core.BuildContextManifest(req).Budget; capped != 2500 {
+	if capped := contextpkg.BuildContextManifest(req).Budget; capped != 2500 {
 		t.Fatalf("budget not capped to host hint: got %d (baseline %d)", capped, baseline)
 	}
 
