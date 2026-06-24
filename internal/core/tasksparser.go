@@ -6,24 +6,28 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/spec"
 )
 
 var (
 	MandatoryKeys = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends"}
 	KeyOrder      = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends", "requirements"}
 	ValidRoles    = []string{"investigator", "builder", "reviewer", "verifier"}
-	ReadonlyRoles = []string{"investigator", "reviewer"}
 
-	validRoleSet    = sliceToSet(ValidRoles)
-	readonlyRoleSet = sliceToSet(ReadonlyRoles)
+	validRoleSet = sliceToSet(ValidRoles)
 )
+
+// ReadonlyRoles and IsReadonlyRole are re-exported from internal/spec so both
+// core and the context engine share a single source of truth for the role set.
+var ReadonlyRoles = spec.ReadonlyRoles
 
 // IsValidRole reports whether r is a recognized task role.
 func IsValidRole(r string) bool { return validRoleSet[r] }
 
 // IsReadonlyRole reports whether r is a read-only role (no runnable verify
 // command required to complete).
-func IsReadonlyRole(r string) bool { return readonlyRoleSet[r] }
+func IsReadonlyRole(r string) bool { return spec.IsReadonlyRole(r) }
 
 func sliceToSet(ss []string) map[string]bool {
 	m := make(map[string]bool, len(ss))

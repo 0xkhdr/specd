@@ -1,4 +1,4 @@
-package core
+package pack
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 //go:embed embed_packs
@@ -49,12 +51,12 @@ func ParsePack(raw []byte) (*Pack, error) {
 	// generic unknown-field rejection.
 	var probe map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &probe); err != nil {
-		return nil, GateError(fmt.Sprintf("pack manifest is not valid JSON: %v", err))
+		return nil, core.GateError(fmt.Sprintf("pack manifest is not valid JSON: %v", err))
 	}
 	forbidden := sliceToSet(forbiddenPackKeys)
 	for k := range probe {
 		if forbidden[strings.ToLower(k)] {
-			return nil, GateError(fmt.Sprintf("pack manifest is declarative-only: field %q (executable hooks) is not allowed", k))
+			return nil, core.GateError(fmt.Sprintf("pack manifest is declarative-only: field %q (executable hooks) is not allowed", k))
 		}
 	}
 
@@ -62,17 +64,17 @@ func ParsePack(raw []byte) (*Pack, error) {
 	dec.DisallowUnknownFields()
 	var p Pack
 	if err := dec.Decode(&p); err != nil {
-		return nil, GateError(fmt.Sprintf("invalid pack manifest: %v", err))
+		return nil, core.GateError(fmt.Sprintf("invalid pack manifest: %v", err))
 	}
 
 	if strings.TrimSpace(p.Name) == "" {
-		return nil, GateError("pack manifest missing required field: name")
+		return nil, core.GateError("pack manifest missing required field: name")
 	}
 	if strings.TrimSpace(p.Version) == "" {
-		return nil, GateError("pack manifest missing required field: version")
+		return nil, core.GateError("pack manifest missing required field: version")
 	}
 	if len(p.Files) == 0 {
-		return nil, GateError(fmt.Sprintf("pack %q declares no files", p.Name))
+		return nil, core.GateError(fmt.Sprintf("pack %q declares no files", p.Name))
 	}
 	seen := map[string]bool{}
 	for _, f := range p.Files {
@@ -80,7 +82,7 @@ func ParsePack(raw []byte) (*Pack, error) {
 			return nil, err
 		}
 		if seen[f.Path] {
-			return nil, GateError(fmt.Sprintf("pack %q declares duplicate file path %q", p.Name, f.Path))
+			return nil, core.GateError(fmt.Sprintf("pack %q declares duplicate file path %q", p.Name, f.Path))
 		}
 		seen[f.Path] = true
 	}
@@ -91,17 +93,17 @@ func ParsePack(raw []byte) (*Pack, error) {
 // absolute paths, "..", and paths that do not stay within the tree once cleaned.
 func validatePackPath(p string) error {
 	if p == "" {
-		return GateError("pack file has empty path")
+		return core.GateError("pack file has empty path")
 	}
 	if path.IsAbs(p) || strings.HasPrefix(p, "/") {
-		return GateError(fmt.Sprintf("pack file path %q must be relative", p))
+		return core.GateError(fmt.Sprintf("pack file path %q must be relative", p))
 	}
 	clean := path.Clean(p)
 	if clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
-		return GateError(fmt.Sprintf("pack file path %q escapes the project root", p))
+		return core.GateError(fmt.Sprintf("pack file path %q escapes the project root", p))
 	}
 	if clean != p {
-		return GateError(fmt.Sprintf("pack file path %q is not in canonical form (want %q)", p, clean))
+		return core.GateError(fmt.Sprintf("pack file path %q is not in canonical form (want %q)", p, clean))
 	}
 	return nil
 }
@@ -124,7 +126,7 @@ func BuiltinPacks() ([]*Pack, error) {
 		}
 		p, err := ParsePack(b)
 		if err != nil {
-			return nil, GateError(fmt.Sprintf("embedded pack %s: %v", e.Name(), err))
+			return nil, core.GateError(fmt.Sprintf("embedded pack %s: %v", e.Name(), err))
 		}
 		packs = append(packs, p)
 	}
@@ -144,5 +146,14 @@ func BuiltinPack(name string) (*Pack, error) {
 			return p, nil
 		}
 	}
-	return nil, NotFoundError(fmt.Sprintf("no built-in pack named %q", name))
+	return nil, core.NotFoundError(fmt.Sprintf("no built-in pack named %q", name))
+}
+
+// sliceToSet builds a membership set from a string slice.
+func sliceToSet(ss []string) map[string]bool {
+	out := make(map[string]bool, len(ss))
+	for _, s := range ss {
+		out[s] = true
+	}
+	return out
 }

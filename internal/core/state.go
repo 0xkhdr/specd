@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/spec"
 )
 
 const SchemaVersion = 5
@@ -26,27 +28,31 @@ const (
 	OriginRecommended = "recommended-accepted" // user accepted a harness recommendation
 )
 
-type SpecStatus string
+// SpecStatus and Phase (with their consts) live in internal/spec so both core
+// and the context engine can share them without an import cycle. These aliases
+// and const re-declarations keep every existing core.SpecStatus / core.Status* /
+// core.Phase / core.Phase* call site compiling unchanged.
+type SpecStatus = spec.SpecStatus
 
 const (
-	StatusRequirements SpecStatus = "requirements"
-	StatusDesign       SpecStatus = "design"
-	StatusTasks        SpecStatus = "tasks"
-	StatusExecuting    SpecStatus = "executing"
-	StatusVerifying    SpecStatus = "verifying"
-	StatusComplete     SpecStatus = "complete"
-	StatusBlocked      SpecStatus = "blocked"
+	StatusRequirements = spec.StatusRequirements
+	StatusDesign       = spec.StatusDesign
+	StatusTasks        = spec.StatusTasks
+	StatusExecuting    = spec.StatusExecuting
+	StatusVerifying    = spec.StatusVerifying
+	StatusComplete     = spec.StatusComplete
+	StatusBlocked      = spec.StatusBlocked
 )
 
-type Phase string
+type Phase = spec.Phase
 
 const (
-	PhasePerceive Phase = "perceive"
-	PhaseAnalyze  Phase = "analyze"
-	PhasePlan     Phase = "plan"
-	PhaseExecute  Phase = "execute"
-	PhaseVerify   Phase = "verify"
-	PhaseReflect  Phase = "reflect"
+	PhasePerceive = spec.PhasePerceive
+	PhaseAnalyze  = spec.PhaseAnalyze
+	PhasePlan     = spec.PhasePlan
+	PhaseExecute  = spec.PhaseExecute
+	PhaseVerify   = spec.PhaseVerify
+	PhaseReflect  = spec.PhaseReflect
 )
 
 type Gate string

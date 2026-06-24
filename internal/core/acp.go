@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 const (
@@ -81,16 +83,16 @@ type ACPAuthority struct {
 }
 
 type ACPMissionPayload struct {
-	DispatchDigest  string                 `json:"dispatchDigest"`
-	Role            string                 `json:"role"`
-	ContextCommand  string                 `json:"contextCommand"`
-	ContextManifest MissionContextManifest `json:"contextManifest,omitempty"`
-	Contract        string                 `json:"contract"`
-	Files           []string               `json:"files"`
-	Acceptance      string                 `json:"acceptance"`
-	VerifyCommand   string                 `json:"verifyCommand"`
-	Dependencies    []string               `json:"dependencies"`
-	Authority       ACPAuthority           `json:"authority"`
+	DispatchDigest  string                            `json:"dispatchDigest"`
+	Role            string                            `json:"role"`
+	ContextCommand  string                            `json:"contextCommand"`
+	ContextManifest contextpkg.MissionContextManifest `json:"contextManifest,omitempty"`
+	Contract        string                            `json:"contract"`
+	Files           []string                          `json:"files"`
+	Acceptance      string                            `json:"acceptance"`
+	VerifyCommand   string                            `json:"verifyCommand"`
+	Dependencies    []string                          `json:"dependencies"`
+	Authority       ACPAuthority                      `json:"authority"`
 }
 
 type ACPAcceptedPayload struct {

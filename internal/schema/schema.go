@@ -1,4 +1,4 @@
-package core
+package schema
 
 import (
 	"embed"
@@ -29,7 +29,7 @@ func Schema(version string) ([]byte, error) {
 	case "1", "v1":
 		return schemaFS.ReadFile("schema/v1.json")
 	default:
-		return nil, GateError(fmt.Sprintf("unknown schema version %q (known: %s)", version, SchemaVersionID))
+		return nil, fmt.Errorf("unknown schema version %q (known: %s)", version, SchemaVersionID)
 	}
 }
 
@@ -61,7 +61,7 @@ func ParseSchema(version string) (*SchemaDoc, error) {
 	}
 	var doc SchemaDoc
 	if err := json.Unmarshal(b, &doc); err != nil {
-		return nil, GateError(fmt.Sprintf("embedded schema %q is not valid JSON: %v", version, err))
+		return nil, fmt.Errorf("embedded schema %q is not valid JSON: %v", version, err)
 	}
 	return &doc, nil
 }

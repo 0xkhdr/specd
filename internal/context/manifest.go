@@ -1,6 +1,7 @@
-package core
+package contextpkg
 
 import (
+	"github.com/0xkhdr/specd/internal/spec"
 	"path/filepath"
 	"strings"
 )
@@ -22,7 +23,7 @@ const (
 // the engine pure and deterministic.
 type ContextRequest struct {
 	Slug           string
-	Status         SpecStatus // empty => phase inferred from TaskID prefix
+	Status         spec.SpecStatus // empty => phase inferred from TaskID prefix
 	TaskID         string
 	Role           string
 	Files          []string
@@ -92,7 +93,7 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 	addSourceArtifacts(req, add)
 
 	return MissionContextManifest{
-		Version:          missionContextManifestVersion,
+		Version:          ManifestVersion,
 		SoftTokenCeiling: missionContextSoftCeiling,
 		Strategy:         missionContextStrategy,
 		Items:            items,
@@ -166,19 +167,19 @@ func readArtifactContent(req ContextRequest, name string) (string, bool) {
 // statusSourceArtifacts returns the phase-relevant source artifacts in load
 // order. An empty/unknown status keeps the historical full set so callers that
 // do not carry a status (e.g. a mission) stay equivalent to the pre-filter path.
-func statusSourceArtifacts(status SpecStatus) []string {
+func statusSourceArtifacts(status spec.SpecStatus) []string {
 	switch status {
-	case StatusRequirements:
+	case spec.StatusRequirements:
 		return []string{"requirements.md"}
-	case StatusDesign:
+	case spec.StatusDesign:
 		return []string{"requirements.md", "design.md"}
-	case StatusTasks:
+	case spec.StatusTasks:
 		return []string{"requirements.md", "design.md", "tasks.md"}
-	case StatusExecuting, StatusBlocked:
+	case spec.StatusExecuting, spec.StatusBlocked:
 		return []string{"requirements.md", "design.md", "tasks.md"}
-	case StatusVerifying:
+	case spec.StatusVerifying:
 		return []string{"requirements.md", "tasks.md"}
-	case StatusComplete:
+	case spec.StatusComplete:
 		return []string{"tasks.md"}
 	default:
 		return []string{"requirements.md", "design.md", "tasks.md"}
@@ -224,14 +225,14 @@ func sumRequiredHints(items []MissionContextItem) int {
 func deriveContextBudget(req ContextRequest) int {
 	base := missionContextSoftCeiling
 	switch effectivePhase(req) {
-	case PhaseAnalyze, PhasePlan:
+	case spec.PhaseAnalyze, spec.PhasePlan:
 		base = 16000
-	case PhaseExecute:
+	case spec.PhaseExecute:
 		base = missionContextSoftCeiling
-	case PhaseVerify, PhaseReflect:
+	case spec.PhaseVerify, spec.PhaseReflect:
 		base = 9000
 	}
-	if IsReadonlyRole(req.Role) {
+	if spec.IsReadonlyRole(req.Role) {
 		base = base * 2 / 3
 	}
 	base += len(req.Files) * 1500
@@ -243,22 +244,22 @@ func deriveContextBudget(req ContextRequest) int {
 
 // effectivePhase resolves the phase from an explicit status, falling back to the
 // task-id convention (authoring tasks plan; everything else executes).
-func effectivePhase(req ContextRequest) Phase {
+func effectivePhase(req ContextRequest) spec.Phase {
 	if req.Status != "" {
-		return PhaseForStatus(req.Status)
+		return spec.PhaseForStatus(req.Status)
 	}
 	if strings.HasPrefix(req.TaskID, "A") {
-		return PhasePlan
+		return spec.PhasePlan
 	}
-	return PhaseExecute
+	return spec.PhaseExecute
 }
 
 func clampContextBudget(v int) int {
-	if v < minMissionContextSoftCeiling {
-		return minMissionContextSoftCeiling
+	if v < MinSoftCeiling {
+		return MinSoftCeiling
 	}
-	if v > maxMissionContextSoftCeiling {
-		return maxMissionContextSoftCeiling
+	if v > MaxSoftCeiling {
+		return MaxSoftCeiling
 	}
 	return v
 }

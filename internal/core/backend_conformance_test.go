@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"sync"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/schema"
 )
 
 // backendConformance is the storage contract every StateBackend must satisfy. It
@@ -40,7 +42,7 @@ func backendConformance(t *testing.T, b StateBackend) {
 		if err != nil {
 			t.Fatalf("marshal state: %v", err)
 		}
-		viols, err := ValidateState(raw, SchemaVersionID)
+		viols, err := schema.ValidateState(raw, schema.SchemaVersionID)
 		if err != nil {
 			t.Fatalf("ValidateState: %v", err)
 		}

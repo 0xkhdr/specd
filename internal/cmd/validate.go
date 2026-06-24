@@ -6,6 +6,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/schema"
 )
 
 // RunValidate checks a spec's on-disk state.json against the embedded JSON
@@ -31,7 +32,7 @@ func RunValidate(args cli.Args) int {
 		return specdExit(core.NotFoundError(fmt.Sprintf("no state.json for spec '%s'", slug)))
 	}
 
-	viols, err := core.ValidateState([]byte(*raw), args.Str("version"))
+	viols, err := schema.ValidateState([]byte(*raw), args.Str("version"))
 	if err != nil {
 		return specdExit(err)
 	}
@@ -45,7 +46,7 @@ func RunValidate(args cli.Args) int {
 			Schema     string   `json:"schema"`
 			Conformant bool     `json:"conformant"`
 			Violations []string `json:"violations"`
-		}{slug, core.SchemaVersionID, len(viols) == 0, viols}); err != nil {
+		}{slug, schema.SchemaVersionID, len(viols) == 0, viols}); err != nil {
 			return specdExit(err)
 		}
 		if len(viols) > 0 {
@@ -55,7 +56,7 @@ func RunValidate(args cli.Args) int {
 	}
 
 	if len(viols) == 0 {
-		core.Info(fmt.Sprintf("schema: %s conforms to open spec format v%s", slug, core.SchemaVersionID))
+		core.Info(fmt.Sprintf("schema: %s conforms to open spec format v%s", slug, schema.SchemaVersionID))
 		return core.ExitOK
 	}
 	core.Error(fmt.Sprintf("schema: %s has %d conformance violation(s):", slug, len(viols)))

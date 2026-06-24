@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 func TestPinkyMissionDeterministic(t *testing.T) {
@@ -43,7 +45,7 @@ func TestPinkyMissionContextManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := mission.ContextManifest
-	if manifest.SoftTokenCeiling != missionContextSoftCeiling || len(manifest.Items) == 0 {
+	if manifest.SoftTokenCeiling != 12000 || len(manifest.Items) == 0 {
 		t.Fatalf("unexpected manifest: %#v", manifest)
 	}
 	joined := missionContextTestString(manifest)
@@ -67,7 +69,7 @@ func TestPinkyMissionContextManifest(t *testing.T) {
 	}
 }
 
-func missionContextTestString(manifest MissionContextManifest) string {
+func missionContextTestString(manifest contextpkg.MissionContextManifest) string {
 	var sb strings.Builder
 	for _, item := range manifest.Items {
 		sb.WriteString(item.Kind)

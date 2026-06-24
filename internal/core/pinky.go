@@ -7,29 +7,31 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 type PinkyMission struct {
-	Version         int                    `json:"version"`
-	SessionID       string                 `json:"sessionId"`
-	WorkerID        string                 `json:"workerId"`
-	Spec            string                 `json:"spec"`
-	TaskID          string                 `json:"taskId"`
-	Attempt         int                    `json:"attempt"`
-	Deadline        string                 `json:"deadline"`
-	HeartbeatEvery  int                    `json:"heartbeatEverySeconds"`
-	Role            string                 `json:"role"`
-	Title           string                 `json:"title"`
-	ContextCommand  string                 `json:"contextCommand"`
-	ContextManifest MissionContextManifest `json:"contextManifest"`
-	Contract        string                 `json:"contract"`
-	Files           []string               `json:"files"`
-	Acceptance      string                 `json:"acceptance"`
-	VerifyCommand   string                 `json:"verifyCommand"`
-	Dependencies    []string               `json:"dependencies"`
-	Requirements    []int                  `json:"requirements"`
-	Authority       ACPAuthority           `json:"authority"`
-	DispatchDigest  string                 `json:"dispatchDigest"`
+	Version         int                               `json:"version"`
+	SessionID       string                            `json:"sessionId"`
+	WorkerID        string                            `json:"workerId"`
+	Spec            string                            `json:"spec"`
+	TaskID          string                            `json:"taskId"`
+	Attempt         int                               `json:"attempt"`
+	Deadline        string                            `json:"deadline"`
+	HeartbeatEvery  int                               `json:"heartbeatEverySeconds"`
+	Role            string                            `json:"role"`
+	Title           string                            `json:"title"`
+	ContextCommand  string                            `json:"contextCommand"`
+	ContextManifest contextpkg.MissionContextManifest `json:"contextManifest"`
+	Contract        string                            `json:"contract"`
+	Files           []string                          `json:"files"`
+	Acceptance      string                            `json:"acceptance"`
+	VerifyCommand   string                            `json:"verifyCommand"`
+	Dependencies    []string                          `json:"dependencies"`
+	Requirements    []int                             `json:"requirements"`
+	Authority       ACPAuthority                      `json:"authority"`
+	DispatchDigest  string                            `json:"dispatchDigest"`
 }
 
 type PinkyClaim struct {

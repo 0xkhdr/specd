@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/0xkhdr/specd/internal/cli"
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
@@ -93,12 +94,12 @@ func buildBrief(state *core.State, slug, defaultVerify string) brief {
 // runnable task (its role, declared files, covered requirements) so the brief
 // targets the actual frontier work; other phases brief at the phase level. The
 // injected reader lets the engine measure and slice the real artifacts.
-func buildContextManifest(root, slug string, state *core.State, doc core.ParsedTasks) core.MissionContextManifest {
-	req := core.ContextRequest{
+func buildContextManifest(root, slug string, state *core.State, doc core.ParsedTasks) contextpkg.MissionContextManifest {
+	req := contextpkg.ContextRequest{
 		Slug:         slug,
 		Status:       state.Status,
 		Role:         "builder",
-		Mode:         core.ContextModeBriefing,
+		Mode:         contextpkg.ContextModeBriefing,
 		HostBudget:   core.HostContextBudgetFromEnv(),
 		ReadArtifact: core.SpecArtifactReader(root, slug),
 	}
@@ -111,13 +112,13 @@ func buildContextManifest(root, slug string, state *core.State, doc core.ParsedT
 			req.Requirements = v.Requirements
 		}
 	}
-	return core.BuildContextManifest(req)
+	return contextpkg.BuildContextManifest(req)
 }
 
 // manifestJSON projects a context manifest into the additive `contextManifest`
 // JSON block, surfacing the measured accounting (estimatedTokens, budget) and
 // the ordered load items so any host can self-report its context cost.
-func manifestJSON(m core.MissionContextManifest) map[string]interface{} {
+func manifestJSON(m contextpkg.MissionContextManifest) map[string]interface{} {
 	items := make([]map[string]interface{}, 0, len(m.Items))
 	for _, it := range m.Items {
 		item := map[string]interface{}{
@@ -141,7 +142,7 @@ func manifestJSON(m core.MissionContextManifest) map[string]interface{} {
 // printContextManifest renders the manifest's load items as a compact table
 // (required marker, item, mode, ~tokens, why) followed by the budget line so a
 // human reader sees exactly what to load and how close it runs to the ceiling.
-func printContextManifest(m core.MissionContextManifest) {
+func printContextManifest(m contextpkg.MissionContextManifest) {
 	for _, it := range m.Items {
 		ref := it.Path
 		if ref == "" {

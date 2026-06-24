@@ -1,4 +1,4 @@
-package core
+package schema
 
 import (
 	"encoding/json"
@@ -36,18 +36,18 @@ func ValidateState(raw []byte, version string) ([]string, error) {
 	}
 	var root nodeSchema
 	if err := json.Unmarshal(schemaBytes, &root); err != nil {
-		return nil, GateError(fmt.Sprintf("embedded schema %q is not valid JSON: %v", version, err))
+		return nil, fmt.Errorf("embedded schema %q is not valid JSON: %v", version, err)
 	}
 	var defsRaw struct {
 		Defs map[string]json.RawMessage `json:"$defs"`
 	}
 	if err := json.Unmarshal(schemaBytes, &defsRaw); err != nil {
-		return nil, GateError(fmt.Sprintf("embedded schema %q has no usable $defs: %v", version, err))
+		return nil, fmt.Errorf("embedded schema %q has no usable $defs: %v", version, err)
 	}
 
 	var doc interface{}
 	if err := json.Unmarshal(raw, &doc); err != nil {
-		return nil, GateError(fmt.Sprintf("document is not valid JSON: %v", err))
+		return nil, fmt.Errorf("document is not valid JSON: %v", err)
 	}
 
 	var viols []string
