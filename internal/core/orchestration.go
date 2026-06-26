@@ -24,7 +24,39 @@ const (
 	OrchestrationReplan          OrchestrationAction = "replan"
 	OrchestrationEscalate        OrchestrationAction = "escalate"
 	OrchestrationCompleteSession OrchestrationAction = "complete-session"
+	// OrchestrationCompact instructs the host to shed conversation context
+	// (a `/clear`) between planning ratchets or under token pressure. It is an
+	// effecting decision with no worker dispatch: the engine writes a phase
+	// summary and a ledger checkpoint; the host performs the real clear.
+	OrchestrationCompact OrchestrationAction = "compact"
 )
+
+// Compaction policy modes. Empty is treated as CompactionNone.
+const (
+	CompactionNone   = "none"
+	CompactionPhase  = "phase"
+	CompactionBudget = "budget"
+	CompactionBoth   = "both"
+)
+
+// ContextLedgerEntry is one persistent record in a session's context ledger. It
+// is the per-session counterpart of the ephemeral manifest token estimate: a
+// pre-dispatch entry records the budget the manifest computed, a post-task entry
+// records the host-reported actuals, and a compact entry marks a checkpoint
+// where the host shed context. All entries together form the token high-water
+// trail the Brain reasons over.
+type ContextLedgerEntry struct {
+	StepSequence       uint64 `json:"stepSequence"`
+	Phase              Phase  `json:"phase"`
+	Action             string `json:"action"` // dispatch | compact | approve | step
+	EstimatedTokens    int    `json:"estimatedTokens"`
+	HostReportedTokens int    `json:"hostReportedTokens,omitempty"`
+	Budget             int    `json:"budget"`
+	SoftCeiling        int    `json:"softCeiling"`
+	Compacted          bool   `json:"compacted,omitempty"`
+	CompactedAt        string `json:"compactedAt,omitempty"`
+	Reason             string `json:"reason"` // phase-complete | budget-threshold | manual-clear
+}
 
 type OrchestrationSessionStatus string
 
@@ -55,6 +87,33 @@ type OrchestrationPolicy struct {
 	MaxRetries               int     `json:"maxRetries"`
 	SessionTimeoutSeconds    int     `json:"sessionTimeoutSeconds"`
 	HostReportedCostLimitUSD float64 `json:"hostReportedCostLimitUSD"`
+	// CompactionPolicy selects automatic context compaction: none|phase|budget|
+	// both. Empty is treated as none. omitempty keeps existing session.json
+	// byte-identical.
+	CompactionPolicy string `json:"compactionPolicy,omitempty"`
+	// CompactionBudgetThreshold is the fraction of the manifest budget at which
+	// budget-driven compaction fires, in [0,1]. omitempty keeps the zero value
+	// (no budget trigger) out of byte-stable session.json.
+	CompactionBudgetThreshold float64 `json:"compactionBudgetThreshold,omitempty"`
+}
+
+// effectiveCompactionPolicy maps the empty policy to CompactionNone so callers
+// never branch on the empty string.
+func (p OrchestrationPolicy) effectiveCompactionPolicy() string {
+	if p.CompactionPolicy == "" {
+		return CompactionNone
+	}
+	return p.CompactionPolicy
+}
+
+func (p OrchestrationPolicy) compactsOnPhase() bool {
+	c := p.effectiveCompactionPolicy()
+	return c == CompactionPhase || c == CompactionBoth
+}
+
+func (p OrchestrationPolicy) compactsOnBudget() bool {
+	c := p.effectiveCompactionPolicy()
+	return c == CompactionBudget || c == CompactionBoth
 }
 
 type OrchestrationTaskSnapshot struct {
@@ -111,6 +170,14 @@ type OrchestrationSnapshot struct {
 	// (session.ExpiresAt, set at start from sessionTimeoutSeconds) has passed.
 	// It forces a terminal escalation rather than relying on lease expiry alone.
 	SessionExpired bool `json:"sessionExpired"`
+	// LastCompactionStep, LedgerEstimatedTokens, and LedgerBudget carry the
+	// compaction inputs DecideOrchestration needs without breaking its pure
+	// (snapshot, policy) signature: they are read from the persisted session's
+	// ledger tail in SenseOrchestration. omitempty keeps snapshots without a
+	// session (plain-controller mode) byte-identical to the pre-compaction shape.
+	LastCompactionStep    uint64 `json:"lastCompactionStep,omitempty"`
+	LedgerEstimatedTokens int    `json:"ledgerEstimatedTokens,omitempty"`
+	LedgerBudget          int    `json:"ledgerBudget,omitempty"`
 }
 
 // OrchestrationAuthoring is a synthetic, single authoring work item describing
@@ -155,6 +222,14 @@ type OrchestrationSession struct {
 	UpdatedAt    string                     `json:"updatedAt"`
 	ExpiresAt    string                     `json:"expiresAt"`
 	LastSequence uint64                     `json:"lastSequence"`
+	// ContextLedger is the persistent token-accounting trail (R1). LastCompactionStep
+	// is the snapshot revision at which the most recent compaction fired, guarding
+	// the phase-boundary trigger from re-emitting. PeakTokens is the high-water mark
+	// across estimated and host-reported entries. All omitempty so pre-ledger
+	// session.json round-trips byte-identical.
+	ContextLedger      []ContextLedgerEntry `json:"contextLedger,omitempty"`
+	LastCompactionStep uint64               `json:"lastCompactionStep,omitempty"`
+	PeakTokens         int                  `json:"peakTokens,omitempty"`
 }
 
 func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
@@ -167,6 +242,8 @@ func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
 		MaxRetries:               cfg.MaxRetries,
 		SessionTimeoutSeconds:    cfg.SessionTimeoutMinutes * 60,
 		HostReportedCostLimitUSD: cfg.HostReportedCostLimitUSD,
+		CompactionPolicy:          cfg.CompactionPolicy,
+		CompactionBudgetThreshold: cfg.CompactionBudgetThreshold,
 	}
 	if err := ValidateOrchestrationPolicy(policy); err != nil {
 		return OrchestrationPolicy{}, err
@@ -193,6 +270,14 @@ func ValidateOrchestrationPolicy(policy OrchestrationPolicy) error {
 		math.IsInf(policy.HostReportedCostLimitUSD, 0) ||
 		policy.HostReportedCostLimitUSD < 0 {
 		return fmt.Errorf("orchestration model: hostReportedCostLimitUSD must be finite and non-negative")
+	}
+	if !oneOf(policy.effectiveCompactionPolicy(), CompactionNone, CompactionPhase, CompactionBudget, CompactionBoth) {
+		return fmt.Errorf("orchestration model: unsupported compaction policy %q", policy.CompactionPolicy)
+	}
+	if math.IsNaN(policy.CompactionBudgetThreshold) ||
+		math.IsInf(policy.CompactionBudgetThreshold, 0) ||
+		policy.CompactionBudgetThreshold < 0 || policy.CompactionBudgetThreshold > 1 {
+		return fmt.Errorf("orchestration model: compactionBudgetThreshold must be finite and within [0,1]")
 	}
 	return nil
 }
@@ -450,7 +535,8 @@ func validOrchestrationAction(action OrchestrationAction) bool {
 	case OrchestrationIdle, OrchestrationRequestApproval, OrchestrationDispatch,
 		OrchestrationDispatchAuthor, OrchestrationAdvancePhase,
 		OrchestrationWait, OrchestrationRetry, OrchestrationCancel,
-		OrchestrationReplan, OrchestrationEscalate, OrchestrationCompleteSession:
+		OrchestrationReplan, OrchestrationEscalate, OrchestrationCompleteSession,
+		OrchestrationCompact:
 		return true
 	}
 	return false

@@ -169,6 +169,12 @@ type TimelineEvent struct {
 	Task     string `json:"task,omitempty"`
 	DurMS    int64  `json:"dur_ms,omitempty"`
 	Exit     int    `json:"exit,omitempty"`
+	// Context-compaction fields (spec §4.7), present only on context.compact events.
+	EstimatedTokens    int    `json:"estimated_tokens,omitempty"`
+	HostReportedTokens int    `json:"host_reported_tokens,omitempty"`
+	Budget             int    `json:"budget,omitempty"`
+	Reason             string `json:"reason,omitempty"`
+	CompactionFile     string `json:"compaction_file,omitempty"`
 }
 
 // WithFields annotates ctx with optional slug/phase/role log fields.
@@ -226,6 +232,32 @@ func LogEvent(ctx context.Context, logger *slog.Logger, event, session, worker, 
 	default:
 		logger.InfoContext(ctx, "brain event", attrs...)
 	}
+}
+
+// LogContextCompact emits a context.compact timeline event (spec §4.7): the
+// token ledger checkpoint a host produced when shedding context. It rides the
+// same brain.log surface as LogEvent, so `specd replay` shows it inline.
+func LogContextCompact(ctx context.Context, logger *slog.Logger, session string, estimatedTokens, hostReportedTokens, budget int, reason, file string) {
+	if logger == nil {
+		return
+	}
+	slug := logFieldString(ctx, logFieldSlug)
+	phase := logFieldString(ctx, logFieldPhase)
+	attrs := []any{
+		"event", "context.compact",
+		"slug", slug,
+		"phase", phase,
+		"session_id", session,
+		"session", session,
+		"estimated_tokens", estimatedTokens,
+		"budget", budget,
+		"reason", reason,
+		"compaction_file", file,
+	}
+	if hostReportedTokens > 0 {
+		attrs = append(attrs, "host_reported_tokens", hostReportedTokens)
+	}
+	logger.InfoContext(ctx, "brain event", attrs...)
 }
 
 // ReadTimeline parses NDJSON slog output and keeps records carrying an event.

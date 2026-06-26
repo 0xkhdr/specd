@@ -104,7 +104,14 @@ func bootstrapHint(item core.PreflightItem) string {
 func brainObserver(root string, logger *slog.Logger) core.DriverObserver {
 	return func(ev core.DriverEvent) {
 		slug, phase, role := brainEventScope(root, ev.Session, ev.Task)
+		if ev.Phase != "" {
+			phase = ev.Phase
+		}
 		ctx := obs.WithFields(context.Background(), slug, phase, role)
+		if ev.Event == "context.compact" {
+			obs.LogContextCompact(ctx, logger, ev.Session, ev.EstimatedTokens, ev.HostReportedTokens, ev.Budget, ev.Reason, ev.CompactionFile)
+			return
+		}
 		obs.LogEvent(ctx, logger, ev.Event, ev.Session, ev.Worker, ev.Task, 0, 0)
 	}
 }

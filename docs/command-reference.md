@@ -102,13 +102,16 @@ for a worker lifecycle to finish.
 
 | Command | Description | Exit codes |
 |---|---|---|
-| `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]` | Start one spec orchestration session and advance it by one step. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
+| `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--compaction-policy <none\|phase\|budget\|both>] [--compaction-threshold <0..1>] [--json]` | Start one spec orchestration session and advance it by one step. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, compact, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
 | `specd brain run <slug> [--approval-policy <policy>] [--worker-cmd <cmd>] [--bootstrap] [--max-steps <n>] [--session <id>] [--json]` | Run the reference single-spec driver loop. Automatically loops step, dispatches missions to a host command, and blocks/reconciles to completion. | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
 | `specd brain step <slug> --session <id> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]` | Advance an existing spec session by one bounded decision | same |
 | `specd brain status --session <id> [--json]` | Read persisted session state | `0` ok, `1` invalid/missing session, `2` usage |
 | `specd brain why --session <id> [--json]` | Explain the latest replayable Brain decision for a session | `0` ok, `1` invalid/missing session, `2` usage |
 | `specd brain directive --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --action <continue\|retry\|cancel\|reassign\|escalate> --reason <text> [--in-reply-to <message-id>] [--json]` | Send a bounded Brain directive to one active Pinky lease, usually in reply to a Pinky query | same |
 | `specd brain pause\|resume\|cancel --session <id> [--json]` | Persist cooperative session control. `cancel` records intent; later steps emit cancellation directives but never kill host processes | `0` ok, `1` invalid/terminal session, `2` usage |
+| `specd brain compact <slug> --session <id> [--reason <text>] [--json]` | Render + persist a phase summary and a `compacted:true` context-ledger checkpoint, bump the spec `Turn`, and emit a `context.compact` event. The host performs the real `/clear` and then replies with `brain step`. Session must be `running` | `0` ok, `1` invalid/non-running session, `2` usage, `3` not found |
+| `specd brain clear <slug> --session <id> [--json]` | Alias for `compact` with `--reason manual-clear` | same |
+| `specd brain ledger <slug> --session <id> [--json]` | Read-only print of the session context ledger: peak tokens, compaction points, and budget history. No LLM calls; `--json` is machine-parseable | `0` ok, `1` invalid/missing session, `2` usage, `3` not found |
 | `specd brain start --program [--session <id>] ... [--json]` / `specd brain step --program --session <id> ... [--json]` | Schedule child specs from the program DAG under the same explicit policy limits | same |
 | `specd brain run --program [--approval-policy <policy>] [--worker-cmd <cmd>] [--max-steps <n>] [--session <id>] [--json]` | Run the program reference driver loop across multiple dependent specs. | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
 | `specd brain status\|pause\|resume\|cancel --program --session <id> [--json]` | Read/control a parent program session | same |
@@ -121,6 +124,24 @@ for a worker lifecycle to finish.
 | `specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]` | Record terminal worker evidence. Completion is accepted only when it binds to a matching passing `specd verify` record and satisfies the task scope/evidence gates. Host-reported tokens/cost/duration are stored verbatim as telemetry, not proof | same |
 | `specd pinky block --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --reason <text> [--json]` | Record a worker blocker for Brain reconciliation | same |
 | `specd pinky release --session <id> --worker <id> --attempt <n>` | Release a claim idempotently | same |
+
+### Context compaction & the token ledger
+
+Long orchestrated sessions accrete planning context the host cannot shed on its
+own. The Brain manages this with a persistent **context ledger** and a
+**compaction** primitive:
+
+- **Manual:** `specd brain compact` / `clear` write a phase summary
+  (`.specd/runtime/sessions/<id>/compact-<phase>-<turn>.md`) and append a
+  `compacted:true` ledger checkpoint. `specd brain ledger` reads it back.
+- **Automatic** (via `--compaction-policy`): `phase` compacts at a planning
+  ratchet (design→tasks | tasks→executing) or on entering `verifying`; `budget`
+  compacts when the last manifest estimate reaches `budget × threshold`
+  (set with `--compaction-threshold`, in `[0,1]`); `both` enables both; `none`
+  (default) disables it. The decision engine then emits a `compact` decision.
+- **Host contract:** a `compact` decision means the host runs the real `/clear`,
+  retaining only the summary file, then replies with `specd brain step`. Each
+  compaction emits a `context.compact` event visible via `specd replay`.
 
 ## Meta commands
 

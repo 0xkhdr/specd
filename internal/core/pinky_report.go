@@ -303,6 +303,19 @@ func ReconcilePinkyEvidence(root string, report PinkyTerminalReport, cfg Orchest
 	if err != nil {
 		return PinkyEvidenceResult{}, err
 	}
+	// Record host-reported token actuals into the context ledger (R7). It is a
+	// no-op when the spec is not running under an orchestration session.
+	if report.HostTokens > 0 {
+		if err := recordSessionLedgerEntry(root, report.SessionID, ContextLedgerEntry{
+			StepSequence:       uint64(loaded.State.Revision),
+			Phase:              loaded.State.Phase,
+			Action:             "step",
+			HostReportedTokens: report.HostTokens,
+			Reason:             "host-actuals",
+		}); err != nil {
+			return PinkyEvidenceResult{}, err
+		}
+	}
 	return PinkyEvidenceResult{Event: event, Completion: completion}, nil
 }
 

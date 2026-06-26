@@ -26,7 +26,13 @@ specd brain status --session <id>
 specd brain step <slug> --session <id> --approval-policy manual --max-workers <n> --max-retries <n> --timeout-seconds <n>
 ```
 
-One `step` records one deterministic decision and performs at most one externally visible action: dispatch mission, retry mission, cancel directive, approval request, escalation, wait, or completion. Manual `brain directive` is reserved for bounded worker query replies or operator corrections under an active lease.
+One `step` records one deterministic decision and performs at most one externally visible action: dispatch mission, retry mission, cancel directive, approval request, escalation, wait, compact, or completion. Manual `brain directive` is reserved for bounded worker query replies or operator corrections under an active lease.
+
+## Context compaction (`/clear`)
+
+- A `compact` decision means you (the host) shed conversation context. Read the summary file recorded under `.specd/runtime/sessions/<id>/compact-<phase>-<turn>.md`, run the real `/clear`, keep only that summary, then resume with `specd brain step`.
+- Automatic compaction is opt-in via `--compaction-policy <none|phase|budget|both>` (+ `--compaction-threshold <0..1>` for budget mode). Default `none`.
+- Manual: `specd brain compact <slug> --session <id> [--reason <text>]`; `clear` is the `manual-clear` alias. `specd brain ledger <slug> --session <id> [--json]` prints peak tokens, compaction points, and budget history with no LLM calls.
 
 ## Approval rules
 

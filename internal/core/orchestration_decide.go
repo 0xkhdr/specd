@@ -47,6 +47,20 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 		decision.Action = OrchestrationEscalate
 		decision.Escalation = OrchestrationEscalation{Code: EscalationPolicyViolation, Message: "session timeout reached"}
 		decision.Reason = "session timeout reached"
+	case policy.compactsOnPhase() && compactionPhaseBoundary(snapshot) &&
+		snapshot.LastCompactionStep < uint64(snapshot.Revision):
+		// A planning ratchet (design→tasks | tasks→executing) or the
+		// executing→verifying transition is the natural seam to shed accreted
+		// context. The LastCompactionStep guard fires this at most once per
+		// boundary; the engine sets it to the post-compaction revision.
+		decision.Action = OrchestrationCompact
+		decision.Reason = "phase-boundary"
+	case policy.compactsOnBudget() && compactionBudgetExceeded(snapshot, policy.CompactionBudgetThreshold):
+		// Mid-execution token pressure: the last manifest estimate crossed the
+		// budget threshold. The compaction ledger entry resets the estimate, so the
+		// trigger settles after one fire rather than looping.
+		decision.Action = OrchestrationCompact
+		decision.Reason = "budget-threshold"
 	case len(snapshot.ActiveLeases) >= policy.MaxWorkers:
 		decision.Action = OrchestrationWait
 		decision.Reason = "worker limit reached"
@@ -109,6 +123,30 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 		return OrchestrationDecision{}, err
 	}
 	return decision, nil
+}
+
+// compactionPhaseBoundary reports whether the snapshot sits at a phase seam
+// where stage-aware compaction applies: the design or tasks planning gate is
+// satisfied (about to ratchet) or the spec has entered verifying. requirements→
+// design is intentionally excluded (too early to have accreted context).
+func compactionPhaseBoundary(snapshot OrchestrationSnapshot) bool {
+	switch {
+	case snapshot.PlanningReady && (snapshot.Status == StatusDesign || snapshot.Status == StatusTasks):
+		return true
+	case snapshot.Status == StatusVerifying:
+		return true
+	}
+	return false
+}
+
+// compactionBudgetExceeded reports whether the ledger tail's estimated tokens
+// have reached budget*threshold. A non-positive threshold or budget disables the
+// trigger (fail-closed: never compact without a real budget to measure against).
+func compactionBudgetExceeded(snapshot OrchestrationSnapshot, threshold float64) bool {
+	if threshold <= 0 || snapshot.LedgerBudget <= 0 {
+		return false
+	}
+	return snapshot.LedgerEstimatedTokens >= int(float64(snapshot.LedgerBudget)*threshold)
 }
 
 // planningAutonomyAllowed reports whether the approval policy lets the brain

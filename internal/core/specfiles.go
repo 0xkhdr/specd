@@ -50,8 +50,13 @@ type OrchestrationCfg struct {
 	MaxRetries               int          `json:"maxRetries"`
 	SessionTimeoutMinutes    int          `json:"sessionTimeoutMinutes"`
 	HostReportedCostLimitUSD float64      `json:"hostReportedCostLimitUSD"`
-	Transport                TransportCfg `json:"transport"`
-	Program                  ProgramCfg   `json:"program"`
+	// CompactionPolicy / CompactionBudgetThreshold drive stage-aware context
+	// compaction (none|phase|budget|both; threshold in [0,1]). omitempty keeps
+	// pre-compaction config files byte-identical.
+	CompactionPolicy          string       `json:"compactionPolicy,omitempty"`
+	CompactionBudgetThreshold float64      `json:"compactionBudgetThreshold,omitempty"`
+	Transport                 TransportCfg `json:"transport"`
+	Program                   ProgramCfg   `json:"program"`
 }
 
 type TransportCfg struct {
@@ -335,6 +340,15 @@ func ValidateOrchestrationConfig(cfg *OrchestrationCfg) error {
 		math.IsInf(cfg.HostReportedCostLimitUSD, 0) ||
 		cfg.HostReportedCostLimitUSD < 0 {
 		return fmt.Errorf("hostReportedCostLimitUSD must be a finite non-negative number")
+	}
+	if cfg.CompactionPolicy != "" &&
+		!oneOf(cfg.CompactionPolicy, CompactionNone, CompactionPhase, CompactionBudget, CompactionBoth) {
+		return fmt.Errorf("unsupported compactionPolicy %q", cfg.CompactionPolicy)
+	}
+	if math.IsNaN(cfg.CompactionBudgetThreshold) ||
+		math.IsInf(cfg.CompactionBudgetThreshold, 0) ||
+		cfg.CompactionBudgetThreshold < 0 || cfg.CompactionBudgetThreshold > 1 {
+		return fmt.Errorf("compactionBudgetThreshold must be finite and within [0,1]")
 	}
 
 	cfg.MaxWorkers = clampOrchestrationInt("maxWorkers", cfg.MaxWorkers, minMaxWorkers, maxMaxWorkers)

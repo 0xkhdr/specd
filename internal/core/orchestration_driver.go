@@ -43,6 +43,14 @@ type DriverEvent struct {
 	Session string
 	Worker  string
 	Task    string
+	// Compaction fields are populated only on the "context.compact" event so the
+	// host observer can log the token ledger checkpoint and run the real /clear.
+	Phase              string
+	Reason             string
+	CompactionFile     string
+	EstimatedTokens    int
+	HostReportedTokens int
+	Budget             int
 }
 
 // DriverObserver receives best-effort operational events; it must not mutate
@@ -187,6 +195,12 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 			}
 			spawn(DriverDispatch{Decision: res.Decision, Mission: mission})
 			waits = 0
+		case OrchestrationCompact:
+			// The engine already wrote the summary + ledger checkpoint; surface it so
+			// the host performs the real /clear before replying `brain step`. It is
+			// real progress (a boundary was crossed), so reset the stall counter.
+			emitCompactionEvent(opts.Observer, sessionID, res)
+			waits = 0
 		case OrchestrationAdvancePhase:
 			waits = 0 // real progress: a phase advanced
 		case OrchestrationCompleteSession, OrchestrationIdle:
@@ -232,6 +246,26 @@ func emitDriverEvent(observer DriverObserver, event, sessionID string, d DriverD
 		taskID = d.Decision.TaskID
 	}
 	observer(DriverEvent{Event: event, Session: sessionID, Worker: workerID, Task: taskID})
+}
+
+// emitCompactionEvent surfaces a performed compaction to the observer with the
+// full ledger checkpoint shape (spec §4.7). It is best-effort and never mutates
+// state.
+func emitCompactionEvent(observer DriverObserver, sessionID string, res OrchestrationStepResult) {
+	if observer == nil || res.Compaction == nil {
+		return
+	}
+	entry := res.Compaction.Entry
+	observer(DriverEvent{
+		Event:              "context.compact",
+		Session:            sessionID,
+		Phase:              string(entry.Phase),
+		Reason:             entry.Reason,
+		CompactionFile:     res.Compaction.SummaryFile,
+		EstimatedTokens:    res.Compaction.PreEstimatedTokens,
+		HostReportedTokens: entry.HostReportedTokens,
+		Budget:             entry.Budget,
+	})
 }
 
 func emitCostBrakeEvent(observer DriverObserver, sessionID string, snapshot OrchestrationSnapshot, policy OrchestrationPolicy, decision OrchestrationDecision) {

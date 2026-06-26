@@ -34,11 +34,24 @@ func brainRunPolicy(root string, args cli.Args) (core.OrchestrationPolicy, core.
 			return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
 		}
 	}
+	if v := args.Str("compaction-policy"); v != "" {
+		policy.CompactionPolicy = v
+	}
+	if args.Has("compaction-threshold") {
+		t, err := strconv.ParseFloat(args.Str("compaction-threshold"), 64)
+		if err != nil {
+			errLine("brain run: invalid --compaction-threshold: %v", err)
+			return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
+		}
+		policy.CompactionBudgetThreshold = t
+	}
 	if err := core.ValidateOrchestrationPolicy(policy); err != nil {
 		errLine("brain run: %v", err)
 		return core.OrchestrationPolicy{}, core.OrchestrationCfg{}, false
 	}
 	cfg := core.LoadConfig(root).Orchestration
+	cfg.CompactionPolicy = policy.CompactionPolicy
+	cfg.CompactionBudgetThreshold = policy.CompactionBudgetThreshold
 	cfg.SessionTimeoutMinutes = policy.SessionTimeoutSeconds / 60
 	cfg.ApprovalPolicy = policy.ApprovalPolicy
 	cfg.MaxWorkers = policy.MaxWorkers
@@ -58,6 +71,8 @@ func brainPolicyAndConfig(root string, args cli.Args) (core.OrchestrationPolicy,
 	cfg.MaxWorkers = policy.MaxWorkers
 	cfg.MaxRetries = policy.MaxRetries
 	cfg.HostReportedCostLimitUSD = policy.HostReportedCostLimitUSD
+	cfg.CompactionPolicy = policy.CompactionPolicy
+	cfg.CompactionBudgetThreshold = policy.CompactionBudgetThreshold
 	return policy, cfg, true
 }
 
@@ -101,12 +116,23 @@ func brainPolicy(args cli.Args) (core.OrchestrationPolicy, bool) {
 		}
 		cost = parsed
 	}
+	compactionThreshold := 0.0
+	if args.Has("compaction-threshold") {
+		parsed, err := strconv.ParseFloat(args.Str("compaction-threshold"), 64)
+		if err != nil {
+			fmt.Println("--compaction-threshold must be a number in [0,1]")
+			return core.OrchestrationPolicy{}, false
+		}
+		compactionThreshold = parsed
+	}
 	return core.OrchestrationPolicy{
-		ApprovalPolicy:           args.Str("approval-policy"),
-		MaxWorkers:               maxWorkers,
-		MaxRetries:               maxRetries,
-		SessionTimeoutSeconds:    timeout,
-		HostReportedCostLimitUSD: cost,
+		ApprovalPolicy:            args.Str("approval-policy"),
+		MaxWorkers:                maxWorkers,
+		MaxRetries:                maxRetries,
+		SessionTimeoutSeconds:     timeout,
+		HostReportedCostLimitUSD:  cost,
+		CompactionPolicy:          args.Str("compaction-policy"),
+		CompactionBudgetThreshold: compactionThreshold,
 	}, true
 }
 

@@ -10,7 +10,7 @@ import (
 
 func RunBrain(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|compact|clear|ledger> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -77,6 +77,12 @@ func RunBrain(args cli.Args) int {
 			return specdExit(err)
 		}
 		return printCommandResult(args, session)
+	case "compact":
+		return brainCompact(root, args, "")
+	case "clear":
+		return brainCompact(root, args, "manual-clear")
+	case "ledger":
+		return brainLedger(root, args)
 	case "pause":
 		if args.Bool("program") {
 			return brainProgramSessionControl(root, args, core.PauseProgramOrchestration, "pause")
@@ -93,7 +99,7 @@ func RunBrain(args cli.Args) int {
 		}
 		return brainSessionControl(root, args, core.CancelOrchestration, "cancel")
 	default:
-		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|compact|clear|ledger> ...")
 	}
 }
 

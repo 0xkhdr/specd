@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,6 +9,76 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/obs"
 )
+
+// brainCompact implements `specd brain compact` and (with reasonOverride
+// "manual-clear") `specd brain clear`. It renders + persists a phase summary and
+// ledger checkpoint, emits a context.compact observability event, then prints
+// the outcome. The host performs the real /clear on the back of this.
+func brainCompact(root string, args cli.Args, reasonOverride string) int {
+	if len(args.Pos) != 2 || args.Str("session") == "" {
+		return usageExit("usage: specd brain compact <slug> --session <id> [--reason <text>] [--json]")
+	}
+	slug := args.Pos[1]
+	if code, ok := requireOrchestratedSpec(root, slug); !ok {
+		return code
+	}
+	sessionID := args.Str("session")
+	reason := reasonOverride
+	if reason == "" {
+		if reason = args.Str("reason"); reason == "" {
+			reason = "manual-clear"
+		}
+	}
+	outcome, err := core.CompactOrchestrationSession(root, slug, sessionID, reason)
+	if err != nil {
+		return specdExit(err)
+	}
+	logger, closer := obs.NewSessionLogger(root, sessionID)
+	if closer != nil {
+		defer closer.Close()
+	}
+	ctx := obs.WithFields(context.Background(), slug, string(outcome.Entry.Phase), "")
+	obs.LogContextCompact(ctx, logger, sessionID, outcome.PreEstimatedTokens, outcome.Entry.HostReportedTokens, outcome.Entry.Budget, outcome.Entry.Reason, outcome.SummaryFile)
+	return printCommandResult(args, outcome)
+}
+
+// brainLedger implements `specd brain ledger`: a read-only print of the session
+// context ledger (peak tokens, compaction points, budget history). It performs
+// zero LLM calls; --json emits the raw, machine-parseable ledger.
+func brainLedger(root string, args cli.Args) int {
+	if len(args.Pos) != 2 || args.Str("session") == "" {
+		return usageExit("usage: specd brain ledger <slug> --session <id> [--json]")
+	}
+	slug := args.Pos[1]
+	if code, ok := requireOrchestratedSpec(root, slug); !ok {
+		return code
+	}
+	session, err := core.LoadOrchestrationSession(root, args.Str("session"))
+	if err != nil {
+		return specdExit(err)
+	}
+	if args.Bool("json") {
+		return printCommandResult(args, map[string]any{
+			"session":            session.SessionID,
+			"peakTokens":         session.PeakTokens,
+			"lastCompactionStep": session.LastCompactionStep,
+			"ledger":             session.ContextLedger,
+		})
+	}
+	fmt.Printf("brain ledger — session %s\n", session.SessionID)
+	fmt.Printf("peak tokens: %d\n", session.PeakTokens)
+	fmt.Printf("last compaction step: %d\n", session.LastCompactionStep)
+	if len(session.ContextLedger) == 0 {
+		fmt.Println("(no ledger entries)")
+		return core.ExitOK
+	}
+	fmt.Printf("%-6s %-9s %-9s %-9s %-9s %-9s %-9s %s\n", "step", "phase", "action", "est", "host", "budget", "soft", "reason")
+	for _, e := range session.ContextLedger {
+		fmt.Printf("%-6d %-9s %-9s %-9d %-9d %-9d %-9d %s\n",
+			e.StepSequence, e.Phase, e.Action, e.EstimatedTokens, e.HostReportedTokens, e.Budget, e.SoftCeiling, e.Reason)
+	}
+	return core.ExitOK
+}
 
 func brainDirective(root string, args cli.Args) int {
 	if len(args.Pos) != 1 || args.Str("session") == "" || args.Str("worker") == "" || args.Str("spec") == "" || args.Str("task") == "" || args.Str("action") == "" || args.Str("reason") == "" {

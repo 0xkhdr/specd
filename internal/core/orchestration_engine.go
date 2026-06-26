@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
 // errOrchestrationSessionNotFound is the sentinel returned by
@@ -24,9 +26,10 @@ func IsOrchestrationSessionNotFound(err error) bool {
 }
 
 type OrchestrationStepResult struct {
-	Snapshot OrchestrationSnapshot `json:"snapshot"`
-	Decision OrchestrationDecision `json:"decision"`
-	Event    *ACPEnvelope          `json:"event,omitempty"`
+	Snapshot   OrchestrationSnapshot `json:"snapshot"`
+	Decision   OrchestrationDecision `json:"decision"`
+	Event      *ACPEnvelope          `json:"event,omitempty"`
+	Compaction *CompactionOutcome    `json:"compaction,omitempty"`
 }
 
 func StepOrchestration(root, slug, sessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg) (OrchestrationStepResult, error) {
@@ -64,7 +67,14 @@ func StepOrchestration(root, slug, sessionID string, policy OrchestrationPolicy,
 			}
 		}
 
-		decision, err := DecideOrchestration(snapshot, policy)
+		// Compaction is a session-scoped feature: its ledger and checkpoint live on
+		// the session. In plain-controller mode (no session) disable the triggers so
+		// the engine never emits a compact it cannot persist or guard against.
+		decidePolicy := policy
+		if !hasSession {
+			decidePolicy.CompactionPolicy = CompactionNone
+		}
+		decision, err := DecideOrchestration(snapshot, decidePolicy)
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -74,6 +84,18 @@ func StepOrchestration(root, slug, sessionID string, policy OrchestrationPolicy,
 			return struct{}{}, err
 		}
 		result.Event = event
+		if decision.Action == OrchestrationCompact {
+			preBudget, preSoft, preEst := 0, 0, 0
+			if tail, ok := lastContextLedgerEntry(session); ok {
+				preBudget, preSoft, preEst = tail.Budget, tail.SoftCeiling, tail.EstimatedTokens
+			}
+			outcome, err := performCompaction(root, slug, sessionID, decision.Reason, uint64(snapshot.Revision), preBudget, preSoft, preEst)
+			if err != nil {
+				return struct{}{}, err
+			}
+			result.Compaction = &outcome
+			return struct{}{}, nil
+		}
 		// advance-phase is an effecting decision with no worker dispatch: ratchet
 		// the planning phase here, under the same gate `specd approve` enforces.
 		if decision.Action == OrchestrationAdvancePhase {
@@ -247,7 +269,42 @@ func recordOrchestrationDecision(root, sessionID string, decision OrchestrationD
 	if err != nil {
 		return nil, fmt.Errorf("orchestration engine: record decision: %w", err)
 	}
+	// A mission was emitted exactly once (the loop above returns early on a
+	// duplicate), so record exactly one pre-dispatch ledger entry alongside it
+	// (R6). Only dispatch-shaped decisions carry a manifest worth accounting.
+	switch decision.Action {
+	case OrchestrationDispatch, OrchestrationDispatchAuthor, OrchestrationRetry:
+		if m, ok := payload.(ACPMissionPayload); ok {
+			if err := RecordContextLedger(root, decision.Spec, sessionID, m.ContextManifest); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return &written, nil
+}
+
+// RecordContextLedger appends a pre-dispatch ledger entry from a mission's
+// context manifest (R6): the estimated tokens, derived budget, and soft ceiling
+// the manifest computed at dispatch time. It is a no-op when no session exists.
+// The step sequence is the spec revision at dispatch; the phase is the spec's
+// current phase. The heuristic estimate is whatever the manifest carried — no
+// external tokenizer is consulted.
+func RecordContextLedger(root, slug, sessionID string, manifest contextpkg.MissionContextManifest) error {
+	phase := PhaseAnalyze
+	stepSeq := uint64(0)
+	if state, err := LoadState(root, slug); err == nil && state != nil {
+		phase = state.Phase
+		stepSeq = uint64(state.Revision)
+	}
+	return recordSessionLedgerEntry(root, sessionID, ContextLedgerEntry{
+		StepSequence:    stepSeq,
+		Phase:           phase,
+		Action:          "dispatch",
+		EstimatedTokens: manifest.EstimatedTokens,
+		Budget:          manifest.Budget,
+		SoftCeiling:     manifest.SoftTokenCeiling,
+		Reason:          "pre-dispatch",
+	})
 }
 
 func orchestrationDecisionMessageID(decision OrchestrationDecision) string {

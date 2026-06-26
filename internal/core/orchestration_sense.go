@@ -66,6 +66,18 @@ func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		return OrchestrationSnapshot{}, err
 	}
 	snapshot.SessionExpired = expired
+	// Carry the ledger tail + last compaction step from the persisted session so
+	// DecideOrchestration can evaluate the compaction triggers while staying a pure
+	// function of (snapshot, policy). Absent a session there is nothing to compact.
+	if session, ok, err := loadOrchestrationSessionIfExists(root, sessionID); err != nil {
+		return OrchestrationSnapshot{}, err
+	} else if ok {
+		snapshot.LastCompactionStep = session.LastCompactionStep
+		if tail, has := lastContextLedgerEntry(session); has {
+			snapshot.LedgerEstimatedTokens = tail.EstimatedTokens
+			snapshot.LedgerBudget = tail.Budget
+		}
+	}
 	if err := ValidateOrchestrationSnapshot(snapshot); err != nil {
 		return OrchestrationSnapshot{}, err
 	}
