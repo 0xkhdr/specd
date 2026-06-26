@@ -3,8 +3,11 @@ package mcp_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/cmd"
 	"github.com/0xkhdr/specd/internal/core"
@@ -184,6 +187,27 @@ func TestToolsCall(t *testing.T) {
 		text := r["content"].([]any)[0].(map[string]any)["text"].(string)
 		if strings.TrimSpace(text) == "" {
 			t.Errorf("error result should carry diagnostic text")
+		}
+	})
+
+	t.Run("lock_contention_reports_structured_status", func(t *testing.T) {
+		t.Setenv("SPECD_LOCK_TIMEOUT_MS", "50")
+		lockPath := core.SpecDir(h.Root, "auth") + "/.lock"
+		if err := os.WriteFile(lockPath, []byte(fmt.Sprintf("%d %d\n", os.Getpid(), time.Now().UnixMilli())), 0o644); err != nil {
+			t.Fatalf("write lock file: %v", err)
+		}
+		t.Cleanup(func() { _ = os.Remove(lockPath) })
+		resps := drive(t, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"specd_task","arguments":{"args":["auth","T1"],"status":"running"}}}`)
+		r := result(t, resps[0])
+		if r["isError"] != true {
+			t.Fatalf("lock contention isError = %v, want true", r["isError"])
+		}
+		if got, _ := r["status"].(string); got != "locked" {
+			t.Fatalf("lock contention status = %q, want locked", got)
+		}
+		text := r["content"].([]any)[0].(map[string]any)["text"].(string)
+		if !strings.Contains(text, "locked by another specd process") {
+			t.Fatalf("lock contention text missing lock diagnostic: %q", text)
 		}
 	})
 

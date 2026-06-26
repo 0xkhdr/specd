@@ -228,5 +228,86 @@ func TestPhaseWatcherTracksRoleChange(t *testing.T) {
 		t.Fatalf("write tasks.md: %v", err)
 	}
 
-	waitFor(func(set map[string]bool) bool { return set["specd_state_read"] && !set["specd_next"] && set["specd_check"] })
+	waitFor(func(set map[string]bool) bool {
+		return set["specd_state_read"] && !set["specd_next"] && set["specd_check"]
+	})
+}
+
+func TestPhaseWatcherPinnedSpecsStayIsolated(t *testing.T) {
+	root := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+
+	seedPinnedSpec := func(slug string, status core.SpecStatus) {
+		if err := os.MkdirAll(filepath.Join(root, ".specd", "specs", slug), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", slug, err)
+		}
+		state := core.InitialState(slug, slug)
+		state.Status = status
+		state.Phase = core.PhaseForStatus(status)
+		if err := core.SaveState(root, slug, &state); err != nil {
+			t.Fatalf("SaveState(%s): %v", slug, err)
+		}
+		tasks := "# Tasks — " + slug + "\n\n## Wave 1\n- [ ] T1 — Login\n  - why: w\n  - role: builder\n  - files: x.go\n  - contract: c\n  - acceptance: a\n  - verify: true\n  - depends: —\n  - requirements: 1\n"
+		if err := os.WriteFile(filepath.Join(root, ".specd", "specs", slug, "tasks.md"), []byte(tasks), 0o644); err != nil {
+			t.Fatalf("write tasks(%s): %v", slug, err)
+		}
+	}
+	seedPinnedSpec("alpha", core.StatusDesign)
+	seedPinnedSpec("beta", core.StatusDesign)
+
+	cfg := phaseCfg()
+	regAlpha := newToolRegistry(buildPhaseToolsForSpec(cfg, core.StatusDesign, "architect", "alpha"))
+	regBeta := newToolRegistry(buildPhaseToolsForSpec(cfg, core.StatusDesign, "architect", "beta"))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go (&phaseWatcher{registry: regAlpha, cfg: cfg, pinned: "alpha", interval: 5 * time.Millisecond, debounce: 5 * time.Millisecond}).run(ctx)
+	go (&phaseWatcher{registry: regBeta, cfg: cfg, pinned: "beta", interval: 5 * time.Millisecond, debounce: 5 * time.Millisecond}).run(ctx)
+
+	waitForSet := func(reg *toolRegistry, pred func(map[string]bool) bool) {
+		t.Helper()
+		deadline := time.Now().Add(time.Second)
+		for time.Now().Before(deadline) {
+			if pred(toolNameSet(reg.list())) {
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		t.Fatalf("timeout waiting for watcher state: %v", toolNameSet(reg.list()))
+	}
+
+	waitForSet(regAlpha, func(set map[string]bool) bool { return set["specd_check"] && !set["specd_next"] })
+	waitForSet(regBeta, func(set map[string]bool) bool { return set["specd_check"] && !set["specd_next"] })
+
+	updateSpecStatus := func(slug string, status core.SpecStatus) {
+		t.Helper()
+		loaded, err := core.LoadSpec(root, slug)
+		if err != nil {
+			t.Fatalf("LoadSpec(%s): %v", slug, err)
+		}
+		state := loaded.State
+		state.Status = status
+		state.Phase = core.PhaseForStatus(status)
+		if err := core.SaveState(root, slug, state); err != nil {
+			t.Fatalf("SaveState(%s): %v", slug, err)
+		}
+	}
+
+	updateSpecStatus("beta", core.StatusExecuting)
+	waitForSet(regBeta, func(set map[string]bool) bool { return set["specd_next"] && !set["specd_check"] })
+	if got := toolNameSet(regAlpha.list()); got["specd_next"] {
+		t.Fatalf("alpha watcher leaked beta transition: %v", got)
+	}
+
+	updateSpecStatus("alpha", core.StatusExecuting)
+	waitForSet(regAlpha, func(set map[string]bool) bool { return set["specd_next"] && !set["specd_check"] })
+	if got := toolNameSet(regBeta.list()); !got["specd_next"] || got["specd_approve"] {
+		t.Fatalf("beta watcher lost its own executing state: %v", got)
+	}
 }

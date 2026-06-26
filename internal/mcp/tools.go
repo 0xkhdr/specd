@@ -58,7 +58,7 @@ var specialTools = []intentTool{
 		name:        stateReadToolName,
 		description: "Read a spec's state as JSON without rendering the human status summary.",
 		readOnly:    true,
-		args: []intentArg{{name: "slug", typ: "string", description: "Spec slug to read.", required: true}},
+		args:        []intentArg{{name: "slug", typ: "string", description: "Spec slug to read.", required: true}},
 		translate: func(args map[string]any) (string, []string, error) {
 			slug, ok, err := argString(args, "slug")
 			if err != nil {
@@ -280,13 +280,15 @@ func commandToTool(c core.CommandMeta) toolDef {
 // existing hosts see byte-identical output (spec R1). Otherwise the resolved
 // exposurePlan filters by expose mode, meta gating, and orchestration gating
 // while preserving deterministic command-then-intent order (spec R7).
-func buildTools(cfg *core.Config) []toolDef {
+func buildTools(cfg *core.Config) []toolDef { return buildToolsForSpec(cfg, "") }
+
+func buildToolsForSpec(cfg *core.Config, pinned string) []toolDef {
 	plan := resolveMCPExposure(cfg)
-	if _, _, status, role, ok := activeSpec(); ok {
+	if _, _, status, role, ok := activeSpec(pinned); ok {
 		_ = status
 		plan.role = role
 	}
-	return withManifest(plan, buildToolsFromPlan(plan))
+	return withManifest(plan, pinned, buildToolsFromPlan(plan))
 }
 
 // buildPhaseTools resolves the expose:"phase" subset for one lifecycle status
@@ -295,6 +297,10 @@ func buildTools(cfg *core.Config) []toolDef {
 // allow-set via the same machinery as expose:"essential", so a phase subset is
 // always a subset of what the operator's config would otherwise permit.
 func buildPhaseTools(cfg *core.Config, status core.SpecStatus, role string) []toolDef {
+	return buildPhaseToolsForSpec(cfg, status, role, "")
+}
+
+func buildPhaseToolsForSpec(cfg *core.Config, status core.SpecStatus, role, pinned string) []toolDef {
 	plan := resolveMCPExposure(cfg)
 	plan.essential = true
 	plan.essentialSet = phaseToolNames(status)
@@ -302,18 +308,18 @@ func buildPhaseTools(cfg *core.Config, status core.SpecStatus, role string) []to
 	if plan.role == "" {
 		plan.role = roleForStatus(status)
 	}
-	return withManifest(plan, buildToolsFromPlan(plan))
+	return withManifest(plan, pinned, buildToolsFromPlan(plan))
 }
 
 // withManifest composes the context-manifest filter (C1) onto a config/phase
 // candidate list. The passthrough path (absent `mcp` block) is skipped so it
 // stays byte-identical to the pre-config surface (cross-cutting invariant 1);
 // every configured mode applies the active spec's per-spec tool policy on top.
-func withManifest(plan exposurePlan, tools []toolDef) []toolDef {
+func withManifest(plan exposurePlan, pinned string, tools []toolDef) []toolDef {
 	if plan.passthrough {
 		return tools
 	}
-	return applyManifestFilter(tools, activeManifest())
+	return applyManifestFilter(tools, activeManifest(pinned))
 }
 
 func buildToolsFromPlan(plan exposurePlan) []toolDef {

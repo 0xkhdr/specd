@@ -1,7 +1,7 @@
 # Tasks — Stage 3 — Multi-Session Concurrency
 
 ## Wave 1
-- [ ] T1 — Audit active-spec selection and lock reporting paths
+- [x] T1 — Audit active-spec selection and lock reporting paths
   - why: We need to understand where the current global selection and raw lock errors flow through the MCP stack.
   - role: investigator
   - files: internal/mcp/watcher.go, internal/mcp/server.go, internal/cli/args.go, internal/core/lock.go, internal/mcp/tools.go
@@ -12,7 +12,7 @@
   - requirements: 1, 2, 3, 4
 
 ## Wave 2
-- [ ] T2 — Add per-session spec affinity to the MCP command
+- [x] T2 — Add per-session spec affinity to the MCP command
   - why: Requirements 1–3 need a pinned slug to remove cross-session ambiguity.
   - role: builder
   - files: internal/cli/args.go, internal/mcp/server.go, internal/mcp/watcher.go, internal/mcp/watcher_test.go
@@ -22,7 +22,7 @@
   - depends: T1
   - requirements: 1, 2, 3, 5
 
-- [ ] T3 — Add structured lock status to tool results
+- [x] T3 — Add structured lock status to tool results
   - why: Requirement 4 needs hosts to distinguish a blocked session from a generic failure.
   - role: builder
   - files: internal/mcp/tools.go, internal/mcp/server.go, internal/mcp/tools_test.go
@@ -33,7 +33,7 @@
   - requirements: 4
 
 ## Wave 3
-- [ ] T4 — Prove multi-session behavior with concurrency tests
+- [x] T4 — Prove multi-session behavior with concurrency tests
   - why: Requirement 5 needs regression coverage for overlapping watcher sessions and same-spec contention.
   - role: builder
   - files: internal/mcp/watcher_test.go, internal/mcp/integration_test.go, internal/core/lock_test.go

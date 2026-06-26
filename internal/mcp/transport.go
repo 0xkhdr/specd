@@ -95,6 +95,10 @@ type conn struct {
 	// prefs holds the session's host-negotiation tool-shaping hints parsed from
 	// initialize (host-negotiation spec C2). Zero value = no hints = no-op.
 	prefs hostPrefs
+
+	// pinned narrows active-spec resolution to one slug for this MCP process.
+	// Blank preserves the historical global fallback.
+	pinned string
 }
 
 func newConn(r io.Reader, w io.Writer) *conn {

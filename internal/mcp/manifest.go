@@ -11,8 +11,8 @@ import (
 // active spec — the same furthest-along spec the phase watcher tracks. It
 // degrades to an empty policy (no filtering) when no root/spec/manifest exists,
 // so absent manifests leave the config/phase output unchanged (R5). Read-only.
-func activeManifest() core.ContextManifestTools {
-	root, slug, _, _, ok := activeSpec()
+func activeManifest(pinned string) core.ContextManifestTools {
+	root, slug, _, _, ok := activeSpec(pinned)
 	if !ok {
 		return core.ContextManifestTools{}
 	}

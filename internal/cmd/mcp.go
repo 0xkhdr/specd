@@ -45,18 +45,25 @@ func RunMCP(args cli.Args) int {
 	// --http <addr> opts into the HTTP/SSE transport adapter for hosts that
 	// cannot speak stdio. Absent, the stdio path below is used. A bare --http
 	// (no value) defaults to loopback:8765.
+	pin := args.Str("spec")
+	if pin != "" {
+		if err := core.ValidateSlug(pin); err != nil {
+			core.Error("mcp: " + err.Error())
+			return core.ExitUsage
+		}
+	}
 	if addr := args.Str("http"); addr != "" {
 		if addr == "true" {
 			addr = ""
 		}
-		if err := mcp.ServeHTTP(addr, Dispatch, &cfg); err != nil {
+		if err := mcp.ServeHTTPPinned(addr, Dispatch, &cfg, pin); err != nil {
 			core.Error("mcp: " + err.Error())
 			return core.ExitGate
 		}
 		return core.ExitOK
 	}
 
-	if err := mcp.Serve(os.Stdin, os.Stdout, Dispatch, &cfg); err != nil {
+	if err := mcp.ServePinned(os.Stdin, os.Stdout, Dispatch, &cfg, pin); err != nil {
 		core.Error("mcp: " + err.Error())
 		return core.ExitGate
 	}

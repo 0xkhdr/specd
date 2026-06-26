@@ -21,6 +21,7 @@ func phaseMode(cfg *core.Config) bool {
 type phaseWatcher struct {
 	registry *toolRegistry
 	cfg      *core.Config
+	pinned   string
 	// notify is called after a swap to tell the host to re-fetch tools/list. It is
 	// nil on transports without a server→client push channel (HTTP/SSE), where the
 	// registry still updates but the host must poll.
@@ -42,10 +43,11 @@ const defaultPhaseDebounce = 250 * time.Millisecond
 // startPhaseWatcher seeds the registry with the current phase subset and launches
 // the polling goroutine. It returns immediately; the goroutine exits when ctx is
 // cancelled (R5). Callers must only invoke it in phase mode (R6).
-func startPhaseWatcher(ctx context.Context, registry *toolRegistry, cfg *core.Config, notify func()) {
+func startPhaseWatcher(ctx context.Context, registry *toolRegistry, cfg *core.Config, pinned string, notify func()) {
 	w := &phaseWatcher{
 		registry: registry,
 		cfg:      cfg,
+		pinned:   pinned,
 		notify:   notify,
 		interval: defaultWatchInterval(),
 		debounce: defaultPhaseDebounce,
@@ -58,7 +60,7 @@ func startPhaseWatcher(ctx context.Context, registry *toolRegistry, cfg *core.Co
 // out the debounce window, re-reads the settled status, swaps the registry, and
 // notifies exactly once (AC2/AC3/R7). Cancellation returns cleanly (R5).
 func (w *phaseWatcher) run(ctx context.Context) {
-	lastStatus, lastRole, hasLast := activeStatusRole()
+	lastStatus, lastRole, hasLast := activeStatusRole(w.pinned)
 	if hasLast {
 		w.registry.swap(buildPhaseTools(w.cfg, lastStatus, lastRole))
 	}
@@ -70,7 +72,7 @@ func (w *phaseWatcher) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			status, role, ok := activeStatusRole()
+			status, role, ok := activeStatusRole(w.pinned)
 			if !ok || (hasLast && status == lastStatus && role == lastRole) {
 				continue
 			}
@@ -81,7 +83,7 @@ func (w *phaseWatcher) run(ctx context.Context) {
 				return
 			case <-time.After(w.debounce):
 			}
-			settledStatus, settledRole, ok := activeStatusRole()
+			settledStatus, settledRole, ok := activeStatusRole(w.pinned)
 			if !ok {
 				continue
 			}
@@ -98,8 +100,8 @@ func (w *phaseWatcher) run(ctx context.Context) {
 // furthest-along in-progress spec (executing dominates planning), tie-broken by
 // the deterministic slug order ListSpecs returns. It returns false when no spec
 // has loadable state, leaving the seeded list untouched. Read-only throughout.
-func activeStatusRole() (core.SpecStatus, string, bool) {
-	_, _, status, role, ok := activeSpec()
+func activeStatusRole(pinned string) (core.SpecStatus, string, bool) {
+	_, _, status, role, ok := activeSpec(pinned)
 	return status, role, ok
 }
 
@@ -108,10 +110,18 @@ func activeStatusRole() (core.SpecStatus, string, bool) {
 // slug tie-break). It is the active context the context-manifest filter (C1)
 // reads its per-spec tool policy from. Read-only; ok=false when no .specd root
 // or no loadable spec state exists.
-func activeSpec() (root, slug string, status core.SpecStatus, role string, ok bool) {
+func activeSpec(pinned string) (root, slug string, status core.SpecStatus, role string, ok bool) {
 	root, found := core.FindSpecdRoot("")
 	if !found {
 		return "", "", "", "", false
+	}
+	if pinned != "" {
+		loaded, err := core.LoadSpec(root, pinned)
+		if err != nil {
+			return "", "", "", "", false
+		}
+		state := loaded.State
+		return root, pinned, state.Status, activeRoleForSpec(loaded.Doc, state), true
 	}
 	bestRank := -1
 	for _, s := range core.ListSpecs(root) {

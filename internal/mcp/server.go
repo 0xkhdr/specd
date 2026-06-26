@@ -71,7 +71,14 @@ type Dispatcher func(command string, args cli.Args) (int, bool)
 // cfg carries the loaded project config so tools/list can filter the advertised
 // tool set; a nil cfg means "expose everything" (backward-compatible default).
 func Serve(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config) error {
+	return ServePinned(r, w, dispatch, cfg, "")
+}
+
+// ServePinned runs MCP with an optional pinned active spec slug. A blank pin
+// preserves the historical global fallback.
+func ServePinned(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config, pinned string) error {
 	c := newConn(r, w)
+	c.pinned = pinned
 
 	// expose:"phase" turns on the adaptive tool list: seed a thread-safe registry
 	// and start a watcher that swaps the phase-appropriate subset and pushes a
@@ -79,10 +86,10 @@ func Serve(r io.Reader, w io.Writer, dispatch Dispatcher, cfg *core.Config) erro
 	// watcher stops when the input stream closes (the deferred cancel below fires
 	// on return), so no goroutine leaks (R5). Other modes never start it (R6).
 	if phaseMode(cfg) {
-		c.registry = newToolRegistry(buildTools(cfg))
+		c.registry = newToolRegistry(buildToolsForSpec(cfg, pinned))
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		startPhaseWatcher(ctx, c.registry, cfg, c.notifyToolsListChanged)
+		startPhaseWatcher(ctx, c.registry, cfg, pinned, c.notifyToolsListChanged)
 	}
 
 	for {
@@ -144,13 +151,13 @@ func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, c *conn) (any,
 		if c.registry != nil {
 			tools = c.registry.list()
 		} else {
-			tools = buildTools(cfg)
+			tools = buildToolsForSpec(cfg, c.pinned)
 		}
 		// Host negotiation is a final view transform (reorder + cap). It is skipped
 		// entirely when the host sent no hints, so output stays identical to the
 		// feature-off path (host-negotiation AC4).
 		if c.prefs.active() {
-			tools = applyHostPrefs(tools, c.prefs, manifestRequiredSet(activeManifest()))
+			tools = applyHostPrefs(tools, c.prefs, manifestRequiredSet(activeManifest(c.pinned)))
 		}
 		return map[string]any{"tools": tools}, nil
 	case "tools/call":
@@ -320,6 +327,9 @@ func toolResult(stdout, stderr string, code int) map[string]any {
 		"content": []map[string]any{{"type": "text", "text": text}},
 		"isError": isErr,
 	}
+	if status, ok := toolResultStatus(stdout, stderr, code); ok {
+		result["status"] = status
+	}
 	if trimmed := strings.TrimSpace(stdout); trimmed != "" {
 		var structured any
 		if json.Unmarshal([]byte(trimmed), &structured) == nil {
@@ -327,6 +337,16 @@ func toolResult(stdout, stderr string, code int) map[string]any {
 		}
 	}
 	return result
+}
+
+func toolResultStatus(stdout, stderr string, code int) (string, bool) {
+	if code == core.ExitGate && strings.Contains(stderr, "is locked by another specd process") {
+		return "locked", true
+	}
+	if code == core.ExitGate && strings.Contains(stdout, "is locked by another specd process") {
+		return "locked", true
+	}
+	return "", false
 }
 
 // buildArgv turns a tool's arguments object into a CLI argv that round-trips

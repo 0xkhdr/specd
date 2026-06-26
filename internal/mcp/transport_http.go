@@ -27,6 +27,12 @@ import (
 // untouched, so leaving --http unset keeps today's behaviour byte-identical
 // (R4.3). Stdlib-only, no third-party MCP SDK (R4.4).
 func ServeHTTP(addr string, dispatch Dispatcher, cfg *core.Config) error {
+	return ServeHTTPPinned(addr, dispatch, cfg, "")
+}
+
+// ServeHTTPPinned exposes the same dispatch with optional pinned active spec
+// affinity. Blank pin preserves historical global fallback.
+func ServeHTTPPinned(addr string, dispatch Dispatcher, cfg *core.Config, pinned string) error {
 	// expose:"phase" gets a shared registry the watcher keeps current so tools/list
 	// reflects the active phase even over the one-shot HTTP/SSE adapter. The adapter
 	// has no standing server→client stream, so it cannot push
@@ -35,14 +41,14 @@ func ServeHTTP(addr string, dispatch Dispatcher, cfg *core.Config) error {
 	// modes pass a nil registry and behave exactly as before (R6).
 	var registry *toolRegistry
 	if phaseMode(cfg) {
-		registry = newToolRegistry(buildTools(cfg))
+		registry = newToolRegistry(buildToolsForSpec(cfg, pinned))
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		startPhaseWatcher(ctx, registry, cfg, nil)
+		startPhaseWatcher(ctx, registry, cfg, pinned, nil)
 	}
 	srv := &http.Server{
 		Addr:              loopbackAddr(addr),
-		Handler:           httpHandler(dispatch, cfg, registry),
+		Handler:           httpHandler(dispatch, cfg, registry, pinned),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return srv.ListenAndServe()
@@ -51,12 +57,12 @@ func ServeHTTP(addr string, dispatch Dispatcher, cfg *core.Config) error {
 // httpHandler builds the /rpc and /sse routes sharing one dispatch mutex. cfg is
 // threaded through to tools/list filtering exactly as on the stdio path; registry
 // (non-nil only under expose:"phase") supplies the live phase subset.
-func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) http.Handler {
+func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry, pinned string) http.Handler {
 	var mu sync.Mutex
 	dispatchLocked := func(raw []byte) []byte {
 		mu.Lock()
 		defer mu.Unlock()
-		return dispatchOnce(raw, dispatch, cfg, registry)
+		return dispatchOnce(raw, dispatch, cfg, registry, pinned)
 	}
 
 	mux := http.NewServeMux()
@@ -115,9 +121,9 @@ func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) 
 // conn.handle/route path as the stdio loop, capturing the framed response into
 // a buffer. A notification (no id) yields no bytes, matching stdio. The conn has
 // no reader because handle never reads — it only routes the bytes it is given.
-func dispatchOnce(raw []byte, dispatch Dispatcher, cfg *core.Config, registry *toolRegistry) []byte {
+func dispatchOnce(raw []byte, dispatch Dispatcher, cfg *core.Config, registry *toolRegistry, pinned string) []byte {
 	var buf bytes.Buffer
-	c := &conn{w: &buf, mode: framingNewline, registry: registry}
+	c := &conn{w: &buf, mode: framingNewline, registry: registry, pinned: pinned}
 	c.handle(raw, dispatch, cfg)
 	return bytes.TrimRight(buf.Bytes(), "\n")
 }
