@@ -52,10 +52,12 @@ func brainRunWorker(runner worker.Runner, root, workerCmd string, logger *slog.L
 		m := worker.Mission{
 			Command:   workerCmd,
 			MissionID: d.Mission.DispatchDigest,
+			Root:      root,
 			SessionID: d.Mission.SessionID,
 			WorkerID:  d.Mission.WorkerID,
 			Spec:      d.Mission.Spec,
 			TaskID:    d.Mission.TaskID,
+			Attempt:   d.Mission.Attempt,
 			Role:      d.Mission.Role,
 			Files:     d.Mission.Files,
 			Deadline:  d.Mission.Deadline,

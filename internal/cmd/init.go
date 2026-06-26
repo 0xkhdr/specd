@@ -352,6 +352,18 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		}
 	}
 
+	// Claude Code loads CLAUDE.md (not AGENTS.md), so when claude-code is the
+	// selected/detected host, splice a managed-marker CLAUDE.md merge into the
+	// plan after selection resolves — mirroring the post-plan config mutation
+	// above. Non-Claude repos stay clean (R1.4).
+	if hostSelected(selected.Selected, "claude-code") {
+		action, code := claudeMDInitAction(options)
+		if code != core.ExitOK {
+			return code
+		}
+		plan.Actions = append(plan.Actions, action)
+	}
+
 	result := core.ExecuteInitPlan(plan, options.Force, executor)
 	for _, detection := range detections {
 		if detection.Detected {
@@ -589,4 +601,51 @@ func parseCostLimit(s string) (float64, error) {
 		return 0, fmt.Errorf("invalid cost limit: must be a non-negative number")
 	}
 	return f, nil
+}
+
+// hostSelected reports whether host is among the resolved selected/detected hosts.
+func hostSelected(hosts []string, host string) bool {
+	for _, h := range hosts {
+		if h == host {
+			return true
+		}
+	}
+	return false
+}
+
+// claudeMDInitAction builds the project-root CLAUDE.md merge action, mirroring
+// PlanInit's ScaffoldMarkerMerge handling: --repair preserves an existing file,
+// otherwise an idempotent managed-marker merge wraps @AGENTS.md so re-runs and
+// user edits outside the markers are preserved (R1.1, R1.2, R1.3).
+func claudeMDInitAction(options core.InitOptions) (core.InitAction, int) {
+	content, err := core.ReadTemplate("CLAUDE.md")
+	if err != nil {
+		return core.InitAction{}, specdExit(fmt.Errorf("read CLAUDE.md template: %w", err))
+	}
+	target := filepath.Join(options.Root, "CLAUDE.md")
+	action := core.InitAction{
+		Target:   target,
+		Required: false,
+		Template: "CLAUDE.md",
+		Content:  content,
+	}
+	_, statErr := os.Stat(target)
+	if statErr != nil && !os.IsNotExist(statErr) {
+		return core.InitAction{}, specdExit(fmt.Errorf("inspect %s: %w", target, statErr))
+	}
+	switch {
+	case options.Repair && statErr == nil:
+		action.Kind = "skip"
+		action.Description = "preserve existing file during repair"
+	default:
+		if statErr == nil && !options.Force {
+			if _, err := core.ValidateAgentsMD(target); err != nil {
+				return core.InitAction{}, specdExit(fmt.Errorf("inspect %s: %w", target, err))
+			}
+		}
+		action.Kind = "merge"
+		action.Description = "merge managed marker section"
+		action.Destructive = options.Force
+	}
+	return action, core.ExitOK
 }

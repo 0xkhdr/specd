@@ -73,6 +73,13 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 	}
 	assets = append(assets,
 		ScaffoldAsset{
+			Template: "runtime.gitignore",
+			Target:   ".specd/runtime/.gitignore",
+			Policy:   ScaffoldCreate,
+			Required: true,
+			Refresh:  true,
+		},
+		ScaffoldAsset{
 			Template: "config.json",
 			Target:   ".specd/config.json",
 			Policy:   ScaffoldCreate,

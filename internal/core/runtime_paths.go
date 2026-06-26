@@ -148,6 +148,30 @@ func (p ACPRuntimePaths) ProgramChildLeasePath(slug string) (string, error) {
 	return p.checked(filepath.Join(dir, "lease.json"))
 }
 
+func (p ACPRuntimePaths) MissionsDir() (string, error) {
+	return p.join("missions")
+}
+
+// MissionPath returns the canonical, validated runtime path for one mission
+// record: missions/<slug>-<taskID>-<attempt>.json. The filename is deterministic
+// given (slug, taskID, attempt) so a re-issued attempt overwrites its own record
+// rather than creating a duplicate, and two specs (or two attempts of one task)
+// never share a filename. Task IDs are uppercase (e.g. T1), so they use the ACP
+// task-ID grammar rather than the lowercase runtime-segment validator.
+func (p ACPRuntimePaths) MissionPath(slug, taskID string, attempt int) (string, error) {
+	if err := ValidateSlug(slug); err != nil {
+		return "", fmt.Errorf("acp runtime: invalid mission slug: %w", err)
+	}
+	if !acpTaskIDRE.MatchString(taskID) {
+		return "", fmt.Errorf("acp runtime: invalid mission task ID")
+	}
+	if attempt < 1 {
+		return "", fmt.Errorf("acp runtime: mission attempt must be >= 1")
+	}
+	name := fmt.Sprintf("%s-%s-%d.json", slug, taskID, attempt)
+	return p.join("missions", name)
+}
+
 func (p ACPRuntimePaths) ArchivePath(sessionID string) (string, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return "", err

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>specd init options report</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; line-height: 1.45; margin: 24px; max-width: 1200px; }
+    h1,h2,h3 { line-height: 1.2; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid #8886; padding: 8px 10px; vertical-align: top; }
+    th { background: #8882; text-align: left; }
+    .note { padding: 12px 14px; border-left: 4px solid #5a8; background: #5a8216; margin: 12px 0; }
+    .warn { padding: 12px 14px; border-left: 4px solid #c93; background: #c93016; margin: 12px 0; }
+    .mono { white-space: pre-wrap; }
+    .small { font-size: 0.92rem; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <h1>specd init options report</h1>
+  <p class="small">Source: <code>go run . help init</code>, <code>internal/cmd/init.go</code>, <code>internal/core/specfiles.go</code>, docs.</p>
+
+  <div class="note">
+    <strong>Short read:</strong> <code>specd init</code> scaffolds <code>.specd/</code> + <code>AGENTS.md</code>, then optionally configures coding-agent hosts and Brain/Pinky orchestration.
+  </div>
+
+  <h2>1) Core init variations</h2>
+  <table>
+    <thead>
+      <tr><th>Option / variation</th><th>What it leads tool to do</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>specd init</code></td><td>Default <code>--agent auto</code>. Detect hosts, scaffold project files, and in interactive TTY may configure 1 unambiguous host.</td></tr>
+      <tr><td><code>--agent auto</code></td><td>Detect hosts. Interactive TTY: configure the one unambiguous host. Non-TTY or ambiguous set: scaffold only, show suggested actions.</td></tr>
+      <tr><td><code>--agent none</code></td><td>Scaffold only. No host config mutation.</td></tr>
+      <tr><td><code>--agent &lt;host&gt;</code></td><td>Target one supported host: <code>codex</code>, <code>claude-code</code>, <code>cursor</code>, <code>antigravity</code>, or <code>vscode</code>.</td></tr>
+      <tr><td><code>--agent all</code></td><td>Configure every detected supported host.</td></tr>
+      <tr><td><code>--yes</code></td><td>Allows non-destructive project-scoped host registration without prompting. Required for non-interactive auto-detect to actually mutate host config.</td></tr>
+      <tr><td><code>--non-interactive</code></td><td>Disables prompts. With <code>--agent auto</code> and no <code>--yes</code>, init stays read-only on host config.</td></tr>
+      <tr><td><code>--scope project</code></td><td>Default. Writes project-local host config only.</td></tr>
+      <tr><td><code>--scope global</code></td><td>Global host config path. Needs explicit consent; non-interactive global init requires <code>--yes</code>.</td></tr>
+      <tr><td><code>--dry-run</code></td><td>No writes. Prints planned actions like <code>would write:</code>, <code>would update:</code>, <code>would preserve:</code>.</td></tr>
+      <tr><td><code>--repair</code></td><td>Restore missing managed assets only. Keeps user edits.</td></tr>
+      <tr><td><code>--refresh</code></td><td>Refresh specd-managed assets and <code>AGENTS.md</code> markers. Keeps user-authored content outside managed sections.</td></tr>
+      <tr><td><code>--force</code></td><td>Destructively overwrite scaffold files and <code>AGENTS.md</code>.</td></tr>
+      <tr><td><code>--list-packs</code></td><td>List embedded spec packs and exit.</td></tr>
+      <tr><td><code>--pack &lt;name|url&gt;</code></td><td>Apply a pack. Remote URL requires pinned <code>--sha256</code>. Cannot mix with <code>--dry-run</code>, <code>--repair</code>, or <code>--refresh</code>.</td></tr>
+      <tr><td><code>--json</code></td><td>Emit one versioned <code>InitResult</code> JSON document.</td></tr>
+      <tr><td><code>--verbose</code></td><td>Print detailed path results.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2) Orchestration options</h2>
+  <table>
+    <thead>
+      <tr><th>Flag</th><th>Default</th><th>Effect</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>--orchestration [policy]</code></td><td><code>planning</code></td><td>Enables Brain/Pinky capability. Policies: <code>manual</code>, <code>planning</code>, <code>session</code>.</td></tr>
+      <tr><td><code>--orchestration-workers &lt;n&gt;</code></td><td>4</td><td>Sets <code>orchestration.maxWorkers</code> (clamped 1..64).</td></tr>
+      <tr><td><code>--orchestration-retries &lt;n&gt;</code></td><td>2</td><td>Sets <code>orchestration.maxRetries</code> (clamped 0..10).</td></tr>
+      <tr><td><code>--orchestration-timeout &lt;minutes&gt;</code></td><td>120</td><td>Sets <code>orchestration.sessionTimeoutMinutes</code> (clamped 1..1440).</td></tr>
+      <tr><td><code>--orchestration-cost-limit &lt;usd&gt;</code></td><td>0</td><td>Sets host-reported cost brake. Must be finite, non-negative.</td></tr>
+      <tr><td><code>--orchestration-mode &lt;inline|delegate&gt;</code></td><td>delegate</td><td>Sets <code>roles.subagentMode</code>. <code>delegate</code> wants compatible host agents; <code>inline</code> is safer when no subagent host exists.</td></tr>
+      <tr><td><code>--orchestration-sandbox &lt;none|bwrap|container&gt;</code></td><td>none</td><td>Sets <code>verify.sandbox</code>. <code>bwrap</code> needs bubblewrap; <code>container</code> needs container support.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3) What orchestration init writes</h2>
+  <ul>
+    <li><code>.specd/config.json</code> gets <code>orchestration.enabled: true</code>.</li>
+    <li><code>approvalPolicy</code> becomes requested policy.</li>
+    <li><code>workerMode</code> stays <code>host</code>.</li>
+    <li><code>transport</code> defaults: <code>file</code>, poll <code>500ms</code>, TTL <code>3600s</code>, lease <code>120s</code>, heartbeat <code>30s</code>.</li>
+    <li><code>program.maxConcurrentSpecs</code> defaults to <code>2</code>.</li>
+    <li>If any host selected, result next step tells user to restart agent and run <code>specd brain run &lt;spec&gt; --bootstrap --approval-policy ...</code>.</li>
+  </ul>
+
+  <h2>4) Advanced orchestration profile</h2>
+  <div class="warn">
+    <strong>Max autonomy profile:</strong> use <code>session</code> policy, high worker/retry caps, long timeout, delegate mode, and sandboxed verify.
+  </div>
+  <p>Recommended command:</p>
+  <pre class="mono">specd init --agent auto --yes \
+  --orchestration session \
+  --orchestration-workers 64 \
+  --orchestration-retries 10 \
+  --orchestration-timeout 1440 \
+  --orchestration-cost-limit 0 \
+  --orchestration-mode delegate \
+  --orchestration-sandbox container</pre>
+  <p class="small">If host lacks container support, swap <code>container</code> for <code>bwrap</code> or <code>none</code>. If no compatible agent host exists, use <code>--orchestration-mode inline</code> or install one first.</p>
+
+  <h2>5) Important behaviors / gotchas</h2>
+  <ul>
+    <li><code>--orchestration</code> without value defaults to <code>planning</code>.</li>
+    <li>Invalid policy or bad numeric values return usage errors.</li>
+    <li>Values outside allowed ranges are clamped, with warnings.</li>
+    <li><code>--pack</code> and <code>--repair</code>/<code>--refresh</code>/<code>--dry-run</code> are mutually exclusive.</li>
+    <li><code>--scope global</code> needs explicit consent. In non-interactive mode, that means <code>--yes</code>.</li>
+    <li><code>--agent auto</code> in non-interactive mode without <code>--yes</code> stays read-only on host config.</li>
+  </ul>
+</body>
+</html>

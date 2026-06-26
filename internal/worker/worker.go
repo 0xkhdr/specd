@@ -15,10 +15,12 @@ import (
 type Mission struct {
 	Command   string // worker command
 	MissionID string // logical mission id, when available
+	Root      string // project root; when set, a durable spec-scoped mission record is persisted
 	SessionID string
 	WorkerID  string
 	Spec      string
 	TaskID    string
+	Attempt   int      // task attempt (>= 1); keys the durable mission filename
 	Role      string
 	Files     []string // SPECD_ARTIFACT hint
 	Deadline  string   // RFC3339Nano

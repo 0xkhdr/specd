@@ -13,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 const waitDelay = 5 * time.Second
@@ -46,6 +48,25 @@ func (r ShellRunner) Run(parent context.Context, m Mission) (Result, error) {
 	}
 	if err := f.Close(); err != nil {
 		return Result{Duration: time.Since(start)}, err
+	}
+
+	// Persist a durable, inspectable mission record at a deterministic spec-scoped
+	// runtime path so re-issued attempts overwrite rather than duplicate, and
+	// concurrent specs never collide on disk. The temp file above remains the
+	// subprocess transport; this is the canonical record (R3.3, R3.4). Best-effort
+	// when Root is unset (legacy callers keep the temp-file-only contract).
+	if m.Root != "" {
+		paths, err := core.NewACPRuntimePaths(m.Root)
+		if err != nil {
+			return Result{Duration: time.Since(start)}, fmt.Errorf("mission runtime paths: %w", err)
+		}
+		missionPath, err := paths.MissionPath(m.Spec, m.TaskID, m.Attempt)
+		if err != nil {
+			return Result{Duration: time.Since(start)}, fmt.Errorf("mission path: %w", err)
+		}
+		if err := core.AtomicWrite(missionPath, string(raw)); err != nil {
+			return Result{Duration: time.Since(start)}, fmt.Errorf("persist mission: %w", err)
+		}
 	}
 
 	ctx, cancel := deadlineContext(parent, m.Deadline)
