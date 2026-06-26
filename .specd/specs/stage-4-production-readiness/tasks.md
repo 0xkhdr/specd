@@ -1,7 +1,7 @@
 # Tasks — Stage 4 — Production Readiness
 
 ## Wave 1
-- [ ] T1 — Audit observability, server error handling, and release gaps
+- [x] T1 — Audit observability, server error handling, and release gaps
   - why: We need the exact file-level surface before adding production hardening.
   - role: investigator
   - files: internal/obs/log.go, internal/mcp/server.go, internal/integration/conformance_test.go, internal/mcp/watcher.go, internal/context/manifest.go, .goreleaser.yml, SECURITY.md
@@ -12,7 +12,7 @@
   - requirements: 1, 2, 3, 4, 5
 
 ## Wave 2
-- [ ] T2 — Add structured logging and JSON log format support
+- [x] T2 — Add structured logging and JSON log format support
   - why: Requirement 1 needs production logs with stable, machine-readable fields.
   - role: builder
   - files: internal/obs/log.go, internal/obs/log_test.go, internal/mcp/server.go
@@ -22,7 +22,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — Harden MCP missing-root and corrupt-root handling
+- [x] T3 — Harden MCP missing-root and corrupt-root handling
   - why: Requirement 2 needs protocol-safe failure paths instead of panics or silent drops.
   - role: builder
   - files: internal/mcp/server.go, internal/mcp/server_test.go, internal/mcp/resources.go
@@ -33,7 +33,7 @@
   - requirements: 2
 
 ## Wave 3
-- [ ] T4 — Extend adapter conformance to all registry entries
+- [x] T4 — Extend adapter conformance to all registry entries
   - why: Requirement 3 needs a regression guard that covers every adapter, not just a subset.
   - role: builder
   - files: internal/integration/conformance_test.go, internal/integration/registry.go, internal/integration/*_test.go
@@ -43,7 +43,7 @@
   - depends: T1
   - requirements: 3
 
-- [ ] T5 — Scope context manifests to the active spec and finish release checks
+- [x] T5 — Scope context manifests to the active spec and finish release checks
   - why: Requirements 4 and 5 need the remaining production-readiness items closed out.
   - role: builder
   - files: internal/mcp/watcher.go, internal/context/manifest.go, internal/context/manifest_types.go, .goreleaser.yml, SECURITY.md, internal/core/commands.go

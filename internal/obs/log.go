@@ -20,9 +20,23 @@ import (
 
 var sessionIDRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*$`)
 
-// NewLogger returns a JSON slog logger that writes to stderr only.
+const (
+	logFormatJSON = "json"
+	logFormatText = "text"
+)
+
+type logFieldKey string
+
+const (
+	logFieldSlug  logFieldKey = "slug"
+	logFieldPhase logFieldKey = "phase"
+	logFieldRole  logFieldKey = "role"
+)
+
+// NewLogger returns a slog logger that writes to stderr only.
+// SPECD_LOG_FORMAT selects JSON or text output; JSON is the default.
 func NewLogger() *slog.Logger {
-	return slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: ParseLevel(os.Getenv("SPECD_LOG"))}))
+	return newLogger(os.Stderr, ParseLevel(os.Getenv("SPECD_LOG")), ParseFormat(os.Getenv("SPECD_LOG_FORMAT")))
 }
 
 // ParseLevel maps SPECD_LOG to a slog level. Unknown values fail closed to warn.
@@ -39,20 +53,21 @@ func ParseLevel(raw string) slog.Level {
 	}
 }
 
-// NewSessionLogger mirrors JSON logs to .specd/sessions/<sessionID>/brain.log.
+// NewSessionLogger mirrors logs to .specd/sessions/<sessionID>/brain.log.
 // File setup is best-effort: failures are warned on stderr and logging continues
 // to stderr only.
 func NewSessionLogger(root, sessionID string) (*slog.Logger, io.Closer) {
 	level := ParseLevel(os.Getenv("SPECD_LOG"))
+	format := ParseFormat(os.Getenv("SPECD_LOG_FORMAT"))
 	stderr := os.Stderr
 	file, err := openBrainLog(root, sessionID)
 	if err != nil {
-		logger := slog.New(slog.NewJSONHandler(stderr, &slog.HandlerOptions{Level: level}))
-		logger.Warn("brain log file unavailable", "event", "log_open_failed", "session", sessionID, "error", err.Error())
+		logger := newLogger(stderr, level, format)
+		logger.Warn("brain log file unavailable", "event", "log_open_failed", "session_id", sessionID, "session", sessionID, "error", err.Error())
 		return logger, nil
 	}
-	stderrHandler := slog.NewJSONHandler(stderr, &slog.HandlerOptions{Level: level})
-	fileHandler := slog.NewJSONHandler(file, &slog.HandlerOptions{Level: slog.LevelDebug})
+	stderrHandler := newHandler(stderr, level, format)
+	fileHandler := newHandler(file, slog.LevelDebug, format)
 	return slog.New(teeHandler{handlers: []slog.Handler{stderrHandler, fileHandler}}), file
 }
 
@@ -65,6 +80,30 @@ func openBrainLog(root, sessionID string) (*os.File, error) {
 		return nil, err
 	}
 	return os.OpenFile(filepath.Join(dir, "brain.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644) //nolint:gosec // brain.log is a non-secret diagnostic log; world-readable by design (see SECURITY.md)
+}
+
+func newLogger(w io.Writer, level slog.Level, format string) *slog.Logger {
+	return slog.New(newHandler(w, level, format))
+}
+
+func newHandler(w io.Writer, level slog.Level, format string) slog.Handler {
+	opts := &slog.HandlerOptions{Level: level}
+	if ParseFormat(format) == logFormatText {
+		return slog.NewTextHandler(w, opts)
+	}
+	return slog.NewJSONHandler(w, opts)
+}
+
+// ParseFormat maps SPECD_LOG_FORMAT to a slog output mode.
+func ParseFormat(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case logFormatText:
+		return logFormatText
+	case "", logFormatJSON:
+		return logFormatJSON
+	default:
+		return logFormatJSON
+	}
 }
 
 type teeHandler struct{ handlers []slog.Handler }
@@ -117,15 +156,44 @@ func BrainLogPath(root, sessionID string) (string, error) {
 
 // TimelineEvent is one parsed Brain structured event.
 type TimelineEvent struct {
-	Time    string `json:"time,omitempty"`
-	Level   string `json:"level,omitempty"`
-	Message string `json:"msg,omitempty"`
-	Event   string `json:"event"`
-	Session string `json:"session,omitempty"`
-	Worker  string `json:"worker,omitempty"`
-	Task    string `json:"task,omitempty"`
-	DurMS   int64  `json:"dur_ms,omitempty"`
-	Exit    int    `json:"exit,omitempty"`
+	Time     string `json:"time,omitempty"`
+	Level    string `json:"level,omitempty"`
+	Message  string `json:"msg,omitempty"`
+	Event    string `json:"event"`
+	Slug     string `json:"slug,omitempty"`
+	Phase    string `json:"phase,omitempty"`
+	Role     string `json:"role,omitempty"`
+	Session  string `json:"session,omitempty"`
+	SessionID string `json:"session_id,omitempty"`
+	Worker   string `json:"worker,omitempty"`
+	Task     string `json:"task,omitempty"`
+	DurMS    int64  `json:"dur_ms,omitempty"`
+	Exit     int    `json:"exit,omitempty"`
+}
+
+// WithFields annotates ctx with optional slug/phase/role log fields.
+func WithFields(ctx context.Context, slug, phase, role string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if slug != "" {
+		ctx = context.WithValue(ctx, logFieldSlug, slug)
+	}
+	if phase != "" {
+		ctx = context.WithValue(ctx, logFieldPhase, phase)
+	}
+	if role != "" {
+		ctx = context.WithValue(ctx, logFieldRole, role)
+	}
+	return ctx
+}
+
+func logFieldString(ctx context.Context, key logFieldKey) string {
+	if ctx == nil {
+		return ""
+	}
+	v, _ := ctx.Value(key).(string)
+	return v
 }
 
 // LogEvent emits one stable Brain event.
@@ -133,7 +201,19 @@ func LogEvent(ctx context.Context, logger *slog.Logger, event, session, worker, 
 	if logger == nil {
 		return
 	}
-	attrs := []any{"event", event, "session", session, "worker", worker, "task", task}
+	slug := logFieldString(ctx, logFieldSlug)
+	phase := logFieldString(ctx, logFieldPhase)
+	role := logFieldString(ctx, logFieldRole)
+	attrs := []any{
+		"event", event,
+		"slug", slug,
+		"phase", phase,
+		"role", role,
+		"session_id", session,
+		"session", session,
+		"worker", worker,
+		"task", task,
+	}
 	if dur > 0 {
 		attrs = append(attrs, "dur_ms", dur.Milliseconds())
 	}

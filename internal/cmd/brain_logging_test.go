@@ -60,8 +60,11 @@ func TestBrainWhyMissingTimeline(t *testing.T) {
 func TestBrainObserverDoesNotWriteStdout(t *testing.T) {
 	var stderr bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	root := t.TempDir()
+	// brainObserver now scopes events to the session's spec when available; use a
+	// temp workspace so the lookup resolves cleanly.
 	out := captureStdout(t, func() int {
-		brainObserver(logger)(core.DriverEvent{Event: "dispatch", Session: "s", Worker: "w", Task: "T1"})
+		brainObserver(root, logger)(core.DriverEvent{Event: "dispatch", Session: "s", Worker: "w", Task: "T1"})
 		return core.ExitOK
 	})
 	if out != "" {

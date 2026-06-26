@@ -123,6 +123,9 @@ func TestAdapterConformance(t *testing.T) {
 	if !one.Changed || two.Changed {
 		t.Fatalf("install is not idempotent: first=%#v second=%#v", one, two)
 	}
+	if two.Status == "" {
+		t.Fatal("second install returned empty status")
+	}
 }
 
 func TestRegistryDeterministicAndValidated(t *testing.T) {
@@ -222,6 +225,18 @@ func TestDefaultAdapterConformance(t *testing.T) {
 				if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 					t.Fatalf("project action escapes root: %s", action.Target)
 				}
+			}
+
+			one, err := registry.Install(context.Background(), first)
+			if err != nil {
+				t.Fatal(err)
+			}
+			two, err := registry.Install(context.Background(), second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if two.Changed {
+				t.Fatalf("install is not idempotent: first=%#v second=%#v", one, two)
 			}
 		})
 	}

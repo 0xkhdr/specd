@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +47,19 @@ func seedSpec(h *th.Harness, slug string) {
 		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
 		Status(core.StatusExecuting).
 		Build()
+}
+
+func driveInDir(t *testing.T, dir string, requests ...string) []map[string]any {
+	t.Helper()
+	prev, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir(%s): %v", dir, err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(prev) })
+	return drive(t, requests...)
 }
 
 func result(t *testing.T, resp map[string]any) map[string]any {
@@ -140,6 +154,53 @@ func TestMCPBoundedWatchRequiresOnce(t *testing.T) {
 	if _, ok := resps[2]["result"]; !ok {
 		t.Fatalf("server did not answer ping after bounded-watch errors: %v", resps[2])
 	}
+}
+
+func TestMCPResourcesMissingOrCorruptRootReturnErrors(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
+		root := t.TempDir()
+		resps := driveInDir(t, root,
+			`{"jsonrpc":"2.0","id":1,"method":"resources/list"}`,
+			`{"jsonrpc":"2.0","id":2,"method":"ping"}`,
+		)
+		if len(resps) != 2 {
+			t.Fatalf("got %d responses, want 2: %v", len(resps), resps)
+		}
+		e, ok := resps[0]["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("missing-root response should be error: %v", resps[0])
+		}
+		if e["code"].(float64) != -32600 || !strings.Contains(e["message"].(string), "workspace root missing") {
+			t.Fatalf("missing-root error = %v", e)
+		}
+		if _, ok := resps[1]["result"]; !ok {
+			t.Fatalf("server did not answer ping after missing-root error: %v", resps[1])
+		}
+	})
+
+	t.Run("corrupt", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, ".specd"), []byte("not-a-dir"), 0o644); err != nil {
+			t.Fatalf("write corrupt .specd: %v", err)
+		}
+		resps := driveInDir(t, root,
+			`{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"specd://steering/reasoning.md"}}`,
+			`{"jsonrpc":"2.0","id":2,"method":"ping"}`,
+		)
+		if len(resps) != 2 {
+			t.Fatalf("got %d responses, want 2: %v", len(resps), resps)
+		}
+		e, ok := resps[0]["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("corrupt-root response should be error: %v", resps[0])
+		}
+		if e["code"].(float64) != -32600 || !strings.Contains(e["message"].(string), "workspace root corrupt") {
+			t.Fatalf("corrupt-root error = %v", e)
+		}
+		if _, ok := resps[1]["result"]; !ok {
+			t.Fatalf("server did not answer ping after corrupt-root error: %v", resps[1])
+		}
+	})
 }
 
 // TestToolsCall drives tools/call into the real handlers and checks the result

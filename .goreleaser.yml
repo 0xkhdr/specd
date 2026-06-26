@@ -39,6 +39,8 @@ checksum:
 # Generate a CycloneDX SBOM per archive (requires `syft` on the release runner).
 # Artifact signing remains a documented deferral until signing-key management is
 # in place.
+# Provenance attestation rides GitHub release permissions (`attestations` +
+# `id-token`) in the release workflow.
 sboms:
   - artifacts: archive
 

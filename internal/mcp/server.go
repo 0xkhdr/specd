@@ -166,10 +166,16 @@ func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, c *conn) (any,
 		// channel SPECD_JSON uses, so manifest-producing commands can size briefs.
 		return callTool(req.Params, dispatch, c.prefs.maxContextTokens)
 	case "resources/list":
-		root, _ := core.FindSpecdRoot("")
+		root, rerr := workspaceRootForResources()
+		if rerr != nil {
+			return nil, rerr
+		}
 		return handleResourcesList(root), nil
 	case "resources/read":
-		root, _ := core.FindSpecdRoot("")
+		root, rerr := workspaceRootForResources()
+		if rerr != nil {
+			return nil, rerr
+		}
 		return handleResourceRead(root, uriFromParams(req.Params))
 	case "prompts/list":
 		return handlePromptsList(), nil
@@ -179,6 +185,21 @@ func route(req rpcRequest, dispatch Dispatcher, cfg *core.Config, c *conn) (any,
 	default:
 		return nil, &rpcError{Code: errMethodNotFound, Message: "method not found: " + req.Method}
 	}
+}
+
+func workspaceRootForResources() (string, *rpcError) {
+	root, ok := core.FindSpecdRoot("")
+	if !ok {
+		return "", &rpcError{Code: errInvalidRequest, Message: "workspace root missing: no .specd/ found"}
+	}
+	info, err := os.Stat(core.SpecdDir(root))
+	if err != nil {
+		return "", &rpcError{Code: errInvalidRequest, Message: "workspace root corrupt: " + err.Error()}
+	}
+	if !info.IsDir() {
+		return "", &rpcError{Code: errInvalidRequest, Message: "workspace root corrupt: .specd is not a directory"}
+	}
+	return root, nil
 }
 
 func initializeResult(rawParams json.RawMessage, cfg *core.Config) map[string]any {

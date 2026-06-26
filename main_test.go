@@ -68,6 +68,16 @@ func TestRunTopLevelExitCodes(t *testing.T) {
 	}
 }
 
+func TestRunVersionJSON(t *testing.T) {
+	out, got := captureRun([]string{"version", "--json"})
+	if got != core.ExitOK {
+		t.Fatalf("version --json = %d, want %d", got, core.ExitOK)
+	}
+	if !strings.Contains(out, `"version":`) {
+		t.Fatalf("version --json missing JSON output: %q", out)
+	}
+}
+
 func TestRunHelpJSONAndErrors(t *testing.T) {
 	cases := []struct {
 		name string

@@ -332,10 +332,10 @@ var Commands = []CommandMeta{
 	{
 		Command: "version", Category: "meta",
 		Description: "Show version information",
-		Usage:       "specd version", Synopsis: "specd version",
-		LongDescription: "Prints the version of the installed specd binary.",
-		Flags:           []FlagMeta{}, ExitCodes: []ExitCodeMeta{{0, "Success"}},
-		Examples: []string{"specd version"},
+		Usage:       "specd version [--json]", Synopsis: "specd version [--json]",
+		LongDescription: "Prints the version of the installed specd binary. With --json, emits a machine-readable object for CI and release automation.",
+		Flags:           []FlagMeta{{Name: "json", Type: "boolean", Description: "Emit machine-readable version JSON"}}, ExitCodes: []ExitCodeMeta{{0, "Success"}},
+		Examples: []string{"specd version", "specd version --json"},
 	},
 	{
 		Command: "mcp", Category: "meta",

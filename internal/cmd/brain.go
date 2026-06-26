@@ -206,7 +206,7 @@ func brainRun(root, slug string, args cli.Args) int {
 	if closer != nil {
 		defer closer.Close()
 	}
-	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(brainRunner, root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
+	opts := core.DriverOptions{MaxSteps: maxSteps, Worker: brainRunWorker(brainRunner, root, args.Str("worker-cmd"), logger), Observer: brainObserver(root, logger)}
 	result, err := core.DriveOrchestration(root, slug, sessionID, policy, cfg, opts)
 	if err != nil {
 		return specdExit(err)
@@ -256,7 +256,7 @@ func brainRunProgram(root string, args cli.Args) int {
 	if closer != nil {
 		defer closer.Close()
 	}
-	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(brainRunner, root, args.Str("worker-cmd"), logger), Observer: brainObserver(logger)}
+	opts := core.ProgramDriverOptions{MaxSteps: maxSteps, Worker: brainRunProgramWorker(brainRunner, root, args.Str("worker-cmd"), logger), Observer: brainObserver(root, logger)}
 	result, err := core.DriveProgramOrchestration(root, parentID, policy, cfg, opts)
 	if err != nil {
 		return specdExit(err)

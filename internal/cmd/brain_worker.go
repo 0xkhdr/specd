@@ -61,7 +61,7 @@ func brainRunWorker(runner worker.Runner, root, workerCmd string, logger *slog.L
 			Deadline:  d.Mission.Deadline,
 			Payload:   d.Mission,
 		}
-		ctx := context.Background()
+		ctx := obs.WithFields(context.Background(), m.Spec, missionPhase(root, m.Spec), m.Role)
 		res, err := runner.Run(ctx, m)
 		exit := workerExitCode(err)
 		obs.LogEvent(ctx, logger, "complete", m.SessionID, m.WorkerID, m.TaskID, res.Duration, exit)
@@ -101,10 +101,39 @@ func bootstrapHint(item core.PreflightItem) string {
 	return ""
 }
 
-func brainObserver(logger *slog.Logger) core.DriverObserver {
+func brainObserver(root string, logger *slog.Logger) core.DriverObserver {
 	return func(ev core.DriverEvent) {
-		obs.LogEvent(context.Background(), logger, ev.Event, ev.Session, ev.Worker, ev.Task, 0, 0)
+		slug, phase, role := brainEventScope(root, ev.Session, ev.Task)
+		ctx := obs.WithFields(context.Background(), slug, phase, role)
+		obs.LogEvent(ctx, logger, ev.Event, ev.Session, ev.Worker, ev.Task, 0, 0)
 	}
+}
+
+func brainEventScope(root, sessionID, taskID string) (slug, phase, role string) {
+	session, err := core.LoadOrchestrationSession(root, sessionID)
+	if err != nil {
+		return "", "", ""
+	}
+	slug = session.Spec
+	state, err := core.LoadState(root, slug)
+	if err != nil || state == nil {
+		return slug, "", ""
+	}
+	phase = string(state.Phase)
+	if taskID != "" {
+		if task, ok := state.Tasks[taskID]; ok {
+			role = task.Role
+		}
+	}
+	return slug, phase, role
+}
+
+func missionPhase(root, slug string) string {
+	state, err := core.LoadState(root, slug)
+	if err != nil || state == nil {
+		return ""
+	}
+	return string(state.Phase)
 }
 
 func workerExitCode(err error) int {

@@ -75,6 +75,18 @@ func run(argv []string) int {
 		return core.ExitOK
 
 	case "--version", "-v", "version":
+		for _, a := range rest {
+			if a == "--json" {
+				jsonMode = true
+			}
+		}
+		if jsonMode {
+			if err := core.PrintJSON(map[string]any{"version": version}); err != nil {
+				core.Error(err.Error())
+				return core.ExitGate
+			}
+			return core.ExitOK
+		}
 		fmt.Printf("specd %s\n", version)
 		return core.ExitOK
 

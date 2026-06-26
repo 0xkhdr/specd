@@ -1,9 +1,12 @@
 package obs
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -15,6 +18,10 @@ import (
 func TestNewLogger(t *testing.T) {
 	if NewLogger() == nil {
 		t.Fatal("NewLogger returned nil")
+	}
+	t.Setenv("SPECD_LOG_FORMAT", "text")
+	if NewLogger() == nil {
+		t.Fatal("text logger returned nil")
 	}
 }
 
@@ -28,17 +35,36 @@ func TestSessionLoggerWithAttrsAndGroup(t *testing.T) {
 
 	// .With / .WithGroup fan out across the teeHandler to both sinks.
 	derived := logger.With("k", "v").WithGroup("grp")
-	LogEvent(context.Background(), derived, "timeout", "s-2", "wkr", "T1", 250*time.Millisecond, 0)
-	LogEvent(context.Background(), derived, "complete", "s-2", "wkr", "T1", 0, 0)
-	LogEvent(context.Background(), derived, "escalate", "s-2", "wkr", "T2", time.Second, 2)
+	ctx := WithFields(context.Background(), "demo", "execute", "builder")
+	LogEvent(ctx, derived, "timeout", "s-2", "wkr", "T1", 250*time.Millisecond, 0)
+	LogEvent(ctx, derived, "complete", "s-2", "wkr", "T1", 0, 0)
+	LogEvent(ctx, derived, "escalate", "s-2", "wkr", "T2", time.Second, 2)
 	// nil logger is a no-op, not a panic.
 	LogEvent(context.Background(), nil, "dispatch", "s-2", "wkr", "T1", 0, 0)
 
 	if closer != nil {
 		closer.Close()
 	}
-	if _, err := os.Stat(filepath.Join(root, ".specd", "sessions", "s-2", "brain.log")); err != nil {
+	path := filepath.Join(root, ".specd", "sessions", "s-2", "brain.log")
+	raw, err := os.ReadFile(path)
+	if err != nil {
 		t.Fatalf("brain.log not written: %v", err)
+	}
+	if !strings.Contains(string(raw), "\"slug\":\"demo\"") || !strings.Contains(string(raw), "\"session_id\":\"s-2\"") {
+		t.Fatalf("structured fields missing: %s", raw)
+	}
+	first, _, _ := strings.Cut(string(raw), "\n")
+	first = strings.TrimSpace(first)
+	if !json.Valid([]byte(first)) {
+		t.Fatalf("brain.log not json: %s", first)
+	}
+	var ev map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace([]byte(first)), &ev); err != nil {
+		t.Fatalf("brain.log decode: %v", err)
+	}
+	grp, ok := ev["grp"].(map[string]any)
+	if !ok || grp["slug"] != "demo" || grp["session_id"] != "s-2" {
+		t.Fatalf("missing structured fields: %v", ev)
 	}
 }
 
