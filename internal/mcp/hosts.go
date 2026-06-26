@@ -32,10 +32,6 @@ var hostRegistry = map[string]HostEntry{
 		Dest: ".cursor/mcp.json  (project)  or  global MCP settings",
 		file: "embed_hosts/cursor.json",
 	},
-	"gemini": {
-		Dest: ".gemini/settings.json  (project)",
-		file: "embed_hosts/gemini.json",
-	},
 	"vscode": {
 		Dest: ".vscode/mcp.json  (workspace)",
 		file: "embed_hosts/vscode.json",

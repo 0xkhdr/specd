@@ -543,7 +543,7 @@ specd mcp --config cursor
 specd mcp --config claude-desktop --root /path/to/your/project
 ```
 
-Supported values: `antigravity`, `claude-code`, `claude-desktop`, `codex`, `cursor`, `gemini`, `vscode`.
+Supported values: `antigravity`, `claude-code`, `claude-desktop`, `codex`, `cursor`, `vscode`.
 
 ---
 

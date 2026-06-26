@@ -28,7 +28,6 @@ trust a coding-agent host.
 | claude-desktop | snippet | unsupported | unsupported | manual | supported | manual | server probe only | User edits global config and restarts desktop app. | config snippet only | Global desktop config is never mutated automatically. |
 | codex | project | executable or `.codex/config.toml` | manual | unsupported | supported | manual | server probe + registered config | User merges/reloads project MCP config according to host support. | TOML entry and project root inspection | Current official CLI lacks safe project-scoped registration. |
 | cursor | project | executable or `.cursor/mcp.json` | atomic JSON merge | unsupported | supported | manual | server probe + registered config | User enables/reloads server in Tools & MCP. | schema, root, ownership, MCP probe | User may need to enable/reload the server in Tools & MCP. |
-| gemini | snippet | unsupported | unsupported | manual | supported | manual | server probe only | User merges snippet and reloads host if needed. | config snippet only | Host trust/allow settings are preserved but not managed. |
 | vscode | project | executable or `.vscode/mcp.json` | atomic JSON merge | unsupported | supported | manual | server probe + registered config | User approves workspace trust and starts/reloads MCP server. | schema, root, ownership, MCP probe | Workspace trust and server start approval remain user-controlled. |
 
 ## Orchestration compatibility boundary

@@ -107,7 +107,7 @@ for machine output, `--fix` to apply safe project-scoped repairs.
 ### "my coding agent isn't detected"
 * **Cause**: The host executable isn't on `PATH`, or no project config marker exists.
 * **Remediation**:
-  * Confirm the CLI resolves (`command -v codex` / `claude` / `gemini`).
+  * Confirm the CLI resolves (`command -v codex` / `claude` / `cursor`).
   * Configure a named host explicitly: `specd init --agent claude-code --yes`.
   * If the host is unmanaged (antigravity, claude-desktop), use a manual snippet:
     `specd mcp --config <host>`.

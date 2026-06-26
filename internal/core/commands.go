@@ -342,11 +342,11 @@ var Commands = []CommandMeta{
 		Description:     "Run the MCP stdio server (or print a host config snippet)",
 		Usage:           "specd mcp [--root <path>] [--spec <slug>] [--config <host>]",
 		Synopsis:        "specd mcp [--root <path>] [--spec <slug>] [--config <host>]",
-		LongDescription: "Starts a Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio, exposing every read-safe and state-mutating specd command as an MCP tool. A thin transport over the existing handlers — stdlib-only, no network, no LLM calls.\n\n--spec <slug> pins active-spec resolution to one spec for the lifetime of the MCP process. --config <host> prints a ready-to-paste config snippet for the named MCP host and exits without starting the server. Supported hosts: antigravity, claude-code, claude-desktop, codex, cursor, gemini, vscode. Combine with --root to substitute your project path into the snippet.",
+		LongDescription: "Starts a Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio, exposing every read-safe and state-mutating specd command as an MCP tool. A thin transport over the existing handlers — stdlib-only, no network, no LLM calls.\n\n--spec <slug> pins active-spec resolution to one spec for the lifetime of the MCP process. --config <host> prints a ready-to-paste config snippet for the named MCP host and exits without starting the server. Supported hosts: antigravity, claude-code, claude-desktop, codex, cursor, vscode. Combine with --root to substitute your project path into the snippet.",
 		Flags: []FlagMeta{
 			{Name: "root", Type: "string", Description: "Resolve specs against this project root (also substituted into --config output)"},
 			{Name: "spec", Type: "string", Description: "Pin MCP phase/status resolution to one spec slug"},
-			{Name: "config", Type: "string", Description: "Print ready-to-paste MCP config for a host (antigravity | claude-code | claude-desktop | codex | cursor | gemini | vscode) and exit"},
+			{Name: "config", Type: "string", Description: "Print ready-to-paste MCP config for a host (antigravity | claude-code | claude-desktop | codex | cursor | vscode) and exit"},
 		},
 		ExitCodes: []ExitCodeMeta{{0, "Success (stream closed or config printed)"}, {1, "Server error"}, {2, "Usage error"}},
 		Examples:  []string{"specd mcp", "specd mcp --root /path/to/project", "specd mcp --spec auth", "specd mcp --config cursor", "specd mcp --config codex --root /path/to/project"},

@@ -18,8 +18,8 @@ import (
 func TestHostConfigsValidNativeFormat(t *testing.T) {
 	const root = "/home/dev/myproject"
 	names := HostNames()
-	if len(names) != 7 {
-		t.Fatalf("HostNames() = %v, want 7 hosts", names)
+	if len(names) != 6 {
+		t.Fatalf("HostNames() = %v, want 6 hosts", names)
 	}
 
 	for _, name := range names {
