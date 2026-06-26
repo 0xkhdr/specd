@@ -523,7 +523,7 @@ func TestResourcesListAndRead(t *testing.T) {
 }
 
 // TestPromptsListAndGet covers the prompts channel (spec AC2–AC6): list returns
-// the 4 phase + 2 role prompts with declared arguments, get renders messages with
+// the 4 phase + 7 role prompts with declared arguments, get renders messages with
 // slug substitution and is deterministic, and unknown names error.
 func TestPromptsListAndGet(t *testing.T) {
 	resps := drive(t,
@@ -534,16 +534,16 @@ func TestPromptsListAndGet(t *testing.T) {
 		`{"jsonrpc":"2.0","id":5,"method":"prompts/get","params":{"name":"phase/bogus"}}`,
 	)
 
-	// list (AC2): the six expected prompt names with arguments declared.
+	// list (AC2): the thirteen expected prompt names with arguments declared.
 	prompts := result(t, resps[0])["prompts"].([]any)
-	if len(prompts) != 6 {
-		t.Fatalf("prompts/list count = %d, want 6", len(prompts))
+	if len(prompts) != 13 {
+		t.Fatalf("prompts/list count = %d, want 13", len(prompts))
 	}
 	names := map[string]bool{}
 	for _, p := range prompts {
 		names[p.(map[string]any)["name"].(string)] = true
 	}
-	for _, want := range []string{"phase/requirements", "phase/design", "phase/tasks", "phase/execute", "role/builder", "role/investigator"} {
+	for _, want := range []string{"phase/requirements", "phase/design", "phase/tasks", "phase/execute", "role/scout", "role/researcher", "role/reviewer", "role/architect", "role/tester", "role/documenter", "role/verifier", "role/builder", "role/investigator"} {
 		if !names[want] {
 			t.Errorf("prompts/list missing %s", want)
 		}

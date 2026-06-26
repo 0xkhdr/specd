@@ -61,6 +61,7 @@ func RenderMissionBrief(mission PinkyMission) string {
 }
 
 func renderContextManifest(sb *strings.Builder, manifest contextpkg.MissionContextManifest) {
+	fmt.Fprintf(sb, "- role: %s\n", manifest.Role)
 	fmt.Fprintf(sb, "- soft token ceiling: %d\n", manifest.SoftTokenCeiling)
 	fmt.Fprintf(sb, "- strategy: %s\n\n", manifest.Strategy)
 	sb.WriteString("| # | kind | load | mode | required | hint | why |\n")

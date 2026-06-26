@@ -76,9 +76,10 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 	}
 
 	role := req.Role
-	if role == "" {
-		role = "builder"
+	if role == "" || !spec.RoleAllowsPhase(role, effectivePhase(req)) {
+		role = defaultContextRole(req)
 	}
+	req.Role = role
 	add("role", filepath.Join(".specd", "roles", role+".md"), "", "read-full", true, ctxHintRole, "role authority and constraints")
 	add("skill", filepath.Join(".specd", "skills", "specd-pinky", "SKILL.md"), "", "read-full", true, ctxHintSkill, "Pinky lease/report lifecycle")
 	if skill := contextPhaseSkillPath(req.TaskID, req.Files); skill != "" {
@@ -96,6 +97,7 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 		Version:          ManifestVersion,
 		SoftTokenCeiling: missionContextSoftCeiling,
 		Strategy:         missionContextStrategy,
+		Role:             role,
 		Items:            items,
 		EstimatedTokens:  sumRequiredHints(items),
 		Budget:           deriveContextBudget(req),
@@ -218,10 +220,24 @@ func sumRequiredHints(items []MissionContextItem) int {
 	return sum
 }
 
+// defaultContextRole picks a stable role when caller did not supply one.
+func defaultContextRole(req ContextRequest) string {
+	switch effectivePhase(req) {
+	case spec.PhaseAnalyze, spec.PhasePlan:
+		return "architect"
+	case spec.PhaseVerify:
+		return "verifier"
+	case spec.PhaseReflect:
+		return "documenter"
+	default:
+		return "builder"
+	}
+}
+
 // deriveContextBudget computes the effective soft ceiling from phase, role, and
 // declared file count, then caps it to a host-negotiated budget when present.
 // The result is clamped to the manifest's hard bounds. Planning phases default
-// higher; read-only roles default lower; multi-file work scales with file count.
+// higher; low-budget roles default lower; multi-file work scales with file count.
 func deriveContextBudget(req ContextRequest) int {
 	base := missionContextSoftCeiling
 	switch effectivePhase(req) {
@@ -232,8 +248,15 @@ func deriveContextBudget(req ContextRequest) int {
 	case spec.PhaseVerify, spec.PhaseReflect:
 		base = 9000
 	}
-	if spec.IsReadonlyRole(req.Role) {
-		base = base * 2 / 3
+	switch spec.RoleBudgetTier(req.Role) {
+	case "minimal":
+		base = base * 3 / 5
+	case "focused":
+		// keep
+	case "medium":
+		base = base * 6 / 5
+	case "large":
+		base = base * 4 / 3
 	}
 	base += len(req.Files) * 1500
 	if req.HostBudget > 0 && req.HostBudget < base {

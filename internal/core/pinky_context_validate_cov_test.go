@@ -16,6 +16,7 @@ func validMissionManifest() contextpkg.MissionContextManifest {
 		Version:          contextpkg.ManifestVersion,
 		SoftTokenCeiling: 8000,
 		Strategy:         "balanced",
+		Role:             "builder",
 		Items: []contextpkg.MissionContextItem{{
 			Order:     1,
 			Kind:      "role",

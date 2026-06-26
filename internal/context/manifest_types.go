@@ -20,6 +20,7 @@ type MissionContextManifest struct {
 	Version          int                  `json:"version"`
 	SoftTokenCeiling int                  `json:"softTokenCeiling"`
 	Strategy         string               `json:"strategy"`
+	Role             string               `json:"role"`
 	Items            []MissionContextItem `json:"items"`
 	// EstimatedTokens and Budget are additive accounting fields (omitempty for
 	// wire back-compat at version 1). EstimatedTokens is the sum of required-item

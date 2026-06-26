@@ -1,7 +1,7 @@
 # Tasks — Stage 2 — Role System Redesign
 
 ## Wave 1
-- [ ] T1 — Audit current role, prompt, and tool surfaces
+- [x] T1 — Audit current role, prompt, and tool surfaces
   - why: We need an exact map of the existing role and tool contracts before replacing them.
   - role: investigator
   - files: internal/spec/role.go, internal/mcp/prompts.go, internal/mcp/tools.go, internal/mcp/watcher.go, internal/context/manifest_types.go, internal/mcp/server.go
@@ -12,7 +12,7 @@
   - requirements: 1, 2, 3, 4, 5, 6, 7
 
 ## Wave 2
-- [ ] T2 — Replace flat roles with structured role definitions
+- [x] T2 — Replace flat roles with structured role definitions
   - why: Requirement 1 and 2 need a single registry that carries role contracts instead of bare strings.
   - role: builder
   - files: internal/spec/role.go, internal/spec/spec_test.go
@@ -22,7 +22,7 @@
   - depends: T1
   - requirements: 1, 2
 
-- [ ] T3 — Add role prompts for the expanded role set
+- [x] T3 — Add role prompts for the expanded role set
   - why: Requirement 3 and 7 need the prompt surface to match the new role contracts.
   - role: builder
   - files: internal/mcp/prompts.go, internal/mcp/prompts_test.go
@@ -33,7 +33,7 @@
   - requirements: 3, 7
 
 ## Wave 3
-- [ ] T4 — Gate tools and manifests by active role
+- [x] T4 — Gate tools and manifests by active role
   - why: Requirement 4 and 5 need the live tool list and manifest filter to respect the role contract.
   - role: builder
   - files: internal/mcp/tools.go, internal/context/manifest_types.go, internal/mcp/server.go
@@ -43,7 +43,7 @@
   - depends: T2, T3
   - requirements: 4, 5
 
-- [ ] T5 — Thread active role into the phase watcher
+- [x] T5 — Thread active role into the phase watcher
   - why: Requirement 6 needs watcher updates to use phase × role instead of phase alone.
   - role: builder
   - files: internal/mcp/watcher.go, internal/mcp/watcher_test.go

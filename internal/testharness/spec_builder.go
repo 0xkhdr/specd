@@ -290,14 +290,7 @@ func (t TaskSpec) withDefaults() TaskSpec {
 	return t
 }
 
-func isReadonlyRole(role string) bool {
-	for _, r := range core.ReadonlyRoles {
-		if r == role {
-			return true
-		}
-	}
-	return false
-}
+func isReadonlyRole(role string) bool { return core.IsReadonlyRole(role) }
 
 func dependsMeta(deps []string) string {
 	if len(deps) == 0 {

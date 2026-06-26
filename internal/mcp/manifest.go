@@ -12,7 +12,7 @@ import (
 // degrades to an empty policy (no filtering) when no root/spec/manifest exists,
 // so absent manifests leave the config/phase output unchanged (R5). Read-only.
 func activeManifest() core.ContextManifestTools {
-	root, slug, _, ok := activeSpec()
+	root, slug, _, _, ok := activeSpec()
 	if !ok {
 		return core.ContextManifestTools{}
 	}

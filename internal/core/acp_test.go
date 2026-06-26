@@ -133,6 +133,7 @@ func validACPMission() ACPMissionPayload {
 			Version:          contextpkg.ManifestVersion,
 			SoftTokenCeiling: 12000,
 			Strategy:         "load required items first",
+			Role:             "builder",
 			Items: []contextpkg.MissionContextItem{{
 				Order:     1,
 				Kind:      "role",

@@ -226,6 +226,16 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher, contextBudget int)
 		return nil, &rpcError{Code: errInvalidParams, Message: "invalid params: " + err.Error()}
 	}
 
+	// Special verifier-only tools translate named arguments into a command + argv
+	// for the same dispatcher; they carry no positional "args" array.
+	if st, ok := specialByName[p.Name]; ok {
+		command, argv, err := st.translate(p.Arguments)
+		if err != nil {
+			return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
+		}
+		return runTool(command, argv, dispatch, contextBudget)
+	}
+
 	// Intent-level tools (GAP-5) translate named arguments into a command + argv
 	// for the same dispatcher; they carry no positional "args" array.
 	if it, ok := intentByName[p.Name]; ok {

@@ -68,8 +68,8 @@ func promptSlug(args map[string]any) string {
 // slugArg is the shared optional spec-slug argument for phase prompts.
 var slugArg = []promptArg{{name: "slug", description: "Active spec slug to scope the phase guidance to."}}
 
-// prompts is the registered prompt set in stable order: four phase prompts then
-// two role prompts (spec R2). Order pins prompts/list determinism.
+// prompts is the registered prompt set in stable order: four phase prompts,
+// seven role prompts, then two legacy role prompts. Order pins prompts/list determinism.
 var prompts = []promptDef{
 	{
 		name:        "phase/requirements",
@@ -94,6 +94,41 @@ var prompts = []promptDef{
 		description: "Guidance for the execute phase: drive tasks to verified completion with evidence.",
 		args:        slugArg,
 		render:      phasePrompt("execute", executePrompt),
+	},
+	{
+		name:        "role/scout",
+		description: "The scout role contract: locate and return precise file references, never modify files.",
+		render:      rolePrompt(scoutPrompt),
+	},
+	{
+		name:        "role/researcher",
+		description: "The researcher role contract: trace across files and report findings, never modify files.",
+		render:      rolePrompt(researcherPrompt),
+	},
+	{
+		name:        "role/reviewer",
+		description: "The reviewer role contract: audit changes and surface issues, never modify files.",
+		render:      rolePrompt(reviewerPrompt),
+	},
+	{
+		name:        "role/architect",
+		description: "The architect role contract: shape requirements and design, never modify files.",
+		render:      rolePrompt(architectPrompt),
+	},
+	{
+		name:        "role/tester",
+		description: "The tester role contract: run or write tests within declared task scope.",
+		render:      rolePrompt(testerPrompt),
+	},
+	{
+		name:        "role/documenter",
+		description: "The documenter role contract: update docs and changelog within declared file scope.",
+		render:      rolePrompt(documenterPrompt),
+	},
+	{
+		name:        "role/verifier",
+		description: "The verifier role contract: run gates and repair specd bookkeeping only.",
+		render:      rolePrompt(verifierPrompt),
 	},
 	{
 		name:        "role/builder",
@@ -188,6 +223,20 @@ const (
 	executePrompt = "You are in the execute phase. Drive one task at a time to verified completion: " +
 		"implement only within the task's declared file scope, run its verify command, and record " +
 		"evidence. Never hand-edit state.json or tasks.md checkboxes — let specd verify update state."
+
+	scoutPrompt = "Role: scout. Locate and return precise file:line references. Never modify files."
+
+	researcherPrompt = "Role: researcher. Trace across files, explain call chains, and return findings. Never modify files."
+
+	reviewerPrompt = "Role: reviewer. Audit diffs and files for issues, regressions, and gaps. Never modify files."
+
+	architectPrompt = "Role: architect. Shape requirements and design into a traceable plan. Never modify files."
+
+	testerPrompt = "Role: tester. Run or write tests within declared task scope. Keep changes bounded to the task."
+
+	documenterPrompt = "Role: documenter. Update docs or changelog within declared file scope. Keep edits focused and grounded."
+
+	verifierPrompt = "Role: verifier. Run gates, inspect state, and repair specd bookkeeping only. Never modify source files or spec artifacts."
 
 	builderPrompt = "Role: builder. Implement exactly one task within its declared `files:` scope. " +
 		"Do not touch files outside that scope. Make the change, run the task's verify command, and " +

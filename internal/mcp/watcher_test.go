@@ -3,6 +3,9 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,7 +34,7 @@ func toolNameSet(tools []toolDef) map[string]bool {
 func TestBuildPhaseToolsSubsets(t *testing.T) {
 	cfg := phaseCfg()
 
-	planning := toolNameSet(buildPhaseTools(cfg, core.StatusDesign))
+	planning := toolNameSet(buildPhaseTools(cfg, core.StatusDesign, "architect"))
 	if !planning["specd_inspect"] || !planning["specd_check"] || !planning["specd_approve"] {
 		t.Errorf("planning subset missing inspection/gate tools: %v", planning)
 	}
@@ -39,7 +42,7 @@ func TestBuildPhaseToolsSubsets(t *testing.T) {
 		t.Errorf("planning subset must not expose the drive loop: %v", planning)
 	}
 
-	executing := toolNameSet(buildPhaseTools(cfg, core.StatusExecuting))
+	executing := toolNameSet(buildPhaseTools(cfg, core.StatusExecuting, "builder"))
 	if !executing["specd_next"] || !executing["specd_dispatch"] || !executing["specd_verify"] {
 		t.Errorf("executing subset missing drive-loop tools: %v", executing)
 	}
@@ -51,10 +54,24 @@ func TestBuildPhaseToolsSubsets(t *testing.T) {
 // TestBuildPhaseToolsUnknownStatusFallsBack confirms an unmapped status yields
 // the essential set rather than an empty list (forward-compatibility).
 func TestBuildPhaseToolsUnknownStatusFallsBack(t *testing.T) {
-	got := toolNameSet(buildPhaseTools(phaseCfg(), core.SpecStatus("future-phase")))
+	got := toolNameSet(buildPhaseTools(phaseCfg(), core.SpecStatus("future-phase"), "builder"))
 	for _, want := range []string{"specd_inspect", "specd_verify", "specd_task"} {
 		if !got[want] {
 			t.Errorf("fallback subset missing %q: %v", want, got)
+		}
+	}
+}
+
+func TestBuildPhaseToolsRoleIntersection(t *testing.T) {
+	got := toolNameSet(buildPhaseTools(phaseCfg(), core.StatusExecuting, "verifier"))
+	for _, want := range []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"} {
+		if !got[want] {
+			t.Fatalf("verifier subset missing %s: %v", want, got)
+		}
+	}
+	for _, forbid := range []string{"specd_next", "specd_dispatch", "specd_verify", "specd_task"} {
+		if got[forbid] {
+			t.Fatalf("verifier subset leaked %s: %v", forbid, got)
 		}
 	}
 }
@@ -98,10 +115,10 @@ func TestInitializeListChangedGating(t *testing.T) {
 // -race it proves the RWMutex guards the list (spec R4/AC4).
 func TestToolRegistryConcurrent(t *testing.T) {
 	cfg := phaseCfg()
-	reg := newToolRegistry(buildPhaseTools(cfg, core.StatusDesign))
+	reg := newToolRegistry(buildPhaseTools(cfg, core.StatusDesign, "architect"))
 	subsets := [][]toolDef{
-		buildPhaseTools(cfg, core.StatusDesign),
-		buildPhaseTools(cfg, core.StatusExecuting),
+		buildPhaseTools(cfg, core.StatusDesign, "architect"),
+		buildPhaseTools(cfg, core.StatusExecuting, "builder"),
 	}
 
 	var wg sync.WaitGroup
@@ -150,4 +167,66 @@ func TestPhaseWatcherStopsOnCancel(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("watcher goroutine did not stop after cancel")
 	}
+}
+
+func TestPhaseWatcherTracksRoleChange(t *testing.T) {
+	root := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	if err := os.MkdirAll(filepath.Join(root, ".specd", "specs", "auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	state := core.InitialState("auth", "Auth")
+	state.Status = core.StatusExecuting
+	state.Phase = core.PhaseForStatus(state.Status)
+	state.Tasks["T1"] = core.TaskState{ID: "T1", Wave: 1, Role: "builder", Status: core.TaskPending}
+	if err := core.SaveState(root, "auth", &state); err != nil {
+		t.Fatal(err)
+	}
+	tasksPath := filepath.Join(root, ".specd", "specs", "auth", "tasks.md")
+	tasks := "# Tasks — Auth\n\n## Wave 1\n- [ ] T1 — Login\n  - why: w\n  - role: builder\n  - files: x.go\n  - contract: c\n  - acceptance: a\n  - verify: true\n  - depends: —\n  - requirements: 1\n"
+	if err := os.WriteFile(tasksPath, []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := phaseCfg()
+	reg := newToolRegistry(buildPhaseTools(cfg, core.StatusExecuting, "builder"))
+	w := &phaseWatcher{registry: reg, cfg: cfg, interval: 5 * time.Millisecond, debounce: 5 * time.Millisecond}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.run(ctx)
+
+	waitFor := func(pred func(map[string]bool) bool) {
+		t.Helper()
+		deadline := time.Now().Add(time.Second)
+		for time.Now().Before(deadline) {
+			if pred(toolNameSet(reg.list())) {
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		t.Fatalf("timeout waiting for watcher state: %v", toolNameSet(reg.list()))
+	}
+
+	waitFor(func(set map[string]bool) bool { return !set["specd_state_read"] && set["specd_next"] })
+
+	raw, err := os.ReadFile(tasksPath)
+	if err != nil {
+		t.Fatalf("read tasks.md: %v", err)
+	}
+	updated := strings.Replace(string(raw), "- role: builder", "- role: verifier", 1)
+	if updated == string(raw) {
+		t.Fatal("task role line not found")
+	}
+	if err := os.WriteFile(tasksPath, []byte(updated), 0o644); err != nil {
+		t.Fatalf("write tasks.md: %v", err)
+	}
+
+	waitFor(func(set map[string]bool) bool { return set["specd_state_read"] && !set["specd_next"] && set["specd_check"] })
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/spec"
 )
 
 // toolPrefix namespaces specd commands as MCP tools so a host sees specd_status,
@@ -50,20 +51,58 @@ var defaultEssentialTools = []string{
 	"verify", "task", "approve",
 }
 
+const stateReadToolName = "specd_state_read"
+
+var specialTools = []intentTool{
+	{
+		name:        stateReadToolName,
+		description: "Read a spec's state as JSON without rendering the human status summary.",
+		readOnly:    true,
+		args: []intentArg{{name: "slug", typ: "string", description: "Spec slug to read.", required: true}},
+		translate: func(args map[string]any) (string, []string, error) {
+			slug, ok, err := argString(args, "slug")
+			if err != nil {
+				return "", nil, err
+			}
+			if !ok {
+				return "", nil, fmt.Errorf("specd_state_read requires a 'slug'")
+			}
+			return "status", []string{slug}, nil
+		},
+	},
+}
+
+var specialByName = func() map[string]intentTool {
+	m := make(map[string]intentTool, len(specialTools))
+	for _, t := range specialTools {
+		m[t.name] = t
+	}
+	return m
+}()
+
 // planningPhaseTools / executingPhaseTools name the tools advertised under
-// expose:"phase" for each lifecycle band (dynamic-tool-list spec §5.1). Names
-// use the same identifiers as defaultEssentialTools: composites/intents by their
-// full tool name (specd_inspect) and atomics by bare command (check). Planning
-// (requirements/design/tasks) favours inspection + gate-advancing tools;
-// executing favours the drive loop (next/dispatch/verify/task).
+// expose:"phase" for each lifecycle band (dynamic-tool-list spec §5.1). They
+// are broader than any one role: role allow-lists narrow them again at runtime.
 var (
 	planningPhaseTools = []string{
 		"specd_inspect", "specd_read", "specd_query",
 		"check", "approve", "context", "status", "waves",
+		"diff", "report", "memory", "decision",
 	}
 	executingPhaseTools = []string{
-		"specd_inspect", "specd_read",
+		"specd_inspect", "specd_read", "specd_query",
 		"next", "dispatch", "verify", "task", "status", "context",
+		"check", "report", "diff", "memory", "decision",
+		stateReadToolName, "doctor",
+	}
+	verifyingPhaseTools = []string{
+		"specd_inspect", "specd_read", "specd_query",
+		"check", "status", "context", "report", "diff", "memory", "decision",
+		stateReadToolName, "doctor",
+	}
+	completePhaseTools = []string{
+		"specd_inspect", "specd_read", "specd_query",
+		"status", "context", "report", "diff", "memory", "decision",
 	}
 )
 
@@ -96,6 +135,13 @@ func phaseToolNames(status core.SpecStatus) map[string]bool {
 	return set
 }
 
+func roleToolNames(role string) map[string]bool { return spec.RoleToolSet(role) }
+
+func toolAllowedByRole(role, name string) bool {
+	set := roleToolNames(role)
+	return set == nil || set[name]
+}
+
 // exposurePlan is the resolved, pure allow-policy derived from a *core.Config.
 // buildTools consults it per tool so the loop stays a thin filter and the
 // resolution logic is table-testable in isolation (spec §5.3).
@@ -111,6 +157,7 @@ type exposurePlan struct {
 	// per the active spec's status (the watcher swaps the registry), so the static
 	// plan carries no essentialSet — buildPhaseTools layers the phase allow-set on.
 	phase bool
+	role  string
 }
 
 // resolveMCPExposure turns config into an exposurePlan (pure; no I/O except the
@@ -235,6 +282,10 @@ func commandToTool(c core.CommandMeta) toolDef {
 // while preserving deterministic command-then-intent order (spec R7).
 func buildTools(cfg *core.Config) []toolDef {
 	plan := resolveMCPExposure(cfg)
+	if _, _, status, role, ok := activeSpec(); ok {
+		_ = status
+		plan.role = role
+	}
 	return withManifest(plan, buildToolsFromPlan(plan))
 }
 
@@ -243,10 +294,14 @@ func buildTools(cfg *core.Config) []toolDef {
 // orchestration gates from config still apply — then narrows to the phase
 // allow-set via the same machinery as expose:"essential", so a phase subset is
 // always a subset of what the operator's config would otherwise permit.
-func buildPhaseTools(cfg *core.Config, status core.SpecStatus) []toolDef {
+func buildPhaseTools(cfg *core.Config, status core.SpecStatus, role string) []toolDef {
 	plan := resolveMCPExposure(cfg)
 	plan.essential = true
 	plan.essentialSet = phaseToolNames(status)
+	plan.role = role
+	if plan.role == "" {
+		plan.role = roleForStatus(status)
+	}
 	return withManifest(plan, buildToolsFromPlan(plan))
 }
 
@@ -262,11 +317,12 @@ func withManifest(plan exposurePlan, tools []toolDef) []toolDef {
 }
 
 func buildToolsFromPlan(plan exposurePlan) []toolDef {
-	tools := make([]toolDef, 0, len(core.Commands)+len(intentTools))
+	tools := make([]toolDef, 0, len(core.Commands)+len(specialTools)+len(compositeTools)+len(intentTools))
 	for _, c := range core.Commands {
 		if metaCommands[c.Command] {
 			continue
 		}
+		name := toolPrefix + c.Command
 		if !plan.passthrough {
 			if metaRiskCommands[c.Command] && !plan.includeMeta {
 				continue
@@ -277,21 +333,39 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[c.Command] {
 				continue
 			}
+			if !toolAllowedByRole(plan.role, name) {
+				continue
+			}
 		}
 		tools = append(tools, commandToTool(c))
 	}
-	// Composite tools (spec A2/A4) are emitted only when a config is present: the
-	// passthrough path must stay byte-identical to the pre-composite surface
-	// (cross-cutting invariant 1), so an absent `mcp` block sees no composites.
-	// Under expose:"all" they augment the atomics; under "essential" only those
-	// named in the essential set appear. Orchestration composites follow the same
-	// gate as the brain_* intents.
 	if !plan.passthrough {
+		for _, st := range specialTools {
+			if plan.role == "" {
+				continue
+			}
+			if !toolAllowedByRole(plan.role, st.name) {
+				continue
+			}
+			if plan.essential && !plan.essentialSet[st.name] {
+				continue
+			}
+			tools = append(tools, st.def())
+		}
+		// Composite tools (spec A2/A4) are emitted only when a config is present: the
+		// passthrough path must stay byte-identical to the pre-composite surface
+		// (cross-cutting invariant 1), so an absent `mcp` block sees no composites.
+		// Under expose:"all" they augment the atomics; under "essential" only those
+		// named in the essential set appear. Orchestration composites follow the same
+		// gate as the brain_* intents.
 		for _, ct := range compositeTools {
 			if compositeOrchestration[ct.name] && !plan.includeOrchestration {
 				continue
 			}
 			if plan.essential && !plan.essentialSet[ct.name] {
+				continue
+			}
+			if !toolAllowedByRole(plan.role, ct.name) {
 				continue
 			}
 			tools = append(tools, ct.def())
@@ -304,6 +378,9 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 				continue
 			}
 			if plan.essential && !plan.essentialSet[it.name] {
+				continue
+			}
+			if !toolAllowedByRole(plan.role, it.name) {
 				continue
 			}
 		}

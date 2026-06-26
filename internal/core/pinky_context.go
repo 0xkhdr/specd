@@ -82,6 +82,9 @@ func validateMissionContextManifest(manifest contextpkg.MissionContextManifest, 
 	if err := validateACPText("contextManifest.strategy", manifest.Strategy, true); err != nil {
 		return err
 	}
+	if !IsValidRole(manifest.Role) {
+		return fmt.Errorf("pinky: contextManifest role %q invalid", manifest.Role)
+	}
 	if len(manifest.Items) == 0 || len(manifest.Items) > ACPMaxListItems {
 		return fmt.Errorf("pinky: contextManifest.items must contain 1..%d items", ACPMaxListItems)
 	}

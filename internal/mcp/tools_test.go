@@ -586,6 +586,38 @@ func TestPassthroughEqualsToday(t *testing.T) {
 	}
 }
 
+func TestBuildToolsRoleFilterFromActiveSpec(t *testing.T) {
+	root := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	if err := os.MkdirAll(filepath.Join(root, ".specd", "specs", "auth"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	st := core.InitialState("auth", "Auth")
+	st.Status = core.StatusVerifying
+	st.Phase = core.PhaseForStatus(st.Status)
+	if err := core.SaveState(root, "auth", &st); err != nil {
+		t.Fatal(err)
+	}
+
+	got := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
+	want := []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"}
+	if len(got) != len(want) {
+		t.Fatalf("verifier tool count = %d, want %d: %v", len(got), len(want), got)
+	}
+	for _, name := range want {
+		if !got[name] {
+			t.Fatalf("verifier tool list missing %s: %v", name, got)
+		}
+	}
+}
+
 // listToolsOverServer runs the real stdio Serve loop with cfg and returns the
 // advertised tool names from tools/list, exercising the full route → buildTools
 // plumbing rather than buildTools in isolation (spec §7 integration).

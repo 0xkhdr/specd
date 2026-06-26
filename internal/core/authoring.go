@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/spec"
 )
 
 // AuthoringBrief is a gate-shaped description of what a faithful spec draft must
@@ -36,7 +38,7 @@ func NewAuthoringBrief(prompt string) AuthoringBrief {
 	sections := append([]string(nil), DesignSections...)
 	keys := append([]string(nil), MandatoryKeys...)
 	roles := append([]string(nil), ValidRoles...)
-	ro := append([]string(nil), ReadonlyRoles...)
+	ro := spec.ReadonlyRoleNames()
 
 	earsConstraints := make([]string, 0, len(forms)+1)
 	earsConstraints = append(earsConstraints, "every acceptance criterion matches one EARS form:")

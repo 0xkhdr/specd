@@ -94,11 +94,24 @@ func buildBrief(state *core.State, slug, defaultVerify string) brief {
 // runnable task (its role, declared files, covered requirements) so the brief
 // targets the actual frontier work; other phases brief at the phase level. The
 // injected reader lets the engine measure and slice the real artifacts.
+func defaultBriefRole(state *core.State) string {
+	switch state.Status {
+	case core.StatusRequirements, core.StatusDesign, core.StatusTasks:
+		return "architect"
+	case core.StatusVerifying:
+		return "verifier"
+	case core.StatusComplete:
+		return "documenter"
+	default:
+		return "builder"
+	}
+}
+
 func buildContextManifest(root, slug string, state *core.State, doc core.ParsedTasks) contextpkg.MissionContextManifest {
 	req := contextpkg.ContextRequest{
 		Slug:         slug,
 		Status:       state.Status,
-		Role:         "builder",
+		Role:         defaultBriefRole(state),
 		Mode:         contextpkg.ContextModeBriefing,
 		HostBudget:   core.HostContextBudgetFromEnv(),
 		ReadArtifact: core.SpecArtifactReader(root, slug),
@@ -134,7 +147,7 @@ func manifestJSON(m contextpkg.MissionContextManifest) map[string]interface{} {
 		items = append(items, item)
 	}
 	return map[string]interface{}{
-		"version": m.Version, "softTokenCeiling": m.SoftTokenCeiling, "strategy": m.Strategy,
+		"version": m.Version, "softTokenCeiling": m.SoftTokenCeiling, "strategy": m.Strategy, "role": m.Role,
 		"estimatedTokens": m.EstimatedTokens, "budget": m.Budget, "items": items,
 	}
 }

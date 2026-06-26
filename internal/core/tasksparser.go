@@ -13,14 +13,10 @@ import (
 var (
 	MandatoryKeys = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends"}
 	KeyOrder      = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends", "requirements"}
-	ValidRoles    = []string{"investigator", "builder", "reviewer", "verifier"}
+	ValidRoles    = spec.RoleNames()
 
 	validRoleSet = sliceToSet(ValidRoles)
 )
-
-// ReadonlyRoles and IsReadonlyRole are re-exported from internal/spec so both
-// core and the context engine share a single source of truth for the role set.
-var ReadonlyRoles = spec.ReadonlyRoles
 
 // IsValidRole reports whether r is a recognized task role.
 func IsValidRole(r string) bool { return validRoleSet[r] }

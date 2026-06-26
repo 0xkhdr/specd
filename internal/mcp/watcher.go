@@ -58,9 +58,9 @@ func startPhaseWatcher(ctx context.Context, registry *toolRegistry, cfg *core.Co
 // out the debounce window, re-reads the settled status, swaps the registry, and
 // notifies exactly once (AC2/AC3/R7). Cancellation returns cleanly (R5).
 func (w *phaseWatcher) run(ctx context.Context) {
-	last, hasLast := activeStatus()
+	lastStatus, lastRole, hasLast := activeStatusRole()
 	if hasLast {
-		w.registry.swap(buildPhaseTools(w.cfg, last))
+		w.registry.swap(buildPhaseTools(w.cfg, lastStatus, lastRole))
 	}
 
 	ticker := time.NewTicker(w.interval)
@@ -70,8 +70,8 @@ func (w *phaseWatcher) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			status, ok := activeStatus()
-			if !ok || (hasLast && status == last) {
+			status, role, ok := activeStatusRole()
+			if !ok || (hasLast && status == lastStatus && role == lastRole) {
 				continue
 			}
 			// Debounce: let a burst of transitions settle, then act on the final
@@ -81,12 +81,12 @@ func (w *phaseWatcher) run(ctx context.Context) {
 				return
 			case <-time.After(w.debounce):
 			}
-			settled, ok := activeStatus()
+			settledStatus, settledRole, ok := activeStatusRole()
 			if !ok {
 				continue
 			}
-			last, hasLast = settled, true
-			w.registry.swap(buildPhaseTools(w.cfg, settled))
+			lastStatus, lastRole, hasLast = settledStatus, settledRole, true
+			w.registry.swap(buildPhaseTools(w.cfg, settledStatus, settledRole))
 			if w.notify != nil {
 				w.notify()
 			}
@@ -98,9 +98,9 @@ func (w *phaseWatcher) run(ctx context.Context) {
 // furthest-along in-progress spec (executing dominates planning), tie-broken by
 // the deterministic slug order ListSpecs returns. It returns false when no spec
 // has loadable state, leaving the seeded list untouched. Read-only throughout.
-func activeStatus() (core.SpecStatus, bool) {
-	_, _, status, ok := activeSpec()
-	return status, ok
+func activeStatusRole() (core.SpecStatus, string, bool) {
+	_, _, status, role, ok := activeSpec()
+	return status, role, ok
 }
 
 // activeSpec resolves the project root plus the furthest-along in-progress spec
@@ -108,25 +108,27 @@ func activeStatus() (core.SpecStatus, bool) {
 // slug tie-break). It is the active context the context-manifest filter (C1)
 // reads its per-spec tool policy from. Read-only; ok=false when no .specd root
 // or no loadable spec state exists.
-func activeSpec() (root, slug string, status core.SpecStatus, ok bool) {
+func activeSpec() (root, slug string, status core.SpecStatus, role string, ok bool) {
 	root, found := core.FindSpecdRoot("")
 	if !found {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
 	bestRank := -1
 	for _, s := range core.ListSpecs(root) {
-		state, err := core.LoadState(root, s)
-		if err != nil || state == nil {
+		loaded, err := core.LoadSpec(root, s)
+		if err != nil {
 			continue
 		}
+		state := loaded.State
 		if r := statusRank(state.Status); r > bestRank {
 			bestRank, slug, status = r, s, state.Status
+			role = activeRoleForSpec(loaded.Doc, state)
 		}
 	}
 	if bestRank < 0 {
-		return "", "", "", false
+		return "", "", "", "", false
 	}
-	return root, slug, status, true
+	return root, slug, status, role, true
 }
 
 // statusRank orders lifecycle statuses by how "active" the work is so the tool
@@ -146,5 +148,40 @@ func statusRank(s core.SpecStatus) int {
 		return 1
 	default: // complete and any future status
 		return 0
+	}
+}
+
+func activeRoleForSpec(doc core.ParsedTasks, state *core.State) string {
+	if state == nil {
+		return roleForStatus("")
+	}
+	switch state.Status {
+	case core.StatusExecuting, core.StatusBlocked:
+		if next := core.NextRunnable(core.DagTasksFromState(state)); next.Kind == core.NextTask {
+			v := core.ResolveTaskView(doc, state, next.ID)
+			if v.Role != "" {
+				return v.Role
+			}
+		}
+		return roleForStatus(state.Status)
+	case core.StatusVerifying:
+		return "verifier"
+	case core.StatusComplete:
+		return "documenter"
+	default:
+		return roleForStatus(state.Status)
+	}
+}
+
+func roleForStatus(status core.SpecStatus) string {
+	switch status {
+	case core.StatusRequirements, core.StatusDesign, core.StatusTasks:
+		return "architect"
+	case core.StatusVerifying:
+		return "verifier"
+	case core.StatusComplete:
+		return "documenter"
+	default:
+		return "builder"
 	}
 }
