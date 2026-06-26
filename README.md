@@ -16,7 +16,7 @@ By defining clear phase transitions and validating structural correctness with d
 - 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
 - 🔒 **Sandboxed Verify & Rollback**: Run `verify:` under `bwrap`/container isolation (fail-closed if absent) and optionally stash the working tree on failure (`--revert-on-fail`).
 - 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd program` resolves which whole specs are runnable across a multi-spec program.
-- 🔌 **Agent-Agnostic + MCP auto-setup**: Teaches any command-running agent via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). `specd init --agent auto` detects supported coding agents and installs **project-scoped** MCP registration for you — managed adapters for **claude-code, codex, cursor, gemini, and vscode** (host-native CLI or a safe JSON merge), plus deterministic `--config` snippets for **antigravity** and **claude-desktop**. `specd doctor` verifies the integration end to end.
+- 🔌 **Agent-Agnostic + MCP auto-setup**: Teaches any command-running agent via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). `specd init --agent auto` detects supported coding agents and installs **project-scoped** MCP registration for you — managed adapters for **claude-code, codex, cursor, antigravity, and vscode** (host-native CLI or a safe JSON merge), plus deterministic `--config` snippets for **claude-desktop**. `.agents/` is intentionally VCS-tracked so Antigravity config stays in repo. `specd doctor` verifies the integration end to end.
 - 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd serve`), a frontier event stream (`specd watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
 - 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd schema` / `specd validate --schema`), shareable scaffold bundles (`specd init --pack`), and read-only audit `replay`/`diff`.
 
@@ -96,8 +96,9 @@ specd init --agent auto
    `AGENTS.md` — idempotent and atomic; a rerun on a healthy project changes no bytes.
 2. **Detects** supported coding agents on your machine (executable + project config).
 3. **Configures project-scoped MCP** for the detected agent — preferring the host's
-   own CLI (`claude mcp add --scope project`, `gemini mcp add --scope project`) or a
-   safe JSON merge that preserves your other servers. Project scope is the default;
+   own CLI (`claude mcp add --scope project`) or a safe JSON merge that preserves your other
+   servers. Antigravity writes directly to `.agents/mcp_config.json`, and `.agents/` is
+   intentionally tracked in VCS so host config stays with the repo. Project scope is the default;
    global config is never touched without `--scope global` and explicit consent.
 4. **Verifies** the integration with an in-process MCP handshake + `tools/list`, then
    prints one next action.

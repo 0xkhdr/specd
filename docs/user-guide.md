@@ -74,7 +74,8 @@ in-process MCP handshake. A rerun on a healthy project makes **zero byte changes
 **Consent & scope rules:**
 
 - **Project scope is the default.** Generated config lives under your repo
-  (`.mcp.json`, `.cursor/mcp.json`, `.gemini/settings.json`, …).
+  (`.mcp.json`, `.cursor/mcp.json`, `.agents/mcp_config.json`, …). `.agents/` is
+  intentionally tracked in VCS so Antigravity config stays with the repo.
 - **Global host config is never modified** without `--scope global` **and** explicit
   consent (`--yes` or an interactive confirmation).
 - `--yes` authorizes only documented, non-destructive, project-scoped changes.
@@ -83,8 +84,8 @@ in-process MCP handshake. A rerun on a healthy project makes **zero byte changes
 - Unrelated MCP servers and settings in a host config are always preserved.
 
 Supported managed adapters (auto-detect + install): **claude-code, codex, cursor,
-gemini, vscode**. **antigravity** and **claude-desktop** ship deterministic manual
-snippets only (`specd mcp --config <host>`). See
+antigravity, vscode**. **claude-desktop** ships deterministic manual snippets only
+(`specd mcp --config <host>`). See
 [mcp-guide.md](mcp-guide.md) and [agent-harness-compat.md](agent-harness-compat.md)
 for the full host matrix and trust boundaries.
 

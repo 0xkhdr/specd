@@ -49,7 +49,7 @@ func (a *CursorAdapter) Plan(root string, scope Scope) (HostPlan, error) {
 }
 
 func (a *CursorAdapter) Install(_ context.Context, plan HostPlan) (HostResult, error) {
-	return installWorkspaceJSON(
+	return installProjectJSON(
 		plan,
 		a.deps,
 		filepath.Join(plan.Root, ".cursor", "mcp.json"),

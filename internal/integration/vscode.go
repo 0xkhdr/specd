@@ -64,7 +64,7 @@ func (a *VSCodeAdapter) Plan(root string, scope Scope) (HostPlan, error) {
 func (a *VSCodeAdapter) Install(_ context.Context, plan HostPlan) (HostResult, error) {
 	server := specdServer(plan.Root)
 	server["type"] = "stdio"
-	return installWorkspaceJSON(
+	return installProjectJSON(
 		plan,
 		a.deps,
 		filepath.Join(plan.Root, ".vscode", "mcp.json"),

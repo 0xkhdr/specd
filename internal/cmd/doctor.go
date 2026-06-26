@@ -280,7 +280,7 @@ func firstRemediation(remediations []string) string {
 func doctorHostLifecycle(name string) (support string, reloadRequired, trustRequired bool) {
 	support = "host-managed; specd registers project MCP config only and does not spawn Pinky agents"
 	switch name {
-	case "claude-code", "cursor", "gemini":
+	case "claude-code", "cursor", "antigravity":
 		return support + "; reload or enable the MCP server in the host if tools are not visible", true, false
 	case "vscode":
 		return support + "; reload the workspace, approve workspace trust, and start the MCP server in VS Code", true, true

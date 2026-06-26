@@ -362,7 +362,7 @@
     "properties": {
       "agent": {
         "type": "string",
-        "description": "Coding-agent selection: auto, all, none, codex, claude-code, cursor, gemini, or vscode"
+        "description": "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"
       },
       "args": {
         "type": "array",

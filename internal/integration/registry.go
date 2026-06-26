@@ -61,7 +61,7 @@ func DefaultRegistry() *Registry {
 		NewClaudeCodeAdapter(),
 		NewCodexAdapter(),
 		NewCursorAdapter(),
-		NewGeminiAdapter(),
+		NewAntigravityAdapter(),
 		NewVSCodeAdapter(),
 	)
 }

@@ -135,7 +135,7 @@ func inspectJSONServerAtPath(root, host, target string, scope Scope, keyPath []s
 	return state, canonical, nil
 }
 
-func installWorkspaceJSON(
+func installProjectJSON(
 	plan HostPlan,
 	deps AdapterDeps,
 	target string,

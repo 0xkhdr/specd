@@ -171,6 +171,16 @@ func TestCompatibilityMatrixMatchesProjectAdapters(t *testing.T) {
 	}
 }
 
+func TestDefaultRegistryIncludesAntigravityNotGemini(t *testing.T) {
+	got := DefaultRegistry().Names()
+	if i := sort.SearchStrings(got, "antigravity"); i == len(got) || got[i] != "antigravity" {
+		t.Fatalf("DefaultRegistry().Names() = %v, want antigravity", got)
+	}
+	if i := sort.SearchStrings(got, "gemini"); i < len(got) && got[i] == "gemini" {
+		t.Fatalf("DefaultRegistry().Names() = %v, want no gemini", got)
+	}
+}
+
 func TestDefaultAdapterConformance(t *testing.T) {
 	root := t.TempDir()
 	registry := DefaultRegistry()

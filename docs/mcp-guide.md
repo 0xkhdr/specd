@@ -500,7 +500,7 @@ are not completion proof by themselves.
 
 ### Automated setup (recommended)
 
-For the managed adapters — **claude-code, codex, cursor, gemini, vscode** — you do not
+For the managed adapters — **claude-code, codex, cursor, antigravity, vscode** — you do not
 need to edit any config by hand. `specd init` detects the host and registers the
 server for you, **project-scoped**:
 
@@ -511,9 +511,10 @@ specd init --agent all --yes       # every detected host
 specd doctor                       # verify registration + MCP handshake
 ```
 
-Where the host ships a stable CLI, specd uses it (`claude mcp add --scope project`,
-`gemini mcp add --scope project`); otherwise it performs a targeted JSON merge that
-preserves your other servers. See [agent-harness-compat.md](agent-harness-compat.md)
+Where the host ships a stable CLI, specd uses it (`claude mcp add --scope project`);
+for Antigravity it writes `.agents/mcp_config.json` directly with a targeted JSON merge
+that preserves your other servers. `.agents/` is intentionally VCS-tracked so the
+project host config stays with the repo. See [agent-harness-compat.md](agent-harness-compat.md)
 for the per-host install method and verification depth.
 
 #### Trust boundaries
@@ -534,8 +535,8 @@ for the per-host install method and verification depth.
 
 `specd mcp --config <host>` prints a ready-to-paste config snippet for any supported host and
 exits without starting the server. Use it when there is no host CLI, for the
-snippet-only hosts (**antigravity**, **claude-desktop**), or when you prefer to merge
-config yourself. Combine with `--root` to substitute your project path:
+snippet-only host (**claude-desktop**), or when you prefer to merge config yourself.
+Combine with `--root` to substitute your project path:
 
 ```bash
 specd mcp --config cursor
