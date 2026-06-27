@@ -1,0 +1,68 @@
+# Resilience Program — Progress & Wave Plan
+
+Source plan: [`specd-resilience-analysis-and-action-plan.md`](../../specd-resilience-analysis-and-action-plan.md)
+
+This program hardens the Brain/Pinky orchestration layer so a host crash, token-limit
+exhaustion, or provider rate-limit becomes a non-event rather than a bottleneck. Each
+child spec below has its own `spec.md` (requirements + design) and `tasks.md` (wave DAG).
+
+## Gap → Spec map
+
+| Gap | Title | Spec | Priority |
+|---|---|---|---|
+| R1, R4 | Proactive checkpointing + worker hibernate/thaw | [checkpoint-protocol](checkpoint-protocol/spec.md) | P0 |
+| R5 | Zero-intervention session resumption on host restart | [auto-resume](auto-resume/spec.md) | P0 |
+| R3 | Distinguish rate-limited workers from dead workers | [rate-limit-lease](rate-limit-lease/spec.md) | P1 |
+| R2 | O(changed-files) re-contextualization on resume | [context-snapshot](context-snapshot/spec.md) | P1 |
+| R6 | No false `stalled` on slow-but-progressing workers | [progress-weighted-waits](progress-weighted-waits/spec.md) | P2 |
+| — | Resume whole program DAG, not one spec | [cross-spec-recovery](cross-spec-recovery/spec.md) | P2 |
+
+## Program waves
+
+The program runs in three waves. A wave starts only when the prior wave's specs are
+`complete`. Cross-wave dependencies are noted; intra-spec waves live in each `tasks.md`.
+
+### Wave 1 — Foundation (P0) — **status: not-started**
+
+| Spec | Status | Depends on | Notes |
+|---|---|---|---|
+| checkpoint-protocol | not-started | — | Net-new `CheckpointRecord`, `pinky/brain checkpoint`, `resume-from-checkpoint` action. |
+| auto-resume | not-started | — | `brain resume --list`, `autoResume` config, MCP `brain_resume`. Distinct from the existing pause/resume lifecycle command. |
+
+### Wave 2 — Graceful degradation (P1) — **status: not-started**
+
+| Spec | Status | Depends on | Notes |
+|---|---|---|---|
+| rate-limit-lease | not-started | checkpoint-protocol (shares lease-state extension) | `pinky suspend` / `pinky resume`; lease no longer false-fails. |
+| context-snapshot | not-started | checkpoint-protocol (snapshot referenced by `CheckpointRecord.ContextManifest`) | `specd context --snapshot`; resume loads deltas only. |
+
+### Wave 3 — Hardening (P2) — **status: not-started**
+
+| Spec | Status | Depends on | Notes |
+|---|---|---|---|
+| progress-weighted-waits | not-started | — | Add `LastReport` to progress; weight driver waits. Independent; can start any time. |
+| cross-spec-recovery | not-started | auto-resume | Persist program-state file; `brain resume --program`. |
+
+## Status legend
+
+`not-started` → `in-progress` → `verifying` → `complete` / `blocked`
+
+## How to track
+
+Each child `tasks.md` owns its checkbox DAG (flip with `specd task`, never by hand).
+Update the per-wave status tables above as child specs advance. The program is
+`complete` when all six child specs are `complete` and the Wave-4 hardening items in
+the source plan (stress tests, `doctor --resilience`, AGENTS.md docs) are landed.
+
+## Open program-level decisions
+
+- **Config shape:** all resilience knobs live under `orchestration.resilience` (see
+  `OrchestrationCfg` in `internal/core/specfiles.go`). Defaults must keep existing
+  `config.json` byte-identical (every new field `omitempty`).
+- **Runtime layout:** new on-disk state lives under
+  `.specd/runtime/sessions/<session>/` beside `events/`, `workers/`, `artifacts/`
+  (see `ACPRuntimePaths` in `internal/core/runtime_paths.go`). Add `checkpoints/`,
+  `context-snapshots/`, and a program `program-state.json`.
+- **Determinism:** every new Brain decision path must stay a pure function of
+  `(snapshot, policy)` — checkpoint/suspend state enters via `SenseOrchestration`,
+  not via clock reads inside `DecideOrchestration`.
