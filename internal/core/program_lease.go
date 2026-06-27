@@ -60,6 +60,20 @@ func AcquireProgramChildLease(root, parentSessionID, slug string, cfg Orchestrat
 			}
 			return fmt.Errorf("program orchestration: child %s is owned by parent session %s", slug, existing.ParentSessionID)
 		}
+		if ok && existing.ParentSessionID == parentSessionID && existing.Status == ProgramChildLeaseActive {
+			// Same parent re-acquiring an expired-but-not-released child (for example
+			// after a long host pause) must keep the existing child session. Creating
+			// a fresh child session would violate the one-active-session-per-spec
+			// guard while the old child session is still running. Extend the parent
+			// lease in place; child recovery remains authoritative through the child
+			// session/ACP lease/checkpoint state.
+			existing.LeaseUntil = now.Add(time.Duration(cfg.Transport.LeaseSeconds) * time.Second).Format(time.RFC3339Nano)
+			if err := saveProgramChildLease(root, existing); err != nil {
+				return err
+			}
+			acquired = existing
+			return nil
+		}
 		childSessionID, err := NewACPID()
 		if err != nil {
 			return fmt.Errorf("program orchestration: create child session ID: %w", err)

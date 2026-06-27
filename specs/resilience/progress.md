@@ -36,12 +36,12 @@ The program runs in three waves. A wave starts only when the prior wave's specs 
 | rate-limit-lease | complete | checkpoint-protocol (shares lease-state extension) | All T1–T7 landed: `ACPLeaseSuspended` status + omitempty suspend metadata (`SuspendedAt`/`SuspendReason`/`ResumeDeadline`/`SuspendSecondsTotal`), `resilience.maxSuspendSeconds` (default 600, validated `(0,3600]`), `SuspendLease`/`ResumeLease` CAS ops (reason allowlist + cumulative cap), reclaim predicate honors `ResumeDeadline` (suspended-within-window counts in-flight via `OrchestrationLeaseSnapshot.Suspended`, Decide stays pure), `pinky suspend`/`pinky resume` CLI + `resume` ACP event, and the no-retry-storm integration test. |
 | context-snapshot | complete | checkpoint-protocol (snapshot referenced by `CheckpointRecord.ContextManifest`) | All T1–T7 landed: `ContextSnapshot`+`LoadedFile` with canonical JSON + validator, file/steering/memory SHA256 digest helpers, `ContextSnapshotDir`/`ContextSnapshotPath` + `resilience.contextSnapshotEnabled` gate, `specd context --snapshot [--out]` (plain output byte-unchanged), `DiffContextSnapshot` comparator, resume brief renders reference/reload delta (guarded, no-op without snapshot), and the emit→edit→delta test. |
 
-### Wave 3 — Hardening (P2) — **status: not-started**
+### Wave 3 — Hardening (P2) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| progress-weighted-waits | not-started | — | Add `LastReport` to progress; weight driver waits. Independent; can start any time. |
-| cross-spec-recovery | not-started | auto-resume | Persist program-state file; `brain resume --program`. |
+| progress-weighted-waits | complete | — | All T1–T5 landed: server-stamped `lastReport` on progress payloads, `resilience.progressTimeoutSeconds` config validation, sensed `mostRecentProgressAt` from in-flight worker progress, progress-weighted driver waits with `MaxSteps` still hard-bounding chatty workers, and the no-false-stall regression test. |
+| cross-spec-recovery | complete | auto-resume | All T1–T6 landed: `ProgramState` canonical JSON + validation, `program-state.json` path/write helpers, per-step frontier persistence, `brain resume --program --session <parent>` driver reuse, resumable discovery `program:true` + child counts, and the crash-recovery/idempotency integration test. |
 
 ## Status legend
 

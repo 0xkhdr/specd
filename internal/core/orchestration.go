@@ -202,6 +202,14 @@ type OrchestrationSnapshot struct {
 	// set; omitempty keeps snapshots byte-identical to today when the feature is
 	// off or no checkpoint exists.
 	Checkpoints []OrchestrationCheckpointSnapshot `json:"checkpoints,omitempty"`
+	// MostRecentProgressAt is the newest server-side progress-report time among
+	// the session's in-flight workers (those holding an active lease). The driver
+	// reads it to weight stall waits: a worker progressing within
+	// resilience.progressTimeoutSeconds does not advance the consecutive-wait
+	// counter (R6). It enters via SenseOrchestration, never via a clock read in
+	// the pure decision. omitempty keeps snapshots byte-identical when no in-flight
+	// worker has reported.
+	MostRecentProgressAt string `json:"mostRecentProgressAt,omitempty"`
 }
 
 // OrchestrationCheckpointSnapshot is the snapshot projection of one persisted
@@ -445,6 +453,11 @@ func ValidateOrchestrationSnapshot(snapshot OrchestrationSnapshot) error {
 		if !acpTaskIDRE.MatchString(failure.TaskID) || failure.Attempt < 1 ||
 			failure.Kind == "" || failure.Message == "" {
 			return fmt.Errorf("orchestration model: invalid failure record")
+		}
+	}
+	if snapshot.MostRecentProgressAt != "" {
+		if _, err := parseACPTime("mostRecentProgressAt", snapshot.MostRecentProgressAt); err != nil {
+			return err
 		}
 	}
 	if snapshot.HumanOnlyGate && snapshot.Gate != GateAwaitingApproval {

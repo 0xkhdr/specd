@@ -17,6 +17,14 @@ type ResumableSession struct {
 	UpdatedAt    string                     `json:"updatedAt"`
 	PausedSince  string                     `json:"pausedSince,omitempty"`
 	LastDecision string                     `json:"lastDecision,omitempty"`
+	// Program marks a program-parent session: one that orchestrates a DAG of
+	// child specs and must be resumed via `brain resume --program`, not the
+	// single-spec path (cross-spec recovery). ChildrenComplete/ChildrenTotal give
+	// the host the parent's frontier progress at a glance. omitempty keeps
+	// single-spec entries byte-identical to the pre-program shape.
+	Program          bool `json:"program,omitempty"`
+	ChildrenComplete int  `json:"childrenComplete,omitempty"`
+	ChildrenTotal    int  `json:"childrenTotal,omitempty"`
 }
 
 // ListResumableSessions enumerates every session worth resuming after a host
@@ -54,6 +62,11 @@ func ListResumableSessions(root string, maxAge time.Duration) ([]ResumableSessio
 		}
 		session, err := LoadOrchestrationSession(root, entry.Name())
 		if errors.Is(err, errOrchestrationSessionNotFound) {
+			// No single-spec session.json here — it may be a program-parent dir,
+			// recognized by its program-state.json. Route those to the program path.
+			if item, ok := programResumableSession(root, entry.Name(), now, maxAge); ok {
+				out = append(out, item)
+			}
 			continue
 		}
 		if err != nil {
@@ -94,6 +107,48 @@ func ListResumableSessions(root string, maxAge time.Duration) ([]ResumableSessio
 		return ti.After(tj)
 	})
 	return out, nil
+}
+
+// programResumableSession builds a program-parent discovery entry for a session
+// dir that has a program-state.json but no single-spec session.json. It applies
+// the same status (running|paused) and maxAge filters as single-spec entries,
+// deriving status/time from the parent ProgramSession and the complete/total
+// child counts from the persisted frontier. Returns ok=false when the dir is not
+// a resumable program parent.
+func programResumableSession(root, parentSessionID string, now time.Time, maxAge time.Duration) (ResumableSession, bool) {
+	state, err := LoadProgramState(root, parentSessionID)
+	if err != nil {
+		return ResumableSession{}, false
+	}
+	session, err := LoadProgramSession(root, parentSessionID)
+	if err != nil {
+		return ResumableSession{}, false
+	}
+	switch session.Status {
+	case OrchestrationSessionRunning, OrchestrationSessionPaused:
+		// resumable
+	default:
+		return ResumableSession{}, false
+	}
+	updated, err := parseACPTime("updatedAt", session.UpdatedAt)
+	if err != nil {
+		return ResumableSession{}, false
+	}
+	if maxAge > 0 && now.Sub(updated) > maxAge {
+		return ResumableSession{}, false
+	}
+	item := ResumableSession{
+		SessionID:        session.ParentSessionID,
+		Status:           session.Status,
+		UpdatedAt:        session.UpdatedAt,
+		Program:          true,
+		ChildrenComplete: state.CompleteChildCount(),
+		ChildrenTotal:    len(state.ChildStatus),
+	}
+	if session.Status == OrchestrationSessionPaused {
+		item.PausedSince = session.UpdatedAt
+	}
+	return item, true
 }
 
 // lastRecordedDecision derives the session's most recent Brain decision from the

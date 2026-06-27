@@ -116,6 +116,12 @@ type ACPHeartbeatPayload struct {
 type ACPProgressPayload struct {
 	Percent int    `json:"percent"`
 	Message string `json:"message"`
+	// LastReport is the server-side write time of this progress record (RFC3339).
+	// It is stamped by RecordPinkyProgress from the host clock, never from a
+	// worker-supplied value, so it cannot be spoofed into the future. It lets the
+	// driver distinguish slow-but-progressing work from a true stall (R6).
+	// omitempty keeps pre-resilience progress events byte-stable.
+	LastReport string `json:"lastReport,omitempty"`
 }
 
 type ACPEvidencePayload struct {

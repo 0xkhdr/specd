@@ -131,6 +131,74 @@ func TestBrainRunBootstrapBlocks(t *testing.T) {
 	}
 }
 
+// TestBrainDriverProgressWeightedWaits proves R6: a driver wait does not count
+// toward the stall limit while an in-flight worker has reported progress within
+// resilience.progressTimeoutSeconds, but the same state stalls once weighting is
+// disabled. T1 is leased but no driver goroutine runs it (the slow- or
+// rate-limit-suspended-worker case), so the engine returns wait every step.
+func TestBrainDriverProgressWeightedWaits(t *testing.T) {
+	h := testharness.New(t)
+	slug := recoverySpec(h, "progress-weighted")
+	sessionID := repeat("b")
+
+	cfg := core.LoadConfig(h.Root).Orchestration
+	cfg.Enabled = true
+	cfg.Resilience = &core.ResilienceCfg{ProgressTimeoutSeconds: 300}
+	policy, err := core.NewOrchestrationPolicy(cfg)
+	if err != nil {
+		t.Fatalf("policy: %v", err)
+	}
+	if _, err := core.StartOrchestrationSession(h.Root, slug, sessionID, "test", policy); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	// A worker claims T1 and reports progress; no driver goroutine runs it, so the
+	// task stays leased and every step the engine returns wait.
+	mission, err := core.BuildPinkyMission(h.Root, slug, sessionID, "pinky-a", "T1", 1, cfg)
+	if err != nil {
+		t.Fatalf("build mission: %v", err)
+	}
+	if _, err := core.ClaimPinkyMission(h.Root, mission, cfg); err != nil {
+		t.Fatalf("claim mission: %v", err)
+	}
+	if _, err := core.RecordPinkyProgress(h.Root, core.PinkyProgressReport{
+		SessionID: sessionID, WorkerID: "pinky-a", Spec: slug, TaskID: "T1",
+		Attempt: 1, Percent: 40, Message: "long compile in progress",
+	}, cfg); err != nil {
+		t.Fatalf("record progress: %v", err)
+	}
+
+	// MaxWaits below MaxSteps: an unweighted drive stalls before the ceiling. The
+	// worker callback never fires because T1 is already leased.
+	opts := core.DriverOptions{
+		MaxSteps: 6,
+		MaxWaits: 2,
+		Worker:   func(core.DriverDispatch) error { return nil },
+	}
+
+	// Fresh progress within the window: waits are not counted, so the drive runs
+	// to the MaxSteps ceiling instead of falsely stalling.
+	res, err := core.DriveOrchestration(h.Root, slug, sessionID, policy, cfg, opts)
+	if err != nil {
+		t.Fatalf("weighted drive: %v", err)
+	}
+	if res.Outcome != core.DriverMaxSteps {
+		t.Fatalf("weighted drive outcome = %s, want max-steps (no false stall)", res.Outcome)
+	}
+
+	// Same state, weighting disabled (resilience block absent): the wait counter
+	// advances and the drive stalls at MaxWaits.
+	cfgOff := cfg
+	cfgOff.Resilience = nil
+	res2, err := core.DriveOrchestration(h.Root, slug, sessionID, policy, cfgOff, opts)
+	if err != nil {
+		t.Fatalf("unweighted drive: %v", err)
+	}
+	if res2.Outcome != core.DriverStalled {
+		t.Fatalf("unweighted drive outcome = %s, want stalled", res2.Outcome)
+	}
+}
+
 // TestBrainProgramSessionControl covers brainProgramSessionControl pause/resume.
 func TestBrainProgramSessionControl(t *testing.T) {
 	h := testharness.New(t)

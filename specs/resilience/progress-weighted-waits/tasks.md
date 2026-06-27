@@ -1,7 +1,7 @@
 # Tasks — Progress-Weighted MaxWaits (R6)
 
 ## Wave 1 — Progress timestamp
-- [ ] T1 — Stamp `LastReport` on progress
+- [x] T1 — Stamp `LastReport` on progress
   - why: driver needs report recency (Req 1)
   - role: builder
   - files: internal/core/pinky_report.go
@@ -12,7 +12,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — Config `resilience.progressTimeoutSeconds`
+- [x] T2 — Config `resilience.progressTimeoutSeconds`
   - why: tunable window, default-off-equivalent (Req 3)
   - role: builder
   - files: internal/core/specfiles.go, internal/core/embed_templates/config.json
@@ -24,7 +24,7 @@
   - requirements: 3
 
 ## Wave 2 — Sense + driver
-- [ ] T3 — Surface `MostRecentProgressAt` in snapshot
+- [x] T3 — Surface `MostRecentProgressAt` in snapshot
   - why: keep wait decision derived from sensed state (Req 2.4)
   - role: builder
   - files: internal/core/orchestration_sense.go, internal/core/orchestration.go
@@ -35,7 +35,7 @@
   - depends: T1
   - requirements: 2
 
-- [ ] T4 — Progress-weighted wait logic
+- [x] T4 — Progress-weighted wait logic
   - why: don't stall slow-but-progressing work (Req 2)
   - role: builder
   - files: internal/core/orchestration_driver.go
@@ -48,7 +48,7 @@
   - requirements: 2
 
 ## Wave 3 — Test
-- [ ] T5 — Long-task no-false-stall test
+- [x] T5 — Long-task no-false-stall test
   - why: prove R6 fix (Req 2)
   - role: verifier
   - files: internal/cmd/brain_driver_cov_test.go

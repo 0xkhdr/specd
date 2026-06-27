@@ -70,7 +70,13 @@ type PinkyTerminalReport struct {
 }
 
 func RecordPinkyProgress(root string, report PinkyProgressReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
-	payload := ACPProgressPayload{Percent: report.Percent, Message: report.Message}
+	// Stamp the report time server-side from the host clock so a worker cannot
+	// spoof recency; the driver reads this to weight stall waits (R6).
+	payload := ACPProgressPayload{
+		Percent:    report.Percent,
+		Message:    report.Message,
+		LastReport: Clock().UTC().Format(time.RFC3339Nano),
+	}
 	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageProgress, payload, cfg)
 }
 

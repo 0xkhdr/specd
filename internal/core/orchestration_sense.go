@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -69,6 +70,11 @@ func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		}
 		return snapshot.ActiveLeases[i].WorkerID < snapshot.ActiveLeases[j].WorkerID
 	})
+	// Surface the newest progress-report time among in-flight workers so the
+	// driver can weight stall waits without reading the clock in the pure
+	// decision (R6). Best-effort: an unreadable history simply leaves it empty,
+	// preserving today's unweighted behavior.
+	snapshot.MostRecentProgressAt = senseMostRecentProgress(store, sessionID, snapshot.ActiveLeases)
 	cost, err := senseHostReportedCost(root, sessionID)
 	if err != nil {
 		return OrchestrationSnapshot{}, err
@@ -132,6 +138,49 @@ func senseRunnableTasks(state *State) []OrchestrationTaskSnapshot {
 			Depends:  append([]string{}, full.Depends...),
 			Verified: full.Verification != nil && full.Verification.Verified,
 		})
+	}
+	return out
+}
+
+// senseMostRecentProgress returns the newest server-side progress-report time
+// (RFC3339Nano) among workers that currently hold an active lease, or "" when no
+// in-flight worker has reported. It reads the persisted progress events' stamped
+// LastReport (falling back to the envelope CreatedAt for pre-resilience records),
+// so the value is a host-stamped time the worker cannot spoof. Best-effort: an
+// unreadable history yields "".
+func senseMostRecentProgress(store *ACPStore, sessionID string, leases []OrchestrationLeaseSnapshot) string {
+	if len(leases) == 0 {
+		return ""
+	}
+	inflight := make(map[string]struct{}, len(leases))
+	for _, lease := range leases {
+		inflight["pinky-"+lease.WorkerID] = struct{}{}
+	}
+	events, err := store.readAllEvents(sessionID)
+	if err != nil {
+		return ""
+	}
+	var newest time.Time
+	out := ""
+	for _, event := range events {
+		if event.Type != ACPMessageProgress {
+			continue
+		}
+		if _, ok := inflight[event.From]; !ok {
+			continue
+		}
+		reported := event.CreatedAt
+		var payload ACPProgressPayload
+		if err := json.Unmarshal(event.Payload, &payload); err == nil && payload.LastReport != "" {
+			reported = payload.LastReport
+		}
+		ts, err := parseACPTime("lastReport", reported)
+		if err != nil {
+			continue
+		}
+		if out == "" || ts.After(newest) {
+			newest, out = ts, reported
+		}
 	}
 	return out
 }

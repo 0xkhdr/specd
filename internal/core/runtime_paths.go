@@ -160,6 +160,15 @@ func (p ACPRuntimePaths) ContextSnapshotPath(sessionID string, turn int) (string
 	return p.sessionJoin(sessionID, "context-snapshots", name)
 }
 
+// ProgramStatePath returns the parent session's program-state.json:
+// sessions/<parent>/program-state.json. It sits in the parent session dir beside
+// events/, workers/, and checkpoints/, so resume discovery (which scans
+// sessions/) can detect a program parent by the file's presence (cross-spec
+// recovery).
+func (p ACPRuntimePaths) ProgramStatePath(parentSessionID string) (string, error) {
+	return p.sessionJoin(parentSessionID, "program-state.json")
+}
+
 func (p ACPRuntimePaths) ProgramSessionsDir() (string, error) {
 	return p.join("program", "sessions")
 }

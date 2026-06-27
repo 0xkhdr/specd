@@ -98,6 +98,12 @@ func RunBrain(args cli.Args) int {
 			return brainResumeList(root, args)
 		}
 		if args.Bool("program") {
+			// With a worker wired, reconstruct the program frontier and restart the
+			// driver (cross-spec recovery); without one, keep the lifecycle-unpause
+			// control behavior.
+			if args.Has("worker-cmd") {
+				return brainResumeProgram(root, args)
+			}
 			return brainProgramSessionControl(root, args, core.ResumeProgramOrchestration, "resume")
 		}
 		return brainSessionControl(root, args, core.ResumeOrchestration, "resume")
@@ -266,6 +272,13 @@ func brainRunProgram(root string, args cli.Args) int {
 		maxSteps = n
 	}
 
+	return driveProgramAndReport(root, args, parentID, policy, cfg, maxSteps, "brain run --program")
+}
+
+// driveProgramAndReport runs the program driver from the current frontier and
+// renders the outcome. It is shared by `brain run --program` and
+// `brain resume --program` so both walk the cross-spec frontier identically.
+func driveProgramAndReport(root string, args cli.Args, parentID string, policy core.OrchestrationPolicy, cfg core.OrchestrationCfg, maxSteps int, label string) int {
 	logger, closer := obs.NewSessionLogger(root, parentID)
 	if closer != nil {
 		defer closer.Close()
@@ -280,12 +293,62 @@ func brainRunProgram(root string, args cli.Args) int {
 			return specdExit(err)
 		}
 	} else {
-		fmt.Printf("brain run --program: %s after %d step(s) — final decision: %s (%s)\n", result.Outcome, result.Steps, result.Final.Action, result.Final.Reason)
+		fmt.Printf("%s: %s after %d step(s) — final decision: %s (%s)\n", label, result.Outcome, result.Steps, result.Final.Action, result.Final.Reason)
 	}
 	if result.Outcome == core.DriverEscalated {
 		return core.ExitGate
 	}
 	return core.ExitOK
+}
+
+// brainResumeProgram reconstructs an interrupted program's frontier from its
+// persisted program-state.json and restarts the program driver from the current
+// frontier (cross-spec recovery). Complete children are not re-dispatched (the
+// program step releases them); children with a running worker rely on
+// lease/checkpoint recovery. The drive is idempotent: a second call re-derives
+// the same frontier and advances only pending/running children.
+func brainResumeProgram(root string, args cli.Args) int {
+	parentID := args.Str("session")
+	if parentID == "" {
+		return usageExit("usage: specd brain resume --program --session <id> --worker-cmd <cmd>")
+	}
+	policy, cfg, ok := brainRunPolicy(root, args)
+	if !ok {
+		return core.ExitUsage
+	}
+
+	session, err := core.LoadProgramSession(root, parentID)
+	if err != nil {
+		return specdExit(err)
+	}
+	switch session.Status {
+	case core.OrchestrationSessionComplete, core.OrchestrationSessionFailed:
+		fmt.Printf("brain resume --program: session already %s — nothing to resume\n", session.Status)
+		return core.ExitOK
+	case core.OrchestrationSessionPaused:
+		// Unpause so the driver may dispatch again; a running program needs no flip.
+		if _, err := core.ResumeProgramOrchestration(root, parentID); err != nil {
+			return specdExit(err)
+		}
+	}
+
+	// Surface the persisted frontier classification for the operator. Child
+	// sessions stay authoritative — the driver re-derives the live frontier — so a
+	// missing/old program-state is non-fatal here.
+	if state, err := core.LoadProgramState(root, parentID); err == nil {
+		fmt.Printf("brain resume --program: reconstructed frontier — %d/%d child spec(s) complete\n",
+			state.CompleteChildCount(), len(state.ChildStatus))
+	}
+
+	maxSteps := 200
+	if args.Has("max-steps") {
+		n, ok := parsePositiveIntFlag(args, "max-steps")
+		if !ok {
+			return core.ExitUsage
+		}
+		maxSteps = n
+	}
+	return driveProgramAndReport(root, args, parentID, policy, cfg, maxSteps, "brain resume --program")
 }
 
 // brainRunSession resolves the session to drive: an explicit --session, an

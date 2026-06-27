@@ -90,6 +90,11 @@ type ResilienceCfg struct {
 	// ContextSnapshotEnabled gates per-turn context-snapshot writing (R2).
 	// Default false; omitempty keeps configs without the field byte-identical.
 	ContextSnapshotEnabled bool `json:"contextSnapshotEnabled,omitempty"`
+	// ProgressTimeoutSeconds is the window within which an in-flight worker's
+	// last progress report keeps a driver wait from counting toward the stall
+	// limit (R6). Recommended 300. 0/unset disables progress weighting, keeping
+	// today's behavior; omitempty keeps configs without the field byte-identical.
+	ProgressTimeoutSeconds int `json:"progressTimeoutSeconds,omitempty"`
 }
 
 // defaultMaxSuspendSeconds is the fallback cumulative-suspension cap used when
@@ -443,6 +448,10 @@ func ValidateOrchestrationConfig(cfg *OrchestrationCfg) error {
 		(cfg.Resilience.MaxSuspendSeconds < 0 || cfg.Resilience.MaxSuspendSeconds > 3600) {
 		return fmt.Errorf("resilience.maxSuspendSeconds must be within (0,3600]")
 	}
+	if cfg.Resilience != nil && cfg.Resilience.ProgressTimeoutSeconds != 0 &&
+		(cfg.Resilience.ProgressTimeoutSeconds < 0 || cfg.Resilience.ProgressTimeoutSeconds > 3600) {
+		return fmt.Errorf("resilience.progressTimeoutSeconds must be within (0,3600]")
+	}
 	return nil
 }
 
@@ -669,6 +678,9 @@ func LoadSpec(root, slug string) (LoadedSpec, error) {
 		state, err := LoadState(root, slug)
 		if err != nil {
 			return LoadedSpec{}, err
+		}
+		if state == nil {
+			return LoadedSpec{}, GateError(fmt.Sprintf("state.json for spec '%s' is missing — concurrent delete detected, reload and retry", slug))
 		}
 		doc, err := ParseTasksMd(root, slug)
 		if err != nil {

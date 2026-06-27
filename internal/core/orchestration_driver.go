@@ -224,6 +224,16 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 				waits = 0
 				continue
 			}
+			if progressWithinWindow(res.Snapshot, cfg) {
+				// A lease-holding worker reported progress within
+				// resilience.progressTimeoutSeconds (e.g. a rate-limit-suspended or
+				// externally-running worker that is slow but advancing). This wait is
+				// honest progress, not a stall, so it does not count toward MaxWaits.
+				// Poll-sleep before re-stepping so we do not hot-spin; MaxSteps still
+				// bounds the loop (Req 2.3 — no infinite wait on a chatty worker).
+				time.Sleep(pollInterval)
+				continue
+			}
 			waits++
 			if waits >= opts.MaxWaits {
 				return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, nil
@@ -231,6 +241,27 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 		}
 	}
 	return DriverResult{Steps: opts.MaxSteps, Outcome: DriverMaxSteps, Final: last}, drainReports(nil)
+}
+
+// progressWithinWindow reports whether an in-flight worker has reported progress
+// recently enough that a driver wait should not count toward the stall limit
+// (R6). It is false (today's unweighted behavior) when progress weighting is
+// disabled (resilience.progressTimeoutSeconds 0/unset), when no in-flight worker
+// has reported, or when the newest report is older than the window. The progress
+// time enters via the sensed snapshot; only the elapsed-since check reads the
+// clock, and that lives here in the driver glue, never in DecideOrchestration.
+func progressWithinWindow(snapshot OrchestrationSnapshot, cfg OrchestrationCfg) bool {
+	if cfg.Resilience == nil || cfg.Resilience.ProgressTimeoutSeconds <= 0 {
+		return false
+	}
+	if snapshot.MostRecentProgressAt == "" {
+		return false
+	}
+	ts, err := parseACPTime("mostRecentProgressAt", snapshot.MostRecentProgressAt)
+	if err != nil {
+		return false
+	}
+	return Clock().UTC().Sub(ts) < time.Duration(cfg.Resilience.ProgressTimeoutSeconds)*time.Second
 }
 
 func emitDriverEvent(observer DriverObserver, event, sessionID string, d DriverDispatch) {
@@ -506,6 +537,14 @@ func DriveProgramOrchestration(root, parentSessionID string, policy Orchestratio
 		}
 		if terminalSet {
 			return ProgramDriverResult{Steps: step, Outcome: terminal.Outcome, Final: last}, drainReports(nil)
+		}
+		// Persist the program frontier (child sessions, in-flight keys, child
+		// statuses) atomically so a crash here leaves a coherent latest frontier
+		// for `brain resume --program` (cross-spec recovery). It is a hint —
+		// child sessions stay authoritative on resume — so a write failure is
+		// surfaced as a stall rather than silently dropped.
+		if err := persistProgramFrontier(root, parentSessionID, res, inflightKeys); err != nil {
+			return ProgramDriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
 		}
 		if progressed {
 			waits = 0

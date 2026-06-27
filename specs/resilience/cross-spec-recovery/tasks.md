@@ -1,7 +1,7 @@
 # Tasks — Cross-Spec Program Recovery
 
 ## Wave 1 — Program-state persistence
-- [ ] T1 — `ProgramState` type + canonical JSON + validator
+- [x] T1 — `ProgramState` type + canonical JSON + validator
   - why: authoritative program frontier on disk (Req 1)
   - role: builder
   - files: internal/core/program_state.go (new)
@@ -12,7 +12,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — Path helper + CAS write
+- [x] T2 — Path helper + CAS write
   - why: crash-coherent latest frontier (Req 1.2)
   - role: builder
   - files: internal/core/runtime_paths.go, internal/core/program_state.go
@@ -22,7 +22,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — Write program-state each driver step
+- [x] T3 — Write program-state each driver step
   - why: keep frontier current (Req 1)
   - role: builder
   - files: internal/core/orchestration_driver.go
@@ -34,7 +34,7 @@
   - requirements: 1
 
 ## Wave 2 — Resume command
-- [ ] T4 — `brain resume --program --session <parent>`
+- [x] T4 — `brain resume --program --session <parent>`
   - why: resume whole program (Req 2)
   - role: builder
   - files: internal/cmd/brain.go
@@ -47,7 +47,7 @@
   - requirements: 2
 
 ## Wave 3 — Discovery + test
-- [ ] T5 — Mark program sessions in resume discovery
+- [x] T5 — Mark program sessions in resume discovery
   - why: hosts pick the right resume path (Req 3)
   - role: builder
   - files: internal/core/orchestration_resume.go
@@ -58,7 +58,7 @@
   - depends: T4
   - requirements: 3
 
-- [ ] T6 — Program crash-recovery integration test
+- [x] T6 — Program crash-recovery integration test
   - why: prove whole-program resume (Req 1,2,3)
   - role: verifier
   - files: internal/cmd/brain_program_run_cov_test.go
