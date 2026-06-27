@@ -169,7 +169,7 @@ func TestInitDryRunWritesNothingAndListsActions(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "AGENTS.md")); !os.IsNotExist(err) {
 		t.Fatalf("dry-run wrote AGENTS.md: %v", err)
 	}
-	for _, want := range []string{"would write: .specd/config.json", "would update: AGENTS.md"} {
+	for _, want := range []string{"would write: .specd/config.yml", "would update: AGENTS.md"} {
 		if !strings.Contains(stdout, want) {
 			t.Fatalf("dry-run output missing %q:\n%s", want, stdout)
 		}
@@ -328,7 +328,7 @@ func TestInitOrchestrationFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("dry_run_does_not_write_but_lists_write_config_json", func(t *testing.T) {
+	t.Run("dry_run_does_not_write_but_lists_write_config_yml", func(t *testing.T) {
 		root := initTestRoot(t)
 		stdout, _, code := captureInitOutput(t, cli.ParseArgs([]string{
 			"--dry-run",
@@ -338,10 +338,10 @@ func TestInitOrchestrationFlags(t *testing.T) {
 			t.Fatalf("exit = %d, want %d", code, core.ExitOK)
 		}
 		if _, err := os.Stat(filepath.Join(root, ".specd", "config.json")); !os.IsNotExist(err) {
-			t.Fatalf("config.json should not exist in dry run")
+			t.Fatalf("config.yml should not exist in dry run")
 		}
-		if !strings.Contains(stdout, "would write: .specd/config.json") {
-			t.Fatalf("dry-run missing would write config.json: %s", stdout)
+		if !strings.Contains(stdout, "would write: .specd/config.yml") {
+			t.Fatalf("dry-run missing would write config.yml: %s", stdout)
 		}
 	})
 

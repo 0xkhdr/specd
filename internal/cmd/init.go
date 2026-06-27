@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -291,17 +290,14 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		rolesSubagentMode = &mode
 		verifySandbox = &sandbox
 
-		// Update target config action in plan.Actions
-		configTarget := filepath.Join(options.Root, ".specd", "config.json")
+		// Update target config action in plan.Actions.
+		configTarget := filepath.Join(options.Root, ".specd", "config.yml")
 		for i, action := range plan.Actions {
 			if action.Target == configTarget {
-				var cfg core.Config
-				if _, statErr := os.Stat(configTarget); statErr == nil && !options.Force {
-					cfg = core.LoadConfig(options.Root)
-				} else {
-					if err := json.Unmarshal([]byte(action.Content), &cfg); err != nil {
-						cfg = core.DefaultConfig
-					}
+				cfg := core.LoadConfig(options.Root)
+				if _, statErr := os.Stat(configTarget); os.IsNotExist(statErr) || options.Force {
+					cfg = core.DefaultConfig
+					cfg.Version = 2
 				}
 
 				// Within this block these are always set above, so apply directly.
@@ -309,11 +305,7 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 				cfg.Roles.SubagentMode = *rolesSubagentMode
 				cfg.Verify.Sandbox = *verifySandbox
 
-				newContent, err := json.MarshalIndent(cfg, "", "  ")
-				if err != nil {
-					return specdExit(err)
-				}
-				plan.Actions[i].Content = string(newContent) + "\n"
+				plan.Actions[i].Content = core.RenderConfigYAML(cfg)
 				if action.Kind == "skip" {
 					plan.Actions[i].Kind = "write"
 					plan.Actions[i].Description = "update orchestration config"
@@ -365,6 +357,15 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 	}
 
 	result := core.ExecuteInitPlan(plan, options.Force, executor)
+	result.Warnings = append(result.Warnings, projectConfigDeprecationWarnings(options.Root)...)
+	if result.Status == "ready" && !options.DryRun {
+		global, err := core.EnsureGlobalConfigScaffold(core.ReadTemplate)
+		if err != nil {
+			result.Warnings = append(result.Warnings, core.InitWarning{Code: "global-config-warning", Message: "global config was not created: " + err.Error()})
+		} else if global.Created {
+			result.Warnings = append(result.Warnings, core.InitWarning{Code: "global-config-created", Message: "created global config: " + global.Path})
+		}
+	}
 	for _, detection := range detections {
 		if detection.Detected {
 			result.Agents.Detected = append(result.Agents.Detected, detection.Host)
@@ -407,6 +408,22 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 	}
 
 	return emitInitResult(result, args.Bool("json"), args.Bool("verbose"))
+}
+
+func projectConfigDeprecationWarnings(root string) []core.InitWarning {
+	yml := filepath.Join(root, ".specd", "config.yml")
+	jsonPath := filepath.Join(root, ".specd", "config.json")
+	_, ymlErr := os.Stat(yml)
+	_, jsonErr := os.Stat(jsonPath)
+	jsonExists := jsonErr == nil
+	ymlExists := ymlErr == nil
+	if jsonExists && !ymlExists {
+		return []core.InitWarning{{Code: "legacy-config-deprecated", Message: "config.json is deprecated; run specd migrate config to convert to config.yml."}}
+	}
+	if jsonExists && ymlExists {
+		return []core.InitWarning{{Code: "legacy-config-ignored", Message: "config.yml is active; config.json is ignored and deprecated."}}
+	}
+	return nil
 }
 
 func resolveInitSelection(name string, interactive, yes bool, detections []integration.Detection, runtime onboardingRuntime) (integration.Selection, int) {

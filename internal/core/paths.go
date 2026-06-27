@@ -40,7 +40,38 @@ func RolesDir(root string) string      { return filepath.Join(root, ".specd", "r
 func SkillsDir(root string) string     { return filepath.Join(root, ".specd", "skills") }
 func SpecsDir(root string) string      { return filepath.Join(root, ".specd", "specs") }
 func SpecDir(root, slug string) string { return filepath.Join(root, ".specd", "specs", slug) }
-func ConfigPath(root string) string    { return filepath.Join(root, ".specd", "config.json") }
+
+// ConfigPaths returns project config candidates in priority order. YAML is the
+// human-authored default; JSON is retained as the legacy compatibility path.
+func ConfigPaths(root string) []string {
+	return []string{
+		filepath.Join(root, ".specd", "config.yml"),
+		filepath.Join(root, ".specd", "config.yaml"),
+		LegacyConfigPath(root),
+	}
+}
+
+func LegacyConfigPath(root string) string { return filepath.Join(root, ".specd", "config.json") }
+
+// ConfigPath is the deprecated legacy JSON compatibility helper. New config
+// discovery code should use ConfigPaths.
+func ConfigPath(root string) string { return LegacyConfigPath(root) }
+
+func GlobalConfigPaths() []string {
+	paths := []string{}
+	if dir, err := os.UserConfigDir(); err == nil && dir != "" {
+		paths = append(paths,
+			filepath.Join(dir, "specd", "config.yml"),
+			filepath.Join(dir, "specd", "config.yaml"),
+			filepath.Join(dir, "specd", "config.json"),
+		)
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		paths = append(paths, filepath.Join(home, ".specd.yml"), filepath.Join(home, ".specd.yaml"), filepath.Join(home, ".specd.json"))
+	}
+	return paths
+}
+
 func IntegrationsPath(root string) string {
 	return filepath.Join(root, ".specd", "integrations.json")
 }

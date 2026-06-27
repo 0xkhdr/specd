@@ -1,7 +1,7 @@
 # Tasks — Scaffold and Global Init Migration
 
 ## Wave 1 — Project scaffold YAML
-- [ ] T1 — Switch scaffold manifest to `config.yml`
+- [x] T1 — Switch scaffold manifest to `config.yml`
   - why: new projects should be YAML-first (Req 1)
   - role: builder
   - files: internal/core/scaffold.go, internal/core/embed_templates/config.yml, internal/core/embed.go, internal/core/scaffold_test.go
@@ -11,7 +11,7 @@
   - depends: schema-v2-namespacing/T7
   - requirements: 1
 
-- [ ] T2 — Update `specd init` project config write path
+- [x] T2 — Update `specd init` project config write path
   - why: CLI bootstrap must match scaffold manifest (Req 1)
   - role: builder
   - files: internal/cmd/init.go, internal/cmd/init_test.go, internal/testharness as needed
@@ -22,7 +22,7 @@
   - requirements: 1
 
 ## Wave 2 — Global config scaffold
-- [ ] T3 — Add global config creation helper
+- [x] T3 — Add global config creation helper
   - why: user-level defaults need a safe first-run write path (Req 2)
   - role: builder
   - files: internal/core/config_scaffold.go (new) or internal/cmd/init.go, internal/core/config_loader.go
@@ -32,7 +32,7 @@
   - depends: yaml-loader-cascade/T1, schema-v2-namespacing/T7
   - requirements: 2
 
-- [ ] T4 — Invoke global scaffold from `specd init`
+- [x] T4 — Invoke global scaffold from `specd init`
   - why: users should get global config automatically on first init (Req 2)
   - role: builder
   - files: internal/cmd/init.go, internal/cmd/init_test.go
@@ -43,7 +43,7 @@
   - requirements: 2
 
 ## Wave 3 — Legacy notices and doctor
-- [ ] T5 — Add legacy config deprecation notices
+- [x] T5 — Add legacy config deprecation notices
   - why: users need clear migration guidance without forced rewrites (Req 3)
   - role: builder
   - files: internal/cmd/init.go, internal/core/config_loader.go, internal/cmd/init_test.go
@@ -53,7 +53,7 @@
   - depends: yaml-loader-cascade/T3,T5
   - requirements: 3
 
-- [ ] T6 — Teach doctor about YAML scaffold and global config health
+- [x] T6 — Teach doctor about YAML scaffold and global config health
   - why: doctor should be the central health check (Req 4)
   - role: builder
   - files: internal/cmd/doctor.go, internal/cmd/doctor_test.go

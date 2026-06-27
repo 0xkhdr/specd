@@ -15,8 +15,8 @@ import (
 // other field to defaults via LoadConfig's partial merge.
 func enableResilience(t *testing.T, root string) {
 	t.Helper()
-	raw := []byte(`{"orchestration":{"enabled":true,"resilience":{"checkpointEnabled":true}}}`)
-	if err := os.WriteFile(core.ConfigPath(root), raw, 0o644); err != nil {
+	raw := []byte("orchestration:\n  enabled: true\n  resilience:\n    checkpoint_enabled: true\n")
+	if err := os.WriteFile(filepath.Join(root, ".specd", "config.yml"), raw, 0o644); err != nil {
 		t.Fatalf("write resilience config: %v", err)
 	}
 }

@@ -14,6 +14,7 @@ var booleanFlags = map[string]bool{
 	"non-interactive": true, "verbose": true, "fix": true, "program": true,
 	"bootstrap": true, "inline-roles": true, "orchestrated": true,
 	"recommend": true, "list": true, "snapshot": true, "include-schema": true,
+	"global": true,
 }
 
 func ParseArgs(argv []string) Args {

@@ -19,19 +19,19 @@ Each child spec has its own `spec.md` (analysis, requirements, design) and `task
 
 ## Program waves
 
-### Wave 1 — Safe parser foundation (P0) — **status: not-started**
+### Wave 1 — Safe parser foundation (P0) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| yaml-loader-cascade | not-started | — | Add format detection, project/global path candidates, cascade merge, source-aware diagnostics. |
-| schema-v2-namespacing | not-started | yaml-loader-cascade/T1-T3 | Add YAML tags and v2 namespaced input without breaking v1 JSON callers. |
+| yaml-loader-cascade | complete | — | Added format detection, project/global path candidates, cascade merge, and source-aware diagnostics foundation. |
+| schema-v2-namespacing | complete | yaml-loader-cascade/T1-T3 | Added custom v2 YAML snake_case/defaults mapping while preserving v1 JSON callers. |
 
-### Wave 2 — User-facing defaults and migration (P0/P1) — **status: not-started**
+### Wave 2 — User-facing defaults and migration (P0/P1) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| scaffold-global-init | not-started | yaml-loader-cascade; schema-v2-namespacing | New projects scaffold `.specd/config.yml`; first init creates global config when absent. |
-| migrate-config | not-started | yaml-loader-cascade; schema-v2-namespacing; scaffold-global-init/T1 | Safe deterministic conversion from legacy JSON to YAML with dry-run and global mode. |
+| scaffold-global-init | complete | yaml-loader-cascade; schema-v2-namespacing | New projects scaffold `.specd/config.yml`; first init creates global config when absent. |
+| migrate-config | complete | yaml-loader-cascade; schema-v2-namespacing; scaffold-global-init/T1 | Safe deterministic conversion from legacy JSON to YAML with dry-run and global mode. |
 
 ### Wave 3 — Precedence, docs, and regression net (P1) — **status: not-started**
 
@@ -42,14 +42,14 @@ Each child spec has its own `spec.md` (analysis, requirements, design) and `task
 
 ## Acceptance checklist
 
-- [ ] `specd init` scaffolds `.specd/config.yml` for new projects.
-- [ ] First `specd init` creates `~/.config/specd/config.yml` when no global config exists.
-- [ ] Existing `.specd/config.json` continues to parse and produce compatible runtime behavior.
-- [ ] Project config overrides global config on a field-by-field basis.
-- [ ] `specd migrate config` converts `.specd/config.json` to `.specd/config.yml` deterministically and backs up the JSON file.
-- [ ] `specd doctor` reports global and project config health.
+- [x] `specd init` scaffolds `.specd/config.yml` for new projects.
+- [x] First `specd init` creates `~/.config/specd/config.yml` when no global config exists.
+- [x] Existing `.specd/config.json` continues to parse and produce compatible runtime behavior.
+- [x] Project config overrides global config on a field-by-field basis.
+- [x] `specd migrate config` converts `.specd/config.json` to `.specd/config.yml` deterministically and backs up the JSON file.
+- [x] `specd doctor` reports global and project config health.
 - [ ] `SPECD_*` env vars override merged config values.
-- [ ] YAML config supports comments and receives strict validation diagnostics.
+- [x] YAML config supports comments and receives strict validation diagnostics.
 - [ ] `state.json`, `program.json`, `session.json`, and integration/runtime state remain JSON.
 - [ ] Docs describe locations, schema, migration, precedence, and env vars.
 

@@ -1,7 +1,7 @@
 # Tasks — V2 Schema Namespacing and Compatibility
 
 ## Wave 1 — Schema translation
-- [ ] T1 — Define v2 YAML decode model
+- [x] T1 — Define v2 YAML decode model
   - why: v2 config needs snake_case names without destabilizing runtime callers (Req 1,2)
   - role: builder
   - files: internal/core/config_schema.go (new) or internal/core/config_loader.go, internal/core/specfiles.go
@@ -11,7 +11,7 @@
   - depends: yaml-loader-cascade/T2
   - requirements: 1,2
 
-- [ ] T2 — Add YAML tags or custom unmarshal mapping
+- [x] T2 — Add YAML tags or custom unmarshal mapping
   - why: YAML field names must be stable and documented (Req 1)
   - role: builder
   - files: internal/core/specfiles.go, internal/core/config_schema.go
@@ -21,7 +21,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — Preserve v1 JSON behavior
+- [x] T3 — Preserve v1 JSON behavior
   - why: legacy projects must not break (Req 2)
   - role: builder
   - files: internal/core/config_loader.go, internal/core/specfiles_test.go, internal/core/config_loader_test.go

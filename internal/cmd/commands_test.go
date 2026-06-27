@@ -343,7 +343,7 @@ func TestInitIdempotent(t *testing.T) {
 	h := th.New(t)
 	h.RunExpect(core.ExitOK, "init")
 	h.AssertFileExists("AGENTS.md")
-	h.AssertFileExists(".specd/config.json")
+	h.AssertFileExists(".specd/config.yml")
 	h.AssertFileExists(".specd/roles/builder.md")
 	// The skill pack is scaffolded: every skill in the init list lands on disk.
 	for _, s := range []string{"specd-foundations", "specd-steering", "specd-requirements", "specd-design", "specd-tasks", "specd-execute"} {

@@ -536,6 +536,31 @@
     },
     "additionalProperties": false
   },
+  "specd_migrate": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd migrate config [--dry-run] [--global]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "dry-run": {
+        "type": "boolean",
+        "description": "Print YAML without writing or renaming"
+      },
+      "global": {
+        "type": "boolean",
+        "description": "Migrate the legacy global config"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "Output migration result as JSON"
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_mode": {
     "type": "object",
     "properties": {

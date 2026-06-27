@@ -1,7 +1,7 @@
 # Tasks — Deterministic Config Migration Command
 
 ## Wave 1 — Core conversion
-- [ ] T1 — Implement legacy JSON to v2 YAML renderer
+- [x] T1 — Implement legacy JSON to v2 YAML renderer
   - why: migration output must be stable and reviewable (Req 1,5)
   - role: builder
   - files: internal/core/config_migrate.go (new), internal/core/config_migrate_test.go
@@ -11,7 +11,7 @@
   - depends: schema-v2-namespacing/T7,yaml-loader-cascade/T5
   - requirements: 1,5
 
-- [ ] T2 — Add migration safety validator
+- [x] T2 — Add migration safety validator
   - why: invalid or unsafe config must not be converted into trusted YAML (Req 5)
   - role: builder
   - files: internal/core/config_migrate.go, internal/core/config_validate.go, internal/core/config_migrate_test.go
@@ -22,7 +22,7 @@
   - requirements: 5
 
 ## Wave 2 — CLI command
-- [ ] T3 — Add `specd migrate config` command
+- [x] T3 — Add `specd migrate config` command
   - why: users need an explicit project migration path (Req 1,4)
   - role: builder
   - files: internal/cmd/migrate.go (new), internal/cmd/registry.go, internal/core/commands.go, internal/cmd/migrate_test.go
@@ -32,7 +32,7 @@
   - depends: T2
   - requirements: 1,4,5
 
-- [ ] T4 — Add `--dry-run`
+- [x] T4 — Add `--dry-run`
   - why: users should review migration without mutations (Req 2)
   - role: builder
   - files: internal/cmd/migrate.go, internal/cmd/migrate_test.go
@@ -42,7 +42,7 @@
   - depends: T3
   - requirements: 2
 
-- [ ] T5 — Add `--global`
+- [x] T5 — Add `--global`
   - why: global legacy config needs migration outside project roots (Req 3)
   - role: builder
   - files: internal/cmd/migrate.go, internal/core/config_migrate.go, internal/cmd/migrate_test.go
@@ -53,7 +53,7 @@
   - requirements: 3
 
 ## Wave 3 — Help/contracts
-- [ ] T6 — Update command registry/help JSON tests
+- [x] T6 — Update command registry/help JSON tests
   - why: command metadata must stay aligned with dispatch (Req 4)
   - role: verifier
   - files: internal/core/commands.go, internal/cmd/registry.go, internal/cmd/*help*_test.go, internal/cmd/json_contract_test.go

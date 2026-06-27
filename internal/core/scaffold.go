@@ -80,8 +80,8 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Refresh:  true,
 		},
 		ScaffoldAsset{
-			Template: "config.json",
-			Target:   ".specd/config.json",
+			Template: "config.yml",
+			Target:   ".specd/config.yml",
 			Policy:   ScaffoldCreate,
 			Required: true,
 		},

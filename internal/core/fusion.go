@@ -128,7 +128,8 @@ func BuildFusionPolicy(root, slug, expectDigest string) (FusionPolicy, error) {
 		}
 	}
 	cfg, diags := LoadConfigStrict(root)
-	digest, present := fileDigest(ConfigPath(root))
+	_, loadResult := LoadConfigWithDiagnostics(root)
+	digest, present := loadResult.Digest, loadResult.Present
 	policy := FusionPolicy{
 		Version: FusionBootstrapVersion, Root: root,
 		SubagentMode: cfg.Roles.SubagentMode, OrchestrationEnabled: cfg.Orchestration.Enabled,
@@ -194,12 +195,12 @@ func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, err
 			return FusionBootstrap{}, NotFoundError("no .specd/ found in this directory or any parent. Run `specd init` first.")
 		}
 	}
-	cfg := LoadConfig(root)
+	cfg, loadResult := LoadConfigWithDiagnostics(root)
 	commandsDigest, err := commandSchemaDigest()
 	if err != nil {
 		return FusionBootstrap{}, err
 	}
-	configDigest, configPresent := fileDigest(ConfigPath(root))
+	configDigest, configPresent := loadResult.Digest, loadResult.Present
 	checks := fusionHealthChecks(root)
 	healthOK := true
 	for _, check := range checks {
@@ -222,7 +223,13 @@ func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, err
 		Load:     fusionLoadItems(),
 		Commands: commands,
 		Config: FusionConfigSummary{
-			Path:              ".specd/config.json",
+			Path: func() string {
+				if loadResult.ProjectPath != "" {
+					if rel, err := filepath.Rel(root, loadResult.ProjectPath); err == nil { return filepath.ToSlash(rel) }
+					return loadResult.ProjectPath
+				}
+				return ".specd/config.yml"
+			}(),
 			Digest:            configDigest,
 			Roles:             FusionRolesConfig{SubagentMode: cfg.Roles.SubagentMode},
 			Orchestration:     FusionOrchConfig{Enabled: cfg.Orchestration.Enabled, ApprovalPolicy: cfg.Orchestration.ApprovalPolicy, WorkerMode: cfg.Orchestration.WorkerMode},
@@ -230,9 +237,9 @@ func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, err
 			GateSeverities:    fusionGateSeverities(cfg),
 			ConfigFilePresent: configPresent,
 			EffectiveConfigSource: func() string {
-				if configPresent {
-					return "config.json+defaults"
-				}
+				if loadResult.GlobalPath != "" && loadResult.ProjectPath != "" { return "global+project+defaults" }
+				if loadResult.ProjectPath != "" { return "project+defaults" }
+				if loadResult.GlobalPath != "" { return "global+defaults" }
 				return "defaults"
 			}(),
 		},
@@ -273,7 +280,7 @@ func fusionHealthChecks(root string) []FusionHealthCheck {
 		pathHealth("steering", root, []string{".specd/steering/reasoning.md", ".specd/steering/workflow.md", ".specd/steering/product.md", ".specd/steering/tech.md", ".specd/steering/structure.md"}),
 		pathHealth("roles", root, []string{".specd/roles/investigator.md", ".specd/roles/builder.md", ".specd/roles/reviewer.md", ".specd/roles/verifier.md", ".specd/roles/brain.md", ".specd/roles/pinky.md"}),
 		pathHealth("skills", root, []string{".specd/skills/specd-foundations/SKILL.md", ".specd/skills/specd-steering/SKILL.md", ".specd/skills/specd-requirements/SKILL.md", ".specd/skills/specd-design/SKILL.md", ".specd/skills/specd-tasks/SKILL.md", ".specd/skills/specd-execute/SKILL.md"}),
-		pathHealth("config", root, []string{".specd/config.json"}),
+		pathHealth("config", root, []string{".specd/config.yml"}),
 	}
 	agents := pathHealth("agents", root, []string{"AGENTS.md"})
 	if agents.OK {

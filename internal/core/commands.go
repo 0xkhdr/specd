@@ -66,6 +66,16 @@ var Commands = []CommandMeta{
 		Examples:        []string{"specd doctor", "specd doctor --agent codex --json", "specd doctor --fix"},
 	},
 	{
+		Command: "migrate", Category: "lifecycle",
+		Description: "Migrate legacy config.json to config.yml",
+		Usage:       "specd migrate config [--dry-run] [--global]", Synopsis: "specd migrate config [--dry-run] [--global]",
+		LongDescription: "Converts legacy JSON configuration to deterministic YAML, validates the rendered config, then renames the JSON file to .bak. --dry-run prints YAML without mutating files. --global migrates the user-level legacy config and does not require a project root.",
+		Flags:           []FlagMeta{{Name: "dry-run", Type: "boolean", Description: "Print YAML without writing or renaming"}, {Name: "global", Type: "boolean", Description: "Migrate the legacy global config"}, {Name: "json", Type: "boolean", Description: "Output migration result as JSON"}},
+		Positionals:     []PositionalMeta{{Name: "subcommand", Required: true, Description: "config"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Migration failed validation or safety checks"}, {2, "Usage error"}, {3, ".specd/ or legacy config not found"}},
+		Examples:        []string{"specd migrate config --dry-run", "specd migrate config", "specd migrate config --global"},
+	},
+	{
 		Command: "fusion", Category: "inspection",
 		Description: "Emit startup bootstrap and binding policy oracles",
 		Usage:       "specd fusion bootstrap [--include-schema] [--json] | specd fusion policy [<slug>] [--expect-config-digest <sha256>] [--json]", Synopsis: "specd fusion <bootstrap|policy> [slug] [--json]",

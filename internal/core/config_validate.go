@@ -8,28 +8,36 @@ import (
 
 type ConfigDiagnostic struct {
 	Path     string `json:"path"`
+	Source   string `json:"source,omitempty"`
+	Layer    string `json:"layer,omitempty"`
+	Field    string `json:"field,omitempty"`
 	Severity string `json:"severity"`
 	Message  string `json:"message"`
 }
 
 func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
-	path := ConfigPath(root)
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "info", Message: "missing; defaults in effect"}}
-		}
-		return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "error", Message: err.Error()}}
+	cfg, result := LoadConfigWithDiagnostics(root)
+	d := append([]ConfigDiagnostic{}, result.Diagnostics...)
+	path := result.ProjectPath
+	if path == "" {
+		path = ConfigPath(root)
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "error", Message: err.Error()}}
+		if ValidateOrchestrationConfig(&cfg.Orchestration) != nil {
+			d = append(d, ConfigDiagnostic{Path: "orchestration", Field: "orchestration", Severity: "error", Message: ValidateOrchestrationConfig(&cfg.Orchestration).Error()})
+		}
+		return cfg, d
+	}
+	loaded, parseDiags := loadConfigFromPathLayer(path, "project")
+	d = append(d, parseDiags...)
+	if loaded.Doc != nil {
+		if err := ValidateConfigDoc(loaded.Doc); err != nil {
+			d = append(d, ConfigDiagnostic{Path: path, Severity: "error", Message: err.Error()})
+		}
 	}
 	var doc map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "error", Message: "invalid JSON: " + err.Error()}}
-	}
-	cfg := LoadConfig(root)
-	d := []ConfigDiagnostic{}
+	_ = json.Unmarshal(raw, &doc)
 	validateStringEnum(doc, "roles.subagentMode", []string{"inline", "delegate"}, &d)
 	for _, p := range []string{"gates.traceability", "gates.acceptance", "gates.scope", "gates.contextBudget", "gates.modeCapability"} {
 		validateStringEnum(doc, p, []string{"", "off", "warn", "error"}, &d)

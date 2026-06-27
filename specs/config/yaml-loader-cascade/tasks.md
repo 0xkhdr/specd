@@ -1,7 +1,7 @@
 # Tasks — YAML Loader and Config Cascade
 
 ## Wave 1 — Path and decode foundation
-- [ ] T1 — Add config path resolvers
+- [x] T1 — Add config path resolvers
   - why: every loader and command needs one source of truth for project/global config discovery (Req 2,3)
   - role: builder
   - files: internal/core/paths.go, internal/core/paths_test.go
@@ -11,7 +11,7 @@
   - depends: —
   - requirements: 2,3
 
-- [ ] T2 — Implement format-aware single-file decode
+- [x] T2 — Implement format-aware single-file decode
   - why: YAML and JSON must share one parse/diagnostic contract (Req 1,5)
   - role: builder
   - files: internal/core/config_loader.go (new), go.mod, go.sum
@@ -21,7 +21,7 @@
   - depends: T1
   - requirements: 1,5
 
-- [ ] T3 — Select active config candidates with diagnostics
+- [x] T3 — Select active config candidates with diagnostics
   - why: duplicate config files must be deterministic and visible (Req 2,3,5)
   - role: builder
   - files: internal/core/config_loader.go, internal/core/config_loader_test.go

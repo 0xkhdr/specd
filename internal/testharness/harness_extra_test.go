@@ -12,20 +12,20 @@ func TestHarnessInitScaffolds(t *testing.T) {
 	h := th.New(t)
 	h.Init()
 	// init writes the steering + config layout.
-	h.AssertFileExists(".specd/config.json")
+	h.AssertFileExists(".specd/config.yml")
 	h.AssertFileExists("AGENTS.md")
 }
 
 func TestHarnessPathAndReadFile(t *testing.T) {
 	h := th.New(t)
 	h.Init()
-	if !strings.HasPrefix(h.Path(".specd/config.json"), h.Root) {
+	if !strings.HasPrefix(h.Path(".specd/config.yml"), h.Root) {
 		t.Error("Path did not anchor under root")
 	}
-	if got := h.ReadFile(".specd/config.json"); got == "" {
+	if got := h.ReadFile(".specd/config.yml"); got == "" {
 		t.Error("ReadFile returned empty config")
 	}
-	h.AssertFileContains(".specd/config.json", "{")
+	h.AssertFileContains(".specd/config.yml", "version:")
 	h.AssertFileAbsent(".specd/does-not-exist")
 }
 

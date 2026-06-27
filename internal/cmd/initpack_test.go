@@ -37,7 +37,7 @@ func TestInitDefaultRegression(t *testing.T) {
 	h := th.New(t)
 	h.RunExpect(core.ExitOK, "init")
 	for _, f := range []string{
-		".specd/config.json",
+		".specd/config.yml",
 		".specd/steering/product.md",
 		".specd/roles/builder.md",
 		"AGENTS.md",

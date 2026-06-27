@@ -72,7 +72,7 @@ func New(t *testing.T) *Harness {
 }
 
 // Init runs the real `specd init` command in the project root, scaffolding
-// steering/, roles/, config.json and AGENTS.md. Use it when a test needs role
+// steering/, roles/, config.yml and AGENTS.md. Use it when a test needs role
 // prompts, config, or the full project layout; New() alone only creates
 // .specd/specs/.
 func (h *Harness) Init() Result {

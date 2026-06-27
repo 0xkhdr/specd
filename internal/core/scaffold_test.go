@@ -100,7 +100,7 @@ func TestScaffoldManifest(t *testing.T) {
 			".claude/agents/pinky-investigator.md",
 			".claude/agents/pinky-reviewer.md",
 			".claude/agents/pinky-verifier.md",
-			".specd/config.json",
+			".specd/config.yml",
 			".specd/roles/brain.md",
 			".specd/roles/builder.md",
 			".specd/roles/investigator.md",
