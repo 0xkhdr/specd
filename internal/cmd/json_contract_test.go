@@ -214,6 +214,9 @@ func TestJSONContracts(t *testing.T) {
 	t.Run("doctor", func(t *testing.T) {
 		h := th.New(t)
 		h.RunExpect(core.ExitOK, "init", "--agent", "none", "--non-interactive")
+		// Remove a required scaffold file to guarantee doctor fails with ExitGate
+		// regardless of the host's installed agent integrations.
+		_ = os.Remove(filepath.Join(h.Root, ".specd", "steering", "reasoning.md"))
 		res := h.RunExpect(core.ExitGate, "doctor", "--json")
 		var got struct {
 			SchemaVersion int    `json:"schemaVersion"`
