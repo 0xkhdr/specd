@@ -1,7 +1,7 @@
 # Tasks — Host and MCP Adherence Protocol
 
 ## Wave 1 — MCP fusion exposure
-- [ ] T1 — Mark fusion as read-only MCP tool
+- [x] T1 — Mark fusion as read-only MCP tool
   - why: hosts need bootstrap/policy through MCP (Req 2)
   - role: builder
   - files: internal/mcp/tools.go, internal/mcp/tools_test.go
@@ -11,7 +11,7 @@
   - depends: session-bootstrap/T3
   - requirements: 2
 
-- [ ] T2 — Decide essential exposure for fusion
+- [x] T2 — Decide essential exposure for fusion
   - why: startup should be discoverable with small tool lists (Req 2)
   - role: builder
   - files: internal/mcp/tools.go, internal/mcp/tools_test.go, docs/mcp-guide.md
@@ -22,7 +22,7 @@
   - requirements: 2
 
 ## Wave 2 — Startup and playbook instructions
-- [ ] T3 — Update MCP server instructions
+- [x] T3 — Update MCP server instructions
   - why: models see the adherence protocol at initialization (Req 1)
   - role: builder
   - files: internal/mcp/server.go, internal/mcp/server_test.go
@@ -32,7 +32,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T4 — Document delegate-mode host protocol
+- [x] T4 — Document delegate-mode host protocol
   - why: subagentMode is binding configuration (Req 3)
   - role: builder
   - files: internal/core/embed_templates/AGENTS.md, docs/agent-integration.md, docs/mcp-guide.md
@@ -42,7 +42,7 @@
   - depends: configuration-mode-sentinel/T4
   - requirements: 3
 
-- [ ] T5 — Document Brain decision playbook
+- [x] T5 — Document Brain decision playbook
   - why: hosts need deterministic handling for every decision (Req 4)
   - role: builder
   - files: docs/agent-integration.md, internal/core/embed_templates/AGENTS.md
@@ -53,7 +53,7 @@
   - requirements: 4
 
 ## Wave 3 — Phase exposure hardening
-- [ ] T6 — Add phase-compatible MCP tests
+- [x] T6 — Add phase-compatible MCP tests
   - why: tool surface should not invite wrong commands (Req 5)
   - role: verifier
   - files: internal/mcp/tools_test.go
@@ -63,7 +63,7 @@
   - depends: T1
   - requirements: 5
 
-- [ ] T7 — Align docs with command schema guardrails
+- [x] T7 — Align docs with command schema guardrails
   - why: host and shell flows should share schema-before-syntax (Req 1,2)
   - role: builder
   - files: docs/agent-integration.md, docs/mcp-guide.md

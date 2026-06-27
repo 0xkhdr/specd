@@ -41,9 +41,11 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
 4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
    builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic
    controller), or pinky (host worker). If your host has native subagents and
-   `config.json.roles.subagentMode = "delegate"`, dispatch Brain missions to the scaffolded
-   `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md` workers; otherwise run
-   the role inline under the same constraints.
+   `config.json.roles.subagentMode = "delegate"`, spawn role-bound subagents for implementation
+   work: Base mode uses `specd dispatch --json` packets, Orchestrated mode uses Brain/Pinky
+   missions and the scaffolded `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md`
+   workers. If the host lacks subagents, say so inline before work and run the role inline under
+   the same constraints.
 
 5. **Evidence gate.** Never mark a task complete without a passing verify or a manual proof, and
    pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
@@ -120,6 +122,10 @@ specd next my-feature            # -> focused task
 specd verify my-feature T1       # run declared verification and record the result
 specd task my-feature T1 --status complete --evidence "commit abc123; npm test PASS"
 # execute loop (orchestrated):
+# Brain decisions: dispatch -> spawn Pinky; wait -> backoff/step; awaiting-approval -> ask human;
+# escalate/policy-violation -> stop and report; complete-session -> final summary.
+# Pinky lifecycle: claim -> heartbeat/progress -> verify -> report/block -> release.
+# Terminal reports require matching --verification-ref; tokens/cost/duration are telemetry only.
 # orchestration defaults (approvalPolicy, maxWorkers, maxRetries, sessionTimeoutMinutes,
 # leaseSeconds, …) live in config.json.orchestration; set them via `specd init --orchestration*`.
 # Flags below override per-run; omit them to use the configured defaults.

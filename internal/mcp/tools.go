@@ -21,7 +21,7 @@ var metaCommands = map[string]bool{"help": true, "version": true, "mcp": true}
 // command is annotated readOnlyHint:false so a host knows it may change state.
 var readOnlyCommands = map[string]bool{
 	"status": true, "waves": true, "context": true, "check": true,
-	"next": true, "dispatch": true, "report": true,
+	"next": true, "dispatch": true, "report": true, "fusion": true,
 	"serve": true, "watch": true, "validate": true, "replay": true, "diff": true,
 }
 
@@ -47,7 +47,7 @@ var orchestrationCommands = map[string]bool{"brain": true, "pinky": true}
 // atomic predecessors so the essential surface stays small (composite spec AC7),
 // keeping the mutating loop commands (verify/task/approve) as atomics.
 var defaultEssentialTools = []string{
-	"specd_inspect", "specd_read", "specd_query",
+	"specd_fusion", "specd_inspect", "specd_read", "specd_query",
 	"verify", "task", "approve",
 }
 
@@ -336,7 +336,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if orchestrationCommands[c.Command] && !plan.includeOrchestration {
 				continue
 			}
-			if plan.essential && !plan.essentialSet[c.Command] {
+			if plan.essential && !plan.essentialSet[c.Command] && !plan.essentialSet[name] {
 				continue
 			}
 			if !toolAllowedByRole(plan.role, name) {

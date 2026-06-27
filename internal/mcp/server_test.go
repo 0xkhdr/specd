@@ -104,15 +104,17 @@ func TestMCPInstructionsAgentBudget(t *testing.T) {
 		t.Fatalf("instructions use %d bytes, want <= 512", len(instructions))
 	}
 	for _, phrase := range []string{
-		"specd_status/context first",
-		"brain_orchestrate",
-		"brain start/step/status",
+		"specd_fusion bootstrap/policy",
+		"specd_status",
+		"specd_context",
+		"specd_help --json/schema",
+		"brain_* intents",
+		"specd_brain start/step/status",
 		"watch --once only",
 		"host runs Pinky workers",
 		"Never edit state/tasks checkboxes",
-		"Approval is policy-gated",
+		"Approval policy-gated",
 		"specd_verify evidence",
-		"Cancellation is cooperative",
 	} {
 		if !strings.Contains(instructions, phrase) {
 			t.Errorf("instructions missing %q: %q", phrase, instructions)

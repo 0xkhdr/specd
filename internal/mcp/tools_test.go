@@ -53,6 +53,9 @@ func TestToolsList(t *testing.T) {
 	if tl := byName["specd_status"]; !tl.Annotations.ReadOnlyHint {
 		t.Error("specd_status should be readOnlyHint:true")
 	}
+	if tl := byName["specd_fusion"]; !tl.Annotations.ReadOnlyHint || tl.Annotations.DestructiveHint {
+		t.Errorf("specd_fusion annotations = %+v, want read-only non-destructive", tl.Annotations)
+	}
 	if tl := byName["specd_verify"]; tl.Annotations.ReadOnlyHint {
 		t.Error("specd_verify should be readOnlyHint:false")
 	}
@@ -499,10 +502,10 @@ func TestEssentialDefaultSet(t *testing.T) {
 			t.Errorf("essential set missing %s", want)
 		}
 	}
-	// The composite read tools must be in the default essential surface (AC7).
-	for _, c := range []string{"specd_inspect", "specd_read", "specd_query"} {
+	// The bootstrap tool and composite read tools must be in the default essential surface (AC7).
+	for _, c := range []string{"specd_fusion", "specd_inspect", "specd_read", "specd_query"} {
 		if !names[c] {
-			t.Errorf("essential set missing composite %s", c)
+			t.Errorf("essential set missing startup/read tool %s", c)
 		}
 	}
 }
@@ -567,6 +570,39 @@ func TestOrchestrationGate(t *testing.T) {
 	for _, it := range intentTools {
 		if !on[it.name] {
 			t.Errorf("intent %s missing when orchestration enabled", it.name)
+		}
+	}
+
+	offExplicit := toolNames(buildTools(&core.Config{
+		Orchestration: core.OrchestrationCfg{Enabled: true},
+		MCP:           core.MCPConfig{Expose: "all", IncludeOrchestration: boolPtr(false)},
+	}))
+	if offExplicit["specd_brain"] || offExplicit["specd_pinky"] || offExplicit["brain_orchestrate"] {
+		t.Errorf("orchestration tools exposed with includeOrchestration=false: %v", offExplicit)
+	}
+}
+
+func TestPhasePlanningExcludesExecutionMutations(t *testing.T) {
+	cfg := &core.Config{MCP: core.MCPConfig{Expose: "phase"}}
+	got := toolNames(buildPhaseTools(cfg, core.StatusDesign, ""))
+	for _, name := range []string{"specd_next", "specd_verify", "specd_task", "specd_brain", "specd_pinky"} {
+		if got[name] {
+			t.Errorf("planning phase exposed incompatible tool %s: %v", name, got)
+		}
+	}
+	for _, name := range []string{"specd_check", "specd_approve", "specd_context", "specd_status"} {
+		if !got[name] {
+			t.Errorf("planning phase missing expected tool %s: %v", name, got)
+		}
+	}
+}
+
+func TestPhaseExecutingIncludesDriveLoopTools(t *testing.T) {
+	cfg := &core.Config{MCP: core.MCPConfig{Expose: "phase"}}
+	got := toolNames(buildPhaseTools(cfg, core.StatusExecuting, ""))
+	for _, name := range []string{"specd_next", "specd_dispatch", "specd_verify", "specd_task"} {
+		if !got[name] {
+			t.Errorf("executing phase missing drive-loop tool %s: %v", name, got)
 		}
 	}
 }
@@ -666,7 +702,7 @@ func TestServerToolsListFiltered(t *testing.T) {
 		}
 	})
 
-	t.Run("essential_default_set_is_eight", func(t *testing.T) {
+	t.Run("essential_default_set_includes_bootstrap", func(t *testing.T) {
 		got := listToolsOverServer(t, &core.Config{MCP: core.MCPConfig{Expose: "essential"}})
 		if len(got) != len(defaultEssentialTools) {
 			t.Errorf("essential count = %d, want %d (%v)", len(got), len(defaultEssentialTools), got)

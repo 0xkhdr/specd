@@ -151,6 +151,8 @@ curl -s -X POST http://127.0.0.1:8765/rpc \
 
 ## Tool Mapping Contract
 
+On session start, call `specd_fusion` with `args:["bootstrap"]` when it is exposed; before acting on one spec, call `specd_fusion` with `args:["policy","<slug>"]`. If `specd_fusion` is not exposed, fall back to `specd_status`, `specd_context`, and command schema discovery (`specd_help --json` via shell, or MCP tool schemas/enums from `tools/list`).
+
 The server automatically maps every registered command in `specd` — except the meta commands
 `help`, `version`, and `mcp` — to an MCP tool at startup. **No separate registration is
 needed**: a new command added to `core.Commands` surfaces as a tool with the next binary build.
@@ -187,7 +189,7 @@ Every tool carries MCP annotations so a host can signal risk before invoking:
 
 | Annotation | Value | Commands |
 |---|---|---|
-| `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `dispatch`, `report`, and read-only variants (`serve`, `watch`, `validate`, `replay`, `diff`) |
+| `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `dispatch`, `report`, `fusion`, and read-only variants (`serve`, `watch`, `validate`, `replay`, `diff`) |
 | `readOnlyHint` | `false` | All other commands (state-mutating) |
 | `destructiveHint` | `true` | `uninstall`, `update` (mutate the install itself) |
 
@@ -223,6 +225,7 @@ The following tools are exposed automatically. Refer to the
 |---|---|---|---|
 | `specd_init` | `specd init` | Scaffold `.specd/` directory and role configurations | No |
 | `specd_doctor` | `specd doctor` | Diagnose scaffold, MCP server, and host registration health | Yes |
+| `specd_fusion` | `specd fusion` | Bootstrap session context and read binding policy | Yes |
 | `specd_new` | `specd new` | Create a new spec with artifact stubs | No |
 | `specd_approve` | `specd approve` | Clear phase approval gate | No |
 | `specd_decision` | `specd decision` | Record architectural decision (ADR) | No |
@@ -262,8 +265,8 @@ byte-identical to the default — no behavioural change.**
 {
   "mcp": {
     "expose": "essential",                      // "all" (default) | "essential" | "phase"
-    "essentialTools": ["specd_inspect",          // command/composite/intent names kept under "essential"
-                       "specd_read", "specd_query",
+    "essentialTools": ["specd_fusion",           // command/composite/intent names kept under "essential"
+                       "specd_inspect", "specd_read", "specd_query",
                        "verify", "task", "approve"],
     "includeMeta": false,                        // expose update/uninstall/schema (default false)
     "includeOrchestration": null                 // null => derive from orchestration.enabled
@@ -274,7 +277,7 @@ byte-identical to the default — no behavioural change.**
 | Field | Effect |
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
-| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_inspect, specd_read, specd_query, verify, task, approve` (the composites cover the read surface). |
+| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_fusion, specd_inspect, specd_read, specd_query, verify, task, approve` (fusion covers startup; composites cover the read surface). |
 | `includeMeta` | When false (default) the install-maintenance tools `specd_update`, `specd_uninstall`, and the spec-pack-author tool `specd_schema` are hidden from MCP (they remain available on the CLI). |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
@@ -431,7 +434,11 @@ Brain/Pinky orchestration is exposed through generated tools, not custom MCP bus
 The MCP request is always one bounded CLI invocation; it never waits for an LLM worker to finish.
 Hosts must run their own worker loop and call Pinky tools as work progresses.
 
+Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Base mode, feed each subagent the `specd dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
+
 ### Brain control loop
+
+Brain decision playbook: `dispatch` → spawn/assign a role-bound worker and hand it the mission; `wait` → sleep/backoff, then status/step again; `awaiting-approval` → stop and ask the human, then call approve when authorized; `escalate` → surface blocker and stop autonomous work; `policy-violation` → stop immediately and report the violated policy; `complete-session` → stop polling and produce final summary/report.
 
 A host starts or attaches a Brain session, then polls status or steps one decision at a time:
 

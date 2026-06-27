@@ -34,11 +34,11 @@ Each wave starts once its listed specs are in flight; intra-spec waves live in e
 | configuration-mode-sentinel | complete | — | Strict config diagnostics, `specd fusion policy`, doctor integration, and policy docs complete. |
 | context-manifest-zero-overhead | complete | session-bootstrap/T3 | Context manifest selectors, budget fields/actions, mode-aware Pinky loading, and docs complete. |
 
-### Wave 3 — Host and MCP adherence (P1) — **status: not-started**
+### Wave 3 — Host and MCP adherence (P1) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| host-mcp-adherence | not-started | session-bootstrap/T3; configuration-mode-sentinel/T4; command-schema-guardrails/T3,T5 | Surface bootstrap/policy in MCP, document delegate-mode behavior, and harden phase-compatible exposure. |
+| host-mcp-adherence | complete | session-bootstrap/T3; configuration-mode-sentinel/T4; command-schema-guardrails/T3,T5 | Complete: `specd_fusion` exposed read-only in MCP essential startup path, server instructions updated, delegate/orchestration playbooks documented, and phase-compatible exposure tests added. |
 
 ## Status legend
 

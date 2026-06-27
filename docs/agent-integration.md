@@ -60,7 +60,10 @@ Set in `.specd/config.json` via `roles.subagentMode`:
 - **Cons:** Context bloat from full chat history.
 
 ### `delegate` mode
-- The host spawns specialized subagents per role.
+- The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd fusion policy` / `.specd/config.json`.
+- If the host lacks subagent capability, it must say so inline before work (for example: "Delegate mode requested, but this host has no subagents; running role inline under same constraints.").
+- Base mode uses `specd dispatch <slug> --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
+- Orchestrated mode prefers Brain/Pinky missions; the host maps each `dispatch` decision to a Pinky worker and the claim → heartbeat/progress → verify → report/block → release lifecycle.
 - **Pros:** Isolated context, reduced token consumption.
 - **Cons:** Requires agent-spawning capabilities (Claude Code, etc.).
 
@@ -89,7 +92,7 @@ packet — a 5-task wave on one role no longer repeats the role prompt 5×. Host
 that cannot resolve asset paths pass `--inline-roles` to restore full-text
 `rolePrompt` in every packet (back-compat).
 
-## Fusion bootstrap and policy sentinel
+## Fusion bootstrap, policy sentinel, and command discovery
 
 At session start, run `specd fusion bootstrap --json` when available. Cache its
 `commands.digest` and `config.digest`. Before acting on one spec, run
@@ -97,6 +100,8 @@ At session start, run `specd fusion bootstrap --json` when available. Cache its
 mismatch means rerun bootstrap. The policy output is binding for
 `roles.subagentMode`, orchestration capability, verify sandbox, gate severities,
 MCP exposure, and Base vs Orchestrated loop choice.
+
+Command syntax comes from schema, not memory: shell hosts call `specd help <command> --json` (or `specd help --json` for registry overview); MCP hosts read `tools/list` input schemas, annotations, and enum fields. If `specd_fusion` is hidden, use `specd_status`, `specd_context`, and schema discovery before acting.
 
 ## Context engineering
 
@@ -278,7 +283,17 @@ specd brain start my-feature --approval-policy planning --max-workers 4 --max-re
 ```
 
 #### Step 3: Run the Polling & Step Loop
-Re-invoke the Brain's stepping handler to reconcile the filesystem database, check worker lease timeouts, and request the next decision:
+Re-invoke the Brain's stepping handler to reconcile the filesystem database, check worker lease timeouts, and request the next decision.
+
+Brain decision playbook:
+- `dispatch`: spawn/assign the role-bound worker, pass the mission, then let the worker claim it.
+- `wait`: no runnable action; back off briefly, then call status/step again.
+- `awaiting-approval`: stop and ask the human; resume only after authorized approval/directive.
+- `escalate`: surface the blocker and stop autonomous work.
+- `policy-violation`: stop immediately; report the violated policy/cost/time/approval bound.
+- `complete-session`: stop polling; produce final report/summary.
+
+Run the step command:
 ```bash
 specd brain step my-feature --session <session-id> --approval-policy planning --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json
 ```
