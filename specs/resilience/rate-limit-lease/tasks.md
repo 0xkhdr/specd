@@ -1,7 +1,7 @@
 # Tasks — Rate-Limit Aware Lease (R3)
 
 ## Wave 1 — Lease state model
-- [ ] T1 — Add `ACPLeaseSuspended` + suspend metadata
+- [x] T1 — Add `ACPLeaseSuspended` + suspend metadata
   - why: lease must encode "away, will return" (Req 1)
   - role: builder
   - files: internal/core/acp_lease.go
@@ -13,7 +13,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — Config `resilience.maxSuspendSeconds`
+- [x] T2 — Config `resilience.maxSuspendSeconds`
   - why: cap suspension duration (Req 5)
   - role: builder
   - files: internal/core/specfiles.go, internal/core/embed_templates/config.json
@@ -25,7 +25,7 @@
   - requirements: 5
 
 ## Wave 2 — Lease operations
-- [ ] T3 — `SuspendLease` core op
+- [x] T3 — `SuspendLease` core op
   - why: extend lease without failing (Req 2)
   - role: builder
   - files: internal/core/acp_lease.go
@@ -36,7 +36,7 @@
   - depends: T1, T2
   - requirements: 2
 
-- [ ] T4 — `ResumeLease` core op
+- [x] T4 — `ResumeLease` core op
   - why: returning worker keeps its task (Req 3)
   - role: builder
   - files: internal/core/acp_lease.go
@@ -47,7 +47,7 @@
   - depends: T3
   - requirements: 3
 
-- [ ] T5 — Reclaim predicate honors suspension
+- [x] T5 — Reclaim predicate honors suspension
   - why: no false failure while suspended (Req 4)
   - role: builder
   - files: internal/core/acp_lease.go, internal/core/orchestration_sense.go
@@ -59,7 +59,7 @@
   - requirements: 4
 
 ## Wave 3 — CLI + test
-- [ ] T6 — `pinky suspend` / `pinky resume` commands
+- [x] T6 — `pinky suspend` / `pinky resume` commands
   - why: worker-facing entry points (Req 2,3)
   - role: builder
   - files: internal/cmd/pinky.go
@@ -70,7 +70,7 @@
   - depends: T4, T5
   - requirements: 2, 3
 
-- [ ] T7 — Rate-limit no-storm integration test
+- [x] T7 — Rate-limit no-storm integration test
   - why: prove suspend prevents false retries (Req 4)
   - role: verifier
   - files: internal/cmd/brain_recovery_test.go

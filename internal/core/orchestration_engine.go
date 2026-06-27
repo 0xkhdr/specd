@@ -471,11 +471,20 @@ func ReclaimExpiredLeases(root, sessionID string) (int, error) {
 		}
 		sort.Slice(leases, func(i, j int) bool { return leases[i].WorkerID < leases[j].WorkerID })
 		for _, lease := range leases {
-			if lease.Status != ACPLeaseActive || leaseIsActive(lease, now) {
+			// A suspended lease within its resume window is in-flight, not dead —
+			// leaseIsReclaimable returns false for it, so a rate-limited worker is
+			// never reclaimed into a retry storm. Only a passed ResumeDeadline (or
+			// an expired active lease) reclaims here.
+			if !leaseIsReclaimable(lease, now) {
 				continue
 			}
 			lease.Status = ACPLeaseReleased
 			lease.ReleasedAt = now.Format(time.RFC3339Nano)
+			// Drop suspend metadata: a released lease must not carry it (validation
+			// rejects suspend fields on non-suspended leases).
+			lease.SuspendedAt = ""
+			lease.SuspendReason = ""
+			lease.ResumeDeadline = ""
 			if err := store.saveLease(lease); err != nil {
 				return err
 			}

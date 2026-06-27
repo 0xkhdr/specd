@@ -2,7 +2,10 @@ package cmd_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -360,4 +363,117 @@ func repeat(s string) string {
 		out[i] = s[0]
 	}
 	return string(out)
+}
+
+// resumeEventCount returns how many `resume` ACP events a session has emitted,
+// proving the returning worker announced its comeback (R3, Req 3.3).
+func resumeEventCount(t *testing.T, root, sessionID string) int {
+	t.Helper()
+	paths, err := core.NewACPRuntimePaths(root)
+	if err != nil {
+		t.Fatalf("paths: %v", err)
+	}
+	dir, err := paths.EventsDir(sessionID)
+	if err != nil {
+		t.Fatalf("events dir: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read events: %v", err)
+	}
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			t.Fatalf("read event: %v", err)
+		}
+		var env core.ACPEnvelope
+		if err := json.Unmarshal(raw, &env); err != nil {
+			t.Fatalf("decode event: %v", err)
+		}
+		if env.Type == core.ACPMessageResume {
+			count++
+		}
+	}
+	return count
+}
+
+// TestRateLimitSuspendNoRetryStorm (R3): a rate-limited worker suspends its
+// lease; while suspended within the deadline the Brain treats the task as
+// in-flight — no reclaim, no failure, no re-dispatch — and the worker resumes
+// the SAME attempt rather than a fresh one that would storm the provider.
+func TestRateLimitSuspendNoRetryStorm(t *testing.T) {
+	h := testharness.New(t)
+	slug := recoverySpec(h, "rate-limit-suspend")
+	sessionID := repeat("a")
+	root := h.Root
+	cfg := core.LoadConfig(root).Orchestration
+
+	store, err := core.NewACPStore(root)
+	if err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	// Claim with a short 30s lease so the suspension demonstrably outlives the
+	// normal lease window it would otherwise expire under.
+	if _, err := store.ClaimLease(sessionID, "pinky-a", slug, "T1", 1, 30*time.Second, core.Clock().UTC().Add(time.Hour)); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	// Worker catches a rate-limit error and suspends for 300s.
+	if _, err := core.SuspendPinkyClaim(root, sessionID, "pinky-a", 1, "rate-limit", 300, cfg); err != nil {
+		t.Fatalf("suspend: %v", err)
+	}
+
+	// Advance past the 30s lease window but well inside the 300s resume deadline.
+	h.Clock.Advance(100 * time.Second)
+
+	policy, err := core.NewOrchestrationPolicy(cfg)
+	if err != nil {
+		t.Fatalf("policy: %v", err)
+	}
+	snap, err := core.SenseOrchestration(root, slug, sessionID, policy)
+	if err != nil {
+		t.Fatalf("sense: %v", err)
+	}
+	if len(snap.ActiveLeases) != 1 || !snap.ActiveLeases[0].Suspended || snap.ActiveLeases[0].TaskID != "T1" {
+		t.Fatalf("suspended lease not surfaced in-flight: %#v", snap.ActiveLeases)
+	}
+
+	// No false failure: the privileged reclaim sweep leaves the suspended lease.
+	if n, err := core.ReclaimExpiredLeases(root, sessionID); err != nil || n != 0 {
+		t.Fatalf("reclaim during suspension = (%d,%v), want (0,nil)", n, err)
+	}
+
+	// No re-dispatch: the Brain waits rather than offering T1 to a fresh worker.
+	dec, err := core.DecideOrchestration(snap, policy)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if dec.Action == core.OrchestrationDispatch || dec.Action == core.OrchestrationResume {
+		t.Fatalf("Brain re-dispatched suspended task: action=%s task=%s", dec.Action, dec.TaskID)
+	}
+
+	// The worker returns and resumes the SAME attempt, emitting a resume event.
+	resumed, _, err := core.ResumePinkyClaim(root, sessionID, "pinky-a", 1, cfg)
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if resumed.Status != core.ACPLeaseActive || resumed.Attempt != 1 {
+		t.Fatalf("resumed lease = %#v, want active attempt 1", resumed)
+	}
+	if got := resumeEventCount(t, root, sessionID); got != 1 {
+		t.Fatalf("resume events = %d, want 1", got)
+	}
+
+	// Exactly one attempt was ever consumed — no retry storm.
+	lease, err := store.LoadLease(sessionID, "pinky-a")
+	if err != nil {
+		t.Fatalf("load lease: %v", err)
+	}
+	if lease.Attempt != 1 {
+		t.Fatalf("attempt = %d, want 1 (no retry storm)", lease.Attempt)
+	}
 }

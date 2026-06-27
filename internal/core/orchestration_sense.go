@@ -40,14 +40,27 @@ func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 	if err == nil {
 		now := Clock().UTC()
 		for _, lease := range leases {
-			if leaseIsActive(lease, now) {
-				snapshot.ActiveLeases = append(snapshot.ActiveLeases, OrchestrationLeaseSnapshot{
-					WorkerID:   lease.WorkerID,
-					TaskID:     lease.Task,
-					Attempt:    lease.Attempt,
-					LeaseUntil: lease.LeaseUntil,
-				})
+			// Surface both heartbeating and suspended-within-window leases as
+			// in-flight so a rate-limited worker counts toward MaxWorkers and its
+			// task is never offered to a fresh worker (R3, Req 4.1). A suspended
+			// lease reports its ResumeDeadline as the operative deadline. The
+			// decision stays pure: suspension enters here, never via a clock read
+			// inside DecideOrchestration.
+			suspended := leaseIsSuspendedActive(lease, now)
+			if !leaseIsActive(lease, now) && !suspended {
+				continue
 			}
+			deadline := lease.LeaseUntil
+			if suspended {
+				deadline = lease.ResumeDeadline
+			}
+			snapshot.ActiveLeases = append(snapshot.ActiveLeases, OrchestrationLeaseSnapshot{
+				WorkerID:   lease.WorkerID,
+				TaskID:     lease.Task,
+				Attempt:    lease.Attempt,
+				LeaseUntil: deadline,
+				Suspended:  suspended,
+			})
 		}
 	}
 	sort.Slice(snapshot.ActiveLeases, func(i, j int) bool {

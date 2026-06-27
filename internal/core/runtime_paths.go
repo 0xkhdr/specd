@@ -142,6 +142,24 @@ func (p ACPRuntimePaths) CheckpointPath(sessionID, taskID string, attempt int) (
 	return p.sessionJoin(sessionID, "checkpoints", name)
 }
 
+// ContextSnapshotDir returns the validated directory holding a session's
+// per-turn context snapshots: sessions/<id>/context-snapshots. It sits beside
+// events/, workers/, artifacts/, and checkpoints/ in the runtime layout (R2).
+func (p ACPRuntimePaths) ContextSnapshotDir(sessionID string) (string, error) {
+	return p.sessionJoin(sessionID, "context-snapshots")
+}
+
+// ContextSnapshotPath returns the deterministic snapshot path for one turn:
+// context-snapshots/<turn>.json. Keying on the turn means re-emitting a turn's
+// snapshot overwrites it rather than accumulating duplicates.
+func (p ACPRuntimePaths) ContextSnapshotPath(sessionID string, turn int) (string, error) {
+	if turn < 0 {
+		return "", fmt.Errorf("acp runtime: context snapshot turn must be >= 0")
+	}
+	name := fmt.Sprintf("%d.json", turn)
+	return p.sessionJoin(sessionID, "context-snapshots", name)
+}
+
 func (p ACPRuntimePaths) ProgramSessionsDir() (string, error) {
 	return p.join("program", "sessions")
 }

@@ -82,7 +82,19 @@ type ResilienceCfg struct {
 	// CheckpointEnabled gates proactive checkpoint/resume behavior (R1, R4).
 	CheckpointEnabled bool          `json:"checkpointEnabled,omitempty"`
 	AutoResume        AutoResumeCfg `json:"autoResume,omitempty"`
+	// MaxSuspendSeconds caps the cumulative time a worker may keep a task
+	// suspended (rate-limited) before it is treated as dead (R3). 0 = use the
+	// built-in default (600s); omitempty keeps configs without the field
+	// byte-identical.
+	MaxSuspendSeconds int `json:"maxSuspendSeconds,omitempty"`
+	// ContextSnapshotEnabled gates per-turn context-snapshot writing (R2).
+	// Default false; omitempty keeps configs without the field byte-identical.
+	ContextSnapshotEnabled bool `json:"contextSnapshotEnabled,omitempty"`
 }
+
+// defaultMaxSuspendSeconds is the fallback cumulative-suspension cap used when
+// resilience.maxSuspendSeconds is unset (0).
+const defaultMaxSuspendSeconds = 600
 
 // AutoResumeCfg declares how a host should rediscover and continue sessions on
 // startup (R5). Enabled is the master switch; OnHostStart asks the host adapter
@@ -427,7 +439,20 @@ func ValidateOrchestrationConfig(cfg *OrchestrationCfg) error {
 	if cfg.Resilience != nil && cfg.Resilience.AutoResume.MaxAgeMinutes < 0 {
 		return fmt.Errorf("resilience.autoResume.maxAgeMinutes must be non-negative")
 	}
+	if cfg.Resilience != nil && cfg.Resilience.MaxSuspendSeconds != 0 &&
+		(cfg.Resilience.MaxSuspendSeconds < 0 || cfg.Resilience.MaxSuspendSeconds > 3600) {
+		return fmt.Errorf("resilience.maxSuspendSeconds must be within (0,3600]")
+	}
 	return nil
+}
+
+// EffectiveMaxSuspendSeconds resolves the cumulative-suspension cap, applying the
+// built-in default when the config block is absent or leaves the field unset.
+func (cfg OrchestrationCfg) EffectiveMaxSuspendSeconds() int {
+	if cfg.Resilience == nil || cfg.Resilience.MaxSuspendSeconds == 0 {
+		return defaultMaxSuspendSeconds
+	}
+	return cfg.Resilience.MaxSuspendSeconds
 }
 
 func oneOf(value string, allowed ...string) bool {

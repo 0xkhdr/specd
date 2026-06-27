@@ -110,6 +110,27 @@ func RunPinky(args cli.Args) int {
 			return specdExit(err)
 		}
 		return printCommandResult(args, saved)
+	case "suspend":
+		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
+		resumeAfter, secsOK := parsePositiveIntFlag(args, "resume-after-seconds")
+		if len(args.Pos) != 1 || !ok || !secsOK || args.Str("reason") == "" {
+			return usageExit("usage: specd pinky suspend --session <id> --worker <id> --attempt <n> --reason <rate-limit|context-compaction|provider-maintenance> --resume-after-seconds <s> [--json]")
+		}
+		lease, err := core.SuspendPinkyClaim(root, sessionID, workerID, attempt, args.Str("reason"), resumeAfter, cfg)
+		if err != nil {
+			return specdExit(err)
+		}
+		return printCommandResult(args, lease)
+	case "resume":
+		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
+		if len(args.Pos) != 1 || !ok {
+			return usageExit("usage: specd pinky resume --session <id> --worker <id> --attempt <n> [--json]")
+		}
+		lease, _, err := core.ResumePinkyClaim(root, sessionID, workerID, attempt, cfg)
+		if err != nil {
+			return specdExit(err)
+		}
+		return printCommandResult(args, lease)
 	case "release":
 		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
 		if len(args.Pos) != 1 || !ok {

@@ -79,7 +79,34 @@ func renderResumeHeader(sb *strings.Builder, resume *PinkyResume) {
 	if resume.GitHead != "" {
 		fmt.Fprintf(sb, "Git head observed at checkpoint: `%s`\n", resume.GitHead)
 	}
+	renderContextDelta(sb, resume.ContextDelta)
 	sb.WriteString("\n")
+}
+
+// renderContextDelta tells the resuming worker which loaded files are unchanged
+// (reference, do not reload) versus changed (reload), plus whether steering or
+// memory moved — making re-contextualization O(changed files) (R2, Req 3). A nil
+// delta (snapshots off, or none recorded) renders nothing.
+func renderContextDelta(sb *strings.Builder, delta *contextpkg.SnapshotDiff) {
+	if delta == nil {
+		return
+	}
+	sb.WriteString("\n**Context delta since the last snapshot — reload only what changed:**\n")
+	if len(delta.Unchanged) > 0 {
+		fmt.Fprintf(sb, "- reference (unchanged, do NOT reload): %s\n", strings.Join(backticked(delta.Unchanged), ", "))
+	}
+	if len(delta.Changed) > 0 {
+		fmt.Fprintf(sb, "- reload (changed): %s\n", strings.Join(backticked(delta.Changed), ", "))
+	}
+	fmt.Fprintf(sb, "- steering: %s\n", reloadLabel(delta.SteeringChanged))
+	fmt.Fprintf(sb, "- memory: %s\n", reloadLabel(delta.MemoryChanged))
+}
+
+func reloadLabel(changed bool) string {
+	if changed {
+		return "reload (changed)"
+	}
+	return "reference (unchanged)"
 }
 
 func renderContextManifest(sb *strings.Builder, manifest contextpkg.MissionContextManifest) {

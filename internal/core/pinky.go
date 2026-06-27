@@ -51,6 +51,11 @@ type PinkyResume struct {
 	ChangedFiles    []string `json:"changedFiles,omitempty"`
 	GitHead         string   `json:"gitHead,omitempty"`
 	PriorManifest   string   `json:"priorManifest,omitempty"`
+	// ContextDelta, when present, is the per-file reference/reload verdict from
+	// diffing the latest context snapshot against the working tree (R2). It lets
+	// the resumed worker reload only what changed. nil when snapshots are off or
+	// none exist, so a resume without snapshots renders identically to before.
+	ContextDelta *contextpkg.SnapshotDiff `json:"contextDelta,omitempty"`
 }
 
 type PinkyClaim struct {
@@ -119,6 +124,16 @@ func BuildPinkyMission(root, slug, sessionID, workerID, taskID string, attempt i
 				GitHead:         rec.GitHead,
 				PriorManifest:   rec.ContextManifest,
 			}
+			// Attach the O(changed-files) context delta when a snapshot exists, so
+			// the resumed worker reloads only what moved (R2). Guarded: absent
+			// snapshot or feature off leaves ContextDelta nil — a no-op hook.
+			if cfg.Resilience.ContextSnapshotEnabled {
+				if delta, ok2, derr := latestContextSnapshotDiff(root, sessionID); derr != nil {
+					return PinkyMission{}, derr
+				} else if ok2 {
+					mission.Resume.ContextDelta = delta
+				}
+			}
 		}
 	}
 	mission.DispatchDigest = pinkyMissionDigest(mission)
@@ -169,6 +184,63 @@ func ReleasePinkyClaim(root, sessionID, workerID string, attempt int) error {
 		return err
 	}
 	return store.ReleaseLease(sessionID, workerID, attempt)
+}
+
+// SuspendPinkyClaim suspends a worker's lease for `resumeAfterSeconds`, holding
+// the task instead of failing it (R3). The heartbeat interval is added as a
+// buffer so the worker has slack to call resume, and the cumulative-suspension
+// cap is resolved from config (default 600s).
+func SuspendPinkyClaim(root, sessionID, workerID string, attempt int, reason string, resumeAfterSeconds int, cfg OrchestrationCfg) (ACPLease, error) {
+	store, err := NewACPStore(root)
+	if err != nil {
+		return ACPLease{}, err
+	}
+	return store.SuspendLease(
+		sessionID, workerID, attempt, reason,
+		time.Duration(resumeAfterSeconds)*time.Second,
+		time.Duration(cfg.Transport.HeartbeatSeconds)*time.Second,
+		time.Duration(cfg.EffectiveMaxSuspendSeconds())*time.Second,
+	)
+}
+
+// ResumePinkyClaim returns a suspended lease to active and emits a `resume` ACP
+// event recording how long the worker was suspended (R3, Req 3). The lease keeps
+// the same attempt and task, so the worker continues rather than re-claiming.
+func ResumePinkyClaim(root, sessionID, workerID string, attempt int, cfg OrchestrationCfg) (ACPLease, time.Duration, error) {
+	store, err := NewACPStore(root)
+	if err != nil {
+		return ACPLease{}, 0, err
+	}
+	lease, suspendedFor, err := store.ResumeLease(
+		sessionID, workerID, attempt,
+		time.Duration(cfg.Transport.LeaseSeconds)*time.Second,
+	)
+	if err != nil {
+		return ACPLease{}, 0, err
+	}
+	payload := ACPResumePayload{SuspendedSeconds: int(suspendedFor / time.Second)}
+	envelope, err := NewACPEnvelope(ACPMessageResume, payload)
+	if err != nil {
+		return ACPLease{}, 0, err
+	}
+	messageID, err := NewACPID()
+	if err != nil {
+		return ACPLease{}, 0, err
+	}
+	now := Clock().UTC()
+	envelope.MessageID = messageID
+	envelope.SessionID = lease.SessionID
+	envelope.CreatedAt = now.Format(time.RFC3339Nano)
+	envelope.ExpiresAt = now.Add(time.Duration(cfg.Transport.MessageTTLSeconds) * time.Second).Format(time.RFC3339Nano)
+	envelope.From = "pinky-" + workerID
+	envelope.To = "brain"
+	envelope.Spec = lease.Spec
+	envelope.Task = lease.Task
+	envelope.Attempt = attempt
+	if _, err := store.WriteEvent(envelope); err != nil {
+		return ACPLease{}, 0, fmt.Errorf("resume: append event: %w", err)
+	}
+	return lease, suspendedFor, nil
 }
 
 func taskField(doc ParsedTasks, taskID, key string) string {

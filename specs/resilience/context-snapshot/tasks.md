@@ -1,7 +1,7 @@
 # Tasks — Context Manifest Snapshot (R2)
 
 ## Wave 1 — Snapshot type & hashing
-- [ ] T1 — `ContextSnapshot` type + canonical JSON
+- [x] T1 — `ContextSnapshot` type + canonical JSON
   - why: serialize loaded context deterministically (Req 1)
   - role: builder
   - files: internal/context/snapshot.go (new)
@@ -12,7 +12,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — File + steering/memory digest helpers
+- [x] T2 — File + steering/memory digest helpers
   - why: SHAs drive delta detection (Req 1.2)
   - role: builder
   - files: internal/context/snapshot.go
@@ -23,7 +23,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — `ContextSnapshotDir` path helper + config gate
+- [x] T3 — `ContextSnapshotDir` path helper + config gate
   - why: default output location + opt-in (Req 2.2, 4)
   - role: builder
   - files: internal/core/runtime_paths.go, internal/core/specfiles.go,
@@ -36,7 +36,7 @@
   - requirements: 2, 4
 
 ## Wave 2 — Command & comparator
-- [ ] T4 — `specd context --snapshot --out`
+- [x] T4 — `specd context --snapshot --out`
   - why: emit snapshot for current turn (Req 2)
   - role: builder
   - files: internal/cmd/context.go
@@ -47,7 +47,7 @@
   - depends: T2, T3
   - requirements: 2
 
-- [ ] T5 — `DiffContextSnapshot` comparator
+- [x] T5 — `DiffContextSnapshot` comparator
   - why: O(changed-files) resume (Req 3)
   - role: builder
   - files: internal/context/snapshot.go
@@ -59,7 +59,7 @@
   - requirements: 3
 
 ## Wave 3 — Wire into resume brief
-- [ ] T6 — Resume brief consumes diff summary
+- [x] T6 — Resume brief consumes diff summary
   - why: tell resuming worker what to reload (Req 3)
   - role: builder
   - files: internal/core/pinky_brief.go
@@ -71,7 +71,7 @@
   - depends: T5
   - requirements: 3
 
-- [ ] T7 — Snapshot + resume delta test
+- [x] T7 — Snapshot + resume delta test
   - why: prove the optimization end-to-end (Req 1,2,3)
   - role: verifier
   - files: internal/cmd/context_manifest_cmd_test.go

@@ -143,6 +143,11 @@ type OrchestrationLeaseSnapshot struct {
 	TaskID     string `json:"taskId"`
 	Attempt    int    `json:"attempt"`
 	LeaseUntil string `json:"leaseUntil"`
+	// Suspended marks a lease that is rate-limited/away but within its resume
+	// window (R3). It is still in-flight (counts toward MaxWorkers) but is not a
+	// heartbeating active worker. omitempty keeps non-suspended snapshots
+	// byte-identical to the pre-resilience shape.
+	Suspended bool `json:"suspended,omitempty"`
 }
 
 type OrchestrationFailure struct {

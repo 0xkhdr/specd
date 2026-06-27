@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	contextpkg "github.com/0xkhdr/specd/internal/context"
@@ -189,6 +191,11 @@ func RunContext(args cli.Args) int {
 	load := append([]string{}, baseSteering...)
 	load = append(load, b.load...)
 	manifest := buildContextManifest(root, slug, state, loaded.Doc)
+	if args.Bool("snapshot") {
+		if code := writeContextSnapshot(root, slug, state, manifest, args); code != core.ExitOK {
+			return code
+		}
+	}
 	gated := state.Gate == core.GateAwaitingApproval
 
 	reqMd := core.ReadArtifact(root, slug, "requirements.md")
@@ -269,4 +276,63 @@ func RunContext(args cli.Args) int {
 	fmt.Printf("FOCUS: %s\n", b.focus)
 	fmt.Printf("NEXT:  %s\n", b.next)
 	return core.ExitOK
+}
+
+// contextSnapshotEnabled reports whether per-turn context snapshots are on. The
+// --snapshot flag is a no-op error when the gate is off so the feature stays
+// strictly opt-in (R2, Req 4).
+func contextSnapshotEnabled(cfg core.OrchestrationCfg) bool {
+	return cfg.Resilience != nil && cfg.Resilience.ContextSnapshotEnabled
+}
+
+// writeContextSnapshot serializes the current turn's ContextSnapshot to --out (or
+// the default sessions/<session>/context-snapshots/<turn>.json) so a later resume
+// can reload only the files that changed. It is gated on config and never alters
+// the plain `context` output.
+func writeContextSnapshot(root, slug string, state *core.State, manifest contextpkg.MissionContextManifest, args cli.Args) int {
+	cfg := core.LoadConfig(root).Orchestration
+	if !contextSnapshotEnabled(cfg) {
+		fmt.Println("context snapshot disabled (set orchestration.resilience.contextSnapshotEnabled)")
+		return core.ExitUsage
+	}
+	snapshot, err := contextpkg.BuildContextSnapshot(
+		root, state.Turn, string(state.Phase), snapshotTaskID(state), manifest, core.Clock(),
+	)
+	if err != nil {
+		return specdExit(err)
+	}
+	raw, err := contextpkg.CanonicalSnapshotJSON(snapshot)
+	if err != nil {
+		return specdExit(err)
+	}
+	out := args.Str("out")
+	if out == "" {
+		paths, err := core.NewACPRuntimePaths(root)
+		if err != nil {
+			return specdExit(err)
+		}
+		out, err = paths.ContextSnapshotPath(args.Str("session"), state.Turn)
+		if err != nil {
+			return specdExit(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return specdExit(err)
+	}
+	if err := os.WriteFile(out, raw, 0o644); err != nil {
+		return specdExit(err)
+	}
+	fmt.Printf("context snapshot written: %s\n", out)
+	return core.ExitOK
+}
+
+// snapshotTaskID picks the task a snapshot belongs to: the first runnable task,
+// falling back to the spec status when no task is runnable (planning phases), so
+// the snapshot always carries a non-empty Task label.
+func snapshotTaskID(state *core.State) string {
+	frontier := core.RunnableFrontier(core.DagTasksFromState(state))
+	if len(frontier) > 0 {
+		return frontier[0].ID
+	}
+	return string(state.Status)
 }

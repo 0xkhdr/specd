@@ -36,3 +36,33 @@ func TestResilienceConfigMaxAgeValidation(t *testing.T) {
 		t.Fatalf("valid resilience config rejected: %v", err)
 	}
 }
+
+func TestResilienceMaxSuspendSecondsValidation(t *testing.T) {
+	cfg := DefaultConfig.Orchestration
+
+	// Unset (absent block) resolves to the built-in default.
+	if got := cfg.EffectiveMaxSuspendSeconds(); got != defaultMaxSuspendSeconds {
+		t.Fatalf("default effective cap = %d, want %d", got, defaultMaxSuspendSeconds)
+	}
+
+	cfg.Resilience = &ResilienceCfg{MaxSuspendSeconds: 0}
+	if got := cfg.EffectiveMaxSuspendSeconds(); got != defaultMaxSuspendSeconds {
+		t.Fatalf("zero field effective cap = %d, want default", got)
+	}
+	if err := ValidateOrchestrationConfig(&cfg); err != nil {
+		t.Fatalf("zero maxSuspendSeconds must be valid (means default): %v", err)
+	}
+
+	cfg.Resilience.MaxSuspendSeconds = 3601
+	if err := ValidateOrchestrationConfig(&cfg); err == nil {
+		t.Fatal("maxSuspendSeconds > 3600 must fail validation")
+	}
+
+	cfg.Resilience.MaxSuspendSeconds = 300
+	if err := ValidateOrchestrationConfig(&cfg); err != nil {
+		t.Fatalf("valid maxSuspendSeconds rejected: %v", err)
+	}
+	if got := cfg.EffectiveMaxSuspendSeconds(); got != 300 {
+		t.Fatalf("effective cap = %d, want 300", got)
+	}
+}

@@ -29,12 +29,12 @@ The program runs in three waves. A wave starts only when the prior wave's specs 
 | checkpoint-protocol | complete | — | All T1–T10 landed: `CheckpointRecord`+validator, path helpers, `RecordCheckpoint` (clears the lease so the same attempt is re-claimable), `pinky checkpoint` + `brain checkpoint` CLI, `resume-from-checkpoint` action (sense populates `Checkpoints`, decide prefers resume with strict attempt-guard), resume mission brief with "do not restart" header, cleanup-on-completion, `resilience.checkpointEnabled` gate, and the checkpoint→resume e2e test. |
 | auto-resume | complete | — | All T1–T7 landed: `ListResumableSessions`, `resilience.autoResume` config, `brain resume --list [--max-age-minutes]` discovery (no-flag lifecycle resume unchanged), MCP `brain_resume` (list when `session` omitted, resume when present), AGENTS.md + `docs/agent-integration.md` startup contract, and the list filter/order/exclude integration test. |
 
-### Wave 2 — Graceful degradation (P1) — **status: not-started**
+### Wave 2 — Graceful degradation (P1) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| rate-limit-lease | not-started | checkpoint-protocol (shares lease-state extension) | `pinky suspend` / `pinky resume`; lease no longer false-fails. |
-| context-snapshot | not-started | checkpoint-protocol (snapshot referenced by `CheckpointRecord.ContextManifest`) | `specd context --snapshot`; resume loads deltas only. |
+| rate-limit-lease | complete | checkpoint-protocol (shares lease-state extension) | All T1–T7 landed: `ACPLeaseSuspended` status + omitempty suspend metadata (`SuspendedAt`/`SuspendReason`/`ResumeDeadline`/`SuspendSecondsTotal`), `resilience.maxSuspendSeconds` (default 600, validated `(0,3600]`), `SuspendLease`/`ResumeLease` CAS ops (reason allowlist + cumulative cap), reclaim predicate honors `ResumeDeadline` (suspended-within-window counts in-flight via `OrchestrationLeaseSnapshot.Suspended`, Decide stays pure), `pinky suspend`/`pinky resume` CLI + `resume` ACP event, and the no-retry-storm integration test. |
+| context-snapshot | complete | checkpoint-protocol (snapshot referenced by `CheckpointRecord.ContextManifest`) | All T1–T7 landed: `ContextSnapshot`+`LoadedFile` with canonical JSON + validator, file/steering/memory SHA256 digest helpers, `ContextSnapshotDir`/`ContextSnapshotPath` + `resilience.contextSnapshotEnabled` gate, `specd context --snapshot [--out]` (plain output byte-unchanged), `DiffContextSnapshot` comparator, resume brief renders reference/reload delta (guarded, no-op without snapshot), and the emit→edit→delta test. |
 
 ### Wave 3 — Hardening (P2) — **status: not-started**
 

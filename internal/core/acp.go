@@ -39,6 +39,10 @@ const (
 	// Like progress it flows pinky -> brain, but it also pairs with an on-disk
 	// CheckpointRecord and releases the worker's lease so the Brain can resume.
 	ACPMessageCheckpoint ACPMessageType = "checkpoint"
+	// ACPMessageResume is a returning worker's signal that a suspended lease is
+	// active again (R3). It flows pinky -> brain and records how long the worker
+	// was suspended so the Brain (and observers) can attribute the pause.
+	ACPMessageResume ACPMessageType = "resume"
 )
 
 var (
@@ -60,7 +64,7 @@ var (
 		ACPMessageMission: true, ACPMessageAccepted: true, ACPMessageHeartbeat: true,
 		ACPMessageProgress: true, ACPMessageEvidence: true, ACPMessageBlocker: true,
 		ACPMessageQuery: true, ACPMessageDirective: true, ACPMessageCancelled: true,
-		ACPMessageCheckpoint: true,
+		ACPMessageCheckpoint: true, ACPMessageResume: true,
 	}
 )
 
@@ -151,6 +155,13 @@ type ACPCheckpointPayload struct {
 	Reason       string   `json:"reason,omitempty"`
 	ChangedFiles []string `json:"changedFiles,omitempty"`
 	GitHead      string   `json:"gitHead,omitempty"`
+}
+
+// ACPResumePayload is the event-side record of a worker returning from a
+// suspended lease (R3): how long it was away and why it had suspended.
+type ACPResumePayload struct {
+	SuspendedSeconds int    `json:"suspendedSeconds"`
+	Reason           string `json:"reason,omitempty"`
 }
 
 func NewACPID() (string, error) {
@@ -251,7 +262,7 @@ func validateACPDirection(messageType ACPMessageType, from, to string) error {
 		if !fromBrain || toBrain {
 			return fmt.Errorf("acp: %s must be sent from brain to pinky", messageType)
 		}
-	case ACPMessageAccepted, ACPMessageProgress, ACPMessageEvidence, ACPMessageBlocker, ACPMessageQuery, ACPMessageCancelled, ACPMessageCheckpoint:
+	case ACPMessageAccepted, ACPMessageProgress, ACPMessageEvidence, ACPMessageBlocker, ACPMessageQuery, ACPMessageCancelled, ACPMessageCheckpoint, ACPMessageResume:
 		if fromBrain || !toBrain {
 			return fmt.Errorf("acp: %s must be sent from pinky to brain", messageType)
 		}
@@ -414,6 +425,20 @@ func validateACPPayload(messageType ACPMessageType, task string, raw []byte) err
 			return err
 		}
 		if err := validateACPText("gitHead", payload.GitHead, false); err != nil {
+			return err
+		}
+	case ACPMessageResume:
+		var payload ACPResumePayload
+		if err := decodeACPStrict(raw, &payload); err != nil {
+			return err
+		}
+		if task == "" {
+			return fmt.Errorf("task is required")
+		}
+		if payload.SuspendedSeconds < 0 {
+			return fmt.Errorf("suspendedSeconds must be non-negative")
+		}
+		if err := validateACPText("reason", payload.Reason, false); err != nil {
 			return err
 		}
 	default:
