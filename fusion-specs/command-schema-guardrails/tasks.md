@@ -1,7 +1,7 @@
 # Tasks — Command Schema Guardrails
 
 ## Wave 1 — Metadata shape
-- [ ] T1 — Extend command metadata structs
+- [x] T1 — Extend command metadata structs
   - why: explicit machine contract for command builders (Req 1,2,4)
   - role: builder
   - files: internal/core/commands.go
@@ -11,7 +11,7 @@
   - depends: —
   - requirements: 1,2,4
 
-- [ ] T2 — Populate current command registry
+- [x] T2 — Populate current command registry
   - why: prevent schema gaps (Req 1,2,4)
   - role: builder
   - files: internal/core/commands.go

@@ -20,12 +20,12 @@ Each child spec below has its own `spec.md` (requirements + design) and `tasks.m
 The program is staged so the startup oracle lands first, then the agent can discover schema/config safely, then the host surface is tightened.
 Each wave starts once its listed specs are in flight; intra-spec waves live in each `tasks.md`.
 
-### Wave 1 — Bootstrap foundation (P0) — **status: not-started**
+### Wave 1 — Bootstrap foundation (P0) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| session-bootstrap | not-started | — | Add `specd fusion bootstrap` as the session-start oracle. |
-| command-schema-guardrails | not-started | session-bootstrap/T3 | Add richer command metadata and `help <command> --json`; schema docs depend on bootstrap being available. |
+| session-bootstrap | in-progress | — | Wave 1 complete: core `FusionBootstrap` model and read-only assembler added. |
+| command-schema-guardrails | in-progress | session-bootstrap/T3 | Wave 1 complete: metadata structs enriched and current registry annotated. |
 
 ### Wave 2 — Policy and context alignment (P0/P1) — **status: not-started**
 

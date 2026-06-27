@@ -1,9 +1,29 @@
 package core
 
-type FlagMeta struct {
+type PositionalMeta struct {
 	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
+	Required    bool   `json:"required"`
+	Repeatable  bool   `json:"repeatable,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type FlagMeta struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	Description string   `json:"description,omitempty"`
+	Enum        []string `json:"enum,omitempty"`
+	Required    bool     `json:"required,omitempty"`
+	Default     string   `json:"default,omitempty"`
+}
+
+type PhaseCompatibilityMeta struct {
+	Statuses []string `json:"statuses,omitempty"`
+	Phases   []string `json:"phases,omitempty"`
+}
+
+type ModeCompatibilityMeta struct {
+	Modes                           []string `json:"modes,omitempty"`
+	RequiresOrchestrationCapability bool     `json:"requiresOrchestrationCapability,omitempty"`
 }
 
 type ExitCodeMeta struct {
@@ -12,15 +32,18 @@ type ExitCodeMeta struct {
 }
 
 type CommandMeta struct {
-	Command         string         `json:"command"`
-	Category        string         `json:"category"`
-	Description     string         `json:"description"`
-	Usage           string         `json:"usage"`
-	Synopsis        string         `json:"synopsis"`
-	LongDescription string         `json:"longDescription"`
-	Flags           []FlagMeta     `json:"flags"`
-	ExitCodes       []ExitCodeMeta `json:"exitCodes"`
-	Examples        []string       `json:"examples"`
+	Command            string                  `json:"command"`
+	Category           string                  `json:"category"`
+	Description        string                  `json:"description"`
+	Usage              string                  `json:"usage"`
+	Synopsis           string                  `json:"synopsis"`
+	LongDescription    string                  `json:"longDescription"`
+	Flags              []FlagMeta              `json:"flags"`
+	Positionals        []PositionalMeta        `json:"positionals,omitempty"`
+	PhaseCompatibility *PhaseCompatibilityMeta `json:"phaseCompatibility,omitempty"`
+	ModeCompatibility  *ModeCompatibilityMeta  `json:"modeCompatibility,omitempty"`
+	ExitCodes          []ExitCodeMeta          `json:"exitCodes"`
+	Examples           []string                `json:"examples"`
 }
 
 var Commands = []CommandMeta{
@@ -360,4 +383,143 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error (unknown command)"}},
 		Examples:        []string{"specd help", "specd help init", "specd help --json"},
 	},
+}
+
+func init() {
+	positionals := map[string][]PositionalMeta{
+		"new":      {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"approve":  {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"decision": {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "text", Required: true, Description: "Decision text"}},
+		"midreq":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "input", Required: true, Description: "Feedback text"}},
+		"memory":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "action", Required: true, Description: "add or promote"}},
+		"next":     {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"dispatch": {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"verify":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "id", Required: false, Description: "Task id when running task verify"}},
+		"task":     {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "id", Required: true, Description: "Task id"}},
+		"status":   {{Name: "slug", Required: false, Description: "Optional spec slug"}},
+		"mode":     {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"check":    {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"context":  {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"validate": {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"report":   {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"serve":    {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"replay":   {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"waves":    {{Name: "slug", Required: true, Description: "Spec slug"}},
+		"brain":    {{Name: "action", Required: true, Description: "start, run, status, step, why, directive, pause, resume, or cancel"}, {Name: "slug", Required: false, Description: "Spec slug for spec-scoped actions"}},
+		"pinky":    {{Name: "action", Required: true, Description: "claim, brief, heartbeat, progress, query, report, block, release, or inbox"}},
+		"program":  {{Name: "action", Required: false, Description: "status, link, or unlink"}, {Name: "spec", Required: false, Description: "Spec slug for link/unlink"}},
+		"mcp":      {{Name: "action", Required: false, Description: "Run server by default; config mode via --config"}},
+		"help":     {{Name: "command", Required: false, Description: "Command name"}},
+	}
+	phaseCompat := map[string]*PhaseCompatibilityMeta{
+		"approve":  planningAndVerificationCompat(),
+		"decision": planningCompat(),
+		"midreq":   anySpecCompat(),
+		"memory":   executionReflectCompat(),
+		"next":     executionCompat(),
+		"dispatch": executionCompat(),
+		"verify":   executionVerificationCompat(),
+		"task":     executionCompat(),
+		"mode":     anySpecCompat(),
+		"check":    anySpecCompat(),
+		"context":  anySpecCompat(),
+		"validate": anySpecCompat(),
+		"report":   completeReflectCompat(),
+		"serve":    anySpecCompat(),
+		"replay":   anySpecCompat(),
+		"diff":     anySpecCompat(),
+		"waves":    anySpecCompat(),
+		"brain":    executionCompat(),
+		"pinky":    executionCompat(),
+		"program":  executionCompat(),
+	}
+	modeCompat := map[string]*ModeCompatibilityMeta{
+		"new":     {Modes: []string{"base", "orchestrated"}},
+		"mode":    {Modes: []string{"base", "orchestrated"}},
+		"brain":   {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
+		"pinky":   {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
+		"program": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
+	}
+	for i := range Commands {
+		cmd := &Commands[i]
+		cmd.Positionals = positionals[cmd.Command]
+		if compat, ok := phaseCompat[cmd.Command]; ok {
+			cmd.PhaseCompatibility = compat
+		}
+		if compat, ok := modeCompat[cmd.Command]; ok {
+			cmd.ModeCompatibility = compat
+		} else if cmd.Category != "orchestration" {
+			cmd.ModeCompatibility = &ModeCompatibilityMeta{Modes: []string{"any"}}
+		}
+		annotateFlagEnums(cmd)
+	}
+}
+
+func planningCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusRequirements), string(StatusDesign), string(StatusTasks)}, Phases: []string{string(PhaseAnalyze), string(PhasePlan)}}
+}
+
+func planningAndVerificationCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusRequirements), string(StatusDesign), string(StatusTasks), string(StatusVerifying)}, Phases: []string{string(PhaseAnalyze), string(PhasePlan), string(PhaseVerify)}}
+}
+
+func executionCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusExecuting), string(StatusBlocked)}, Phases: []string{string(PhaseExecute)}}
+}
+
+func executionVerificationCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusExecuting), string(StatusVerifying)}, Phases: []string{string(PhaseExecute), string(PhaseVerify)}}
+}
+
+func executionReflectCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusExecuting), string(StatusVerifying), string(StatusComplete)}, Phases: []string{string(PhaseExecute), string(PhaseVerify), string(PhaseReflect)}}
+}
+
+func completeReflectCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusVerifying), string(StatusComplete)}, Phases: []string{string(PhaseVerify), string(PhaseReflect)}}
+}
+
+func anySpecCompat() *PhaseCompatibilityMeta {
+	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusRequirements), string(StatusDesign), string(StatusTasks), string(StatusExecuting), string(StatusVerifying), string(StatusComplete), string(StatusBlocked)}, Phases: []string{string(PhaseAnalyze), string(PhasePlan), string(PhaseExecute), string(PhaseVerify), string(PhaseReflect)}}
+}
+
+func annotateFlagEnums(cmd *CommandMeta) {
+	for i := range cmd.Flags {
+		flag := &cmd.Flags[i]
+		switch flag.Name {
+		case "agent":
+			flag.Enum = []string{"auto", "all", "none", "codex", "claude-code", "cursor", "antigravity", "vscode"}
+		case "scope":
+			flag.Enum = []string{"project", "global"}
+			flag.Default = "project"
+		case "orchestration", "approval-policy":
+			flag.Enum = []string{"manual", "planning", "session"}
+		case "orchestration-mode":
+			flag.Enum = []string{"inline", "delegate"}
+		case "orchestration-sandbox", "sandbox":
+			flag.Enum = []string{"none", "bwrap", "container"}
+		case "impact":
+			flag.Enum = []string{"low", "medium", "high", "critical"}
+			flag.Required = true
+		case "criticality":
+			flag.Enum = []string{"note", "important", "critical"}
+		case "status":
+			if cmd.Command == "verify" {
+				flag.Enum = []string{"pass", "fail"}
+			} else if cmd.Command == "task" {
+				flag.Enum = []string{string(TaskPending), string(TaskRunning), string(TaskComplete), string(TaskBlocked)}
+				flag.Required = true
+			}
+		case "set":
+			flag.Enum = []string{ModeBase, ModeOrchestrated}
+		case "format":
+			flag.Enum = []string{"md", "html", "prometheus"}
+		case "action":
+			flag.Enum = []string{"continue", "retry", "cancel", "reassign", "escalate"}
+		case "config":
+			flag.Enum = []string{"antigravity", "claude-code", "claude-desktop", "codex", "cursor", "vscode"}
+		case "from", "schema":
+			flag.Required = true
+		}
+	}
 }

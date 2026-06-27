@@ -1,7 +1,7 @@
 # Tasks — Fusion Session Bootstrap
 
 ## Wave 1 — Core bootstrap model
-- [ ] T1 — Define `FusionBootstrap` core model
+- [x] T1 — Define `FusionBootstrap` core model
   - why: stable JSON contract for session startup (Req 1,2,3,4)
   - role: builder
   - files: internal/core/fusion.go (new)
@@ -11,7 +11,7 @@
   - depends: —
   - requirements: 1,2,3,4
 
-- [ ] T2 — Implement bootstrap assembler
+- [x] T2 — Implement bootstrap assembler
   - why: gather existing specd state into one oracle (Req 1,3,4)
   - role: builder
   - files: internal/core/fusion.go, internal/core/paths.go

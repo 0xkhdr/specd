@@ -279,6 +279,12 @@ func LoadConfig(root string) Config {
 		if partial.Gates.Scope != "" {
 			cfg.Gates.Scope = partial.Gates.Scope
 		}
+		if partial.Gates.ContextBudget != "" {
+			cfg.Gates.ContextBudget = partial.Gates.ContextBudget
+		}
+		if partial.Gates.MaxContextTokens != 0 {
+			cfg.Gates.MaxContextTokens = partial.Gates.MaxContextTokens
+		}
 		if partial.Gates.ModeCapability != "" {
 			cfg.Gates.ModeCapability = partial.Gates.ModeCapability
 		}
