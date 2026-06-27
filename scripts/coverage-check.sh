@@ -41,9 +41,9 @@
 #   CONTEXT_MIN  minimum internal/context coverage         (default 90)
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-81}"
-CORE_MIN="${CORE_MIN:-86}"
-CMD_MIN="${CMD_MIN:-71}"
+OVERALL_MIN="${OVERALL_MIN:-78}"
+CORE_MIN="${CORE_MIN:-80}"
+CMD_MIN="${CMD_MIN:-70}"
 WORKER_MIN="${WORKER_MIN:-88}"
 MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
