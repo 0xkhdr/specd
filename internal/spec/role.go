@@ -3,98 +3,98 @@ package spec
 // RoleDef is one role contract: permission, budget, phase affinity, allowed
 // tools, file policy, and prompt class.
 type RoleDef struct {
-	Name         string
-	RW           string
-	BudgetTier   string
+	Name          string
+	RW            string
+	BudgetTier    string
 	PhaseAffinity []Phase
-	Tools        []string
-	FilePolicy   string
-	PromptClass  string
+	Tools         []string
+	FilePolicy    string
+	PromptClass   string
 }
 
 // Roles is single registry of declared role contracts, in stable order.
 var Roles = []RoleDef{
 	{
-		Name:         "scout",
-		RW:           "readonly",
-		BudgetTier:   "minimal",
+		Name:          "scout",
+		RW:            "readonly",
+		BudgetTier:    "minimal",
 		PhaseAffinity: []Phase{PhasePerceive, PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context"},
-		FilePolicy:   "no writes",
-		PromptClass:  "gate-only",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context"},
+		FilePolicy:    "no writes",
+		PromptClass:   "gate-only",
 	},
 	{
-		Name:         "researcher",
-		RW:           "readonly",
-		BudgetTier:   "large",
+		Name:          "researcher",
+		RW:            "readonly",
+		BudgetTier:    "large",
 		PhaseAffinity: []Phase{PhasePerceive, PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context", "specd_diff", "specd_report", "specd_check"},
-		FilePolicy:   "no writes",
-		PromptClass:  "gate-only",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context", "specd_diff", "specd_report", "specd_check"},
+		FilePolicy:    "no writes",
+		PromptClass:   "gate-only",
 	},
 	{
-		Name:         "reviewer",
-		RW:           "readonly",
-		BudgetTier:   "medium",
+		Name:          "reviewer",
+		RW:            "readonly",
+		BudgetTier:    "medium",
 		PhaseAffinity: []Phase{PhasePerceive, PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context", "specd_diff", "specd_report", "specd_check", "specd_waves"},
-		FilePolicy:   "no writes",
-		PromptClass:  "gate-only",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context", "specd_diff", "specd_report", "specd_check", "specd_waves"},
+		FilePolicy:    "no writes",
+		PromptClass:   "gate-only",
 	},
 	{
-		Name:         "architect",
-		RW:           "readonly",
-		BudgetTier:   "medium",
+		Name:          "architect",
+		RW:            "readonly",
+		BudgetTier:    "medium",
 		PhaseAffinity: []Phase{PhaseAnalyze, PhasePlan},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context", "specd_check", "specd_approve", "specd_waves", "specd_report", "specd_diff"},
-		FilePolicy:   "no writes",
-		PromptClass:  "gate-only",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context", "specd_check", "specd_approve", "specd_waves", "specd_report", "specd_diff"},
+		FilePolicy:    "no writes",
+		PromptClass:   "gate-only",
 	},
 	{
-		Name:         "builder",
-		RW:           "readwrite",
-		BudgetTier:   "focused",
+		Name:          "builder",
+		RW:            "readwrite",
+		BudgetTier:    "focused",
 		PhaseAffinity: []Phase{PhaseExecute},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_context", "specd_status", "specd_next", "specd_dispatch", "specd_verify", "specd_task", "specd_report"},
-		FilePolicy:   "task scope only",
-		PromptClass:  "card",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_context", "specd_status", "specd_next", "specd_dispatch", "specd_verify", "specd_task", "specd_report"},
+		FilePolicy:    "task scope only",
+		PromptClass:   "card",
 	},
 	{
-		Name:         "tester",
-		RW:           "readwrite",
-		BudgetTier:   "focused",
+		Name:          "tester",
+		RW:            "readwrite",
+		BudgetTier:    "focused",
 		PhaseAffinity: []Phase{PhaseExecute, PhaseVerify},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_context", "specd_status", "specd_check", "specd_verify", "specd_task", "specd_report"},
-		FilePolicy:   "task scope only",
-		PromptClass:  "card",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_context", "specd_status", "specd_check", "specd_verify", "specd_task", "specd_report"},
+		FilePolicy:    "task scope only",
+		PromptClass:   "card",
 	},
 	{
-		Name:         "documenter",
-		RW:           "readwrite",
-		BudgetTier:   "focused",
+		Name:          "documenter",
+		RW:            "readwrite",
+		BudgetTier:    "focused",
 		PhaseAffinity: []Phase{PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_context", "specd_status", "specd_memory", "specd_decision", "specd_report", "specd_diff", "specd_check"},
-		FilePolicy:   "unrestricted within files:",
-		PromptClass:  "card",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_context", "specd_status", "specd_memory", "specd_decision", "specd_report", "specd_diff", "specd_check"},
+		FilePolicy:    "unrestricted within files:",
+		PromptClass:   "card",
 	},
 	{
-		Name:         "verifier",
-		RW:           "readwrite",
-		BudgetTier:   "medium",
+		Name:          "verifier",
+		RW:            "readwrite",
+		BudgetTier:    "medium",
 		PhaseAffinity: []Phase{PhaseExecute, PhaseVerify},
-		Tools:        []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"},
-		FilePolicy:   "specd state only",
-		PromptClass:  "contract",
+		Tools:         []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"},
+		FilePolicy:    "specd state only",
+		PromptClass:   "contract",
 	},
 	// Legacy alias; keep until later deprecation cycle.
 	{
-		Name:         "investigator",
-		RW:           "readonly",
-		BudgetTier:   "minimal",
+		Name:          "investigator",
+		RW:            "readonly",
+		BudgetTier:    "minimal",
 		PhaseAffinity: []Phase{PhasePerceive, PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
-		Tools:        []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context"},
-		FilePolicy:   "no writes",
-		PromptClass:  "gate-only",
+		Tools:         []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context"},
+		FilePolicy:    "no writes",
+		PromptClass:   "gate-only",
 	},
 }
 

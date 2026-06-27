@@ -20,7 +20,7 @@ type Mission struct {
 	WorkerID  string
 	Spec      string
 	TaskID    string
-	Attempt   int      // task attempt (>= 1); keys the durable mission filename
+	Attempt   int // task attempt (>= 1); keys the durable mission filename
 	Role      string
 	Files     []string // SPECD_ARTIFACT hint
 	Deadline  string   // RFC3339Nano

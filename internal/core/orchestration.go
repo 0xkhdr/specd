@@ -237,11 +237,11 @@ func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
 		return OrchestrationPolicy{}, err
 	}
 	policy := OrchestrationPolicy{
-		ApprovalPolicy:           cfg.ApprovalPolicy,
-		MaxWorkers:               cfg.MaxWorkers,
-		MaxRetries:               cfg.MaxRetries,
-		SessionTimeoutSeconds:    cfg.SessionTimeoutMinutes * 60,
-		HostReportedCostLimitUSD: cfg.HostReportedCostLimitUSD,
+		ApprovalPolicy:            cfg.ApprovalPolicy,
+		MaxWorkers:                cfg.MaxWorkers,
+		MaxRetries:                cfg.MaxRetries,
+		SessionTimeoutSeconds:     cfg.SessionTimeoutMinutes * 60,
+		HostReportedCostLimitUSD:  cfg.HostReportedCostLimitUSD,
 		CompactionPolicy:          cfg.CompactionPolicy,
 		CompactionBudgetThreshold: cfg.CompactionBudgetThreshold,
 	}

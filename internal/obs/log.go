@@ -156,19 +156,19 @@ func BrainLogPath(root, sessionID string) (string, error) {
 
 // TimelineEvent is one parsed Brain structured event.
 type TimelineEvent struct {
-	Time     string `json:"time,omitempty"`
-	Level    string `json:"level,omitempty"`
-	Message  string `json:"msg,omitempty"`
-	Event    string `json:"event"`
-	Slug     string `json:"slug,omitempty"`
-	Phase    string `json:"phase,omitempty"`
-	Role     string `json:"role,omitempty"`
-	Session  string `json:"session,omitempty"`
+	Time      string `json:"time,omitempty"`
+	Level     string `json:"level,omitempty"`
+	Message   string `json:"msg,omitempty"`
+	Event     string `json:"event"`
+	Slug      string `json:"slug,omitempty"`
+	Phase     string `json:"phase,omitempty"`
+	Role      string `json:"role,omitempty"`
+	Session   string `json:"session,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
-	Worker   string `json:"worker,omitempty"`
-	Task     string `json:"task,omitempty"`
-	DurMS    int64  `json:"dur_ms,omitempty"`
-	Exit     int    `json:"exit,omitempty"`
+	Worker    string `json:"worker,omitempty"`
+	Task      string `json:"task,omitempty"`
+	DurMS     int64  `json:"dur_ms,omitempty"`
+	Exit      int    `json:"exit,omitempty"`
 	// Context-compaction fields (spec §4.7), present only on context.compact events.
 	EstimatedTokens    int    `json:"estimated_tokens,omitempty"`
 	HostReportedTokens int    `json:"host_reported_tokens,omitempty"`

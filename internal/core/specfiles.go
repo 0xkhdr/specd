@@ -43,13 +43,13 @@ func (m MCPConfig) Configured() bool {
 }
 
 type OrchestrationCfg struct {
-	Enabled                  bool         `json:"enabled"`
-	ApprovalPolicy           string       `json:"approvalPolicy"`
-	WorkerMode               string       `json:"workerMode"`
-	MaxWorkers               int          `json:"maxWorkers"`
-	MaxRetries               int          `json:"maxRetries"`
-	SessionTimeoutMinutes    int          `json:"sessionTimeoutMinutes"`
-	HostReportedCostLimitUSD float64      `json:"hostReportedCostLimitUSD"`
+	Enabled                  bool    `json:"enabled"`
+	ApprovalPolicy           string  `json:"approvalPolicy"`
+	WorkerMode               string  `json:"workerMode"`
+	MaxWorkers               int     `json:"maxWorkers"`
+	MaxRetries               int     `json:"maxRetries"`
+	SessionTimeoutMinutes    int     `json:"sessionTimeoutMinutes"`
+	HostReportedCostLimitUSD float64 `json:"hostReportedCostLimitUSD"`
 	// CompactionPolicy / CompactionBudgetThreshold drive stage-aware context
 	// compaction (none|phase|budget|both; threshold in [0,1]). omitempty keeps
 	// pre-compaction config files byte-identical.

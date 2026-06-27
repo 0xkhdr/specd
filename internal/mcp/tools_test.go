@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/cli"
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 )
 

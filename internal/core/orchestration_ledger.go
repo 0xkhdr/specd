@@ -53,8 +53,8 @@ func lastContextLedgerEntry(session OrchestrationSession) (ContextLedgerEntry, b
 // the workspace-relative summary path the host can reference, and the
 // pre-compaction estimate that motivated it (for observability).
 type CompactionOutcome struct {
-	Entry             ContextLedgerEntry
-	SummaryFile       string
+	Entry              ContextLedgerEntry
+	SummaryFile        string
 	PreEstimatedTokens int
 }
 
