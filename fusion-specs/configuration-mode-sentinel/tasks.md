@@ -1,7 +1,7 @@
 # Tasks — Configuration and Mode Sentinel
 
 ## Wave 1 — Strict config diagnostics
-- [ ] T1 — Implement strict config loader
+- [x] T1 — Implement strict config loader
   - why: malformed config must not look like defaults to agents (Req 1)
   - role: builder
   - files: internal/core/config_validate.go (new), internal/core/specfiles.go
@@ -11,7 +11,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — Validate fusion-relevant enums and ranges
+- [x] T2 — Validate fusion-relevant enums and ranges
   - why: policy must be trustworthy (Req 1)
   - role: builder
   - files: internal/core/config_validate.go
@@ -22,7 +22,7 @@
   - requirements: 1
 
 ## Wave 2 — Fusion policy command
-- [ ] T3 — Add `FusionPolicy` core model
+- [x] T3 — Add `FusionPolicy` core model
   - why: shared JSON contract for policy summaries (Req 2,3,4)
   - role: builder
   - files: internal/core/fusion.go
@@ -32,7 +32,7 @@
   - depends: T1
   - requirements: 2,3,4
 
-- [ ] T4 — Implement `specd fusion policy`
+- [x] T4 — Implement `specd fusion policy`
   - why: agent can check binding constraints before acting (Req 2,3,4)
   - role: builder
   - files: internal/cmd/fusion.go, internal/core/commands.go
@@ -43,7 +43,7 @@
   - requirements: 2,3,4
 
 ## Wave 3 — Doctor and docs
-- [ ] T5 — Add config sentinel to doctor
+- [x] T5 — Add config sentinel to doctor
   - why: existing health check should surface config policy failures (Req 5)
   - role: builder
   - files: internal/cmd/doctor.go, internal/cmd/doctor_test.go
@@ -53,7 +53,7 @@
   - depends: T1, T2
   - requirements: 5
 
-- [ ] T6 — Document policy-before-action protocol
+- [x] T6 — Document policy-before-action protocol
   - why: agents must respect config and mode (Req 2,4)
   - role: builder
   - files: docs/agent-integration.md, internal/core/embed_templates/AGENTS.md

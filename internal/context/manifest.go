@@ -62,7 +62,7 @@ const missionContextStrategy = "Load required items in order. Keep optional/refe
 // own and is total.
 func BuildContextManifest(req ContextRequest) MissionContextManifest {
 	items := make([]MissionContextItem, 0, 8+len(req.Files))
-	add := func(kind, path, command, mode string, required bool, hint int, rationale string) {
+	add := func(kind, path, command, mode string, required bool, hint int, rationale string, selector *ContextSelector) {
 		items = append(items, MissionContextItem{
 			Order:     len(items) + 1,
 			Kind:      kind,
@@ -72,6 +72,7 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 			Required:  required,
 			TokenHint: hint,
 			Rationale: rationale,
+			Selector:  selector,
 		})
 	}
 
@@ -80,27 +81,42 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 		role = defaultContextRole(req)
 	}
 	req.Role = role
-	add("role", filepath.Join(".specd", "roles", role+".md"), "", "read-full", true, ctxHintRole, "role authority and constraints")
-	add("skill", filepath.Join(".specd", "skills", "specd-pinky", "SKILL.md"), "", "read-full", true, ctxHintSkill, "Pinky lease/report lifecycle")
+	add("role", filepath.Join(".specd", "roles", role+".md"), "", "read-full", true, ctxHintRole, "role authority and constraints", nil)
+	if req.Mode == ContextModeMission || role == "pinky" || req.ContextCommand != "" {
+		add("skill", filepath.Join(".specd", "skills", "specd-pinky", "SKILL.md"), "", "read-full", true, ctxHintSkill, "Pinky lease/report lifecycle", nil)
+	}
+	if req.Mode == ContextModeBriefing && req.ContextCommand == "" {
+		addSteeringItems(req, add)
+	}
 	if skill := contextPhaseSkillPath(req.TaskID, req.Files); skill != "" {
-		add("phase-skill", skill, "", "read-full", true, ctxHintPhaseSkill, "phase-scoped workflow; do not load unrelated stage guidance")
+		add("phase-skill", skill, "", "read-full", true, ctxHintPhaseSkill, "phase-scoped workflow; do not load unrelated stage guidance", nil)
+	}
+	if req.Mode == ContextModeBriefing && req.ContextCommand == "" {
+		if req.Slug != "" {
+			add("fusion-policy", "", "specd fusion policy "+req.Slug+" --json", "run-command", true, 120, "binding config and mode policy; do not inline help schema", nil)
+		}
+		add("command-schema", "", "specd help --json", "run-command", false, 120, "cache command schema digest when host has no cached schema", nil)
 	}
 	if req.ContextCommand != "" {
-		add("spec-context", "", req.ContextCommand, "run-command", true, ctxHintContext, "phase briefing, load list, blockers, approvals")
+		add("spec-context", "", req.ContextCommand, "run-command", true, ctxHintContext, "phase briefing, load list, blockers, approvals", nil)
 	}
 	for _, file := range req.Files {
-		add("scope-file", file, "", "read-targeted", true, ctxHintScopeFile, "mission-declared file in scope")
+		add("scope-file", file, "", "read-targeted", true, ctxHintScopeFile, "mission-declared file in scope", nil)
 	}
 	addSourceArtifacts(req, add)
 
+	est := sumRequiredHints(items)
+	budget := deriveContextBudget(req)
 	return MissionContextManifest{
 		Version:          ManifestVersion,
 		SoftTokenCeiling: missionContextSoftCeiling,
 		Strategy:         missionContextStrategy,
 		Role:             role,
 		Items:            items,
-		EstimatedTokens:  sumRequiredHints(items),
-		Budget:           deriveContextBudget(req),
+		EstimatedTokens:  est,
+		Budget:           budget,
+		OverBudget:       est > budget,
+		BudgetActions:    budgetActions(req, est, budget),
 	}
 }
 
@@ -109,54 +125,69 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 // it (requirement ids, design headings, the task row) and the selector matches,
 // the artifact is delivered as a read-targeted slice and its hint measures the
 // slice instead of the whole file.
-func addSourceArtifacts(req ContextRequest, add func(kind, path, command, mode string, required bool, hint int, rationale string)) {
+func addSourceArtifacts(req ContextRequest, add func(kind, path, command, mode string, required bool, hint int, rationale string, selector *ContextSelector)) {
 	const wholeRationale = "source of truth; expand only if required by contract or context command"
 	for _, name := range statusSourceArtifacts(req.Status) {
 		path := filepath.Join(".specd", "specs", req.Slug, name)
 		mode := "reference-if-needed"
 		hint := ctxHintArtifact
 		rationale := wholeRationale
+		var selector *ContextSelector
 		if content, ok := readArtifactContent(req, name); ok {
-			if slice, sliced, srat := sliceArtifact(name, content, req); sliced {
+			if slice, sliced, srat, sel := sliceArtifact(name, content, req); sliced {
 				mode = "read-targeted"
 				rationale = srat
 				hint = EstimateTokensString(slice)
+				selector = sel
 			} else {
 				hint = EstimateTokensString(content)
 			}
 		}
-		add("source-artifact", path, "", mode, false, hint, rationale)
+		add("source-artifact", path, "", mode, false, hint, rationale, selector)
 	}
 }
 
 // sliceArtifact attempts to reduce an artifact to the minimal block the task
 // needs, using the T2 slicers. It returns (slice, true, rationale) only when a
 // selector matches; otherwise the caller delivers the whole artifact.
-func sliceArtifact(name, content string, req ContextRequest) (slice string, ok bool, rationale string) {
+func sliceArtifact(name, content string, req ContextRequest) (slice string, ok bool, rationale string, selector *ContextSelector) {
 	switch name {
 	case "tasks.md":
 		if req.TaskID == "" {
-			return "", false, ""
+			return "", false, "", nil
 		}
 		if s, found := TaskSlice(content, req.TaskID); found {
-			return s, true, "the task's row only, not the whole task list"
+			return s, true, "the task's row only, not the whole task list", &ContextSelector{Artifact: name, TaskID: req.TaskID}
 		}
 	case "requirements.md":
 		if len(req.Requirements) == 0 {
-			return "", false, ""
+			return "", false, "", nil
 		}
 		if s, found := CoveredRequirements(content, req.Requirements); found {
-			return s, true, "only the requirements this task covers"
+			return s, true, "only the requirements this task covers", &ContextSelector{Artifact: name, Requirements: append([]int(nil), req.Requirements...)}
 		}
 	case "design.md":
 		if len(req.DesignHeadings) == 0 {
-			return "", false, ""
+			return "", false, "", nil
 		}
 		if s, found := DesignSection(content, req.DesignHeadings); found {
-			return s, true, "only the design sections this task names"
+			return s, true, "only the design sections this task names", &ContextSelector{Artifact: name, DesignHeadings: append([]string(nil), req.DesignHeadings...)}
 		}
 	}
-	return "", false, ""
+	return "", false, "", nil
+}
+
+func addSteeringItems(req ContextRequest, add func(kind, path, command, mode string, required bool, hint int, rationale string, selector *ContextSelector)) {
+	steering := []string{"reasoning", "workflow", "product", "tech", "structure"}
+	for _, name := range steering {
+		mode := "reference-if-needed"
+		required := false
+		if req.Mode == ContextModeBriefing || name == "reasoning" || name == "workflow" {
+			mode = "read-full"
+			required = true
+		}
+		add("steering", filepath.Join(".specd", "steering", name+".md"), "", mode, required, 500, "always-on steering constitution", nil)
+	}
 }
 
 func readArtifactContent(req ContextRequest, name string) (string, bool) {
@@ -238,6 +269,16 @@ func defaultContextRole(req ContextRequest) string {
 // declared file count, then caps it to a host-negotiated budget when present.
 // The result is clamped to the manifest's hard bounds. Planning phases default
 // higher; low-budget roles default lower; multi-file work scales with file count.
+func budgetActions(req ContextRequest, est, budget int) []string {
+	if est <= budget {
+		return nil
+	}
+	if req.Mode == ContextModeMission {
+		return []string{"run `specd brain compact` for the active session when available", "prefer targeted manifest selectors before broad loading"}
+	}
+	return []string{"load only read-full and read-targeted items first", "use targeted selectors", "ask the user before broad loading optional references"}
+}
+
 func deriveContextBudget(req ContextRequest) int {
 	base := missionContextSoftCeiling
 	switch effectivePhase(req) {

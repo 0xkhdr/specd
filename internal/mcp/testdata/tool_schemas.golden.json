@@ -361,6 +361,31 @@
     },
     "additionalProperties": false
   },
+  "specd_fusion": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd fusion \u003cbootstrap|policy\u003e [slug] [--json]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "expect-config-digest": {
+        "type": "string",
+        "description": "Fail if current config digest differs from this sha256"
+      },
+      "include-schema": {
+        "type": "boolean",
+        "description": "Inline full command schema in bootstrap output"
+      },
+      "json": {
+        "type": "boolean",
+        "description": "Output JSON"
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_init": {
     "type": "object",
     "properties": {

@@ -1,7 +1,7 @@
 # Tasks — Context Manifest Zero-Overhead Alignment
 
 ## Wave 1 — Manifest item shape
-- [ ] T1 — Add selector and budget fields
+- [x] T1 — Add selector and budget fields
   - why: hosts need precise slice and overflow behavior (Req 4,5)
   - role: builder
   - files: internal/context/manifest_types.go, internal/cmd/context.go
@@ -11,7 +11,7 @@
   - depends: —
   - requirements: 4,5
 
-- [ ] T2 — Emit targeted slice selectors
+- [x] T2 — Emit targeted slice selectors
   - why: eliminate prose parsing for `read-targeted` (Req 5)
   - role: builder
   - files: internal/context/manifest.go, internal/context/slice.go, internal/context/manifest_test.go
@@ -22,7 +22,7 @@
   - requirements: 5
 
 ## Wave 2 — Mode-aware required items
-- [ ] T3 — Remove unconditional Pinky skill from briefing
+- [x] T3 — Remove unconditional Pinky skill from briefing
   - why: base-mode context must not pay Pinky overhead (Req 1)
   - role: builder
   - files: internal/context/manifest.go, internal/context/manifest_test.go, internal/cmd/context_manifest_cmd_test.go
@@ -32,7 +32,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T4 — Add steering constitution items
+- [x] T4 — Add steering constitution items
   - why: manifest must be the load oracle (Req 2)
   - role: builder
   - files: internal/context/manifest.go, internal/cmd/context.go
@@ -43,7 +43,7 @@
   - requirements: 2
 
 ## Wave 3 — Fusion-aware budget actions
-- [ ] T5 — Add fusion policy/help run-command references
+- [x] T5 — Add fusion policy/help run-command references
   - why: config and schema awareness without repeated bloat (Req 3)
   - role: builder
   - files: internal/context/manifest.go, internal/cmd/context.go
@@ -53,7 +53,7 @@
   - depends: T4, session-bootstrap/T3
   - requirements: 3
 
-- [ ] T6 — Over-budget recommendations
+- [x] T6 — Over-budget recommendations
   - why: agents need deterministic overflow handling (Req 4)
   - role: builder
   - files: internal/context/manifest.go, internal/cmd/context.go, internal/cmd/check.go
@@ -63,7 +63,7 @@
   - depends: T1
   - requirements: 4
 
-- [ ] T7 — Docs update for load oracle
+- [x] T7 — Docs update for load oracle
   - why: agents must trust manifest over ad-hoc loading (Req 1,2,3,4,5)
   - role: builder
   - files: docs/agent-integration.md, internal/core/embed_templates/AGENTS.md

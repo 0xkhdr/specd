@@ -27,12 +27,12 @@ Each wave starts once its listed specs are in flight; intra-spec waves live in e
 | session-bootstrap | in-progress | — | Wave 1 complete: core `FusionBootstrap` model and read-only assembler added. |
 | command-schema-guardrails | in-progress | session-bootstrap/T3 | Wave 1 complete: metadata structs enriched and current registry annotated. |
 
-### Wave 2 — Policy and context alignment (P0/P1) — **status: not-started**
+### Wave 2 — Policy and context alignment (P0/P1) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| configuration-mode-sentinel | not-started | — | Strict config diagnostics plus `specd fusion policy`. |
-| context-manifest-zero-overhead | not-started | session-bootstrap/T3 | Make `specd context` the load oracle with mode-aware items, selectors, and budget actions. |
+| configuration-mode-sentinel | complete | — | Strict config diagnostics, `specd fusion policy`, doctor integration, and policy docs complete. |
+| context-manifest-zero-overhead | complete | session-bootstrap/T3 | Context manifest selectors, budget fields/actions, mode-aware Pinky loading, and docs complete. |
 
 ### Wave 3 — Host and MCP adherence (P1) — **status: not-started**
 

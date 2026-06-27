@@ -1,0 +1,133 @@
+package core
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+type ConfigDiagnostic struct {
+	Path     string `json:"path"`
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+}
+
+func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
+	path := ConfigPath(root)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "info", Message: "missing; defaults in effect"}}
+		}
+		return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "error", Message: err.Error()}}
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "error", Message: err.Error()}}
+	}
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return DefaultConfig, []ConfigDiagnostic{{Path: ".specd/config.json", Severity: "error", Message: "invalid JSON: " + err.Error()}}
+	}
+	cfg := LoadConfig(root)
+	d := []ConfigDiagnostic{}
+	validateStringEnum(doc, "roles.subagentMode", []string{"inline", "delegate"}, &d)
+	for _, p := range []string{"gates.traceability", "gates.acceptance", "gates.scope", "gates.contextBudget", "gates.modeCapability"} {
+		validateStringEnum(doc, p, []string{"", "off", "warn", "error"}, &d)
+	}
+	validateStringEnum(doc, "verify.sandbox", []string{"none", "bwrap", "container"}, &d)
+	validateStringEnum(doc, "orchestration.approvalPolicy", []string{"manual", "planning", "session"}, &d)
+	validateStringEnum(doc, "orchestration.workerMode", []string{"host"}, &d)
+	validateStringEnum(doc, "orchestration.transport.kind", []string{"file"}, &d)
+	validateStringEnum(doc, "orchestration.compactionPolicy", []string{"", CompactionNone, CompactionPhase, CompactionBudget, CompactionBoth}, &d)
+	validateStringEnum(doc, "mcp.expose", []string{"", "all", "essential", "phase"}, &d)
+	validateIntRange(doc, "promotionThreshold", 0, 1000000, &d)
+	validateIntRange(doc, "gates.maxContextTokens", 0, MaxSoftContextTokens(), &d)
+	validateIntRange(doc, "orchestration.maxWorkers", minMaxWorkers, maxMaxWorkers, &d)
+	validateIntRange(doc, "orchestration.maxRetries", minMaxRetries, maxMaxRetries, &d)
+	validateIntRange(doc, "orchestration.sessionTimeoutMinutes", minSessionTimeoutMinutes, maxSessionTimeoutMinutes, &d)
+	validateIntRange(doc, "orchestration.transport.pollIntervalMillis", minPollIntervalMillis, maxPollIntervalMillis, &d)
+	validateIntRange(doc, "orchestration.transport.messageTTLSeconds", minMessageTTLSeconds, maxMessageTTLSeconds, &d)
+	validateIntRange(doc, "orchestration.transport.leaseSeconds", minLeaseSeconds, maxLeaseSeconds, &d)
+	validateIntRange(doc, "orchestration.transport.heartbeatSeconds", minHeartbeatSeconds, maxHeartbeatSeconds, &d)
+	validateIntRange(doc, "orchestration.program.maxConcurrentSpecs", minMaxConcurrentSpecs, maxMaxConcurrentSpecs, &d)
+	if err := ValidateOrchestrationConfig(&cfg.Orchestration); err != nil {
+		d = append(d, ConfigDiagnostic{Path: "orchestration", Severity: "error", Message: err.Error()})
+	}
+	return cfg, d
+}
+
+func MaxSoftContextTokens() int { return 200000 }
+
+func validateStringEnum(doc map[string]json.RawMessage, path string, allowed []string, d *[]ConfigDiagnostic) {
+	raw, ok := rawAtPath(doc, path)
+	if !ok {
+		return
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		*d = append(*d, ConfigDiagnostic{Path: path, Severity: "error", Message: "must be string"})
+		return
+	}
+	for _, a := range allowed {
+		if value == a {
+			return
+		}
+	}
+	*d = append(*d, ConfigDiagnostic{Path: path, Severity: "error", Message: fmt.Sprintf("unsupported %q; allowed: %v", value, allowed)})
+}
+
+func validateIntRange(doc map[string]json.RawMessage, path string, min, max int, d *[]ConfigDiagnostic) {
+	raw, ok := rawAtPath(doc, path)
+	if !ok {
+		return
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err != nil {
+		*d = append(*d, ConfigDiagnostic{Path: path, Severity: "error", Message: "must be integer"})
+		return
+	}
+	if value < min || value > max {
+		*d = append(*d, ConfigDiagnostic{Path: path, Severity: "error", Message: fmt.Sprintf("%d outside [%d,%d]", value, min, max)})
+	}
+}
+
+func rawAtPath(doc map[string]json.RawMessage, path string) (json.RawMessage, bool) {
+	parts := stringsSplit(path, '.')
+	cur := doc
+	for i, p := range parts {
+		raw, ok := cur[p]
+		if !ok {
+			return nil, false
+		}
+		if i == len(parts)-1 {
+			return raw, true
+		}
+		var next map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &next); err != nil {
+			return nil, false
+		}
+		cur = next
+	}
+	return nil, false
+}
+
+func stringsSplit(s string, sep byte) []string {
+	out := []string{}
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == sep {
+			out = append(out, s[start:i])
+			start = i + 1
+		}
+	}
+	return append(out, s[start:])
+}
+
+func HasErrorDiagnostics(diags []ConfigDiagnostic) bool {
+	for _, d := range diags {
+		if d.Severity == "error" {
+			return true
+		}
+	}
+	return false
+}

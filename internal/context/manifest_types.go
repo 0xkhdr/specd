@@ -26,17 +26,27 @@ type MissionContextManifest struct {
 	// wire back-compat at version 1). EstimatedTokens is the sum of required-item
 	// hints; Budget is the effective ceiling derived from phase, role, file count
 	// and any host-negotiated cap. Omitting them reproduces the pre-feature bytes.
-	EstimatedTokens int `json:"estimatedTokens,omitempty"`
-	Budget          int `json:"budget,omitempty"`
+	EstimatedTokens int      `json:"estimatedTokens,omitempty"`
+	Budget          int      `json:"budget,omitempty"`
+	OverBudget      bool     `json:"overBudget,omitempty"`
+	BudgetActions   []string `json:"budgetActions,omitempty"`
+}
+
+type ContextSelector struct {
+	TaskID         string   `json:"taskID,omitempty"`
+	Requirements   []int    `json:"requirements,omitempty"`
+	DesignHeadings []string `json:"designHeadings,omitempty"`
+	Artifact       string   `json:"artifact,omitempty"`
 }
 
 type MissionContextItem struct {
-	Order     int    `json:"order"`
-	Kind      string `json:"kind"`
-	Path      string `json:"path,omitempty"`
-	Command   string `json:"command,omitempty"`
-	Mode      string `json:"mode"`
-	Required  bool   `json:"required"`
-	TokenHint int    `json:"tokenHint,omitempty"`
-	Rationale string `json:"rationale"`
+	Order     int              `json:"order"`
+	Kind      string           `json:"kind"`
+	Path      string           `json:"path,omitempty"`
+	Command   string           `json:"command,omitempty"`
+	Mode      string           `json:"mode"`
+	Required  bool             `json:"required"`
+	TokenHint int              `json:"tokenHint,omitempty"`
+	Rationale string           `json:"rationale"`
+	Selector  *ContextSelector `json:"selector,omitempty"`
 }

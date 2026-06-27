@@ -9,9 +9,12 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
 
 ## Five rules (non-negotiable)
 
-1. **Load context first.** At the start of every session, read the always-on steering files
-   `.specd/steering/{reasoning,workflow,product,tech,structure}.md`. The sixth, `memory.md`, is
-   loaded phase-scoped (EXECUTE + REFLECT) — `specd context <spec>` tells you exactly what to load when.
+1. **Load context first.** At session start run `specd fusion bootstrap --json` when available,
+   cache command/config digests, then read always-on steering files
+   `.specd/steering/{reasoning,workflow,product,tech,structure}.md`. Before acting on a spec run
+   `specd fusion policy <spec> --expect-config-digest <cached> --json` and obey its mode/config
+   decision. The sixth steering file, `memory.md`, is loaded phase-scoped (EXECUTE + REFLECT) —
+   `specd context <spec>` tells you exactly what to load when.
 
 2. **Follow the workflow** in `.specd/steering/workflow.md` — the INTAKE → PERCEIVE → ANALYZE →
    PLAN → EXECUTE → VERIFY → REFLECT lifecycle. Each `→` is a gate.
@@ -67,8 +70,9 @@ orchestration, while a spec's `executionMode` *selects* it.
 
 ## What loads when
 
-`specd context <spec>` is authoritative for the minimal file set per phase. This table is a
-hint, not a substitute — **re-run `specd context <spec>` each turn; don't trust this from memory**
+`specd context <spec>` and its `contextManifest` are authoritative for the minimal file set per
+phase, including targeted selectors and over-budget actions. This table is a hint, not a
+substitute — **re-run `specd context <spec>` each turn; don't trust this from memory**
 (phases change what's in scope).
 
 | Phase | Loads (beyond always-on steering) |

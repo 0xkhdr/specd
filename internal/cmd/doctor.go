@@ -126,6 +126,19 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
 	}
 
+	_, configDiagnostics := core.LoadConfigStrict(root)
+	if core.HasErrorDiagnostics(configDiagnostics) {
+		parts := []string{}
+		for _, d := range configDiagnostics {
+			if d.Severity == "error" {
+				parts = append(parts, d.Path+": "+d.Message)
+			}
+		}
+		addDoctorFailure(&result, "config-policy", strings.Join(parts, "; "), "fix .specd/config.json, then rerun `specd fusion policy --json`")
+	} else {
+		result.Checks = append(result.Checks, doctorCheck{Name: "config-policy", Status: "pass", Detail: "strict config validation passed"})
+	}
+
 	if probe, probeErr := runtime.Probe(context.Background(), nil, 2*time.Second); probeErr != nil {
 		result.Orchestration.ServerCapability = "unavailable"
 		addDoctorFailure(&result, "mcp", probeErr.Error(), "run `specd doctor` after rebuilding or reinstalling specd")

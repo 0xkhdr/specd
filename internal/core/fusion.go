@@ -78,6 +78,114 @@ type FusionActiveSpecMode struct {
 	Gate   string `json:"gate"`
 }
 
+type FusionPolicy struct {
+	Version              int                `json:"version"`
+	Root                 string             `json:"root"`
+	SubagentMode         string             `json:"subagentMode"`
+	OrchestrationEnabled bool               `json:"orchestrationEnabled"`
+	ApprovalPolicy       string             `json:"approvalPolicy"`
+	WorkerMode           string             `json:"workerMode"`
+	MaxWorkers           int                `json:"maxWorkers"`
+	MaxRetries           int                `json:"maxRetries"`
+	TimeoutSeconds       int                `json:"timeoutSeconds"`
+	VerifySandbox        string             `json:"verifySandbox"`
+	GateSeverities       map[string]string  `json:"gateSeverities"`
+	MCPExposure          FusionMCPExposure  `json:"mcpExposure"`
+	ConfigDigest         string             `json:"configDigest"`
+	ConfigFilePresent    bool               `json:"configFilePresent"`
+	DigestMatch          *bool              `json:"digestMatch,omitempty"`
+	ExpectedConfigDigest string             `json:"expectedConfigDigest,omitempty"`
+	Spec                 *FusionSpecPolicy  `json:"spec,omitempty"`
+	Diagnostics          []ConfigDiagnostic `json:"diagnostics"`
+	Violations           []string           `json:"violations"`
+	Recommendations      []string           `json:"recommendations"`
+}
+
+type FusionMCPExposure struct {
+	Expose               string   `json:"expose"`
+	EssentialTools       []string `json:"essentialTools,omitempty"`
+	IncludeMeta          bool     `json:"includeMeta"`
+	IncludeOrchestration *bool    `json:"includeOrchestration,omitempty"`
+}
+
+type FusionSpecPolicy struct {
+	Slug            string `json:"slug"`
+	SpecMode        string `json:"specMode"`
+	ModeOrigin      string `json:"modeOrigin"`
+	BrainAllowed    bool   `json:"brainAllowed"`
+	BaseLoopAllowed bool   `json:"baseLoopAllowed"`
+	Recommended     string `json:"recommendedCommandFamily"`
+	NextCommand     string `json:"nextCommand"`
+	PolicyViolation string `json:"policyViolation,omitempty"`
+}
+
+func BuildFusionPolicy(root, slug, expectDigest string) (FusionPolicy, error) {
+	if root == "" {
+		var ok bool
+		root, ok = FindSpecdRoot("")
+		if !ok {
+			return FusionPolicy{}, NotFoundError("no .specd/ found in this directory or any parent. Run `specd init` first.")
+		}
+	}
+	cfg, diags := LoadConfigStrict(root)
+	digest, present := fileDigest(ConfigPath(root))
+	policy := FusionPolicy{
+		Version: FusionBootstrapVersion, Root: root,
+		SubagentMode: cfg.Roles.SubagentMode, OrchestrationEnabled: cfg.Orchestration.Enabled,
+		ApprovalPolicy: cfg.Orchestration.ApprovalPolicy, WorkerMode: cfg.Orchestration.WorkerMode,
+		MaxWorkers: cfg.Orchestration.MaxWorkers, MaxRetries: cfg.Orchestration.MaxRetries,
+		TimeoutSeconds: cfg.Orchestration.SessionTimeoutMinutes * 60,
+		VerifySandbox:  cfg.Verify.Sandbox, GateSeverities: fusionGateSeverities(cfg),
+		MCPExposure:  FusionMCPExposure{Expose: cfg.MCP.Expose, EssentialTools: cfg.MCP.EssentialTools, IncludeMeta: cfg.MCP.IncludeMeta, IncludeOrchestration: cfg.MCP.IncludeOrchestration},
+		ConfigDigest: digest, ConfigFilePresent: present, Diagnostics: diags,
+		Violations: []string{}, Recommendations: []string{},
+	}
+	if expectDigest != "" {
+		match := digest == expectDigest
+		policy.DigestMatch = &match
+		policy.ExpectedConfigDigest = expectDigest
+		if !match {
+			policy.Violations = append(policy.Violations, "config digest mismatch")
+			policy.Recommendations = append(policy.Recommendations, "rerun `specd fusion bootstrap --json`")
+		}
+	}
+	if HasErrorDiagnostics(diags) {
+		policy.Violations = append(policy.Violations, "invalid config")
+	}
+	if slug != "" {
+		state, err := LoadState(root, slug)
+		if err != nil {
+			return FusionPolicy{}, err
+		}
+		mode, origin := ResolveMode("", state)
+		specPolicy := FusionSpecPolicy{Slug: slug, SpecMode: mode, ModeOrigin: origin}
+		switch mode {
+		case ModeOrchestrated:
+			if cfg.Orchestration.Enabled {
+				specPolicy.BrainAllowed = true
+				specPolicy.BaseLoopAllowed = false
+				specPolicy.Recommended = "brain run or MCP brain_orchestrate"
+				specPolicy.NextCommand = "specd brain run " + slug
+			} else {
+				specPolicy.BrainAllowed = false
+				specPolicy.BaseLoopAllowed = false
+				specPolicy.PolicyViolation = "spec is orchestrated but project orchestration is disabled"
+				specPolicy.Recommended = "specd mode " + slug + " --set base or enable orchestration"
+				specPolicy.NextCommand = "specd mode " + slug + " --set base"
+				policy.Violations = append(policy.Violations, specPolicy.PolicyViolation)
+			}
+		default:
+			specPolicy.BrainAllowed = false
+			specPolicy.BaseLoopAllowed = true
+			specPolicy.Recommended = "context/next/verify/task"
+			specPolicy.NextCommand = "specd context " + slug
+		}
+		policy.Spec = &specPolicy
+		policy.Recommendations = append(policy.Recommendations, specPolicy.Recommended)
+	}
+	return policy, nil
+}
+
 func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, error) {
 	if root == "" {
 		var ok bool

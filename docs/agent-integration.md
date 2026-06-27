@@ -89,6 +89,15 @@ packet — a 5-task wave on one role no longer repeats the role prompt 5×. Host
 that cannot resolve asset paths pass `--inline-roles` to restore full-text
 `rolePrompt` in every packet (back-compat).
 
+## Fusion bootstrap and policy sentinel
+
+At session start, run `specd fusion bootstrap --json` when available. Cache its
+`commands.digest` and `config.digest`. Before acting on one spec, run
+`specd fusion policy <slug> --expect-config-digest <cached> --json`; digest
+mismatch means rerun bootstrap. The policy output is binding for
+`roles.subagentMode`, orchestration capability, verify sandbox, gate severities,
+MCP exposure, and Base vs Orchestrated loop choice.
+
 ## Context engineering
 
 `specd context <slug>` controls what enters the agent's context window:
@@ -135,8 +144,9 @@ the budget reflects real bytes.
 
 **Budget enforcement.** The opt-in `context-budget` gate (off by default) fails
 `specd check` when required-item `estimatedTokens` exceeds `budget`, naming the
-heaviest items. Enable it in `.specd/config.json` under `gates.contextBudget`
-(`"warn"` or `"error"`).
+heaviest items. JSON manifests may include `overBudget`, `budgetActions`, and
+per-item `selector` metadata so hosts can load exact slices. Enable the gate in
+`.specd/config.json` under `gates.contextBudget` (`"warn"` or `"error"`).
 
 ---
 

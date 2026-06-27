@@ -111,12 +111,13 @@ func defaultBriefRole(state *core.State) string {
 
 func buildContextManifest(root, slug string, state *core.State, doc core.ParsedTasks) contextpkg.MissionContextManifest {
 	req := contextpkg.ContextRequest{
-		Slug:         slug,
-		Status:       state.Status,
-		Role:         defaultBriefRole(state),
-		Mode:         contextpkg.ContextModeBriefing,
-		HostBudget:   core.HostContextBudgetFromEnv(),
-		ReadArtifact: core.SpecArtifactReader(root, slug),
+		Slug:           slug,
+		Status:         state.Status,
+		Role:           defaultBriefRole(state),
+		Mode:           contextpkg.ContextModeBriefing,
+		HostBudget:     core.HostContextBudgetFromEnv(),
+		ContextCommand: "specd context " + slug,
+		ReadArtifact:   core.SpecArtifactReader(root, slug),
 	}
 	if state.Status == core.StatusExecuting {
 		if next := core.NextRunnable(core.DagTasksFromState(state)); next.Kind == core.NextTask {
@@ -146,11 +147,14 @@ func manifestJSON(m contextpkg.MissionContextManifest) map[string]interface{} {
 		if it.Command != "" {
 			item["command"] = it.Command
 		}
+		if it.Selector != nil {
+			item["selector"] = it.Selector
+		}
 		items = append(items, item)
 	}
 	return map[string]interface{}{
 		"version": m.Version, "softTokenCeiling": m.SoftTokenCeiling, "strategy": m.Strategy, "role": m.Role,
-		"estimatedTokens": m.EstimatedTokens, "budget": m.Budget, "items": items,
+		"estimatedTokens": m.EstimatedTokens, "budget": m.Budget, "overBudget": m.OverBudget, "budgetActions": m.BudgetActions, "items": items,
 	}
 }
 

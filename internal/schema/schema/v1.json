@@ -207,7 +207,9 @@
         "role": { "type": "string", "enum": ["scout", "researcher", "reviewer", "architect", "builder", "tester", "documenter", "verifier", "investigator"] },
         "items": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/MissionContextItem" } },
         "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 200000 },
-        "budget": { "type": "integer", "minimum": 0, "maximum": 200000 }
+        "budget": { "type": "integer", "minimum": 0, "maximum": 200000 },
+        "overBudget": { "type": "boolean" },
+        "budgetActions": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } }
       }
     },
     "MissionContextItem": {
@@ -216,13 +218,24 @@
       "required": ["order", "kind", "mode", "required", "rationale"],
       "properties": {
         "order": { "type": "integer", "minimum": 1, "maximum": 128 },
-        "kind": { "type": "string", "enum": ["role", "skill", "phase-skill", "spec-context", "scope-file", "source-artifact"] },
+        "kind": { "type": "string", "enum": ["role", "skill", "steering", "phase-skill", "fusion-policy", "command-schema", "spec-context", "scope-file", "source-artifact"] },
         "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
         "command": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "mode": { "type": "string", "enum": ["read-full", "run-command", "read-targeted", "reference-if-needed"] },
         "required": { "type": "boolean" },
         "tokenHint": { "type": "integer", "minimum": 0, "maximum": 200000 },
-        "rationale": { "type": "string", "minLength": 1, "maxLength": 16384 }
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "selector": { "$ref": "#/$defs/ContextSelector" }
+      }
+    },
+    "ContextSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "taskID": { "type": "string", "pattern": "^[TA][0-9]+$" },
+        "requirements": { "type": "array", "maxItems": 128, "items": { "type": "integer", "minimum": 1 } },
+        "designHeadings": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "artifact": { "type": "string", "minLength": 1, "maxLength": 128 }
       }
     },
     "ACPMissionPayload": {

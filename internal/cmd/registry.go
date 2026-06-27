@@ -20,6 +20,7 @@ type Command struct {
 var Registry = []Command{
 	{"init", RunInit},
 	{"doctor", RunDoctor},
+	{"fusion", RunFusion},
 	{"new", RunNew},
 	{"approve", RunApprove},
 	{"decision", RunDecision},
