@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeAdapter struct {
@@ -186,7 +187,33 @@ func TestDefaultRegistryIncludesAntigravityNotGemini(t *testing.T) {
 
 func TestDefaultAdapterConformance(t *testing.T) {
 	root := t.TempDir()
-	registry := DefaultRegistry()
+	deps := AdapterDeps{
+		Detector: DefaultDetector(),
+		Run: func(ctx context.Context, dir, command string, args []string) ([]byte, error) {
+			if command == "claude" {
+				target := filepath.Join(dir, ".mcp.json")
+				data := map[string]any{
+					"mcpServers": map[string]any{
+						"specd": map[string]any{
+							"command": "specd",
+							"args":    []string{"mcp", "--root", dir},
+						},
+					},
+				}
+				bytes, _ := json.Marshal(data)
+				_ = os.WriteFile(target, bytes, 0644)
+			}
+			return nil, nil
+		},
+		Now: time.Now,
+	}
+	registry := MustRegistry(
+		NewClaudeCodeAdapterWithDeps(deps),
+		NewCodexAdapterWithDeps(deps, false),
+		NewCursorAdapterWithDeps(deps),
+		NewAntigravityAdapterWithDeps(deps),
+		NewVSCodeAdapterWithDeps(deps),
+	)
 	for _, adapter := range registry.Adapters() {
 		t.Run(adapter.Name(), func(t *testing.T) {
 			before, err := os.ReadDir(root)

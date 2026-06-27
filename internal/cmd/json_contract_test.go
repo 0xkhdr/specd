@@ -6,6 +6,8 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -312,6 +314,9 @@ func TestJSONNoANSI(t *testing.T) {
 		})
 	}
 	t.Run("doctor", func(t *testing.T) {
+		// Remove a required scaffold file to guarantee doctor fails with ExitGate
+		// regardless of the host's installed agent integrations.
+		_ = os.Remove(filepath.Join(h.Root, ".specd", "steering", "reasoning.md"))
 		res := h.RunExpect(core.ExitGate, "doctor", "--json")
 		if strings.ContainsRune(res.Stdout, '\x1b') {
 			t.Errorf("doctor --json stdout contains ANSI escape: %q", res.Stdout)
