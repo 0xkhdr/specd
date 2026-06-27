@@ -35,6 +35,10 @@ const (
 	ACPMessageQuery     ACPMessageType = "query"
 	ACPMessageDirective ACPMessageType = "directive"
 	ACPMessageCancelled ACPMessageType = "cancelled"
+	// ACPMessageCheckpoint is a worker's durable mid-task progress marker (R1).
+	// Like progress it flows pinky -> brain, but it also pairs with an on-disk
+	// CheckpointRecord and releases the worker's lease so the Brain can resume.
+	ACPMessageCheckpoint ACPMessageType = "checkpoint"
 )
 
 var (
@@ -56,6 +60,7 @@ var (
 		ACPMessageMission: true, ACPMessageAccepted: true, ACPMessageHeartbeat: true,
 		ACPMessageProgress: true, ACPMessageEvidence: true, ACPMessageBlocker: true,
 		ACPMessageQuery: true, ACPMessageDirective: true, ACPMessageCancelled: true,
+		ACPMessageCheckpoint: true,
 	}
 )
 
@@ -134,6 +139,18 @@ type ACPDirectivePayload struct {
 
 type ACPCancelledPayload struct {
 	Reason string `json:"reason"`
+}
+
+// ACPCheckpointPayload is the event-side summary of a checkpoint. The full
+// resume payload (context manifest, working notes) lives in the on-disk
+// CheckpointRecord; the event carries only the lean, bounded fields the Brain
+// and observers need: how far the work got, why it stopped, and the file/git
+// frontier it reached.
+type ACPCheckpointPayload struct {
+	Percent      int      `json:"percent"`
+	Reason       string   `json:"reason,omitempty"`
+	ChangedFiles []string `json:"changedFiles,omitempty"`
+	GitHead      string   `json:"gitHead,omitempty"`
 }
 
 func NewACPID() (string, error) {
@@ -234,7 +251,7 @@ func validateACPDirection(messageType ACPMessageType, from, to string) error {
 		if !fromBrain || toBrain {
 			return fmt.Errorf("acp: %s must be sent from brain to pinky", messageType)
 		}
-	case ACPMessageAccepted, ACPMessageProgress, ACPMessageEvidence, ACPMessageBlocker, ACPMessageQuery, ACPMessageCancelled:
+	case ACPMessageAccepted, ACPMessageProgress, ACPMessageEvidence, ACPMessageBlocker, ACPMessageQuery, ACPMessageCancelled, ACPMessageCheckpoint:
 		if fromBrain || !toBrain {
 			return fmt.Errorf("acp: %s must be sent from pinky to brain", messageType)
 		}
@@ -377,6 +394,26 @@ func validateACPPayload(messageType ACPMessageType, task string, raw []byte) err
 			return err
 		}
 		if err := validateACPText("reason", payload.Reason, true); err != nil {
+			return err
+		}
+	case ACPMessageCheckpoint:
+		var payload ACPCheckpointPayload
+		if err := decodeACPStrict(raw, &payload); err != nil {
+			return err
+		}
+		if task == "" {
+			return fmt.Errorf("task is required")
+		}
+		if payload.Percent < 0 || payload.Percent > 100 {
+			return fmt.Errorf("percent must be between 0 and 100")
+		}
+		if err := validateACPText("reason", payload.Reason, false); err != nil {
+			return err
+		}
+		if err := validateACPPaths("changedFiles", payload.ChangedFiles); err != nil {
+			return err
+		}
+		if err := validateACPText("gitHead", payload.GitHead, false); err != nil {
 			return err
 		}
 	default:

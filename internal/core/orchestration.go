@@ -29,6 +29,13 @@ const (
 	// effecting decision with no worker dispatch: the engine writes a phase
 	// summary and a ledger checkpoint; the host performs the real clear.
 	OrchestrationCompact OrchestrationAction = "compact"
+	// OrchestrationResume tells the host to dispatch a runnable task by handing
+	// the worker its prior mid-task checkpoint instead of a fresh brief, so the
+	// worker continues from the recorded progress rather than rebuilding from
+	// zero (R1, R4). It is a dispatch with a resume payload: same (taskId,
+	// attempt) as a fresh dispatch, but the Brain has observed a matching
+	// checkpoint and no active lease.
+	OrchestrationResume OrchestrationAction = "resume-from-checkpoint"
 )
 
 // Compaction policy modes. Empty is treated as CompactionNone.
@@ -95,6 +102,11 @@ type OrchestrationPolicy struct {
 	// budget-driven compaction fires, in [0,1]. omitempty keeps the zero value
 	// (no budget trigger) out of byte-stable session.json.
 	CompactionBudgetThreshold float64 `json:"compactionBudgetThreshold,omitempty"`
+	// CheckpointEnabled mirrors resilience.checkpointEnabled into the policy so
+	// the pure (snapshot, policy) decision path can gate resume-from-checkpoint
+	// without reading config. omitempty keeps existing session.json byte-stable
+	// when the resilience block is absent.
+	CheckpointEnabled bool `json:"checkpointEnabled,omitempty"`
 }
 
 // effectiveCompactionPolicy maps the empty policy to CompactionNone so callers
@@ -178,6 +190,24 @@ type OrchestrationSnapshot struct {
 	LastCompactionStep    uint64 `json:"lastCompactionStep,omitempty"`
 	LedgerEstimatedTokens int    `json:"ledgerEstimatedTokens,omitempty"`
 	LedgerBudget          int    `json:"ledgerBudget,omitempty"`
+	// Checkpoints carries the mid-task checkpoints that survive on disk for this
+	// session, projected so DecideOrchestration can prefer resume-from-checkpoint
+	// over a fresh dispatch while staying a pure (snapshot, policy) function.
+	// SenseOrchestration populates it only when resilience.checkpointEnabled is
+	// set; omitempty keeps snapshots byte-identical to today when the feature is
+	// off or no checkpoint exists.
+	Checkpoints []OrchestrationCheckpointSnapshot `json:"checkpoints,omitempty"`
+}
+
+// OrchestrationCheckpointSnapshot is the snapshot projection of one persisted
+// CheckpointRecord: just the keys DecideOrchestration needs to match a runnable
+// task (taskId, attempt) plus the recorded progress for the decision reason. It
+// carries no secrets and no resume payload — the worker brief loads that from
+// the record on dispatch.
+type OrchestrationCheckpointSnapshot struct {
+	TaskID          string `json:"taskId"`
+	Attempt         int    `json:"attempt"`
+	ProgressPercent int    `json:"progressPercent"`
 }
 
 // OrchestrationAuthoring is a synthetic, single authoring work item describing
@@ -232,6 +262,68 @@ type OrchestrationSession struct {
 	PeakTokens         int                  `json:"peakTokens,omitempty"`
 }
 
+// CheckpointRecord is a worker's durable mid-task progress snapshot (R1). A
+// worker writes one before shedding context (host /clear) or on a token warning,
+// then exits gracefully; the Brain later prefers resuming from it over a fresh
+// dispatch (see resume-from-checkpoint). The record carries everything a fresh
+// worker needs to continue from ProgressPercent rather than rebuild from zero:
+// the context manifest it was given, free-form working notes, the files it has
+// already touched, and the git head it observed. All resume-payload fields are
+// omitempty so a minimal checkpoint round-trips byte-stable.
+type CheckpointRecord struct {
+	Version         int      `json:"version"`
+	SessionID       string   `json:"sessionId"`
+	Spec            string   `json:"spec"`
+	TaskID          string   `json:"taskId"`
+	Attempt         int      `json:"attempt"`
+	WorkerID        string   `json:"workerId"`
+	ProgressPercent int      `json:"progressPercent"`
+	ContextManifest string   `json:"contextManifest,omitempty"`
+	WorkingNotes    string   `json:"workingNotes,omitempty"`
+	ChangedFiles    []string `json:"changedFiles,omitempty"`
+	GitHead         string   `json:"gitHead,omitempty"`
+	Reason          string   `json:"reason,omitempty"`
+	CreatedAt       string   `json:"createdAt"`
+}
+
+// ValidateCheckpointRecord rejects malformed checkpoints before they are
+// persisted or surfaced into a snapshot. It mirrors the validation discipline of
+// ValidateOrchestrationSession: opaque session ID, slug spec, task-ID grammar,
+// attempt >= 1, progress within [0,100], runtime-segment worker ID, parseable
+// timestamp.
+func ValidateCheckpointRecord(rec CheckpointRecord) error {
+	if rec.Version != OrchestrationModelVersion {
+		return fmt.Errorf("orchestration model: unsupported checkpoint version %d", rec.Version)
+	}
+	if err := validateACPOpaqueID("session ID", rec.SessionID); err != nil {
+		return err
+	}
+	if err := ValidateSlug(rec.Spec); err != nil {
+		return fmt.Errorf("orchestration model: invalid spec: %w", err)
+	}
+	if !acpTaskIDRE.MatchString(rec.TaskID) {
+		return fmt.Errorf("orchestration model: invalid checkpoint taskId")
+	}
+	if rec.Attempt < 1 {
+		return fmt.Errorf("orchestration model: checkpoint attempt must be >= 1")
+	}
+	if err := validateACPRuntimeSegment("worker ID", rec.WorkerID); err != nil {
+		return err
+	}
+	if rec.ProgressPercent < 0 || rec.ProgressPercent > 100 {
+		return fmt.Errorf("orchestration model: checkpoint progressPercent outside [0,100]")
+	}
+	for _, file := range rec.ChangedFiles {
+		if file == "" {
+			return fmt.Errorf("orchestration model: checkpoint changedFiles contains empty path")
+		}
+	}
+	if _, err := parseACPTime("createdAt", rec.CreatedAt); err != nil {
+		return err
+	}
+	return nil
+}
+
 func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
 	if err := ValidateOrchestrationConfig(&cfg); err != nil {
 		return OrchestrationPolicy{}, err
@@ -244,6 +336,7 @@ func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
 		HostReportedCostLimitUSD:  cfg.HostReportedCostLimitUSD,
 		CompactionPolicy:          cfg.CompactionPolicy,
 		CompactionBudgetThreshold: cfg.CompactionBudgetThreshold,
+		CheckpointEnabled:         cfg.Resilience != nil && cfg.Resilience.CheckpointEnabled,
 	}
 	if err := ValidateOrchestrationPolicy(policy); err != nil {
 		return OrchestrationPolicy{}, err
@@ -351,6 +444,12 @@ func ValidateOrchestrationSnapshot(snapshot OrchestrationSnapshot) error {
 	}
 	if snapshot.HumanOnlyGate && snapshot.Gate != GateAwaitingApproval {
 		return fmt.Errorf("orchestration model: humanOnlyGate requires awaiting-approval")
+	}
+	for _, cp := range snapshot.Checkpoints {
+		if !acpTaskIDRE.MatchString(cp.TaskID) || cp.Attempt < 1 ||
+			cp.ProgressPercent < 0 || cp.ProgressPercent > 100 {
+			return fmt.Errorf("orchestration model: invalid checkpoint snapshot %q", cp.TaskID)
+		}
 	}
 	return nil
 }
@@ -492,6 +591,12 @@ func normalizeOrchestrationValue(value any) (any, error) {
 			return nil, err
 		}
 		return typed, nil
+	case CheckpointRecord:
+		if err := ValidateCheckpointRecord(typed); err != nil {
+			return nil, err
+		}
+		typed.ChangedFiles = append([]string{}, typed.ChangedFiles...)
+		return typed, nil
 	case OrchestrationPolicy:
 		if err := ValidateOrchestrationPolicy(typed); err != nil {
 			return nil, err
@@ -536,7 +641,7 @@ func validOrchestrationAction(action OrchestrationAction) bool {
 		OrchestrationDispatchAuthor, OrchestrationAdvancePhase,
 		OrchestrationWait, OrchestrationRetry, OrchestrationCancel,
 		OrchestrationReplan, OrchestrationEscalate, OrchestrationCompleteSession,
-		OrchestrationCompact:
+		OrchestrationCompact, OrchestrationResume:
 		return true
 	}
 	return false

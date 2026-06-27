@@ -476,7 +476,8 @@ plumbing. They add no new core authority; each translates to a `specd_brain`/
 | `brain_orchestrate` | `brain run` | `spec` (required), `goal`, `worker_cmd`, `approval_policy` (default `planning`), `max_steps`, `session`, `no_bootstrap` |
 | `brain_status` | `brain status` | `session` (required), `program` |
 | `brain_approve` | `approve` | `spec` (required) |
-| `brain_pause` / `brain_resume` / `brain_cancel` | `brain pause`/`resume`/`cancel` | `session` (required), `program` |
+| `brain_pause` / `brain_cancel` | `brain pause`/`cancel` | `session` (required), `program` |
+| `brain_resume` | `brain resume` (`--list` or `--session`) | `session` (omit to **list** resumable sessions), `max_age_minutes`, `program` |
 
 `brain_orchestrate` bootstraps a missing spec (using `goal` as its title), then
 runs the Brain loop to completion under the planning policy. Supply `worker_cmd`
@@ -544,6 +545,62 @@ editor processes.
 Recovery is file-backed: after a host or MCP restart, call `specd_brain status`
 for the persisted session and continue with `step`. Expired leases are reclaimed
 by Brain within policy, and duplicate Pinky terminal reports are idempotent.
+
+#### Zero-intervention auto-resume on host start (R5)
+
+A crash or IDE/extension restart should not strand an in-flight orchestration.
+The host does not need to remember which spec it was driving — it discovers
+resumable sessions and continues the most recent one. The startup recipe:
+
+1. **List.** Run `specd brain resume --list --json` (or MCP `brain_resume` with
+   no `session`). It returns, most-recently-updated first, every session whose
+   status is `running` or `paused`:
+   `[{sessionID, spec, status, updatedAt, pausedSince, lastDecision}]`. Complete,
+   failed, and cancelling sessions are excluded; an empty array (`[]`, exit 0)
+   means there is nothing to resume.
+2. **Bound staleness.** Pass `--max-age-minutes <n>` (config:
+   `orchestration.resilience.autoResume.maxAgeMinutes`) to drop sessions whose
+   `updatedAt` is older than `n` minutes, so a long-dead session is not woken.
+3. **Resume.** For the chosen session run `specd brain run --session <id>` to
+   continue the driver loop. Resume is idempotent — the CAS on `state.json`
+   guards against double-dispatch, so calling it twice on a `running` session is
+   safe and re-dispatches nothing.
+4. **Tie-break.** When more than one session is resumable, resume the head of the
+   list (most-recently-updated). A host with a UI may instead present the list
+   and let the user choose.
+
+Declare the policy in config so hosts behave consistently:
+
+```jsonc
+{
+  "orchestration": {
+    "resilience": {
+      "autoResume": { "enabled": true, "onHostStart": true, "maxAgeMinutes": 120 }
+    }
+  }
+}
+```
+
+Defaults are `enabled=false`; when the `resilience` block is absent the on-disk
+config stays byte-identical to today, so auto-resume is strictly opt-in.
+
+#### Proactive checkpointing before context shedding (R1/R4)
+
+Before a host sheds context (a `/clear`) or on a token-limit warning, a worker
+should checkpoint rather than abandon mid-task work. `specd pinky checkpoint
+--session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent
+<0-100> [--notes <text>] [--changed-files <csv>] [--git-head <sha>] [--reason
+<text>]` records the progress and hands the task back (the lease is cleared, not
+just released, so the same attempt is re-claimable). A host can force a
+checkpoint of **every** active worker at once with `specd brain checkpoint <slug>
+--session <id> --reason <text>`. On the next step Brain prefers
+`resume-from-checkpoint` over a fresh dispatch for any task with a checkpoint
+matching its current attempt, and the resuming worker's brief is prepended with a
+"resuming — do not restart" header carrying the prior progress, notes, and
+touched files. A stale-attempt checkpoint (left by a superseded attempt) is
+ignored, and a verified-complete task's checkpoint is deleted so finished work is
+never resurrected. All of this is gated on
+`orchestration.resilience.checkpointEnabled` (default off, byte-stable config).
 
 ## Cross-spec programs
 

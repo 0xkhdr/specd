@@ -222,9 +222,37 @@ var intentTools = []intentTool{
 	},
 	{
 		name:        "brain_resume",
-		description: "Resume a paused orchestration session so the Brain loop can step again.",
-		args:        sessionControlArgs,
-		translate:   sessionControlTranslate("resume"),
+		description: "List resumable orchestration sessions, or resume one. Call on startup if a running session exists: with no 'session' it lists every running/paused session (most-recent first) as JSON so the host can pick one; with a 'session' it resumes that one. Idempotent — safe to call repeatedly on startup.",
+		args: []intentArg{
+			{name: "session", typ: "string", description: "Session id to resume. Omit to list resumable sessions instead."},
+			{name: "max_age_minutes", typ: "string", description: "When listing, exclude sessions whose updatedAt is older than this many minutes."},
+			{name: "program", typ: "boolean", description: "Target a program (cross-spec) session instead of a single spec."},
+		},
+		translate: func(args map[string]any) (string, []string, error) {
+			session, hasSession, err := argString(args, "session")
+			if err != nil {
+				return "", nil, err
+			}
+			program, _, err := argBool(args, "program")
+			if err != nil {
+				return "", nil, err
+			}
+			if !hasSession {
+				// Discovery: no session id means "what can I resume?".
+				argv := []string{"resume", "--list"}
+				if maxAge, ok, err := argString(args, "max_age_minutes"); err != nil {
+					return "", nil, err
+				} else if ok {
+					argv = append(argv, "--max-age-minutes", maxAge)
+				}
+				return "brain", argv, nil
+			}
+			argv := []string{"resume", "--session", session}
+			if program {
+				argv = append(argv, "--program")
+			}
+			return "brain", argv, nil
+		},
 	},
 	{
 		name:        "brain_cancel",

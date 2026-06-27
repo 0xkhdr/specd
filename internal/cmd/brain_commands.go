@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -76,6 +77,81 @@ func brainLedger(root string, args cli.Args) int {
 	for _, e := range session.ContextLedger {
 		fmt.Printf("%-6d %-9s %-9s %-9d %-9d %-9d %-9d %s\n",
 			e.StepSequence, e.Phase, e.Action, e.EstimatedTokens, e.HostReportedTokens, e.Budget, e.SoftCeiling, e.Reason)
+	}
+	return core.ExitOK
+}
+
+// brainCheckpoint implements `specd brain checkpoint <slug> --session <id>`:
+// force-checkpoint every worker holding an active lease before the host sheds
+// context (Req 3). Each worker's task is handed back with the supplied reason so
+// the Brain resumes it rather than restarting. Exits 0 with a message when no
+// worker is active or the resilience gate is off.
+func brainCheckpoint(root string, args cli.Args) int {
+	if len(args.Pos) != 2 || args.Str("session") == "" {
+		return usageExit("usage: specd brain checkpoint <slug> --session <id> [--reason <text>] [--json]")
+	}
+	slug := args.Pos[1]
+	if code, ok := requireOrchestratedSpec(root, slug); !ok {
+		return code
+	}
+	cfg := core.LoadConfig(root).Orchestration
+	if !checkpointEnabled(cfg) {
+		fmt.Println("checkpointing disabled (set orchestration.resilience.checkpointEnabled)")
+		return core.ExitOK
+	}
+	reason := args.Str("reason")
+	if reason == "" {
+		reason = "host-clear"
+	}
+	records, err := core.ForceCheckpointAll(root, args.Str("session"), reason, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	if len(records) == 0 {
+		if args.Bool("json") {
+			return printCommandResult(args, []core.CheckpointRecord{})
+		}
+		fmt.Println("no active workers to checkpoint")
+		return core.ExitOK
+	}
+	if args.Bool("json") {
+		return printCommandResult(args, records)
+	}
+	fmt.Printf("checkpointed %d worker(s) for session %s (reason: %s)\n", len(records), args.Str("session"), reason)
+	return core.ExitOK
+}
+
+// brainResumeList implements `specd brain resume --list`: print every session
+// worth resuming after a host restart (running|paused), most-recent first,
+// optionally bounded by --max-age-minutes (R5 Req 1). It is a pure read; --json
+// emits the machine-parseable array a host adapter consumes on startup, and an
+// empty result is `[]` with exit 0.
+func brainResumeList(root string, args cli.Args) int {
+	var maxAge time.Duration
+	if args.Has("max-age-minutes") {
+		minutes, ok := parseNonNegativeIntFlag(args, "max-age-minutes")
+		if !ok {
+			return usageExit("specd brain resume --list: --max-age-minutes must be a non-negative integer")
+		}
+		maxAge = time.Duration(minutes) * time.Minute
+	}
+	sessions, err := core.ListResumableSessions(root, maxAge)
+	if err != nil {
+		return specdExit(err)
+	}
+	if args.Bool("json") || core.IsJSONMode() {
+		if err := core.PrintJSON(sessions); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	if len(sessions) == 0 {
+		fmt.Println("no resumable sessions")
+		return core.ExitOK
+	}
+	fmt.Printf("%-34s %-16s %-10s %-26s %s\n", "session", "spec", "status", "updatedAt", "lastDecision")
+	for _, s := range sessions {
+		fmt.Printf("%-34s %-16s %-10s %-26s %s\n", s.SessionID, s.Spec, s.Status, s.UpdatedAt, s.LastDecision)
 	}
 	return core.ExitOK
 }

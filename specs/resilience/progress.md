@@ -22,12 +22,12 @@ child spec below has its own `spec.md` (requirements + design) and `tasks.md` (w
 The program runs in three waves. A wave starts only when the prior wave's specs are
 `complete`. Cross-wave dependencies are noted; intra-spec waves live in each `tasks.md`.
 
-### Wave 1 — Foundation (P0) — **status: not-started**
+### Wave 1 — Foundation (P0) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| checkpoint-protocol | not-started | — | Net-new `CheckpointRecord`, `pinky/brain checkpoint`, `resume-from-checkpoint` action. |
-| auto-resume | not-started | — | `brain resume --list`, `autoResume` config, MCP `brain_resume`. Distinct from the existing pause/resume lifecycle command. |
+| checkpoint-protocol | complete | — | All T1–T10 landed: `CheckpointRecord`+validator, path helpers, `RecordCheckpoint` (clears the lease so the same attempt is re-claimable), `pinky checkpoint` + `brain checkpoint` CLI, `resume-from-checkpoint` action (sense populates `Checkpoints`, decide prefers resume with strict attempt-guard), resume mission brief with "do not restart" header, cleanup-on-completion, `resilience.checkpointEnabled` gate, and the checkpoint→resume e2e test. |
+| auto-resume | complete | — | All T1–T7 landed: `ListResumableSessions`, `resilience.autoResume` config, `brain resume --list [--max-age-minutes]` discovery (no-flag lifecycle resume unchanged), MCP `brain_resume` (list when `session` omitted, resume when present), AGENTS.md + `docs/agent-integration.md` startup contract, and the list filter/order/exclude integration test. |
 
 ### Wave 2 — Graceful degradation (P1) — **status: not-started**
 

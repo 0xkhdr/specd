@@ -13,7 +13,7 @@ import (
 
 func RunPinky(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|inbox> ...")
+		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|checkpoint|inbox> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -96,6 +96,20 @@ func RunPinky(args cli.Args) int {
 			return specdExit(err)
 		}
 		return printCommandResult(args, event)
+	case "checkpoint":
+		if !checkpointEnabled(cfg) {
+			fmt.Println("checkpointing disabled (set orchestration.resilience.checkpointEnabled)")
+			return core.ExitOK
+		}
+		rec, ok := pinkyCheckpointArgs(args)
+		if len(args.Pos) != 1 || !ok {
+			return usageExit("usage: specd pinky checkpoint --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> [--notes <text>] [--changed-files <csv>] [--git-head <sha>] [--manifest <text>] [--reason <text>] [--json]")
+		}
+		saved, err := core.RecordCheckpoint(root, rec, cfg)
+		if err != nil {
+			return specdExit(err)
+		}
+		return printCommandResult(args, saved)
 	case "release":
 		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
 		if len(args.Pos) != 1 || !ok {
@@ -106,7 +120,7 @@ func RunPinky(args cli.Args) int {
 		}
 		return core.ExitOK
 	default:
-		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|inbox> ...")
+		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|checkpoint|inbox> ...")
 	}
 }
 
@@ -213,6 +227,46 @@ func pinkyBlockArgs(args cli.Args) (core.PinkyBlockerReport, bool) {
 		TaskID:    args.Str("task"),
 		Attempt:   attempt,
 		Reason:    args.Str("reason"),
+	}, true
+}
+
+// checkpointEnabled reports whether the resilience checkpoint gate is on. The
+// pinky/brain checkpoint commands no-op when it is off so the feature stays
+// strictly opt-in (Req 6.3).
+func checkpointEnabled(cfg core.OrchestrationCfg) bool {
+	return cfg.Resilience != nil && cfg.Resilience.CheckpointEnabled
+}
+
+func pinkyCheckpointArgs(args cli.Args) (core.CheckpointRecord, bool) {
+	attempt, ok := parsePositiveIntFlag(args, "attempt")
+	if !ok || args.Str("session") == "" || args.Str("worker") == "" || args.Str("spec") == "" || args.Str("task") == "" {
+		return core.CheckpointRecord{}, false
+	}
+	percent, ok := parseNonNegativeIntFlag(args, "percent")
+	if !ok || percent > 100 {
+		fmt.Println("--percent must be between 0 and 100")
+		return core.CheckpointRecord{}, false
+	}
+	changed := []string{}
+	if args.Str("changed-files") != "" {
+		for _, file := range strings.Split(args.Str("changed-files"), ",") {
+			if trimmed := strings.TrimSpace(file); trimmed != "" {
+				changed = append(changed, trimmed)
+			}
+		}
+	}
+	return core.CheckpointRecord{
+		SessionID:       args.Str("session"),
+		WorkerID:        args.Str("worker"),
+		Spec:            args.Str("spec"),
+		TaskID:          args.Str("task"),
+		Attempt:         attempt,
+		ProgressPercent: percent,
+		ContextManifest: args.Str("manifest"),
+		WorkingNotes:    args.Str("notes"),
+		ChangedFiles:    changed,
+		GitHead:         args.Str("git-head"),
+		Reason:          args.Str("reason"),
 	}, true
 }
 

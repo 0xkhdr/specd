@@ -303,6 +303,14 @@ func ReconcilePinkyEvidence(root string, report PinkyTerminalReport, cfg Orchest
 	if err != nil {
 		return PinkyEvidenceResult{}, err
 	}
+	// A verified-complete task must never be resurrected by a leftover checkpoint
+	// (Req 6). Delete every checkpoint for this task now that it is done. Gated on
+	// the resilience flag so the disabled path touches no new directories.
+	if cfg.Resilience != nil && cfg.Resilience.CheckpointEnabled {
+		if err := CleanupCheckpoint(root, report.SessionID, report.TaskID); err != nil {
+			return PinkyEvidenceResult{}, err
+		}
+	}
 	// Record host-reported token actuals into the context ledger (R7). It is a
 	// no-op when the spec is not running under an orchestration session.
 	if report.HostTokens > 0 {

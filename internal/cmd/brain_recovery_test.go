@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -245,6 +246,102 @@ func TestBrainResumeIdempotent(t *testing.T) {
 	}
 	if after := len(rec.observed()); after != dispatchedBefore {
 		t.Fatalf("resume dispatched new work: before=%d after=%d", dispatchedBefore, after)
+	}
+}
+
+// TestBrainCheckpointResumeNoWorkRedone (W1.10) proves the full checkpoint→resume
+// loop: a worker reaches 70%, checkpoints (shedding context), and the Brain then
+// prefers resume-from-checkpoint over a fresh dispatch — handing a fresh worker
+// the prior progress and notes, with the same attempt's lease released and
+// re-issued exactly once. No work is re-done because the brief says "resume".
+func TestBrainCheckpointResumeNoWorkRedone(t *testing.T) {
+	h := testharness.New(t)
+	slug := recoverySpec(h, "checkpoint-resume")
+	sessionID := repeat("d")
+
+	cfg := core.LoadConfig(h.Root).Orchestration
+	cfg.Enabled = true
+	cfg.Resilience = &core.ResilienceCfg{CheckpointEnabled: true}
+	policy, err := core.NewOrchestrationPolicy(cfg)
+	if err != nil {
+		t.Fatalf("policy: %v", err)
+	}
+	if _, err := core.StartOrchestrationSession(h.Root, slug, sessionID, "test", policy); err != nil {
+		t.Fatalf("StartOrchestrationSession: %v", err)
+	}
+
+	// 1. First decision dispatches T1 attempt 1 (no checkpoint yet).
+	snap, err := core.SenseOrchestration(h.Root, slug, sessionID, policy)
+	if err != nil {
+		t.Fatalf("sense: %v", err)
+	}
+	dec, err := core.DecideOrchestration(snap, policy)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if dec.Action != core.OrchestrationDispatch || dec.TaskID != "T1" || dec.Attempt != 1 {
+		t.Fatalf("first decision = %s %s/%d, want dispatch T1/1", dec.Action, dec.TaskID, dec.Attempt)
+	}
+
+	// 2. Worker claims, reports 70%, then checkpoints and sheds context.
+	mission, err := core.BuildPinkyMission(h.Root, slug, sessionID, "pinky-a", "T1", 1, cfg)
+	if err != nil {
+		t.Fatalf("build mission: %v", err)
+	}
+	if mission.Resume != nil {
+		t.Fatal("fresh dispatch mission must not carry a resume payload")
+	}
+	if _, err := core.ClaimPinkyMission(h.Root, mission, cfg); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	if _, err := core.RecordPinkyProgress(h.Root, core.PinkyProgressReport{
+		SessionID: sessionID, WorkerID: "pinky-a", Spec: slug, TaskID: "T1",
+		Attempt: 1, Percent: 70, Message: "parser written, tests pending",
+	}, cfg); err != nil {
+		t.Fatalf("progress: %v", err)
+	}
+	if _, err := core.RecordCheckpoint(h.Root, core.CheckpointRecord{
+		SessionID: sessionID, Spec: slug, TaskID: "T1", Attempt: 1, WorkerID: "pinky-a",
+		ProgressPercent: 70, WorkingNotes: "wrote the parser, tests pending",
+		ChangedFiles: []string{"internal/core/demo.go"}, Reason: "host /clear",
+	}, cfg); err != nil {
+		t.Fatalf("checkpoint: %v", err)
+	}
+
+	// 3. Brain senses the checkpoint with no active lease and decides resume.
+	snap2, err := core.SenseOrchestration(h.Root, slug, sessionID, policy)
+	if err != nil {
+		t.Fatalf("sense after checkpoint: %v", err)
+	}
+	if len(snap2.ActiveLeases) != 0 {
+		t.Fatalf("checkpoint must release the lease, got %d active", len(snap2.ActiveLeases))
+	}
+	if len(snap2.Checkpoints) != 1 || snap2.Checkpoints[0].TaskID != "T1" || snap2.Checkpoints[0].ProgressPercent != 70 {
+		t.Fatalf("snapshot checkpoints = %#v, want one T1@70%%", snap2.Checkpoints)
+	}
+	dec2, err := core.DecideOrchestration(snap2, policy)
+	if err != nil {
+		t.Fatalf("decide after checkpoint: %v", err)
+	}
+	if dec2.Action != core.OrchestrationResume || dec2.TaskID != "T1" || dec2.Attempt != 1 {
+		t.Fatalf("second decision = %s %s/%d, want resume-from-checkpoint T1/1", dec2.Action, dec2.TaskID, dec2.Attempt)
+	}
+
+	// 4. The fresh worker's brief carries the prior progress and notes — and the
+	//    same attempt's lease is re-issued exactly once.
+	resumeMission, err := core.BuildPinkyMission(h.Root, slug, sessionID, "pinky-b", "T1", 1, cfg)
+	if err != nil {
+		t.Fatalf("build resume mission: %v", err)
+	}
+	if resumeMission.Resume == nil || resumeMission.Resume.ProgressPercent != 70 {
+		t.Fatalf("resume mission must carry the 70%% checkpoint, got %#v", resumeMission.Resume)
+	}
+	brief := core.RenderMissionBrief(resumeMission)
+	if !strings.Contains(brief, "Resuming from checkpoint") || !strings.Contains(brief, "wrote the parser") {
+		t.Fatalf("resume brief missing resume header/notes:\n%s", brief)
+	}
+	if _, err := core.ClaimPinkyMission(h.Root, resumeMission, cfg); err != nil {
+		t.Fatalf("resume re-claim of the same attempt must succeed exactly once: %v", err)
 	}
 }
 

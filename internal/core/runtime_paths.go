@@ -118,6 +118,30 @@ func (p ACPRuntimePaths) ArtifactPath(sessionID, artifactID string) (string, err
 	return p.sessionJoin(sessionID, "artifacts", artifactID)
 }
 
+// CheckpointDir returns the validated directory holding a session's checkpoint
+// records: sessions/<id>/checkpoints. It sits beside events/, workers/, and
+// artifacts/ in the runtime layout.
+func (p ACPRuntimePaths) CheckpointDir(sessionID string) (string, error) {
+	return p.sessionJoin(sessionID, "checkpoints")
+}
+
+// CheckpointPath returns the deterministic record path for one task attempt:
+// checkpoints/<task>-<attempt>.json. The filename is keyed on (taskID, attempt)
+// so a re-issued attempt overwrites its own checkpoint rather than accumulating
+// duplicates, and the attempt-guard can compare attempts by filename. Task IDs
+// are uppercase (e.g. T1) so they use the ACP task-ID grammar, not the lowercase
+// runtime-segment validator.
+func (p ACPRuntimePaths) CheckpointPath(sessionID, taskID string, attempt int) (string, error) {
+	if !acpTaskIDRE.MatchString(taskID) {
+		return "", fmt.Errorf("acp runtime: invalid checkpoint task ID")
+	}
+	if attempt < 1 {
+		return "", fmt.Errorf("acp runtime: checkpoint attempt must be >= 1")
+	}
+	name := fmt.Sprintf("%s-%d.json", taskID, attempt)
+	return p.sessionJoin(sessionID, "checkpoints", name)
+}
+
 func (p ACPRuntimePaths) ProgramSessionsDir() (string, error) {
 	return p.join("program", "sessions")
 }

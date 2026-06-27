@@ -10,7 +10,7 @@ import (
 
 func RunBrain(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|compact|clear|ledger> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|checkpoint|compact|clear|ledger> ...")
 	}
 	root, ok := core.FindSpecdRoot(".")
 	if !ok {
@@ -77,6 +77,8 @@ func RunBrain(args cli.Args) int {
 			return specdExit(err)
 		}
 		return printCommandResult(args, session)
+	case "checkpoint":
+		return brainCheckpoint(root, args)
 	case "compact":
 		return brainCompact(root, args, "")
 	case "clear":
@@ -89,6 +91,12 @@ func RunBrain(args cli.Args) int {
 		}
 		return brainSessionControl(root, args, core.PauseOrchestration, "pause")
 	case "resume":
+		// --list is the host-facing discovery surface (R5): enumerate resumable
+		// sessions without touching state. Layered on the existing verb; the
+		// no-flag lifecycle-unpause behavior below is unchanged.
+		if args.Bool("list") {
+			return brainResumeList(root, args)
+		}
 		if args.Bool("program") {
 			return brainProgramSessionControl(root, args, core.ResumeProgramOrchestration, "resume")
 		}
@@ -99,7 +107,7 @@ func RunBrain(args cli.Args) int {
 		}
 		return brainSessionControl(root, args, core.CancelOrchestration, "cancel")
 	default:
-		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|compact|clear|ledger> ...")
+		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|checkpoint|compact|clear|ledger> ...")
 	}
 }
 

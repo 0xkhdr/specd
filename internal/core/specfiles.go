@@ -57,6 +57,9 @@ type OrchestrationCfg struct {
 	CompactionBudgetThreshold float64      `json:"compactionBudgetThreshold,omitempty"`
 	Transport                 TransportCfg `json:"transport"`
 	Program                   ProgramCfg   `json:"program"`
+	// Resilience holds opt-in checkpoint/auto-resume policy. Pointer + omitempty
+	// keeps existing config.json byte-identical when the block is absent.
+	Resilience *ResilienceCfg `json:"resilience,omitempty"`
 }
 
 type TransportCfg struct {
@@ -69,6 +72,26 @@ type TransportCfg struct {
 
 type ProgramCfg struct {
 	MaxConcurrentSpecs int `json:"maxConcurrentSpecs"`
+}
+
+// ResilienceCfg groups the opt-in resilience knobs (checkpointing, auto-resume).
+// It is a pointer on OrchestrationCfg with omitempty so a config without a
+// `resilience` block marshals byte-identically to the pre-resilience shape; the
+// whole feature set is therefore default-off and additive.
+type ResilienceCfg struct {
+	// CheckpointEnabled gates proactive checkpoint/resume behavior (R1, R4).
+	CheckpointEnabled bool          `json:"checkpointEnabled,omitempty"`
+	AutoResume        AutoResumeCfg `json:"autoResume,omitempty"`
+}
+
+// AutoResumeCfg declares how a host should rediscover and continue sessions on
+// startup (R5). Enabled is the master switch; OnHostStart asks the host adapter
+// to auto-invoke resume when it boots; MaxAgeMinutes bounds how stale a session
+// may be and still be auto-resumed (0 = no age filter).
+type AutoResumeCfg struct {
+	Enabled       bool `json:"enabled,omitempty"`
+	OnHostStart   bool `json:"onHostStart,omitempty"`
+	MaxAgeMinutes int  `json:"maxAgeMinutes,omitempty"`
 }
 
 const (
@@ -198,6 +221,7 @@ func LoadConfig(root string) Config {
 			Program *struct {
 				MaxConcurrentSpecs *int `json:"maxConcurrentSpecs"`
 			} `json:"program"`
+			Resilience *ResilienceCfg `json:"resilience"`
 		} `json:"orchestration"`
 		MCP *struct {
 			Expose               *string  `json:"expose"`
@@ -291,6 +315,10 @@ func LoadConfig(root string) Config {
 		}
 		if orchestration.Program != nil && orchestration.Program.MaxConcurrentSpecs != nil {
 			cfg.Orchestration.Program.MaxConcurrentSpecs = *orchestration.Program.MaxConcurrentSpecs
+		}
+		if orchestration.Resilience != nil {
+			resilience := *orchestration.Resilience
+			cfg.Orchestration.Resilience = &resilience
 		}
 		if err := rejectSecretBearingOrchestration([]byte(*raw)); err != nil {
 			Warn("orchestration config rejected: " + err.Error() + " — using disabled defaults")
@@ -395,6 +423,9 @@ func ValidateOrchestrationConfig(cfg *OrchestrationCfg) error {
 	}
 	if cfg.Transport.LeaseSeconds > cfg.Transport.MessageTTLSeconds {
 		return fmt.Errorf("transport.leaseSeconds must not exceed transport.messageTTLSeconds")
+	}
+	if cfg.Resilience != nil && cfg.Resilience.AutoResume.MaxAgeMinutes < 0 {
+		return fmt.Errorf("resilience.autoResume.maxAgeMinutes must be non-negative")
 	}
 	return nil
 }

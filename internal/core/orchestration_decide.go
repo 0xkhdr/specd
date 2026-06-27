@@ -76,10 +76,19 @@ func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPol
 			decision.Reason = "runnable work already leased"
 			break
 		}
-		decision.Action = OrchestrationDispatch
 		decision.TaskID = task.ID
 		decision.Attempt = task.Attempt
-		decision.Reason = "dispatch next runnable task"
+		// Prefer resuming from a checkpoint of this exact (task, attempt) over a
+		// fresh dispatch (Req 4). The attempt-guard is strict equality: a
+		// stale-attempt checkpoint (recorded for an earlier, now-superseded
+		// attempt) never matches, so retried work restarts clean (Req 6.2).
+		if hasResumableCheckpoint(task, snapshot.Checkpoints) {
+			decision.Action = OrchestrationResume
+			decision.Reason = "resume task from checkpoint"
+		} else {
+			decision.Action = OrchestrationDispatch
+			decision.Reason = "dispatch next runnable task"
+		}
 	case snapshot.Authoring != nil:
 		// Planning-phase artifact is absent or failing its gate. Author it under
 		// autonomy; defer to a human under the manual policy. (GAP-1)
@@ -163,6 +172,19 @@ func planningAutonomyAllowed(approvalPolicy string) bool {
 // frontier instead.
 func isExecutionStatus(status SpecStatus) bool {
 	return status == StatusExecuting || status == StatusBlocked
+}
+
+// hasResumableCheckpoint reports whether a checkpoint exists for the task's
+// exact current attempt. Matching on attempt (not just task) is the attempt
+// guard: it ignores checkpoints left behind by a superseded attempt so a retried
+// task is never resumed from stale mid-progress.
+func hasResumableCheckpoint(task OrchestrationTaskSnapshot, checkpoints []OrchestrationCheckpointSnapshot) bool {
+	for _, cp := range checkpoints {
+		if cp.TaskID == task.ID && cp.Attempt == task.Attempt {
+			return true
+		}
+	}
+	return false
 }
 
 func authoringLeased(workID string, leases []OrchestrationLeaseSnapshot) bool {

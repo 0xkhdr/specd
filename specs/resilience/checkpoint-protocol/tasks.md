@@ -1,7 +1,7 @@
 # Tasks — Checkpoint Protocol (R1 + R4)
 
 ## Wave 1 — Data model & storage
-- [ ] T1 — Add `CheckpointRecord` type + validator
+- [x] T1 — Add `CheckpointRecord` type + validator
   - why: foundation for all checkpoint persistence (Req 1)
   - role: builder
   - files: internal/core/orchestration.go
@@ -13,7 +13,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — Add checkpoint path helpers
+- [x] T2 — Add checkpoint path helpers
   - why: deterministic on-disk location (Req 2.1)
   - role: builder
   - files: internal/core/runtime_paths.go
@@ -25,7 +25,7 @@
   - depends: —
   - requirements: 2
 
-- [ ] T3 — `RecordCheckpoint` core function
+- [x] T3 — `RecordCheckpoint` core function
   - why: write + lease release + event in one atomic-ish op (Req 2.2)
   - role: builder
   - files: internal/core/orchestration_checkpoint.go (new), internal/core/acp_lease.go
@@ -38,7 +38,7 @@
   - requirements: 2, 3
 
 ## Wave 2 — CLI surface
-- [ ] T4 — `specd pinky checkpoint` command
+- [x] T4 — `specd pinky checkpoint` command
   - why: worker-facing entry point (Req 2)
   - role: builder
   - files: internal/cmd/pinky.go
@@ -49,7 +49,7 @@
   - depends: T3
   - requirements: 2
 
-- [ ] T5 — `specd brain checkpoint` force-all command
+- [x] T5 — `specd brain checkpoint` force-all command
   - why: host can checkpoint every worker before /clear (Req 3)
   - role: builder
   - files: internal/cmd/brain.go, internal/cmd/brain_commands.go
@@ -61,7 +61,7 @@
   - requirements: 3
 
 ## Wave 3 — Brain decision & mission
-- [ ] T6 — `resume-from-checkpoint` action + sense
+- [x] T6 — `resume-from-checkpoint` action + sense
   - why: Brain prefers resume over fresh dispatch (Req 4)
   - role: builder
   - files: internal/core/orchestration.go, internal/core/orchestration_sense.go,
@@ -76,7 +76,7 @@
   - depends: T1
   - requirements: 4, 6
 
-- [ ] T7 — Resume mission brief
+- [x] T7 — Resume mission brief
   - why: resuming worker gets prior progress (Req 5)
   - role: builder
   - files: internal/core/pinky.go, internal/core/pinky_brief.go
@@ -89,7 +89,7 @@
   - requirements: 5
 
 ## Wave 4 — Lifecycle, config, tests
-- [ ] T8 — Cleanup on completion + attempt guard
+- [x] T8 — Cleanup on completion + attempt guard
   - why: prevent resurrection of finished work (Req 6)
   - role: builder
   - files: internal/core/orchestration_checkpoint.go, internal/core/acp_lease.go
@@ -100,7 +100,7 @@
   - depends: T6
   - requirements: 6
 
-- [ ] T9 — Config gate `resilience.checkpointEnabled`
+- [x] T9 — Config gate `resilience.checkpointEnabled`
   - why: default-off, byte-stable config (Req 6.3)
   - role: builder
   - files: internal/core/specfiles.go, internal/core/embed_templates/config.json
@@ -112,7 +112,7 @@
   - depends: T6
   - requirements: 6
 
-- [ ] T10 — End-to-end checkpoint→resume test
+- [x] T10 — End-to-end checkpoint→resume test
   - why: prove the full loop (all reqs)
   - role: verifier
   - files: internal/cmd/brain_recovery_test.go

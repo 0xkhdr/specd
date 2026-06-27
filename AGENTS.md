@@ -173,8 +173,10 @@ MCP is needed — if you can run a shell command, you can run this harness.
      (requirements → design → tasks → executing), or clears a midreq `awaiting-approval` gate.
    - `specd verify <spec> <id>` — run the task's declared verification command and record its result.
    - `specd task <spec> <id> --status <s> ...` — the only way to flip a task.
-   - `specd brain <start|step|status|pause|resume|cancel> <spec> [flags]` — drive deterministic orchestration. (MCP: `specd_brain`)
-   - `specd pinky <claim|heartbeat|progress|report|block|release> [flags]` — record deterministic worker leases, telemetry, progress, and terminal reports. (MCP: `specd_pinky`)
+   - `specd brain <start|step|status|pause|resume|cancel|checkpoint> <spec> [flags]` — drive deterministic orchestration. (MCP: `specd_brain`)
+   - `specd brain resume --list [--max-age-minutes <n>] --json` — discover resumable (`running`/`paused`) sessions after a host restart; resume the head with `specd brain run --session <id>`. Idempotent (CAS-guarded). Opt-in via `orchestration.resilience.autoResume`. See [docs/agent-integration.md](docs/agent-integration.md).
+   - `specd brain checkpoint <spec> --session <id> --reason <text>` / `specd pinky checkpoint ... --percent <n>` — checkpoint in-flight work before a `/clear`; Brain then resumes from the checkpoint instead of restarting. Opt-in via `orchestration.resilience.checkpointEnabled`.
+   - `specd pinky <claim|heartbeat|progress|report|block|release|checkpoint> [flags]` — record deterministic worker leases, telemetry, progress, checkpoints, and terminal reports. (MCP: `specd_pinky`)
    - Windows orchestration is POSIX-only and fails fast with a clear WSL message; non-orchestration workflow remains portable.
    - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
 

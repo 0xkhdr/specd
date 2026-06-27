@@ -102,6 +102,13 @@ func TestIntentToolTranslation(t *testing.T) {
 			wantFlags: map[string]string{"session": "S1"},
 		},
 		{
+			name:      "brain_resume",
+			args:      map[string]any{"max_age_minutes": "30"},
+			wantCmd:   "brain",
+			wantPos:   []string{"resume"},
+			wantFlags: map[string]string{"list": "true", "max-age-minutes": "30"},
+		},
+		{
 			name:      "brain_cancel",
 			args:      map[string]any{"session": "S1", "program": true},
 			wantCmd:   "brain",
@@ -151,7 +158,6 @@ func TestIntentToolValidation(t *testing.T) {
 		{"brain_status", map[string]any{}},
 		{"brain_approve", map[string]any{}},
 		{"brain_pause", map[string]any{}},
-		{"brain_resume", map[string]any{}},
 		{"brain_cancel", map[string]any{}},
 		{"brain_status", map[string]any{"session": "S1", "program": "yes"}}, // program must be boolean
 		{"brain_orchestrate", map[string]any{"spec": []any{"bad"}}},         // spec must be a scalar string

@@ -153,6 +153,34 @@ func (s *ACPStore) ReleaseLease(sessionID, workerID string, attempt int) error {
 	})
 }
 
+// ClearLease removes a worker's lease record entirely after validating the
+// caller still owns the active lease at the given attempt. Unlike ReleaseLease —
+// which marks the lease released but keeps it in the ledger, so the next claim
+// must use attempt+1 — clearing relinquishes the attempt slot itself, letting a
+// fresh worker re-claim the SAME attempt. It is the cooperative-checkpoint
+// hand-back: a checkpoint is a continuation, not a failed attempt, so it must
+// not consume an attempt the way a crash/reclaim does (R1, R4).
+func (s *ACPStore) ClearLease(sessionID, workerID string, attempt int) error {
+	now := Clock().UTC()
+	return s.withSessionLock(sessionID, func() error {
+		lease, err := s.loadLease(sessionID, workerID)
+		if err != nil {
+			return err
+		}
+		if err := validateLeaseOwnership(lease, workerID, attempt, now); err != nil {
+			return err
+		}
+		path, err := s.paths.LeasePath(sessionID, workerID)
+		if err != nil {
+			return err
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("acp lease: clear lease: %w", err)
+		}
+		return nil
+	})
+}
+
 // ValidateActiveLease is the terminal-report ownership gate. It rejects a
 // released, expired, wrong-worker, or stale-attempt lease.
 func (s *ACPStore) ValidateActiveLease(sessionID, workerID, spec, task string, attempt int) error {

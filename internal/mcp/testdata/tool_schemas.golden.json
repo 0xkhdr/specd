@@ -74,13 +74,17 @@
   "brain_resume": {
     "type": "object",
     "properties": {
+      "max_age_minutes": {
+        "type": "string",
+        "description": "When listing, exclude sessions whose updatedAt is older than this many minutes."
+      },
       "program": {
         "type": "boolean",
         "description": "Target a program (cross-spec) session instead of a single spec."
       },
       "session": {
         "type": "string",
-        "description": "Orchestration session id to act on."
+        "description": "Session id to resume. Omit to list resumable sessions instead."
       }
     },
     "additionalProperties": false

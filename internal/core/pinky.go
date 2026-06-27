@@ -32,6 +32,25 @@ type PinkyMission struct {
 	Requirements    []int                             `json:"requirements"`
 	Authority       ACPAuthority                      `json:"authority"`
 	DispatchDigest  string                            `json:"dispatchDigest"`
+	// Resume, when present, carries the prior mid-task checkpoint a worker is
+	// being handed so it continues from recorded progress instead of restarting
+	// (R1, R4). It is omitempty and excluded from the dispatch digest, so a
+	// fresh-dispatch and a resume mission for the same (task, attempt) share a
+	// digest and a non-resume mission stays byte-identical to today.
+	Resume *PinkyResume `json:"resume,omitempty"`
+}
+
+// PinkyResume is the resume payload threaded into a mission when the Brain
+// decides resume-from-checkpoint: the progress the prior worker reached, its
+// free-form working notes, the files it already touched, the git head it
+// observed, and the context manifest it was given. The brief turns this into a
+// "do not restart" header so the fresh worker continues the same work.
+type PinkyResume struct {
+	ProgressPercent int      `json:"progressPercent"`
+	WorkingNotes    string   `json:"workingNotes,omitempty"`
+	ChangedFiles    []string `json:"changedFiles,omitempty"`
+	GitHead         string   `json:"gitHead,omitempty"`
+	PriorManifest   string   `json:"priorManifest,omitempty"`
 }
 
 type PinkyClaim struct {
@@ -84,6 +103,24 @@ func BuildPinkyMission(root, slug, sessionID, workerID, taskID string, attempt i
 	sort.Strings(mission.Files)
 	sort.Strings(mission.Dependencies)
 	mission.ContextManifest = BuildMissionContextManifest(mission, specArtifactReader(root, slug))
+	// Thread a matching mid-task checkpoint into the mission so a resumed worker
+	// continues from recorded progress (Req 5). Gated on the resilience flag and
+	// strict (task, attempt) match, so a fresh dispatch — or any mission with the
+	// feature off — is byte-identical to today. The digest excludes Resume, so a
+	// resumed mission keeps the same dispatch digest as its fresh counterpart.
+	if cfg.Resilience != nil && cfg.Resilience.CheckpointEnabled {
+		if rec, ok, err := loadCheckpointForAttempt(root, sessionID, task.ID, attempt); err != nil {
+			return PinkyMission{}, err
+		} else if ok {
+			mission.Resume = &PinkyResume{
+				ProgressPercent: rec.ProgressPercent,
+				WorkingNotes:    rec.WorkingNotes,
+				ChangedFiles:    append([]string{}, rec.ChangedFiles...),
+				GitHead:         rec.GitHead,
+				PriorManifest:   rec.ContextManifest,
+			}
+		}
+	}
 	mission.DispatchDigest = pinkyMissionDigest(mission)
 	if err := validatePinkyMission(mission); err != nil {
 		return PinkyMission{}, err

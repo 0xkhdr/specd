@@ -21,6 +21,7 @@ func RenderMissionBrief(mission PinkyMission) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "# Pinky mission brief — %s / %s\n\n", mission.Spec, mission.TaskID)
 	fmt.Fprintf(&sb, "You are a Pinky worker. Execute exactly this one mission under lease, then report evidence.\n\n")
+	renderResumeHeader(&sb, mission.Resume)
 
 	sb.WriteString("## Identity\n")
 	fmt.Fprintf(&sb, "- role: **%s**%s\n", mission.Role, readOnlySuffix(mission.Authority.ReadOnly))
@@ -58,6 +59,27 @@ func RenderMissionBrief(mission PinkyMission) string {
 	fmt.Fprintf(&sb, "4. On done (after verify passes): `specd pinky report ...` with the verify record, then `specd pinky release ...`\n")
 	fmt.Fprintf(&sb, "\nMission JSON to claim with is emitted by `specd pinky brief ... --json`.\n")
 	return sb.String()
+}
+
+// renderResumeHeader prepends a "you are resuming — do not restart" block when
+// the mission carries a checkpoint resume payload (Req 5). A nil payload renders
+// nothing, so a fresh-dispatch brief is byte-identical to today.
+func renderResumeHeader(sb *strings.Builder, resume *PinkyResume) {
+	if resume == nil {
+		return
+	}
+	sb.WriteString("## ⏯ Resuming from checkpoint — do not restart\n")
+	fmt.Fprintf(sb, "A prior worker reached **%d%%** on this task before shedding context. Continue from there; do not redo completed work.\n", resume.ProgressPercent)
+	if resume.WorkingNotes != "" {
+		fmt.Fprintf(sb, "\n**Working notes from the prior worker:**\n%s\n", resume.WorkingNotes)
+	}
+	if len(resume.ChangedFiles) > 0 {
+		fmt.Fprintf(sb, "\nFiles already touched (review before editing): %s\n", strings.Join(backticked(resume.ChangedFiles), ", "))
+	}
+	if resume.GitHead != "" {
+		fmt.Fprintf(sb, "Git head observed at checkpoint: `%s`\n", resume.GitHead)
+	}
+	sb.WriteString("\n")
 }
 
 func renderContextManifest(sb *strings.Builder, manifest contextpkg.MissionContextManifest) {

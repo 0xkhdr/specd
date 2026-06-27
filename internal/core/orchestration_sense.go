@@ -78,6 +78,23 @@ func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 			snapshot.LedgerBudget = tail.Budget
 		}
 	}
+	// Surface mid-task checkpoints so DecideOrchestration can prefer resume over a
+	// fresh dispatch — but only under the resilience gate, keeping the disabled
+	// path byte-identical to today (Req 6.3). The decision stays pure: checkpoint
+	// state enters here, never via a clock read inside Decide.
+	if policy.CheckpointEnabled {
+		records, err := loadSessionCheckpoints(root, sessionID)
+		if err != nil {
+			return OrchestrationSnapshot{}, err
+		}
+		for _, rec := range records {
+			snapshot.Checkpoints = append(snapshot.Checkpoints, OrchestrationCheckpointSnapshot{
+				TaskID:          rec.TaskID,
+				Attempt:         rec.Attempt,
+				ProgressPercent: rec.ProgressPercent,
+			})
+		}
+	}
 	if err := ValidateOrchestrationSnapshot(snapshot); err != nil {
 		return OrchestrationSnapshot{}, err
 	}
