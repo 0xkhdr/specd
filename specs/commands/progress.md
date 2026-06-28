@@ -35,13 +35,13 @@ Run waves in order. Intra-spec task ordering remains defined by each `tasks.md`;
 | spec-dashboard | T3-T5 | complete | Wave 1 spec-dashboard | `new`, `continue`, and direct lifecycle actions delegate to native `specd`. |
 | pinky-brain-console | T4-T8 | complete | Wave 1 pinky-brain-console | Enable/disable and session ops delegate safely; worker view remains read-only. |
 
-### Wave 3 — Safety regression net — **status: pending**
+### Wave 3 — Safety regression net — **status: complete**
 
 | Spec | Tasks | Status | Depends on | Exit criteria |
 |---|---:|---|---|---|
-| workflow-packaging-testing | T4-T6 | pending | Wave 1 packaging; Wave 2 action surfaces | Fake `specd` harness, safety invariant tests, parity tests, and exit propagation tests pass. |
-| spec-dashboard | T7 | pending | spec-dashboard/T4-T5; fake harness | Tests prove wrappers never auto-run `specd task --status complete`. |
-| pinky-brain-console | T9-T10 tests subset | pending | pinky-brain-console/T5,T8 | Platform guard and proof-boundary tests pass; no forged Pinky reports. |
+| workflow-packaging-testing | T4-T6 | complete | Wave 1 packaging; Wave 2 action surfaces | Fake `specd` harness, safety invariant tests, parity tests, and exit propagation tests pass. |
+| spec-dashboard | T7 | complete | spec-dashboard/T4-T5; fake harness | Tests prove wrappers never auto-run `specd task --status complete`. |
+| pinky-brain-console | T9-T10 tests subset | complete | pinky-brain-console/T5,T8 | Platform guard and proof-boundary tests pass; no forged Pinky reports. |
 
 ### Wave 4 — Documentation, skills, and release gate — **status: pending**
 

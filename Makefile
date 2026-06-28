@@ -3,7 +3,7 @@ VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo "dev
 LDFLAGS  = -s -w -X main.version=$(VERSION)
 BIN      = specd
 
-.PHONY: all build install test test-order cover cover-check fmt-check lint test-lint shellcheck stress stress-acp stress-orchestration stress-program stress-brain-recovery perf-gate bench ci clean
+.PHONY: all build install test wrapper-test test-order cover cover-check fmt-check lint test-lint shellcheck stress stress-acp stress-orchestration stress-program stress-brain-recovery perf-gate bench ci clean
 
 all: build
 
@@ -13,8 +13,11 @@ build:
 install:
 	$(GO) install -ldflags "$(LDFLAGS)" .
 
-test:
+test: wrapper-test
 	$(GO) test ./... -race -count=1
+
+wrapper-test:
+	python3 scripts/test-specd-workflow.py
 
 # Catch golden/iteration-order dependence (Stage 07 F4).
 test-order:

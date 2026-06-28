@@ -32,7 +32,7 @@
   - requirements: 1,4
 
 ## Wave 2 — Test harness
-- [ ] T4 — Add fake `specd` fixture harness
+- [x] T4 — Add fake `specd` fixture harness
   - why: tests need deterministic native responses (Req 3)
   - role: builder
   - files: scripts/testdata or internal test fixture location, wrapper test files
@@ -42,7 +42,7 @@
   - depends: T3
   - requirements: 3
 
-- [ ] T5 — Add safety invariant tests
+- [x] T5 — Add safety invariant tests
   - why: wrappers must not weaken specd gates (Req 4)
   - role: reviewer
   - files: wrapper test files
@@ -52,7 +52,7 @@
   - depends: T4, spec-dashboard/T7, pinky-brain-console/T8
   - requirements: 4
 
-- [ ] T6 — Add parity and failure propagation tests
+- [x] T6 — Add parity and failure propagation tests
   - why: shell/Python need matching behavior and native exit correctness (Req 3,4)
   - role: builder
   - files: wrapper test files
@@ -94,7 +94,7 @@
   - requirements: 5
 
 ## Wave 4 — CI readiness
-- [ ] T10 — Wire wrapper tests into documented local gate
+- [x] T10 — Wire wrapper tests into documented local gate
   - why: quality gate must include new command pack (Req 3,6)
   - role: builder
   - files: Makefile, TESTING.md, scripts/README.md as needed

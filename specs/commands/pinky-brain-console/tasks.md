@@ -84,7 +84,7 @@
   - requirements: 4
 
 ## Wave 4 — Platform guards, tests, docs
-- [ ] T9 — Add POSIX/Windows guard
+- [x] T9 — Add POSIX/Windows guard
   - why: orchestration is POSIX-only (Req 1,5)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -94,7 +94,7 @@
   - depends: T6,T7
   - requirements: 1,5
 
-- [ ] T10 — Add orchestration safety tests and docs
+- [x] T10 — Add orchestration safety tests and docs
   - why: avoid config corruption and fake evidence (Req 5)
   - role: reviewer
   - files: wrapper tests, scripts/README.md, AGENTS.md or skill docs if shipped

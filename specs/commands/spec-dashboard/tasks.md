@@ -63,7 +63,7 @@
   - depends: T1
   - requirements: 5
 
-- [ ] T7 — Add safety regression tests
+- [x] T7 — Add safety regression tests
   - why: wrapper must not weaken evidence gate (Req 6)
   - role: reviewer
   - files: wrapper tests, scripts/README.md

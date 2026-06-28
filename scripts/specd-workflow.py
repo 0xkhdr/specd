@@ -664,7 +664,10 @@ def print_worker_view(root: Path) -> int:
 
 
 def native_windows_without_wsl() -> bool:
-    return platform.system().lower().startswith("win") and "WSL_DISTRO_NAME" not in os.environ
+    system = platform.system()
+    if os.environ.get("SPECD_WORKFLOW_TESTING") == "1":
+        system = os.environ.get("SPECD_WORKFLOW_PLATFORM", system)
+    return system.lower().startswith("win") and "WSL_DISTRO_NAME" not in os.environ
 
 
 def cmd_pinky(args: argparse.Namespace) -> int:
