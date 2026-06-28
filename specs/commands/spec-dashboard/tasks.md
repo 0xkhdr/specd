@@ -1,7 +1,7 @@
 # Tasks — `/spec` Workflow Dashboard
 
 ## Wave 1 — Listing and selection
-- [ ] T1 — Implement spec root guard and list parser
+- [x] T1 — Implement spec root guard and list parser
   - why: dashboard needs reliable orientation (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -11,7 +11,7 @@
   - depends: none
   - requirements: 1
 
-- [ ] T2 — Implement slug selection helper
+- [x] T2 — Implement slug selection helper
   - why: continue/check actions need safe target choice (Req 3,6)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py

@@ -1,7 +1,7 @@
 # Tasks — `/pinky-brain` Orchestration Console
 
 ## Wave 1 — Capability and config status
-- [ ] T1 — Implement orchestration capability probe
+- [x] T1 — Implement orchestration capability probe
   - why: console must know whether Brain/Pinky commands exist (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -11,7 +11,7 @@
   - depends: none
   - requirements: 1
 
-- [ ] T2 — Implement config discovery and read-only status
+- [x] T2 — Implement config discovery and read-only status
   - why: users need enabled/disabled visibility (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -21,7 +21,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — Implement session list view
+- [x] T3 — Implement session list view
   - why: status should show resumable sessions (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py

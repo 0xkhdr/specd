@@ -1,7 +1,7 @@
 # Tasks — Interactive `/init` Command Wrapper
 
 ## Wave 1 — Command model and probing
-- [ ] T1 — Define `/init` option model
+- [x] T1 — Define `/init` option model
   - why: one canonical model keeps shell/Python behavior aligned (Req 1,2,3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py, docs or README as needed
@@ -11,7 +11,7 @@
   - depends: none
   - requirements: 1,2,3
 
-- [ ] T2 — Implement host detection probe
+- [x] T2 — Implement host detection probe
   - why: `/init` should present detected hosts when possible (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py

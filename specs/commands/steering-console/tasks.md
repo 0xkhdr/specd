@@ -1,7 +1,7 @@
 # Tasks — `/steer` Steering Console
 
 ## Wave 1 — Root discovery and read views
-- [ ] T1 — Implement steering root discovery
+- [x] T1 — Implement steering root discovery
   - why: command must work from subdirectories (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -11,7 +11,7 @@
   - depends: none
   - requirements: 1
 
-- [ ] T2 — Implement `show` and canonical file filtering
+- [x] T2 — Implement `show` and canonical file filtering
   - why: users need all steering files visible safely (Req 2,5)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -21,7 +21,7 @@
   - depends: T1
   - requirements: 2,5
 
-- [ ] T3 — Implement `status` stub detection
+- [x] T3 — Implement `status` stub detection
   - why: bootstrap must reveal unauthored steering (Req 2)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py

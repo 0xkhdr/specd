@@ -1,7 +1,7 @@
 # Tasks — Slash Workflow Packaging, Tests, and Documentation
 
 ## Wave 1 — Shared command pack structure
-- [ ] T1 — Create unified shell command pack
+- [x] T1 — Create unified shell command pack
   - why: users should source one file for all slash commands (Req 1)
   - role: builder
   - files: scripts/specd-workflow.sh
@@ -11,7 +11,7 @@
   - depends: interactive-init/T1, steering-console/T1, spec-dashboard/T1, pinky-brain-console/T1
   - requirements: 1
 
-- [ ] T2 — Create unified Python CLI
+- [x] T2 — Create unified Python CLI
   - why: cross-platform fallback required by action plan (Req 1)
   - role: builder
   - files: scripts/specd-workflow.py
@@ -21,7 +21,7 @@
   - depends: interactive-init/T1, steering-console/T1, spec-dashboard/T1, pinky-brain-console/T1
   - requirements: 1
 
-- [ ] T3 — Centralize shared helpers
+- [x] T3 — Centralize shared helpers
   - why: avoid shell/Python behavior drift (Req 1,4)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
