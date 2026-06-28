@@ -53,7 +53,7 @@
   - requirements: 3
 
 ## Wave 3 — Memory and docs
-- [ ] T6 — Implement `memory` action
+- [x] T6 — Implement `memory` action
   - why: users requested all steering access; memory has special phase semantics (Req 4)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -63,7 +63,7 @@
   - depends: T2
   - requirements: 4
 
-- [ ] T7 — Document `/steer`
+- [x] T7 — Document `/steer`
   - why: command needs safe usage patterns (Req 5)
   - role: builder
   - files: scripts/README.md, AGENTS.md or skill docs if shipped

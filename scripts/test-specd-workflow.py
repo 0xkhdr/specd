@@ -105,6 +105,28 @@ class WorkflowTests(WorkflowHarness):
         self.assertIn(["next", "demo"], self.argv_log())
         self.assert_no_forbidden_mutation()
 
+    def test_steer_memory_prints_existing_and_missing_without_create(self) -> None:
+        mem = self.repo / ".specd" / "steering" / "memory.md"
+        mem.write_text("known learning\n", encoding="utf-8")
+        p = self.run_py("steer", "memory")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn("--- memory.md ---\nknown learning\n", p.stdout)
+        mem.unlink()
+        p2 = self.run_py("steer", "memory")
+        self.assertEqual(p2.returncode, 0, p2.stderr)
+        self.assertIn("warning: memory.md missing", p2.stdout)
+        self.assertFalse(mem.exists())
+
+    def test_spec_mode_delegates_only_when_native_supported(self) -> None:
+        p = self.run_py("spec", "mode", "demo", "--set", "orchestrated", env={"SPECD_FAKE_HELP_JSON": '{"commands":["mode","status"]}'})
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn(["mode", "demo", "--set", "orchestrated"], self.argv_log())
+        self.log.unlink()
+        p2 = self.run_py("spec", "mode", "demo", env={"SPECD_FAKE_HELP_JSON": '{"commands":["status"]}', "SPECD_FAKE_HELP_TEXT": "status"})
+        self.assertEqual(p2.returncode, 1)
+        self.assertIn("mode command unsupported", p2.stderr)
+        self.assertNotIn(["mode", "demo"], self.argv_log())
+
     def test_workers_view_never_forges_pinky_report(self) -> None:
         workers = self.repo / ".specd" / "runtime" / "sessions" / "s1" / "workers" / "w1"
         workers.mkdir(parents=True)

@@ -6,11 +6,11 @@ This program adds user-facing slash/workflow wrappers around native `specd` comm
 
 | Focus | Title | Spec | Priority | Current status |
 |---|---|---|---|---|
-| Init UX | Interactive `/init` Command Wrapper | [interactive-init](interactive-init/spec.md) | P0 | pending |
-| Steering UX | `/steer` Steering Console | [steering-console](steering-console/spec.md) | P0 | pending |
-| Spec lifecycle UX | `/spec` Workflow Dashboard | [spec-dashboard](spec-dashboard/spec.md) | P0 | pending |
-| Orchestration UX | `/pinky-brain` Orchestration Console | [pinky-brain-console](pinky-brain-console/spec.md) | P1 | pending |
-| Shared packaging | Slash Workflow Packaging, Tests, and Documentation | [workflow-packaging-testing](workflow-packaging-testing/spec.md) | P0 | pending |
+| Init UX | Interactive `/init` Command Wrapper | [interactive-init](interactive-init/spec.md) | P0 | complete |
+| Steering UX | `/steer` Steering Console | [steering-console](steering-console/spec.md) | P0 | complete |
+| Spec lifecycle UX | `/spec` Workflow Dashboard | [spec-dashboard](spec-dashboard/spec.md) | P0 | complete |
+| Orchestration UX | `/pinky-brain` Orchestration Console | [pinky-brain-console](pinky-brain-console/spec.md) | P1 | complete |
+| Shared packaging | Slash Workflow Packaging, Tests, and Documentation | [workflow-packaging-testing](workflow-packaging-testing/spec.md) | P0 | complete |
 
 ## Program waves
 
@@ -43,15 +43,15 @@ Run waves in order. Intra-spec task ordering remains defined by each `tasks.md`;
 | spec-dashboard | T7 | complete | spec-dashboard/T4-T5; fake harness | Tests prove wrappers never auto-run `specd task --status complete`. |
 | pinky-brain-console | T9-T10 tests subset | complete | pinky-brain-console/T5,T8 | Platform guard and proof-boundary tests pass; no forged Pinky reports. |
 
-### Wave 4 — Documentation, skills, and release gate — **status: pending**
+### Wave 4 — Documentation, skills, and release gate — **status: complete**
 
 | Spec | Tasks | Status | Depends on | Exit criteria |
 |---|---:|---|---|---|
-| interactive-init | T5-T6 | pending | interactive-init/T4; Wave 3 tests | `/init` tests/docs cover dry-run, orchestration, failures, and examples. |
-| steering-console | T6-T7 | pending | steering-console/T5 | Memory action documented; usage explains canonical file filtering. |
-| spec-dashboard | T6,T8 | pending | spec-dashboard/T5,T7 | Mode fallback and lifecycle docs complete with evidence warning. |
-| pinky-brain-console | T9-T10 docs subset | pending | pinky-brain-console/T6-T8 | WSL/POSIX guard and orchestration safety docs complete. |
-| workflow-packaging-testing | T7-T11 | pending | Wave 3 | README/AGENTS/skills updated as needed; local test gate documented; final verification run. |
+| interactive-init | T5-T6 | complete | interactive-init/T4; Wave 3 tests | `/init` tests/docs cover dry-run, orchestration, failures, and examples. |
+| steering-console | T6-T7 | complete | steering-console/T5 | Memory action documented; usage explains canonical file filtering. |
+| spec-dashboard | T6,T8 | complete | spec-dashboard/T5,T7 | Mode fallback and lifecycle docs complete with evidence warning. |
+| pinky-brain-console | T9-T10 docs subset | complete | pinky-brain-console/T6-T8 | WSL/POSIX guard and orchestration safety docs complete. |
+| workflow-packaging-testing | T7-T11 | complete | Wave 3 | README/AGENTS/skills updated as needed; local test gate documented; final verification run. |
 
 ## Status legend
 
@@ -66,9 +66,9 @@ Run waves in order. Intra-spec task ordering remains defined by each `tasks.md`;
 
 ## Program completion checklist
 
-- [ ] Shell command pack exposes `/init`, `/steer`, `/spec`, `/pinky-brain`, and `specd_workflow`.
-- [ ] Python CLI mirrors shell behavior with stdlib-only implementation.
-- [ ] Wrapper tests cover native JSON/text fallback, non-TTY behavior, platform guards, and exit propagation.
-- [ ] Safety tests prove wrappers do not mutate `state.json`, flip `tasks.md` checkboxes, auto-complete tasks, or forge Pinky reports.
-- [ ] Docs include install/source instructions, Python usage, native mapping table, examples, and safety model.
-- [ ] `make test` passes; `make ci` passes if Go/core/templates change.
+- [x] Shell command pack exposes `/init`, `/steer`, `/spec`, `/pinky-brain`, and `specd_workflow`.
+- [x] Python CLI mirrors shell behavior with stdlib-only implementation.
+- [x] Wrapper tests cover native JSON/text fallback, non-TTY behavior, platform guards, and exit propagation.
+- [x] Safety tests prove wrappers do not mutate `state.json`, flip `tasks.md` checkboxes, auto-complete tasks, or forge Pinky reports.
+- [x] Docs include install/source instructions, Python usage, native mapping table, examples, and safety model.
+- [x] `make test` passes; `make ci` passes if Go/core/templates change.

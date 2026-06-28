@@ -63,7 +63,7 @@
   - requirements: 3,4
 
 ## Wave 3 — Documentation and skill integration
-- [ ] T7 — Write wrapper README
+- [x] T7 — Write wrapper README
   - why: users need install and mapping docs (Req 2)
   - role: builder
   - files: scripts/README.md or docs/slash-workflows.md
@@ -73,7 +73,7 @@
   - depends: T1,T2
   - requirements: 2
 
-- [ ] T8 — Update AGENTS/user-facing quick reference
+- [x] T8 — Update AGENTS/user-facing quick reference
   - why: agents need discoverable command use (Req 5)
   - role: builder
   - files: AGENTS.md or embedded AGENTS template if shipping to user repos
@@ -83,7 +83,7 @@
   - depends: T7
   - requirements: 5
 
-- [ ] T9 — Add or update skill docs if shipped
+- [x] T9 — Add or update skill docs if shipped
   - why: action plan includes skill docs for slash workflows (Req 5)
   - role: builder
   - files: internal/core/embed_templates/skills or relevant pack paths, docs
@@ -104,7 +104,7 @@
   - depends: T4,T5,T6
   - requirements: 3,6
 
-- [ ] T11 — Run final verification
+- [x] T11 — Run final verification
   - why: implementation must be release-ready (Req 6)
   - role: verifier
   - files: none

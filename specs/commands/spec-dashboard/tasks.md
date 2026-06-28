@@ -53,7 +53,7 @@
   - requirements: 4
 
 ## Wave 3 — Mode awareness, hardening, docs
-- [ ] T6 — Implement safe `/spec mode`
+- [x] T6 — Implement safe `/spec mode`
   - why: action plan mentions mode but native support may vary (Req 5)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -73,7 +73,7 @@
   - depends: T4,T5
   - requirements: 6
 
-- [ ] T8 — Document `/spec`
+- [x] T8 — Document `/spec`
   - why: users need clear lifecycle examples (Req 1-6)
   - role: builder
   - files: scripts/README.md, AGENTS.md or skill docs if shipped

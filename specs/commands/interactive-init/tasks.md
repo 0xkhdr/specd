@@ -43,7 +43,7 @@
   - requirements: 3,4
 
 ## Wave 3 — Hardening and documentation
-- [ ] T5 — Add wrapper tests
+- [x] T5 — Add wrapper tests
   - why: slash command should remain stable across CLI changes (Req 5)
   - role: builder
   - files: scripts/*test*, internal/cmd tests if wrapper embedded
@@ -53,7 +53,7 @@
   - depends: T4
   - requirements: 5
 
-- [ ] T6 — Document `/init`
+- [x] T6 — Document `/init`
   - why: users need safe examples (Req 5)
   - role: builder
   - files: scripts/README.md, AGENTS.md or shipped skill docs if applicable

@@ -51,6 +51,15 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
    pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
    must bind to a matching verification record; host-reported telemetry (tokens, cost, duration) is stored as metadata and is not proof of correctness.
 
+## Optional slash/workflow wrappers
+
+Some hosts can map `/init`, `/steer`, `/spec`, and `/pinky-brain` to the shipped
+`scripts/specd-workflow.{sh,py}` wrappers. Treat them as UX glue only: `/spec check`
+means native `specd check`, `/spec continue` means `specd context` plus `specd next`
+when executing, and `/pinky-brain` delegates to Brain/Pinky or read-only status views.
+Wrappers never bypass gates, never complete tasks, never edit `state.json`, and never
+forge Pinky reports. If wrapper behavior is unclear, use native `specd` directly.
+
 ## Execution mode — Base vs Orchestrated (per spec, user decides)
 
 Every spec records its own **execution mode** in `state.json` (`specd mode <spec>` shows it).

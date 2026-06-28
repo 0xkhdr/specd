@@ -93,6 +93,8 @@ def iter_values(obj: Any) -> Iterable[Any]:
     elif isinstance(obj, list):
         for v in obj:
             yield from iter_values(v)
+    else:
+        yield obj
 
 
 def probe_hosts() -> list[str]:
@@ -250,6 +252,7 @@ def add_steer_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     show = sp.add_parser("show")
     show.add_argument("file", nargs="?", default=None)
     sp.add_parser("status")
+    sp.add_parser("memory")
     edit = sp.add_parser("edit")
     edit.add_argument("file", nargs="?", default="all")
     boot = sp.add_parser("bootstrap")
@@ -331,6 +334,17 @@ def cmd_steer(args: argparse.Namespace) -> int:
         return EXIT_OK
     if action == "edit":
         return edit_steering(root, args.file)
+    if action == "memory":
+        path = root / "memory.md"
+        print("--- memory.md ---")
+        if not path.exists():
+            print("warning: memory.md missing; no file created")
+            return EXIT_OK
+        text = path.read_text(encoding="utf-8", errors="replace")
+        print(text, end="")
+        if not text.endswith("\n"):
+            print()
+        return EXIT_OK
     if action == "bootstrap":
         return bootstrap_steering(root, args)
     if action == "show":
@@ -357,7 +371,7 @@ def cmd_steer(args: argparse.Namespace) -> int:
             if not text.endswith("\n"):
                 print()
         return EXIT_OK
-    eprint("usage: specd-workflow steer [show [file]|status|edit [file]|bootstrap [file] [--dry-run|--stdin]]")
+    eprint("usage: specd-workflow steer [show [file]|status|memory|edit [file]|bootstrap [file] [--dry-run|--stdin]]")
     return EXIT_USAGE
 
 
@@ -372,6 +386,9 @@ def add_spec_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     new.add_argument("--orchestrated", action="store_true")
     cont = sp.add_parser("continue")
     cont.add_argument("slug", nargs="?")
+    mode = sp.add_parser("mode")
+    mode.add_argument("slug", nargs="?")
+    mode.add_argument("extra", nargs=argparse.REMAINDER)
     for action in sorted(DIRECT_SPEC_ACTIONS):
         q = sp.add_parser(action)
         q.add_argument("slug", nargs="?")
@@ -482,13 +499,22 @@ def cmd_spec(args: argparse.Namespace) -> int:
         else:
             print(f"Next: run `specd check {slug}`; if gate passes, ask human to run `specd approve {slug}`.")
         return EXIT_OK
+    if action == "mode":
+        if not native_has_command("mode"):
+            eprint("native specd mode command unsupported; fallback: use base workflow or upgrade specd")
+            return EXIT_GATE
+        code, slug = select_slug(args.slug)
+        if code != 0:
+            return code
+        extra = getattr(args, "extra", []) or []
+        return run_native(["mode", slug, *extra])
     if action in DIRECT_SPEC_ACTIONS:
         code, slug = select_slug(args.slug)
         if code != 0:
             return code
         extra = getattr(args, "extra", []) or []
         return run_native([action, slug, *extra])
-    eprint("usage: specd-workflow spec [list|new|continue|check|approve|context|next|waves|report]")
+    eprint("usage: specd-workflow spec [list|new|continue|check|approve|context|next|waves|report|mode]")
     return EXIT_USAGE
 
 

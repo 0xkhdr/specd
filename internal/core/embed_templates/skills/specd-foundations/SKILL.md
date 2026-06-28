@@ -58,6 +58,13 @@ for you — that is your work.
 The Markdown is your authored truth for *intent*. `state.json` is machine truth for
 *status*; mutate it only through `specd` (never flip a `tasks.md` checkbox by hand).
 
+## Optional slash/workflow wrappers
+
+If a repo ships `scripts/specd-workflow.sh` and `scripts/specd-workflow.py`, hosts may map
+`/init`, `/steer`, `/spec`, and `/pinky-brain` to them. These wrappers are convenience only:
+they delegate mutations to native `specd`, keep steering writes limited to canonical files,
+never complete tasks, and never forge Pinky proof. When in doubt, run native `specd`.
+
 ## Execution mode (per spec)
 
 Each spec runs in one of two modes, recorded in its `state.json` (`specd mode <spec>` shows it):
