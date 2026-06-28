@@ -1,7 +1,7 @@
 # Tasks — Documentation and Test Hardening
 
 ## Wave 1 — Documentation
-- [ ] T1 — Update command reference
+- [x] T1 — Update command reference
   - why: users need exact CLI/config contracts (Req 1)
   - role: builder
   - files: docs/command-reference.md
@@ -11,7 +11,7 @@
   - depends: scaffold-global-init/T6,migrate-config/T6,env-precedence/T5
   - requirements: 1
 
-- [ ] T2 — Update user guide
+- [x] T2 — Update user guide
   - why: users need a conceptual guide, not only command syntax (Req 1)
   - role: builder
   - files: docs/user-guide.md
@@ -21,7 +21,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — Update contributor guide/security notes
+- [x] T3 — Update contributor guide/security notes
   - why: maintainers need architecture and safety constraints (Req 2)
   - role: builder
   - files: docs/contributor-guide.md, SECURITY.md or docs/validation-gates.md if appropriate, internal/core/config_loader.go comments
@@ -32,7 +32,7 @@
   - requirements: 2
 
 ## Wave 2 — Unit/regression tests
-- [ ] T4 — Add YAML/JSON compatibility fixtures
+- [x] T4 — Add YAML/JSON compatibility fixtures
   - why: legacy and v2 config must stay equivalent (Req 3)
   - role: verifier
   - files: internal/core/testdata/config/ or inline tests, internal/core/config_loader_test.go
@@ -42,7 +42,7 @@
   - depends: schema-v2-namespacing/T8,yaml-loader-cascade/T5
   - requirements: 3
 
-- [ ] T5 — Add docs sample parse tests
+- [x] T5 — Add docs sample parse tests
   - why: docs examples should not rot (Req 1,3)
   - role: verifier
   - files: internal/core/config_docs_test.go, docs/user-guide.md, docs/command-reference.md
@@ -52,7 +52,7 @@
   - depends: T1,T2,T4
   - requirements: 1,3
 
-- [ ] T6 — Add machine JSON invariant tests
+- [x] T6 — Add machine JSON invariant tests
   - why: config YAML migration must not rename machine state files (Req 1,3)
   - role: verifier
   - files: internal/core/paths_test.go, internal/core/program_state_test.go, internal/core/state_test.go
@@ -63,7 +63,7 @@
   - requirements: 3
 
 ## Wave 3 — End-to-end command coverage and CI
-- [ ] T7 — Add init/doctor/migrate E2E tests
+- [x] T7 — Add init/doctor/migrate E2E tests
   - why: user-facing workflow is the release contract (Req 4)
   - role: verifier
   - files: internal/cmd/init_test.go, internal/cmd/doctor_test.go, internal/cmd/migrate_test.go, internal/testharness as needed
@@ -73,7 +73,7 @@
   - depends: scaffold-global-init/T6,migrate-config/T6
   - requirements: 4
 
-- [ ] T8 — Run full local gates and backfill regressions
+- [x] T8 — Run full local gates and backfill regressions
   - why: broad config changes can break unrelated commands (Req 5)
   - role: verifier
   - files: any failing tests/docs as needed

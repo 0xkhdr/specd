@@ -24,9 +24,7 @@ func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		if ValidateOrchestrationConfig(&cfg.Orchestration) != nil {
-			d = append(d, ConfigDiagnostic{Path: "orchestration", Field: "orchestration", Severity: "error", Message: ValidateOrchestrationConfig(&cfg.Orchestration).Error()})
-		}
+		d = append(d, ValidateEffectiveConfig(cfg)...)
 		return cfg, d
 	}
 	loaded, parseDiags := loadConfigFromPathLayer(path, "project")
@@ -58,10 +56,39 @@ func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
 	validateIntRange(doc, "orchestration.transport.leaseSeconds", minLeaseSeconds, maxLeaseSeconds, &d)
 	validateIntRange(doc, "orchestration.transport.heartbeatSeconds", minHeartbeatSeconds, maxHeartbeatSeconds, &d)
 	validateIntRange(doc, "orchestration.program.maxConcurrentSpecs", minMaxConcurrentSpecs, maxMaxConcurrentSpecs, &d)
-	if err := ValidateOrchestrationConfig(&cfg.Orchestration); err != nil {
-		d = append(d, ConfigDiagnostic{Path: "orchestration", Severity: "error", Message: err.Error()})
-	}
+	d = append(d, ValidateEffectiveConfig(cfg)...)
 	return cfg, d
+}
+
+func ValidateEffectiveConfig(cfg Config) []ConfigDiagnostic {
+	d := []ConfigDiagnostic{}
+	if !oneOf(cfg.Report.Format, "", "md", "html") {
+		d = append(d, ConfigDiagnostic{Path: "report.format", Field: "report.format", Severity: "error", Message: fmt.Sprintf("unsupported %q; allowed: [md html]", cfg.Report.Format)})
+	}
+	if !oneOf(cfg.Roles.SubagentMode, "inline", "delegate") {
+		d = append(d, ConfigDiagnostic{Path: "roles.subagentMode", Field: "roles.subagentMode", Severity: "error", Message: fmt.Sprintf("unsupported %q; allowed: [inline delegate]", cfg.Roles.SubagentMode)})
+	}
+	for path, value := range map[string]string{
+		"gates.traceability":   cfg.Gates.Traceability,
+		"gates.acceptance":     cfg.Gates.Acceptance,
+		"gates.scope":          cfg.Gates.Scope,
+		"gates.contextBudget":  cfg.Gates.ContextBudget,
+		"gates.modeCapability": cfg.Gates.ModeCapability,
+	} {
+		if !oneOf(value, "", "off", "warn", "error") {
+			d = append(d, ConfigDiagnostic{Path: path, Field: path, Severity: "error", Message: fmt.Sprintf("unsupported %q; allowed: [off warn error]", value)})
+		}
+	}
+	if !oneOf(cfg.Verify.Sandbox, "", "none", "bwrap", "container") {
+		d = append(d, ConfigDiagnostic{Path: "verify.sandbox", Field: "verify.sandbox", Severity: "error", Message: fmt.Sprintf("unsupported %q; allowed: [none bwrap container]", cfg.Verify.Sandbox)})
+	}
+	if cfg.Gates.MaxContextTokens < 0 || cfg.Gates.MaxContextTokens > MaxSoftContextTokens() {
+		d = append(d, ConfigDiagnostic{Path: "gates.maxContextTokens", Field: "gates.maxContextTokens", Severity: "error", Message: fmt.Sprintf("%d outside [0,%d]", cfg.Gates.MaxContextTokens, MaxSoftContextTokens())})
+	}
+	if err := ValidateOrchestrationConfig(&cfg.Orchestration); err != nil {
+		d = append(d, ConfigDiagnostic{Path: "orchestration", Field: "orchestration", Severity: "error", Message: err.Error()})
+	}
+	return d
 }
 
 func MaxSoftContextTokens() int { return 200000 }

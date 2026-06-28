@@ -40,7 +40,8 @@ highlights:
   `specd verify` refuses to run rather than silently falling back to an
   unisolated shell — a verify that asked for isolation never quietly runs without
   it.
-- **Custom gates (unisolated).** Custom gates configured under `config.json` execute external programs on the host. Although their environment is scrubbed and execution is bounded by a timeout (`SPECD_CUSTOM_GATE_TIMEOUT_MS`), **custom gates do not run within bubblewrap or container sandbox isolation**. Only run `specd check` on projects where the custom gate commands are trusted.
+- **Custom gates (unisolated).** Custom gates configured under `config.yml` (or legacy `config.json`) execute external programs on the host. Although their environment is scrubbed and execution is bounded by a timeout (`SPECD_CUSTOM_GATE_TIMEOUT_MS`), **custom gates do not run within bubblewrap or container sandbox isolation**. Only run `specd check` on projects where the custom gate commands are trusted.
+- **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
   path traversal under `.specd/`.
 - **Self-update integrity.** `install.sh` and `specd update` fetch a release

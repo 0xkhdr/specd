@@ -57,7 +57,7 @@ specd init --agent auto
 ```
 
 This scaffolds `.specd/` (default templates, steering files, roles, skills,
-`config.json`) and merges `AGENTS.md`, **then** detects your coding agent, installs
+`config.yml`) and merges `AGENTS.md`, **then** detects your coding agent, installs
 project-scoped MCP registration for it, and verifies the integration with an
 in-process MCP handshake. A rerun on a healthy project makes **zero byte changes**.
 
@@ -117,12 +117,41 @@ agent work — there is no detection command. Read
    directory tree, `README`/`CONTRIBUTING`/`docs/`, and CI files.
 2. Author `.specd/steering/product.md`, `structure.md`, and `tech.md`, grounding
    every claim in a file you actually read — never invented.
-3. Set `config.defaultVerify` in `.specd/config.json` to the real test command you
+3. Set `defaults.verify_command` in `.specd/config.yml` to the real test command you
    found (e.g. `go test ./...`, `npm test`, `pytest`).
 
 The harness performs **zero inference**: it scaffolds the skill pack at `init` and
 enforces specs at `check`. Perceiving the stack and authoring steering is the
 agent's job (the Foundational Split).
+
+### Global vs Project Config
+
+`specd` reads config as embedded defaults → global YAML/JSON → project YAML/legacy JSON → `SPECD_*` environment overrides. Use global config for personal defaults and project config for repository policy:
+
+```yaml
+# ~/.config/specd/config.yml
+version: 2
+defaults:
+  verify_command: "go test ./..."
+  report_format: "md"
+roles:
+  subagent_mode: "inline"
+```
+
+```yaml
+# .specd/config.yml
+version: 2
+defaults:
+  verify_command: "make test"
+verify:
+  sandbox: "bwrap"
+orchestration:
+  enabled: true
+  approval_policy: "planning"
+  max_workers: 4
+```
+
+Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. Existing `.specd/config.json` is still accepted; run `specd migrate config --dry-run` to preview YAML conversion, then `specd migrate config` to write `.specd/config.yml` and keep `.specd/config.json.bak`. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
 
 ---
 
@@ -381,7 +410,7 @@ specd verify my-feature T1 --sandbox bwrap
 specd verify my-feature T1 --revert-on-fail
 ```
 
-Set a project-wide default with `verify.sandbox` in `.specd/config.json`. See
+Set a project-wide default with `verify.sandbox` in `.specd/config.yml`. See
 [SECURITY.md](../SECURITY.md) for the isolation and fail-closed contract.
 
 ### Telemetry annotations
@@ -429,7 +458,7 @@ specd init --agent auto --orchestration session --yes
 ```
 
 This command:
-1. Scaffolds `.specd/config.json` with `"orchestration.enabled": true`.
+1. Scaffolds `.specd/config.yml` with `orchestration.enabled: true`.
 2. Registers the MCP server on your host agent (e.g., Claude Code).
 3. Configures subagent mode to `"delegate"`, allowing Pinky workers to spawn in isolated context windows.
 4. Installs the worker subagent definitions under `.claude/agents/pinky-*.md`.

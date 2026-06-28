@@ -1,7 +1,7 @@
 # Command Reference
 
 Every `specd` command, its flags, and exit codes — plus environment variables and
-the `config.json` schema. This mirrors the embedded registry; run
+the YAML/legacy JSON config schema. This mirrors the embedded registry; run
 `specd help --json` for the machine-readable form.
 
 ## Contents
@@ -18,7 +18,7 @@ the `config.json` schema. This mirrors the embedded registry; run
 - [Argument grammar](#argument-grammar)
 - [Output streams](#output-streams)
 - [Exit code semantics](#exit-code-semantics)
-- [Config file](#config-file-specdconfigjson)
+- [Config file](#config-file-specdconfigyml)
 
 ---
 
@@ -175,6 +175,16 @@ own. The Brain manages this with a persistent **context ledger** and a
 | `SPECD_WATCH_INTERVAL_MS` | `1000` | Poll interval for `specd watch` |
 | `SPECD_CUSTOM_GATE_TIMEOUT_MS` | — | Per-gate wall-clock budget for [custom gates](./custom-gates.md) |
 | `SPECD_SANDBOX_IMAGE` | — | Container image for `--sandbox container` ([verify sandboxing](../SECURITY.md)) |
+| `SPECD_CONFIG_FORMAT` | — | Optional config candidate filter: `yaml` uses `config.yml`/`config.yaml`; `json` uses legacy `config.json`; invalid values warn and fall back to normal lookup |
+| `SPECD_DEFAULT_VERIFY` | — | Final-layer override for `defaultVerify` / `defaults.verify_command` |
+| `SPECD_REPORT_FORMAT` | — | Final-layer override for `report.format` |
+| `SPECD_ROLES_SUBAGENT_MODE` | — | Final-layer override for `roles.subagentMode` |
+| `SPECD_GATES_TRACEABILITY` / `SPECD_GATES_ACCEPTANCE` / `SPECD_GATES_SCOPE` / `SPECD_GATES_CONTEXT_BUDGET` | — | Final-layer gate severity overrides |
+| `SPECD_MAX_CONTEXT_TOKENS` | — | Host context budget and final-layer override for `gates.maxContextTokens` |
+| `SPECD_VERIFY_SANDBOX` | — | Final-layer override for `verify.sandbox`; `specd verify --sandbox` still wins for one run |
+| `SPECD_ORCHESTRATION_ENABLED` / `SPECD_ORCHESTRATION_APPROVAL_POLICY` / `SPECD_ORCHESTRATION_MAX_WORKERS` / `SPECD_ORCHESTRATION_MAX_RETRIES` / `SPECD_ORCHESTRATION_SESSION_TIMEOUT_MINUTES` | — | Final-layer overrides for matching orchestration policy fields |
+| `SPECD_ORCHESTRATION_COMPACTION_POLICY` / `SPECD_ORCHESTRATION_COMPACTION_BUDGET_THRESHOLD` | — | Final-layer compaction policy overrides |
+| `SPECD_ORCHESTRATION_RESILIENCE_CHECKPOINT_ENABLED` / `SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_ENABLED` / `SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_MAX_AGE_MINUTES` | — | Final-layer resilience overrides |
 | `SPECD_REDIS_ADDR` / `SPECD_REDIS_PREFIX` | — | Redis state backend (only in the `specd_redis` tagged build) |
 | `SPECD_PG_DSN` / `SPECD_PG_DRIVER` | — | Postgres state backend (only in the `specd_postgres` tagged build) |
 | `NO_COLOR` | — | Disable ANSI colors |
@@ -240,41 +250,55 @@ scripted callers can branch on the code reliably:
 "verify failed": both are enforcement failures, and collapsing them keeps the
 contract simple. Distinguish the two by the command you invoked, not the code.
 
-## Config file (`.specd/config.json`)
+## Config file (`.specd/config.yml`)
 
-```json
-{
-  "version": 1,
-  "defaultVerify": "npm test",
-  "report": { "format": "md", "autoRefreshSeconds": 0 },
-  "roles": { "subagentMode": "inline" },
-  "promotionThreshold": 3,
-  "gates": {
-    "traceability": "warn",
-    "acceptance": "off",
-    "scope": "off",
-    "custom": []
-  },
-  "verify": { "sandbox": "none" },
-  "orchestration": {
-    "enabled": false,
-    "approvalPolicy": "manual",
-    "workerMode": "host",
-    "maxWorkers": 4,
-    "maxRetries": 2,
-    "sessionTimeoutMinutes": 120,
-    "hostReportedCostLimitUSD": 0,
-    "transport": {
-      "kind": "file",
-      "pollIntervalMillis": 500,
-      "messageTTLSeconds": 3600,
-      "leaseSeconds": 120,
-      "heartbeatSeconds": 30
-    },
-    "program": { "maxConcurrentSpecs": 2 }
-  }
-}
+Human-authored config is YAML v2 by default. Lookup and precedence are:
+
+1. embedded defaults
+2. global config (`$XDG_CONFIG_HOME/specd/config.yml`, then `.yaml`, then legacy `.json`; fallback `~/.specd.yml`, `.yaml`, `.json`)
+3. project config (`.specd/config.yml`, then `.specd/config.yaml`, then legacy `.specd/config.json`)
+4. final environment overrides (`SPECD_*` config vars above)
+
+Project values override global values field-by-field; list fields replace the lower layer. `specd doctor --json` and `specd fusion policy --json` include source diagnostics, including env var name and target field, without dumping secret values. Machine-owned files (`state.json`, `.specd/program.json`, runtime `session.json`, integration state) remain JSON.
+
+```yaml
+version: 2
+defaults:
+  verify_command: "npm test"
+  report_format: "md"
+  subagent_mode: "inline"
+  promotion_threshold: 3
+report:
+  format: "md"
+  auto_refresh_seconds: 0
+roles:
+  subagent_mode: "inline"
+gates:
+  traceability: "warn"
+  acceptance: "off"
+  scope: "off"
+  custom: []
+verify:
+  sandbox: "none"
+orchestration:
+  enabled: false
+  approval_policy: "manual"
+  worker_mode: "host"
+  max_workers: 4
+  max_retries: 2
+  session_timeout_minutes: 120
+  host_reported_cost_limit_usd: 0
+  transport:
+    kind: "file"
+    poll_interval_millis: 500
+    message_ttl_seconds: 3600
+    lease_seconds: 120
+    heartbeat_seconds: 30
+  program:
+    max_concurrent_specs: 2
 ```
+
+Legacy `.specd/config.json` (schema v1 camelCase) remains supported and can be converted with `specd migrate config [--dry-run] [--global] [--json]`; migration writes deterministic YAML and renames the JSON source to `.bak`.
 
 | Key | Default | Bounds / values | Effect |
 |---|---|---|---|

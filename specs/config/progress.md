@@ -33,12 +33,12 @@ Each child spec has its own `spec.md` (analysis, requirements, design) and `task
 | scaffold-global-init | complete | yaml-loader-cascade; schema-v2-namespacing | New projects scaffold `.specd/config.yml`; first init creates global config when absent. |
 | migrate-config | complete | yaml-loader-cascade; schema-v2-namespacing; scaffold-global-init/T1 | Safe deterministic conversion from legacy JSON to YAML with dry-run and global mode. |
 
-### Wave 3 — Precedence, docs, and regression net (P1) — **status: not-started**
+### Wave 3 — Precedence, docs, and regression net (P1) — **status: complete**
 
 | Spec | Status | Depends on | Notes |
 |---|---|---|---|
-| env-precedence | not-started | yaml-loader-cascade; schema-v2-namespacing | Apply `SPECD_*` after merge; optional `SPECD_CONFIG_FORMAT`; document exact ladder. |
-| docs-test-hardening | not-started | all Wave 1/2 tasks; env-precedence | Full docs, compatibility tests, merge tests, doctor coverage, and machine-file JSON invariants. |
+| env-precedence | complete | yaml-loader-cascade; schema-v2-namespacing | Applied supported config `SPECD_*` vars after merge with strict diagnostics, effective validation, `SPECD_CONFIG_FORMAT`, and precedence tests. |
+| docs-test-hardening | complete | all Wave 1/2 tasks; env-precedence | Updated user/contributor/security docs, added docs parse/compat/migration/init-doctor-migrate/machine JSON invariant tests, and passed `make ci`. |
 
 ## Acceptance checklist
 
@@ -48,10 +48,10 @@ Each child spec has its own `spec.md` (analysis, requirements, design) and `task
 - [x] Project config overrides global config on a field-by-field basis.
 - [x] `specd migrate config` converts `.specd/config.json` to `.specd/config.yml` deterministically and backs up the JSON file.
 - [x] `specd doctor` reports global and project config health.
-- [ ] `SPECD_*` env vars override merged config values.
+- [x] `SPECD_*` env vars override merged config values.
 - [x] YAML config supports comments and receives strict validation diagnostics.
-- [ ] `state.json`, `program.json`, `session.json`, and integration/runtime state remain JSON.
-- [ ] Docs describe locations, schema, migration, precedence, and env vars.
+- [x] `state.json`, `program.json`, `session.json`, and integration/runtime state remain JSON.
+- [x] Docs describe locations, schema, migration, precedence, and env vars.
 
 ## Status legend
 

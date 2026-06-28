@@ -44,14 +44,15 @@ type doctorOrchestration struct {
 }
 
 type doctorResult struct {
-	SchemaVersion int                 `json:"schemaVersion"`
-	Status        string              `json:"status"`
-	Root          string              `json:"root"`
-	Checks        []doctorCheck       `json:"checks"`
-	Hosts         []doctorHost        `json:"hosts"`
-	Orchestration doctorOrchestration `json:"orchestration"`
-	Remediations  []string            `json:"remediations"`
-	NextAction    string              `json:"nextAction"`
+	SchemaVersion     int                     `json:"schemaVersion"`
+	Status            string                  `json:"status"`
+	Root              string                  `json:"root"`
+	Checks            []doctorCheck           `json:"checks"`
+	Hosts             []doctorHost            `json:"hosts"`
+	Orchestration     doctorOrchestration     `json:"orchestration"`
+	ConfigDiagnostics []core.ConfigDiagnostic `json:"configDiagnostics"`
+	Remediations      []string                `json:"remediations"`
+	NextAction        string                  `json:"nextAction"`
 }
 
 type doctorRuntime struct {
@@ -127,6 +128,7 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 	}
 
 	_, configDiagnostics := core.LoadConfigStrict(root)
+	result.ConfigDiagnostics = configDiagnostics
 	if core.HasErrorDiagnostics(configDiagnostics) {
 		parts := []string{}
 		for _, d := range configDiagnostics {

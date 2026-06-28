@@ -32,8 +32,9 @@ func LoadConfig(root string) Config {
 func LoadConfigWithDiagnostics(root string) (Config, ConfigLoadResult) {
 	cfg := DefaultConfig
 	res := ConfigLoadResult{}
-	global := selectConfigCandidate("global", GlobalConfigPaths(), &res.Diagnostics)
-	project := selectConfigCandidate("project", ConfigPaths(root), &res.Diagnostics)
+	formatPref := configFormatPreference(&res.Diagnostics)
+	global := selectConfigCandidate("global", GlobalConfigPaths(), formatPref, &res.Diagnostics)
+	project := selectConfigCandidate("project", ConfigPaths(root), formatPref, &res.Diagnostics)
 	for _, item := range []struct{ layer, path string }{{"global", global}, {"project", project}} {
 		if item.path == "" {
 			res.Diagnostics = append(res.Diagnostics, ConfigDiagnostic{Path: item.layer, Layer: item.layer, Severity: "info", Message: "missing; defaults in effect"})
@@ -62,6 +63,7 @@ func LoadConfigWithDiagnostics(root string) (Config, ConfigLoadResult) {
 			res.ProjectPath = item.path
 		}
 	}
+	applyConfigEnv(&cfg, &res.Diagnostics)
 	if res.ProjectPath != "" || res.GlobalPath != "" {
 		res.Present = true
 		res.Digest = effectiveConfigDigest(res.GlobalPath, res.ProjectPath)
@@ -105,9 +107,12 @@ func loadConfigFromPathLayer(path, layer string) (loadedConfigFile, []ConfigDiag
 	return loadedConfigFile{Path: path, Doc: doc}, diags
 }
 
-func selectConfigCandidate(layer string, paths []string, diags *[]ConfigDiagnostic) string {
+func selectConfigCandidate(layer string, paths []string, formatPref string, diags *[]ConfigDiagnostic) string {
 	selected := ""
 	for _, p := range paths {
+		if formatPref != "" && configPathFormat(p) != formatPref {
+			continue
+		}
 		if _, err := os.Stat(p); err == nil {
 			if selected == "" {
 				selected = p
@@ -117,6 +122,116 @@ func selectConfigCandidate(layer string, paths []string, diags *[]ConfigDiagnost
 		}
 	}
 	return selected
+}
+
+func configFormatPreference(diags *[]ConfigDiagnostic) string {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("SPECD_CONFIG_FORMAT")))
+	if v == "" {
+		return ""
+	}
+	if v == "yaml" || v == "json" {
+		*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "info", Message: "config candidate format preference active"})
+		return v
+	}
+	*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "warning", Message: "unsupported config format preference; expected yaml or json"})
+	return ""
+}
+
+func configPathFormat(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".yml", ".yaml":
+		return "yaml"
+	case ".json":
+		return "json"
+	default:
+		return ""
+	}
+}
+
+func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
+	stringEnv(diags, "SPECD_DEFAULT_VERIFY", "defaultVerify", func(v string) { cfg.DefaultVerify = v })
+	stringEnv(diags, "SPECD_REPORT_FORMAT", "report.format", func(v string) { cfg.Report.Format = v })
+	stringEnv(diags, "SPECD_ROLES_SUBAGENT_MODE", "roles.subagentMode", func(v string) { cfg.Roles.SubagentMode = v })
+	stringEnv(diags, "SPECD_GATES_TRACEABILITY", "gates.traceability", func(v string) { cfg.Gates.Traceability = v })
+	stringEnv(diags, "SPECD_GATES_ACCEPTANCE", "gates.acceptance", func(v string) { cfg.Gates.Acceptance = v })
+	stringEnv(diags, "SPECD_GATES_SCOPE", "gates.scope", func(v string) { cfg.Gates.Scope = v })
+	stringEnv(diags, "SPECD_GATES_CONTEXT_BUDGET", "gates.contextBudget", func(v string) { cfg.Gates.ContextBudget = v })
+	intEnv(diags, "SPECD_MAX_CONTEXT_TOKENS", "gates.maxContextTokens", cfg.Gates.MaxContextTokens, 0, MaxSoftContextTokens(), func(v int) { cfg.Gates.MaxContextTokens = v })
+	stringEnv(diags, "SPECD_VERIFY_SANDBOX", "verify.sandbox", func(v string) { cfg.Verify.Sandbox = v })
+	boolEnv(diags, "SPECD_ORCHESTRATION_ENABLED", "orchestration.enabled", func(v bool) { cfg.Orchestration.Enabled = v })
+	stringEnv(diags, "SPECD_ORCHESTRATION_APPROVAL_POLICY", "orchestration.approvalPolicy", func(v string) { cfg.Orchestration.ApprovalPolicy = v })
+	intEnv(diags, "SPECD_ORCHESTRATION_MAX_WORKERS", "orchestration.maxWorkers", cfg.Orchestration.MaxWorkers, minMaxWorkers, maxMaxWorkers, func(v int) { cfg.Orchestration.MaxWorkers = v })
+	intEnv(diags, "SPECD_ORCHESTRATION_MAX_RETRIES", "orchestration.maxRetries", cfg.Orchestration.MaxRetries, minMaxRetries, maxMaxRetries, func(v int) { cfg.Orchestration.MaxRetries = v })
+	intEnv(diags, "SPECD_ORCHESTRATION_SESSION_TIMEOUT_MINUTES", "orchestration.sessionTimeoutMinutes", cfg.Orchestration.SessionTimeoutMinutes, minSessionTimeoutMinutes, maxSessionTimeoutMinutes, func(v int) { cfg.Orchestration.SessionTimeoutMinutes = v })
+	stringEnv(diags, "SPECD_ORCHESTRATION_COMPACTION_POLICY", "orchestration.compactionPolicy", func(v string) { cfg.Orchestration.CompactionPolicy = v })
+	floatEnv(diags, "SPECD_ORCHESTRATION_COMPACTION_BUDGET_THRESHOLD", "orchestration.compactionBudgetThreshold", func(v float64) { cfg.Orchestration.CompactionBudgetThreshold = v })
+	boolEnv(diags, "SPECD_ORCHESTRATION_RESILIENCE_CHECKPOINT_ENABLED", "orchestration.resilience.checkpointEnabled", func(v bool) {
+		ensureResilience(cfg).CheckpointEnabled = v
+	})
+	boolEnv(diags, "SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_ENABLED", "orchestration.resilience.autoResume.enabled", func(v bool) {
+		ensureResilience(cfg).AutoResume.Enabled = v
+	})
+	intEnv(diags, "SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_MAX_AGE_MINUTES", "orchestration.resilience.autoResume.maxAgeMinutes", 0, 0, 0, func(v int) {
+		ensureResilience(cfg).AutoResume.MaxAgeMinutes = v
+	})
+}
+
+func ensureResilience(cfg *Config) *ResilienceCfg {
+	if cfg.Orchestration.Resilience == nil {
+		cfg.Orchestration.Resilience = &ResilienceCfg{}
+	}
+	return cfg.Orchestration.Resilience
+}
+
+func stringEnv(diags *[]ConfigDiagnostic, name, field string, apply func(string)) {
+	v, ok := os.LookupEnv(name)
+	if !ok {
+		return
+	}
+	apply(v)
+	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
+}
+
+func boolEnv(diags *[]ConfigDiagnostic, name, field string, apply func(bool)) {
+	v, ok := os.LookupEnv(name)
+	if !ok || strings.TrimSpace(v) == "" {
+		return
+	}
+	b, err := strconv.ParseBool(strings.TrimSpace(v))
+	if err != nil {
+		*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "error", Message: "must be boolean"})
+		return
+	}
+	apply(b)
+	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
+}
+
+func intEnv(diags *[]ConfigDiagnostic, name, field string, def, min, max int, apply func(int)) {
+	v, ok := os.LookupEnv(name)
+	if !ok || strings.TrimSpace(v) == "" {
+		return
+	}
+	if _, err := strconv.Atoi(strings.TrimSpace(v)); err != nil {
+		_ = EnvInt(name, def, min, max)
+		*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "error", Message: "must be integer"})
+		return
+	}
+	apply(EnvInt(name, def, min, max))
+	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
+}
+
+func floatEnv(diags *[]ConfigDiagnostic, name, field string, apply func(float64)) {
+	v, ok := os.LookupEnv(name)
+	if !ok || strings.TrimSpace(v) == "" {
+		return
+	}
+	f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+	if err != nil {
+		*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "error", Message: "must be number"})
+		return
+	}
+	apply(f)
+	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
 }
 
 func effectiveConfigDigest(paths ...string) string {

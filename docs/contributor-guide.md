@@ -74,6 +74,16 @@ specd/
 | `internal/core/lock.go` | `WithSpecLock[T]` wraps every mutating command in a reentrant per-spec advisory lock. |
 | `internal/cmd/task.go` | Evidence gate. `--status complete` requires a passing verify record (or `--unverified --evidence` for read-only roles) AND all deps complete. Dual-writes `tasks.md` + `state.json` atomically. |
 | `internal/core/tasksparser.go` | Bespoke line parser (`ParseTasksMd`). No external libs. Round-trip byte-stability tested. Returns `SpecdError(1)` with a line number on errors. |
+| `internal/core/config_loader.go` | Config discovery/cascade: embedded defaults → global YAML/legacy JSON → project YAML/legacy JSON → env overlay. `LoadConfig` is the compatibility wrapper; use `LoadConfigWithDiagnostics`/`LoadConfigStrict` for source metadata or validation. |
+| `internal/core/config_migrate.go` | Deterministic legacy JSON → YAML v2 renderer/migration, including parse round-trip validation. |
+
+### Config loader architecture
+
+Human-authored config defaults to YAML v2 (`.specd/config.yml` and `$XDG_CONFIG_HOME/specd/config.yml`), while legacy v1 JSON remains readable through compatibility wrappers. The loader deliberately avoids external dependencies: `parseSimpleYAML` accepts the subset emitted by `RenderConfigYAML` and documented examples. New fields must be added in four places: the `Config` struct/defaults, `applyConfigDoc` camelCase + snake_case translation, validation (`ValidateConfigDoc` and/or `ValidateEffectiveConfig`), and migration rendering/tests.
+
+Merge semantics are field-presence based: absent fields leave the lower layer intact, explicit `false`/`0` values apply, and slices replace lower-layer slices. After file merge, `applyConfigEnv` applies supported `SPECD_*` overrides as a final layer and emits diagnostics with only env var name + target field. Never dump raw environment blocks into JSON output.
+
+Security boundaries: config is untrusted policy input. Validate authority-bearing orchestration values after all layers, keep secret-shaped orchestration keys rejected, and do not add env vars that smuggle shell commands, tokens, provider names, models, or credentials into orchestration policy. Machine state files stay JSON; YAML migration must not rename `state.json`, `.specd/program.json`, runtime `session.json`, or integration JSON.
 
 ## Extending the CLI
 

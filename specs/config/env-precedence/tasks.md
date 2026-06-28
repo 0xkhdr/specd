@@ -1,7 +1,7 @@
 # Tasks — Environment Precedence and Format Control
 
 ## Wave 1 — Apply env as final layer
-- [ ] T1 — Inventory existing `SPECD_*` config-affecting env vars
+- [x] T1 — Inventory existing `SPECD_*` config-affecting env vars
   - why: preserve behavior before moving override order (Req 1)
   - role: investigator
   - files: internal/core/env.go, internal/core/specfiles.go, internal/cmd/*.go, docs/command-reference.md
@@ -11,7 +11,7 @@
   - depends: yaml-loader-cascade/T5
   - requirements: 1
 
-- [ ] T2 — Apply config env overrides after cascade merge
+- [x] T2 — Apply config env overrides after cascade merge
   - why: env must be top precedence (Req 1)
   - role: builder
   - files: internal/core/config_loader.go, internal/core/env.go, internal/core/config_env_test.go
@@ -21,7 +21,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T3 — Validate env-overridden effective config
+- [x] T3 — Validate env-overridden effective config
   - why: env must not bypass safety checks (Req 4)
   - role: builder
   - files: internal/core/config_validate.go, internal/core/config_env_test.go
@@ -32,7 +32,7 @@
   - requirements: 1,4
 
 ## Wave 2 — Diagnostics and optional format preference
-- [ ] T4 — Add env source diagnostics
+- [x] T4 — Add env source diagnostics
   - why: agents need to understand why effective config differs from files (Req 2)
   - role: builder
   - files: internal/core/config_loader.go, internal/core/fusion.go, internal/cmd/doctor.go, internal/core/config_env_test.go
@@ -42,7 +42,7 @@
   - depends: T2
   - requirements: 2,4
 
-- [ ] T5 — Implement or explicitly reject `SPECD_CONFIG_FORMAT`
+- [x] T5 — Implement or explicitly reject `SPECD_CONFIG_FORMAT`
   - why: action plan proposes format control; behavior must be clear (Req 3)
   - role: builder
   - files: internal/core/config_loader.go, internal/core/env.go, internal/core/config_env_test.go, docs/command-reference.md
@@ -53,7 +53,7 @@
   - requirements: 3
 
 ## Wave 3 — Precedence regression tests
-- [ ] T6 — Add full precedence ladder tests
+- [x] T6 — Add full precedence ladder tests
   - why: cascade behavior is the core contract (Req 1,2)
   - role: verifier
   - files: internal/core/config_precedence_test.go

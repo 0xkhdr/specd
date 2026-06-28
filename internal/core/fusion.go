@@ -225,7 +225,9 @@ func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, err
 		Config: FusionConfigSummary{
 			Path: func() string {
 				if loadResult.ProjectPath != "" {
-					if rel, err := filepath.Rel(root, loadResult.ProjectPath); err == nil { return filepath.ToSlash(rel) }
+					if rel, err := filepath.Rel(root, loadResult.ProjectPath); err == nil {
+						return filepath.ToSlash(rel)
+					}
 					return loadResult.ProjectPath
 				}
 				return ".specd/config.yml"
@@ -237,9 +239,15 @@ func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, err
 			GateSeverities:    fusionGateSeverities(cfg),
 			ConfigFilePresent: configPresent,
 			EffectiveConfigSource: func() string {
-				if loadResult.GlobalPath != "" && loadResult.ProjectPath != "" { return "global+project+defaults" }
-				if loadResult.ProjectPath != "" { return "project+defaults" }
-				if loadResult.GlobalPath != "" { return "global+defaults" }
+				if loadResult.GlobalPath != "" && loadResult.ProjectPath != "" {
+					return "global+project+defaults"
+				}
+				if loadResult.ProjectPath != "" {
+					return "project+defaults"
+				}
+				if loadResult.GlobalPath != "" {
+					return "global+defaults"
+				}
 				return "defaults"
 			}(),
 		},
