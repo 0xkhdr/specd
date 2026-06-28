@@ -22,7 +22,7 @@
   - requirements: 1
 
 ## Wave 2 — Interactive and non-interactive execution
-- [ ] T3 — Build interactive menu flow
+- [x] T3 — Build interactive menu flow
   - why: action plan requires explicit behavior selection (Req 1,2)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -32,7 +32,7 @@
   - depends: T2
   - requirements: 1,2
 
-- [ ] T4 — Implement native `specd init` delegation
+- [x] T4 — Implement native `specd init` delegation
   - why: wrapper must not own scaffold policy (Req 3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py

@@ -32,7 +32,7 @@
   - requirements: 2
 
 ## Wave 2 — Editing and bootstrap
-- [ ] T4 — Implement safe edit flow
+- [x] T4 — Implement safe edit flow
   - why: users need convenient authorship without unsafe writes (Req 3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -42,7 +42,7 @@
   - depends: T2
   - requirements: 3,5
 
-- [ ] T5 — Implement `bootstrap` guidance
+- [x] T5 — Implement `bootstrap` guidance
   - why: action plan requires guided product/tech/structure authorship (Req 3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py, scripts/README.md

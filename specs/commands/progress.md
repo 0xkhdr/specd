@@ -26,14 +26,14 @@ Run waves in order. Intra-spec task ordering remains defined by each `tasks.md`;
 | pinky-brain-console | T1-T3 | complete | — | Capability/config/session status render read-only and tolerate native failures. |
 | workflow-packaging-testing | T1-T3 | complete | child T1 foundations | Shared shell/Python entrypoints and helpers exist with parity targets. |
 
-### Wave 2 — User actions and native delegation — **status: pending**
+### Wave 2 — User actions and native delegation — **status: complete**
 
 | Spec | Tasks | Status | Depends on | Exit criteria |
 |---|---:|---|---|---|
-| interactive-init | T3-T4 | pending | Wave 1 interactive-init | Interactive/non-interactive flow builds safe `specd init` argv and propagates native exits. |
-| steering-console | T4-T5 | pending | Wave 1 steering-console | Edit/bootstrap only touch canonical steering files; dry-run writes nothing. |
-| spec-dashboard | T3-T5 | pending | Wave 1 spec-dashboard | `new`, `continue`, and direct lifecycle actions delegate to native `specd`. |
-| pinky-brain-console | T4-T8 | pending | Wave 1 pinky-brain-console | Enable/disable and session ops delegate safely; worker view remains read-only. |
+| interactive-init | T3-T4 | complete | Wave 1 interactive-init | Interactive/non-interactive flow builds safe `specd init` argv and propagates native exits. |
+| steering-console | T4-T5 | complete | Wave 1 steering-console | Edit/bootstrap only touch canonical steering files; dry-run writes nothing. |
+| spec-dashboard | T3-T5 | complete | Wave 1 spec-dashboard | `new`, `continue`, and direct lifecycle actions delegate to native `specd`. |
+| pinky-brain-console | T4-T8 | complete | Wave 1 pinky-brain-console | Enable/disable and session ops delegate safely; worker view remains read-only. |
 
 ### Wave 3 — Safety regression net — **status: pending**
 

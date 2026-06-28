@@ -32,7 +32,7 @@
   - requirements: 1
 
 ## Wave 2 — Enable/disable
-- [ ] T4 — Implement explicit enable flow
+- [x] T4 — Implement explicit enable flow
   - why: users need policy selection and safe config (Req 2)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -42,7 +42,7 @@
   - depends: T2
   - requirements: 2
 
-- [ ] T5 — Implement disable flow safely
+- [x] T5 — Implement disable flow safely
   - why: users need opt-out without corrupting sessions (Req 2)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -53,7 +53,7 @@
   - requirements: 2
 
 ## Wave 3 — Session operations and worker view
-- [ ] T6 — Implement start/run/step actions
+- [x] T6 — Implement start/run/step actions
   - why: console manages primary orchestration loop (Req 3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -63,7 +63,7 @@
   - depends: T2,T3
   - requirements: 3
 
-- [ ] T7 — Implement pause/resume/cancel/compact actions
+- [x] T7 — Implement pause/resume/cancel/compact actions
   - why: users need lifecycle controls (Req 3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -73,7 +73,7 @@
   - depends: T3
   - requirements: 3
 
-- [ ] T8 — Implement workers read-only view
+- [x] T8 — Implement workers read-only view
   - why: users need Pinky visibility without forging reports (Req 4)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py

@@ -22,7 +22,7 @@
   - requirements: 3,6
 
 ## Wave 2 — Lifecycle actions
-- [ ] T3 — Implement `/spec new`
+- [x] T3 — Implement `/spec new`
   - why: creation is primary entry point (Req 2)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -32,7 +32,7 @@
   - depends: T1
   - requirements: 2
 
-- [ ] T4 — Implement `/spec continue`
+- [x] T4 — Implement `/spec continue`
   - why: users need next-action guidance (Req 3)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
@@ -42,7 +42,7 @@
   - depends: T2
   - requirements: 3
 
-- [ ] T5 — Implement direct delegation actions
+- [x] T5 — Implement direct delegation actions
   - why: dashboard should centralize common lifecycle commands (Req 4)
   - role: builder
   - files: scripts/specd-workflow.sh, scripts/specd-workflow.py
