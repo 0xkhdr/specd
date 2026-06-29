@@ -17,19 +17,19 @@ import (
 // every `go test`, so CI is reproducible without -fuzz). It covers the failure
 // classes the spec calls out: negative, oversized, nil, and type-mismatched.
 var malformedHostCapsCorpus = []string{
-	``,                  // empty
-	`null`,              // JSON null
-	`{}`,                // no capabilities
-	`[]`,                // wrong top-level type
-	`"garbage"`,         // scalar where object expected
+	``,          // empty
+	`null`,      // JSON null
+	`{}`,        // no capabilities
+	`[]`,        // wrong top-level type
+	`"garbage"`, // scalar where object expected
 	`{"capabilities":null}`,
 	`{"capabilities":{"specd":null}}`,
-	`{"capabilities":{"specd":{"maxContextTokens":-1}}}`,        // negative
+	`{"capabilities":{"specd":{"maxContextTokens":-1}}}`, // negative
 	`{"capabilities":{"specd":{"maxContextTokens":-9999999999}}}`,
-	`{"capabilities":{"specd":{"maxTools":-5}}}`,                // negative
+	`{"capabilities":{"specd":{"maxTools":-5}}}`,                          // negative
 	`{"capabilities":{"specd":{"maxContextTokens":9223372036854775807}}}`, // oversized (max int64)
-	`{"capabilities":{"specd":{"maxTools":"not-a-number"}}}`,    // type mismatch
-	`{"capabilities":{"specd":{"preferredNamespaces":"read"}}}`, // string where []string expected
+	`{"capabilities":{"specd":{"maxTools":"not-a-number"}}}`,              // type mismatch
+	`{"capabilities":{"specd":{"preferredNamespaces":"read"}}}`,           // string where []string expected
 	`{"capabilities":{"specd":{"preferredNamespaces":[1,2,3]}}}`,
 	`{"capabilities":{"specd":{"maxContextTokens":{"nested":true}}}}`,
 	`{"capabilities":{"specd":"not-an-object"}}`,
