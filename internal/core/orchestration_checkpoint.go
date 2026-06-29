@@ -57,6 +57,7 @@ func RecordCheckpoint(root string, rec CheckpointRecord, cfg OrchestrationCfg) (
 	if err := atomicWritePrivate(path, raw); err != nil {
 		return CheckpointRecord{}, fmt.Errorf("record checkpoint: write record: %w", err)
 	}
+	faultInjectCheckpoint("after-write")
 
 	// Append the checkpoint event (pinky -> brain), mirroring appendPinkyEvent.
 	payload := ACPCheckpointPayload{
@@ -86,6 +87,7 @@ func RecordCheckpoint(root string, rec CheckpointRecord, cfg OrchestrationCfg) (
 	if _, err := store.WriteEvent(envelope); err != nil {
 		return CheckpointRecord{}, fmt.Errorf("record checkpoint: append event: %w", err)
 	}
+	faultInjectCheckpoint("after-event")
 
 	// Hand the task back so the Brain can resume rather than wait on a held lease.
 	// Clear (not just release) the lease: a checkpoint is a cooperative
@@ -94,7 +96,26 @@ func RecordCheckpoint(root string, rec CheckpointRecord, cfg OrchestrationCfg) (
 	if err := store.ClearLease(rec.SessionID, rec.WorkerID, rec.Attempt); err != nil {
 		return CheckpointRecord{}, fmt.Errorf("record checkpoint: clear lease: %w", err)
 	}
+	faultInjectCheckpoint("after-lease-clear")
 	return rec, nil
+}
+
+// faultInjectCheckpoint hard-exits the process at a named point inside
+// RecordCheckpoint when the SPECD_FAULT_CHECKPOINT env var matches `point`. It
+// exists only to make crash-consistency stress reproducible (spec A3): a real
+// host SIGKILL'd mid-checkpoint must leave no double-claim and no orphaned lease,
+// and that is otherwise only argued, not exercised. Using os.Exit (not panic)
+// emulates SIGKILL — no deferred cleanup, no buffer flush — so the on-disk state
+// is exactly whatever atomic renames had already committed at `point`.
+//
+// In normal operation the env var is unset and this is a single string compare
+// with no effect; no operator would ever set it. Recognised points, in
+// execution order: "after-write", "after-event", "after-lease-clear".
+func faultInjectCheckpoint(point string) {
+	if os.Getenv("SPECD_FAULT_CHECKPOINT") == point {
+		// 128 + SIGKILL(9): the conventional shell code for a killed process.
+		os.Exit(137)
+	}
 }
 
 // ForceCheckpointAll checkpoints every worker that currently holds an active

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -78,6 +80,39 @@ func TestDoctorHealthFixAndJSON(t *testing.T) {
 		}
 		if !strings.Contains(result.Hosts[0].LifecycleSupport, "does not spawn Pinky agents") {
 			t.Fatalf("host lifecycle support missing boundary: %q", result.Hosts[0].LifecycleSupport)
+		}
+	})
+
+	// Spec A6, Req 2.2 — doctor must flag (not silently resolve) a dual
+	// config.yml + config.json so a stale lower-priority file is never hidden.
+	t.Run("flags_dual_config_file_conflict", func(t *testing.T) {
+		root := initTestRoot(t)
+		specd := filepath.Join(root, ".specd")
+		if err := os.MkdirAll(specd, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(specd, "config.yml"), []byte("gates:\n  maxContextTokens: 7000\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(specd, "config.json"), []byte(`{"gates":{"maxContextTokens":1000}}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		runtime := doctorRuntime{Registry: integration.MustRegistry(), Probe: passingProbe}
+		stdout, _, _ := captureOutput(t, func() int {
+			return runDoctor(cli.ParseArgs([]string{"--json"}), runtime)
+		})
+		var result doctorResult
+		if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+			t.Fatal(err)
+		}
+		flagged := false
+		for _, d := range result.ConfigDiagnostics {
+			if strings.Contains(d.Message, "ignored lower-priority") && strings.HasSuffix(d.Source, "config.json") {
+				flagged = true
+			}
+		}
+		if !flagged {
+			t.Fatalf("doctor did not flag dual-file conflict; diagnostics=%+v", result.ConfigDiagnostics)
 		}
 	})
 }

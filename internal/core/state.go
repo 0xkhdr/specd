@@ -263,6 +263,13 @@ func LoadState(root, slug string) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Fail loud on a corrupt/hand-edited status rather than silently coercing it.
+	// A resume (e.g. cross-spec-recovery walking child state.json) must refuse an
+	// impossible status, naming the spec and the offending value, so the operator
+	// is never unknowingly running on coerced state.
+	if !s.Status.IsValid() {
+		return nil, GateError(fmt.Sprintf("invalid status %q in state.json for spec '%s' — refusing to resume on corrupt state; fix or recreate the spec", s.Status, slug))
+	}
 	if s.Tasks == nil {
 		s.Tasks = map[string]TaskState{}
 	}

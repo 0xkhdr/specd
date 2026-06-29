@@ -261,7 +261,18 @@ func progressWithinWindow(snapshot OrchestrationSnapshot, cfg OrchestrationCfg) 
 	if err != nil {
 		return false
 	}
-	return Clock().UTC().Sub(ts) < time.Duration(cfg.Resilience.ProgressTimeoutSeconds)*time.Second
+	elapsed := Clock().UTC().Sub(ts)
+	// A future-stamped report (clock skew, or a malicious worker stamping ahead
+	// to look perpetually fresh) yields negative elapsed, which would otherwise
+	// satisfy `< window` forever and extend the wait indefinitely (spec A7,
+	// Req 2). Treat any future timestamp as untrustworthy: it is NOT honest
+	// progress, so the wait falls through to the stall counter and MaxWaits/
+	// MaxSteps bound it. The server-side bound stays step-based, never trusting
+	// the worker's wall clock to correct skew.
+	if elapsed < 0 {
+		return false
+	}
+	return elapsed < time.Duration(cfg.Resilience.ProgressTimeoutSeconds)*time.Second
 }
 
 func emitDriverEvent(observer DriverObserver, event, sessionID string, d DriverDispatch) {

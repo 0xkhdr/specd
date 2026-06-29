@@ -19,10 +19,10 @@ status column as tasks land.
 ### Wave 2 — Crash & input hardening (P1/P2)
 | Spec | Item | Priority | Status |
 |------|------|----------|--------|
-| [checkpoint-fault-injection](checkpoint-fault-injection/spec.md) | A3 | P1 | not started |
-| [config-corruption-matrix](config-corruption-matrix/spec.md) | A6 | P2 | not started |
-| [untrusted-input-fuzz](untrusted-input-fuzz/spec.md) | A7 | P2 | not started |
-| [state-validation-faillaud](state-validation-faillaud/spec.md) | A10 | P2 | not started |
+| [checkpoint-fault-injection](checkpoint-fault-injection/spec.md) | A3 | P1 | done |
+| [config-corruption-matrix](config-corruption-matrix/spec.md) | A6 | P2 | done |
+| [untrusted-input-fuzz](untrusted-input-fuzz/spec.md) | A7 | P2 | done |
+| [state-validation-faillaud](state-validation-faillaud/spec.md) | A10 | P2 | done |
 
 ### Wave 3 — Parity & coverage debt (P2)
 | Spec | Item | Priority | Status |
@@ -39,15 +39,15 @@ status column as tasks land.
 | http-transport-timeouts | 4 | 4 |
 | mcp-http-exposure-auth | 4 | 4 |
 | context-manifest-perf-gate | 3 | 3 |
-| checkpoint-fault-injection | 4 | 0 |
-| config-corruption-matrix | 3 | 0 |
-| untrusted-input-fuzz | 2 | 0 |
-| state-validation-faillaud | 3 | 0 |
+| checkpoint-fault-injection | 4 | 4 |
+| config-corruption-matrix | 3 | 3 |
+| untrusted-input-fuzz | 2 | 2 |
+| state-validation-faillaud | 3 | 3 |
 | custom-gate-trust-boundary | 3 | 0 |
 | coverage-floor-extension | 3 | 0 |
 | single-flight-doc | 2 | 0 |
 | ears-traceability-audit | 3 (rolling) | 0 |
-| **Total** | **34** | **11** |
+| **Total** | **34** | **23** |
 
 ## Notes / invariants to preserve while hardening
 

@@ -16,3 +16,16 @@ const (
 	StatusComplete     SpecStatus = "complete"
 	StatusBlocked      SpecStatus = "blocked"
 )
+
+// IsValid reports whether s is one of the recognized lifecycle statuses. It is
+// the single source of truth for "is this a status specd ever writes", so a
+// resume that finds a hand-edited or corrupt on-disk status can fail loud
+// instead of silently coercing it to a default.
+func (s SpecStatus) IsValid() bool {
+	switch s {
+	case StatusRequirements, StatusDesign, StatusTasks,
+		StatusExecuting, StatusVerifying, StatusComplete, StatusBlocked:
+		return true
+	}
+	return false
+}

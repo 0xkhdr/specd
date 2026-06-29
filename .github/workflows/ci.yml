@@ -147,6 +147,20 @@ jobs:
       - name: Brain recovery retry/reclaim paths
         run: ./scripts/stress-brain-recovery.sh
 
+  stress-checkpoint-fault:
+    name: Checkpoint fault-injection stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Crash mid-checkpoint; assert no double-claim / no orphaned lease
+        run: ./scripts/stress-checkpoint-fault.sh
+
   build:
     name: Build (${{ matrix.os }})
     strategy:

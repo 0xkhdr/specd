@@ -178,7 +178,10 @@ func TestLoadStateRejectsCorruptSchemaVersion(t *testing.T) {
 
 func TestLoadStateNormalizesNilMaps(t *testing.T) {
 	root := specRoot(t, "s")
-	if err := os.WriteFile(statePath(root, "s"), []byte(`{"spec":"s"}`), 0o644); err != nil {
+	// A valid status is required (LoadState fails loud on a corrupt/missing one);
+	// this case only exercises nil-map/slice normalization of an otherwise
+	// minimal state.
+	if err := os.WriteFile(statePath(root, "s"), []byte(`{"spec":"s","status":"requirements"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	st, err := LoadState(root, "s")

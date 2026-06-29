@@ -583,10 +583,35 @@ func parseSimpleYAML(raw string) (map[string]any, error) {
 			indents = append(indents, indent+2)
 			continue
 		}
+		// Fail loud on a value that was cut off mid-token (a document truncated
+		// mid-write, spec A6): an unterminated quote or flow-sequence would
+		// otherwise be silently kept verbatim and partial-applied. Reject it so
+		// the whole file is skipped rather than half-parsed.
+		if err := checkUnterminatedScalar(val); err != nil {
+			return nil, fmt.Errorf("line %d: %w", lineNo+1, err)
+		}
 		cur[key] = parseYAMLScalar(val)
 	}
 	return root, nil
 }
+
+// checkUnterminatedScalar reports a truncated scalar value: a quote opened but
+// never closed, or a flow sequence opened with '[' but never closed with ']'.
+// Both are signs the document was cut off mid-write; the simple parser would
+// otherwise keep the raw text verbatim and silently apply a corrupt value.
+func checkUnterminatedScalar(val string) error {
+	if q := val[0]; q == '"' || q == '\'' {
+		if len(val) < 2 || val[len(val)-1] != q {
+			return fmt.Errorf("unterminated quoted string")
+		}
+		return nil
+	}
+	if strings.HasPrefix(val, "[") && !strings.HasSuffix(val, "]") {
+		return fmt.Errorf("unterminated flow sequence")
+	}
+	return nil
+}
+
 func stripYAMLComment(s string) string {
 	inQ := byte(0)
 	for i := 0; i < len(s); i++ {
