@@ -26,6 +26,9 @@ func sseHandler(root, specFilter string) http.HandlerFunc {
 			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 			return
 		}
+		// This stream is long-lived: clear any server WriteTimeout deadline so the
+		// dashboard/watch write bound never severs it mid-stream (A1 R3).
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -63,7 +66,13 @@ func sseHandler(root, specFilter string) http.HandlerFunc {
 func runWatchSSE(addr, root, specFilter string) int {
 	mux := http.NewServeMux()
 	mux.Handle("/events", sseHandler(root, specFilter))
-	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: serveReadHeaderTimeout,
+		WriteTimeout:      serveWriteTimeout,
+		IdleTimeout:       serveIdleTimeout,
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

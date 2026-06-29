@@ -3,13 +3,37 @@ package mcp
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+)
+
+// mcpTokenEnv names the optional bearer token. When set, /rpc and /sse require a
+// matching `Authorization: Bearer <token>` header (A2 R3).
+const mcpTokenEnv = "SPECD_MCP_TOKEN"
+
+// HTTP transport timeout bounds (A1). Kept as named constants so the slow-client
+// posture is discoverable and tunable without code archaeology.
+//
+//   - httpReadHeaderTimeout bounds the request-header read (Slowloris guard).
+//   - httpReadTimeout bounds the full request read, body included.
+//   - httpIdleTimeout bounds keep-alive idle time between requests.
+//   - httpRPCWriteTimeout bounds a single /rpc response write. It is applied
+//     per-response (not as a server-wide WriteTimeout) so the long-lived /sse
+//     stream is never severed by it.
+const (
+	httpReadHeaderTimeout = 10 * time.Second
+	httpReadTimeout       = 60 * time.Second
+	httpIdleTimeout       = 60 * time.Second
+	httpRPCWriteTimeout   = 60 * time.Second
 )
 
 // ServeHTTP exposes the same JSON-RPC dispatch as the stdio Serve loop over an
@@ -46,12 +70,28 @@ func ServeHTTPPinned(addr string, dispatch Dispatcher, cfg *core.Config, pinned 
 		defer cancel()
 		startPhaseWatcher(ctx, registry, cfg, pinned, nil)
 	}
-	srv := &http.Server{
-		Addr:              loopbackAddr(addr),
-		Handler:           httpHandler(dispatch, cfg, registry, pinned),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	resolved := loopbackAddr(addr)
+	token := os.Getenv(mcpTokenEnv)
+	// A non-loopback bind with no token exposes unauthenticated workflow control;
+	// warn loudly so an accidental 0.0.0.0 bind is never silent (A2 R2).
+	warnExposure(os.Stderr, resolved, token)
+	handler := tokenAuth(token, httpHandler(dispatch, cfg, registry, pinned))
+	srv := newHTTPServer(resolved, handler)
 	return srv.ListenAndServe()
+}
+
+// newHTTPServer builds the MCP transport's http.Server with the A1 slow-client
+// bounds. It deliberately sets no server-wide WriteTimeout: that would sever the
+// long-lived /sse stream. /rpc instead carries a per-response write deadline
+// (httpHandler), and /sse explicitly clears any deadline.
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+		IdleTimeout:       httpIdleTimeout,
+	}
 }
 
 // httpHandler builds the /rpc and /sse routes sharing one dispatch mutex. cfg is
@@ -71,6 +111,9 @@ func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry, 
 			http.Error(w, "POST required", http.StatusMethodNotAllowed)
 			return
 		}
+		// Bound this single response write so a stalled reader cannot pin the
+		// writer forever (A1 R2). /rpc is request/response, so a deadline is safe.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(httpRPCWriteTimeout))
 		raw, rerr := readBody(r)
 		var resp []byte
 		if rerr.err != nil {
@@ -89,6 +132,9 @@ func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry, 
 			http.Error(w, "GET or POST required", http.StatusMethodNotAllowed)
 			return
 		}
+		// Clear any inherited write deadline: the SSE stream is long-lived and
+		// must outlive the /rpc write bound (A1 R3). The zero time disables it.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 		raw, rerr := readBody(r)
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
@@ -149,6 +195,58 @@ func readBody(r *http.Request) ([]byte, rpcReadError) {
 		return nil, oversizedRPCError()
 	}
 	return raw, rpcReadError{}
+}
+
+// tokenAuth wraps h with optional bearer-token auth (A2 R3). An empty token is a
+// pass-through so the loopback-default path is byte-for-byte unchanged (R3.4).
+// Otherwise every request MUST carry a matching `Authorization: Bearer <token>`
+// header; a miss returns 401 and never reaches dispatch (R3.2). The comparison
+// is constant-time to avoid leaking the token via timing (R3.3).
+func tokenAuth(token string, h http.Handler) http.Handler {
+	if token == "" {
+		return h
+	}
+	want := []byte("Bearer " + token)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got := []byte(r.Header.Get("Authorization"))
+		// ConstantTimeCompare is 0 on a length mismatch too, so unequal lengths
+		// still fail closed without an early, timing-revealing return.
+		if subtle.ConstantTimeCompare(got, want) != 1 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+// warnExposure prints a startup warning when the resolved bind is non-loopback
+// and no auth token is set (A2 R2). Loopback binds never warn (R2.3). The token
+// value is never echoed (only its presence gates the warning), per the
+// token-leakage risk in the spec.
+func warnExposure(w io.Writer, resolvedAddr, token string) {
+	if token != "" || isLoopbackBind(resolvedAddr) {
+		return
+	}
+	fmt.Fprintf(w, "warn: MCP --http is bound to non-loopback %s with no auth token. "+
+		"Workflow control (dispatch, phase transitions) is exposed UNAUTHENTICATED. "+
+		"Set %s to require a bearer token, or bind a loopback address.\n", resolvedAddr, mcpTokenEnv)
+}
+
+// isLoopbackBind reports whether addr targets a loopback (or unspecified-host)
+// interface. A bare/host-less addr has already been rewritten to loopback by
+// loopbackAddr; an unparseable host is treated as external (fail loud).
+func isLoopbackBind(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if host == "" || host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // loopbackAddr defaults an empty or host-less address to loopback so the

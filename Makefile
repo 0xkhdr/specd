@@ -67,7 +67,7 @@ stress-brain-recovery:
 # wall-clock assertions — latency is tracked via `make bench`, not gated.
 # Baselines & regression policy: docs/agent-harness-baselines.md.
 perf-gate:
-	$(GO) test ./internal/cmd/... ./internal/mcp/... -run 'Deterministic|BenchmarkContract' -count=2
+	$(GO) test ./internal/cmd/... ./internal/mcp/... ./internal/context/... -run 'Deterministic|BenchmarkContract|ManifestDisabledMode' -count=2
 
 # Record onboarding latency baselines (informational; never a CI gate).
 bench:

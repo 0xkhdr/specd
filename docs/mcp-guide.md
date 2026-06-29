@@ -124,6 +124,35 @@ explicit external IP — spec contents never leave the host by default.
 
 (`internal/mcp/transport_http.go`, `loopbackAddr`)
 
+### Exposure & Auth
+
+`--http` is **loopback-by-design**. `/rpc` and `/sse` expose full workflow
+control — dispatch and phase transitions — and the transport ships with **no
+TLS**. Binding a non-loopback interface (e.g. `--http 0.0.0.0:8765`) is at
+operator risk: without a token, anyone who can reach the port can drive your
+workflow unauthenticated. On such a bind the server prints a loud stderr
+warning at startup.
+
+To require auth, set `SPECD_MCP_TOKEN`. When it is set, every `/rpc` and `/sse`
+request must carry a matching `Authorization: Bearer <token>` header; the token
+is compared in constant time and a missing/incorrect token returns `401`
+without dispatching. When the variable is unset, behavior is unchanged (the
+loopback-default path). Terminate TLS at a reverse proxy — built-in TLS is out
+of scope.
+
+```bash
+# Expose externally behind a token (TLS terminated by a reverse proxy)
+SPECD_MCP_TOKEN=$(openssl rand -hex 32) specd mcp --http 0.0.0.0:8765 --root /path/to/project
+
+# Authenticated call
+curl -s -X POST http://host:8765/rpc \
+  -H "Authorization: Bearer $SPECD_MCP_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+(`internal/mcp/transport_http.go`, `tokenAuth` / `warnExposure`)
+
 ### Concurrent call serialization
 
 The stdio loop is serial by nature. The HTTP path allows concurrent requests, which would

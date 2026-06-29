@@ -47,6 +47,18 @@ highlights:
 - **Self-update integrity.** `install.sh` and `specd update` fetch a release
   archive and fail closed if the `SHA256SUMS` digest does not match
   (`--no-verify` skips with a loud warning).
+- **MCP `--http` is loopback-by-design.** The MCP HTTP/SSE transport
+  (`specd mcp --http`) defaults to a loopback bind (`127.0.0.1`); a bare or
+  host-less address is rewritten to loopback so spec contents never leave the
+  host implicitly. `/rpc` and `/sse` expose full workflow control (dispatch,
+  phase transitions) and ship with **no TLS**. Binding a non-loopback interface
+  (e.g. `--http 0.0.0.0:8765`) is **at operator risk**: without a token it
+  exposes unauthenticated workflow control to anyone who can reach the port. The
+  server prints a loud stderr warning on such a bind. To require auth, set
+  `SPECD_MCP_TOKEN`; `/rpc` and `/sse` then demand a matching
+  `Authorization: Bearer <token>` header (constant-time compared, `401` on a
+  miss). Terminate TLS at a reverse proxy. See
+  [`docs/mcp-guide.md`](docs/mcp-guide.md#exposure--auth).
 - **No runtime dependencies, no network at rest.** The shipped binary is
   stdlib-only, makes no LLM calls, and reads no on-disk templates at runtime.
 

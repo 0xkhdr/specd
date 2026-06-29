@@ -12,6 +12,15 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// Dashboard/watch HTTP server timeout bounds (A1). Static report responses are
+// safe to bound with a WriteTimeout; the long-lived /events SSE stream clears
+// its own write deadline (see sseHandler) so the bound never severs it.
+const (
+	serveReadHeaderTimeout = 10 * time.Second
+	serveWriteTimeout      = 60 * time.Second
+	serveIdleTimeout       = 60 * time.Second
+)
+
 // NewServeHandler builds the read-only, browser-native dashboard handler for a
 // project. It is multi-spec: GET `/` renders an index of every spec under the
 // project, GET `/s/<slug>` renders that spec's live report HTML (the same markup
@@ -183,7 +192,13 @@ func RunServe(args cli.Args) int {
 	}
 	handler := NewServeHandler(root, slug)
 	fmt.Printf("specd serve: read-only dashboard for '%s' on http://%s/ (Ctrl-C to stop)\n", slug, addr)
-	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: serveReadHeaderTimeout,
+		WriteTimeout:      serveWriteTimeout,
+		IdleTimeout:       serveIdleTimeout,
+	}
 	if err := srv.ListenAndServe(); err != nil {
 		core.Error(err.Error())
 		return core.ExitGate

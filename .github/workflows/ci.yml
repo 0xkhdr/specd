@@ -94,6 +94,10 @@ jobs:
       - name: go test -count=2 (order-dependence)
         run: go test ./... -count=2
 
+      # A4: measured perf gate — disabled-mode context manifest does no work.
+      - name: perf-gate
+        run: make perf-gate
+
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
         uses: codecov/codecov-action@v5
