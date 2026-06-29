@@ -20,6 +20,10 @@ import (
 // matching `Authorization: Bearer <token>` header (A2 R3).
 const mcpTokenEnv = "SPECD_MCP_TOKEN"
 
+// stdErr holds the package-level reference to os.Stderr captured at startup
+// to prevent data races during concurrent test execution when os.Stderr is swapped.
+var stdErr io.Writer = os.Stderr
+
 // HTTP transport timeout bounds (A1). Kept as named constants so the slow-client
 // posture is discoverable and tunable without code archaeology.
 //
@@ -74,7 +78,7 @@ func ServeHTTPPinned(addr string, dispatch Dispatcher, cfg *core.Config, pinned 
 	token := os.Getenv(mcpTokenEnv)
 	// A non-loopback bind with no token exposes unauthenticated workflow control;
 	// warn loudly so an accidental 0.0.0.0 bind is never silent (A2 R2).
-	warnExposure(os.Stderr, resolved, token)
+	warnExposure(stdErr, resolved, token)
 	handler := tokenAuth(token, httpHandler(dispatch, cfg, registry, pinned))
 	srv := newHTTPServer(resolved, handler)
 	return srv.ListenAndServe()
