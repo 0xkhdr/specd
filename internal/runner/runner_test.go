@@ -1,4 +1,4 @@
-package runner
+package runner_test
 
 import (
 	"context"
@@ -9,17 +9,18 @@ import (
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/runner"
 )
 
 func TestShRunnerUnchanged(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("sh-based runner test is POSIX-only")
 	}
-	r := NewShRunner()
+	r := runner.NewShRunner()
 	if r.Name() != "none" {
 		t.Fatalf("default runner Name = %q, want none", r.Name())
 	}
-	base := RunSpec{Root: t.TempDir(), Shell: "sh", Env: nil, Timeout: 5 * time.Second}
+	base := runner.RunSpec{Root: t.TempDir(), Shell: "sh", Env: nil, Timeout: 5 * time.Second}
 
 	t.Run("success_captures_stdout_and_exit_0", func(t *testing.T) {
 		s := base

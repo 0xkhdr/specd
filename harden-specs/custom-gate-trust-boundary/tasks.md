@@ -1,7 +1,7 @@
 # Tasks — Custom-Gate Trust Boundary & Optional Sandbox (A5)
 
 ## Wave 1 — Documentation (ships independently)
-- [ ] T1 — Document custom-gate trust boundary
+- [x] T1 — Document custom-gate trust boundary
   - why: make the sandbox asymmetry explicit (Req 1)
   - role: builder
   - files: docs/custom-gates.md, docs/validation-gates.md
@@ -13,7 +13,7 @@
   - requirements: 1
 
 ## Wave 2 — Opt-in sandbox
-- [ ] T2 — Route custom gate through verify sandbox runner
+- [x] T2 — Route custom gate through verify sandbox runner
   - why: parity option with verify (Req 2,3)
   - role: builder
   - files: internal/core/customgate.go, internal/spec/runner_sandbox.go (reuse)
@@ -24,7 +24,7 @@
   - depends: T1
   - requirements: 2,3
 
-- [ ] T3 — Parity + env-scrub tests
+- [x] T3 — Parity + env-scrub tests
   - why: lock both modes' guarantees (Req 2,3)
   - role: verifier
   - files: internal/core/customgate_test.go

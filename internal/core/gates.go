@@ -457,7 +457,7 @@ func runCustomGates(c CheckCtx) (violations, warnings []Violation) {
 			violations = append(violations, Violation{Gate: gateID, Location: ".specd/config.json", Message: fmt.Sprintf("custom gate %q has no command", name)})
 			continue
 		}
-		out, err := RunCustomGate(context.Background(), c.Root, shell, g.Command, input, customGateTimeout())
+		out, err := RunCustomGate(context.Background(), c.Root, shell, g.Command, input, customGateTimeout(), g.Sandbox)
 		if err != nil {
 			violations = append(violations, Violation{Gate: gateID, Location: ".specd/config.json", Message: err.Error()})
 			continue

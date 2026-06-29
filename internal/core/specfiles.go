@@ -174,10 +174,17 @@ type GatesCfg struct {
 // CustomGateCfg declares one external custom gate. Command is run via the verify
 // shell with a scrubbed env and bounded timeout; Severity ("warn"|"error", default
 // "error") decides how its findings map into the check result.
+//
+// Sandbox is the opt-in isolation backend for this gate's command, reusing the
+// verify sandbox runner ("none" (default), "bwrap", "container"). The gate
+// command is trusted operator input (not agent-authored), so it runs on the host
+// with a scrubbed env by default; an operator who wants parity with verify's
+// fail-closed sandbox sets this. An unavailable backend fails the gate closed.
 type CustomGateCfg struct {
 	Name     string `json:"name"`
 	Command  string `json:"command"`
 	Severity string `json:"severity"`
+	Sandbox  string `json:"sandbox,omitempty"`
 }
 
 var DefaultConfig = Config{

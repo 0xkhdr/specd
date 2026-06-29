@@ -1,7 +1,7 @@
 # Tasks — Single-Flight MCP Server Documentation (A9)
 
 ## Wave 1 — Code + docs
-- [ ] T1 — Comment the single-flight mutex
+- [x] T1 — Comment the single-flight mutex
   - why: intent must be explicit at call site (Req 1)
   - role: builder
   - files: internal/mcp/transport_http.go
@@ -12,7 +12,7 @@
   - depends: —
   - requirements: 1
 
-- [ ] T2 — Document concurrency model in mcp-guide
+- [x] T2 — Document concurrency model in mcp-guide
   - why: hosts must not load-test as concurrent (Req 2)
   - role: builder
   - files: docs/mcp-guide.md

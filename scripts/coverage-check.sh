@@ -37,8 +37,17 @@
 #   WORKER_MIN   minimum internal/worker coverage          (default 88)
 #   MCP_MIN      minimum internal/mcp coverage             (default 88)
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
-#   SPEC_MIN     minimum internal/spec coverage            (default 46)
+#   SPEC_MIN     minimum internal/spec coverage            (default 95)
 #   CONTEXT_MIN  minimum internal/context coverage         (default 90)
+#   RUNNER_MIN   minimum internal/runner coverage          (default 90)
+#   PACK_MIN     minimum internal/pack coverage            (default 85)
+#   SCHEMA_MIN   minimum internal/schema coverage          (default 82)
+#
+# Wave 3 (A8) extends the ratchet to the previously-unguarded substantive
+# packages — internal/runner, internal/pack, internal/schema — so a regression
+# in one can no longer hide under the overall number, and raises internal/spec
+# from 46 to 95 after role/phase/status gained direct tests. New floors sit just
+# below the current measured coverage (ratchet, not a cliff).
 set -euo pipefail
 
 OVERALL_MIN="${OVERALL_MIN:-78}"
@@ -47,8 +56,11 @@ CMD_MIN="${CMD_MIN:-70}"
 WORKER_MIN="${WORKER_MIN:-88}"
 MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
-SPEC_MIN="${SPEC_MIN:-46}"
+SPEC_MIN="${SPEC_MIN:-95}"
 CONTEXT_MIN="${CONTEXT_MIN:-90}"
+RUNNER_MIN="${RUNNER_MIN:-90}"
+PACK_MIN="${PACK_MIN:-85}"
+SCHEMA_MIN="${SCHEMA_MIN:-82}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"
@@ -81,6 +93,15 @@ spec="$(pct coverage-spec.out)"
 go test ./internal/context/... -coverprofile=coverage-context.out >/dev/null
 contextcov="$(pct coverage-context.out)"
 
+go test ./internal/runner/... -coverprofile=coverage-runner.out >/dev/null
+runnercov="$(pct coverage-runner.out)"
+
+go test ./internal/pack/... -coverprofile=coverage-pack.out >/dev/null
+packcov="$(pct coverage-pack.out)"
+
+go test ./internal/schema/... -coverprofile=coverage-schema.out >/dev/null
+schemacov="$(pct coverage-schema.out)"
+
 fail=0
 check() {
   local name="$1" got="$2" min="$3"
@@ -100,6 +121,9 @@ check "internal/mcp" "$mcp" "$MCP_MIN"
 check "internal/testharness" "$harness" "$HARNESS_MIN"
 check "internal/spec"         "$spec"    "$SPEC_MIN"
 check "internal/context"      "$contextcov" "$CONTEXT_MIN"
+check "internal/runner"       "$runnercov" "$RUNNER_MIN"
+check "internal/pack"         "$packcov"   "$PACK_MIN"
+check "internal/schema"       "$schemacov" "$SCHEMA_MIN"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "coverage floor not met — add tests or, if intentional, lower the floor with justification." >&2

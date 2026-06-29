@@ -153,11 +153,26 @@ curl -s -X POST http://host:8765/rpc \
 
 (`internal/mcp/transport_http.go`, `tokenAuth` / `warnExposure`)
 
-### Concurrent call serialization
+### Concurrency model
 
-The stdio loop is serial by nature. The HTTP path allows concurrent requests, which would
-interleave captured stdout. A mutex serializes all tool calls regardless of how many
-concurrent HTTP requests arrive — behavior is identical to stdio, just multi-client.
+The MCP server is **single-flight by design**: it processes exactly one in-flight
+request at a time, across both `/rpc` and `/sse`. A single process-wide mutex
+serializes all dispatch regardless of how many HTTP requests arrive concurrently,
+so behavior is identical to the inherently-serial stdio loop, just multi-client.
+
+This is deliberate, not a missing optimization or a bug:
+
+- **Determinism** — orchestration decisions are pure over `(snapshot, policy)`;
+  serializing dispatch preserves request ordering and keeps that invariant.
+- **Local-first, single-agent model** — specd drives one agent over one spec on
+  one host; there is no throughput case that justifies concurrent dispatch.
+- **Captured stdout** — tool calls swap the process-global `os.Stdout` to capture
+  output; concurrent dispatch would interleave captured frames.
+
+The serialization is therefore an **intentional throughput ceiling**. Do not
+load-test this transport as if it were concurrent — sustained concurrent clients
+will queue behind the single in-flight request by design, not because of a
+contention bug.
 
 (`internal/mcp/transport_http.go`, `dispatchLocked`)
 

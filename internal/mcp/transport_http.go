@@ -98,6 +98,14 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 // threaded through to tools/list filtering exactly as on the stdio path; registry
 // (non-nil only under expose:"phase") supplies the live phase subset.
 func httpHandler(dispatch Dispatcher, cfg *core.Config, registry *toolRegistry, pinned string) http.Handler {
+	// Single-flight by design: one process-wide mutex serialises ALL dispatch
+	// across /rpc and /sse, so the server processes exactly one in-flight request
+	// at a time. This is deliberate, not a missing optimization. callTool's
+	// capture() swaps the process-global os.Stdout, so concurrent dispatch would
+	// interleave captured output; serialising also preserves the determinism
+	// invariant and matches the local-first, single-agent model. The throughput
+	// ceiling this imposes is intentional — do not load-test this transport as if
+	// it were concurrent. See docs/mcp-guide.md "Concurrency model".
 	var mu sync.Mutex
 	dispatchLocked := func(raw []byte) []byte {
 		mu.Lock()

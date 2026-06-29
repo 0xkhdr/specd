@@ -100,6 +100,11 @@ func (r containerRunner) Run(parent context.Context, spec RunSpec) RunResult {
 		"--volume", spec.Root + ":" + spec.Root,
 		"--workdir", spec.Root,
 	}
+	// Keep stdin open for the container only when the caller supplies input
+	// (e.g. a sandboxed custom gate's JSON payload). Verify commands pass none.
+	if len(spec.Stdin) > 0 {
+		args = append(args, "-i")
+	}
 	// Forward the already-scrubbed env explicitly; do not inherit the host env
 	// into the container (the scrubbed slice is the whole contract).
 	for _, kv := range spec.Env {
@@ -112,6 +117,7 @@ func (r containerRunner) Run(parent context.Context, spec RunSpec) RunResult {
 		Root:    spec.Root,
 		Timeout: spec.Timeout,
 		Env:     spec.Env,
+		Stdin:   spec.Stdin,
 	})
 }
 
@@ -127,6 +133,9 @@ func runIsolated(parent context.Context, bin string, args []string, spec RunSpec
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = spec.Root
 	cmd.Env = spec.Env
+	if len(spec.Stdin) > 0 {
+		cmd.Stdin = bytes.NewReader(spec.Stdin)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

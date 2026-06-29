@@ -1,7 +1,7 @@
 # Tasks — Coverage-Floor Extension (A8)
 
 ## Wave 1 — Add modest floors
-- [ ] T1 — Floor unguarded packages
+- [x] T1 — Floor unguarded packages
   - why: regressions must not hide under overall (Req 1,3)
   - role: builder
   - files: scripts/coverage-check.sh
@@ -13,7 +13,7 @@
   - requirements: 1,3
 
 ## Wave 2 — Raise internal/spec
-- [ ] T2 — Test role/phase/status
+- [x] T2 — Test role/phase/status
   - why: cover substantive untested logic (Req 2)
   - role: verifier
   - files: internal/spec/role_test.go, internal/spec/phase_test.go,
@@ -24,7 +24,7 @@
   - depends: —
   - requirements: 2
 
-- [ ] T3 — Ratchet internal/spec floor + document
+- [x] T3 — Ratchet internal/spec floor + document
   - why: lock the gain on the documented path (Req 2,3)
   - role: builder
   - files: scripts/coverage-check.sh, docs/TESTING.md

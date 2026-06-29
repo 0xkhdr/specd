@@ -27,10 +27,10 @@ status column as tasks land.
 ### Wave 3 — Parity & coverage debt (P2)
 | Spec | Item | Priority | Status |
 |------|------|----------|--------|
-| [custom-gate-trust-boundary](custom-gate-trust-boundary/spec.md) | A5 | P2 | not started |
-| [coverage-floor-extension](coverage-floor-extension/spec.md) | A8 | P2 | not started |
-| [single-flight-doc](single-flight-doc/spec.md) | A9 | P2 | not started |
-| [ears-traceability-audit](ears-traceability-audit/spec.md) | P2-1 | P2 | rolling — not started |
+| [custom-gate-trust-boundary](custom-gate-trust-boundary/spec.md) | A5 | P2 | done |
+| [coverage-floor-extension](coverage-floor-extension/spec.md) | A8 | P2 | done |
+| [single-flight-doc](single-flight-doc/spec.md) | A9 | P2 | done |
+| [ears-traceability-audit](ears-traceability-audit/spec.md) | P2-1 | P2 | rolling — iter 1 done (checkpoint-protocol) |
 
 ## Per-spec task tallies
 
@@ -43,11 +43,11 @@ status column as tasks land.
 | config-corruption-matrix | 3 | 3 |
 | untrusted-input-fuzz | 2 | 2 |
 | state-validation-faillaud | 3 | 3 |
-| custom-gate-trust-boundary | 3 | 0 |
-| coverage-floor-extension | 3 | 0 |
-| single-flight-doc | 2 | 0 |
-| ears-traceability-audit | 3 (rolling) | 0 |
-| **Total** | **34** | **23** |
+| custom-gate-trust-boundary | 3 | 3 |
+| coverage-floor-extension | 3 | 3 |
+| single-flight-doc | 2 | 2 |
+| ears-traceability-audit | 3 (rolling) | 1 |
+| **Total** | **34** | **32** |
 
 ## Notes / invariants to preserve while hardening
 

@@ -18,6 +18,7 @@ type RunSpec struct {
 	Command string        // command passed to `shell -c`
 	Env     []string      // exact environment (already scrubbed)
 	Timeout time.Duration // hard wall-clock budget
+	Stdin   []byte        // optional bytes fed to the process's stdin (nil = none)
 }
 
 // RunResult is the raw outcome of an execution, before it is folded into a
@@ -57,6 +58,9 @@ func (shRunner) Run(parent context.Context, spec RunSpec) RunResult {
 	cmd := exec.CommandContext(ctx, spec.Shell, "-c", spec.Command) //nolint:gosec // running operator-authored task commands is the worker's purpose; sandboxing is the operator's responsibility (see SECURITY.md)
 	cmd.Dir = spec.Root
 	cmd.Env = spec.Env
+	if len(spec.Stdin) > 0 {
+		cmd.Stdin = bytes.NewReader(spec.Stdin)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -21,6 +21,37 @@ just a subprocess with a JSON stdin/stdout contract.
 | `name` | Label shown in `specd check` output. |
 | `command` | Program run via the verify shell (`sh -c`, or `SPECD_VERIFY_SHELL`). |
 | `severity` | `error` (default) maps findings to violations (fails the check); `warn` maps them to warnings. |
+| `sandbox` | Isolation backend for this gate's command: `none` (default), `bwrap`, or `container`. See [Trust boundary](#trust-boundary). |
+
+## Trust boundary
+
+The gate `command` is **trusted operator input** — it comes from your
+`.specd/config.json`, not from agent-authored spec content. Because you wrote it,
+it runs **on the host with no sandbox by default**, with only a scrubbed
+environment (see [The contract](#the-contract)).
+
+This is deliberately asymmetric with `verify`. A `verify` command can be derived
+from agent-authored task content, so it runs under a **fail-closed sandbox**
+(`bwrap`/container, `--network none`) — see `docs/validation-gates.md`. A custom
+gate is operator-authored and operator-opt-in, so the default is host execution.
+
+If you want parity with `verify`'s isolation — for example because your gate
+command shells out to code you trust less, or you simply want defense in depth —
+set `sandbox`:
+
+```jsonc
+{ "name": "no-todos", "command": "./scripts/no-todos.sh", "sandbox": "bwrap" }
+```
+
+- `sandbox` reuses the exact `verify` sandbox runner, so the backend semantics
+  (read-only root, writable workspace bind, no network) are identical.
+- It is **fail-closed**: if the chosen backend is unavailable (e.g. `bwrap` not on
+  `PATH`, or `container` with no `SPECD_SANDBOX_IMAGE`), the gate errors rather
+  than silently running unisolated.
+- The **scrubbed environment is enforced in both modes** — sandboxing never
+  widens what the gate can see.
+- Leaving `sandbox` unset (or `"none"`) keeps the historical host execution
+  byte-for-byte.
 
 ## The contract
 
