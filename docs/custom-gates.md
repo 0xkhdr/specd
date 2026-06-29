@@ -5,15 +5,13 @@ project add its own checks as ordinary external programs, run after the core
 pipeline. They are deliberately *not* Go plugins and *not* network clients —
 just a subprocess with a JSON stdin/stdout contract.
 
-```jsonc
-// .specd/config.json
-{
-  "gates": {
-    "custom": [
-      { "name": "no-todos", "command": "./scripts/no-todos.sh", "severity": "error" }
-    ]
-  }
-}
+```yaml
+# .specd/config.yml
+gates:
+  custom:
+    - name: "no-todos"
+      command: "./scripts/no-todos.sh"
+      severity: "error"
 ```
 
 | Field | Meaning |
@@ -26,7 +24,7 @@ just a subprocess with a JSON stdin/stdout contract.
 ## Trust boundary
 
 The gate `command` is **trusted operator input** — it comes from your
-`.specd/config.json`, not from agent-authored spec content. Because you wrote it,
+`.specd/config.yml` (or legacy `.specd/config.json`), not from agent-authored spec content. Because you wrote it,
 it runs **on the host with no sandbox by default**, with only a scrubbed
 environment (see [The contract](#the-contract)).
 
@@ -39,8 +37,10 @@ If you want parity with `verify`'s isolation — for example because your gate
 command shells out to code you trust less, or you simply want defense in depth —
 set `sandbox`:
 
-```jsonc
-{ "name": "no-todos", "command": "./scripts/no-todos.sh", "sandbox": "bwrap" }
+```yaml
+- name: "no-todos"
+  command: "./scripts/no-todos.sh"
+  sandbox: "bwrap"
 ```
 
 - `sandbox` reuses the exact `verify` sandbox runner, so the backend semantics

@@ -52,7 +52,7 @@ Prompts under `.specd/roles/`. Each task's `role:` key binds it to one persona.
 
 ## Subagent coordination modes
 
-Set in `.specd/config.json` via `roles.subagentMode`:
+Set in `.specd/config.yml` (or legacy `.specd/config.json`) via `roles.subagent_mode` (or legacy `roles.subagentMode`):
 
 ### `inline` mode (default)
 - The host agent performs the work, swapping persona context inline.
@@ -60,7 +60,7 @@ Set in `.specd/config.json` via `roles.subagentMode`:
 - **Cons:** Context bloat from full chat history.
 
 ### `delegate` mode
-- The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd fusion policy` / `.specd/config.json`.
+- The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd fusion policy` / `.specd/config.yml` (or legacy `.specd/config.json`).
 - If the host lacks subagent capability, it must say so inline before work (for example: "Delegate mode requested, but this host has no subagents; running role inline under same constraints.").
 - Base mode uses `specd dispatch <slug> --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
 - Orchestrated mode prefers Brain/Pinky missions; the host maps each `dispatch` decision to a Pinky worker and the claim → heartbeat/progress → verify → report/block → release lifecycle.
@@ -151,7 +151,7 @@ the budget reflects real bytes.
 `specd check` when required-item `estimatedTokens` exceeds `budget`, naming the
 heaviest items. JSON manifests may include `overBudget`, `budgetActions`, and
 per-item `selector` metadata so hosts can load exact slices. Enable the gate in
-`.specd/config.json` under `gates.contextBudget` (`"warn"` or `"error"`).
+`.specd/config.yml` (or legacy `.specd/config.json`) under `gates.context_budget` (or legacy `gates.contextBudget`) (`"warn"` or `"error"`).
 
 ---
 
@@ -256,24 +256,22 @@ Enable orchestration during project initialization:
 ```bash
 specd init --orchestration planning --orchestration-workers 4
 ```
-This writes the configuration blocks into `.specd/config.json`:
-```json
-"orchestration": {
-  "enabled": true,
-  "approvalPolicy": "planning",
-  "workerMode": "host",
-  "maxWorkers": 4,
-  "maxRetries": 2,
-  "sessionTimeoutMinutes": 120,
-  "hostReportedCostLimitUSD": 10.00,
-  "transport": {
-    "kind": "file",
-    "pollIntervalMillis": 500,
-    "messageTTLSeconds": 3600,
-    "leaseSeconds": 120,
-    "heartbeatSeconds": 30
-  }
-}
+This writes the configuration blocks into `.specd/config.yml`:
+```yaml
+orchestration:
+  enabled: true
+  approval_policy: "planning"
+  worker_mode: "host"
+  max_workers: 4
+  max_retries: 2
+  session_timeout_minutes: 120
+  host_reported_cost_limit_usd: 10.00
+  transport:
+    kind: "file"
+    poll_interval_millis: 500
+    message_ttl_seconds: 3600
+    lease_seconds: 120
+    heartbeat_seconds: 30
 ```
 
 #### Step 2: Start a spec session

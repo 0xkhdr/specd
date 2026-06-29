@@ -116,7 +116,7 @@ specd/
 │   │   ├── embed_packs/          # Built-in spec packs (go:embed)
 │   │   └── embed_templates/      # Shipped templates (embedded in binary)
 │   │       ├── AGENTS.md         # Agent prompt pack for user repos
-│   │       ├── config.json       # Default config scaffold
+│   │       ├── config.yml        # Default config scaffold (or config.json)
 │   │       ├── steering/         # Constitution files
 │   │       ├── roles/            # Role persona prompts
 │   │       ├── specStubs/        # Spec artifact stubs
@@ -143,7 +143,7 @@ the key code contracts.
 ```
 your-project/
 ├── .specd/
-│   ├── config.json               # Project configuration
+│   ├── config.yml                # Project configuration (or legacy config.json)
 │   ├── program.json              # Cross-spec dependencies
 │   ├── state.json                # Machine state (auto-managed)
 │   ├── skills/                   # The skill pack (foundations, steering, stages, specd-brain, specd-pinky)

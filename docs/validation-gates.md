@@ -108,7 +108,7 @@ Brain/Pinky automation does not bypass validation. Brain reads the same
 frontier, and mid-requirement gates used by the CLI. Pinky completion flows
 through the same `CompleteTask` integrity path as `specd task --status complete`.
 
-Authority is configured under `orchestration` in `.specd/config.json` and is
+Authority is configured under `orchestration` in `.specd/config.yml` (or legacy `.specd/config.json`) and is
 fail-closed:
 - Default is `enabled:false`, `approvalPolicy:"manual"`, `workerMode:"host"`,
   `transport.kind:"file"`.
@@ -138,7 +138,7 @@ every `verify:` line and every env var as hostile until validated.
   to an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, and `SPECD_*`),
   dropping inherited secrets; commands containing a NUL byte are rejected; the
   exact command and cwd are printed before execution for audit.
-  *Note on Custom Gates*: Custom gates configured in `.specd/config.json` also run as external commands under the verify shell, but **do not run within the verify sandbox (bubblewrap or containers)**. Ensure custom gate commands are trusted before running `specd check`.
+  *Note on Custom Gates*: Custom gates configured in `.specd/config.yml` (or legacy `.specd/config.json`) also run as external commands under the verify shell, but **do not run within the verify sandbox (bubblewrap or containers) by default** unless sandboxing is explicitly set. Ensure custom gate commands are trusted before running `specd check`.
 - **Path inputs.** Spec slugs are validated against `^[a-z0-9][a-z0-9-]*$`
   (`internal/core/slug.go`), so `..`, `/`, `\`, and leading `-` are rejected —
   no path traversal.
@@ -156,4 +156,4 @@ every `verify:` line and every env var as hostile until validated.
   Unsupported worker/transport modes, unsupported approval policies,
   secret-shaped fields, invalid cost values, and unsafe timing relationships are
   rejected and orchestration falls back to disabled/manual defaults. Bounds are
-  documented in [Command Reference](./command-reference.md#config-file-specdconfigjson).
+  documented in [Command Reference](./command-reference.md#config-file-specdconfigyml).
