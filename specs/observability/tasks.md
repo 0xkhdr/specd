@@ -2,7 +2,7 @@
 
 ## Wave 1
 
-- [ ] T1 — Audit internal/obs/log.go and confirm zero existing metrics/tracing
+- [x] T1 — Audit internal/obs/log.go and confirm zero existing metrics/tracing
   - why: confirm the exact extension points in the existing slog-based logger before adding metrics.go, and confirm discrepancy D7's "no metrics, no tracing" finding holds for the full package, not just the sampled file
   - role: investigator
   - files: internal/obs/
@@ -14,7 +14,7 @@
 
 ## Wave 2
 
-- [ ] T2 — Add log-based duration metrics (Requirement 1.1, 1.2 — must-have)
+- [x] T2 — Add log-based duration metrics (Requirement 1.1, 1.2 — must-have)
   - why: the core observability gap — no duration data for command execution, DAG computation, or verify execution exists today
   - role: builder
   - files: internal/obs/metrics.go (new), main.go, internal/core/frontier.go, internal/runner/runner.go
@@ -24,7 +24,7 @@
   - depends: T1
   - requirements: 1, 3
 
-- [ ] T3 — Measure and confirm overhead bound
+- [x] T3 — Measure and confirm overhead bound
   - why: Requirement 1.4 requires confirming <1ms overhead before this work is considered done — must not silently accept a regression
   - role: builder
   - files: internal/obs/metrics_bench_test.go (new)
@@ -36,7 +36,7 @@
 
 ## Wave 3 (stretch — confirm scope with user before starting if time-constrained, per spec.md's open question)
 
-- [ ] T4 — Add optional Prometheus-exposition HTTP endpoint
+- [x] T4 — Add optional Prometheus-exposition HTTP endpoint
   - why: Requirement 1.3 — opt-in scraping support for users who want it, lower priority than T2/T3
   - role: builder
   - files: internal/obs/metrics.go
@@ -46,7 +46,7 @@
   - depends: T3
   - requirements: 1
 
-- [ ] T5 — Add build-tag-gated tracing hooks
+- [x] T5 — Add build-tag-gated tracing hooks
   - why: Requirement 2 — optional tracing for debugging Brain/Pinky orchestration, zero cost in default builds
   - role: builder
   - files: internal/obs/trace_stub.go (new), internal/obs/trace_enabled.go (new), internal/core/frontier.go, internal/worker/
@@ -58,7 +58,7 @@
 
 ## Wave 4
 
-- [ ] T6 — Review wave: dependency and overhead sign-off
+- [x] T6 — Review wave: dependency and overhead sign-off
   - why: any new dependency (T5's tracing format choice) or scope cut (T4's stretch status) needs explicit reviewer sign-off, not a unilateral builder decision
   - role: reviewer
   - files: internal/obs/metrics.go, internal/obs/trace_stub.go, internal/obs/trace_enabled.go, go.mod
@@ -68,7 +68,7 @@
   - depends: T4, T5
   - requirements: 1, 2, 3
 
-- [ ] T7 — Full verification run
+- [x] T7 — Full verification run
   - why: gate G4 requires no performance regression >5% before documentation updates (S7) begin
   - role: verifier
   - files: N/A

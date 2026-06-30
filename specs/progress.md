@@ -8,7 +8,7 @@
 | S2 performance-optimization | Implemented (T1-T5) | Incremental `FrontierDetector` cache in `frontier.go`; 24-38% faster, 38-46% fewer bytes/op at 20/100/500 tasks, zero regressions; see `tasks.md` evidence |
 | S3 code-quality-readability | Implemented (T1-T8) | gocyclo/revive config, package/exported docs, named hotspot refactors; gates pass |
 | S4 testing-reliability | Spec drafted | F3 (stress resource bounds) confirmed, D15 |
-| S5 observability | Spec drafted | Narrowed to metrics+tracing only per D7 |
+| S5 observability | Implemented (T1-T7) | Stdlib-only duration metrics, opt-in Prometheus endpoint, build-tag-gated Chrome trace spans; `make test` + `make perf-gate` pass |
 | S6 cicd-build-hardening | Spec drafted | `-trimpath` gap real; signing flagged as decision gate, D13 |
 | S7 documentation-hygiene | Spec drafted | docs-lint.sh extended not rewritten, D8; D14, D17 |
 

@@ -83,6 +83,14 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 
 Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global config → project config → `SPECD_*` overrides. Human-authored config is YAML v2 by default; legacy JSON is still read and can be upgraded with the optimized init migration flag.
 
+Observability env vars:
+
+| Variable | Effect |
+|---|---|
+| `SPECD_LOG=info|debug` | Emits structured duration metrics to stderr; stdout/`SPECD_JSON=1` stay unchanged. |
+| `SPECD_METRICS_ENDPOINT=<addr>` | Opt-in Prometheus text endpoint for duration samples, e.g. `127.0.0.1:9099`; unset starts no listener. |
+| `SPECD_TRACE_FILE=<path>` | With `go build -tags specd_trace`, writes Chrome trace JSON spans to this path. |
+
 <!-- docs-lint: migration-appendix begin -->
 ## Migration appendix
 

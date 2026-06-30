@@ -1,6 +1,11 @@
 package core
 
-import "sort"
+import (
+	"sort"
+	"time"
+
+	"github.com/0xkhdr/specd/internal/obs"
+)
 
 // FrontierEvent is a single change in a spec's runnable frontier — the set of
 // tasks whose dependencies are all complete and which are themselves pending.
@@ -64,6 +69,12 @@ func NewFrontierDetector() *FrontierDetector {
 // whether it represents a change since the last Observe for the same spec. The
 // first observation of a spec always reports changed=true.
 func (d *FrontierDetector) Observe(state *State) (FrontierEvent, bool) {
+	started := time.Now()
+	defer func() { obs.RecordDuration("frontier_observe_duration", time.Since(started)) }()
+	if endSpan := obs.StartSpan("frontier.observe"); endSpan != nil {
+		defer endSpan()
+	}
+
 	cur := d.frontierFor(state)
 	prev, seen := d.last[state.Spec]
 	changed := !seen || !equalStrings(prev, cur)
