@@ -9,7 +9,16 @@ import (
 )
 
 func RunCheck(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--json]")
+	if args.Bool("schema") {
+		return RunSchema(args)
+	}
+	if args.Bool("schema-only") {
+		validateArgs := args
+		validateArgs.Flags = cloneFlags(args.Flags)
+		validateArgs.Flags["schema"] = "true"
+		return RunValidate(validateArgs)
+	}
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--schema-only] [--json]")
 	if !ok {
 		return code
 	}

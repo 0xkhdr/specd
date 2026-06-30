@@ -8,6 +8,9 @@ import (
 )
 
 func RunStatus(args cli.Args) int {
+	if args.Bool("program") {
+		return RunProgram(args)
+	}
 	root, err := core.RequireSpecdRoot()
 	if err != nil {
 		return specdExit(err)

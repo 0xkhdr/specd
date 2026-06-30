@@ -80,7 +80,25 @@ func loadReportData(root, slug string, state *core.State) core.ReportData {
 }
 
 func RunReport(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd report <slug> [--format md|html] [--out <path>]")
+	if args.Bool("history") {
+		return RunReplay(args)
+	}
+	if args.Bool("diff") {
+		return RunDiff(args)
+	}
+	if args.Bool("serve") {
+		return RunServe(args)
+	}
+	if args.Bool("watch") {
+		watchArgs := args
+		watchArgs.Pos = nil
+		watchArgs.Flags = cloneFlags(args.Flags)
+		if len(args.Pos) > 0 && watchArgs.Str("spec") == "" {
+			watchArgs.Flags["spec"] = args.Pos[0]
+		}
+		return RunWatch(watchArgs)
+	}
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd report <slug> [--format md|html|prometheus] [--out <path>]")
 	if !ok {
 		return code
 	}

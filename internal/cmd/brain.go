@@ -19,6 +19,11 @@ func RunBrain(args cli.Args) int {
 
 	switch args.Pos[0] {
 	case "start":
+		if args.Bool("auto-step") {
+			runArgs := args
+			runArgs.Pos = append([]string{"run"}, args.Pos[1:]...)
+			return RunBrain(runArgs)
+		}
 		if args.Bool("program") {
 			if len(args.Pos) != 1 {
 				return usageExit("usage: specd brain start --program --approval-policy <policy> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--json]")
@@ -45,6 +50,11 @@ func RunBrain(args cli.Args) int {
 		}
 		return brainRun(root, args.Pos[1], args)
 	case "step":
+		if args.Bool("directive") {
+			directiveArgs := args
+			directiveArgs.Pos = []string{"directive"}
+			return brainDirective(root, directiveArgs)
+		}
 		if args.Bool("program") {
 			if len(args.Pos) != 1 || args.Str("session") == "" {
 				return usageExit("usage: specd brain step --program --session <id> --approval-policy <policy> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]")
@@ -63,6 +73,16 @@ func RunBrain(args cli.Args) int {
 	case "directive":
 		return brainDirective(root, args)
 	case "status":
+		if args.Bool("verbose") {
+			whyArgs := args
+			whyArgs.Pos = []string{"why"}
+			return brainWhy(root, whyArgs)
+		}
+		if args.Bool("ledger") {
+			ledgerArgs := args
+			ledgerArgs.Pos = append([]string{"ledger"}, args.Pos[1:]...)
+			return brainLedger(root, ledgerArgs)
+		}
 		if args.Bool("program") {
 			if len(args.Pos) != 1 || args.Str("session") == "" {
 				return usageExit("usage: specd brain status --program --session <id> [--json]")
@@ -78,6 +98,9 @@ func RunBrain(args cli.Args) int {
 		}
 		return printCommandResult(args, session)
 	case "checkpoint":
+		if args.Bool("compact") {
+			return brainCompact(root, args, "")
+		}
 		return brainCheckpoint(root, args)
 	case "compact":
 		return brainCompact(root, args, "")

@@ -44,20 +44,24 @@ type CommandMeta struct {
 	ModeCompatibility  *ModeCompatibilityMeta  `json:"modeCompatibility,omitempty"`
 	ExitCodes          []ExitCodeMeta          `json:"exitCodes"`
 	Examples           []string                `json:"examples"`
+	Hidden             bool                    `json:"hidden,omitempty"`
+	DeprecatedIn       string                  `json:"deprecatedIn,omitempty"`
+	RemovedIn          string                  `json:"removedIn,omitempty"`
 }
 
 var Commands = []CommandMeta{
 	{
 		Command: "init", Category: "lifecycle",
 		Description: "Scaffold project assets and configure coding agents",
-		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
+		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--migrate] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
 		LongDescription: "Scaffolds .specd/ and AGENTS.md, passively detects supported coding-agent hosts, optionally installs project-scoped MCP registration, verifies the in-process MCP server, and returns one next action. Non-interactive auto-detection never mutates host configuration unless --yes is supplied. Global scope requires explicit consent.",
-		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
+		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "migrate", Type: "boolean", Description: "Migrate legacy config.json to config.yml"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Initialization or pack operation failed"}, {2, "Usage error"}},
 		Examples:        []string{"specd init --agent auto --yes", "specd init --agent none --non-interactive", "specd init --agent all --dry-run --json", "specd init --repair"},
 	},
+
 	{
-		Command: "doctor", Category: "inspection",
+		Command: "doctor", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Diagnose scaffold, MCP, and coding-agent registration",
 		Usage:       "specd doctor [--agent <name|all>] [--fix] [--json]", Synopsis: "specd doctor [--agent <name|all>] [--fix] [--json]",
 		LongDescription: "Checks the current project binary, required scaffold assets, in-process MCP handshake and baseline tools, detected coding-agent hosts, and project registration state. --fix repairs only safe project-scoped state and refuses conflicting or unowned registrations.",
@@ -65,8 +69,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "All requested checks pass"}, {1, "One or more health checks failed"}, {2, "Usage error"}},
 		Examples:        []string{"specd doctor", "specd doctor --agent codex --json", "specd doctor --fix"},
 	},
+
 	{
-		Command: "migrate", Category: "lifecycle",
+		Command: "migrate", Category: "lifecycle", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Migrate legacy config.json to config.yml",
 		Usage:       "specd migrate config [--dry-run] [--global]", Synopsis: "specd migrate config [--dry-run] [--global]",
 		LongDescription: "Converts legacy JSON configuration to deterministic YAML, validates the rendered config, then renames the JSON file to .bak. --dry-run prints YAML without mutating files. --global migrates the user-level legacy config and does not require a project root.",
@@ -75,8 +80,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Migration failed validation or safety checks"}, {2, "Usage error"}, {3, ".specd/ or legacy config not found"}},
 		Examples:        []string{"specd migrate config --dry-run", "specd migrate config", "specd migrate config --global"},
 	},
+
 	{
-		Command: "fusion", Category: "inspection",
+		Command: "fusion", Category: "inspection", Hidden: true,
 		Description: "Emit startup bootstrap and binding policy oracles",
 		Usage:       "specd fusion bootstrap [--include-schema] [--json] | specd fusion policy [<slug>] [--expect-config-digest <sha256>] [--json]", Synopsis: "specd fusion <bootstrap|policy> [slug] [--json]",
 		LongDescription: "Read-only agent integration surface. bootstrap returns the first-turn load list, command schema digest, config digest, health, and active modes. policy summarizes binding config, optional spec execution mode, allowed loop family, diagnostics, and config digest drift.",
@@ -85,6 +91,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Policy violation or digest mismatch"}, {2, "Usage error"}, {3, ".specd/ or spec not found"}},
 		Examples:        []string{"specd fusion bootstrap --json", "specd fusion policy my-feature --json", "specd fusion policy --expect-config-digest <sha256> --json"},
 	},
+
 	{
 		Command: "new", Category: "lifecycle",
 		Description: "Create a spec with six artifacts",
@@ -94,6 +101,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Orchestration requested without project capability"}, {2, "Usage error"}, {3, ".specd/ not found or spec already exists"}},
 		Examples:        []string{"specd new my-feature", "specd new my-feature --title \"My Feature\"", "specd new payments --title \"Billing\" --orchestrated"},
 	},
+
 	{
 		Command: "approve", Category: "lifecycle",
 		Description: "Clear approval gate / advance phase",
@@ -103,6 +111,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate validation failed"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd approve my-feature", "specd approve my-feature --json"},
 	},
+
 	{
 		Command: "decision", Category: "lifecycle",
 		Description: "Record an architectural decision (ADR)",
@@ -112,6 +121,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd decision my-feature \"Use SQLite instead of PostgreSQL\""},
 	},
+
 	{
 		Command: "midreq", Category: "lifecycle",
 		Description: "Log feedback mid-requirement",
@@ -121,6 +131,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd midreq my-feature \"Add search bar\" --impact medium"},
 	},
+
 	{
 		Command: "memory", Category: "lifecycle",
 		Description: "Add or promote learning items",
@@ -130,17 +141,19 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd memory my-feature add --key db-lock --pattern \"parallel writes\" --body \"SQLite locks on concurrent write\" --source log --criticality important"},
 	},
+
 	{
 		Command: "next", Category: "execution",
 		Description: "Next runnable task",
-		Usage:       "specd next <slug> [--all] [--json]", Synopsis: "specd next <slug> [--all] [--json]",
+		Usage:       "specd next <slug> [--all] [--dispatch] [--json]", Synopsis: "specd next <slug> [--all] [--dispatch] [--json]",
 		LongDescription: "Finds and prints the next runnable task in the spec's task DAG.",
-		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "Print all runnable tasks"}, {Name: "json", Type: "boolean"}},
+		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "Print all runnable tasks"}, {Name: "dispatch", Type: "boolean", Description: "Emit ready-to-run dispatch packets for the runnable frontier"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd next my-feature", "specd next my-feature --all --json"},
 	},
+
 	{
-		Command: "dispatch", Category: "execution",
+		Command: "dispatch", Category: "execution", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Ready-to-run packets for frontier",
 		Usage:       "specd dispatch <slug> [--json]", Synopsis: "specd dispatch <slug> [--json]",
 		LongDescription: "Produces ready-to-run packets for all tasks in the current runnable frontier.",
@@ -148,6 +161,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd dispatch my-feature --json"},
 	},
+
 	{
 		Command: "verify", Category: "execution",
 		Description:     "Run task verify command / record proof",
@@ -158,6 +172,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Verification failed"}, {2, "Usage error"}, {3, "Spec or task not found"}},
 		Examples:        []string{"specd verify my-feature T1", "specd verify my-feature --criterion 1.1 --status pass --evidence \"Tested manually\""},
 	},
+
 	{
 		Command: "task", Category: "execution",
 		Description:     "Evidence-gated status flip",
@@ -168,17 +183,19 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate verification failed"}, {2, "Usage error"}, {3, "Spec or task not found"}},
 		Examples:        []string{"specd task my-feature T1 --status running", "specd task my-feature T1 --status complete --evidence \"Ran tests\"", "specd task my-feature T1 --status complete --evidence \"…\" --tokens 12000 --cost 0.42"},
 	},
+
 	{
 		Command: "status", Category: "inspection",
 		Description: "Render durable ledger / board",
-		Usage:       "specd status [<slug>] [--json]", Synopsis: "specd status [<slug>] [--json]",
-		LongDescription: "Renders the durable status board of a specific spec, or lists all specs.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
+		Usage:       "specd status [<slug>] [--all] [--program] [--json]", Synopsis: "specd status [<slug>] [--all] [--program] [--json]",
+		LongDescription: "Renders the durable status board of a specific spec, lists all specs, or displays the cross-spec program frontier.",
+		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "List all specs (default when no slug is supplied)"}, {Name: "program", Type: "boolean", Description: "Show the cross-spec program frontier"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd status", "specd status my-feature --json"},
 	},
+
 	{
-		Command: "mode", Category: "inspection",
+		Command: "mode", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Show or set a spec's execution mode",
 		Usage:       "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]", Synopsis: "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]",
 		LongDescription: "Shows the effective execution mode (base | orchestrated), its origin, and project orchestration capability for a spec. --set records a new per-spec mode (orchestrated requires project capability; switching to base is refused while a Brain session is active). --recommend emits a deterministic, advisory recommendation computed from on-disk spec facts — the user decides.",
@@ -186,15 +203,17 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing or session-active refusal"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd mode my-feature", "specd mode my-feature --set orchestrated", "specd mode my-feature --recommend --json"},
 	},
+
 	{
 		Command: "check", Category: "inspection",
 		Description: "Run all validation gates",
-		Usage:       "specd check <slug> [--json]", Synopsis: "specd check <slug> [--json]",
-		LongDescription: "Runs all seven validation gates on the specified spec: ears, design, task-schema, dag, sync, traceability, and evidence.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
+		Usage:       "specd check <slug> [--schema-only] [--json] | specd check --schema", Synopsis: "specd check <slug> [--schema-only] [--json] | specd check --schema",
+		LongDescription: "Runs all seven validation gates on the specified spec. --schema-only validates state.json against the embedded open spec schema; --schema emits that schema.",
+		Flags:           []FlagMeta{{Name: "schema-only", Type: "boolean", Description: "Validate state.json against the embedded open spec schema only"}, {Name: "schema", Type: "boolean", Description: "Emit the embedded open spec format JSON Schema"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd check my-feature", "specd check my-feature --json"},
 	},
+
 	{
 		Command: "context", Category: "inspection",
 		Description: "Phase-scoped briefing",
@@ -204,8 +223,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd context my-feature", "specd context my-feature --json"},
 	},
+
 	{
-		Command: "validate", Category: "inspection",
+		Command: "validate", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description:     "Check state.json against the open spec schema",
 		Usage:           "specd validate <slug> --schema [--version <v>]",
 		Synopsis:        "specd validate <slug> --schema [--version <v>]",
@@ -214,8 +234,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Conformant"}, {1, "Conformance violations found"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd validate my-feature --schema", "SPECD_JSON=1 specd validate my-feature --schema"},
 	},
+
 	{
-		Command: "schema", Category: "inspection",
+		Command: "schema", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description:     "Emit the embedded open spec format JSON Schema",
 		Usage:           "specd schema [--version <v>]",
 		Synopsis:        "specd schema [--version <v>]",
@@ -224,17 +245,19 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Unknown schema version"}, {2, "Usage error"}},
 		Examples:        []string{"specd schema", "specd schema --version 1 > spec-schema.json"},
 	},
+
 	{
 		Command: "report", Category: "inspection",
 		Description: "Generate markdown, HTML, or metrics report",
-		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]",
+		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--serve|--watch|--history|--diff]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]",
 		LongDescription: "Compiles a comprehensive HTML or Markdown progress report, or an opt-in Prometheus textfile metrics view. With --pr-summary, emits a deterministic, network-free pull-request summary (Markdown, or JSON under SPECD_JSON): wave/task progress, gate status, and the commit↔task link map.",
-		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}},
+		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}, {Name: "serve", Type: "boolean", Description: "Serve the live dashboard"}, {Name: "watch", Type: "boolean", Description: "Stream runnable-frontier changes"}, {Name: "history", Type: "boolean", Description: "Replay the spec audit timeline"}, {Name: "diff", Type: "boolean", Description: "Diff spec artifacts between git refs"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd report my-feature --format html --out ./report.html", "specd report my-feature --format prometheus"},
 	},
+
 	{
-		Command: "serve", Category: "inspection",
+		Command: "serve", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Serve a read-only live dashboard",
 		Usage:       "specd serve <slug> [--addr 127.0.0.1:8765]", Synopsis: "specd serve <slug> [--addr 127.0.0.1:8765]",
 		LongDescription: "Starts a read-only HTTP server (loopback by default) that renders the same HTML as `specd report --format html` at GET /, and the JSON ReportData at GET /api/report. No mutating routes; data is rebuilt from disk per request.",
@@ -242,8 +265,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd serve my-feature", "specd serve my-feature --addr 127.0.0.1:9000"},
 	},
+
 	{
-		Command: "replay", Category: "inspection",
+		Command: "replay", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Replay a spec's audit timeline",
 		Usage:       "specd replay <slug> [--acp-session <id>]", Synopsis: "specd replay <slug> [--acp-session <id>]",
 		LongDescription: "Reconstructs a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from the spec's on-disk audit data. Text by default; a typed JSON array under SPECD_JSON.",
@@ -251,8 +275,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd replay my-feature", "specd replay my-feature --acp-session 11111111111111111111111111111111", "SPECD_JSON=1 specd replay my-feature"},
 	},
+
 	{
-		Command: "diff", Category: "inspection",
+		Command: "diff", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description:     "Diff a spec's artifacts between two git refs",
 		Usage:           "specd diff <slug> --from <ref> [--to <ref>]",
 		Synopsis:        "specd diff <slug> --from <ref> [--to <ref>]",
@@ -261,8 +286,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "git diff failed (bad ref / not a repo)"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd diff my-feature --from HEAD~5", "specd diff my-feature --from v0.1.0 --to HEAD"},
 	},
+
 	{
-		Command: "watch", Category: "inspection",
+		Command: "watch", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Stream runnable-frontier changes (NDJSON / SSE / webhook)",
 		Usage:       "specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]", Synopsis: "specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]",
 		LongDescription: "Watches spec state and emits a FrontierEvent whenever a spec's runnable task set changes. Read-only: it never writes state. Transports: by default NDJSON on stdout; --sse <addr> serves Server-Sent Events at GET /events over net/http; --webhook <url> POSTs each event on a non-blocking background worker with bounded retry/backoff. --once does a single pass and exits; long-running modes shut down cleanly on SIGINT/SIGTERM. Polls at SPECD_WATCH_INTERVAL_MS (default 1000ms). Stdlib-only.",
@@ -270,6 +296,7 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, ".specd/ not found"}},
 		Examples:        []string{"specd watch --once", "specd watch --spec my-feature", "specd watch --sse 127.0.0.1:8766", "specd watch --webhook https://ci.example/hook"},
 	},
+
 	{
 		Command: "waves", Category: "inspection",
 		Description: "Show task wave DAG",
@@ -279,14 +306,20 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd waves my-feature"},
 	},
+
 	{
 		Command:     "brain",
 		Category:    "orchestration",
 		Description: "Drive deterministic Brain orchestration sessions.",
-		Usage:       "specd brain <start|run|status|step|why|directive|pause|resume|cancel> ... [--program]",
-		Synopsis:    "specd brain <start|run|status|step|why|directive|pause|resume|cancel> ... [--program]",
+		Usage:       "specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program] [--auto-step|--verbose|--ledger|--directive|--compact]",
+		Synopsis:    "specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program]",
 		Flags: []FlagMeta{
 			{Name: "program", Type: "boolean", Description: "operate on the cross-spec program session instead of one spec"},
+			{Name: "auto-step", Type: "boolean", Description: "Start then drive the Brain loop (merged from brain run)"},
+			{Name: "verbose", Type: "boolean", Description: "Explain scheduling state (merged from brain why)"},
+			{Name: "ledger", Type: "boolean", Description: "Show the session context ledger"},
+			{Name: "compact", Type: "boolean", Description: "Compact/checkpoint context before host clear"},
+			{Name: "directive", Type: "boolean", Description: "Record a host directive on brain step"},
 			{Name: "session", Type: "string", Description: "explicit orchestration session id"},
 			{Name: "approval-policy", Type: "string", Description: "required approval policy for start/step"},
 			{Name: "max-workers", Type: "string", Description: "required worker concurrency limit for start/step"},
@@ -309,12 +342,13 @@ var Commands = []CommandMeta{
 		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate or validation failure"}, {2, "Usage error"}, {3, "Workspace or session not found"}},
 		Examples:  []string{"specd brain run my-spec --worker-cmd './worker.sh'", "specd brain resume --session 11111111111111111111111111111111", "specd brain start my-spec --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain directive --session 11111111111111111111111111111111 --worker t1-a1 --spec my-spec --task T1 --attempt 1 --action continue --reason 'docs not required'", "specd brain step my-spec --session 11111111111111111111111111111111 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200"},
 	},
+
 	{
 		Command:     "pinky",
 		Category:    "orchestration",
 		Description: "Record deterministic Pinky worker claims, reports, and queries.",
-		Usage:       "specd pinky <claim|brief|heartbeat|progress|query|report|block|release|inbox> ...",
-		Synopsis:    "specd pinky <claim|brief|heartbeat|progress|query|report|block|release|inbox> ...",
+		Usage:       "specd pinky <claim|status|update|report|block|release> ...",
+		Synopsis:    "specd pinky <claim|status|update|report|block|release> ...",
 		Flags: []FlagMeta{
 			{Name: "mission", Type: "string", Description: "mission JSON path or - for claim"},
 			{Name: "session", Type: "string", Description: "session id"},
@@ -337,10 +371,11 @@ var Commands = []CommandMeta{
 			{Name: "json", Type: "boolean", Description: "emit JSON"},
 		},
 		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate or validation failure"}, {2, "Usage error"}, {3, "Workspace or session not found"}},
-		Examples:  []string{"specd pinky claim --mission mission.json --json", "specd pinky query --session s --worker w --spec my-spec --task T1 --attempt 1 --text 'Which API shape?'", "specd pinky inbox --session s --worker w --json"},
+		Examples:  []string{"specd pinky claim --mission mission.json --json", "specd pinky update --session s --worker w --spec my-spec --task T1 --attempt 1 --message 'working' --percent 50", "specd pinky status --session s --worker w --json"},
 	},
+
 	{
-		Command: "program", Category: "inspection",
+		Command: "program", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
 		Description:     "Cross-spec DAG runnable frontier",
 		Usage:           "specd program [status] [--json]  |  specd program <link|unlink> <spec> --on <dep>",
 		Synopsis:        "specd program [status|link|unlink] [args] [flags]",
@@ -349,8 +384,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}},
 		Examples:        []string{"specd program status", "specd program link feat-b --on feat-a"},
 	},
+
 	{
-		Command: "update", Category: "meta",
+		Command: "update", Category: "meta", Hidden: true, DeprecatedIn: "palette-merge",
 		Description: "Update specd to latest version",
 		Usage:       "specd update [--force]", Synopsis: "specd update [--force]",
 		LongDescription: "Downloads the latest pre-built binary from GitHub Releases and replaces the running binary.",
@@ -358,8 +394,9 @@ var Commands = []CommandMeta{
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Update failed"}, {2, "Usage error"}},
 		Examples:        []string{"specd update", "specd update --force"},
 	},
+
 	{
-		Command: "uninstall", Category: "meta",
+		Command: "uninstall", Category: "meta", Hidden: true, DeprecatedIn: "palette-merge",
 		Description:     "Remove specd from this machine",
 		Usage:           "specd uninstall [--force] [--dry-run] [--json]",
 		Synopsis:        "specd uninstall [--force] [--dry-run] [--json]",
@@ -372,16 +409,18 @@ var Commands = []CommandMeta{
 		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Uninstall failed"}, {2, "Usage error"}},
 		Examples:  []string{"specd uninstall", "specd uninstall --dry-run", "specd uninstall --force"},
 	},
+
 	{
-		Command: "version", Category: "meta",
+		Command: "version", Category: "meta", Hidden: true,
 		Description: "Show version information",
 		Usage:       "specd version [--json]", Synopsis: "specd version [--json]",
 		LongDescription: "Prints the version of the installed specd binary. With --json, emits a machine-readable object for CI and release automation.",
 		Flags:           []FlagMeta{{Name: "json", Type: "boolean", Description: "Emit machine-readable version JSON"}}, ExitCodes: []ExitCodeMeta{{0, "Success"}},
 		Examples: []string{"specd version", "specd version --json"},
 	},
+
 	{
-		Command: "mcp", Category: "meta",
+		Command: "mcp", Category: "meta", Hidden: true,
 		Description:     "Run the MCP stdio server (or print a host config snippet)",
 		Usage:           "specd mcp [--root <path>] [--spec <slug>] [--config <host>]",
 		Synopsis:        "specd mcp [--root <path>] [--spec <slug>] [--config <host>]",
@@ -394,12 +433,13 @@ var Commands = []CommandMeta{
 		ExitCodes: []ExitCodeMeta{{0, "Success (stream closed or config printed)"}, {1, "Server error"}, {2, "Usage error"}},
 		Examples:  []string{"specd mcp", "specd mcp --root /path/to/project", "specd mcp --spec auth", "specd mcp --config cursor", "specd mcp --config codex --root /path/to/project"},
 	},
+
 	{
-		Command: "help", Category: "meta",
+		Command: "help", Category: "meta", Hidden: true,
 		Description: "Show detailed help for a command",
 		Usage:       "specd help [command]", Synopsis: "specd help [command]",
 		LongDescription: "Prints summary documentation for all commands, or detailed reference for a single command.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean", Description: "Output the entire command registry as JSON"}},
+		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "Include meta-hidden commands"}, {Name: "json", Type: "boolean", Description: "Output the command registry as JSON"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error (unknown command)"}},
 		Examples:        []string{"specd help", "specd help init", "specd help --json"},
 	},

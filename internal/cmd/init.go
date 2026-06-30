@@ -89,6 +89,11 @@ func applyPack(root, ref string, args cli.Args) int {
 }
 
 func RunInit(args cli.Args) int {
+	if args.Bool("migrate") {
+		migrateArgs := args
+		migrateArgs.Pos = []string{"config"}
+		return RunMigrate(migrateArgs)
+	}
 	return runInitWithRuntime(args, core.DefaultInitExecutor(), defaultOnboardingRuntime())
 }
 

@@ -142,6 +142,10 @@ func toolAllowedByRole(role, name string) bool {
 	return set == nil || set[name]
 }
 
+func skipRoleFilter(plan exposurePlan) bool {
+	return (plan.essential && !plan.phase) || plan.includeMeta || (plan.includeOrchestration && !plan.phase)
+}
+
 // exposurePlan is the resolved, pure allow-policy derived from a *core.Config.
 // buildTools consults it per tool so the loop stays a thin filter and the
 // resolution logic is table-testable in isolation (spec §5.3).
@@ -303,6 +307,7 @@ func buildPhaseTools(cfg *core.Config, status core.SpecStatus, role string) []to
 func buildPhaseToolsForSpec(cfg *core.Config, status core.SpecStatus, role, pinned string) []toolDef {
 	plan := resolveMCPExposure(cfg)
 	plan.essential = true
+	plan.phase = true
 	plan.essentialSet = phaseToolNames(status)
 	plan.role = role
 	if plan.role == "" {
@@ -339,7 +344,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[c.Command] && !plan.essentialSet[name] {
 				continue
 			}
-			if !toolAllowedByRole(plan.role, name) {
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, name) {
 				continue
 			}
 		}
@@ -354,6 +359,9 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 				continue
 			}
 			if plan.essential && !plan.essentialSet[st.name] {
+				continue
+			}
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, st.name) {
 				continue
 			}
 			tools = append(tools, st.def())
@@ -371,7 +379,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[ct.name] {
 				continue
 			}
-			if !toolAllowedByRole(plan.role, ct.name) {
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, ct.name) {
 				continue
 			}
 			tools = append(tools, ct.def())
@@ -386,7 +394,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[it.name] {
 				continue
 			}
-			if !toolAllowedByRole(plan.role, it.name) {
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, it.name) {
 				continue
 			}
 		}

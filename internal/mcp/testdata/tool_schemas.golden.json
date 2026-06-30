@@ -171,7 +171,7 @@
       },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|run|status|step|why|directive|pause|resume|cancel\u003e ... [--program]",
+        "description": "Positional arguments, in order. Usage: specd brain \u003cstart|status|step|pause|resume|cancel|checkpoint\u003e ... [--program]",
         "items": {
           "type": "string"
         }
@@ -180,13 +180,25 @@
         "type": "string",
         "description": "positive attempt number for directive"
       },
+      "auto-step": {
+        "type": "boolean",
+        "description": "Start then drive the Brain loop (merged from brain run)"
+      },
       "bootstrap": {
         "type": "boolean",
         "description": "automatically bootstrap missing specs during run"
       },
+      "compact": {
+        "type": "boolean",
+        "description": "Compact/checkpoint context before host clear"
+      },
       "cost-limit": {
         "type": "string",
         "description": "optional host-reported cost limit"
+      },
+      "directive": {
+        "type": "boolean",
+        "description": "Record a host directive on brain step"
       },
       "in-reply-to": {
         "type": "string",
@@ -195,6 +207,10 @@
       "json": {
         "type": "boolean",
         "description": "emit JSON"
+      },
+      "ledger": {
+        "type": "boolean",
+        "description": "Show the session context ledger"
       },
       "max-retries": {
         "type": "string",
@@ -236,6 +252,10 @@
         "type": "string",
         "description": "title to use when bootstrapping a missing spec"
       },
+      "verbose": {
+        "type": "boolean",
+        "description": "Explain scheduling state (merged from brain why)"
+      },
       "worker": {
         "type": "string",
         "description": "worker id for directive"
@@ -252,13 +272,21 @@
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd check \u003cslug\u003e [--json]",
+        "description": "Positional arguments, in order. Usage: specd check \u003cslug\u003e [--schema-only] [--json] | specd check --schema",
         "items": {
           "type": "string"
         }
       },
       "json": {
         "type": "boolean"
+      },
+      "schema": {
+        "type": "boolean",
+        "description": "Emit the embedded open spec format JSON Schema"
+      },
+      "schema-only": {
+        "type": "boolean",
+        "description": "Validate state.json against the embedded open spec schema only"
       }
     },
     "additionalProperties": false
@@ -415,6 +443,10 @@
       "list-packs": {
         "type": "boolean",
         "description": "List the embedded spec packs and exit"
+      },
+      "migrate": {
+        "type": "boolean",
+        "description": "Migrate legacy config.json to config.yml"
       },
       "non-interactive": {
         "type": "boolean",
@@ -616,10 +648,14 @@
       },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd next \u003cslug\u003e [--all] [--json]",
+        "description": "Positional arguments, in order. Usage: specd next \u003cslug\u003e [--all] [--dispatch] [--json]",
         "items": {
           "type": "string"
         }
+      },
+      "dispatch": {
+        "type": "boolean",
+        "description": "Emit ready-to-run dispatch packets for the runnable frontier"
       },
       "json": {
         "type": "boolean"
@@ -632,7 +668,7 @@
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|brief|heartbeat|progress|query|report|block|release|inbox\u003e ...",
+        "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|status|update|report|block|release\u003e ...",
         "items": {
           "type": "string"
         }
@@ -762,9 +798,17 @@
           "type": "string"
         }
       },
+      "diff": {
+        "type": "boolean",
+        "description": "Diff spec artifacts between git refs"
+      },
       "format": {
         "type": "string",
         "description": "Output format: md, html, or prometheus"
+      },
+      "history": {
+        "type": "boolean",
+        "description": "Replay the spec audit timeline"
       },
       "out": {
         "type": "string"
@@ -772,6 +816,14 @@
       "pr-summary": {
         "type": "boolean",
         "description": "Emit a deterministic PR summary instead of the full report"
+      },
+      "serve": {
+        "type": "boolean",
+        "description": "Serve the live dashboard"
+      },
+      "watch": {
+        "type": "boolean",
+        "description": "Stream runnable-frontier changes"
       }
     },
     "additionalProperties": false
@@ -813,15 +865,23 @@
   "specd_status": {
     "type": "object",
     "properties": {
+      "all": {
+        "type": "boolean",
+        "description": "List all specs (default when no slug is supplied)"
+      },
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd status [\u003cslug\u003e] [--json]",
+        "description": "Positional arguments, in order. Usage: specd status [\u003cslug\u003e] [--all] [--program] [--json]",
         "items": {
           "type": "string"
         }
       },
       "json": {
         "type": "boolean"
+      },
+      "program": {
+        "type": "boolean",
+        "description": "Show the cross-spec program frontier"
       }
     },
     "additionalProperties": false

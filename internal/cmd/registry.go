@@ -19,8 +19,6 @@ type Command struct {
 // Registry lists every dispatchable command in help-display order.
 var Registry = []Command{
 	{"init", RunInit},
-	{"doctor", RunDoctor},
-	{"migrate", RunMigrate},
 	{"fusion", RunFusion},
 	{"new", RunNew},
 	{"approve", RunApprove},
@@ -30,34 +28,46 @@ var Registry = []Command{
 	{"brain", RunBrain},
 	{"pinky", RunPinky},
 	{"next", RunNext},
-	{"dispatch", RunDispatch},
-	{"program", RunProgram},
 	{"verify", RunVerify},
 	{"task", RunTask},
 	{"status", RunStatus},
-	{"mode", RunMode},
 	{"context", RunContext},
 	{"check", RunCheck},
-	{"validate", RunValidate},
-	{"schema", RunSchema},
 	{"report", RunReport},
-	{"replay", RunReplay},
-	{"diff", RunDiff},
-	{"serve", RunServe},
-	{"watch", RunWatch},
 	{"waves", RunWaves},
-	{"update", RunUpdate},
-	{"uninstall", RunUninstall},
 }
 
 // Dispatch runs the handler registered for command. It returns (exitCode, true)
 // when the command is known, or (0, false) when it is not — letting the caller
 // render the unknown-command help path.
 func Dispatch(command string, args cli.Args) (int, bool) {
+	if run, ok := legacyAlias(command); ok {
+		return run(args), true
+	}
 	for _, registered := range Registry {
 		if registered.Name == command {
 			return registered.Run(args), true
 		}
 	}
 	return 0, false
+}
+
+func legacyAlias(command string) (func(cli.Args) int, bool) {
+	aliases := map[string]func(cli.Args) int{
+		"doctor":    RunDoctor,
+		"migrate":   RunMigrate,
+		"mode":      RunMode,
+		"dispatch":  RunDispatch,
+		"program":   RunProgram,
+		"validate":  RunValidate,
+		"schema":    RunSchema,
+		"replay":    RunReplay,
+		"diff":      RunDiff,
+		"serve":     RunServe,
+		"watch":     RunWatch,
+		"update":    RunUpdate,
+		"uninstall": RunUninstall,
+	}
+	run, ok := aliases[command]
+	return run, ok
 }

@@ -24,7 +24,10 @@ func taskJSON(doc core.ParsedTasks, state *core.State, id string) map[string]int
 }
 
 func RunNext(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd next <slug> [--json]")
+	if args.Bool("dispatch") {
+		return RunDispatch(args)
+	}
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd next <slug> [--all] [--dispatch] [--json]")
 	if !ok {
 		return code
 	}
