@@ -88,18 +88,18 @@ Machine-readable command, flag, and exit metadata is available from `specd help 
 
 | Old command | New home | Removed in | Notes |
 |---|---|---|---|
-| `doctor` | `init --repair` | `palette-merge` | `Health checks fold into init repair/refresh diagnostics.` |
-| `migrate` | `init --migrate` | `palette-merge` | `Legacy config conversion is an init-time maintenance operation.` |
-| `mode` | `new --orchestrated / status` | `palette-merge` | `Mode choice is made at creation; status reports recorded mode.` |
-| `dispatch` | `next --dispatch` | `palette-merge` | `Frontier packet generation belongs to next.` |
-| `validate` | `check --schema-only` | `palette-merge` | `Structural validation is a check gate variant.` |
-| `schema` | `check --schema` | `palette-merge` | `Schema emission is a check metadata variant.` |
-| `serve` | `report --serve` | `palette-merge` | `Live dashboard is a report view.` |
-| `watch` | `report --watch` | `palette-merge` | `Frontier stream is a report view.` |
-| `replay` | `report --history` | `palette-merge` | `Timeline replay is report history.` |
-| `diff` | `report --diff` | `palette-merge` | `Spec artifact diffs are report snapshots.` |
-| `program` | `status --program` | `palette-merge` | `Cross-spec frontier is a status view.` |
-| `update` | `scripts/install.sh --force` | `palette-merge` | `Self-update moved to the install script.` |
-| `uninstall` | `scripts/uninstall.sh` | `palette-merge` | `Removal is script-only.` |
+| `doctor` | `init --repair` | `v0.2.0` | `Health checks fold into init repair/refresh diagnostics.` |
+| `migrate` | `init --migrate` | `v0.2.0` | `Legacy config conversion is an init-time maintenance operation.` |
+| `mode` | `new --orchestrated / status` | `v0.2.0` | `Mode choice is made at creation; status reports recorded mode.` |
+| `dispatch` | `next --dispatch` | `v0.2.0` | `Frontier packet generation belongs to next.` |
+| `validate` | `check --schema-only` | `v0.2.0` | `Structural validation is a check gate variant.` |
+| `schema` | `check --schema` | `v0.2.0` | `Schema emission is a check metadata variant.` |
+| `serve` | `report --serve` | `v0.2.0` | `Live dashboard is a report view.` |
+| `watch` | `report --watch` | `v0.2.0` | `Frontier stream is a report view.` |
+| `replay` | `report --history` | `v0.2.0` | `Timeline replay is report history.` |
+| `diff` | `report --diff` | `v0.2.0` | `Spec artifact diffs are report snapshots.` |
+| `program` | `status --program` | `v0.2.0` | `Cross-spec frontier is a status view.` |
+| `update` | `scripts/install.sh --force` | `v0.2.0` | `Self-update moved to the install script.` |
+| `uninstall` | `scripts/uninstall.sh` | `v0.2.0` | `Removal is script-only.` |
 
 <!-- docs-lint: migration-appendix end -->

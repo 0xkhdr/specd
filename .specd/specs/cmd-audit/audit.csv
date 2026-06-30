@@ -25,10 +25,10 @@ mode,set|recommend,inspection,true,true,true,true,true,status,merge,Mode display
 dispatch,-,execution,false,true,false,false,true,next,merge,Frontier packets overlap with next all json dispatch output
 validate,schema,inspection,false,true,true,true,true,check,merge,Schema-only conformance overlaps with check schema-only
 schema,-,inspection,false,false,true,false,true,validate,merge,Schema emission can sit under validate schema
-serve,-,inspection,false,true,false,true,false,report,deprecate,Read-only live dashboard is non-core and report can generate HTML
+serve,-,inspection,false,true,false,true,false,report,merge,Read-only live dashboard merges under report --serve
 replay,-,inspection,false,true,false,true,true,report,merge,History timeline overlaps with report history
 diff,-,inspection,false,true,true,true,true,report,merge,Spec diff belongs under report diff for audit snapshots
-watch,once|sse|webhook,inspection,false,false,false,false,true,report,deprecate,Streaming frontier is non-core and can be externalized
+watch,once|sse|webhook,inspection,false,false,false,false,true,report,merge,Streaming frontier merges under report --watch
 program,status|link|unlink,inspection,true,true,false,false,true,status,merge,Cross-spec status belongs in status program and links in new depends-on
 update,-,meta,true,false,true,true,false,install.sh,deprecate,Self update belongs to install script not runtime palette
 uninstall,-,meta,true,false,true,true,false,install.sh,deprecate,Uninstall belongs to install script not runtime palette

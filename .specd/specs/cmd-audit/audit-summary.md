@@ -6,8 +6,8 @@
 |---|---:|
 | Total top-level commands | 33 |
 | Keep | 16 |
-| Merge | 8 |
-| Deprecate | 5 |
+| Merge | 10 |
+| Deprecate | 3 |
 | Meta-hidden | 4 |
 | Surviving palette | 20 |
 
@@ -30,15 +30,17 @@ Meta-hidden: fusion, version, mcp, help.
 | schema | validate |
 | replay | report |
 | diff | report |
+| serve | report |
+| watch | report |
 | program | status / new |
 
 ## Deprecations
 
-migrate, serve, watch, update, uninstall.
+migrate, update, uninstall.
 
 ## Documentation gaps
 
-`migrate` and `fusion` are present in `internal/core/commands.go` but absent as first-class rows in `docs/command-reference.md`; they are flagged as `undocumented` in `registry.txt`.
+None. `migrate` and `fusion` were previously absent from `docs/command-reference.md`; both are now documented (`fusion` as a first-class row, `migrate` in the migration appendix alongside `init --migrate`) and `registry.txt` no longer flags them `undocumented`.
 
 ## Overflow
 

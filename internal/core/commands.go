@@ -61,7 +61,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "doctor", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "doctor", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Diagnose scaffold, MCP, and coding-agent registration",
 		Usage:       "specd doctor [--agent <name|all>] [--fix] [--json]", Synopsis: "specd doctor [--agent <name|all>] [--fix] [--json]",
 		LongDescription: "Checks the current project binary, required scaffold assets, in-process MCP handshake and baseline tools, detected coding-agent hosts, and project registration state. --fix repairs only safe project-scoped state and refuses conflicting or unowned registrations.",
@@ -71,7 +71,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "migrate", Category: "lifecycle", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "migrate", Category: "lifecycle", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Migrate legacy config.json to config.yml",
 		Usage:       "specd migrate config [--dry-run] [--global]", Synopsis: "specd migrate config [--dry-run] [--global]",
 		LongDescription: "Converts legacy JSON configuration to deterministic YAML, validates the rendered config, then renames the JSON file to .bak. --dry-run prints YAML without mutating files. --global migrates the user-level legacy config and does not require a project root.",
@@ -153,7 +153,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "dispatch", Category: "execution", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "dispatch", Category: "execution", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Ready-to-run packets for frontier",
 		Usage:       "specd dispatch <slug> [--json]", Synopsis: "specd dispatch <slug> [--json]",
 		LongDescription: "Produces ready-to-run packets for all tasks in the current runnable frontier.",
@@ -195,7 +195,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "mode", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "mode", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Show or set a spec's execution mode",
 		Usage:       "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]", Synopsis: "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]",
 		LongDescription: "Shows the effective execution mode (base | orchestrated), its origin, and project orchestration capability for a spec. --set records a new per-spec mode (orchestrated requires project capability; switching to base is refused while a Brain session is active). --recommend emits a deterministic, advisory recommendation computed from on-disk spec facts — the user decides.",
@@ -225,7 +225,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "validate", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "validate", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description:     "Check state.json against the open spec schema",
 		Usage:           "specd validate <slug> --schema [--version <v>]",
 		Synopsis:        "specd validate <slug> --schema [--version <v>]",
@@ -236,7 +236,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "schema", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "schema", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description:     "Emit the embedded open spec format JSON Schema",
 		Usage:           "specd schema [--version <v>]",
 		Synopsis:        "specd schema [--version <v>]",
@@ -257,7 +257,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "serve", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "serve", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Serve a read-only live dashboard",
 		Usage:       "specd serve <slug> [--addr 127.0.0.1:8765]", Synopsis: "specd serve <slug> [--addr 127.0.0.1:8765]",
 		LongDescription: "Starts a read-only HTTP server (loopback by default) that renders the same HTML as `specd report --format html` at GET /, and the JSON ReportData at GET /api/report. No mutating routes; data is rebuilt from disk per request.",
@@ -267,7 +267,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "replay", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "replay", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Replay a spec's audit timeline",
 		Usage:       "specd replay <slug> [--acp-session <id>]", Synopsis: "specd replay <slug> [--acp-session <id>]",
 		LongDescription: "Reconstructs a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from the spec's on-disk audit data. Text by default; a typed JSON array under SPECD_JSON.",
@@ -277,7 +277,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "diff", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "diff", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description:     "Diff a spec's artifacts between two git refs",
 		Usage:           "specd diff <slug> --from <ref> [--to <ref>]",
 		Synopsis:        "specd diff <slug> --from <ref> [--to <ref>]",
@@ -288,7 +288,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "watch", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "watch", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Stream runnable-frontier changes (NDJSON / SSE / webhook)",
 		Usage:       "specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]", Synopsis: "specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]",
 		LongDescription: "Watches spec state and emits a FrontierEvent whenever a spec's runnable task set changes. Read-only: it never writes state. Transports: by default NDJSON on stdout; --sse <addr> serves Server-Sent Events at GET /events over net/http; --webhook <url> POSTs each event on a non-blocking background worker with bounded retry/backoff. --once does a single pass and exits; long-running modes shut down cleanly on SIGINT/SIGTERM. Polls at SPECD_WATCH_INTERVAL_MS (default 1000ms). Stdlib-only.",
@@ -375,7 +375,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "program", Category: "inspection", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "program", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description:     "Cross-spec DAG runnable frontier",
 		Usage:           "specd program [status] [--json]  |  specd program <link|unlink> <spec> --on <dep>",
 		Synopsis:        "specd program [status|link|unlink] [args] [flags]",
@@ -386,7 +386,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "update", Category: "meta", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "update", Category: "meta", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Update specd to latest version",
 		Usage:       "specd update [--force]", Synopsis: "specd update [--force]",
 		LongDescription: "Downloads the latest pre-built binary from GitHub Releases and replaces the running binary.",
@@ -396,7 +396,7 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "uninstall", Category: "meta", Hidden: true, DeprecatedIn: "palette-merge",
+		Command: "uninstall", Category: "meta", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description:     "Remove specd from this machine",
 		Usage:           "specd uninstall [--force] [--dry-run] [--json]",
 		Synopsis:        "specd uninstall [--force] [--dry-run] [--json]",
