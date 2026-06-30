@@ -1,0 +1,34 @@
+command,subcommand,category,mutates_state,phase_gate,unique_exit_contract,user_facing,agent_facing,overlap_with,disposition,rationale
+init,-,lifecycle,true,false,true,true,true,none,keep,Backbone bootstrap command from PROMPT 5.1
+new,-,lifecycle,true,false,true,true,true,none,keep,Backbone spec creation command from PROMPT 5.1
+status,-,inspection,false,false,false,true,true,none,keep,Backbone orientation command and target for mode and program reads
+context,-,inspection,false,true,false,true,true,none,keep,Backbone context engineering command from PROMPT 5.1
+check,-,inspection,false,true,true,true,true,none,keep,Backbone validation gate command from PROMPT 5.1
+approve,-,lifecycle,true,true,true,true,true,none,keep,Backbone phase ratchet command from PROMPT 5.1
+next,-,execution,false,true,false,true,true,none,keep,Backbone frontier command and merge target for dispatch
+verify,-,execution,true,true,true,true,true,none,keep,Backbone evidence gate command from PROMPT 5.1
+task,-,execution,true,true,true,true,true,none,keep,Backbone evidence-gated task mutation from PROMPT 5.1
+report,-,inspection,false,true,false,true,true,none,keep,Backbone reporting command and merge target for serve replay diff
+decision,-,record,true,true,false,true,true,none,keep,Daily workflow ADR record command retained by progress survivor ledger
+midreq,-,record,true,true,false,true,true,none,keep,Daily workflow feedback record command retained by progress survivor ledger
+memory,add|promote,record,true,true,false,true,true,none,keep,Daily workflow learning record command retained by progress survivor ledger
+waves,-,inspection,false,true,false,true,true,none,keep,Daily workflow DAG inspection command retained by progress survivor ledger
+brain,start|step|status|run|why|directive|pause|resume|cancel|compact|clear|ledger,orchestration,true,true,true,false,true,none,keep,Backbone orchestration command from PROMPT 5.1
+pinky,claim|report|release|brief|heartbeat|progress|query|block|inbox,orchestration,true,true,true,false,true,none,keep,Backbone worker lifecycle command from PROMPT 5.1
+fusion,bootstrap|policy,inspection,false,false,true,false,true,none,meta-hidden,Agent integration oracle hidden from daily palette
+version,-,meta,false,false,false,true,true,none,meta-hidden,Accepted meta command outside daily palette
+mcp,config|server,meta,false,false,true,false,true,none,meta-hidden,MCP transport kept as hidden meta surface
+help,command,meta,false,false,true,true,true,none,meta-hidden,Accepted meta command outside daily palette
+doctor,-,inspection,false,false,true,true,false,init,merge,Diagnostics overlap with init repair and doctor modes
+migrate,config,lifecycle,true,false,true,true,false,none,deprecate,One-time legacy config migration should leave runtime palette
+mode,set|recommend,inspection,true,true,true,true,true,status,merge,Mode display belongs in status and mode selection belongs in new
+dispatch,-,execution,false,true,false,false,true,next,merge,Frontier packets overlap with next all json dispatch output
+validate,schema,inspection,false,true,true,true,true,check,merge,Schema-only conformance overlaps with check schema-only
+schema,-,inspection,false,false,true,false,true,validate,merge,Schema emission can sit under validate schema
+serve,-,inspection,false,true,false,true,false,report,deprecate,Read-only live dashboard is non-core and report can generate HTML
+replay,-,inspection,false,true,false,true,true,report,merge,History timeline overlaps with report history
+diff,-,inspection,false,true,true,true,true,report,merge,Spec diff belongs under report diff for audit snapshots
+watch,once|sse|webhook,inspection,false,false,false,false,true,report,deprecate,Streaming frontier is non-core and can be externalized
+program,status|link|unlink,inspection,true,true,false,false,true,status,merge,Cross-spec status belongs in status program and links in new depends-on
+update,-,meta,true,false,true,true,false,install.sh,deprecate,Self update belongs to install script not runtime palette
+uninstall,-,meta,true,false,true,true,false,install.sh,deprecate,Uninstall belongs to install script not runtime palette

@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 5,
+  "revision": 12,
+  "spec": "cmd-audit",
+  "title": "cmd-audit",
+  "status": "verifying",
+  "phase": "verify",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-30T00:00:00Z",
+  "updatedAt": "2026-06-30T15:34:43.855173112Z",
+  "tasks": {
+    "T1": {
+      "id": "T1",
+      "title": "Extract live command registry",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        1
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T15:34:03.431523318Z",
+      "finishedAt": "2026-06-30T15:34:03.431523318Z",
+      "evidence": "registry.txt generated; 33 top-level command rows plus header; docs status included",
+      "verification": {
+        "command": "test -s .specd/specs/cmd-audit/registry.txt \u0026\u0026 wc -l .specd/specs/cmd-audit/registry.txt",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "34 .specd/specs/cmd-audit/registry.txt\n",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T15:34:03.395485766Z",
+        "gitHead": "a8be51c2c6f44f7997e9f06b5fb6ac3ef904abf7",
+        "changedFiles": [
+          ".specd/specs/cmd-audit/.lock",
+          ".specd/specs/cmd-audit/audit-summary.md",
+          ".specd/specs/cmd-audit/audit.csv",
+          ".specd/specs/cmd-audit/design.md",
+          ".specd/specs/cmd-audit/registry.txt",
+          ".specd/specs/cmd-audit/requirements.md",
+          ".specd/specs/cmd-audit/state.json",
+          ".specd/specs/cmd-audit/tasks.md"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 6,
+        "retries": 1
+      }
+    },
+    "T2": {
+      "id": "T2",
+      "title": "Cross-reference documentation",
+      "role": "investigator",
+      "wave": 1,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        1
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T15:34:03.500320659Z",
+      "finishedAt": "2026-06-30T15:34:03.500320659Z",
+      "evidence": "registry.txt marks documented status and flags migrate/fusion as undocumented",
+      "verification": {
+        "command": "grep -c undocumented .specd/specs/cmd-audit/registry.txt",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "2\n",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T15:34:03.460654714Z",
+        "gitHead": "a8be51c2c6f44f7997e9f06b5fb6ac3ef904abf7",
+        "changedFiles": [
+          ".specd/specs/cmd-audit/.lock",
+          ".specd/specs/cmd-audit/audit-summary.md",
+          ".specd/specs/cmd-audit/audit.csv",
+          ".specd/specs/cmd-audit/design.md",
+          ".specd/specs/cmd-audit/registry.txt",
+          ".specd/specs/cmd-audit/requirements.md",
+          ".specd/specs/cmd-audit/state.json",
+          ".specd/specs/cmd-audit/tasks.md"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 6,
+        "retries": 1
+      }
+    },
+    "T3": {
+      "id": "T3",
+      "title": "Classify dispositions and overlap",
+      "role": "investigator",
+      "wave": 2,
+      "depends": [
+        "T2"
+      ],
+      "requirements": [
+        2
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T15:34:09.077658954Z",
+      "finishedAt": "2026-06-30T15:34:09.077658954Z",
+      "evidence": "audit.csv generated with disposition and overlap for every registry row; 16 keep rows match survivor ledger",
+      "verification": {
+        "command": "test -f .specd/specs/cmd-audit/audit.csv \u0026\u0026 awk -F, 'NR\u003e1 \u0026\u0026 $10==\"\"' .specd/specs/cmd-audit/audit.csv | wc -l | grep -qx 0",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T15:34:43.847840617Z",
+        "gitHead": "a8be51c2c6f44f7997e9f06b5fb6ac3ef904abf7",
+        "changedFiles": [
+          ".specd/specs/cmd-audit/.lock",
+          ".specd/specs/cmd-audit/audit-summary.md",
+          ".specd/specs/cmd-audit/audit.csv",
+          ".specd/specs/cmd-audit/design.md",
+          ".specd/specs/cmd-audit/registry.txt",
+          ".specd/specs/cmd-audit/requirements.md",
+          ".specd/specs/cmd-audit/state.json",
+          ".specd/specs/cmd-audit/tasks.md",
+          ".specd/specs/progress.md"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 7,
+        "retries": 2
+      }
+    },
+    "T4": {
+      "id": "T4",
+      "title": "Emit ledger + summary and assert ≤20",
+      "role": "reviewer",
+      "wave": 2,
+      "depends": [
+        "T3"
+      ],
+      "requirements": [
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T15:34:09.144482205Z",
+      "finishedAt": "2026-06-30T15:34:09.144482205Z",
+      "evidence": "audit-summary.md reports 20 survivors and no overflow marker",
+      "verification": {
+        "command": "test -f .specd/specs/cmd-audit/audit-summary.md \u0026\u0026 ! grep -q OVERFLOW .specd/specs/cmd-audit/audit-summary.md",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T15:34:09.103960122Z",
+        "gitHead": "a8be51c2c6f44f7997e9f06b5fb6ac3ef904abf7",
+        "changedFiles": [
+          ".specd/specs/cmd-audit/.lock",
+          ".specd/specs/cmd-audit/audit-summary.md",
+          ".specd/specs/cmd-audit/audit.csv",
+          ".specd/specs/cmd-audit/design.md",
+          ".specd/specs/cmd-audit/registry.txt",
+          ".specd/specs/cmd-audit/requirements.md",
+          ".specd/specs/cmd-audit/state.json",
+          ".specd/specs/cmd-audit/tasks.md"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 6,
+        "retries": 1
+      }
+    },
+    "T5": {
+      "id": "T5",
+      "title": "Gate the audit spec",
+      "role": "verifier",
+      "wave": 3,
+      "depends": [
+        "T4"
+      ],
+      "requirements": [
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T15:34:09.224586812Z",
+      "finishedAt": "2026-06-30T15:34:09.224586812Z",
+      "evidence": "specd check cmd-audit passed with all gates green",
+      "verification": {
+        "command": "specd check cmd-audit",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "✓ check passed — all gates green for 'cmd-audit'\n",
+        "stderrTail": "",
+        "durationMs": 14,
+        "ranAt": "2026-06-30T15:34:09.173594259Z",
+        "gitHead": "a8be51c2c6f44f7997e9f06b5fb6ac3ef904abf7",
+        "changedFiles": [
+          ".specd/specs/cmd-audit/.lock",
+          ".specd/specs/cmd-audit/audit-summary.md",
+          ".specd/specs/cmd-audit/audit.csv",
+          ".specd/specs/cmd-audit/design.md",
+          ".specd/specs/cmd-audit/registry.txt",
+          ".specd/specs/cmd-audit/requirements.md",
+          ".specd/specs/cmd-audit/state.json",
+          ".specd/specs/cmd-audit/tasks.md"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 20,
+        "retries": 1
+      }
+    }
+  },
+  "blockers": []
+}
