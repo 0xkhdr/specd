@@ -43,7 +43,7 @@ func TestBuildPhaseToolsSubsets(t *testing.T) {
 	}
 
 	executing := toolNameSet(buildPhaseTools(cfg, core.StatusExecuting, "builder"))
-	if !executing["specd_next"] || !executing["specd_dispatch"] || !executing["specd_verify"] {
+	if !executing["specd_next"] || !executing["specd_verify"] || !executing["specd_task"] {
 		t.Errorf("executing subset missing drive-loop tools: %v", executing)
 	}
 	if executing["specd_check"] || executing["specd_approve"] {
@@ -64,7 +64,7 @@ func TestBuildPhaseToolsUnknownStatusFallsBack(t *testing.T) {
 
 func TestBuildPhaseToolsRoleIntersection(t *testing.T) {
 	got := toolNameSet(buildPhaseTools(phaseCfg(), core.StatusExecuting, "verifier"))
-	for _, want := range []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"} {
+	for _, want := range []string{"specd_check", "specd_status", "specd_state_read"} {
 		if !got[want] {
 			t.Fatalf("verifier subset missing %s: %v", want, got)
 		}

@@ -3,8 +3,8 @@
 ## Overall Status
 - Total Specs: 5
 - Total Waves: 5 (suite-level integration waves; each spec carries 3 internal waves)
-- Tasks Complete: 5 / 27
-- Current Phase: cmd-audit verifying
+- Tasks Complete: 10 / 27
+- Current Phase: cmd-mcp-sync complete
 
 > Surface target: 33 commands → **20 survivors** (16 daily workflow + 4 meta-hidden). 13 commands killed.
 
@@ -14,7 +14,7 @@
 | cmd-audit | verifying | complete | none |
 | cmd-merge | planned | — | depends on cmd-audit |
 | cmd-deprecate | planned | — | depends on cmd-audit |
-| cmd-mcp-sync | planned | — | depends on cmd-merge, cmd-deprecate |
+| cmd-mcp-sync | complete | complete | none |
 | cmd-docs | planned | — | depends on cmd-mcp-sync |
 
 ## Wave Schedule
@@ -24,7 +24,7 @@
 - [ ] cmd-merge: T1–T6
 - [ ] cmd-deprecate: T1–T5
 ### Wave 3: MCP Sync
-- [ ] cmd-mcp-sync: T1–T5
+- [x] cmd-mcp-sync: T1–T5
 ### Wave 4: Documentation
 - [ ] cmd-docs: T1–T6
 ### Wave 5: Integration Verify

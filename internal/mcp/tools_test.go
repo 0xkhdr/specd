@@ -21,15 +21,29 @@ var updateGolden = flag.Bool("update", false, "rewrite golden schema snapshot")
 // TestToolsList asserts the generated tool list mirrors the command schema:
 // one tool per non-meta command, correct namespacing, and read-only annotations
 // matching the spec's R4 classification.
+func TestHiddenExcluded(t *testing.T) {
+	tools := toolNames(buildTools(nil))
+	for _, name := range []string{
+		"specd_doctor", "specd_migrate", "specd_mode", "specd_dispatch",
+		"specd_validate", "specd_schema", "specd_serve", "specd_replay",
+		"specd_diff", "specd_watch", "specd_program", "specd_update",
+		"specd_uninstall", "specd_fusion", "specd_version", "specd_help", "specd_mcp",
+	} {
+		if tools[name] {
+			t.Fatalf("hidden/retired command %s exposed in MCP default tool list", name)
+		}
+	}
+}
+
 func TestToolsList(t *testing.T) {
 	tools := buildTools(nil)
 
-	// Parity: one command-mirror tool per non-meta core.Commands entry (R2) plus
-	// the intent-level tools (GAP-5). Adding a command/intent tool without it
-	// surfacing here fails the test.
+	// Parity: one command-mirror tool per non-hidden, non-meta core.Commands entry
+	// (R2) plus the intent-level tools (GAP-5). Adding a surviving command/intent
+	// tool without it surfacing here fails the test.
 	wantCount := len(intentTools)
 	for _, c := range core.Commands {
-		if !metaCommands[c.Command] {
+		if !metaCommands[c.Command] && !c.Hidden {
 			wantCount++
 		}
 	}
@@ -42,19 +56,16 @@ func TestToolsList(t *testing.T) {
 		byName[tl.Name] = tl
 	}
 
-	// Meta commands are never exposed.
-	for _, name := range []string{"specd_help", "specd_version", "specd_mcp"} {
+	// Meta, hidden, and retired commands are never exposed.
+	for _, name := range []string{"specd_help", "specd_version", "specd_mcp", "specd_doctor", "specd_dispatch", "specd_update", "specd_uninstall"} {
 		if _, ok := byName[name]; ok {
-			t.Errorf("meta command exposed as tool: %s", name)
+			t.Errorf("meta/hidden command exposed as tool: %s", name)
 		}
 	}
 
 	// Read-only annotation (R4).
 	if tl := byName["specd_status"]; !tl.Annotations.ReadOnlyHint {
 		t.Error("specd_status should be readOnlyHint:true")
-	}
-	if tl := byName["specd_fusion"]; !tl.Annotations.ReadOnlyHint || tl.Annotations.DestructiveHint {
-		t.Errorf("specd_fusion annotations = %+v, want read-only non-destructive", tl.Annotations)
 	}
 	if tl := byName["specd_verify"]; tl.Annotations.ReadOnlyHint {
 		t.Error("specd_verify should be readOnlyHint:false")
@@ -502,10 +513,10 @@ func TestEssentialDefaultSet(t *testing.T) {
 			t.Errorf("essential set missing %s", want)
 		}
 	}
-	// The bootstrap tool and composite read tools must be in the default essential surface (AC7).
-	for _, c := range []string{"specd_fusion", "specd_inspect", "specd_read", "specd_query"} {
+	// Composite read tools must be in the default essential surface (AC7).
+	for _, c := range []string{"specd_inspect", "specd_read", "specd_query"} {
 		if !names[c] {
-			t.Errorf("essential set missing startup/read tool %s", c)
+			t.Errorf("essential set missing read tool %s", c)
 		}
 	}
 }
@@ -528,19 +539,14 @@ func TestEssentialExplicitSet(t *testing.T) {
 	}
 }
 
-// TestIncludeMetaGate covers AC3/R4: meta-risk tools hidden by default, shown
-// only when includeMeta is true.
+// TestIncludeMetaGate covers AC3/R4: retired hidden tools stay absent even when
+// includeMeta is true; the optimized MCP surface has no default meta-risk leaks.
 func TestIncludeMetaGate(t *testing.T) {
 	hidden := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
-	for cmd := range metaRiskCommands {
-		if hidden[toolPrefix+cmd] {
-			t.Errorf("%s%s exposed with includeMeta:false", toolPrefix, cmd)
-		}
-	}
 	shown := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all", IncludeMeta: true}}))
 	for cmd := range metaRiskCommands {
-		if !shown[toolPrefix+cmd] {
-			t.Errorf("%s%s missing with includeMeta:true", toolPrefix, cmd)
+		if hidden[toolPrefix+cmd] || shown[toolPrefix+cmd] {
+			t.Errorf("retired meta-risk tool %s%s exposed (hidden=%v shown=%v)", toolPrefix, cmd, hidden[toolPrefix+cmd], shown[toolPrefix+cmd])
 		}
 	}
 }
@@ -600,7 +606,7 @@ func TestPhasePlanningExcludesExecutionMutations(t *testing.T) {
 func TestPhaseExecutingIncludesDriveLoopTools(t *testing.T) {
 	cfg := &core.Config{MCP: core.MCPConfig{Expose: "phase"}}
 	got := toolNames(buildPhaseTools(cfg, core.StatusExecuting, ""))
-	for _, name := range []string{"specd_next", "specd_dispatch", "specd_verify", "specd_task"} {
+	for _, name := range []string{"specd_next", "specd_verify", "specd_task"} {
 		if !got[name] {
 			t.Errorf("executing phase missing drive-loop tool %s: %v", name, got)
 		}
@@ -643,7 +649,7 @@ func TestBuildToolsRoleFilterFromActiveSpec(t *testing.T) {
 	}
 
 	got := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
-	want := []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"}
+	want := []string{"specd_check", "specd_status", "specd_state_read"}
 	if len(got) != len(want) {
 		t.Fatalf("verifier tool count = %d, want %d: %v", len(got), len(want), got)
 	}

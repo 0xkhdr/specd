@@ -125,12 +125,12 @@ func mcpToolResult(t *testing.T, tool string, arguments map[string]any) map[stri
 	return r
 }
 
-// TestCLIMCPParity asserts that for a representative set of read-only tools the
-// MCP tool call returns the same structured result the equivalent CLI command
-// prints (R2.2). Both paths re-enter cmd.Dispatch under SPECD_JSON, so any
-// divergence is a real bug, not a fixture artifact. The CLI reference is
+// TestCLIMCPCallParity asserts that for a representative set of read-only tools
+// the MCP tool call returns the same structured result the equivalent CLI
+// command prints (R2.2). Both paths re-enter cmd.Dispatch under SPECD_JSON, so
+// any divergence is a real bug, not a fixture artifact. The CLI reference is
 // captured BEFORE the MCP drive because both swap process-global os.Stdout.
-func TestCLIMCPParity(t *testing.T) {
+func TestCLIMCPCallParity(t *testing.T) {
 	h := th.New(t)
 	h.Spec("parity").
 		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").

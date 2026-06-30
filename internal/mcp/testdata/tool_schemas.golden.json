@@ -92,6 +92,10 @@
   "brain_status": {
     "type": "object",
     "properties": {
+      "ledger": {
+        "type": "boolean",
+        "description": "Show the session context ledger instead of the scheduling explanation."
+      },
       "program": {
         "type": "boolean",
         "description": "Target a program (cross-spec) session instead of a single spec."
@@ -99,44 +103,6 @@
       "session": {
         "type": "string",
         "description": "Orchestration session id to act on."
-      }
-    },
-    "additionalProperties": false
-  },
-  "mode_get": {
-    "type": "object",
-    "properties": {
-      "spec": {
-        "type": "string",
-        "description": "Spec slug to inspect."
-      }
-    },
-    "additionalProperties": false
-  },
-  "mode_recommend": {
-    "type": "object",
-    "properties": {
-      "spec": {
-        "type": "string",
-        "description": "Spec slug to evaluate."
-      }
-    },
-    "additionalProperties": false
-  },
-  "mode_set": {
-    "type": "object",
-    "properties": {
-      "mode": {
-        "type": "string",
-        "description": "Target execution mode.",
-        "enum": [
-          "base",
-          "orchestrated"
-        ]
-      },
-      "spec": {
-        "type": "string",
-        "description": "Spec slug to change."
       }
     },
     "additionalProperties": false
@@ -324,96 +290,6 @@
     },
     "additionalProperties": false
   },
-  "specd_diff": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd diff \u003cslug\u003e --from \u003cref\u003e [--to \u003cref\u003e]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "from": {
-        "type": "string",
-        "description": "Base git ref (required)"
-      },
-      "json": {
-        "type": "boolean"
-      },
-      "to": {
-        "type": "string",
-        "description": "Target git ref (default: working tree)"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_dispatch": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd dispatch \u003cslug\u003e [--json]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "json": {
-        "type": "boolean"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_doctor": {
-    "type": "object",
-    "properties": {
-      "agent": {
-        "type": "string",
-        "description": "Inspect one host or all detected hosts"
-      },
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd doctor [--agent \u003cname|all\u003e] [--fix] [--json]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "fix": {
-        "type": "boolean",
-        "description": "Repair safe project-scoped scaffold and registration state"
-      },
-      "json": {
-        "type": "boolean",
-        "description": "Output one deterministic JSON document"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_fusion": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd fusion \u003cbootstrap|policy\u003e [slug] [--json]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "expect-config-digest": {
-        "type": "string",
-        "description": "Fail if current config digest differs from this sha256"
-      },
-      "include-schema": {
-        "type": "boolean",
-        "description": "Inline full command schema in bootstrap output"
-      },
-      "json": {
-        "type": "boolean",
-        "description": "Output JSON"
-      }
-    },
-    "additionalProperties": false
-  },
   "specd_init": {
     "type": "object",
     "properties": {
@@ -568,56 +444,6 @@
     },
     "additionalProperties": false
   },
-  "specd_migrate": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd migrate config [--dry-run] [--global]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "dry-run": {
-        "type": "boolean",
-        "description": "Print YAML without writing or renaming"
-      },
-      "global": {
-        "type": "boolean",
-        "description": "Migrate the legacy global config"
-      },
-      "json": {
-        "type": "boolean",
-        "description": "Output migration result as JSON"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_mode": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd mode \u003cslug\u003e [--set base|orchestrated] [--recommend] [--json]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "json": {
-        "type": "boolean",
-        "description": "Output in JSON format"
-      },
-      "recommend": {
-        "type": "boolean",
-        "description": "Emit an advisory mode recommendation from countable spec facts"
-      },
-      "set": {
-        "type": "string",
-        "description": "Set the spec's execution mode: base or orchestrated"
-      }
-    },
-    "additionalProperties": false
-  },
   "specd_new": {
     "type": "object",
     "properties": {
@@ -752,42 +578,6 @@
     },
     "additionalProperties": false
   },
-  "specd_program": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd program [status|link|unlink] [args] [flags]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "json": {
-        "type": "boolean"
-      },
-      "on": {
-        "type": "string"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_replay": {
-    "type": "object",
-    "properties": {
-      "acp-session": {
-        "type": "string",
-        "description": "Replay events for a specific orchestration session ID"
-      },
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd replay \u003cslug\u003e [--acp-session \u003cid\u003e]",
-        "items": {
-          "type": "string"
-        }
-      }
-    },
-    "additionalProperties": false
-  },
   "specd_report": {
     "type": "object",
     "properties": {
@@ -824,40 +614,6 @@
       "watch": {
         "type": "boolean",
         "description": "Stream runnable-frontier changes"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_schema": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd schema [--version \u003cv\u003e]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "version": {
-        "type": "string",
-        "description": "Schema version to emit (default: current)"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_serve": {
-    "type": "object",
-    "properties": {
-      "addr": {
-        "type": "string",
-        "description": "Bind address (default 127.0.0.1:8765)"
-      },
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd serve \u003cslug\u003e [--addr 127.0.0.1:8765]",
-        "items": {
-          "type": "string"
-        }
       }
     },
     "additionalProperties": false
@@ -922,72 +678,6 @@
     },
     "additionalProperties": false
   },
-  "specd_uninstall": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd uninstall [--force] [--dry-run] [--json]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "dry-run": {
-        "type": "boolean",
-        "description": "Show what would be removed and exit"
-      },
-      "force": {
-        "type": "boolean",
-        "description": "Perform the removal (without it, only the plan is shown)"
-      },
-      "json": {
-        "type": "boolean",
-        "description": "Machine-readable output"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_update": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd update [--force]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "force": {
-        "type": "boolean",
-        "description": "Force update even if already up to date"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_validate": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd validate \u003cslug\u003e --schema [--version \u003cv\u003e]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "json": {
-        "type": "boolean"
-      },
-      "schema": {
-        "type": "boolean",
-        "description": "Validate against the embedded JSON Schema (required)"
-      },
-      "version": {
-        "type": "string",
-        "description": "Schema version to validate against (default: current)"
-      }
-    },
-    "additionalProperties": false
-  },
   "specd_verify": {
     "type": "object",
     "properties": {
@@ -1014,35 +704,6 @@
       },
       "status": {
         "type": "string"
-      }
-    },
-    "additionalProperties": false
-  },
-  "specd_watch": {
-    "type": "object",
-    "properties": {
-      "args": {
-        "type": "array",
-        "description": "Positional arguments, in order. Usage: specd watch [--once] [--spec \u003cslug\u003e] [--sse \u003caddr\u003e] [--webhook \u003curl\u003e]",
-        "items": {
-          "type": "string"
-        }
-      },
-      "once": {
-        "type": "boolean",
-        "description": "Emit current frontiers once and exit"
-      },
-      "spec": {
-        "type": "string",
-        "description": "Limit the stream to a single spec slug"
-      },
-      "sse": {
-        "type": "string",
-        "description": "Serve Server-Sent Events at this bind address (e.g. 127.0.0.1:8766)"
-      },
-      "webhook": {
-        "type": "string",
-        "description": "POST each frontier event to this URL"
       }
     },
     "additionalProperties": false
