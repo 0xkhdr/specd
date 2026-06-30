@@ -5,6 +5,8 @@ package core
 // limit still acts as a dispatch brake: warn at 80%, halt at 100%.
 type CostBrakeLevel string
 
+// The CostBrakeLevel values are the three enforcement states EvaluateCostBrake
+// can return, in increasing severity.
 const (
 	CostBrakeNone CostBrakeLevel = "none"
 	CostBrakeWarn CostBrakeLevel = "warn"

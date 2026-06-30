@@ -63,10 +63,10 @@ func TestIntentToolTranslation(t *testing.T) {
 			},
 		},
 		{
-			name:    "brain_orchestrate",
-			args:    map[string]any{"spec": "auth", "no_bootstrap": true},
-			wantCmd: "brain",
-			wantPos: []string{"start", "auth"},
+			name:      "brain_orchestrate",
+			args:      map[string]any{"spec": "auth", "no_bootstrap": true},
+			wantCmd:   "brain",
+			wantPos:   []string{"start", "auth"},
 			wantFlags: map[string]string{"auto-step": "true"},
 		},
 		{

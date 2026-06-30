@@ -327,6 +327,7 @@ func withManifest(plan exposurePlan, pinned string, tools []toolDef) []toolDef {
 	return applyManifestFilter(tools, activeManifest(pinned))
 }
 
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func buildToolsFromPlan(plan exposurePlan) []toolDef {
 	tools := make([]toolDef, 0, len(core.Commands)+len(specialTools)+len(compositeTools)+len(intentTools))
 	for _, c := range core.Commands {

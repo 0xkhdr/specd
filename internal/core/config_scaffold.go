@@ -5,11 +5,18 @@ import (
 	"path/filepath"
 )
 
+// GlobalConfigScaffoldResult reports the outcome of
+// EnsureGlobalConfigScaffold: the global config path it used and whether it
+// had to create the file.
 type GlobalConfigScaffoldResult struct {
 	Path    string `json:"path"`
 	Created bool   `json:"created"`
 }
 
+// EnsureGlobalConfigScaffold ensures a global config.yml exists, returning
+// the path of the first existing candidate unchanged, or — if none exist —
+// rendering the config.yml template (via readTemplate) to the first
+// candidate path and reporting it as created.
 func EnsureGlobalConfigScaffold(readTemplate func(string) (string, error)) (GlobalConfigScaffoldResult, error) {
 	paths := GlobalConfigPaths()
 	if len(paths) == 0 {

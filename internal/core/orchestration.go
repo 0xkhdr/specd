@@ -8,10 +8,16 @@ import (
 	"time"
 )
 
+// OrchestrationModelVersion is the schema version stamped on orchestration
+// snapshots, decisions, sessions, and checkpoint records; validation rejects
+// any value other than this constant.
 const OrchestrationModelVersion = 1
 
+// OrchestrationAction is the action a DecideOrchestration call selects for
+// one orchestration step (dispatch a task, wait, escalate, etc.).
 type OrchestrationAction string
 
+// Orchestration actions the engine can decide on for a session step.
 const (
 	OrchestrationIdle            OrchestrationAction = "idle"
 	OrchestrationRequestApproval OrchestrationAction = "request-approval"
@@ -65,8 +71,11 @@ type ContextLedgerEntry struct {
 	Reason             string `json:"reason"` // phase-complete | budget-threshold | manual-clear
 }
 
+// OrchestrationSessionStatus is the lifecycle status of an orchestration
+// session.
 type OrchestrationSessionStatus string
 
+// Orchestration session lifecycle statuses.
 const (
 	OrchestrationSessionRunning    OrchestrationSessionStatus = "running"
 	OrchestrationSessionPaused     OrchestrationSessionStatus = "paused"
@@ -75,8 +84,11 @@ const (
 	OrchestrationSessionFailed     OrchestrationSessionStatus = "failed"
 )
 
+// OrchestrationEscalationCode classifies why a decision escalated to a human
+// or terminal failure state.
 type OrchestrationEscalationCode string
 
+// Orchestration escalation codes.
 const (
 	EscalationNone              OrchestrationEscalationCode = "none"
 	EscalationUnknownState      OrchestrationEscalationCode = "unknown-state"
@@ -88,6 +100,10 @@ const (
 	EscalationHumanIntervention OrchestrationEscalationCode = "human-intervention"
 )
 
+// OrchestrationPolicy holds the validated, effective policy knobs governing
+// one orchestration session: approval gating, worker/retry limits, the
+// session timeout, the host-reported cost ceiling, and compaction/checkpoint
+// behavior.
 type OrchestrationPolicy struct {
 	ApprovalPolicy           string  `json:"approvalPolicy"`
 	MaxWorkers               int     `json:"maxWorkers"`
@@ -128,6 +144,9 @@ func (p OrchestrationPolicy) compactsOnBudget() bool {
 	return c == CompactionBudget || c == CompactionBoth
 }
 
+// OrchestrationTaskSnapshot is the snapshot projection of one runnable task in
+// the execution DAG: its identity, wave, status, attempt count, role, and
+// unmet dependencies.
 type OrchestrationTaskSnapshot struct {
 	ID       string     `json:"id"`
 	Wave     int        `json:"wave"`
@@ -138,6 +157,8 @@ type OrchestrationTaskSnapshot struct {
 	Verified bool       `json:"verified"`
 }
 
+// OrchestrationLeaseSnapshot is the snapshot projection of one active worker
+// lease: which worker holds which task/attempt and until when.
 type OrchestrationLeaseSnapshot struct {
 	WorkerID   string `json:"workerId"`
 	TaskID     string `json:"taskId"`
@@ -150,6 +171,9 @@ type OrchestrationLeaseSnapshot struct {
 	Suspended bool `json:"suspended,omitempty"`
 }
 
+// OrchestrationFailure is the snapshot projection of one recent task failure:
+// which task/attempt failed, the failure kind and message, and whether it is
+// retryable.
 type OrchestrationFailure struct {
 	TaskID    string `json:"taskId"`
 	Attempt   int    `json:"attempt"`
@@ -158,6 +182,10 @@ type OrchestrationFailure struct {
 	Retryable bool   `json:"retryable"`
 }
 
+// OrchestrationSnapshot is the pure, point-in-time view of a session's state
+// that DecideOrchestration reasons over: lifecycle status, runnable tasks,
+// active leases, recent failures, authoring frontier, and the
+// compaction/checkpoint/cost inputs needed to decide the next action.
 type OrchestrationSnapshot struct {
 	Version          int                          `json:"version"`
 	SessionID        string                       `json:"sessionId"`
@@ -235,11 +263,16 @@ type OrchestrationAuthoring struct {
 	Issues   []string `json:"issues"`   // current `specd check`-shaped reasons
 }
 
+// OrchestrationEscalation carries the code and human-readable message for a
+// decision that escalates rather than acts.
 type OrchestrationEscalation struct {
 	Code    OrchestrationEscalationCode `json:"code"`
 	Message string                      `json:"message"`
 }
 
+// OrchestrationDecision is the result of DecideOrchestration: the action to
+// take, the task/artifact it concerns, the reason and idempotency key for the
+// effecting host, and any escalation detail.
 type OrchestrationDecision struct {
 	Version int                 `json:"version"`
 	Action  OrchestrationAction `json:"action"`
@@ -254,6 +287,9 @@ type OrchestrationDecision struct {
 	Escalation     OrchestrationEscalation `json:"escalation"`
 }
 
+// OrchestrationSession is the persisted, durable record of one orchestration
+// session: identity, owner, status, effective policy, lifecycle timestamps,
+// and the running sequence/ledger state used to drive future decisions.
 type OrchestrationSession struct {
 	Version      int                        `json:"version"`
 	SessionID    string                     `json:"sessionId"`
@@ -337,6 +373,10 @@ func ValidateCheckpointRecord(rec CheckpointRecord) error {
 	return nil
 }
 
+// NewOrchestrationPolicy validates cfg and builds the effective
+// OrchestrationPolicy it describes, converting the configured session timeout
+// from minutes to seconds and deriving CheckpointEnabled from the resilience
+// block.
 func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
 	if err := ValidateOrchestrationConfig(&cfg); err != nil {
 		return OrchestrationPolicy{}, err
@@ -357,6 +397,9 @@ func NewOrchestrationPolicy(cfg OrchestrationCfg) (OrchestrationPolicy, error) {
 	return policy, nil
 }
 
+// ValidateOrchestrationPolicy rejects a policy whose approval mode, worker
+// and retry limits, session timeout, cost limit, or compaction settings fall
+// outside their allowed ranges.
 func ValidateOrchestrationPolicy(policy OrchestrationPolicy) error {
 	if !oneOf(policy.ApprovalPolicy, "manual", "planning", "session") {
 		return fmt.Errorf("orchestration model: unsupported approval policy %q", policy.ApprovalPolicy)
@@ -388,6 +431,11 @@ func ValidateOrchestrationPolicy(policy OrchestrationPolicy) error {
 	return nil
 }
 
+// ValidateOrchestrationSnapshot rejects a malformed snapshot: bad version,
+// session ID, spec slug, lifecycle state, or timestamps, plus duplicate or
+// invalid runnable tasks, active leases, failures, or checkpoints.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func ValidateOrchestrationSnapshot(snapshot OrchestrationSnapshot) error {
 	if snapshot.Version != OrchestrationModelVersion {
 		return fmt.Errorf("orchestration model: unsupported snapshot version %d", snapshot.Version)
@@ -472,6 +520,10 @@ func ValidateOrchestrationSnapshot(snapshot OrchestrationSnapshot) error {
 	return nil
 }
 
+// ValidateOrchestrationDecision rejects a malformed decision: bad version,
+// unsupported action, invalid spec/task ID/attempt, an artifact set on a
+// non-authoring action (or missing on one that requires it), an empty
+// reason/idempotency key, or escalation fields inconsistent with the action.
 func ValidateOrchestrationDecision(decision OrchestrationDecision) error {
 	if decision.Version != OrchestrationModelVersion {
 		return fmt.Errorf("orchestration model: unsupported decision version %d", decision.Version)
@@ -523,6 +575,9 @@ func ValidateOrchestrationDecision(decision OrchestrationDecision) error {
 	return nil
 }
 
+// ValidateOrchestrationSession rejects a malformed session: bad version,
+// session ID, spec slug, owner, status, or policy, plus inconsistent
+// created/updated/expires timestamps.
 func ValidateOrchestrationSession(session OrchestrationSession) error {
 	if session.Version != OrchestrationModelVersion {
 		return fmt.Errorf("orchestration model: unsupported session version %d", session.Version)
@@ -560,6 +615,9 @@ func ValidateOrchestrationSession(session OrchestrationSession) error {
 	return nil
 }
 
+// CanonicalOrchestrationJSON validates and normalizes value (one of the
+// orchestration model types) into a deterministic byte-stable form, then
+// marshals it as indented JSON with a trailing newline.
 func CanonicalOrchestrationJSON(value any) ([]byte, error) {
 	normalized, err := normalizeOrchestrationValue(value)
 	if err != nil {

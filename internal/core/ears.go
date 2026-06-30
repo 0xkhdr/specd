@@ -7,8 +7,12 @@ import (
 	"strings"
 )
 
+// EarsPattern identifies which EARS (Easy Approach to Requirements Syntax)
+// form an acceptance criterion matched.
 type EarsPattern string
 
+// The EarsPattern values name the EARS forms MatchEars recognizes, in
+// match-precedence order.
 const (
 	EarsUnwanted        EarsPattern = "unwanted"
 	EarsEventDriven     EarsPattern = "event-driven"
@@ -44,6 +48,8 @@ func EarsForms() []string {
 	return out
 }
 
+// MatchEars tests line against each known EARS pattern in precedence order
+// and returns the first one that matches, or false if none do.
 func MatchEars(line string) (EarsPattern, bool) {
 	for _, p := range earsPatterns {
 		if p.re.MatchString(line) {
@@ -53,6 +59,8 @@ func MatchEars(line string) (EarsPattern, bool) {
 	return "", false
 }
 
+// EarsIssue is a single requirements.md lint finding: the 1-based source
+// line and a human-readable message describing the problem.
 type EarsIssue struct {
 	Line    int
 	Message string
@@ -72,6 +80,10 @@ type reqBlock struct {
 	criteria     int
 }
 
+// LintEars scans requirements.md text for "## Requirement N" blocks and
+// flags each one missing a **User story:** line, missing acceptance criteria,
+// or containing a criterion that doesn't match any EARS pattern. It also
+// flags the document as a whole when no requirement sections are found.
 func LintEars(text string) []EarsIssue {
 	lines := splitLines(StripHTMLComments(text))
 	var issues []EarsIssue

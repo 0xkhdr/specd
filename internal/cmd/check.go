@@ -8,6 +8,10 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunCheck implements `specd check`: it loads the spec's artifacts and state,
+// runs the gate pipeline (or, with --schema/--schema-only, just regenerates or
+// validates the schema), and renders the resulting violations and warnings as
+// JSON or human-readable text.
 func RunCheck(args cli.Args) int {
 	if args.Bool("schema") {
 		return runSchema(args)

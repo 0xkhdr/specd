@@ -1,11 +1,16 @@
 package core
 
+// ProgramChildStep records the orchestration step result for one child spec
+// stepped during a program orchestration step.
 type ProgramChildStep struct {
 	Slug      string                  `json:"slug"`
 	SessionID string                  `json:"sessionId"`
 	Result    OrchestrationStepResult `json:"result"`
 }
 
+// ProgramStepResult is the outcome of StepProgramOrchestration: the resulting
+// program snapshot and decision, the leases newly started this step, the
+// children stepped this step, and the full current set of child leases.
 type ProgramStepResult struct {
 	Snapshot ProgramSnapshot     `json:"snapshot"`
 	Decision ProgramDecision     `json:"decision"`
@@ -14,6 +19,13 @@ type ProgramStepResult struct {
 	Leases   []ProgramChildLease `json:"leases"`
 }
 
+// StepProgramOrchestration advances a program orchestration session by one
+// step: it reconciles the program graph and child leases, handles paused,
+// cancelling, complete, and failed session states, then either starts new
+// child specs or steps already-running children according to DecideProgram,
+// updating the parent session's status as needed.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func StepProgramOrchestration(root, parentSessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg) (ProgramStepResult, error) {
 	if err := validateACPOpaqueID("parent session ID", parentSessionID); err != nil {
 		return ProgramStepResult{}, err

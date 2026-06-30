@@ -13,6 +13,7 @@ import (
 // version is set at build time: go build -ldflags "-X main.version=v1.0.0"
 var version = "dev"
 
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func run(argv []string) int {
 	// Propagate version to core for help output.
 	core.Version = version

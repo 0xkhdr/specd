@@ -23,6 +23,10 @@ func nextADRNumber(text string) int {
 	return max + 1
 }
 
+// RunDecision implements `specd decision`: under the spec lock it appends a
+// new architecture decision record (auto-numbered ADR-NNN) with the given
+// decision text to the spec's decisions.md, optionally noting a superseded
+// ADR via --supersedes.
 func RunDecision(args cli.Args) int {
 	root, err := core.RequireSpecdRoot()
 	if err != nil {

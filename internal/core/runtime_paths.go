@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// ACPRuntimeIDMaxBytes is the maximum byte length allowed for an untrusted
+// runtime path segment (e.g. a worker or artifact ID) before validation
+// rejects it.
 const (
 	ACPRuntimeIDMaxBytes  = 128
 	acpEventSequenceWidth = 20
@@ -23,6 +26,9 @@ type ACPRuntimePaths struct {
 	runtimeDir string
 }
 
+// NewACPRuntimePaths resolves root to an absolute, symlink-free path and
+// returns an ACPRuntimePaths rooted at <root>/.specd/runtime, validating that
+// the runtime directory itself is safe before any path is derived from it.
 func NewACPRuntimePaths(root string) (ACPRuntimePaths, error) {
 	if root == "" {
 		return ACPRuntimePaths{}, fmt.Errorf("acp runtime: project root is required")
@@ -45,6 +51,8 @@ func NewACPRuntimePaths(root string) (ACPRuntimePaths, error) {
 	return paths, nil
 }
 
+// RuntimeDir is a convenience wrapper that builds an ACPRuntimePaths for root
+// and returns its validated runtime directory in one call.
 func RuntimeDir(root string) (string, error) {
 	paths, err := NewACPRuntimePaths(root)
 	if err != nil {
@@ -53,18 +61,26 @@ func RuntimeDir(root string) (string, error) {
 	return paths.RuntimeDir()
 }
 
+// RuntimeDir returns the validated runtime root directory:
+// .specd/runtime.
 func (p ACPRuntimePaths) RuntimeDir() (string, error) {
 	return p.checked(p.runtimeDir)
 }
 
+// SessionsDir returns the validated directory holding all sessions:
+// sessions/.
 func (p ACPRuntimePaths) SessionsDir() (string, error) {
 	return p.join("sessions")
 }
 
+// ArchivesDir returns the validated directory holding archived sessions:
+// archives/.
 func (p ACPRuntimePaths) ArchivesDir() (string, error) {
 	return p.join("archives")
 }
 
+// SessionDir returns the validated directory for one session after checking
+// sessionID is a well-formed opaque ID: sessions/<id>.
 func (p ACPRuntimePaths) SessionDir(sessionID string) (string, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return "", err
@@ -72,14 +88,21 @@ func (p ACPRuntimePaths) SessionDir(sessionID string) (string, error) {
 	return p.join("sessions", sessionID)
 }
 
+// SessionPath returns the validated path to a session's record:
+// sessions/<id>/session.json.
 func (p ACPRuntimePaths) SessionPath(sessionID string) (string, error) {
 	return p.sessionJoin(sessionID, "session.json")
 }
 
+// EventsDir returns the validated directory holding a session's events:
+// sessions/<id>/events.
 func (p ACPRuntimePaths) EventsDir(sessionID string) (string, error) {
 	return p.sessionJoin(sessionID, "events")
 }
 
+// EventPath returns the validated path to one event record, deriving the
+// deterministic filename from sequence and messageID via ACPEventFilename:
+// sessions/<id>/events/<sequence>-<messageID>.json.
 func (p ACPRuntimePaths) EventPath(sessionID string, sequence uint64, messageID string) (string, error) {
 	name, err := ACPEventFilename(sequence, messageID)
 	if err != nil {
@@ -88,10 +111,14 @@ func (p ACPRuntimePaths) EventPath(sessionID string, sequence uint64, messageID 
 	return p.sessionJoin(sessionID, "events", name)
 }
 
+// WorkersDir returns the validated directory holding a session's workers:
+// sessions/<id>/workers.
 func (p ACPRuntimePaths) WorkersDir(sessionID string) (string, error) {
 	return p.sessionJoin(sessionID, "workers")
 }
 
+// WorkerDir returns the validated directory for one worker after checking
+// workerID is a well-formed runtime segment: sessions/<id>/workers/<workerID>.
 func (p ACPRuntimePaths) WorkerDir(sessionID, workerID string) (string, error) {
 	if err := validateACPRuntimeSegment("worker ID", workerID); err != nil {
 		return "", err
@@ -99,18 +126,27 @@ func (p ACPRuntimePaths) WorkerDir(sessionID, workerID string) (string, error) {
 	return p.sessionJoin(sessionID, "workers", workerID)
 }
 
+// LeasePath returns the validated path to a worker's lease record:
+// sessions/<id>/workers/<workerID>/lease.json.
 func (p ACPRuntimePaths) LeasePath(sessionID, workerID string) (string, error) {
 	return p.workerJoin(sessionID, workerID, "lease.json")
 }
 
+// CursorPath returns the validated path to a worker's cursor record:
+// sessions/<id>/workers/<workerID>/cursor.json.
 func (p ACPRuntimePaths) CursorPath(sessionID, workerID string) (string, error) {
 	return p.workerJoin(sessionID, workerID, "cursor.json")
 }
 
+// ArtifactsDir returns the validated directory holding a session's artifacts:
+// sessions/<id>/artifacts.
 func (p ACPRuntimePaths) ArtifactsDir(sessionID string) (string, error) {
 	return p.sessionJoin(sessionID, "artifacts")
 }
 
+// ArtifactPath returns the validated path to one artifact after checking
+// artifactID is a well-formed runtime segment:
+// sessions/<id>/artifacts/<artifactID>.
 func (p ACPRuntimePaths) ArtifactPath(sessionID, artifactID string) (string, error) {
 	if err := validateACPRuntimeSegment("artifact ID", artifactID); err != nil {
 		return "", err
@@ -169,10 +205,15 @@ func (p ACPRuntimePaths) ProgramStatePath(parentSessionID string) (string, error
 	return p.sessionJoin(parentSessionID, "program-state.json")
 }
 
+// ProgramSessionsDir returns the validated directory holding program session
+// records: program/sessions.
 func (p ACPRuntimePaths) ProgramSessionsDir() (string, error) {
 	return p.join("program", "sessions")
 }
 
+// ProgramSessionPath returns the validated path to one program session record
+// after checking sessionID is a well-formed opaque ID:
+// program/sessions/<id>.json.
 func (p ACPRuntimePaths) ProgramSessionPath(sessionID string) (string, error) {
 	if err := validateACPOpaqueID("program session ID", sessionID); err != nil {
 		return "", err
@@ -180,10 +221,14 @@ func (p ACPRuntimePaths) ProgramSessionPath(sessionID string) (string, error) {
 	return p.join("program", "sessions", sessionID+".json")
 }
 
+// ProgramChildrenDir returns the validated directory holding program child
+// records: program/children.
 func (p ACPRuntimePaths) ProgramChildrenDir() (string, error) {
 	return p.join("program", "children")
 }
 
+// ProgramChildDir returns the validated directory for one program child after
+// checking slug is a well-formed spec slug: program/children/<slug>.
 func (p ACPRuntimePaths) ProgramChildDir(slug string) (string, error) {
 	if err := ValidateSlug(slug); err != nil {
 		return "", fmt.Errorf("acp runtime: invalid program child: %w", err)
@@ -191,6 +236,8 @@ func (p ACPRuntimePaths) ProgramChildDir(slug string) (string, error) {
 	return p.join("program", "children", slug)
 }
 
+// ProgramChildLeasePath returns the validated path to a program child's lease
+// record: program/children/<slug>/lease.json.
 func (p ACPRuntimePaths) ProgramChildLeasePath(slug string) (string, error) {
 	dir, err := p.ProgramChildDir(slug)
 	if err != nil {
@@ -199,6 +246,8 @@ func (p ACPRuntimePaths) ProgramChildLeasePath(slug string) (string, error) {
 	return p.checked(filepath.Join(dir, "lease.json"))
 }
 
+// MissionsDir returns the validated directory holding mission records:
+// missions/.
 func (p ACPRuntimePaths) MissionsDir() (string, error) {
 	return p.join("missions")
 }
@@ -223,6 +272,8 @@ func (p ACPRuntimePaths) MissionPath(slug, taskID string, attempt int) (string, 
 	return p.join("missions", name)
 }
 
+// ArchivePath returns the validated path to one archived session after
+// checking sessionID is a well-formed opaque ID: archives/<id>.
 func (p ACPRuntimePaths) ArchivePath(sessionID string) (string, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return "", err
@@ -315,6 +366,10 @@ func pathWithin(base, path string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
+// ACPEventFilename builds the deterministic, lexically sortable filename for
+// one event record from its sequence number and messageID: the sequence is
+// zero-padded to acpEventSequenceWidth digits and joined with the (validated)
+// message ID, e.g. "00000000000000000001-<messageID>.json".
 func ACPEventFilename(sequence uint64, messageID string) (string, error) {
 	if sequence == 0 {
 		return "", fmt.Errorf("acp runtime: event sequence must be greater than zero")

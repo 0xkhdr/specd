@@ -22,6 +22,8 @@ linters:
     - gocritic
     - unconvert
     - misspell
+    - gocyclo
+    - revive
   settings:
     errcheck:
       # Conventionally-ignored stdlib calls: best-effort cleanup/diagnostic writes
@@ -36,14 +38,35 @@ linters:
         - os.Setenv
         - os.Unsetenv
         - github.com/0xkhdr/specd/internal/core.PrintJSON
+    gocyclo:
+      # 20 sits just above the bulk of the codebase (93 functions exceed 15,
+      # 42 exceed 20, out of ~2200) without being high enough to silently pass
+      # everything — spec S3 (code-quality-readability) Requirement 1.1/1.2.
+      # 28 functions that predate this gate exceed 20; each carries an
+      # explicit //nolint:gocyclo with a rationale instead of being absorbed
+      # into the threshold (Requirement 1.2). New code must stay under 20.
+      min-complexity: 20
+    revive:
+      # Only the "exported" rule: enforces the doc-comment convention closed
+      # repo-wide by spec S3 Requirement 3. Deliberately not revive's default
+      # rule set — rules like var-naming/indent-error-flow would duplicate
+      # gocritic/staticcheck findings (Requirement 1.3).
+      enable-all-rules: false
+      rules:
+        - name: exported
+          severity: warning
   exclusions:
     rules:
       # Test code legitimately ignores errors and feeds dynamic paths/commands to
       # the OS; gosec's taint/inclusion checks there are noise, not findings.
+      # gocyclo is excluded too: table-driven tests legitimately enumerate many
+      # cases in one function body, which inflates branch count without being a
+      # real maintainability signal the way it is in production code.
       - path: _test\.go
         linters:
           - gosec
           - errcheck
+          - gocyclo
       # specd is a local-first, file-based tool: reading files from paths it
       # constructs under .specd (or operator-supplied CLI paths) is its core
       # purpose, so gosec's G304 "file inclusion via variable" is a false
@@ -65,3 +88,17 @@ linters:
         text: "SA4032"
         linters:
           - staticcheck
+      # revive's "exported" rule was rolled out against the six packages named
+      # in spec S3 Requirement 3.1 (core, cmd, cli, runner, pack, schema) —
+      # these packages' doc-comment gaps are real but out of that spec's scope;
+      # tracked separately rather than silently fixed here.
+      - path: internal/(integration|context|mcp|spec|testharness)/
+        linters:
+          - revive
+      # The "exported" rule also flags name-stuttering (e.g. pack.PackFile).
+      # Fixing that means renaming exported public API types/fields, a
+      # breaking change far outside Requirement 3's comment-only scope — only
+      # the missing-comment half of this rule is in scope for spec S3.
+      - linters:
+          - revive
+        text: "stutters"

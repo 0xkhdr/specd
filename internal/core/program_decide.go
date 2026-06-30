@@ -2,6 +2,11 @@ package core
 
 import "fmt"
 
+// DecideProgram is the pure program-level decision function: given a
+// ProgramSnapshot it escalates on cycles, orphan dependencies, or any
+// escalated/blocked child spec; reports complete once every child is
+// complete; waits when capacity is exhausted or no child is runnable; and
+// otherwise starts as many runnable children as available capacity allows.
 func DecideProgram(snapshot ProgramSnapshot) (ProgramDecision, error) {
 	if snapshot.Version != OrchestrationModelVersion {
 		return ProgramDecision{}, fmt.Errorf("program orchestration: unsupported snapshot version %d", snapshot.Version)

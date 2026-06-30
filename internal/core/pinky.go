@@ -11,6 +11,10 @@ import (
 	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
+// PinkyMission is the dispatch payload sent to a worker for one task attempt:
+// identity (session/worker/spec/task/attempt), the deadline and heartbeat
+// cadence, the role and authoring contract/acceptance/verify text pulled from
+// tasks.md, the context manifest, and an optional resume checkpoint.
 type PinkyMission struct {
 	Version         int                               `json:"version"`
 	SessionID       string                            `json:"sessionId"`
@@ -58,11 +62,18 @@ type PinkyResume struct {
 	ContextDelta *contextpkg.SnapshotDiff `json:"contextDelta,omitempty"`
 }
 
+// PinkyClaim pairs a mission with the lease a worker acquired for it.
 type PinkyClaim struct {
 	Mission PinkyMission `json:"mission"`
 	Lease   ACPLease     `json:"lease"`
 }
 
+// BuildPinkyMission assembles and validates a PinkyMission for the given
+// task and attempt: it loads the spec and task metadata, fills in the
+// contract/acceptance/verify fields from tasks.md, builds the context
+// manifest, computes the dispatch deadline and digest, and — when the
+// resilience checkpoint feature is enabled and a matching checkpoint exists —
+// attaches a Resume payload so a fresh worker continues prior progress.
 func BuildPinkyMission(root, slug, sessionID, workerID, taskID string, attempt int, cfg OrchestrationCfg) (PinkyMission, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return PinkyMission{}, err
@@ -143,6 +154,8 @@ func BuildPinkyMission(root, slug, sessionID, workerID, taskID string, attempt i
 	return mission, nil
 }
 
+// ClaimPinkyMission validates a mission and acquires a lease for it in the
+// ACP store, returning both as a PinkyClaim.
 func ClaimPinkyMission(root string, mission PinkyMission, cfg OrchestrationCfg) (PinkyClaim, error) {
 	if err := validatePinkyMission(mission); err != nil {
 		return PinkyClaim{}, err
@@ -170,6 +183,8 @@ func ClaimPinkyMission(root string, mission PinkyMission, cfg OrchestrationCfg) 
 	return PinkyClaim{Mission: mission, Lease: lease}, nil
 }
 
+// HeartbeatPinkyClaim renews a worker's lease for the given attempt, extending
+// it by the configured lease duration.
 func HeartbeatPinkyClaim(root, sessionID, workerID string, attempt int, cfg OrchestrationCfg) (ACPLease, error) {
 	store, err := NewACPStore(root)
 	if err != nil {
@@ -178,6 +193,8 @@ func HeartbeatPinkyClaim(root, sessionID, workerID string, attempt int, cfg Orch
 	return store.RenewLease(sessionID, workerID, attempt, time.Duration(cfg.Transport.LeaseSeconds)*time.Second)
 }
 
+// ReleasePinkyClaim releases a worker's lease for the given attempt, freeing
+// the task for re-dispatch.
 func ReleasePinkyClaim(root, sessionID, workerID string, attempt int) error {
 	store, err := NewACPStore(root)
 	if err != nil {

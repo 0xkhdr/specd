@@ -9,10 +9,15 @@ import (
 	"time"
 )
 
+// ACPLeaseStatus is the lifecycle state of a worker's claim on a task
+// attempt.
 type ACPLeaseStatus string
 
 const (
-	ACPLeaseActive   ACPLeaseStatus = "active"
+	// ACPLeaseActive marks a lease currently held and heartbeating by a worker.
+	ACPLeaseActive ACPLeaseStatus = "active"
+	// ACPLeaseReleased marks a lease the worker has explicitly given up
+	// (ReleaseLease) or that was reclaimed after expiry.
 	ACPLeaseReleased ACPLeaseStatus = "released"
 	// ACPLeaseSuspended marks a lease whose worker is temporarily away but will
 	// return — typically rate-limited or compacting context (R3). A suspended
@@ -36,6 +41,9 @@ var errACPLeaseNotFound = errors.New("acp lease not found")
 // deadline passed (and it was or will be reclaimed) so the worker must re-claim.
 var errACPLeaseGone = errors.New("acp lease gone: re-claim required")
 
+// ACPLease is the durable record of a worker's claim on one task attempt: its
+// identity, timing window, status, and (when suspended) the suspend metadata
+// governing how long it stays honored as in-flight.
 type ACPLease struct {
 	Version          int            `json:"version"`
 	SessionID        string         `json:"sessionId"`
@@ -61,6 +69,11 @@ type ACPLease struct {
 	SuspendSecondsTotal int    `json:"suspendSecondsTotal,omitempty"`
 }
 
+// ClaimLease acquires a new lease for the given worker on (spec, task,
+// attempt), failing if another worker already holds in-flight work for that
+// identity or for that (spec, task), or if attempt does not equal the next
+// expected attempt number. The lease window is capped at messageExpiresAt.
+// Runs under the session lock so the claim check and write are atomic.
 func (s *ACPStore) ClaimLease(
 	sessionID, workerID, spec, task string,
 	attempt int,
@@ -129,6 +142,9 @@ func (s *ACPStore) ClaimLease(
 	return claimed, err
 }
 
+// RenewLease extends an actively-held lease's heartbeat and LeaseUntil
+// window, after validating the caller still owns it at the given attempt. The
+// new window is capped at the lease's MessageExpiresAt.
 func (s *ACPStore) RenewLease(sessionID, workerID string, attempt int, leaseDuration time.Duration) (ACPLease, error) {
 	if leaseDuration <= 0 {
 		return ACPLease{}, fmt.Errorf("acp lease: lease duration must be positive")
@@ -162,6 +178,10 @@ func (s *ACPStore) RenewLease(sessionID, workerID string, attempt int, leaseDura
 	return renewed, err
 }
 
+// ReleaseLease marks a worker's lease as released after validating ownership
+// at the given attempt; it is idempotent when the lease is already released
+// at that same attempt. Unlike ClearLease, the released record stays in the
+// ledger so a subsequent claim must use attempt+1.
 func (s *ACPStore) ReleaseLease(sessionID, workerID string, attempt int) error {
 	now := Clock().UTC()
 	return s.withSessionLock(sessionID, func() error {
@@ -343,6 +363,8 @@ func (s *ACPStore) ValidateActiveLease(sessionID, workerID, spec, task string, a
 	return validateLeaseOwnership(lease, workerID, attempt, Clock().UTC())
 }
 
+// LoadLease reads and validates the given worker's lease record for the
+// session, returning errACPLeaseNotFound (wrapped) if no lease exists.
 func (s *ACPStore) LoadLease(sessionID, workerID string) (ACPLease, error) {
 	return s.loadLease(sessionID, workerID)
 }
@@ -455,6 +477,7 @@ func validateACPLeaseInput(
 	return nil
 }
 
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func validateACPLease(lease ACPLease, sessionID, workerID string) error {
 	if lease.Version != 1 {
 		return fmt.Errorf("unsupported version %d", lease.Version)

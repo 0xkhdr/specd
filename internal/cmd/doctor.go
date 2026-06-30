@@ -71,14 +71,35 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 	if err != nil {
 		return specdExit(err)
 	}
+	runtime = defaultDoctorRuntime(runtime)
+	result := newDoctorResult(root)
+	inspectDoctorBinary(&result)
+	inspectDoctorScaffold(&result, root, args.Bool("fix"))
+	cfg := inspectDoctorConfig(&result, root)
+	inspectSandboxAvailability(&result, cfg)
+	inspectDoctorMCP(&result, runtime)
+	if code := inspectDoctorHosts(&result, root, args, runtime); code != core.ExitOK {
+		return code
+	}
+	normalizeDoctorResult(&result)
+	if result.Status != "healthy" {
+		result.NextAction = firstRemediation(result.Remediations)
+	}
+	return emitDoctorResult(result, args.Bool("json"))
+}
+
+func defaultDoctorRuntime(runtime doctorRuntime) doctorRuntime {
 	if runtime.Registry == nil {
 		runtime.Registry = integration.DefaultRegistry()
 	}
 	if runtime.Probe == nil {
 		runtime.Probe = mcp.Probe
 	}
+	return runtime
+}
 
-	result := doctorResult{
+func newDoctorResult(root string) doctorResult {
+	return doctorResult{
 		SchemaVersion: doctorResultSchemaVersion,
 		Status:        "healthy",
 		Root:          root,
@@ -92,112 +113,91 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		Remediations: []string{},
 		NextAction:   "No action required.",
 	}
+}
 
+func inspectDoctorBinary(result *doctorResult) {
 	executable, execErr := os.Executable()
 	if execErr != nil {
-		addDoctorFailure(&result, "binary", execErr.Error(), "reinstall specd and ensure it is on PATH")
-	} else {
-		result.Checks = append(result.Checks, doctorCheck{Name: "binary", Status: "pass", Detail: executable})
+		addDoctorFailure(result, "binary", execErr.Error(), "reinstall specd and ensure it is on PATH")
+		return
 	}
+	result.Checks = append(result.Checks, doctorCheck{Name: "binary", Status: "pass", Detail: executable})
+}
 
+func inspectDoctorScaffold(result *doctorResult, root string, fix bool) {
 	missing, scaffoldErr := inspectScaffold(root)
-	switch {
-	case scaffoldErr != nil:
-		addDoctorFailure(&result, "scaffold", scaffoldErr.Error(), "run `specd init --repair`")
-	case len(missing) > 0:
-		if args.Bool("fix") {
-			options := core.InitOptions{Root: root, Repair: true, Scope: string(integration.ScopeProject)}
-			plan, planErr := core.PlanInit(options, core.DefaultScaffoldManifest(), core.ReadTemplate)
-			if planErr == nil {
-				fixed := core.ExecuteInitPlan(plan, false, core.DefaultInitExecutor())
-				if fixed.Status == "ready" {
-					missing, scaffoldErr = inspectScaffold(root)
-				} else {
-					planErr = fmt.Errorf("repair failed: %v", fixed.Warnings)
-				}
-			}
-			if planErr != nil {
-				addDoctorFailure(&result, "scaffold", planErr.Error(), "run `specd init --repair`")
-			}
-		}
-		if scaffoldErr == nil && len(missing) > 0 {
-			addDoctorFailure(&result, "scaffold", "missing: "+strings.Join(missing, ", "), "run `specd doctor --fix` or `specd init --repair`")
-		} else if scaffoldErr == nil {
-			result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
-		}
-	default:
-		result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
+	if scaffoldErr != nil {
+		addDoctorFailure(result, "scaffold", scaffoldErr.Error(), "run `specd init --repair`")
+		return
 	}
+	if len(missing) > 0 && fix {
+		missing, scaffoldErr = repairDoctorScaffold(root)
+		if scaffoldErr != nil {
+			addDoctorFailure(result, "scaffold", scaffoldErr.Error(), "run `specd init --repair`")
+			return
+		}
+	}
+	if len(missing) > 0 {
+		addDoctorFailure(result, "scaffold", "missing: "+strings.Join(missing, ", "), "run `specd doctor --fix` or `specd init --repair`")
+		return
+	}
+	result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
+}
 
+func repairDoctorScaffold(root string) ([]string, error) {
+	options := core.InitOptions{Root: root, Repair: true, Scope: string(integration.ScopeProject)}
+	plan, planErr := core.PlanInit(options, core.DefaultScaffoldManifest(), core.ReadTemplate)
+	if planErr != nil {
+		return nil, planErr
+	}
+	fixed := core.ExecuteInitPlan(plan, false, core.DefaultInitExecutor())
+	if fixed.Status != "ready" {
+		return nil, fmt.Errorf("repair failed: %v", fixed.Warnings)
+	}
+	return inspectScaffold(root)
+}
+
+func inspectDoctorConfig(result *doctorResult, root string) core.Config {
 	cfg, configDiagnostics := core.LoadConfigStrict(root)
 	result.ConfigDiagnostics = configDiagnostics
-	if core.HasErrorDiagnostics(configDiagnostics) {
-		parts := []string{}
-		for _, d := range configDiagnostics {
-			if d.Severity == "error" {
-				parts = append(parts, d.Path+": "+d.Message)
-			}
-		}
-		addDoctorFailure(&result, "config-policy", strings.Join(parts, "; "), "fix .specd/config.json, then rerun `specd fusion policy --json`")
-	} else {
+	if !core.HasErrorDiagnostics(configDiagnostics) {
 		result.Checks = append(result.Checks, doctorCheck{Name: "config-policy", Status: "pass", Detail: "strict config validation passed"})
+		return cfg
 	}
+	parts := []string{}
+	for _, d := range configDiagnostics {
+		if d.Severity == "error" {
+			parts = append(parts, d.Path+": "+d.Message)
+		}
+	}
+	addDoctorFailure(result, "config-policy", strings.Join(parts, "; "), "fix .specd/config.json, then rerun `specd fusion policy --json`")
+	return cfg
+}
 
-	inspectSandboxAvailability(&result, cfg)
-
-	if probe, probeErr := runtime.Probe(context.Background(), nil, 2*time.Second); probeErr != nil {
+func inspectDoctorMCP(result *doctorResult, runtime doctorRuntime) {
+	probe, probeErr := runtime.Probe(context.Background(), nil, 2*time.Second)
+	if probeErr != nil {
 		result.Orchestration.ServerCapability = "unavailable"
-		addDoctorFailure(&result, "mcp", probeErr.Error(), "run `specd doctor` after rebuilding or reinstalling specd")
-	} else {
-		result.Orchestration.ServerCapability = "available"
-		result.Orchestration.Tools = append([]string(nil), probe.OrchestrationTools...)
-		result.Checks = append(result.Checks, doctorCheck{
-			Name:   "mcp",
-			Status: "pass",
-			Detail: fmt.Sprintf("protocol %s; %d tools; orchestration tools: %s", probe.ProtocolVersion, probe.ToolCount, strings.Join(probe.OrchestrationTools, ", ")),
-		})
+		addDoctorFailure(result, "mcp", probeErr.Error(), "run `specd doctor` after rebuilding or reinstalling specd")
+		return
 	}
+	result.Orchestration.ServerCapability = "available"
+	result.Orchestration.Tools = append([]string(nil), probe.OrchestrationTools...)
+	result.Checks = append(result.Checks, doctorCheck{
+		Name:   "mcp",
+		Status: "pass",
+		Detail: fmt.Sprintf("protocol %s; %d tools; orchestration tools: %s", probe.ProtocolVersion, probe.ToolCount, strings.Join(probe.OrchestrationTools, ", ")),
+	})
+}
 
+func inspectDoctorHosts(result *doctorResult, root string, args cli.Args, runtime doctorRuntime) int {
 	detections := runtime.Registry.Detect(root)
 	hostNames, selectionErr := doctorHostNames(args.Str("agent"), detections, runtime.Registry)
 	if selectionErr != nil {
 		return usageExit(selectionErr.Error())
 	}
 	for _, name := range hostNames {
-		adapter, _ := runtime.Registry.Get(name)
-		detection := detectionForHost(detections, name)
-		host := doctorHost{Name: name, Detected: detection.Detected}
-		host.LifecycleSupport, host.ReloadRequired, host.TrustRequired = doctorHostLifecycle(name)
-		state, inspectErr := adapter.Inspect(root, integration.ScopeProject)
-		if inspectErr != nil {
-			host.Status = "fail"
-			host.Reason = inspectErr.Error()
-			host.Remediation = "repair the host project configuration, then run `specd doctor`"
-		} else {
-			if args.Bool("fix") && detection.Detected && !state.Registered && state.Fingerprint == "" {
-				plan, planErr := runtime.Registry.Plan(name, root, integration.ScopeProject)
-				if planErr == nil {
-					_, planErr = runtime.Registry.Install(context.Background(), plan)
-				}
-				if planErr != nil {
-					host.Status = "fail"
-					host.Reason = planErr.Error()
-				} else {
-					state, inspectErr = adapter.Inspect(root, integration.ScopeProject)
-				}
-			}
-			if inspectErr != nil {
-				host.Status = "fail"
-				host.Reason = inspectErr.Error()
-			} else {
-				host.Registered = state.Registered
-				host.Owned = state.Owned
-				verification := adapter.Verify(root)
-				host.Status = verification.Status
-				host.Reason = verification.Reason
-				host.Remediation = verification.Remedy
-			}
-		}
+		host := inspectDoctorHost(root, name, args.Bool("fix"), detections, runtime)
 		if host.Status != "pass" {
 			result.Status = "unhealthy"
 			if host.Remediation != "" {
@@ -206,12 +206,48 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		}
 		result.Hosts = append(result.Hosts, host)
 	}
+	return core.ExitOK
+}
 
-	normalizeDoctorResult(&result)
-	if result.Status != "healthy" {
-		result.NextAction = firstRemediation(result.Remediations)
+func inspectDoctorHost(root, name string, fix bool, detections []integration.Detection, runtime doctorRuntime) doctorHost {
+	adapter, _ := runtime.Registry.Get(name)
+	detection := detectionForHost(detections, name)
+	host := doctorHost{Name: name, Detected: detection.Detected}
+	host.LifecycleSupport, host.ReloadRequired, host.TrustRequired = doctorHostLifecycle(name)
+	state, inspectErr := adapter.Inspect(root, integration.ScopeProject)
+	if inspectErr != nil {
+		host.Status = "fail"
+		host.Reason = inspectErr.Error()
+		host.Remediation = "repair the host project configuration, then run `specd doctor`"
+		return host
 	}
-	return emitDoctorResult(result, args.Bool("json"))
+	if fix && detection.Detected && !state.Registered && state.Fingerprint == "" {
+		state, inspectErr = repairDoctorHost(root, name, runtime, host)
+	}
+	if inspectErr != nil {
+		host.Status = "fail"
+		host.Reason = inspectErr.Error()
+		return host
+	}
+	host.Registered = state.Registered
+	host.Owned = state.Owned
+	verification := adapter.Verify(root)
+	host.Status = verification.Status
+	host.Reason = verification.Reason
+	host.Remediation = verification.Remedy
+	return host
+}
+
+func repairDoctorHost(root, name string, runtime doctorRuntime, host doctorHost) (integration.HostState, error) {
+	plan, planErr := runtime.Registry.Plan(name, root, integration.ScopeProject)
+	if planErr == nil {
+		_, planErr = runtime.Registry.Install(context.Background(), plan)
+	}
+	if planErr != nil {
+		return integration.HostState{}, planErr
+	}
+	adapter, _ := runtime.Registry.Get(host.Name)
+	return adapter.Inspect(root, integration.ScopeProject)
 }
 
 func inspectScaffold(root string) ([]string, error) {

@@ -23,6 +23,15 @@ func taskJSON(doc core.ParsedTasks, state *core.State, id string) map[string]int
 	}
 }
 
+// RunNext implements `specd next`, the scheduler-facing query for what work to
+// do next on a spec. With --dispatch it delegates to runDispatch; otherwise it
+// loads the spec's task DAG and, after checking the awaiting-approval gate,
+// either reports the full runnable frontier (--all) or the single next
+// runnable task — printed as JSON (--json) or as human-readable task detail
+// (title, role, why, files, contract, acceptance, verify command, and
+// dependencies). RunNext is read-only: it never mutates state.Tasks.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunNext(args cli.Args) int {
 	if args.Bool("dispatch") {
 		return runDispatch(args)

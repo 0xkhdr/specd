@@ -7,6 +7,10 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunFusion implements `specd fusion`, dispatching to the "bootstrap" subcommand
+// (a machine-readable startup oracle for host agents) and the "policy"
+// subcommand (effective subagent/orchestration/sandbox policy plus any
+// violations, optionally scoped to a spec).
 func RunFusion(args cli.Args) int {
 	if len(args.Pos) == 0 {
 		return usageExit("usage: specd fusion <bootstrap|policy> [flags]")

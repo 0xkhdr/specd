@@ -10,6 +10,9 @@ import (
 	"github.com/0xkhdr/specd/internal/spec"
 )
 
+// SchemaVersion is the current state.json schema version this build of specd
+// writes and understands. LoadState refuses to read a state.json whose
+// schemaVersion is newer than this value.
 const SchemaVersion = 5
 
 // Execution mode for a spec. Base is the plain spec-driven lifecycle the host
@@ -34,6 +37,9 @@ const (
 // core.Phase / core.Phase* call site compiling unchanged.
 type SpecStatus = spec.SpecStatus
 
+// StatusRequirements through StatusBlocked re-export the spec lifecycle
+// statuses from internal/spec under their core.Status* names, so existing
+// call sites keep compiling unchanged (see the SpecStatus alias comment).
 const (
 	StatusRequirements = spec.StatusRequirements
 	StatusDesign       = spec.StatusDesign
@@ -44,8 +50,13 @@ const (
 	StatusBlocked      = spec.StatusBlocked
 )
 
+// Phase is a re-export of spec.Phase; see the SpecStatus alias comment above
+// for why core re-declares it.
 type Phase = spec.Phase
 
+// PhasePerceive through PhaseReflect re-export the perceive-analyze-plan-
+// execute-verify-reflect loop phases from internal/spec under their core.Phase*
+// names.
 const (
 	PhasePerceive = spec.PhasePerceive
 	PhaseAnalyze  = spec.PhaseAnalyze
@@ -55,15 +66,22 @@ const (
 	PhaseReflect  = spec.PhaseReflect
 )
 
+// Gate represents whether a spec is blocked awaiting an explicit approval
+// (e.g. `specd approve`) before it can proceed.
 type Gate string
 
+// GateNone and GateAwaitingApproval are the two valid Gate values: no pending
+// approval, or blocked until the operator approves.
 const (
 	GateNone             Gate = "none"
 	GateAwaitingApproval Gate = "awaiting-approval"
 )
 
+// TaskStatus is the lifecycle status of a single task within a spec's DAG.
 type TaskStatus string
 
+// TaskPending through TaskBlocked are the valid TaskStatus values a task can
+// hold.
 const (
 	TaskPending  TaskStatus = "pending"
 	TaskRunning  TaskStatus = "running"
@@ -71,6 +89,9 @@ const (
 	TaskBlocked  TaskStatus = "blocked"
 )
 
+// VerificationRecord is the durable evidence captured when a task's verify
+// command runs: exit status, captured output tails, timing, and optional
+// scope/coverage/sandbox/revert metadata.
 type VerificationRecord struct {
 	Command    string  `json:"command"`
 	ExitCode   int     `json:"exitCode"`
@@ -101,6 +122,8 @@ type VerificationRecord struct {
 	StashRef string `json:"stashRef,omitempty"`
 }
 
+// CriterionRecord is the recorded pass/fail evidence for one acceptance
+// criterion (requirement.criterion) of a spec.
 type CriterionRecord struct {
 	Requirement int    `json:"requirement"`
 	Criterion   int    `json:"criterion"`
@@ -121,6 +144,9 @@ type Telemetry struct {
 	Cost             string `json:"cost,omitempty"`             // annotated (e.g. "0.42"), not computed
 }
 
+// TaskState is the persisted state of a single task within a spec: its
+// metadata, current status, timestamps, evidence, verification record,
+// blocker (if any), and telemetry.
 type TaskState struct {
 	ID           string              `json:"id"`
 	Title        string              `json:"title"`
@@ -137,12 +163,17 @@ type TaskState struct {
 	Telemetry    *Telemetry          `json:"telemetry,omitempty"`
 }
 
+// Blocker records why a task is blocked: which task, the reason, and when it
+// became blocked.
 type Blocker struct {
 	Task   string `json:"task"`
 	Reason string `json:"reason"`
 	Since  string `json:"since"`
 }
 
+// State is the full on-disk representation of a spec's state.json: schema and
+// revision bookkeeping, lifecycle status/phase/gate, its tasks, blockers,
+// acceptance evidence, and execution-mode metadata.
 type State struct {
 	SchemaVersion int                        `json:"schemaVersion"`
 	Revision      int                        `json:"revision"`
@@ -190,10 +221,15 @@ func (s State) EffectiveMode() string {
 // immune to a frozen test clock.
 var Clock = time.Now
 
+// NowISO returns the current time, via Clock, formatted as RFC3339Nano UTC —
+// the timestamp format used throughout state.json.
 func NowISO() string {
 	return Clock().UTC().Format(time.RFC3339Nano)
 }
 
+// InitialState builds the freshly-created State for a new spec: schema
+// version stamped, revision 0, status/phase set to the start of the
+// requirements-analysis lifecycle, and empty task/blocker collections.
 func InitialState(spec, title string) State {
 	ts := NowISO()
 	return State{
@@ -247,6 +283,15 @@ func statePath(root, slug string) string {
 	return filepath.Join(SpecDir(root, slug), "state.json")
 }
 
+// LoadState reads and returns the spec's state.json from
+// .specd/specs/<slug>/state.json under root, migrating it to SchemaVersion
+// and back-filling nil Tasks/Blockers as needed. It returns (nil, nil) if no
+// state.json exists yet (a not-yet-initialized spec), and a GateError for any
+// corrupt, malformed, or invalid-status state — LoadState never silently
+// coerces bad on-disk state into something runnable. Callers that intend to
+// mutate the result must hold the spec lock and persist via SaveState, whose
+// compare-and-swap (CAS) on Revision is what actually protects state.json
+// from concurrent writers; LoadState itself performs a single, lock-free read.
 func LoadState(root, slug string) (*State, error) {
 	raw := ReadOrNull(statePath(root, slug))
 	if raw == nil {
@@ -323,6 +368,9 @@ func SaveState(root, slug string, state *State) error {
 	return AtomicWrite(path, string(b)+"\n")
 }
 
+// IsSpecdError reports whether err is (or wraps) a *SpecdError, returning the
+// unwrapped error alongside the boolean for callers that need its structured
+// fields.
 func IsSpecdError(err error) (*SpecdError, bool) {
 	var se *SpecdError
 	if errors.As(err, &se) {

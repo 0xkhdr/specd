@@ -8,17 +8,24 @@ import (
 	"github.com/0xkhdr/specd/internal/spec"
 )
 
+// DesignSections lists the required level-2 headings a design.md must contain,
+// in the order DesignGate checks for them.
 var DesignSections = []string{
 	"Overview", "Architecture", "Components and interfaces", "Data models",
 	"Error handling", "Verification strategy", "Risks and open questions",
 }
 
+// Violation describes a single gate-check failure, identifying which gate
+// produced it, where in the document it occurred, and a human-readable reason.
 type Violation struct {
 	Gate     string `json:"gate"`
 	Location string `json:"location"`
 	Message  string `json:"message"`
 }
 
+// DesignGate checks design.md content against DesignSections, returning a
+// Violation for every required section that is missing, empty, or still
+// contains a TODO marker.
 func DesignGate(md *string) []Violation {
 	if md == nil || strings.TrimSpace(*md) == "" {
 		return []Violation{{Gate: "design", Location: "design.md", Message: "design.md missing or empty"}}
@@ -60,17 +67,25 @@ func DesignGate(md *string) []Violation {
 // (and PlanningAdvance below) keep working without importing spec directly.
 var PhaseForStatus = spec.PhaseForStatus
 
+// AdvanceTarget is the status/phase pair a spec moves to when it advances
+// past its current planning status.
 type AdvanceTarget struct {
 	Status SpecStatus
 	Phase  Phase
 }
 
+// PlanningAdvance maps each planning status to the status and phase a spec
+// advances to once that status's readiness gate is satisfied.
 var PlanningAdvance = map[SpecStatus]AdvanceTarget{
 	StatusRequirements: {StatusDesign, PhaseForStatus(StatusDesign)},
 	StatusDesign:       {StatusTasks, PhaseForStatus(StatusTasks)},
 	StatusTasks:        {StatusExecuting, PhaseForStatus(StatusExecuting)},
 }
 
+// PhaseReadiness checks whether the spec's current status is ready to advance,
+// returning a list of human-readable issues (empty when ready). It validates
+// requirements.md via LintEars, design.md via DesignGate, or tasks.md via the
+// dependency-graph checks, depending on status.
 func PhaseReadiness(status SpecStatus, reqMd *string, designMd *string, doc ParsedTasks) []string {
 	if status == StatusRequirements {
 		if reqMd == nil || strings.TrimSpace(*reqMd) == "" {

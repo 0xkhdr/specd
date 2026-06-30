@@ -11,14 +11,19 @@ import (
 	"time"
 )
 
+// ProgramChildLeaseStatus is the lifecycle state of a ProgramChildLease.
 type ProgramChildLeaseStatus string
 
+// Possible ProgramChildLeaseStatus values.
 const (
 	ProgramChildLeaseActive    ProgramChildLeaseStatus = "active"
 	ProgramChildLeaseReleased  ProgramChildLeaseStatus = "released"
 	ProgramChildLeaseEscalated ProgramChildLeaseStatus = "escalated"
 )
 
+// ProgramChildLease records a parent program session's exclusive claim on a
+// child spec: which child session owns it, its lease expiry, and timestamps
+// for when it was acquired, released, or escalated.
 type ProgramChildLease struct {
 	Version         int                     `json:"version"`
 	ParentSessionID string                  `json:"parentSessionId"`
@@ -36,6 +41,10 @@ var (
 	programChildLeaseLocks   = map[string]*sync.Mutex{}
 )
 
+// AcquireProgramChildLease claims a child spec for a parent program session,
+// creating a new child session and lease if none exists, extending the lease
+// in place if the same parent already holds an active one, or returning an
+// error if another parent currently owns it.
 func AcquireProgramChildLease(root, parentSessionID, slug string, cfg OrchestrationCfg) (ProgramChildLease, error) {
 	if err := validateACPOpaqueID("parent session ID", parentSessionID); err != nil {
 		return ProgramChildLease{}, err
@@ -96,6 +105,10 @@ func AcquireProgramChildLease(root, parentSessionID, slug string, cfg Orchestrat
 	return acquired, err
 }
 
+// ReleaseProgramChildLease marks a child spec's lease as released by its
+// owning parent session, clearing any escalated state. It is a no-op
+// returning the existing lease if already released, and errors if the lease
+// is missing or owned by a different parent.
 func ReleaseProgramChildLease(root, parentSessionID, slug string) (ProgramChildLease, error) {
 	if err := validateACPOpaqueID("parent session ID", parentSessionID); err != nil {
 		return ProgramChildLease{}, err
@@ -159,6 +172,9 @@ func markProgramChildLeaseEscalated(root, parentSessionID, slug string) (Program
 	return escalated, err
 }
 
+// LoadProgramChildLeases reads every child lease stored under the program
+// children directory, returning an empty slice (not an error) if the
+// directory does not yet exist.
 func LoadProgramChildLeases(root string) ([]ProgramChildLease, error) {
 	paths, err := NewACPRuntimePaths(root)
 	if err != nil {
@@ -354,6 +370,7 @@ func saveProgramChildLease(root string, lease ProgramChildLease) error {
 	return nil
 }
 
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func validateProgramChildLease(lease ProgramChildLease) error {
 	if lease.Version != OrchestrationModelVersion {
 		return fmt.Errorf("unsupported version %d", lease.Version)

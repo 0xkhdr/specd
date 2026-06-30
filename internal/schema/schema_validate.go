@@ -72,6 +72,7 @@ func resolveRef(sch nodeSchema, defs map[string]json.RawMessage) (nodeSchema, bo
 	return resolved, true
 }
 
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func validateNode(path string, val interface{}, sch nodeSchema, defs map[string]json.RawMessage, viols *[]string) {
 	sch, ok := resolveRef(sch, defs)
 	if !ok {

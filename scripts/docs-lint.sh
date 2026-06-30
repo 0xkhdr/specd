@@ -21,6 +21,7 @@ fail=0
 for file in "${files[@]}"; do
   in_appendix=0
   line_no=0
+  # shellcheck disable=SC2094 # read-only scan; no command in loop writes to $file.
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_no=$((line_no + 1))
     if [[ "$file" == "docs/command-reference.md" ]]; then

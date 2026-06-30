@@ -11,6 +11,10 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunPinky implements `specd pinky`, the worker-facing command a Pinky agent
+// uses to claim a dispatched mission and report back on it: claim, brief,
+// heartbeat, progress, query, block, report, checkpoint, suspend, resume,
+// release, and inbox/status subcommands.
 func RunPinky(args cli.Args) int {
 	if len(args.Pos) == 0 {
 		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|checkpoint|inbox> ...")
@@ -23,158 +27,207 @@ func RunPinky(args cli.Args) int {
 
 	switch args.Pos[0] {
 	case "status":
-		if args.Str("artifact") != "" || args.Str("task") != "" || args.Str("spec") != "" && args.Str("worker") != "" && args.Str("session") != "" && args.Str("task") != "" {
-			briefArgs := args
-			briefArgs.Pos = []string{"brief"}
-			return runPinkyBrief(root, cfg, briefArgs)
-		}
-		inboxArgs := args
-		inboxArgs.Pos = []string{"inbox"}
-		if inboxArgs.Str("session") == "" || inboxArgs.Str("worker") == "" {
-			return usageExit("usage: specd pinky status --session <id> --worker <id> [--spec <slug> (--task <id>|--artifact <name>)] [--json]")
-		}
-		inbox, err := core.ReadPinkyInbox(root, inboxArgs.Str("session"), inboxArgs.Str("worker"))
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(inboxArgs, inbox)
+		return runPinkyStatus(root, cfg, args)
 	case "update":
-		updateArgs := args
-		switch {
-		case args.Str("text") != "":
-			updateArgs.Pos = []string{"query"}
-			return RunPinky(updateArgs)
-		case args.Str("percent") != "" && args.Str("message") == "":
-			updateArgs.Pos = []string{"checkpoint"}
-			return RunPinky(updateArgs)
-		case args.Str("percent") != "" || args.Str("message") != "":
-			updateArgs.Pos = []string{"progress"}
-			return RunPinky(updateArgs)
-		default:
-			updateArgs.Pos = []string{"heartbeat"}
-			return RunPinky(updateArgs)
-		}
+		return runPinkyUpdate(args)
 	case "claim":
-		if len(args.Pos) != 1 || args.Str("mission") == "" {
-			return usageExit("usage: specd pinky claim --mission <path|-> [--json]")
-		}
-		mission, err := readPinkyMission(args.Str("mission"))
-		if err != nil {
-			return specdExit(err)
-		}
-		claim, err := core.ClaimPinkyMission(root, mission, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, claim)
+		return runPinkyClaim(root, cfg, args)
 	case "brief":
 		return runPinkyBrief(root, cfg, args)
 	case "heartbeat":
-		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky heartbeat --session <id> --worker <id> --attempt <n> [--json]")
-		}
-		lease, err := core.HeartbeatPinkyClaim(root, sessionID, workerID, attempt, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, lease)
+		return runPinkyHeartbeat(root, cfg, args)
 	case "progress":
-		report, ok := pinkyProgressArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky progress --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> --message <text> [--json]")
-		}
-		event, err := core.RecordPinkyProgress(root, report, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, event)
+		return runPinkyProgress(root, cfg, args)
 	case "block":
-		report, ok := pinkyBlockArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky block --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --reason <text> [--json]")
-		}
-		event, err := core.RecordPinkyBlocker(root, report, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, event)
+		return runPinkyBlock(root, cfg, args)
 	case "query":
-		report, ok := pinkyQueryArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky query --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --text <question> [--json]")
-		}
-		event, err := core.RecordPinkyQuery(root, report, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, event)
+		return runPinkyQuery(root, cfg, args)
 	case "inbox":
-		if len(args.Pos) != 1 || args.Str("session") == "" || args.Str("worker") == "" {
-			return usageExit("usage: specd pinky inbox --session <id> --worker <id> [--json]")
-		}
-		inbox, err := core.ReadPinkyInbox(root, args.Str("session"), args.Str("worker"))
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, inbox)
+		return runPinkyInbox(root, args)
 	case "report":
-		report, ok := pinkyTerminalArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]")
-		}
-		event, err := core.RecordPinkyTerminalReport(root, report, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, event)
+		return runPinkyReport(root, cfg, args)
 	case "checkpoint":
-		if !checkpointEnabled(cfg) {
-			fmt.Println("checkpointing disabled (set orchestration.resilience.checkpointEnabled)")
-			return core.ExitOK
-		}
-		rec, ok := pinkyCheckpointArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky checkpoint --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> [--notes <text>] [--changed-files <csv>] [--git-head <sha>] [--manifest <text>] [--reason <text>] [--json]")
-		}
-		saved, err := core.RecordCheckpoint(root, rec, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, saved)
+		return runPinkyCheckpoint(root, cfg, args)
 	case "suspend":
-		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
-		resumeAfter, secsOK := parsePositiveIntFlag(args, "resume-after-seconds")
-		if len(args.Pos) != 1 || !ok || !secsOK || args.Str("reason") == "" {
-			return usageExit("usage: specd pinky suspend --session <id> --worker <id> --attempt <n> --reason <rate-limit|context-compaction|provider-maintenance> --resume-after-seconds <s> [--json]")
-		}
-		lease, err := core.SuspendPinkyClaim(root, sessionID, workerID, attempt, args.Str("reason"), resumeAfter, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, lease)
+		return runPinkySuspend(root, cfg, args)
 	case "resume":
-		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky resume --session <id> --worker <id> --attempt <n> [--json]")
-		}
-		lease, _, err := core.ResumePinkyClaim(root, sessionID, workerID, attempt, cfg)
-		if err != nil {
-			return specdExit(err)
-		}
-		return printCommandResult(args, lease)
+		return runPinkyResume(root, cfg, args)
 	case "release":
-		sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
-		if len(args.Pos) != 1 || !ok {
-			return usageExit("usage: specd pinky release --session <id> --worker <id> --attempt <n>")
-		}
-		if err := core.ReleasePinkyClaim(root, sessionID, workerID, attempt); err != nil {
-			return specdExit(err)
-		}
-		return core.ExitOK
+		return runPinkyRelease(root, args)
 	default:
 		return usageExit("usage: specd pinky <claim|brief|heartbeat|progress|query|report|block|release|checkpoint|inbox> ...")
 	}
+}
+
+func runPinkyStatus(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	if args.Str("artifact") != "" || args.Str("task") != "" || args.Str("spec") != "" && args.Str("worker") != "" && args.Str("session") != "" && args.Str("task") != "" {
+		briefArgs := args
+		briefArgs.Pos = []string{"brief"}
+		return runPinkyBrief(root, cfg, briefArgs)
+	}
+	inboxArgs := args
+	inboxArgs.Pos = []string{"inbox"}
+	if inboxArgs.Str("session") == "" || inboxArgs.Str("worker") == "" {
+		return usageExit("usage: specd pinky status --session <id> --worker <id> [--spec <slug> (--task <id>|--artifact <name>)] [--json]")
+	}
+	inbox, err := core.ReadPinkyInbox(root, inboxArgs.Str("session"), inboxArgs.Str("worker"))
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(inboxArgs, inbox)
+}
+
+func runPinkyUpdate(args cli.Args) int {
+	updateArgs := args
+	switch {
+	case args.Str("text") != "":
+		updateArgs.Pos = []string{"query"}
+	case args.Str("percent") != "" && args.Str("message") == "":
+		updateArgs.Pos = []string{"checkpoint"}
+	case args.Str("percent") != "" || args.Str("message") != "":
+		updateArgs.Pos = []string{"progress"}
+	default:
+		updateArgs.Pos = []string{"heartbeat"}
+	}
+	return RunPinky(updateArgs)
+}
+
+func runPinkyClaim(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	if len(args.Pos) != 1 || args.Str("mission") == "" {
+		return usageExit("usage: specd pinky claim --mission <path|-> [--json]")
+	}
+	mission, err := readPinkyMission(args.Str("mission"))
+	if err != nil {
+		return specdExit(err)
+	}
+	claim, err := core.ClaimPinkyMission(root, mission, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, claim)
+}
+
+func runPinkyHeartbeat(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky heartbeat --session <id> --worker <id> --attempt <n> [--json]")
+	}
+	lease, err := core.HeartbeatPinkyClaim(root, sessionID, workerID, attempt, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, lease)
+}
+
+func runPinkyProgress(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	report, ok := pinkyProgressArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky progress --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> --message <text> [--json]")
+	}
+	event, err := core.RecordPinkyProgress(root, report, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, event)
+}
+
+func runPinkyBlock(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	report, ok := pinkyBlockArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky block --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --reason <text> [--json]")
+	}
+	event, err := core.RecordPinkyBlocker(root, report, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, event)
+}
+
+func runPinkyQuery(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	report, ok := pinkyQueryArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky query --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --text <question> [--json]")
+	}
+	event, err := core.RecordPinkyQuery(root, report, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, event)
+}
+
+func runPinkyInbox(root string, args cli.Args) int {
+	if len(args.Pos) != 1 || args.Str("session") == "" || args.Str("worker") == "" {
+		return usageExit("usage: specd pinky inbox --session <id> --worker <id> [--json]")
+	}
+	inbox, err := core.ReadPinkyInbox(root, args.Str("session"), args.Str("worker"))
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, inbox)
+}
+
+func runPinkyReport(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	report, ok := pinkyTerminalArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]")
+	}
+	event, err := core.RecordPinkyTerminalReport(root, report, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, event)
+}
+
+func runPinkyCheckpoint(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	if !checkpointEnabled(cfg) {
+		fmt.Println("checkpointing disabled (set orchestration.resilience.checkpointEnabled)")
+		return core.ExitOK
+	}
+	rec, ok := pinkyCheckpointArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky checkpoint --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> [--notes <text>] [--changed-files <csv>] [--git-head <sha>] [--manifest <text>] [--reason <text>] [--json]")
+	}
+	saved, err := core.RecordCheckpoint(root, rec, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, saved)
+}
+
+func runPinkySuspend(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
+	resumeAfter, secsOK := parsePositiveIntFlag(args, "resume-after-seconds")
+	if len(args.Pos) != 1 || !ok || !secsOK || args.Str("reason") == "" {
+		return usageExit("usage: specd pinky suspend --session <id> --worker <id> --attempt <n> --reason <rate-limit|context-compaction|provider-maintenance> --resume-after-seconds <s> [--json]")
+	}
+	lease, err := core.SuspendPinkyClaim(root, sessionID, workerID, attempt, args.Str("reason"), resumeAfter, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, lease)
+}
+
+func runPinkyResume(root string, cfg core.OrchestrationCfg, args cli.Args) int {
+	sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky resume --session <id> --worker <id> --attempt <n> [--json]")
+	}
+	lease, _, err := core.ResumePinkyClaim(root, sessionID, workerID, attempt, cfg)
+	if err != nil {
+		return specdExit(err)
+	}
+	return printCommandResult(args, lease)
+}
+
+func runPinkyRelease(root string, args cli.Args) int {
+	sessionID, workerID, attempt, ok := pinkyLeaseArgs(args)
+	if len(args.Pos) != 1 || !ok {
+		return usageExit("usage: specd pinky release --session <id> --worker <id> --attempt <n>")
+	}
+	if err := core.ReleasePinkyClaim(root, sessionID, workerID, attempt); err != nil {
+		return specdExit(err)
+	}
+	return core.ExitOK
 }
 
 // runPinkyBrief renders a paste-ready worker brief (and, with --json, the

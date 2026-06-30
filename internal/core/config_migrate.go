@@ -190,6 +190,10 @@ func MigrateConfigFile(sourceJSON, targetYAML string) error {
 	return nil
 }
 
+// ValidateConfigDoc checks a parsed config document's enum-valued fields
+// (accepting both camelCase and snake_case keys) against their allowed
+// values and returns a single combined error listing every violation, or nil
+// if the document is valid.
 func ValidateConfigDoc(doc map[string]any) error {
 	var errs []string
 	checkEnumDoc(doc, "roles.subagentMode", []string{"inline", "delegate"}, &errs)

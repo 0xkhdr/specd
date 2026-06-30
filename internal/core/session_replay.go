@@ -72,6 +72,9 @@ func ExplainCurrentSessionDecision(events []ACPEnvelope) (SessionTimelineEvent, 
 	return timeline[len(timeline)-1], true
 }
 
+// FormatSessionTimelineEvent renders a SessionTimelineEvent as a single
+// human-readable line: its zero-padded sequence, type, and any non-empty
+// action/spec/task/escalation/reason/detail fields.
 func FormatSessionTimelineEvent(event SessionTimelineEvent) string {
 	parts := []string{fmt.Sprintf("%020d", event.Sequence), event.Type}
 	if event.Action != "" {

@@ -1,5 +1,7 @@
 package core
 
+// PositionalMeta describes one positional argument of a CLI command for help
+// text and schema generation.
 type PositionalMeta struct {
 	Name        string `json:"name"`
 	Required    bool   `json:"required"`
@@ -7,6 +9,9 @@ type PositionalMeta struct {
 	Description string `json:"description,omitempty"`
 }
 
+// FlagMeta describes one flag of a CLI command: its name, type, allowed
+// values, default, and whether it is required, for help text and schema
+// generation.
 type FlagMeta struct {
 	Name        string   `json:"name"`
 	Type        string   `json:"type"`
@@ -16,21 +21,30 @@ type FlagMeta struct {
 	Default     string   `json:"default,omitempty"`
 }
 
+// PhaseCompatibilityMeta lists the spec statuses and phases under which a
+// command is valid to run.
 type PhaseCompatibilityMeta struct {
 	Statuses []string `json:"statuses,omitempty"`
 	Phases   []string `json:"phases,omitempty"`
 }
 
+// ModeCompatibilityMeta lists the execution modes a command supports and
+// whether it requires project orchestration capability.
 type ModeCompatibilityMeta struct {
 	Modes                           []string `json:"modes,omitempty"`
 	RequiresOrchestrationCapability bool     `json:"requiresOrchestrationCapability,omitempty"`
 }
 
+// ExitCodeMeta documents one possible process exit code for a command and
+// what it means.
 type ExitCodeMeta struct {
 	Code    int    `json:"code"`
 	Meaning string `json:"meaning"`
 }
 
+// CommandMeta is the full metadata record for one CLI command: its usage,
+// description, flags, positionals, compatibility constraints, exit codes, and
+// examples. Commands is the registry of every CommandMeta.
 type CommandMeta struct {
 	Command            string                  `json:"command"`
 	Category           string                  `json:"category"`
@@ -49,6 +63,9 @@ type CommandMeta struct {
 	RemovedIn          string                  `json:"removedIn,omitempty"`
 }
 
+// Commands is the complete registry of specd CLI commands, used to drive help
+// text, JSON schema generation, and `specd help`. Positionals, phase/mode
+// compatibility, and flag enums are filled in by the init function below.
 var Commands = []CommandMeta{
 	{
 		Command: "init", Category: "lifecycle",

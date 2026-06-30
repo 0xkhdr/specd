@@ -176,6 +176,11 @@ func printContextManifest(m contextpkg.MissionContextManifest) {
 	fmt.Printf("  (* = required)  est %d / budget %d tokens\n", m.EstimatedTokens, m.Budget)
 }
 
+// RunContext implements `specd context`: it builds the phase-appropriate
+// briefing (purpose, load list, skill, focus, and next action), the measured
+// context manifest, and any active gate/blocker/uncovered-requirement signals
+// for a spec, optionally persisting a context snapshot (--snapshot), and
+// renders the result as JSON or human-readable text.
 func RunContext(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd context <slug> [--json]")
 	if !ok {

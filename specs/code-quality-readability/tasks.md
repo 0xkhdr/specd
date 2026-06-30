@@ -2,7 +2,7 @@
 
 ## Wave 1
 
-- [ ] T1 — Measure true cyclomatic complexity of the five named hotspots
+- [x] T1 — Measure true cyclomatic complexity of the five named hotspots
   - why: the live-evidence pass used branch-keyword density as a proxy (gocyclo wasn't installed during research); confirm actual cyclomatic numbers before choosing a linter threshold (Requirement 1.1) or committing to refactor scope (Requirement 2)
   - role: investigator
   - files: internal/cmd/pinky.go, internal/core/orchestration_driver.go, internal/cmd/init.go, internal/cmd/doctor.go, internal/core/acp.go
@@ -12,7 +12,7 @@
   - depends: —
   - requirements: 1, 2
 
-- [ ] T2 — Inventory exported symbols missing doc comments in the six undocumented packages
+- [x] T2 — Inventory exported symbols missing doc comments in the six undocumented packages
   - why: Requirement 3.3 names three confirmed examples but requires completeness across all six packages; need the full list before writing comments
   - role: investigator
   - files: internal/core/, internal/cmd/, internal/cli/, internal/runner/, internal/pack/, internal/schema/
@@ -24,7 +24,7 @@
 
 ## Wave 2
 
-- [ ] T3 — Add complexity linter to .golangci.yml
+- [x] T3 — Add complexity linter to .golangci.yml
   - why: enforce the threshold going forward, per Requirement 1.1, using T1's measured baseline to pick a realistic number
   - role: builder
   - files: .golangci.yml
@@ -34,7 +34,7 @@
   - depends: T1
   - requirements: 1
 
-- [ ] T4 — Add package-level doc comments
+- [x] T4 — Add package-level doc comments
   - why: close the package-doc gap in the two largest packages plus four others, per Requirement 3.1-3.2
   - role: builder
   - files: internal/core/doc.go (new or existing file), internal/cmd/doc.go (new or existing file), internal/cli/doc.go, internal/runner/doc.go, internal/pack/doc.go, internal/schema/doc.go
@@ -44,7 +44,7 @@
   - depends: —
   - requirements: 3
 
-- [ ] T5 — Add doc comments to undocumented exported symbols
+- [x] T5 — Add doc comments to undocumented exported symbols
   - why: close the function/type-level doc gap found in T2, including the three confirmed examples in Requirement 3.3
   - role: builder
   - files: internal/core/state.go, internal/core/orchestration.go, internal/cmd/next.go (plus any additional files from T2's inventory)
@@ -56,7 +56,7 @@
 
 ## Wave 3
 
-- [ ] T6 — Refactor RunPinky and runInitWithRuntime
+- [x] T6 — Refactor RunPinky and runInitWithRuntime
   - why: highest-complexity, highest-blast-radius hotspots (Brain/Pinky dispatch, init flow) — tackle separately from the lower-risk pair in T7, per Requirement 2
   - role: builder
   - files: internal/cmd/pinky.go, internal/cmd/init.go
@@ -66,7 +66,7 @@
   - depends: T3
   - requirements: 2
 
-- [ ] T7 — Refactor DriveOrchestration, runDoctor, and validateACPPayload
+- [x] T7 — Refactor DriveOrchestration, runDoctor, and validateACPPayload
   - why: remaining three complexity hotspots, per Requirement 2
   - role: builder
   - files: internal/core/orchestration_driver.go, internal/cmd/doctor.go, internal/core/acp.go
@@ -78,7 +78,7 @@
 
 ## Wave 4
 
-- [ ] T8 — Full regression and lint gate
+- [x] T8 — Full regression and lint gate
   - why: action-prompt rule — validate each wave; this spec touches Brain/Pinky dispatch, init, doctor, and ACP — all high-traffic paths
   - role: verifier
   - files: N/A
@@ -87,3 +87,4 @@
   - verify: cd /var/www/html/rai/up/specd && make test && make lint
   - depends: T7, T5, T4
   - requirements: 1, 2, 3
+  - evidence: `make test` PASS; `make lint` PASS; targeted `go test ./internal/cmd/... -race -count=1 -run 'TestLifecycle|TestJSONContract'` PASS; `go test ./internal/core/... ./internal/cmd/... -race -count=1` PASS; gocyclo named hotspots after refactor: RunPinky 17, runInitWithRuntime 14, validateACPPayload 12, DriveOrchestration 7, runDoctor 4; package docs verified via `go doc ./internal/{core,cmd,cli,runner,pack,schema}` and symbol spot checks for LoadState, OrchestrationPolicy, RunNext.

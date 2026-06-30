@@ -96,6 +96,13 @@ func cleanPathFile(rc string) error {
 	return os.WriteFile(rc, []byte(strings.Join(kept, "\n")), 0o644) //nolint:gosec // rewriting the user's shell rc, which must remain user-readable
 }
 
+// RunUninstall implements `specd uninstall`. It computes the install plan from
+// $HOME and, by default (or with --dry-run), only previews it; with --force it
+// removes the install directory, the bin symlink, and the "# specd" PATH lines
+// from shell rc files (backing each rc file up first). Local project
+// ".specd/" directories are never touched.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunUninstall(args cli.Args) int {
 	jsonOut := args.Bool("json")
 	dryRun := args.Bool("dry-run")

@@ -88,6 +88,10 @@ func applyPack(root, ref string, args cli.Args) int {
 	return core.ExitOK
 }
 
+// RunInit implements `specd init`. With --migrate it delegates to RunMigrate to
+// move the legacy JSON config to YAML; otherwise it runs the workspace
+// onboarding flow (scaffolding .specd, applying packs, probing/registering MCP
+// integrations) via the default init executor and onboarding runtime.
 func RunInit(args cli.Args) int {
 	if args.Bool("migrate") {
 		migrateArgs := args
@@ -148,31 +152,9 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		}
 		return applyPack(root, ref, args)
 	}
-	options := core.InitOptions{
-		Root:           root,
-		Force:          args.Bool("force"),
-		Repair:         args.Bool("repair"),
-		Refresh:        args.Bool("refresh"),
-		DryRun:         args.Bool("dry-run"),
-		AgentSelection: []string{},
-		Scope:          args.Str("scope"),
-	}
-	if options.Scope == "" {
-		options.Scope = string(integration.ScopeProject)
-	}
-	if options.Scope != string(integration.ScopeProject) && options.Scope != string(integration.ScopeGlobal) {
-		return usageExit("--scope must be project or global")
-	}
-	if options.Scope == string(integration.ScopeGlobal) && args.Bool("non-interactive") && !args.Bool("yes") {
-		return usageExit("global scope requires explicit consent with --yes")
-	}
-	selectionName := args.Str("agent")
-	if selectionName == "" {
-		selectionName = "auto"
-	}
-	options.AgentSelection = []string{selectionName}
-	if err := core.ValidateInitOptions(options); err != nil {
-		return usageExit(err.Error())
+	options, selectionName, code := initOptionsFromArgs(root, args)
+	if code != core.ExitOK {
+		return code
 	}
 	plan, err := core.PlanInit(options, core.DefaultScaffoldManifest(), core.ReadTemplate)
 	if err != nil {
@@ -186,167 +168,14 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		return emitInitResult(result, args.Bool("json"))
 	}
 
-	// Parse and apply orchestration settings
-	var orchConfig *core.OrchestrationCfg
-	var rolesSubagentMode *string
-	var verifySandbox *string
-	var initWarnings []core.InitWarning
-
-	if args.Has("orchestration") {
-		orchPolicy := args.Str("orchestration")
-		if orchPolicy == "true" || orchPolicy == "" {
-			orchPolicy = "planning"
-		}
-		validPolicies := []string{"manual", "planning", "session"}
-		valid := false
-		for _, p := range validPolicies {
-			if p == orchPolicy {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			return usageExit(fmt.Sprintf("--orchestration: invalid policy %q, expected manual|planning|session", orchPolicy))
-		}
-
-		workers := 4
-		if args.Has("orchestration-workers") {
-			w, err := strconv.Atoi(args.Str("orchestration-workers"))
-			if err != nil {
-				return usageExit("invalid --orchestration-workers: must be an integer")
-			}
-			workers = clamp(w, 1, 64, "maxWorkers", &initWarnings)
-		}
-
-		retries := 2
-		if args.Has("orchestration-retries") {
-			r, err := strconv.Atoi(args.Str("orchestration-retries"))
-			if err != nil {
-				return usageExit("invalid --orchestration-retries: must be an integer")
-			}
-			retries = clamp(r, 0, 10, "maxRetries", &initWarnings)
-		}
-
-		timeout := 120
-		if args.Has("orchestration-timeout") {
-			tVal, err := strconv.Atoi(args.Str("orchestration-timeout"))
-			if err != nil {
-				return usageExit("invalid --orchestration-timeout: must be an integer")
-			}
-			timeout = clamp(tVal, 1, 1440, "sessionTimeoutMinutes", &initWarnings)
-		}
-
-		costLimit := 0.0
-		if args.Has("orchestration-cost-limit") {
-			cl, err := parseCostLimit(args.Str("orchestration-cost-limit"))
-			if err != nil {
-				return usageExit(err.Error())
-			}
-			costLimit = cl
-		}
-
-		mode := "delegate"
-		if args.Has("orchestration-mode") {
-			mode = args.Str("orchestration-mode")
-			if mode != "inline" && mode != "delegate" {
-				return usageExit("invalid --orchestration-mode: must be inline or delegate")
-			}
-		}
-
-		sandbox := "none"
-		if args.Has("orchestration-sandbox") {
-			sandbox = args.Str("orchestration-sandbox")
-			if sandbox != "none" && sandbox != "bwrap" && sandbox != "container" {
-				return usageExit("invalid --orchestration-sandbox: must be none, bwrap, or container")
-			}
-			if _, err := runner.SelectRunner(sandbox); err != nil {
-				return specdExit(err)
-			}
-		}
-
-		if mode == "delegate" && selectionName == "none" {
-			msg := "Delegate mode requires a compatible host agent. Use --orchestration-mode inline or install an agent."
-			core.Warn(msg)
-			initWarnings = append(initWarnings, core.InitWarning{
-				Code:    "orchestration-agent-mismatch",
-				Message: msg,
-			})
-		}
-
-		orchConfig = &core.OrchestrationCfg{
-			Enabled:                  true,
-			ApprovalPolicy:           orchPolicy,
-			WorkerMode:               "host",
-			MaxWorkers:               workers,
-			MaxRetries:               retries,
-			SessionTimeoutMinutes:    timeout,
-			HostReportedCostLimitUSD: costLimit,
-			Transport: core.TransportCfg{
-				Kind:               "file",
-				PollIntervalMillis: 500,
-				MessageTTLSeconds:  3600,
-				LeaseSeconds:       120,
-				HeartbeatSeconds:   30,
-			},
-			Program: core.ProgramCfg{
-				MaxConcurrentSpecs: 2,
-			},
-		}
-		rolesSubagentMode = &mode
-		verifySandbox = &sandbox
-
-		// Update target config action in plan.Actions.
-		configTarget := filepath.Join(options.Root, ".specd", "config.yml")
-		for i, action := range plan.Actions {
-			if action.Target == configTarget {
-				cfg := core.LoadConfig(options.Root)
-				if _, statErr := os.Stat(configTarget); os.IsNotExist(statErr) || options.Force {
-					cfg = core.DefaultConfig
-					cfg.Version = 2
-				}
-
-				// Within this block these are always set above, so apply directly.
-				cfg.Orchestration = *orchConfig
-				cfg.Roles.SubagentMode = *rolesSubagentMode
-				cfg.Verify.Sandbox = *verifySandbox
-
-				plan.Actions[i].Content = core.RenderConfigYAML(cfg)
-				if action.Kind == "skip" {
-					plan.Actions[i].Kind = "write"
-					plan.Actions[i].Description = "update orchestration config"
-				}
-				break
-			}
-		}
-	}
-
-	if runtime.Registry == nil {
-		runtime.Registry = integration.DefaultRegistry()
-	}
-	detections := runtime.Registry.Detect(root)
-	interactive := !args.Bool("non-interactive") && !args.Bool("yes") &&
-		!args.Bool("json") && !core.IsJSONMode() && runtime.Interactive != nil && runtime.Interactive()
-	selected, code := resolveInitSelection(selectionName, interactive, args.Bool("yes"), detections, runtime)
+	orchConfig, initWarnings, code := applyInitOrchestrationArgs(args, selectionName, options, &plan)
 	if code != core.ExitOK {
 		return code
 	}
-	for _, host := range selected.Selected {
-		adapter, _ := runtime.Registry.Get(host)
-		if adapter == nil {
-			return usageExit("unsupported host " + host)
-		}
-		detection := detectionForHost(detections, host)
-		if !detection.Detected {
-			return usageExit(fmt.Sprintf("requested host %q is unavailable; install it or choose --agent none", host))
-		}
-		if _, err := runtime.Registry.Plan(host, root, integration.Scope(options.Scope)); err != nil {
-			return usageExit(err.Error())
-		}
-	}
-	if options.Scope == string(integration.ScopeGlobal) && len(selected.Selected) > 0 && !args.Bool("yes") {
-		if !interactive || !confirm(runtime.Input, "Configure global MCP integration? [y/N] ") {
-			return usageExit("global scope requires explicit consent")
-		}
+
+	selected, detections, code := selectInitAgents(root, selectionName, options, args, &runtime)
+	if code != core.ExitOK {
+		return code
 	}
 
 	// Claude Code loads CLAUDE.md (not AGENTS.md), so when claude-code is the
@@ -361,58 +190,317 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		plan.Actions = append(plan.Actions, action)
 	}
 
-	result := core.ExecuteInitPlan(plan, options.Force, executor)
-	result.Warnings = append(result.Warnings, projectConfigDeprecationWarnings(options.Root)...)
-	if result.Status == "ready" && !options.DryRun {
-		global, err := core.EnsureGlobalConfigScaffold(core.ReadTemplate)
-		if err != nil {
-			result.Warnings = append(result.Warnings, core.InitWarning{Code: "global-config-warning", Message: "global config was not created: " + err.Error()})
-		} else if global.Created {
-			result.Warnings = append(result.Warnings, core.InitWarning{Code: "global-config-created", Message: "created global config: " + global.Path})
+	result, terminal := executeInitPlanWithAgents(plan, options, executor, selected, detections, runtime, args.Bool("json"))
+	if terminal {
+		return emitInitResult(result, args.Bool("json"))
+	}
+	result.Warnings = append(result.Warnings, initWarnings...)
+	applyInitOrchestrationNextAction(&result, orchConfig, selected)
+
+	return emitInitResult(result, args.Bool("json"), args.Bool("verbose"))
+}
+
+func initOptionsFromArgs(root string, args cli.Args) (core.InitOptions, string, int) {
+	selectionName := args.Str("agent")
+	if selectionName == "" {
+		selectionName = "auto"
+	}
+	options := core.InitOptions{
+		Root:           root,
+		Force:          args.Bool("force"),
+		Repair:         args.Bool("repair"),
+		Refresh:        args.Bool("refresh"),
+		DryRun:         args.Bool("dry-run"),
+		AgentSelection: []string{selectionName},
+		Scope:          args.Str("scope"),
+	}
+	if options.Scope == "" {
+		options.Scope = string(integration.ScopeProject)
+	}
+	if options.Scope != string(integration.ScopeProject) && options.Scope != string(integration.ScopeGlobal) {
+		return core.InitOptions{}, "", usageExit("--scope must be project or global")
+	}
+	if options.Scope == string(integration.ScopeGlobal) && args.Bool("non-interactive") && !args.Bool("yes") {
+		return core.InitOptions{}, "", usageExit("global scope requires explicit consent with --yes")
+	}
+	if err := core.ValidateInitOptions(options); err != nil {
+		return core.InitOptions{}, "", usageExit(err.Error())
+	}
+	return options, selectionName, core.ExitOK
+}
+
+func selectInitAgents(root, selectionName string, options core.InitOptions, args cli.Args, runtime *onboardingRuntime) (integration.Selection, []integration.Detection, int) {
+	if runtime.Registry == nil {
+		runtime.Registry = integration.DefaultRegistry()
+	}
+	detections := runtime.Registry.Detect(root)
+	interactive := initInteractive(args, *runtime)
+	selected, code := resolveInitSelection(selectionName, interactive, args.Bool("yes"), detections, *runtime)
+	if code != core.ExitOK {
+		return selected, detections, code
+	}
+	if code := validateSelectedInitAgents(root, options, selected, detections, *runtime); code != core.ExitOK {
+		return selected, detections, code
+	}
+	if code := confirmGlobalInit(options, selected, args, interactive, runtime.Input); code != core.ExitOK {
+		return selected, detections, code
+	}
+	return selected, detections, core.ExitOK
+}
+
+func initInteractive(args cli.Args, runtime onboardingRuntime) bool {
+	return !args.Bool("non-interactive") && !args.Bool("yes") && !args.Bool("json") && !core.IsJSONMode() && runtime.Interactive != nil && runtime.Interactive()
+}
+
+func validateSelectedInitAgents(root string, options core.InitOptions, selected integration.Selection, detections []integration.Detection, runtime onboardingRuntime) int {
+	for _, host := range selected.Selected {
+		adapter, _ := runtime.Registry.Get(host)
+		if adapter == nil {
+			return usageExit("unsupported host " + host)
+		}
+		detection := detectionForHost(detections, host)
+		if !detection.Detected {
+			return usageExit(fmt.Sprintf("requested host %q is unavailable; install it or choose --agent none", host))
+		}
+		if _, err := runtime.Registry.Plan(host, root, integration.Scope(options.Scope)); err != nil {
+			return usageExit(err.Error())
 		}
 	}
+	return core.ExitOK
+}
+
+func confirmGlobalInit(options core.InitOptions, selected integration.Selection, args cli.Args, interactive bool, input io.Reader) int {
+	if options.Scope != string(integration.ScopeGlobal) || len(selected.Selected) == 0 || args.Bool("yes") {
+		return core.ExitOK
+	}
+	if !interactive || !confirm(input, "Configure global MCP integration? [y/N] ") {
+		return usageExit("global scope requires explicit consent")
+	}
+	return core.ExitOK
+}
+
+func executeInitPlanWithAgents(plan core.InitPlan, options core.InitOptions, executor core.InitExecutor, selected integration.Selection, detections []integration.Detection, runtime onboardingRuntime, jsonOut bool) (core.InitResult, bool) {
+	result := core.ExecuteInitPlan(plan, options.Force, executor)
+	result.Warnings = append(result.Warnings, projectConfigDeprecationWarnings(options.Root)...)
+	addGlobalConfigWarning(&result, options)
+	addDetectedInitAgents(&result, detections)
+	if result.Status != "ready" && result.Status != "planned" {
+		return result, true
+	}
+	result = configureInitAgents(result, selected, options, runtime)
+	probeInitMCP(&result, runtime)
+	return result, false
+}
+
+func addGlobalConfigWarning(result *core.InitResult, options core.InitOptions) {
+	if result.Status != "ready" || options.DryRun {
+		return
+	}
+	global, err := core.EnsureGlobalConfigScaffold(core.ReadTemplate)
+	if err != nil {
+		result.Warnings = append(result.Warnings, core.InitWarning{Code: "global-config-warning", Message: "global config was not created: " + err.Error()})
+		return
+	}
+	if global.Created {
+		result.Warnings = append(result.Warnings, core.InitWarning{Code: "global-config-created", Message: "created global config: " + global.Path})
+	}
+}
+
+func addDetectedInitAgents(result *core.InitResult, detections []integration.Detection) {
 	for _, detection := range detections {
 		if detection.Detected {
 			result.Agents.Detected = append(result.Agents.Detected, detection.Host)
 		}
 	}
-	if result.Status != "ready" && result.Status != "planned" {
-		return emitInitResult(result, args.Bool("json"))
-	}
-	result = configureInitAgents(result, selected, options, runtime)
-	if result.Status == "ready" {
-		probe, err := runtime.Probe(context.Background(), nil, 2*time.Second)
-		if err != nil {
-			result.Status = "failed"
-			result.Verification.MCP = "fail"
-			result.Warnings = append(result.Warnings, core.InitWarning{Code: "mcp-probe-failed", Message: err.Error()})
-		} else {
-			result.Verification = core.InitVerificationResult{
-				MCP:             "pass",
-				ProtocolVersion: probe.ProtocolVersion,
-				ToolCount:       probe.ToolCount,
-			}
-		}
-	}
+}
 
-	result.Warnings = append(result.Warnings, initWarnings...)
-	if orchConfig != nil {
-		if len(selected.Selected) > 0 {
-			host := selected.Selected[0]
-			agentDisplay := host
-			switch host {
-			case "claude-code":
-				agentDisplay = "Claude Code"
-			case "cursor":
-				agentDisplay = "Cursor"
-			}
-			result.NextAction.Text = fmt.Sprintf("Restart %s to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", agentDisplay, orchConfig.ApprovalPolicy)
-		} else {
-			result.NextAction.Text = fmt.Sprintf("Restart your agent to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", orchConfig.ApprovalPolicy)
-		}
+func probeInitMCP(result *core.InitResult, runtime onboardingRuntime) {
+	if result.Status != "ready" {
+		return
 	}
+	probe, err := runtime.Probe(context.Background(), nil, 2*time.Second)
+	if err != nil {
+		result.Status = "failed"
+		result.Verification.MCP = "fail"
+		result.Warnings = append(result.Warnings, core.InitWarning{Code: "mcp-probe-failed", Message: err.Error()})
+		return
+	}
+	result.Verification = core.InitVerificationResult{MCP: "pass", ProtocolVersion: probe.ProtocolVersion, ToolCount: probe.ToolCount}
+}
 
-	return emitInitResult(result, args.Bool("json"), args.Bool("verbose"))
+func applyInitOrchestrationNextAction(result *core.InitResult, orchConfig *core.OrchestrationCfg, selected integration.Selection) {
+	if orchConfig == nil {
+		return
+	}
+	if len(selected.Selected) == 0 {
+		result.NextAction.Text = fmt.Sprintf("Restart your agent to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", orchConfig.ApprovalPolicy)
+		return
+	}
+	agentDisplay := initAgentDisplayName(selected.Selected[0])
+	result.NextAction.Text = fmt.Sprintf("Restart %s to pick up MCP registration, then run: specd brain run <spec> --bootstrap --approval-policy %s", agentDisplay, orchConfig.ApprovalPolicy)
+}
+
+func initAgentDisplayName(host string) string {
+	switch host {
+	case "claude-code":
+		return "Claude Code"
+	case "cursor":
+		return "Cursor"
+	default:
+		return host
+	}
+}
+
+func applyInitOrchestrationArgs(args cli.Args, selectionName string, options core.InitOptions, plan *core.InitPlan) (*core.OrchestrationCfg, []core.InitWarning, int) {
+	if !args.Has("orchestration") {
+		return nil, nil, core.ExitOK
+	}
+	parsed, warnings, code := parseInitOrchestrationArgs(args)
+	if code != core.ExitOK {
+		return nil, warnings, code
+	}
+	if parsed.mode == "delegate" && selectionName == "none" {
+		msg := "Delegate mode requires a compatible host agent. Use --orchestration-mode inline or install an agent."
+		core.Warn(msg)
+		warnings = append(warnings, core.InitWarning{Code: "orchestration-agent-mismatch", Message: msg})
+	}
+	applyInitOrchestrationConfig(options, plan, parsed)
+	return parsed.config, warnings, core.ExitOK
+}
+
+type parsedInitOrchestration struct {
+	config  *core.OrchestrationCfg
+	mode    string
+	sandbox string
+}
+
+func parseInitOrchestrationArgs(args cli.Args) (parsedInitOrchestration, []core.InitWarning, int) {
+	warnings := []core.InitWarning{}
+	policy, code := parseOrchestrationPolicy(args.Str("orchestration"))
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	workers, code := parseClampedInitInt(args, "orchestration-workers", 4, 1, 64, "maxWorkers", &warnings)
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	retries, code := parseClampedInitInt(args, "orchestration-retries", 2, 0, 10, "maxRetries", &warnings)
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	timeout, code := parseClampedInitInt(args, "orchestration-timeout", 120, 1, 1440, "sessionTimeoutMinutes", &warnings)
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	costLimit, code := parseInitCostLimit(args)
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	mode, code := parseInitMode(args)
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	sandbox, code := parseInitSandbox(args)
+	if code != core.ExitOK {
+		return parsedInitOrchestration{}, warnings, code
+	}
+	return parsedInitOrchestration{config: buildInitOrchestrationConfig(policy, workers, retries, timeout, costLimit), mode: mode, sandbox: sandbox}, warnings, core.ExitOK
+}
+
+func parseOrchestrationPolicy(policy string) (string, int) {
+	if policy == "true" || policy == "" {
+		policy = "planning"
+	}
+	switch policy {
+	case "manual", "planning", "session":
+		return policy, core.ExitOK
+	default:
+		return "", usageExit(fmt.Sprintf("--orchestration: invalid policy %q, expected manual|planning|session", policy))
+	}
+}
+
+func parseClampedInitInt(args cli.Args, flag string, defaultValue, min, max int, name string, warnings *[]core.InitWarning) (int, int) {
+	if !args.Has(flag) {
+		return defaultValue, core.ExitOK
+	}
+	value, err := strconv.Atoi(args.Str(flag))
+	if err != nil {
+		return 0, usageExit("invalid --" + flag + ": must be an integer")
+	}
+	return clamp(value, min, max, name, warnings), core.ExitOK
+}
+
+func parseInitCostLimit(args cli.Args) (float64, int) {
+	if !args.Has("orchestration-cost-limit") {
+		return 0, core.ExitOK
+	}
+	costLimit, err := parseCostLimit(args.Str("orchestration-cost-limit"))
+	if err != nil {
+		return 0, usageExit(err.Error())
+	}
+	return costLimit, core.ExitOK
+}
+
+func parseInitMode(args cli.Args) (string, int) {
+	mode := "delegate"
+	if args.Has("orchestration-mode") {
+		mode = args.Str("orchestration-mode")
+	}
+	if mode != "inline" && mode != "delegate" {
+		return "", usageExit("invalid --orchestration-mode: must be inline or delegate")
+	}
+	return mode, core.ExitOK
+}
+
+func parseInitSandbox(args cli.Args) (string, int) {
+	sandbox := "none"
+	if args.Has("orchestration-sandbox") {
+		sandbox = args.Str("orchestration-sandbox")
+	}
+	if sandbox != "none" && sandbox != "bwrap" && sandbox != "container" {
+		return "", usageExit("invalid --orchestration-sandbox: must be none, bwrap, or container")
+	}
+	if _, err := runner.SelectRunner(sandbox); err != nil {
+		return "", specdExit(err)
+	}
+	return sandbox, core.ExitOK
+}
+
+func buildInitOrchestrationConfig(policy string, workers, retries, timeout int, costLimit float64) *core.OrchestrationCfg {
+	return &core.OrchestrationCfg{
+		Enabled:                  true,
+		ApprovalPolicy:           policy,
+		WorkerMode:               "host",
+		MaxWorkers:               workers,
+		MaxRetries:               retries,
+		SessionTimeoutMinutes:    timeout,
+		HostReportedCostLimitUSD: costLimit,
+		Transport:                core.TransportCfg{Kind: "file", PollIntervalMillis: 500, MessageTTLSeconds: 3600, LeaseSeconds: 120, HeartbeatSeconds: 30},
+		Program:                  core.ProgramCfg{MaxConcurrentSpecs: 2},
+	}
+}
+
+func applyInitOrchestrationConfig(options core.InitOptions, plan *core.InitPlan, parsed parsedInitOrchestration) {
+	configTarget := filepath.Join(options.Root, ".specd", "config.yml")
+	for i, action := range plan.Actions {
+		if action.Target != configTarget {
+			continue
+		}
+		cfg := core.LoadConfig(options.Root)
+		if _, statErr := os.Stat(configTarget); os.IsNotExist(statErr) || options.Force {
+			cfg = core.DefaultConfig
+			cfg.Version = 2
+		}
+		cfg.Orchestration = *parsed.config
+		cfg.Roles.SubagentMode = parsed.mode
+		cfg.Verify.Sandbox = parsed.sandbox
+		plan.Actions[i].Content = core.RenderConfigYAML(cfg)
+		if action.Kind == "skip" {
+			plan.Actions[i].Kind = "write"
+			plan.Actions[i].Description = "update orchestration config"
+		}
+		return
+	}
 }
 
 func projectConfigDeprecationWarnings(root string) []core.InitWarning {

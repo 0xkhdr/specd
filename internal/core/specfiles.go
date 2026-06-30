@@ -10,6 +10,9 @@ import (
 	"strings"
 )
 
+// Config is the root shape of .specd/config.yml: project-wide defaults for
+// verification, reporting, role hints, promotion gating, and the
+// orchestration/MCP subsystems.
 type Config struct {
 	Version            int              `json:"version"`
 	DefaultVerify      string           `json:"defaultVerify"`
@@ -42,6 +45,9 @@ func (m MCPConfig) Configured() bool {
 	return m.Expose != "" || m.IncludeMeta || len(m.EssentialTools) > 0 || m.IncludeOrchestration != nil
 }
 
+// OrchestrationCfg configures the worker orchestration subsystem: whether it
+// is enabled, approval and worker-mode policy, worker/retry limits, timeouts,
+// cost caps, context-compaction policy, transport, program, and resilience settings.
 type OrchestrationCfg struct {
 	Enabled                  bool    `json:"enabled"`
 	ApprovalPolicy           string  `json:"approvalPolicy"`
@@ -62,6 +68,9 @@ type OrchestrationCfg struct {
 	Resilience *ResilienceCfg `json:"resilience,omitempty"`
 }
 
+// TransportCfg configures the ACP message transport used between Brain and
+// Pinky workers: its kind, poll interval, message TTL, lease duration, and
+// heartbeat interval.
 type TransportCfg struct {
 	Kind               string `json:"kind"`
 	PollIntervalMillis int    `json:"pollIntervalMillis"`
@@ -70,6 +79,8 @@ type TransportCfg struct {
 	HeartbeatSeconds   int    `json:"heartbeatSeconds"`
 }
 
+// ProgramCfg configures multi-spec program orchestration, currently just the
+// cap on specs that may be running concurrently.
 type ProgramCfg struct {
 	MaxConcurrentSpecs int `json:"maxConcurrentSpecs"`
 }
@@ -136,15 +147,21 @@ type VerifyCfg struct {
 	Sandbox string `json:"sandbox"`
 }
 
+// ReportCfg configures the progress report's output format and optional
+// auto-refresh interval.
 type ReportCfg struct {
 	Format             string `json:"format"`
 	AutoRefreshSeconds int    `json:"autoRefreshSeconds"`
 }
 
+// RolesCfg configures how role guidance is delivered to subagents.
 type RolesCfg struct {
 	SubagentMode string `json:"subagentMode"`
 }
 
+// GatesCfg configures the severity of each verify-time quality gate
+// (traceability, acceptance, diff scope, context budget, mode capability)
+// plus any external custom gates to run after the core pipeline.
 type GatesCfg struct {
 	Traceability string `json:"traceability"`
 	Acceptance   string `json:"acceptance"`
@@ -187,6 +204,9 @@ type CustomGateCfg struct {
 	Sandbox  string `json:"sandbox,omitempty"`
 }
 
+// DefaultConfig is the Config used when .specd/config.yml is absent or omits
+// a field, providing safe out-of-the-box defaults for verify, gates, and
+// orchestration.
 var DefaultConfig = Config{
 	Version:            1,
 	DefaultVerify:      "echo 'specd: defaultVerify is unset — set it to your repo test command (see the specd-steering skill)' >&2; exit 1",
@@ -217,6 +237,8 @@ var DefaultConfig = Config{
 // ValidateOrchestrationConfig validates authority-bearing values and normalizes
 // resource limits. Callers receive an error for ambiguous or unsafe policy;
 // bounded integers are clamped through clampOrchestrationInt.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func ValidateOrchestrationConfig(cfg *OrchestrationCfg) error {
 	if cfg == nil {
 		return fmt.Errorf("policy is missing")
@@ -399,28 +421,40 @@ func isSecretBearingKey(key string) bool {
 	return false
 }
 
+// Artifacts lists the standard per-spec markdown filenames managed under a
+// spec's directory.
 var Artifacts = []string{
 	"requirements.md", "design.md", "tasks.md",
 	"decisions.md", "memory.md", "mid-requirements.md",
 }
 
+// ArtifactPath returns the on-disk path of a named artifact file within the
+// given spec's directory.
 func ArtifactPath(root, slug, name string) string {
 	return filepath.Join(SpecDir(root, slug), name)
 }
 
+// ReadArtifact reads a named artifact file for a spec, returning nil if it
+// does not exist.
 func ReadArtifact(root, slug, name string) *string {
 	return ReadOrNull(ArtifactPath(root, slug, name))
 }
 
+// ReadRole reads a role definition file (e.g. .specd/roles/<role>.md),
+// returning nil if it does not exist.
 func ReadRole(root, role string) *string {
 	return ReadOrNull(filepath.Join(RolesDir(root), role+".md"))
 }
 
+// SpecExists reports whether a spec with the given slug has a state.json
+// under .specd/specs/.
 func SpecExists(root, slug string) bool {
 	_, err := os.Stat(filepath.Join(SpecDir(root, slug), "state.json"))
 	return err == nil
 }
 
+// RequireSpec validates slug and returns a NotFoundError if no spec with
+// that slug exists under .specd/specs/.
 func RequireSpec(root, slug string) error {
 	if err := ValidateSlug(slug); err != nil {
 		return err
@@ -431,6 +465,9 @@ func RequireSpec(root, slug string) error {
 	return nil
 }
 
+// ListSpecs returns the slugs of every spec under .specd/specs that has a
+// state.json, sorted alphabetically. It returns nil if the specs directory
+// cannot be read.
 func ListSpecs(root string) []string {
 	dir := filepath.Join(root, ".specd", "specs")
 	entries, err := os.ReadDir(dir)
@@ -449,6 +486,10 @@ func ListSpecs(root string) []string {
 	return out
 }
 
+// Reconcile rebuilds state.Tasks from doc's parsed tasks.md, carrying over
+// each existing task's runtime fields (status, timestamps, evidence,
+// verification, blocker, telemetry) and role when still present, and drops
+// blockers whose task no longer exists.
 func Reconcile(state *State, doc ParsedTasks) {
 	next := make(map[string]TaskState, len(doc.Tasks))
 	for _, t := range doc.Tasks {
@@ -506,6 +547,8 @@ func Reconcile(state *State, doc ParsedTasks) {
 	state.Blockers = blockers
 }
 
+// ParseTasksMd reads and parses a spec's tasks.md, returning an empty
+// ParsedTasks (titled by slug) if the file is missing or blank.
 func ParseTasksMd(root, slug string) (ParsedTasks, error) {
 	raw := ReadArtifact(root, slug, "tasks.md")
 	if raw == nil || strings.TrimSpace(*raw) == "" {
@@ -514,11 +557,15 @@ func ParseTasksMd(root, slug string) (ParsedTasks, error) {
 	return ParseTasks(*raw)
 }
 
+// LoadedSpec bundles a spec's persisted state with its parsed tasks.md.
 type LoadedSpec struct {
 	State *State
 	Doc   ParsedTasks
 }
 
+// LoadSpec loads a spec's state and tasks.md under the spec lock,
+// reconciling state against the parsed tasks and persisting the result if
+// reconciliation changed anything.
 func LoadSpec(root, slug string) (LoadedSpec, error) {
 	if err := RequireSpec(root, slug); err != nil {
 		return LoadedSpec{}, err

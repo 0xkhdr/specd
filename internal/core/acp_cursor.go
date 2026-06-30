@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// ACPCursor tracks the last ACP event a worker has reconciled for a session:
+// the sequence number and message ID it last acknowledged via SaveCursor.
 type ACPCursor struct {
 	Version   int    `json:"version"`
 	SessionID string `json:"sessionId"`
@@ -17,6 +19,9 @@ type ACPCursor struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
+// LoadCursor reads and validates a worker's saved cursor for the session,
+// returning a fresh zero-sequence ACPCursor (not an error) if none has been
+// saved yet.
 func (s *ACPStore) LoadCursor(sessionID, workerID string) (ACPCursor, error) {
 	path, err := s.paths.CursorPath(sessionID, workerID)
 	if err != nil {

@@ -9,6 +9,10 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunMigrate implements `specd migrate config`: it locates the legacy JSON
+// config (project-local, or the global one with --global), and either previews
+// the equivalent YAML (--dry-run) or migrates it in place to config.yml,
+// leaving a ".bak" backup of the original.
 func RunMigrate(args cli.Args) int {
 	if len(args.Pos) != 1 || args.Pos[0] != "config" {
 		return usageExit("usage: specd migrate config [--dry-run] [--global]")

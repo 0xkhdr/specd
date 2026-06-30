@@ -7,6 +7,12 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunStatus implements `specd status`. With --program it reports program-level
+// status; with no slug it lists every spec's status summary; given a slug it
+// prints (or, with --set-mode/--recommend, mutates or advises on) that spec's
+// detailed status, tasks counts, wave graph, blockers, and next action.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunStatus(args cli.Args) int {
 	if args.Bool("program") {
 		return runProgram(args)

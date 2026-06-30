@@ -7,17 +7,25 @@ import (
 	"sort"
 )
 
+// ProgramVersion is the current schema version for program.json.
 const ProgramVersion = 1
 
+// ProgramManifest is the persisted program.json document: the schema version
+// and the declared cross-spec dependency edges, keyed by spec slug.
 type ProgramManifest struct {
 	Version   int                 `json:"version"`
 	DependsOn map[string][]string `json:"dependsOn"`
 }
 
+// ProgramPath returns the path to program.json under the spec root's .specd
+// directory.
 func ProgramPath(root string) string {
 	return filepath.Join(SpecdDir(root), "program.json")
 }
 
+// LoadProgram reads and parses program.json, returning a default manifest
+// with an empty dependency map when the file does not exist. Each spec's
+// dependency list is deduplicated before it is returned.
 func LoadProgram(root string) (ProgramManifest, error) {
 	raw := ReadOrNull(ProgramPath(root))
 	if raw == nil {
@@ -45,6 +53,9 @@ func LoadProgram(root string) (ProgramManifest, error) {
 	return parsed, nil
 }
 
+// SaveProgram writes manifest to program.json, sorting spec slugs and
+// deduplicating/sorting each spec's dependency list so the file is
+// deterministic and diff-stable across saves.
 func SaveProgram(root string, manifest ProgramManifest) error {
 	dependsOn := make(map[string][]string)
 	slugs := make([]string, 0, len(manifest.DependsOn))
@@ -75,6 +86,9 @@ func SaveProgram(root string, manifest ProgramManifest) error {
 	return AtomicWrite(ProgramPath(root), string(b)+"\n")
 }
 
+// SpecNode is one spec's resolved position in the program graph: its current
+// status, its filtered (known-only) dependencies, its computed wave, and
+// whether it has reached completion.
 type SpecNode struct {
 	Slug      string     `json:"slug"`
 	Status    SpecStatus `json:"status"`
@@ -83,6 +97,10 @@ type SpecNode struct {
 	Complete  bool       `json:"complete"`
 }
 
+// ProgramGraph is the resolved cross-spec dependency graph for a program: its
+// specs ordered by wave then slug, the equivalent DAG task list, any
+// dependency edges pointing at unknown specs (orphans), and any dependency
+// cycle that was detected.
 type ProgramGraph struct {
 	Specs   []SpecNode
 	Dag     []DagTask
@@ -130,6 +148,10 @@ func deriveWaves(edges map[string][]string, slugs []string) map[string]int {
 	return wave
 }
 
+// BuildProgram loads (or reuses the given) program manifest and combines it
+// with each spec's on-disk state to produce a ProgramGraph: it computes
+// dependency waves, filters out edges to unknown specs as orphans, detects
+// cycles, and returns specs sorted by wave then slug.
 func BuildProgram(root string, manifest *ProgramManifest) (ProgramGraph, error) {
 	if manifest == nil {
 		m, err := LoadProgram(root)

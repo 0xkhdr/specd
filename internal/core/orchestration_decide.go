@@ -5,6 +5,14 @@ import (
 	"sort"
 )
 
+// DecideOrchestration is the pure per-spec decision function: given a
+// validated OrchestrationSnapshot and OrchestrationPolicy it walks an ordered
+// set of checks — terminal/blocked status, human approval gates, exhausted
+// retries, cost brake, session expiry, compaction triggers, worker capacity,
+// task dispatch/resume, authoring, and phase advancement — and returns the
+// single resulting OrchestrationDecision with a deterministic idempotency key.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func DecideOrchestration(snapshot OrchestrationSnapshot, policy OrchestrationPolicy) (OrchestrationDecision, error) {
 	if err := ValidateOrchestrationPolicy(policy); err != nil {
 		return OrchestrationDecision{}, err

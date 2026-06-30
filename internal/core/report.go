@@ -8,11 +8,15 @@ import (
 	"sync"
 )
 
+// Badge is a display label and hex color used to render a spec's status in
+// reports.
 type Badge struct {
 	Label string
 	Color string
 }
 
+// GetBadge maps a spec status to its display Badge, falling back to an
+// "Unknown" badge for any status it does not recognize.
 func GetBadge(status SpecStatus) Badge {
 	switch status {
 	case StatusRequirements, StatusDesign, StatusTasks:
@@ -29,6 +33,8 @@ func GetBadge(status SpecStatus) Badge {
 	return Badge{"Unknown", "#888"}
 }
 
+// ReportData bundles a spec's State with the raw markdown of its planning and
+// supporting artifacts, ready for rendering by RenderMarkdown or RenderHTML.
 type ReportData struct {
 	State        *State
 	Requirements *string
@@ -58,6 +64,10 @@ func sectionRE(heading string) *regexp.Regexp {
 	return re
 }
 
+// ExtractSection returns the body text of the first "## heading" section in
+// md (case-insensitive), stopping at the next "## " heading or end of
+// document. It returns nil if md is nil, the heading is not found, or the
+// extracted body is empty after trimming.
 func ExtractSection(md *string, heading string) *string {
 	if md == nil {
 		return nil
@@ -238,6 +248,9 @@ func costStr(c float64, annotated bool) string {
 	return fmt.Sprintf("%.2f", c)
 }
 
+// RenderMarkdown renders d as a complete Markdown report: a title with status
+// badge, the spec/status/phase/turn summary line, the effective mode, and
+// every section returned by buildSections.
 func RenderMarkdown(d ReportData) string {
 	b := GetBadge(d.State.Status)
 	var out []string
@@ -270,6 +283,11 @@ func esc(s string) string {
 	return s
 }
 
+// RenderHTML renders d as a complete, self-contained HTML page: a styled
+// header with status badge, every section returned by buildSections, and an
+// inline live-update script that re-renders the page on matching /events SSE
+// deltas. autoRefreshSeconds, when positive, adds a meta refresh tag as a
+// fallback for clients without EventSource support.
 func RenderHTML(d ReportData, autoRefreshSeconds int) string {
 	b := GetBadge(d.State.Status)
 	refresh := ""

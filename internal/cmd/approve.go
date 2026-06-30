@@ -7,6 +7,13 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunApprove implements `specd approve`. Under the spec lock it handles three
+// cases in order: clearing an awaiting-approval gate, accepting a verifying
+// spec as complete (enforcing the acceptance-criteria gate when configured),
+// or advancing a planning-phase spec to the next status — printing the result
+// as JSON or human-readable text.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunApprove(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd approve <slug> [--json]")
 	if !ok {

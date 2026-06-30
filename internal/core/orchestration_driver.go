@@ -72,6 +72,7 @@ type DriverOptions struct {
 // DriverOutcome is the terminal reason a drive stopped.
 type DriverOutcome string
 
+// The DriverOutcome values name every terminal reason a drive loop can stop.
 const (
 	DriverComplete   DriverOutcome = "complete"          // spec/session reached a terminal done state
 	DriverEscalated  DriverOutcome = "escalated"         // a decision escalated to a human
@@ -96,6 +97,47 @@ type workerReport struct {
 
 // DriveOrchestration runs the reference loop against an already-started session.
 func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg, opts DriverOptions) (DriverResult, error) {
+	state := newSingleDriverState(root, slug, sessionID, policy, cfg, opts)
+	var last OrchestrationDecision
+	for step := 1; step <= state.opts.MaxSteps; step++ {
+		if err := state.reapReady(); err != nil {
+			return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, state.drainReports(err)
+		}
+		res, err := StepOrchestration(root, slug, sessionID, policy, cfg)
+		if err != nil {
+			return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, state.drainReports(err)
+		}
+		last = res.Decision
+		emitCostBrakeEvent(opts.Observer, sessionID, res.Snapshot, policy, res.Decision)
+		outcome, repeat, done, err := state.handleDecision(res)
+		if err != nil {
+			return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, state.drainReports(err)
+		}
+		if done {
+			return DriverResult{Steps: step, Outcome: outcome, Final: last}, state.drainReports(nil)
+		}
+		if repeat {
+			step--
+		}
+	}
+	return DriverResult{Steps: state.opts.MaxSteps, Outcome: DriverMaxSteps, Final: last}, state.drainReports(nil)
+}
+
+type singleDriverState struct {
+	root         string
+	slug         string
+	sessionID    string
+	cfg          OrchestrationCfg
+	opts         DriverOptions
+	maxWorkers   int
+	pollInterval time.Duration
+	reports      chan workerReport
+	inflight     int
+	inflightKeys map[string]bool
+	waits        int
+}
+
+func newSingleDriverState(root, slug, sessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg, opts DriverOptions) *singleDriverState {
 	if opts.MaxSteps <= 0 {
 		opts.MaxSteps = 100
 	}
@@ -110,137 +152,121 @@ func DriveOrchestration(root, slug, sessionID string, policy OrchestrationPolicy
 	if pollInterval <= 0 {
 		pollInterval = 50 * time.Millisecond
 	}
-
-	reports := make(chan workerReport, maxWorkers)
-	inflight := 0
-	inflightKeys := map[string]bool{}
-
-	spawn := func(d DriverDispatch) {
-		emitDriverEvent(opts.Observer, "dispatch", sessionID, d)
-		inflight++
-		inflightKeys[d.Decision.IdempotencyKey] = true
-		go func() { reports <- workerReport{dispatch: d, err: opts.Worker(d)} }()
+	return &singleDriverState{
+		root:         root,
+		slug:         slug,
+		sessionID:    sessionID,
+		cfg:          cfg,
+		opts:         opts,
+		maxWorkers:   maxWorkers,
+		pollInterval: pollInterval,
+		reports:      make(chan workerReport, maxWorkers),
+		inflightKeys: map[string]bool{},
 	}
-	// reap consumes one report, accounting for the freed slot. A failed worker is
-	// turned into a retryable failure (lease released, task marked) so the next
-	// step applies the retry/escalate policy already in DecideOrchestration.
-	reap := func(r workerReport) error {
-		inflight--
-		delete(inflightKeys, r.dispatch.Decision.IdempotencyKey)
-		if r.err != nil {
-			emitDriverEvent(opts.Observer, "reclaim", sessionID, r.dispatch)
-			return failWorkerDispatch(root, slug, sessionID, r.dispatch, cfg)
-		}
-		return nil
-	}
-	// drainReports collects every still-running worker before a terminal return so
-	// no goroutine outlives the drive. It is best-effort: a worker error during
-	// drain is folded into the returned error but never blocks the others.
-	drainReports := func(firstErr error) error {
-		for inflight > 0 {
-			if err := reap(<-reports); err != nil && firstErr == nil {
-				firstErr = err
-			}
-		}
-		return firstErr
-	}
+}
 
-	waits := 0
-	var last OrchestrationDecision
-	for step := 1; step <= opts.MaxSteps; step++ {
-		// Reap any finished workers (non-blocking) so the next snapshot reflects
-		// their releases/failures/completions before we decide.
-		for drained := true; drained; {
-			select {
-			case r := <-reports:
-				if err := reap(r); err != nil {
-					return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
-				}
-			default:
-				drained = false
-			}
-		}
+func (s *singleDriverState) spawn(d DriverDispatch) {
+	emitDriverEvent(s.opts.Observer, "dispatch", s.sessionID, d)
+	s.inflight++
+	s.inflightKeys[d.Decision.IdempotencyKey] = true
+	go func() { s.reports <- workerReport{dispatch: d, err: s.opts.Worker(d)} }()
+}
 
-		res, err := StepOrchestration(root, slug, sessionID, policy, cfg)
-		if err != nil {
-			return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
-		}
-		last = res.Decision
-		emitCostBrakeEvent(opts.Observer, sessionID, res.Snapshot, policy, res.Decision)
-		switch res.Decision.Action {
-		case OrchestrationDispatch, OrchestrationDispatchAuthor:
-			if opts.Worker == nil {
-				return DriverResult{Steps: step, Outcome: DriverWorkerStop, Final: last}, drainReports(nil)
+func (s *singleDriverState) reap(r workerReport) error {
+	s.inflight--
+	delete(s.inflightKeys, r.dispatch.Decision.IdempotencyKey)
+	if r.err != nil {
+		emitDriverEvent(s.opts.Observer, "reclaim", s.sessionID, r.dispatch)
+		return failWorkerDispatch(s.root, s.slug, s.sessionID, r.dispatch, s.cfg)
+	}
+	return nil
+}
+
+func (s *singleDriverState) reapReady() error {
+	for drained := true; drained; {
+		select {
+		case r := <-s.reports:
+			if err := s.reap(r); err != nil {
+				return err
 			}
-			key := res.Decision.IdempotencyKey
-			if inflightKeys[key] || inflight >= maxWorkers {
-				// Either this exact dispatch is already in flight but its lease is
-				// not yet observable, or the pool is full though the engine still
-				// offered work (an in-flight slot's lease is not yet visible).
-				// Spawning would double-dispatch / over-subscribe, so wait for a
-				// worker to report or the lease to surface, then re-step. This wait
-				// is not productive progress, so it does not consume a step.
-				if inflight == 0 {
-					return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, nil
-				}
-				if err := awaitReport(reports, reap, pollInterval); err != nil {
-					return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
-				}
-				step--
-				continue
-			}
-			mission, err := driverMissionFor(root, slug, sessionID, res.Decision, cfg)
-			if err != nil {
-				return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
-			}
-			spawn(DriverDispatch{Decision: res.Decision, Mission: mission})
-			waits = 0
-		case OrchestrationCompact:
-			// The engine already wrote the summary + ledger checkpoint; surface it so
-			// the host performs the real /clear before replying `brain step`. It is
-			// real progress (a boundary was crossed), so reset the stall counter.
-			emitCompactionEvent(opts.Observer, sessionID, res)
-			waits = 0
-		case OrchestrationAdvancePhase:
-			waits = 0 // real progress: a phase advanced
-		case OrchestrationCompleteSession, OrchestrationIdle:
-			return DriverResult{Steps: step, Outcome: DriverComplete, Final: last}, drainReports(nil)
-		case OrchestrationRequestApproval:
-			return DriverResult{Steps: step, Outcome: DriverAwaiting, Final: last}, drainReports(nil)
-		case OrchestrationEscalate:
-			emitDriverEvent(opts.Observer, "escalate", sessionID, DriverDispatch{Decision: res.Decision})
-			return DriverResult{Steps: step, Outcome: DriverEscalated, Final: last}, drainReports(nil)
-		case OrchestrationWait, OrchestrationCancel, OrchestrationRetry, OrchestrationReplan:
-			if res.Decision.Action == OrchestrationRetry {
-				emitDriverEvent(opts.Observer, "retry", sessionID, DriverDispatch{Decision: res.Decision})
-			}
-			if inflight > 0 {
-				// Workers are running and the engine has no new bounded action: the
-				// only thing that can change state is a worker report, so block for
-				// one (guaranteed progress, naturally bounded) then re-step.
-				if err := reap(<-reports); err != nil {
-					return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, drainReports(err)
-				}
-				waits = 0
-				continue
-			}
-			if progressWithinWindow(res.Snapshot, cfg) {
-				// A lease-holding worker reported progress within
-				// resilience.progressTimeoutSeconds (e.g. a rate-limit-suspended or
-				// externally-running worker that is slow but advancing). This wait is
-				// honest progress, not a stall, so it does not count toward MaxWaits.
-				// Poll-sleep before re-stepping so we do not hot-spin; MaxSteps still
-				// bounds the loop (Req 2.3 — no infinite wait on a chatty worker).
-				time.Sleep(pollInterval)
-				continue
-			}
-			waits++
-			if waits >= opts.MaxWaits {
-				return DriverResult{Steps: step, Outcome: DriverStalled, Final: last}, nil
-			}
+		default:
+			drained = false
 		}
 	}
-	return DriverResult{Steps: opts.MaxSteps, Outcome: DriverMaxSteps, Final: last}, drainReports(nil)
+	return nil
+}
+
+func (s *singleDriverState) drainReports(firstErr error) error {
+	for s.inflight > 0 {
+		if err := s.reap(<-s.reports); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+func (s *singleDriverState) handleDecision(res OrchestrationStepResult) (DriverOutcome, bool, bool, error) {
+	switch res.Decision.Action {
+	case OrchestrationDispatch, OrchestrationDispatchAuthor:
+		return s.handleDispatch(res)
+	case OrchestrationCompact:
+		emitCompactionEvent(s.opts.Observer, s.sessionID, res)
+		s.waits = 0
+	case OrchestrationAdvancePhase:
+		s.waits = 0
+	case OrchestrationCompleteSession, OrchestrationIdle:
+		return DriverComplete, false, true, nil
+	case OrchestrationRequestApproval:
+		return DriverAwaiting, false, true, nil
+	case OrchestrationEscalate:
+		emitDriverEvent(s.opts.Observer, "escalate", s.sessionID, DriverDispatch{Decision: res.Decision})
+		return DriverEscalated, false, true, nil
+	case OrchestrationWait, OrchestrationCancel, OrchestrationRetry, OrchestrationReplan:
+		return s.handleWait(res)
+	}
+	return "", false, false, nil
+}
+
+func (s *singleDriverState) handleDispatch(res OrchestrationStepResult) (DriverOutcome, bool, bool, error) {
+	if s.opts.Worker == nil {
+		return DriverWorkerStop, false, true, nil
+	}
+	key := res.Decision.IdempotencyKey
+	if s.inflightKeys[key] || s.inflight >= s.maxWorkers {
+		if s.inflight == 0 {
+			return DriverStalled, false, true, nil
+		}
+		return "", true, false, awaitReport(s.reports, s.reap, s.pollInterval)
+	}
+	mission, err := driverMissionFor(s.root, s.slug, s.sessionID, res.Decision, s.cfg)
+	if err != nil {
+		return DriverStalled, false, true, err
+	}
+	s.spawn(DriverDispatch{Decision: res.Decision, Mission: mission})
+	s.waits = 0
+	return "", false, false, nil
+}
+
+func (s *singleDriverState) handleWait(res OrchestrationStepResult) (DriverOutcome, bool, bool, error) {
+	if res.Decision.Action == OrchestrationRetry {
+		emitDriverEvent(s.opts.Observer, "retry", s.sessionID, DriverDispatch{Decision: res.Decision})
+	}
+	if s.inflight > 0 {
+		if err := s.reap(<-s.reports); err != nil {
+			return DriverStalled, false, true, err
+		}
+		s.waits = 0
+		return "", false, false, nil
+	}
+	if progressWithinWindow(res.Snapshot, s.cfg) {
+		time.Sleep(s.pollInterval)
+		return "", false, false, nil
+	}
+	s.waits++
+	if s.waits >= s.opts.MaxWaits {
+		return DriverStalled, false, true, nil
+	}
+	return "", false, false, nil
 }
 
 // progressWithinWindow reports whether an in-flight worker has reported progress
@@ -448,6 +474,8 @@ type programWorkerReport struct {
 // realizing `max_concurrent_specs`. Per-child worker concurrency is bounded by
 // each child's own `MaxWorkers` lease cap, and how many specs step concurrently
 // is bounded by `max_concurrent_specs` inside StepProgramOrchestration.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func DriveProgramOrchestration(root, parentSessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg, opts ProgramDriverOptions) (ProgramDriverResult, error) {
 	if opts.MaxSteps <= 0 {
 		opts.MaxSteps = 200

@@ -79,6 +79,10 @@ func loadReportData(root, slug string, state *core.State) core.ReportData {
 	}
 }
 
+// RunReport implements `specd report`. It dispatches to the --history, --diff,
+// --serve, --watch, and --pr-summary modes; with none of those flags it loads
+// the spec and renders the static report (Markdown, HTML, or Prometheus
+// metrics) to stdout or, with --out, to a file.
 func RunReport(args cli.Args) int {
 	if args.Bool("history") {
 		return runReplay(args)

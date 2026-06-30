@@ -6,6 +6,9 @@ import (
 	"os"
 )
 
+// ConfigDiagnostic is a single config-loading or config-validation finding:
+// where it came from (path/source/layer/field), its severity, and a
+// human-readable message.
 type ConfigDiagnostic struct {
 	Path     string `json:"path"`
 	Source   string `json:"source,omitempty"`
@@ -15,6 +18,10 @@ type ConfigDiagnostic struct {
 	Message  string `json:"message"`
 }
 
+// LoadConfigStrict loads the effective config the same way LoadConfig does,
+// then additionally re-parses the raw project config file to validate every
+// enum and integer-range field strictly, returning the full diagnostic list
+// alongside the loaded config.
 func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
 	cfg, result := LoadConfigWithDiagnostics(root)
 	d := append([]ConfigDiagnostic{}, result.Diagnostics...)
@@ -60,6 +67,10 @@ func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
 	return cfg, d
 }
 
+// ValidateEffectiveConfig checks the fully-merged Config for unsupported enum
+// values and out-of-range fields (report format, subagent mode, gate modes,
+// verify sandbox, max context tokens, orchestration config) and returns one
+// error diagnostic per violation.
 func ValidateEffectiveConfig(cfg Config) []ConfigDiagnostic {
 	d := []ConfigDiagnostic{}
 	if !oneOf(cfg.Report.Format, "", "md", "html") {
@@ -91,6 +102,8 @@ func ValidateEffectiveConfig(cfg Config) []ConfigDiagnostic {
 	return d
 }
 
+// MaxSoftContextTokens returns the upper bound allowed for
+// gates.maxContextTokens.
 func MaxSoftContextTokens() int { return 200000 }
 
 func validateStringEnum(doc map[string]json.RawMessage, path string, allowed []string, d *[]ConfigDiagnostic) {
@@ -158,6 +171,8 @@ func stringsSplit(s string, sep byte) []string {
 	return append(out, s[start:])
 }
 
+// HasErrorDiagnostics reports whether diags contains at least one diagnostic
+// with "error" severity.
 func HasErrorDiagnostics(diags []ConfigDiagnostic) bool {
 	for _, d := range diags {
 		if d.Severity == "error" {
