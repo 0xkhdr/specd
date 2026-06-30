@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -127,7 +129,7 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 		result.Checks = append(result.Checks, doctorCheck{Name: "scaffold", Status: "pass", Detail: "all required project assets are present"})
 	}
 
-	_, configDiagnostics := core.LoadConfigStrict(root)
+	cfg, configDiagnostics := core.LoadConfigStrict(root)
 	result.ConfigDiagnostics = configDiagnostics
 	if core.HasErrorDiagnostics(configDiagnostics) {
 		parts := []string{}
@@ -140,6 +142,8 @@ func runDoctor(args cli.Args, runtime doctorRuntime) int {
 	} else {
 		result.Checks = append(result.Checks, doctorCheck{Name: "config-policy", Status: "pass", Detail: "strict config validation passed"})
 	}
+
+	inspectSandboxAvailability(&result, cfg)
 
 	if probe, probeErr := runtime.Probe(context.Background(), nil, 2*time.Second); probeErr != nil {
 		result.Orchestration.ServerCapability = "unavailable"
@@ -253,6 +257,66 @@ func addDoctorFailure(result *doctorResult, name, detail, remediation string) {
 	result.Status = "unhealthy"
 	result.Checks = append(result.Checks, doctorCheck{Name: name, Status: "fail", Detail: detail, Remediation: remediation})
 	result.Remediations = append(result.Remediations, remediation)
+}
+
+// addDoctorAdvisory records a non-fatal finding: unlike addDoctorFailure, it
+// never flips result.Status to "unhealthy" or affects doctor's exit code —
+// SelectRunner already fails closed at verify time, so doctor's job here is
+// only to explain why ahead of time, not to gate on it (Requirement 3.2).
+func addDoctorAdvisory(result *doctorResult, name, detail, remediation string) {
+	result.Checks = append(result.Checks, doctorCheck{Name: name, Status: "advisory", Detail: detail, Remediation: remediation})
+}
+
+// inspectSandboxAvailability reports, as an advisory finding, why a
+// configured verify.sandbox backend would refuse to run — without itself
+// calling or otherwise touching runner.SelectRunner. The verify command
+// remains the sole place that decides and fails closed (Requirement 3).
+func inspectSandboxAvailability(result *doctorResult, cfg core.Config) {
+	switch strings.TrimSpace(cfg.Verify.Sandbox) {
+	case "bwrap":
+		if _, err := exec.LookPath("bwrap"); err != nil {
+			addDoctorAdvisory(result, "verify-sandbox",
+				"verify.sandbox is \"bwrap\" but bubblewrap is not on PATH — `specd verify` will fail closed and refuse to run",
+				sandboxInstallHint("bwrap"))
+			return
+		}
+		result.Checks = append(result.Checks, doctorCheck{Name: "verify-sandbox", Status: "pass", Detail: "bubblewrap found on PATH"})
+	case "container":
+		_, dockerErr := exec.LookPath("docker")
+		_, podmanErr := exec.LookPath("podman")
+		if dockerErr != nil && podmanErr != nil {
+			addDoctorAdvisory(result, "verify-sandbox",
+				"verify.sandbox is \"container\" but neither docker nor podman is on PATH — `specd verify` will fail closed and refuse to run",
+				sandboxInstallHint("container"))
+			return
+		}
+		if strings.TrimSpace(os.Getenv("SPECD_SANDBOX_IMAGE")) == "" {
+			addDoctorAdvisory(result, "verify-sandbox",
+				"verify.sandbox is \"container\" but SPECD_SANDBOX_IMAGE is unset — `specd verify` will fail closed and refuse to run",
+				"set SPECD_SANDBOX_IMAGE to a pinned image, e.g. \"golang:1.26\"")
+			return
+		}
+		result.Checks = append(result.Checks, doctorCheck{Name: "verify-sandbox", Status: "pass", Detail: "container engine and SPECD_SANDBOX_IMAGE configured"})
+	}
+}
+
+// sandboxInstallHint names an OS-appropriate install command for a missing
+// sandbox dependency, dep being "bwrap" or "container".
+func sandboxInstallHint(dep string) string {
+	switch dep {
+	case "bwrap":
+		if runtime.GOOS == "darwin" {
+			return "bubblewrap is Linux-only; set verify.sandbox to \"container\" or \"none\" on macOS"
+		}
+		return "install bubblewrap, e.g. `apt-get install bubblewrap` or `dnf install bubblewrap`"
+	case "container":
+		if runtime.GOOS == "darwin" {
+			return "install a container engine, e.g. `brew install podman` or Docker Desktop"
+		}
+		return "install a container engine, e.g. `apt-get install podman` or `dnf install podman`"
+	default:
+		return ""
+	}
 }
 
 func normalizeDoctorResult(result *doctorResult) {

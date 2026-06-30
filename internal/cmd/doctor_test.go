@@ -115,4 +115,66 @@ func TestDoctorHealthFixAndJSON(t *testing.T) {
 			t.Fatalf("doctor did not flag dual-file conflict; diagnostics=%+v", result.ConfigDiagnostics)
 		}
 	})
+
+	// Security-hardening spec (S1) Requirement 3 — a configured sandbox backend
+	// whose dependency is missing must surface as an advisory finding, never as
+	// a fatal one: SelectRunner already fails closed at verify time, so doctor
+	// only explains why ahead of time and must still exit healthy/0 otherwise.
+	t.Run("missing_sandbox_dependency_is_advisory_not_fatal", func(t *testing.T) {
+		root := initTestRoot(t)
+		runtime := doctorRuntime{Registry: integration.MustRegistry(), Probe: passingProbe}
+		if _, stderr, code := captureOutput(t, func() int {
+			return runDoctor(cli.ParseArgs([]string{"--fix"}), runtime)
+		}); code != core.ExitOK || stderr != "" {
+			t.Fatalf("baseline --fix: exit=%d stderr=%q", code, stderr)
+		}
+
+		// --fix scaffolds .specd/config.yml with `verify: sandbox: "none"`; flip
+		// it to "bwrap" so the missing-dependency path is exercised.
+		configPath := filepath.Join(root, ".specd", "config.yml")
+		content, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		updated := strings.Replace(string(content), `sandbox: "none"`, `sandbox: "bwrap"`, 1)
+		if updated == string(content) {
+			t.Fatalf("config.yml did not contain expected sandbox: \"none\" line: %s", content)
+		}
+		if err := os.WriteFile(configPath, []byte(updated), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("PATH", t.TempDir()) // bwrap deliberately absent
+
+		stdout, stderr, code := captureOutput(t, func() int {
+			return runDoctor(cli.ParseArgs([]string{"--json"}), runtime)
+		})
+		if code != core.ExitOK || stderr != "" {
+			t.Fatalf("exit=%d (want ExitOK — advisory must not gate), stderr=%q stdout=%s", code, stderr, stdout)
+		}
+		var result doctorResult
+		if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+			t.Fatal(err)
+		}
+		if result.Status != "healthy" {
+			t.Fatalf("status=%q, want healthy (advisory finding must not flip overall status)", result.Status)
+		}
+		var found *doctorCheck
+		for i := range result.Checks {
+			if result.Checks[i].Name == "verify-sandbox" {
+				found = &result.Checks[i]
+			}
+		}
+		if found == nil {
+			t.Fatalf("missing verify-sandbox check: %+v", result.Checks)
+		}
+		if found.Status != "advisory" {
+			t.Errorf("verify-sandbox status=%q, want advisory", found.Status)
+		}
+		if !strings.Contains(found.Detail, "bubblewrap") || !strings.Contains(found.Detail, "not on PATH") {
+			t.Errorf("verify-sandbox detail=%q, want it to name the missing dependency", found.Detail)
+		}
+		if found.Remediation == "" {
+			t.Errorf("verify-sandbox remediation empty, want an install hint")
+		}
+	})
 }
