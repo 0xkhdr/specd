@@ -14,9 +14,9 @@ Pick the guide that matches what you are doing.
 | 🤖 [Agent Integration](./agent-integration.md) | Wire a coding agent to `specd` — steering constitution, role personas, `inline`/`delegate` dispatch, context engineering, Brain/Pinky orchestration, and cross-spec programs. |
 | 🧩 [Custom Gates](./custom-gates.md) | Add project-specific checks as external subprocesses with a JSON stdin/stdout contract. |
 | 📦 [Spec Packs](./spec-packs.md) | Share a steering/role baseline as a declarative, file-only scaffold bundle (`specd init --pack`). |
-| 📐 [Open Spec Format](./open-spec-format.md) | The versioned JSON Schema for specd's on-disk artifacts (`specd schema` / `specd validate --schema`). |
+| 📐 [Open Spec Format](./open-spec-format.md) | The versioned JSON Schema for specd's on-disk artifacts (`specd check --schema` / `specd check --schema-only`). |
 | 🔌 [MCP Integration](./mcp-guide.md) | Guide for driving specd via Model Context Protocol clients (Cursor, Claude Desktop). |
-| 📊 [Dashboard](./dashboard.md) | Browser-native read-only dashboard served by the binary (`specd serve`) — routes, live SSE updates, network safety, VS Code migration. |
+| 📊 [Dashboard](./dashboard.md) | Browser-native read-only dashboard served by the binary (`specd report --serve`) — routes, live SSE updates, network safety, VS Code migration. |
 | 🐙 [GitHub Action](./github-action.md) | Run the gates on a PR and upsert a deterministic summary comment (`specd report --pr-summary`). |
 | ⚠️ [Troubleshooting](./troubleshooting.md) | Resolve blocks, lock contention, CAS conflicts, and verify sandbox failures. |
 | 🛠️ [Contributor Guide](./contributor-guide.md) | Hack on `specd` itself — codebase walkthrough, the concurrency/durability model, parser internals, and extension recipes. |
@@ -29,6 +29,6 @@ Pick the guide that matches what you are doing.
 - **"Why is my spec gated?"** → [Validation Gates](./validation-gates.md) and [Troubleshooting](./troubleshooting.md)
 - **Running parallel subagents?** → [Agent Integration → Subagent Coordination](./agent-integration.md#subagent-coordination-modes)
 - **Orchestrating autonomous agents (Brain/Pinky)?** → [Agent Integration → Brain/Pinky Orchestration](./agent-integration.md#brainpinky-orchestration)
-- **Live dashboard / event stream?** → `specd serve` and `specd watch` ([Command Reference](./command-reference.md#inspection-commands))
+- **Live dashboard / event stream?** → `specd report --serve` and `specd report --watch` ([Command Reference](./command-reference.md#inspection-commands))
 - **Driving specd from an MCP client?** → [MCP Integration Guide](./mcp-guide.md)
 - **Adding a command or gate?** → [Contributor Guide → Extending the CLI](./contributor-guide.md#extending-the-cli)

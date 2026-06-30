@@ -16,13 +16,13 @@ type ArtifactChange struct {
 	Status string `json:"status"` // "added" | "modified" | "deleted" | "renamed"
 }
 
-// RunDiff shows how a spec's on-disk artifacts changed between two git refs. It
+// runDiff shows how a spec's on-disk artifacts changed between two git refs. It
 // is strictly read-only — a thin, deterministic wrapper over `git diff
 // --name-status` scoped to the spec directory. `--from` is required; `--to`
 // defaults to the working tree. Bad refs or a non-git repo are reported as
 // errors, never panics, and a spec with no changes is an empty (not failing)
 // result. Text by default; a typed JSON object under SPECD_JSON.
-func RunDiff(args cli.Args) int {
+func runDiff(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd diff <slug> --from <ref> [--to <ref>]")
 	if !ok {
 		return code

@@ -50,7 +50,7 @@ specd init --pack https://example.com/pack.json --sha256 <hex>   # remote, pinne
 - An **http(s) URL** is a remote pack and **must** carry a pinned `--sha256`
   digest. The bytes are downloaded (bounded to 1 MiB), hashed, and compared
   before parsing — on any mismatch, missing pin, or non-200 response, **nothing
-  is written**. This mirrors `specd update`'s SHA256SUMS contract.
+  is written**. This mirrors `scripts/install.sh --force`'s SHA256SUMS contract.
 
 ## Apply semantics (transactional)
 

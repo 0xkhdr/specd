@@ -94,7 +94,7 @@ This guide helps developers and AI agents diagnose and resolve issues, validatio
 
 ## 5. Onboarding & MCP Integration
 
-Start with `specd doctor` — it separates the three failure layers (scaffold, MCP
+Start with `specd init --repair` — it separates the three failure layers (scaffold, MCP
 server, host registration) and prints a remediation command for each. Add `--json`
 for machine output, `--fix` to apply safe project-scoped repairs.
 
@@ -116,7 +116,7 @@ for machine output, `--fix` to apply safe project-scoped repairs.
 * **Cause**: The host needs a restart/reload to pick up a new MCP server, or the
   server failed to start. specd never restarts the host for you.
 * **Remediation**:
-  * Run `specd doctor` to confirm the MCP handshake passes server-side.
+  * Run `specd init --repair` to confirm the MCP handshake passes server-side.
   * Reload/restart the host (e.g. VS Code window reload; enable the server in
     Cursor's Tools & MCP). Trust/approval prompts are host-controlled.
 
@@ -144,7 +144,7 @@ for machine output, `--fix` to apply safe project-scoped repairs.
 * **Cause**: The host is running an older `specd` binary, has not restarted after an
   upgrade, or connected to a different project/binary than expected.
 * **Remediation**:
-  * Run `specd doctor --json` and confirm tool discovery includes `specd_brain`
+  * Run `specd init --repair --json` and confirm tool discovery includes `specd_brain`
     and `specd_pinky`.
   * Restart/reload the MCP host. Tool lists are fixed for the MCP process
     lifetime (`listChanged: false`).

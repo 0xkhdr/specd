@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -34,7 +35,7 @@ func callIntent(t *testing.T, name string, arguments map[string]any) (string, cl
 
 // TestIntentToolTranslation asserts each intent tool (GAP-5) routes to the right
 // underlying command + argv, that --json is always forced, and that sane
-// defaults (planning via `brain run`, --bootstrap) and goal→title wiring hold.
+// defaults (planning via `brain start --auto-step`, --bootstrap) and goal→title wiring hold.
 func TestIntentToolTranslation(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -47,39 +48,40 @@ func TestIntentToolTranslation(t *testing.T) {
 			name:    "brain_orchestrate",
 			args:    map[string]any{"spec": "auth", "goal": "Add login"},
 			wantCmd: "brain",
-			wantPos: []string{"run", "auth"},
+			wantPos: []string{"start", "auth"},
 			wantFlags: map[string]string{
-				"bootstrap": "true", "title": "Add login", "json": "true",
+				"auto-step": "true", "bootstrap": "true", "title": "Add login", "json": "true",
 			},
 		},
 		{
 			name:    "brain_orchestrate",
 			args:    map[string]any{"spec": "auth", "worker_cmd": "run-worker", "approval_policy": "session", "max_steps": "12"},
 			wantCmd: "brain",
-			wantPos: []string{"run", "auth"},
+			wantPos: []string{"start", "auth"},
 			wantFlags: map[string]string{
-				"worker-cmd": "run-worker", "approval-policy": "session", "max-steps": "12", "bootstrap": "true",
+				"auto-step": "true", "worker-cmd": "run-worker", "approval-policy": "session", "max-steps": "12", "bootstrap": "true",
 			},
 		},
 		{
 			name:    "brain_orchestrate",
 			args:    map[string]any{"spec": "auth", "no_bootstrap": true},
 			wantCmd: "brain",
-			wantPos: []string{"run", "auth"},
+			wantPos: []string{"start", "auth"},
+			wantFlags: map[string]string{"auto-step": "true"},
 		},
 		{
 			name:      "brain_status",
 			args:      map[string]any{"session": "S1"},
 			wantCmd:   "brain",
 			wantPos:   []string{"status"},
-			wantFlags: map[string]string{"session": "S1"},
+			wantFlags: map[string]string{"session": "S1", "verbose": "true"},
 		},
 		{
 			name:      "brain_status",
-			args:      map[string]any{"session": "S1", "program": true},
+			args:      map[string]any{"session": "S1", "program": true, "ledger": true},
 			wantCmd:   "brain",
 			wantPos:   []string{"status"},
-			wantFlags: map[string]string{"session": "S1", "program": "true"},
+			wantFlags: map[string]string{"session": "S1", "program": "true", "ledger": "true"},
 		},
 		{
 			name:    "brain_approve",
@@ -149,6 +151,48 @@ func TestIntentToolTranslation(t *testing.T) {
 
 // TestIntentToolValidation asserts missing required arguments and wrong-typed
 // arguments fail closed as MCP invalid-params errors instead of dispatching.
+func TestIntentAliasResolve(t *testing.T) {
+	commandMeta := map[string]core.CommandMeta{}
+	for _, c := range core.Commands {
+		commandMeta[c.Command] = c
+	}
+	for _, it := range intentTools {
+		args := map[string]any{}
+		for _, a := range it.args {
+			if !a.required {
+				continue
+			}
+			switch a.typ {
+			case "boolean":
+				args[a.name] = true
+			default:
+				args[a.name] = "test-value"
+			}
+		}
+		if it.name == "brain_orchestrate" {
+			args["spec"] = "auth"
+		}
+		if strings.HasPrefix(it.name, "brain_") && it.name != "brain_orchestrate" && it.name != "brain_approve" {
+			args["session"] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		}
+		if it.name == "brain_approve" {
+			args["spec"] = "auth"
+		}
+
+		cmd, _, err := it.translate(args)
+		if err != nil {
+			t.Fatalf("%s translate failed: %v", it.name, err)
+		}
+		meta, ok := commandMeta[cmd]
+		if !ok {
+			t.Fatalf("%s resolved to unknown command %q", it.name, cmd)
+		}
+		if meta.Hidden || meta.RemovedIn != "" {
+			t.Fatalf("%s resolved to hidden/removed command %q", it.name, cmd)
+		}
+	}
+}
+
 func TestIntentToolValidation(t *testing.T) {
 	cases := []struct {
 		name string

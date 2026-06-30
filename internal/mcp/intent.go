@@ -8,8 +8,8 @@ import "fmt"
 // itself. These intent tools wrap the same deterministic primitives with sane
 // policy defaults so a model gets one clear affordance per intent:
 //
-//	brain_orchestrate — start/resume driving a spec to delivery (wraps `brain run`)
-//	brain_status      — read a session's current decision/state (wraps `brain status`)
+//	brain_orchestrate — start/resume driving a spec to delivery (wraps `brain start --auto-step`)
+//	brain_status      — read a session's current decision/state (wraps `brain status --verbose` or `--ledger`)
 //	brain_approve     — clear an approval gate / advance a planning phase (wraps `approve`)
 //	brain_pause       — pause an orchestration session (wraps `brain pause`)
 //	brain_resume      — resume a paused session (wraps `brain resume`)
@@ -141,7 +141,7 @@ var intentTools = []intentTool{
 			if !ok {
 				return "", nil, fmt.Errorf("brain_orchestrate requires a 'spec' slug")
 			}
-			argv := []string{"run", spec}
+			argv := []string{"start", spec, "--auto-step"}
 
 			noBootstrap, _, err := argBool(args, "no_bootstrap")
 			if err != nil {
@@ -177,7 +177,11 @@ var intentTools = []intentTool{
 		name:        "brain_status",
 		description: "Report the current state of an orchestration session: its latest deterministic decision, phase, and whether it is running, awaiting approval, escalated, or terminal. Read-only.",
 		readOnly:    true,
-		args:        sessionControlArgs,
+		args: []intentArg{
+			{name: "session", typ: "string", description: "Orchestration session id to act on.", required: true},
+			{name: "program", typ: "boolean", description: "Target a program (cross-spec) session instead of a single spec."},
+			{name: "ledger", typ: "boolean", description: "Show the session context ledger instead of the scheduling explanation."},
+		},
 		translate: func(args map[string]any) (string, []string, error) {
 			session, ok, err := argString(args, "session")
 			if err != nil {
@@ -187,6 +191,15 @@ var intentTools = []intentTool{
 				return "", nil, fmt.Errorf("brain_status requires a 'session' id")
 			}
 			argv := []string{"status", "--session", session}
+			ledger, _, err := argBool(args, "ledger")
+			if err != nil {
+				return "", nil, err
+			}
+			if ledger {
+				argv = append(argv, "--ledger")
+			} else {
+				argv = append(argv, "--verbose")
+			}
 			program, _, err := argBool(args, "program")
 			if err != nil {
 				return "", nil, err
@@ -259,67 +272,6 @@ var intentTools = []intentTool{
 		description: "Cancel an orchestration session cooperatively. The session reaches a terminal state; evidence and lease invariants are preserved.",
 		args:        sessionControlArgs,
 		translate:   sessionControlTranslate("cancel"),
-	},
-	{
-		name:        "mode_get",
-		description: "Show a spec's effective execution mode (base | orchestrated), how it was chosen (origin), and whether the project has orchestration capability. Capability only permits orchestration; the spec's mode selects it.",
-		readOnly:    true,
-		args: []intentArg{
-			{name: "spec", typ: "string", description: "Spec slug to inspect.", required: true},
-		},
-		translate: func(args map[string]any) (string, []string, error) {
-			spec, ok, err := argString(args, "spec")
-			if err != nil {
-				return "", nil, err
-			}
-			if !ok {
-				return "", nil, fmt.Errorf("mode_get requires a 'spec' slug")
-			}
-			return "mode", []string{spec}, nil
-		},
-	},
-	{
-		name:        "mode_set",
-		description: "Set a spec's execution mode. 'orchestrated' opts the spec into Brain/Pinky and requires project orchestration capability (fails closed otherwise, emitting the enabling command); 'base' opts back out (refused while a Brain session is active). Never escalate without an explicit user request.",
-		args: []intentArg{
-			{name: "spec", typ: "string", description: "Spec slug to change.", required: true},
-			{name: "mode", typ: "string", description: "Target execution mode.", required: true, enum: []string{"base", "orchestrated"}},
-		},
-		translate: func(args map[string]any) (string, []string, error) {
-			spec, ok, err := argString(args, "spec")
-			if err != nil {
-				return "", nil, err
-			}
-			if !ok {
-				return "", nil, fmt.Errorf("mode_set requires a 'spec' slug")
-			}
-			mode, ok, err := argString(args, "mode")
-			if err != nil {
-				return "", nil, err
-			}
-			if !ok {
-				return "", nil, fmt.Errorf("mode_set requires a 'mode' (base|orchestrated)")
-			}
-			return "mode", []string{spec, "--set", mode}, nil
-		},
-	},
-	{
-		name:        "mode_recommend",
-		description: "Compute a deterministic, advisory execution-mode recommendation for a spec from on-disk countable facts (task count, wave width, distinct roles, cross-spec edges, token estimate). The verdict is userDecides:true — surface it as a suggestion and let the user choose; never switch automatically.",
-		readOnly:    true,
-		args: []intentArg{
-			{name: "spec", typ: "string", description: "Spec slug to evaluate.", required: true},
-		},
-		translate: func(args map[string]any) (string, []string, error) {
-			spec, ok, err := argString(args, "spec")
-			if err != nil {
-				return "", nil, err
-			}
-			if !ok {
-				return "", nil, fmt.Errorf("mode_recommend requires a 'spec' slug")
-			}
-			return "mode", []string{spec, "--recommend"}, nil
-		},
 	},
 }
 

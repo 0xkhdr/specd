@@ -24,7 +24,7 @@ no files outside `.specd/` in target repos. Zero runtime dependencies (Go stdlib
   an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, `SPECD_*`), NUL
   bytes are rejected, and the command + cwd are printed before running.
 - Spec slugs are path-validated (`^[a-z0-9][a-z0-9-]*$`) — no traversal.
-- `specd update` and `install.sh` verify a release `SHA256SUMS` digest before
+- `scripts/install.sh --force` and `install.sh` verify a release `SHA256SUMS` digest before
   replacing any binary and **fail closed** on mismatch (`install.sh
   --no-verify` opts out loudly).
 - `SPECD_*` int env vars go through `core.EnvInt` (clamp + one warning).

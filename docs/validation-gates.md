@@ -142,7 +142,7 @@ every `verify:` line and every env var as hostile until validated.
 - **Path inputs.** Spec slugs are validated against `^[a-z0-9][a-z0-9-]*$`
   (`internal/core/slug.go`), so `..`, `/`, `\`, and leading `-` are rejected —
   no path traversal.
-- **Self-update / install.** `specd update` and `install.sh` download
+- **Self-update / install.** `scripts/install.sh --force` and `install.sh` download
   `SHA256SUMS` from the same release and verify the archive digest before
   replacing any binary. Both **fail closed** on a missing or mismatched
   checksum. `install.sh --no-verify` skips the check with a loud warning.

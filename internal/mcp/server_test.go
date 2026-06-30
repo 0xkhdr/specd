@@ -337,10 +337,10 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Errorf("initialize serverInfo = %v", init["serverInfo"])
 	}
 
-	// tools/list — parity with non-meta command count (R2) plus intent tools.
+	// tools/list — parity with non-hidden, non-meta command count (R2) plus intent tools.
 	wantTools := mcp.IntentToolCount
 	for _, c := range core.Commands {
-		if c.Command != "help" && c.Command != "version" && c.Command != "mcp" {
+		if c.Command != "help" && c.Command != "version" && c.Command != "mcp" && !c.Hidden {
 			wantTools++
 		}
 	}

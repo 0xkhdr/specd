@@ -30,9 +30,9 @@ func TestNewDefaultsToBase(t *testing.T) {
 		t.Errorf("EffectiveMode = %q, want base", st.EffectiveMode())
 	}
 
-	res := h.RunExpect(core.ExitOK, "mode", "auth")
-	if !strings.Contains(res.Out(), "base") {
-		t.Errorf("mode show should report base, got: %s", res.Out())
+	res := h.RunExpect(core.ExitOK, "status", "auth")
+	if !strings.Contains(res.Out(), "mode: base") {
+		t.Errorf("status should report mode base, got: %s", res.Out())
 	}
 }
 
@@ -53,25 +53,24 @@ func TestNewOrchestratedRequiresCapability(t *testing.T) {
 	}
 }
 
-func TestModeSetOrchestratedFailsClosedWithoutCapability(t *testing.T) {
-	h := testharness.New(t)
-	h.RunExpect(core.ExitOK, "new", "auth")
-	res := h.RunExpect(core.ExitGate, "mode", "auth", "--set", "orchestrated")
-	if !strings.Contains(res.Out(), "specd init --orchestration") {
-		t.Errorf("expected enabling-command remediation, got: %s", res.Out())
-	}
-	if h.State("auth").Raw().EffectiveMode() != core.ModeBase {
-		t.Error("spec must stay base after a refused --set")
-	}
-}
+// The `mode --set` set/clear and fail-closed behaviors are now exercised through
+// the survivor `status --set-mode` entry point by TestStatusSetModeParity and
+// TestStatusSetModeFailsClosedWithoutCapability below; the legacy `mode` alias
+// itself is guarded by registry_sunset_test.go (warn + functional during grace).
 
-func TestModeSetRecordsAndBumpsRevision(t *testing.T) {
+// TestStatusSetModeParity is the Phase 2 survivor-parity guard: the recovered
+// `status <slug> --set-mode` / `--recommend` paths must behave identically to
+// the merged `mode` command, so retiring the `mode` alias drops no capability
+// (optimization-plan GAP-2). It mirrors the mode set/recommend assertions
+// through the survivor entry point.
+func TestStatusSetModeParity(t *testing.T) {
 	h := testharness.New(t)
 	enableOrchestration(t, h)
 	h.RunExpect(core.ExitOK, "new", "auth")
 	before := h.State("auth").Raw().Revision
 
-	h.RunExpect(core.ExitOK, "mode", "auth", "--set", "orchestrated")
+	// set-mode orchestrated records orchestrated/user and bumps the revision.
+	h.RunExpect(core.ExitOK, "status", "auth", "--set-mode", "orchestrated")
 	st := h.State("auth").Raw()
 	if st.ExecutionMode != core.ModeOrchestrated || st.ModeOrigin != core.OriginUser {
 		t.Errorf("got mode=%q origin=%q, want orchestrated/user", st.ExecutionMode, st.ModeOrigin)
@@ -81,10 +80,32 @@ func TestModeSetRecordsAndBumpsRevision(t *testing.T) {
 	}
 
 	// Opting back out clears the fields so Base state stays byte-stable.
-	h.RunExpect(core.ExitOK, "mode", "auth", "--set", "base")
+	h.RunExpect(core.ExitOK, "status", "auth", "--set-mode", "base")
 	back := h.State("auth").Raw()
 	if back.ExecutionMode != "" || back.ModeOrigin != "" {
 		t.Errorf("switching to base should clear fields, got mode=%q origin=%q", back.ExecutionMode, back.ModeOrigin)
+	}
+
+	// --recommend emits the advisory verdict (read-only, never mutates).
+	res := h.RunExpect(core.ExitOK, "status", "auth", "--recommend", "--json")
+	for _, want := range []string{`"recommended"`, `"userDecides": true`} {
+		if !strings.Contains(res.Stdout, want) {
+			t.Errorf("recommend JSON missing %q; got: %s", want, res.Stdout)
+		}
+	}
+}
+
+// TestStatusSetModeFailsClosedWithoutCapability mirrors the mode fail-closed
+// path through the survivor flag.
+func TestStatusSetModeFailsClosedWithoutCapability(t *testing.T) {
+	h := testharness.New(t)
+	h.RunExpect(core.ExitOK, "new", "auth")
+	res := h.RunExpect(core.ExitGate, "status", "auth", "--set-mode", "orchestrated")
+	if !strings.Contains(res.Out(), "specd init --orchestration") {
+		t.Errorf("expected enabling-command remediation, got: %s", res.Out())
+	}
+	if h.State("auth").Raw().EffectiveMode() != core.ModeBase {
+		t.Error("spec must stay base after a refused --set-mode")
 	}
 }
 
@@ -106,7 +127,7 @@ func TestBrainRefusesBaseSpec(t *testing.T) {
 func TestModeRecommendNeutralBeforeTasks(t *testing.T) {
 	h := testharness.New(t)
 	h.RunExpect(core.ExitOK, "new", "auth")
-	res := h.RunExpect(core.ExitOK, "mode", "auth", "--recommend", "--json")
+	res := h.RunExpect(core.ExitOK, "status", "auth", "--recommend", "--json")
 	for _, want := range []string{`"recommended": "base"`, `"confidence": "neutral"`, `"userDecides": true`} {
 		if !strings.Contains(res.Stdout, want) {
 			t.Errorf("recommend JSON missing %q; got: %s", want, res.Stdout)

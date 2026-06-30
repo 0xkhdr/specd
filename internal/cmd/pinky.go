@@ -22,6 +22,38 @@ func RunPinky(args cli.Args) int {
 	cfg := core.LoadConfig(root).Orchestration
 
 	switch args.Pos[0] {
+	case "status":
+		if args.Str("artifact") != "" || args.Str("task") != "" || args.Str("spec") != "" && args.Str("worker") != "" && args.Str("session") != "" && args.Str("task") != "" {
+			briefArgs := args
+			briefArgs.Pos = []string{"brief"}
+			return runPinkyBrief(root, cfg, briefArgs)
+		}
+		inboxArgs := args
+		inboxArgs.Pos = []string{"inbox"}
+		if inboxArgs.Str("session") == "" || inboxArgs.Str("worker") == "" {
+			return usageExit("usage: specd pinky status --session <id> --worker <id> [--spec <slug> (--task <id>|--artifact <name>)] [--json]")
+		}
+		inbox, err := core.ReadPinkyInbox(root, inboxArgs.Str("session"), inboxArgs.Str("worker"))
+		if err != nil {
+			return specdExit(err)
+		}
+		return printCommandResult(inboxArgs, inbox)
+	case "update":
+		updateArgs := args
+		switch {
+		case args.Str("text") != "":
+			updateArgs.Pos = []string{"query"}
+			return RunPinky(updateArgs)
+		case args.Str("percent") != "" && args.Str("message") == "":
+			updateArgs.Pos = []string{"checkpoint"}
+			return RunPinky(updateArgs)
+		case args.Str("percent") != "" || args.Str("message") != "":
+			updateArgs.Pos = []string{"progress"}
+			return RunPinky(updateArgs)
+		default:
+			updateArgs.Pos = []string{"heartbeat"}
+			return RunPinky(updateArgs)
+		}
 	case "claim":
 		if len(args.Pos) != 1 || args.Str("mission") == "" {
 			return usageExit("usage: specd pinky claim --mission <path|-> [--json]")

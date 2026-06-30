@@ -9,7 +9,11 @@ import (
 // Version is set at build time via -ldflags.
 var Version = "dev"
 
-func RenderHelp() string {
+func RenderHelp() string { return renderHelp(false) }
+
+func RenderHelpAll() string { return renderHelp(true) }
+
+func renderHelp(includeHidden bool) string {
 	categories := []struct {
 		key   string
 		label string
@@ -24,7 +28,10 @@ func RenderHelp() string {
 	for _, cat := range categories {
 		fmt.Fprintf(&b, "%s\n", cat.label)
 		for _, c := range Commands {
-			if c.Category == cat.key {
+			if c.DeprecatedIn != "" {
+				continue
+			}
+			if c.Category == cat.key && (includeHidden || !c.Hidden) {
 				bare := strings.TrimPrefix(c.Usage, "specd ")
 				line := "  " + bare
 				for len(line) < 32 {
@@ -84,6 +91,23 @@ func RenderCommandHelp(cmdName string) (string, error) {
 
 func RenderHelpJSON() (string, error) {
 	b, err := json.MarshalIndent(Commands, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func RenderHelpJSONAll(includeHidden bool) (string, error) {
+	commands := make([]CommandMeta, 0, len(Commands))
+	for _, c := range Commands {
+		if c.DeprecatedIn != "" {
+			continue
+		}
+		if includeHidden || !c.Hidden {
+			commands = append(commands, c)
+		}
+	}
+	b, err := json.MarshalIndent(commands, "", "  ")
 	if err != nil {
 		return "", err
 	}

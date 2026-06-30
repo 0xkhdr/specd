@@ -1,332 +1,105 @@
 # Command Reference
 
-Every `specd` command, its flags, and exit codes — plus environment variables and
-the YAML/legacy JSON config schema. This mirrors the embedded registry; run
-`specd help --json` for the machine-readable form.
+This reference lists the optimized command palette only: 16 daily workflow commands and 4 meta-hidden integration commands. It is generated from `specd help --all --json`; deprecated commands appear only in the migration appendix.
 
-## Contents
+## Cheat sheet
 
-- [Lifecycle commands](#lifecycle-commands)
-- [Execution commands](#execution-commands)
-- [Inspection commands](#inspection-commands)
-- [Format & history commands](#format--history-commands)
-- [Record commands](#record-commands)
-- [Program commands](#program-commands)
-- [Orchestration commands](#orchestration-commands)
-- [Meta commands](#meta-commands)
-- [Environment variables](#environment-variables)
-- [Argument grammar](#argument-grammar)
-- [Output streams](#output-streams)
-- [Exit code semantics](#exit-code-semantics)
-- [Config file](#config-file-specdconfigyml)
+| Command | One-sentence description |
+|---|---|
+| `specd init` | Scaffold `.specd/`, managed agent integration, repair, migration, packs, and orchestration defaults. |
+| `specd new` | Create a spec and optionally select orchestrated execution with `--orchestrated`. |
+| `specd status` | Show one-spec/all-spec progress, recorded mode, and the cross-spec frontier with `--program`. |
+| `specd context` | Print the phase-scoped briefing and budgeted LOAD-NOW manifest. |
+| `specd check` | Run validation gates or emit/validate the embedded schema with `--schema`/`--schema-only`. |
+| `specd approve` | Clear a human approval gate and ratchet the spec to the next phase. |
+| `specd next` | Show the next runnable task, all frontier tasks, or dispatch packets with `--dispatch`. |
+| `specd verify` | Run a task verification command or record per-criterion proof. |
+| `specd task` | Perform the evidence-gated task status transition and telemetry annotation. |
+| `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
+| `specd decision` | Append an architectural decision record to `decisions.md`. |
+| `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
+| `specd memory` | Add or promote a durable learning from a spec. |
+| `specd waves` | Render the task wave DAG, critical paths, and blockers. |
+| `specd brain` | Drive deterministic orchestration sessions and context checkpoints. |
+| `specd pinky` | Record worker claims, briefs, heartbeats, progress, queries, reports, blockers, and releases. |
+| `specd version` | Print the binary version. |
+| `specd help` | Show human help or dump the command registry JSON. |
+| `specd mcp` | Run the MCP server or print host configuration snippets. |
+| `specd fusion` | Emit hidden host bootstrap and binding-policy diagnostics. |
 
----
+## Daily workflow commands
 
-## Lifecycle commands
+| Command | Usage | Flags | Exit codes |
+|---|---|---|---|
+| `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--migrate] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --migrate, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
+| `specd new` | `specd new <slug> [--title "..."] [--orchestrated]` | --title, --orchestrated | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
+| `specd status` | `specd status [<slug>] [--all] [--program] [--json]` | --all, --program, --json | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd context` | `specd context <slug> [--json]` | --json | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd check` | `specd check <slug> [--schema-only] [--json] | specd check --schema` | --schema-only, --schema, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
+| `specd approve` | `specd approve <slug> [--json]` | --json | 0 Success, 1 Gate validation failed, 2 Usage error, 3 Spec not found |
+| `specd next` | `specd next <slug> [--all] [--dispatch] [--json]` | --all, --dispatch, --json | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd verify` | `specd verify <slug> <id>  |  specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence "..."` | --criterion, --status, --evidence, --revert-on-fail, --sandbox | 0 Success, 1 Verification failed, 2 Usage error, 3 Spec or task not found |
+| `specd task` | `specd task <slug> <id> --status <s> [--evidence "..."] [--reason "..."] [--force]` | --status, --evidence, --reason, --force, --unverified, --tokens, --cost | 0 Success, 1 Gate verification failed, 2 Usage error, 3 Spec or task not found |
+| `specd report` | `specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--serve|--watch|--history|--diff]` | --format, --out, --pr-summary, --serve, --watch, --history, --diff | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd decision` | `specd decision <slug> "<text>" [--supersedes <id>]` | --supersedes | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd midreq` | `specd midreq <slug> "<input>" --impact <low|medium|high|critical>` | --impact, --interpretation, --changes | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd memory` | `specd memory <slug> add|promote [flags]` | --key, --pattern, --body, --source, --criticality, --related, --force | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd waves` | `specd waves <slug> [--json]` | --json | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd brain` | `specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program] [--auto-step|--verbose|--ledger|--directive|--compact]` | --program, --auto-step, --verbose, --ledger, --compact, --directive, --session, --approval-policy, --max-workers, --max-retries, --timeout-seconds, --cost-limit, --worker-cmd, --bootstrap, --max-steps, --title, --worker, --spec, --task, --attempt, --action, --reason, --in-reply-to, --json | 0 Success, 1 Gate or validation failure, 2 Usage error, 3 Workspace or session not found |
+| `specd pinky` | `specd pinky <claim|status|update|report|block|release> ...` | --mission, --session, --worker, --spec, --task, --attempt, --artifact, --percent, --message, --reason, --text, --verification-ref, --summary, --changed-files, --git-head, --duration-ms, --host-tokens, --host-cost, --json | 0 Success, 1 Gate or validation failure, 2 Usage error, 3 Workspace or session not found |
 
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd init [--agent <auto\|all\|none\|codex\|claude-code\|cursor\|vscode>] [--scope <project\|global>] [--yes] [--non-interactive] [--dry-run] [--repair] [--refresh] [--json] [--verbose] [--force] [--list-packs] [--pack <name\|url> [--sha256 <hex>]] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline\|delegate>] [--orchestration-sandbox <none\|bwrap\|container>]` | Scaffold `.specd/` (steering, roles, skills) + `AGENTS.md`, then detect coding agents and install **project-scoped** MCP registration and verify it. `--agent auto` (default) configures the unambiguous host interactively, else scaffolds only; `--agent none` skips host config; `--scope global` needs `--yes`/consent; `--dry-run` previews mutations; `--repair`/`--refresh` restore/update managed assets; `--pack` applies a [spec pack](./spec-packs.md) (remote URL requires a pinned `--sha256`, fail-closed); `--orchestration` (defaults to `planning`) enables Brain/Pinky orchestration and sets the approval policy. | `0` ok, `1` write/config/handshake/partial failure, `2` usage / unavailable host, `3` operation needs an initialized root and none exists |
-| `specd doctor [--agent <name\|all>] [--json] [--fix]` | Diagnose scaffold integrity, MCP server handshake/`tools/list`, and host-registration health with remediation commands. `--fix` applies only safe, project-scoped, specd-owned repairs | `0` healthy, `1` a check failed, `2` usage |
-| `specd new <slug> [--title "..."] [--orchestrated]` | Create a spec with six artifact stubs (Base by default; `--orchestrated` records orchestrated mode and requires project orchestration capability) | `0` ok, `1` orchestration requested without capability, `2` usage, `3` no `.specd/` or spec exists |
-| `specd mode <slug> [--set base\|orchestrated] [--recommend] [--json]` | Show or set a spec's execution mode; `--recommend` emits a deterministic advisory verdict | `0` ok, `1` capability missing / session-active refusal, `2` usage, `3` spec not found |
-| `specd approve <slug> [--json]` | Clear approval gate / advance to the next phase (human gate) | `0` ok, `1` gates failed, `2` usage, `3` not found |
+## Meta-hidden commands
 
-## Execution commands
+Meta-hidden commands exist for hosts, integrations, and diagnostics; they are excluded from the default daily palette and from default MCP tool discovery unless explicitly requested.
 
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd next <slug> [--all] [--json]` | Get the next runnable task, or the entire frontier with `--all` | `0` ok, `2` usage, `3` not found |
-| `specd dispatch <slug> [--inline-roles] [--json]` | Emit ready-to-run subagent packets for the frontier. Each packet carries a budgeted `contextManifest`; role prompts are shared once via a top-level `assets` map (`role/<name>` -> path) instead of inlined per packet. `--inline-roles` restores full-text `rolePrompt` in every packet for hosts that cannot resolve asset paths | `0` ok, `2` usage, `3` not found |
-| `specd verify <slug> <id> [--sandbox none\|bwrap\|container] [--revert-on-fail]` | Run the task's `verify:` command and record proof (exit code, output tail, duration, git HEAD, changed files, optional coverage). `--sandbox` overrides `verify.sandbox` for this run (fail-closed if the isolator is absent); `--revert-on-fail` stashes the working tree (recoverable) on a non-zero exit instead of leaving it dirty | `0` pass, `1` fail, `2` usage, `3` not found |
-| `specd verify <slug> --criterion <r>.<n> --status pass\|fail --evidence "..."` | Record a per-acceptance-criterion proof (feeds the [acceptance gate](./validation-gates.md)) | `0` ok, `1` fail, `2` usage, `3` not found |
-| `specd task <slug> <id> --status <s> [--evidence "..."] [--reason "..."] [--unverified] [--force] [--tokens <n>] [--cost <n>]` | Evidence-gated status flip; dual-writes `tasks.md` + `state.json`. `--tokens`/`--cost` annotate telemetry (stored, never computed) | `0` ok, `1` rejected, `2` usage, `3` not found |
+| Command | Usage | Flags | Exit codes |
+|---|---|---|---|
+| `specd version` | `specd version [--json]` | --json | 0 Success |
+| `specd help` | `specd help [command]` | --all, --json | 0 Success, 2 Usage error (unknown command) |
+| `specd mcp` | `specd mcp [--root <path>] [--spec <slug>] [--config <host>]` | --root, --spec, --config | 0 Success (stream closed or config printed), 1 Server error, 2 Usage error |
+| `specd fusion` | `specd fusion bootstrap [--include-schema] [--json] | specd fusion policy [<slug>] [--expect-config-digest <sha256>] [--json]` | --include-schema, --expect-config-digest, --json | 0 Success, 1 Policy violation or digest mismatch, 2 Usage error, 3 .specd/ or spec not found |
 
-> On verify timeout, the **task's recorded** exit code is `124` and the record is
-> marked `verified: false`. The `specd verify` process itself still exits `1`.
+## Merged behavior homes
 
-## Inspection commands
-
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd status [<slug>] [--json]` | Progress board for a spec, or list all specs | `0` ok, `2` usage, `3` not found |
-| `specd check <slug> [--json]` | Run the validation gates on a spec (7 core, plus opt-in acceptance/scope/custom gates) | `0` pass, `1` fail, `2` usage, `3` not found |
-| `specd waves <slug> [--json]` | Wave graph, critical paths, blockers | `0` ok, `2` usage, `3` not found |
-| `specd context <slug> [--json]` | Phase briefing + budgeted `LOAD NOW` manifest (modes, measured `~tokens`, `est X / budget Y`) + signals. `--json` adds an additive `contextManifest` block (`estimatedTokens`, `budget`, `items`) | `0` ok, `2` usage, `3` not found |
-| `specd report <slug> [--format md\|html] [--out <path>] [--pr-summary]` | Generate a snapshot report. `--pr-summary` emits a deterministic, network-free PR summary (Markdown, or JSON under `SPECD_JSON`) — wave/task progress, gate status, and the commit↔task link map | `0` ok, `2` usage, `3` not found |
-| `specd serve <slug> [--addr 127.0.0.1:8765]` | Read-only HTTP dashboard: same HTML as `report --format html` at `GET /`, JSON `ReportData` at `GET /api/report`. No mutating routes | `0` ok, `2` usage, `3` not found |
-| `specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]` | Stream a `FrontierEvent` whenever a spec's runnable task set changes. Read-only. Default NDJSON on stdout; `--sse` serves Server-Sent Events at `GET /events`; `--webhook` POSTs each event with bounded retry/backoff; `--once` does a single pass | `0` ok, `2` usage, `3` not found |
-
-See [Validation Gates](./validation-gates.md) for what each `check` gate enforces.
-
-## Format & history commands
-
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd schema [--version <v>]` | Emit the embedded, versioned [open spec format](./open-spec-format.md) JSON Schema to stdout. Needs no `.specd/` root | `0` ok, `1` unknown version, `2` usage |
-| `specd validate <slug> --schema [--version <v>] [--json]` | Validate a spec's `state.json` against the embedded JSON Schema (structural/format conformance, independent of the semantic gates). Read-only | `0` conformant, `1` violations, `2` usage, `3` not found |
-| `specd replay <slug> [--acp-session <id>]` | Reconstruct a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from on-disk audit data, or replay events for a specific orchestration session. Text, or typed JSON array under `SPECD_JSON` | `0` ok, `2` usage, `3` not found |
-| `specd diff <slug> --from <ref> [--to <ref>] [--json]` | Show how a spec's artifacts changed between two git refs — a read-only `git diff --name-status` scoped to the spec dir. `--to` defaults to the working tree. Under `--json`, returns structured file-diff lists. | `0` ok, `1` git diff failed, `2` usage, `3` not found |
-
-## Record commands
-
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd decision <slug> "..." [--supersedes <id>]` | Append an ADR to `decisions.md`. `--supersedes` deprecates and references an existing ADR ID. | `0` ok, `2` usage, `3` not found |
-| `specd midreq <slug> "..." --impact <low\|medium\|high\|critical> [--interpretation "..."] [--changes "..."]` | Log a mid-flight requirement update. `--interpretation` specifies the analyzed feedback; `--changes` lists implementation updates. | `0` ok, `2` usage, `3` not found |
-| `specd memory <slug> add --key "..." --pattern "..." --body "..." --source "T1" --criticality important [--related "..."] [--force]` | Record a learning. `--criticality` specifies severity (`important`, `critical`); `--source` cites task/log source; `--pattern` matches recurrence. | `0` ok, `2` usage, `3` not found |
-| `specd memory <slug> promote --key "..."` | Promote a learning to global steering. | `0` ok, `2` usage, `3` not found |
-
-## Program commands
-
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd program [status] [--json]` | Render the spec-level DAG + runnable frontier (JSON for orchestrators) | `0` ok, `2` usage |
-| `specd program link <spec> --on <dep>` | Declare an inter-spec dependency | `0` ok, `2` usage |
-| `specd program unlink <spec> --on <dep>` | Remove an inter-spec dependency | `0` ok, `2` usage |
-
-Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
-
-## Orchestration commands
-
-`specd brain` and `specd pinky` are deterministic controllers over the same
-state, locks, gates, verification records, and ACP file transport as the normal
-CLI. They do **not** call an LLM and do **not** spawn provider-specific agents;
-the host remains responsible for executing Pinky missions.
-
-MCP exposes these commands as generated tools, not MCP-only handlers:
-`specd_brain` receives `brain` subcommands in `args`, and `specd_pinky` receives
-`pinky` subcommands in `args`. Every call is bounded. Use repeated `status` and
-`step` calls for polling/reconciliation; do not expect one MCP request to wait
-for a worker lifecycle to finish.
-
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd brain start <slug> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--session <id>] [--cost-limit <usd>] [--compaction-policy <none\|phase\|budget\|both>] [--compaction-threshold <0..1>] [--json]` | Start one spec orchestration session and advance it by one step. Emits one deterministic decision: dispatch, wait, request approval, retry, cancel, escalate, compact, or complete-session | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
-| `specd brain run <slug> [--approval-policy <policy>] [--worker-cmd <cmd>] [--bootstrap] [--max-steps <n>] [--session <id>] [--json]` | Run the reference single-spec driver loop. Automatically loops step, dispatches missions to a host command, and blocks/reconciles to completion. | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
-| `specd brain step <slug> --session <id> --approval-policy <manual\|planning\|session> --max-workers <n> --max-retries <n> --timeout-seconds <n> [--cost-limit <usd>] [--json]` | Advance an existing spec session by one bounded decision | same |
-| `specd brain status --session <id> [--json]` | Read persisted session state | `0` ok, `1` invalid/missing session, `2` usage |
-| `specd brain why --session <id> [--json]` | Explain the latest replayable Brain decision for a session | `0` ok, `1` invalid/missing session, `2` usage |
-| `specd brain directive --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --action <continue\|retry\|cancel\|reassign\|escalate> --reason <text> [--in-reply-to <message-id>] [--json]` | Send a bounded Brain directive to one active Pinky lease, usually in reply to a Pinky query | same |
-| `specd brain pause\|resume\|cancel --session <id> [--json]` | Persist cooperative session control. `cancel` records intent; later steps emit cancellation directives but never kill host processes | `0` ok, `1` invalid/terminal session, `2` usage |
-| `specd brain compact <slug> --session <id> [--reason <text>] [--json]` | Render + persist a phase summary and a `compacted:true` context-ledger checkpoint, bump the spec `Turn`, and emit a `context.compact` event. The host performs the real `/clear` and then replies with `brain step`. Session must be `running` | `0` ok, `1` invalid/non-running session, `2` usage, `3` not found |
-| `specd brain clear <slug> --session <id> [--json]` | Alias for `compact` with `--reason manual-clear` | same |
-| `specd brain ledger <slug> --session <id> [--json]` | Read-only print of the session context ledger: peak tokens, compaction points, and budget history. No LLM calls; `--json` is machine-parseable | `0` ok, `1` invalid/missing session, `2` usage, `3` not found |
-| `specd brain start --program [--session <id>] ... [--json]` / `specd brain step --program --session <id> ... [--json]` | Schedule child specs from the program DAG under the same explicit policy limits | same |
-| `specd brain run --program [--approval-policy <policy>] [--worker-cmd <cmd>] [--max-steps <n>] [--session <id>] [--json]` | Run the program reference driver loop across multiple dependent specs. | `0` ok, `1` policy/gate/session failure, `2` usage, `3` not found |
-| `specd brain status\|pause\|resume\|cancel --program --session <id> [--json]` | Read/control a parent program session | same |
-| `specd pinky claim --mission <path\|-> [--json]` | Host worker claims a Brain-issued mission under an ACP lease | `0` ok, `1` invalid/stale/duplicate claim, `2` usage, `3` not found |
-| `specd pinky brief --session <id> --worker <id> --spec <slug> (--task <id> [--attempt <n>] \| --artifact <name>) [--json]` | Render a paste-ready worker brief/prompt (or mission JSON under `--json`) for a dispatched task or authoring mission | `0` ok, `2` usage, `3` not found |
-| `specd pinky heartbeat --session <id> --worker <id> --attempt <n> [--json]` | Renew the worker lease before expiry | same |
-| `specd pinky progress --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --percent <0-100> --message <text> [--json]` | Record host-reported progress as ACP evidence; it is telemetry, not proof of completion | same |
-| `specd pinky query --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --text <question> [--json]` | Ask one bounded mid-task question without releasing the lease; Brain or the host answers with `brain directive` | same |
-| `specd pinky inbox --session <id> --worker <id> [--json]` | Read Brain directives addressed to a worker | same |
-| `specd pinky report --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --verification-ref <ref> --summary <text> [--changed-files <csv>] [--git-head <sha>] [--duration-ms <n>] [--host-tokens <n>] [--host-cost <usd>] [--json]` | Record terminal worker evidence. Completion is accepted only when it binds to a matching passing `specd verify` record and satisfies the task scope/evidence gates. Host-reported tokens/cost/duration are stored verbatim as telemetry, not proof | same |
-| `specd pinky block --session <id> --worker <id> --spec <slug> --task <id> --attempt <n> --reason <text> [--json]` | Record a worker blocker for Brain reconciliation | same |
-| `specd pinky release --session <id> --worker <id> --attempt <n>` | Release a claim idempotently | same |
-
-### Context compaction & the token ledger
-
-Long orchestrated sessions accrete planning context the host cannot shed on its
-own. The Brain manages this with a persistent **context ledger** and a
-**compaction** primitive:
-
-- **Manual:** `specd brain compact` / `clear` write a phase summary
-  (`.specd/runtime/sessions/<id>/compact-<phase>-<turn>.md`) and append a
-  `compacted:true` ledger checkpoint. `specd brain ledger` reads it back.
-- **Automatic** (via `--compaction-policy`): `phase` compacts at a planning
-  ratchet (design→tasks | tasks→executing) or on entering `verifying`; `budget`
-  compacts when the last manifest estimate reaches `budget × threshold`
-  (set with `--compaction-threshold`, in `[0,1]`); `both` enables both; `none`
-  (default) disables it. The decision engine then emits a `compact` decision.
-- **Host contract:** a `compact` decision means the host runs the real `/clear`,
-  retaining only the summary file, then replies with `specd brain step`. Each
-  compaction emits a `context.compact` event visible via `specd replay`.
-
-## Meta commands
-
-| Command | Description | Exit codes |
-|---|---|---|
-| `specd update [--force]` | Self-update to the latest release | `0` ok, `1` failed, `2` usage |
-| `specd uninstall [--force] [--dry-run] [--json]` | Remove the install dir, the `~/.local/bin/specd` link, and the `# specd` PATH lines from shell rc files (backed up). A bare invocation only previews; `--force` actually removes. Project-local `.specd/` dirs are always preserved | `0` ok, `1` failed, `2` usage |
-| `specd mcp [--root <path>] [--http [<addr>]] [--config <host>]` | Run the [MCP](https://modelcontextprotocol.io) server (JSON-RPC 2.0), exposing every command as an MCP tool. Default: stdio transport (no network). `--http [<addr>]` starts HTTP/SSE on loopback (default `127.0.0.1:8765`); bare `--http` uses the default address. `--config <host>` prints a ready-to-paste config snippet and exits without starting a server. Stdlib-only, no LLM calls | `0` clean exit, `1` server error or bind failure, `2` usage |
-| `specd version` | Show version | `0` ok |
-| `specd help [command] [--json]` | Show help / dump the JSON command registry | `0` ok, `2` unknown command |
-
-> **`specd update` verifies before replacing.** It downloads the release
-> `SHA256SUMS`, checks the archive digest, and **fails closed** on mismatch — the
-> same filename `install.sh` and `.goreleaser.yml` use.
->
-> **Windows limitation:** `specd update` cannot replace the running `specd.exe`
-> in place (Windows locks in-use executables). On Windows, reinstall from a fresh
-> download instead. All other commands work normally. See TESTING.md.
-
----
-
-## Environment variables
-
-| Variable | Default | Effect |
-|---|---|---|
-| `SPECD_JSON` | `0` | Emit structured JSON for all commands (same as the `--json` flag) |
-| `SPECD_LOCK_TIMEOUT_MS` | `5000` | Max wait for a spec advisory lock |
-| `SPECD_LOCK_STALE_MS` | `30000` | Age at which an orphaned `.lock` file is auto-reclaimed |
-| `SPECD_VERIFY_TIMEOUT_MS` | `600000` | Per-run timeout for `specd verify` |
-| `SPECD_VERIFY_SHELL` | `sh` | Shell executable used to run each `verify:` line and custom-gate command (always invoked as `<shell> -c "<command>"`). On Windows, `sh` or an equivalent bash-like shell must be in the `PATH` (e.g. from Git for Windows); native `cmd.exe` is not supported due to the hardcoded `-c` argument. |
-| `SPECD_WATCH_INTERVAL_MS` | `1000` | Poll interval for `specd watch` |
-| `SPECD_CUSTOM_GATE_TIMEOUT_MS` | — | Per-gate wall-clock budget for [custom gates](./custom-gates.md) |
-| `SPECD_SANDBOX_IMAGE` | — | Container image for `--sandbox container` ([verify sandboxing](../SECURITY.md)) |
-| `SPECD_CONFIG_FORMAT` | — | Optional config candidate filter: `yaml` uses `config.yml`/`config.yaml`; `json` uses legacy `config.json`; invalid values warn and fall back to normal lookup |
-| `SPECD_DEFAULT_VERIFY` | — | Final-layer override for `defaultVerify` / `defaults.verify_command` |
-| `SPECD_REPORT_FORMAT` | — | Final-layer override for `report.format` |
-| `SPECD_ROLES_SUBAGENT_MODE` | — | Final-layer override for `roles.subagentMode` |
-| `SPECD_GATES_TRACEABILITY` / `SPECD_GATES_ACCEPTANCE` / `SPECD_GATES_SCOPE` / `SPECD_GATES_CONTEXT_BUDGET` | — | Final-layer gate severity overrides |
-| `SPECD_MAX_CONTEXT_TOKENS` | — | Host context budget and final-layer override for `gates.maxContextTokens` |
-| `SPECD_VERIFY_SANDBOX` | — | Final-layer override for `verify.sandbox`; `specd verify --sandbox` still wins for one run |
-| `SPECD_ORCHESTRATION_ENABLED` / `SPECD_ORCHESTRATION_APPROVAL_POLICY` / `SPECD_ORCHESTRATION_MAX_WORKERS` / `SPECD_ORCHESTRATION_MAX_RETRIES` / `SPECD_ORCHESTRATION_SESSION_TIMEOUT_MINUTES` | — | Final-layer overrides for matching orchestration policy fields |
-| `SPECD_ORCHESTRATION_COMPACTION_POLICY` / `SPECD_ORCHESTRATION_COMPACTION_BUDGET_THRESHOLD` | — | Final-layer compaction policy overrides |
-| `SPECD_ORCHESTRATION_RESILIENCE_CHECKPOINT_ENABLED` / `SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_ENABLED` / `SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_MAX_AGE_MINUTES` | — | Final-layer resilience overrides |
-| `SPECD_REDIS_ADDR` / `SPECD_REDIS_PREFIX` | — | Redis state backend (only in the `specd_redis` tagged build) |
-| `SPECD_PG_DSN` / `SPECD_PG_DRIVER` | — | Postgres state backend (only in the `specd_postgres` tagged build) |
-| `NO_COLOR` | — | Disable ANSI colors |
-
-> The default binary links **no** DB/Redis driver; the Redis/Postgres backends
-> compile in only under the `specd_redis` / `specd_postgres` build tags.
-
-> The `--json` flag is equivalent to `SPECD_JSON=1` and is the recommended way to
-> request machine-readable output.
-
-## Argument grammar
-
-`specd` uses a small custom parser (`internal/cli/args.go`) — no Cobra/urfave
-(see [contributor guide](./contributor-guide.md) for the rationale). The grammar:
-
-- **Positionals** — any token not starting with `--` (e.g. the `<slug>` and
-  `<id>`). Order-significant.
-- **Value flags** — `--key value` *or* `--key=value`. The `=` form splits on the
-  first `=`, so `--evidence=a=b` yields `evidence` → `a=b`. Use the `=` form
-  whenever the value could be mistaken for a flag.
-- **Boolean flags** — registered in `booleanFlags` (`--force`, `--json`, `--all`,
-  `--unverified`, `--dry-run`, `--list-packs`, `--once`, `--pr-summary`,
-  `--revert-on-fail`, `--schema`). They take no value;
-  `--json status` keeps `status` as a positional. A test
-  (`TestBooleanFlagsRegistered`) asserts every `args.Bool(...)` flag used in
-  `internal/cmd` is registered, so a forgotten registration can never silently
-  consume the next token.
-
-A bare value flag with no following value (or followed by another `--flag`)
-resolves to `"true"`. A value that legitimately begins with `--` must use the
-`--key=--value` form.
-
-## Output streams
-
-One rule, so a consumer never has to guess where to read:
-
-- **Machine/result output → stdout.** Human-readable result lines and every
-  `--json` / `SPECD_JSON` response (emitted via `core.PrintJSON`) go to stdout.
-- **Diagnostics → stderr.** Gate-failure dumps (`fail  <loc>: <msg>`), the
-  trailing `✗ N violation(s)` summaries, and unknown-command errors go to stderr
-  via `core.Error` / the `errLine` helper. Inline status glyphs inside a result
-  table (e.g. `✗` marking a blocked spec in `specd program`) stay on stdout —
-  they are part of the result, not a diagnostic.
-
-Every JSON list field is a **non-nil** slice: arrays the agent parses always
-serialize as `[]`, never `null`. Genuinely-optional scalar/object fields may use
-`omitempty`.
+- Diagnostics and safe repair live under `specd init --repair`.
+- Legacy config conversion lives under `specd init --migrate`.
+- Execution mode is selected by `specd new --orchestrated` and observed through `specd status`.
+- Dispatch packets live under `specd next --dispatch`.
+- Schema emission and validation live under `specd check --schema` and `specd check --schema-only`.
+- HTML serving, frontier streaming, history replay, and spec diffs live under `specd report` flags.
+- Cross-spec program inspection lives under `specd status --program`; dependency authoring belongs in spec creation/planning.
+- Binary lifecycle operations use `scripts/install.sh` and `scripts/uninstall.sh`.
 
 ## Exit code semantics
 
-All commands return one of the `core.Exit*` constants (`internal/core/exit.go`)
-— never a bare literal. A single convention applies across every command, so
-scripted callers can branch on the code reliably:
+| Code | Meaning |
+|---|---|
+| `0` | Success / validation passed |
+| `1` | Gate, validation, verify, config, or policy failure |
+| `2` | Usage error |
+| `3` | `.specd/` root, spec, task, workspace, or session not found |
 
-| Code | Constant | Meaning |
-|---|---|---|
-| `0` | `ExitOK` | Success / validation passed |
-| `1` | `ExitGate` | Enforcement failure — a validation gate, `check`, or `verify` failed |
-| `2` | `ExitUsage` | Usage error / CLI argument error |
-| `3` | `ExitNotFound` | Root `.specd/` or spec slug not found |
+## Environment variables and config
 
-`ExitGate` (`1`) deliberately covers **both** "check found violations" and
-"verify failed": both are enforcement failures, and collapsing them keeps the
-contract simple. Distinguish the two by the command you invoked, not the code.
+Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global config → project config → `SPECD_*` overrides. Human-authored config is YAML v2 by default; legacy JSON is still read and can be upgraded with the optimized init migration flag.
 
-## Config file (`.specd/config.yml`)
+<!-- docs-lint: migration-appendix begin -->
+## Migration appendix
 
-Human-authored config is YAML v2 by default. Lookup and precedence are:
-
-1. embedded defaults
-2. global config (`$XDG_CONFIG_HOME/specd/config.yml`, then `.yaml`, then legacy `.json`; fallback `~/.specd.yml`, `.yaml`, `.json`)
-3. project config (`.specd/config.yml`, then `.specd/config.yaml`, then legacy `.specd/config.json`)
-4. final environment overrides (`SPECD_*` config vars above)
-
-Project values override global values field-by-field; list fields replace the lower layer. `specd doctor --json` and `specd fusion policy --json` include source diagnostics, including env var name and target field, without dumping secret values. Machine-owned files (`state.json`, `.specd/program.json`, runtime `session.json`, integration state) remain JSON.
-
-```yaml
-version: 2
-defaults:
-  verify_command: "npm test"
-  report_format: "md"
-  subagent_mode: "inline"
-  promotion_threshold: 3
-report:
-  format: "md"
-  auto_refresh_seconds: 0
-roles:
-  subagent_mode: "inline"
-gates:
-  traceability: "warn"
-  acceptance: "off"
-  scope: "off"
-  custom: []
-verify:
-  sandbox: "none"
-orchestration:
-  enabled: false
-  approval_policy: "manual"
-  worker_mode: "host"
-  max_workers: 4
-  max_retries: 2
-  session_timeout_minutes: 120
-  host_reported_cost_limit_usd: 0
-  transport:
-    kind: "file"
-    poll_interval_millis: 500
-    message_ttl_seconds: 3600
-    lease_seconds: 120
-    heartbeat_seconds: 30
-  program:
-    max_concurrent_specs: 2
-```
-
-Legacy `.specd/config.json` (schema v1 camelCase) remains supported and can be converted with `specd migrate config [--dry-run] [--global] [--json]`; migration writes deterministic YAML and renames the JSON source to `.bak`.
-
-| Key | Default | Bounds / values | Effect |
+| Old command | New home | Removed in | Notes |
 |---|---|---|---|
-| `defaultVerify` | `npm test` | string | Fallback `verify:` command; set it to your detected test command when bootstrapping steering (see the `specd-steering` skill) |
-| `report.format` | `md` | `md`, `html` | Default `specd report` format |
-| `report.autoRefreshSeconds` | `0` | integer | HTML report auto-refresh interval (`0` = off) |
-| `roles.subagentMode` | `inline` | `inline`, `delegate` | Subagent coordination. Delegation requires host support; specd never spawns provider agents itself |
-| `promotionThreshold` | `3` | integer | Recurrences before a learning is suggested for `memory promote` |
-| `gates.traceability` | `warn` | `warn`, `error` | Severity of the traceability gate |
-| `gates.acceptance` | `off` | `off`, `warn`, `error` | Per-criterion acceptance gate |
-| `gates.scope` | `off` | `off`/`*`, `warn`, `error` | Flags verify-time changed files outside a task's `files:` contract |
-| `gates.custom` | `[]` | list | External [custom gates](./custom-gates.md) (`{name, command, severity}`) run after the core pipeline |
-| `verify.sandbox` | `none` | `none`, `bwrap`, `container` | Isolation backend for `specd verify` (fail-closed if the isolator is absent). See [SECURITY.md](../SECURITY.md) |
-| `orchestration.enabled` | `false` | boolean | Opt-in switch for Brain/Pinky workflows. Fresh and legacy projects are disabled by default |
-| `orchestration.approvalPolicy` | `manual` | `manual`, `planning`, `session` | Approval authority. `manual` requires human approval at every approval gate. `planning` may advance requirements/design/tasks gates only. `session` may act inside the current orchestration session. No policy can clear high/critical mid-requirement gates; those remain human-only |
-| `orchestration.workerMode` | `host` | `host` only | Pinky missions are executed by the external host; specd performs no LLM/provider calls |
-| `orchestration.maxWorkers` | `4` | `1..64` | Concurrent worker lease budget |
-| `orchestration.maxRetries` | `2` | `0..10` | Retry budget for failed/reclaimed work |
-| `orchestration.sessionTimeoutMinutes` | `120` | `1..1440` | Session expiry used by Brain decisions |
-| `orchestration.hostReportedCostLimitUSD` | `0` | finite `>=0` | Optional budget over host-reported telemetry. `0` means no cost cap. Values are recorded verbatim and never priced by specd |
-| `orchestration.transport.kind` | `file` | `file` only | ACP transport backend |
-| `orchestration.transport.pollIntervalMillis` | `500` | `50..60000` | Recommended host polling interval |
-| `orchestration.transport.messageTTLSeconds` | `3600` | `60..86400` | ACP message freshness window |
-| `orchestration.transport.leaseSeconds` | `120` | `10..3600`, must be `<= messageTTLSeconds` | Worker lease duration |
-| `orchestration.transport.heartbeatSeconds` | `30` | `1..1200`, must be `< leaseSeconds` | Host heartbeat cadence |
-| `orchestration.program.maxConcurrentSpecs` | `2` | `1..64` | Parent program child-session concurrency |
+| `doctor` | `init --repair` | `v0.2.0` | `Health checks fold into init repair/refresh diagnostics.` |
+| `migrate` | `init --migrate` | `v0.2.0` | `Legacy config conversion is an init-time maintenance operation.` |
+| `mode` | `new --orchestrated / status` | `v0.2.0` | `Mode choice is made at creation; status reports recorded mode.` |
+| `dispatch` | `next --dispatch` | `v0.2.0` | `Frontier packet generation belongs to next.` |
+| `validate` | `check --schema-only` | `v0.2.0` | `Structural validation is a check gate variant.` |
+| `schema` | `check --schema` | `v0.2.0` | `Schema emission is a check metadata variant.` |
+| `serve` | `report --serve` | `v0.2.0` | `Live dashboard is a report view.` |
+| `watch` | `report --watch` | `v0.2.0` | `Frontier stream is a report view.` |
+| `replay` | `report --history` | `v0.2.0` | `Timeline replay is report history.` |
+| `diff` | `report --diff` | `v0.2.0` | `Spec artifact diffs are report snapshots.` |
+| `program` | `status --program` | `v0.2.0` | `Cross-spec frontier is a status view.` |
+| `update` | `scripts/install.sh --force` | `v0.2.0` | `Self-update moved to the install script.` |
+| `uninstall` | `scripts/uninstall.sh` | `v0.2.0` | `Removal is script-only.` |
 
-Backward compatibility: missing `orchestration` fields decode to these defaults.
-Malformed, unsupported, secret-shaped, `NaN`/`Inf`, or out-of-range authority
-config fails closed to disabled/manual defaults; bounded integers clamp through
-one warning path where safe.
+<!-- docs-lint: migration-appendix end -->

@@ -17,7 +17,7 @@ type modePayload struct {
 	Capability bool   `json:"orchestrationCapable"`
 }
 
-func RunMode(args cli.Args) int {
+func runMode(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd mode <slug> [--set base|orchestrated] [--recommend] [--json]")
 	if !ok {
 		return code

@@ -62,6 +62,14 @@ func usageExit(msg string) int {
 	return core.ExitUsage
 }
 
+func cloneFlags(flags map[string]string) map[string]string {
+	out := make(map[string]string, len(flags)+1)
+	for k, v := range flags {
+		out[k] = v
+	}
+	return out
+}
+
 // gatedPayload is the typed schema for the awaiting-approval JSON response.
 // Fields are ordered to match the previous map[string]interface{} output (the
 // JSON encoder sorts map keys), keeping the wire bytes identical.

@@ -174,11 +174,11 @@ func serveReportData(w http.ResponseWriter, root, slug string) (core.ReportData,
 	return loadReportData(root, slug, state), true
 }
 
-// RunServe starts the read-only dashboard server bound to loopback. It blocks
+// runServe starts the read-only dashboard server bound to loopback. It blocks
 // serving until interrupted. The default address is 127.0.0.1:8765; override
 // with --addr (loopback host recommended — the server is read-only but exposes
 // spec contents).
-func RunServe(args cli.Args) int {
+func runServe(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd serve <slug> [--addr 127.0.0.1:8765]")
 	if !ok {
 		return code

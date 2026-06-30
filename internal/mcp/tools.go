@@ -47,7 +47,7 @@ var orchestrationCommands = map[string]bool{"brain": true, "pinky": true}
 // atomic predecessors so the essential surface stays small (composite spec AC7),
 // keeping the mutating loop commands (verify/task/approve) as atomics.
 var defaultEssentialTools = []string{
-	"specd_fusion", "specd_inspect", "specd_read", "specd_query",
+	"specd_inspect", "specd_read", "specd_query",
 	"verify", "task", "approve",
 }
 
@@ -87,22 +87,22 @@ var (
 	planningPhaseTools = []string{
 		"specd_inspect", "specd_read", "specd_query",
 		"check", "approve", "context", "status", "waves",
-		"diff", "report", "memory", "decision",
+		"report", "memory", "decision",
 	}
 	executingPhaseTools = []string{
 		"specd_inspect", "specd_read", "specd_query",
-		"next", "dispatch", "verify", "task", "status", "context",
-		"check", "report", "diff", "memory", "decision",
-		stateReadToolName, "doctor",
+		"next", "verify", "task", "status", "context",
+		"check", "report", "memory", "decision",
+		stateReadToolName,
 	}
 	verifyingPhaseTools = []string{
 		"specd_inspect", "specd_read", "specd_query",
-		"check", "status", "context", "report", "diff", "memory", "decision",
-		stateReadToolName, "doctor",
+		"check", "status", "context", "report", "memory", "decision",
+		stateReadToolName,
 	}
 	completePhaseTools = []string{
 		"specd_inspect", "specd_read", "specd_query",
-		"status", "context", "report", "diff", "memory", "decision",
+		"status", "context", "report", "memory", "decision",
 	}
 )
 
@@ -140,6 +140,10 @@ func roleToolNames(role string) map[string]bool { return spec.RoleToolSet(role) 
 func toolAllowedByRole(role, name string) bool {
 	set := roleToolNames(role)
 	return set == nil || set[name]
+}
+
+func skipRoleFilter(plan exposurePlan) bool {
+	return (plan.essential && !plan.phase) || plan.includeMeta || (plan.includeOrchestration && !plan.phase)
 }
 
 // exposurePlan is the resolved, pure allow-policy derived from a *core.Config.
@@ -303,6 +307,7 @@ func buildPhaseTools(cfg *core.Config, status core.SpecStatus, role string) []to
 func buildPhaseToolsForSpec(cfg *core.Config, status core.SpecStatus, role, pinned string) []toolDef {
 	plan := resolveMCPExposure(cfg)
 	plan.essential = true
+	plan.phase = true
 	plan.essentialSet = phaseToolNames(status)
 	plan.role = role
 	if plan.role == "" {
@@ -325,7 +330,7 @@ func withManifest(plan exposurePlan, pinned string, tools []toolDef) []toolDef {
 func buildToolsFromPlan(plan exposurePlan) []toolDef {
 	tools := make([]toolDef, 0, len(core.Commands)+len(specialTools)+len(compositeTools)+len(intentTools))
 	for _, c := range core.Commands {
-		if metaCommands[c.Command] {
+		if metaCommands[c.Command] || c.Hidden {
 			continue
 		}
 		name := toolPrefix + c.Command
@@ -339,7 +344,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[c.Command] && !plan.essentialSet[name] {
 				continue
 			}
-			if !toolAllowedByRole(plan.role, name) {
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, name) {
 				continue
 			}
 		}
@@ -354,6 +359,9 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 				continue
 			}
 			if plan.essential && !plan.essentialSet[st.name] {
+				continue
+			}
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, st.name) {
 				continue
 			}
 			tools = append(tools, st.def())
@@ -371,7 +379,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[ct.name] {
 				continue
 			}
-			if !toolAllowedByRole(plan.role, ct.name) {
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, ct.name) {
 				continue
 			}
 			tools = append(tools, ct.def())
@@ -386,7 +394,7 @@ func buildToolsFromPlan(plan exposurePlan) []toolDef {
 			if plan.essential && !plan.essentialSet[it.name] {
 				continue
 			}
-			if !toolAllowedByRole(plan.role, it.name) {
+			if !skipRoleFilter(plan) && !toolAllowedByRole(plan.role, it.name) {
 				continue
 			}
 		}

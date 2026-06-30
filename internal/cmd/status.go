@@ -8,6 +8,9 @@ import (
 )
 
 func RunStatus(args cli.Args) int {
+	if args.Bool("program") {
+		return runProgram(args)
+	}
 	root, err := core.RequireSpecdRoot()
 	if err != nil {
 		return specdExit(err)
@@ -64,6 +67,24 @@ func RunStatus(args cli.Args) int {
 			fmt.Printf("%s  [%s]  %d/%d done · next: %s%s\n", s, st.Status, c.Complete, c.Total, core.NextSummary(st), gate)
 		}
 		return core.ExitOK
+	}
+
+	// Survivor home for the merged `mode` command's mutate/advise paths
+	// (optimization-plan GAP-2 / Phase 2). `status` already owns mode *reporting*;
+	// --set-mode changes an existing spec's mode and --recommend emits the
+	// advisory verdict. Both delegate to the original mode handlers (same package)
+	// so no capability is lost when the `mode` alias is finally removed.
+	if args.Has("set-mode") {
+		if err := core.RequireSpec(root, slug); err != nil {
+			return specdExit(err)
+		}
+		return runModeSet(root, slug, args.Str("set-mode"), jsonOut)
+	}
+	if args.Bool("recommend") {
+		if err := core.RequireSpec(root, slug); err != nil {
+			return specdExit(err)
+		}
+		return runModeRecommend(root, slug, jsonOut)
 	}
 
 	loaded, err := core.LoadSpec(root, slug)

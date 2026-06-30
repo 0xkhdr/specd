@@ -27,7 +27,7 @@ func TestRegistryMatchesHelp(t *testing.T) {
 
 	inHelp := map[string]bool{}
 	for _, c := range core.Commands {
-		if metaOnly[c.Command] {
+		if metaOnly[c.Command] || c.DeprecatedIn != "" {
 			continue
 		}
 		inHelp[c.Command] = true

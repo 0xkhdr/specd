@@ -43,13 +43,17 @@ func run(argv []string) int {
 
 	switch command {
 	case "--help", "-h", "help":
+		showAll := false
 		for _, a := range rest {
 			if a == "--json" {
 				jsonMode = true
 			}
+			if a == "--all" {
+				showAll = true
+			}
 		}
 		if jsonMode {
-			s, err := core.RenderHelpJSON()
+			s, err := core.RenderHelpJSONAll(showAll)
 			if err != nil {
 				core.Error(err.Error())
 				return core.ExitGate
@@ -70,7 +74,11 @@ func run(argv []string) int {
 			fmt.Println()
 			return core.ExitOK
 		}
-		fmt.Print(strings.TrimRight(core.RenderHelp(), "\n"))
+		if showAll {
+			fmt.Print(strings.TrimRight(core.RenderHelpAll(), "\n"))
+		} else {
+			fmt.Print(strings.TrimRight(core.RenderHelp(), "\n"))
+		}
 		fmt.Println()
 		return core.ExitOK
 

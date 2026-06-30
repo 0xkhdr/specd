@@ -268,7 +268,7 @@ The following tools are exposed automatically. Refer to the
 | MCP Tool | CLI Analog | Primary Purpose | Read-Only |
 |---|---|---|---|
 | `specd_init` | `specd init` | Scaffold `.specd/` directory and role configurations | No |
-| `specd_doctor` | `specd doctor` | Diagnose scaffold, MCP server, and host registration health | Yes |
+| `specd_init` with `--repair` | `specd init --repair` | Diagnose scaffold, MCP server, and host registration health | Yes |
 | `specd_fusion` | `specd fusion` | Bootstrap session context and read binding policy | Yes |
 | `specd_new` | `specd new` | Create a new spec with artifact stubs | No |
 | `specd_approve` | `specd approve` | Clear phase approval gate | No |
@@ -276,7 +276,7 @@ The following tools are exposed automatically. Refer to the
 | `specd_midreq` | `specd midreq` | Log a mid-flight requirement change | No |
 | `specd_memory` | `specd memory` | Record or promote a learning | No |
 | `specd_next` | `specd next` | Print the next runnable task(s) | Yes |
-| `specd_dispatch` | `specd dispatch` | Emit subagent ready-to-run packets | Yes |
+| `specd_next` with `--dispatch` | `specd next --dispatch` | Emit subagent ready-to-run packets | Yes |
 | `specd_verify` | `specd verify` | Execute task verification command | No |
 | `specd_task` | `specd task` | Flip task status with evidence | No |
 | `specd_status` | `specd status` | Render status board or list specs | Yes |
@@ -284,17 +284,17 @@ The following tools are exposed automatically. Refer to the
 | `specd_waves` | `specd waves` | Render task wave dependency graph | Yes |
 | `specd_context` | `specd context` | Retrieve minimal phase briefing and signals | Yes |
 | `specd_report` | `specd report` | Generate progress reports | Yes |
-| `specd_serve` | `specd serve` | Run read-only HTTP server | Yes |
-| `specd_watch` | `specd watch` | Stream runnable-frontier changes | Yes |
-| `specd_validate` | `specd validate` | Conformance check against JSON Schema | Yes |
-| `specd_replay` | `specd replay` | Render spec audit event timeline | Yes |
-| `specd_diff` | `specd diff` | Show git diff of spec artifacts | Yes |
-| `specd_program` | `specd program` | Manage inter-spec dependency graph | No |
+| `specd_report` with `--serve` | `specd report --serve` | Run read-only HTTP server | Yes |
+| `specd_report` with `--watch` | `specd report --watch` | Stream runnable-frontier changes | Yes |
+| `specd_check` with `--schema-only` | `specd check --schema-only` | Conformance check against JSON Schema | Yes |
+| `specd_report` with `--history` | `specd report --history` | Render spec audit event timeline | Yes |
+| `specd_report` with `--diff` | `specd report --diff` | Show git diff of spec artifacts | Yes |
+| `specd_status` with `--program` | `specd status --program` | Manage inter-spec dependency graph | No |
 | `specd_brain` | `specd brain` | Start, step, inspect, pause, resume, or cancel deterministic Brain sessions | No for mutations; status is read-only |
 | `specd_pinky` | `specd pinky` | Host worker claim, heartbeat, progress, report, block, and release operations | No |
-| `specd_schema` | `specd schema` | Emit embedded spec-format JSON Schema | Yes |
-| `specd_update` | `specd update` | Update the specd binary | No (destructive) |
-| `specd_uninstall` | `specd uninstall` | Remove specd from the system | No (destructive) |
+| `specd_check` with `--schema` | `specd check --schema` | Emit embedded spec-format JSON Schema | Yes |
+| install script update | `scripts/install.sh --force` | Update the specd binary | No (destructive) |
+| uninstall script | `scripts/uninstall.sh` | Remove specd from the system | No (destructive) |
 
 ---
 
@@ -322,7 +322,7 @@ byte-identical to the default — no behavioural change.**
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
 | `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_fusion, specd_inspect, specd_read, specd_query, verify, task, approve` (fusion covers startup; composites cover the read surface). |
-| `includeMeta` | When false (default) the install-maintenance tools `specd_update`, `specd_uninstall`, and the spec-pack-author tool `specd_schema` are hidden from MCP (they remain available on the CLI). |
+| `includeMeta` | When false (default) the install-maintenance tools install script update, uninstall script, and the spec-pack-author tool `specd_check` with `--schema` are hidden from MCP (they remain available on the CLI). |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
 Filtering only ever *hides* tools — it never grants new authority, and tool
@@ -337,7 +337,7 @@ surface:
 | Status band | Advertised tools |
 |-------------|------------------|
 | `requirements` / `design` / `tasks` (planning) | `specd_inspect`, `specd_read`, `specd_query`, `specd_check`, `specd_approve`, `specd_context`, `specd_status`, `specd_waves` |
-| `executing` / `verifying` / `blocked` | `specd_inspect`, `specd_read`, `specd_next`, `specd_dispatch`, `specd_verify`, `specd_task`, `specd_status`, `specd_context` |
+| `executing` / `verifying` / `blocked` | `specd_inspect`, `specd_read`, `specd_next`, `specd_next` with `--dispatch`, `specd_verify`, `specd_task`, `specd_status`, `specd_context` |
 
 The subset is always a *narrowing* of what `expose` would otherwise permit — the
 `includeMeta`/`includeOrchestration` gates still apply. The "active" status is the
@@ -345,7 +345,7 @@ furthest-along in-progress spec in the project (executing outranks planning).
 
 In this mode the server advertises `capabilities.tools.listChanged: true` and runs
 a background watcher that polls `state.json` (same `SPECD_WATCH_INTERVAL_MS` knob
-as `specd watch`, default 1000ms, plus a short debounce). When the active phase
+as `specd report --watch`, default 1000ms, plus a short debounce). When the active phase
 changes it swaps the list and emits a `notifications/tools/list_changed` so the
 host re-fetches `tools/list`. The watcher stops cleanly when the stdio stream
 closes — no goroutine leak.
@@ -478,7 +478,7 @@ Brain/Pinky orchestration is exposed through generated tools, not custom MCP bus
 The MCP request is always one bounded CLI invocation; it never waits for an LLM worker to finish.
 Hosts must run their own worker loop and call Pinky tools as work progresses.
 
-Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Base mode, feed each subagent the `specd dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
+Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Base mode, feed each subagent the `specd next --dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
 
 ### Brain control loop
 
@@ -559,7 +559,7 @@ server for you, **project-scoped**:
 specd init --agent auto            # detect and configure the unambiguous host
 specd init --agent claude-code --yes
 specd init --agent all --yes       # every detected host
-specd doctor                       # verify registration + MCP handshake
+specd init --repair                       # verify registration + MCP handshake
 ```
 
 Where the host ships a stable CLI, specd uses it (`claude mcp add --scope project`);
