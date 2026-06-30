@@ -189,7 +189,7 @@ below the floor:
 |---|---|---|
 | overall | `OVERALL_MIN` = **78%** | 85% |
 | `internal/core` (the engine) | `CORE_MIN` = **80%** | 90% → 95% |
-| `internal/cmd` (CLI/orchestration glue) | `CMD_MIN` = **70%** | 80% |
+| `internal/cmd` (CLI/orchestration glue) | `CMD_MIN` = **71%** | 80% |
 | `internal/worker` (process seam) | `WORKER_MIN` = **88%** | 95% |
 | `internal/mcp` | `MCP_MIN` = **88%** | 90% |
 | `internal/testharness` | `HARNESS_MIN` = **80%** | 90% |

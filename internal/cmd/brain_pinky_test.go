@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/cli"
@@ -74,6 +76,32 @@ func TestPinkyQueryArgs(t *testing.T) {
 		"--attempt", "1",
 	})); ok {
 		t.Fatal("pinkyQueryArgs accepted missing text")
+	}
+}
+
+func TestReadPinkyMission(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mission.json")
+	if err := os.WriteFile(path, []byte(`{"sessionId":"s","workerId":"w","spec":"sp","taskId":"T1","attempt":1}`), 0o644); err != nil {
+		t.Fatalf("write mission: %v", err)
+	}
+	mission, err := readPinkyMission(path)
+	if err != nil {
+		t.Fatalf("readPinkyMission(valid) error: %v", err)
+	}
+	if mission.SessionID != "s" || mission.WorkerID != "w" || mission.TaskID != "T1" {
+		t.Fatalf("unexpected mission: %+v", mission)
+	}
+
+	bad := filepath.Join(dir, "bad.json")
+	if err := os.WriteFile(bad, []byte(`{`), 0o644); err != nil {
+		t.Fatalf("write bad mission: %v", err)
+	}
+	if _, err := readPinkyMission(bad); err == nil {
+		t.Fatal("readPinkyMission accepted invalid JSON")
+	}
+	if _, err := readPinkyMission(filepath.Join(dir, "missing.json")); err == nil {
+		t.Fatal("readPinkyMission accepted missing file")
 	}
 }
 

@@ -12,10 +12,18 @@
 # Usage: ./scripts/stress.sh [WORKERS] [ITERS]
 set -euo pipefail
 
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+# Normal run: 16 workers x 20 short CLI calls. Limits are intentionally broad
+# for shared CI hosts while still bounding process/fd runaway; override with SPECD_STRESS_*.
+# Leak guard uses process/fd counts because this is a cross-process shell stress,
+# not an in-process goroutine harness.
+. "$repo/scripts/stress-lib.sh"
+stress_set_limits "stress"
+stress_guard_begin "stress"
+
 WORKERS="${1:-16}"
 ITERS="${2:-20}"
 
-repo="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$repo/specd"
 if [[ ! -x "$bin" ]]; then
   echo "building specd..."
@@ -75,5 +83,7 @@ if [[ "$turn" != "$successes" ]]; then
   echo "FAIL: lost update — final turn ($turn) != committed writes ($successes)"
   exit 1
 fi
+
+stress_guard_end
 
 echo "PASS: $WORKERS x $ITERS concurrent processes, $successes committed writes, turn==successes, state.json intact."
