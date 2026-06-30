@@ -160,6 +160,11 @@ func gitHead(cwd string) *string {
 	return &s
 }
 
+// RunVerify implements `specd verify`. With --criterion it records a pass/fail
+// acceptance-criterion result; otherwise it runs a task's declared verify
+// command under the spec lock (selecting a sandbox runner, applying
+// --revert-on-fail recovery on failure, and recording telemetry), persists the
+// resulting VerificationRecord to state, and prints the outcome.
 func RunVerify(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd verify <slug> <id>  |  specd verify <slug> --criterion <req>.<n> --status pass|fail --evidence \"...\"")
 	if !ok {

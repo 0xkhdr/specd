@@ -19,6 +19,11 @@ func titleCase(slug string) string {
 	return strings.Join(parts, " ")
 }
 
+// RunNew implements `specd new`: it validates the slug, refuses to overwrite
+// an existing spec, materializes the six spec artifacts from templates
+// (seeding requirements.md with --from, if given), writes the initial
+// state.json (optionally starting in orchestrated mode with --orchestrated),
+// and prints the next step.
 func RunNew(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd new <slug> [--title \"...\"]")
 	if !ok {

@@ -7,6 +7,9 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// RunWaves implements `specd waves`: it loads the spec's task DAG and prints
+// the wave-by-wave task graph, the critical path, and any blockers, as JSON
+// (--json) or as the human-readable wave graph.
 func RunWaves(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd waves <slug> [--json]")
 	if !ok {

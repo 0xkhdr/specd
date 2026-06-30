@@ -190,6 +190,10 @@ func extractBinary(tarPath, destPath string) error {
 	return fmt.Errorf("binary not found in archive")
 }
 
+// RunUpdate implements `specd update`: it checks the latest GitHub release tag,
+// and unless the running binary is already current (or --force is set), it
+// downloads and checksum-verifies the matching release tarball and atomically
+// replaces the running executable with the extracted binary.
 func RunUpdate(args cli.Args) int {
 	force := args.Bool("force")
 	core.Info("Checking for updates...")

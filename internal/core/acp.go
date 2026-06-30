@@ -14,6 +14,8 @@ import (
 	contextpkg "github.com/0xkhdr/specd/internal/context"
 )
 
+// ACP envelope protocol version and the size/length limits enforced when
+// validating an envelope (see ValidateACPEnvelope).
 const (
 	ACPVersion             = "1"
 	ACPMaxEnvelopeBytes    = 256 * 1024
@@ -23,8 +25,11 @@ const (
 	ACPVerificationRefSize = 256
 )
 
+// ACPMessageType identifies the kind of message carried by an ACPEnvelope.
 type ACPMessageType string
 
+// ACP message type values, naming the lifecycle events that flow between a
+// Brain and its Pinky workers.
 const (
 	ACPMessageMission   ACPMessageType = "mission"
 	ACPMessageAccepted  ACPMessageType = "accepted"
@@ -68,6 +73,9 @@ var (
 	}
 )
 
+// ACPEnvelope is the transport-level wrapper for every ACP message exchanged
+// between a Brain and its Pinky workers. Payload carries the type-specific
+// body (see ACPMessageType) as raw JSON, decoded separately by the caller.
 type ACPEnvelope struct {
 	Version   string                 `json:"version"`
 	MessageID string                 `json:"messageId"`
@@ -86,11 +94,16 @@ type ACPEnvelope struct {
 	Decision  *OrchestrationDecision `json:"decision,omitempty"`
 }
 
+// ACPAuthority declares the access scope granted to a worker for a mission:
+// whether it is read-only and which actions it is permitted to take.
 type ACPAuthority struct {
 	ReadOnly       bool     `json:"readOnly"`
 	AllowedActions []string `json:"allowedActions"`
 }
 
+// ACPMissionPayload is the body of an ACPMessageMission message: the full
+// dispatch a Brain sends a worker, including its contract, file scope,
+// acceptance and verify commands, dependencies, and granted ACPAuthority.
 type ACPMissionPayload struct {
 	DispatchDigest  string                            `json:"dispatchDigest"`
 	Role            string                            `json:"role"`
@@ -104,15 +117,21 @@ type ACPMissionPayload struct {
 	Authority       ACPAuthority                      `json:"authority"`
 }
 
+// ACPAcceptedPayload is the body of an accepted-message reply, identifying
+// the worker that accepted the mission.
 type ACPAcceptedPayload struct {
 	WorkerID string `json:"workerId"`
 }
 
+// ACPHeartbeatPayload is the body of a heartbeat message a worker sends to
+// signal it is still alive, along with its current status.
 type ACPHeartbeatPayload struct {
 	WorkerID string `json:"workerId"`
 	Status   string `json:"status"`
 }
 
+// ACPProgressPayload is the body of a progress message reporting how far a
+// worker has gotten on its mission.
 type ACPProgressPayload struct {
 	Percent int    `json:"percent"`
 	Message string `json:"message"`
@@ -124,6 +143,9 @@ type ACPProgressPayload struct {
 	LastReport string `json:"lastReport,omitempty"`
 }
 
+// ACPEvidencePayload is the body of an evidence message a worker sends on
+// completion, summarizing the verification ref, changed files, git head,
+// elapsed time, and any host token/cost usage reported for the mission.
 type ACPEvidencePayload struct {
 	VerificationRef string   `json:"verificationRef"`
 	Summary         string   `json:"summary"`
@@ -134,19 +156,27 @@ type ACPEvidencePayload struct {
 	HostCost        string   `json:"hostCost,omitempty"`
 }
 
+// ACPBlockerPayload is the body of a blocker message a worker sends when it
+// cannot proceed, giving the reason it is stuck.
 type ACPBlockerPayload struct {
 	Reason string `json:"reason"`
 }
 
+// ACPQueryPayload is the body of a query message a worker sends to ask the
+// Brain a free-text question.
 type ACPQueryPayload struct {
 	Text string `json:"text"`
 }
 
+// ACPDirectivePayload is the body of a directive message the Brain sends to a
+// worker, naming the action to take and the reason for it.
 type ACPDirectivePayload struct {
 	Action string `json:"action"`
 	Reason string `json:"reason"`
 }
 
+// ACPCancelledPayload is the body of a cancelled message confirming a
+// mission was cancelled, with the reason for the cancellation.
 type ACPCancelledPayload struct {
 	Reason string `json:"reason"`
 }
@@ -170,6 +200,8 @@ type ACPResumePayload struct {
 	Reason           string `json:"reason,omitempty"`
 }
 
+// NewACPID generates a new random 32-character hex identifier suitable for
+// use as an ACP message ID.
 func NewACPID() (string, error) {
 	var raw [16]byte
 	if _, err := io.ReadFull(rand.Reader, raw[:]); err != nil {
@@ -178,6 +210,9 @@ func NewACPID() (string, error) {
 	return hex.EncodeToString(raw[:]), nil
 }
 
+// NewACPEnvelope builds an ACPEnvelope of the given message type by
+// marshaling payload to JSON and setting Version to ACPVersion. Callers fill
+// in any remaining envelope fields (ids, session, routing) before sending it.
 func NewACPEnvelope(messageType ACPMessageType, payload any) (ACPEnvelope, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -186,6 +221,9 @@ func NewACPEnvelope(messageType ACPMessageType, payload any) (ACPEnvelope, error
 	return ACPEnvelope{Version: ACPVersion, Type: messageType, Payload: raw}, nil
 }
 
+// ParseACPEnvelope decodes raw JSON into an ACPEnvelope, rejecting empty
+// input, input over ACPMaxEnvelopeBytes, and any envelope that fails
+// ValidateACPEnvelope.
 func ParseACPEnvelope(raw []byte) (ACPEnvelope, error) {
 	if len(raw) == 0 {
 		return ACPEnvelope{}, fmt.Errorf("acp: empty envelope")
@@ -203,6 +241,11 @@ func ParseACPEnvelope(raw []byte) (ACPEnvelope, error) {
 	return envelope, nil
 }
 
+// ValidateACPEnvelope checks an envelope's version, IDs, sizes, and
+// type-specific payload constraints, returning an error describing the first
+// violation found.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func ValidateACPEnvelope(envelope ACPEnvelope) error {
 	if envelope.Version != ACPVersion {
 		return fmt.Errorf("acp: unsupported version %q", envelope.Version)
@@ -283,172 +326,207 @@ func validateACPDirection(messageType ACPMessageType, from, to string) error {
 func validateACPPayload(messageType ACPMessageType, task string, raw []byte) error {
 	switch messageType {
 	case ACPMessageMission:
-		var payload ACPMissionPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if task == "" {
-			return fmt.Errorf("task is required")
-		}
-		if !acpDigestRE.MatchString(payload.DispatchDigest) {
-			return fmt.Errorf("invalid dispatchDigest")
-		}
-		if !IsValidRole(payload.Role) {
-			return fmt.Errorf("invalid role %q", payload.Role)
-		}
-		if err := validateACPText("contextCommand", payload.ContextCommand, true); err != nil {
-			return err
-		}
-		if err := validateMissionContextManifest(payload.ContextManifest, false); err != nil {
-			return err
-		}
-		if err := validateACPText("contract", payload.Contract, true); err != nil {
-			return err
-		}
-		if err := validateACPText("acceptance", payload.Acceptance, true); err != nil {
-			return err
-		}
-		if err := validateACPText("verifyCommand", payload.VerifyCommand, true); err != nil {
-			return err
-		}
-		if err := validateACPPaths("files", payload.Files); err != nil {
-			return err
-		}
-		if err := validateACPTaskIDs("dependencies", payload.Dependencies); err != nil {
-			return err
-		}
-		if len(payload.Authority.AllowedActions) == 0 || len(payload.Authority.AllowedActions) > ACPMaxListItems {
-			return fmt.Errorf("authority.allowedActions must contain 1..%d items", ACPMaxListItems)
-		}
-		for _, action := range payload.Authority.AllowedActions {
-			if !acpAuthorityActionSet[action] {
-				return fmt.Errorf("invalid authority action %q", action)
-			}
-		}
+		return validateACPMissionPayload(task, raw)
 	case ACPMessageAccepted:
-		var payload ACPAcceptedPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if !acpPartyRE.MatchString("pinky-" + payload.WorkerID) {
-			return fmt.Errorf("invalid workerId")
-		}
+		return validateACPAcceptedPayload(raw)
 	case ACPMessageHeartbeat:
-		var payload ACPHeartbeatPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if !acpPartyRE.MatchString("pinky-" + payload.WorkerID) {
-			return fmt.Errorf("invalid workerId")
-		}
-		if err := validateACPText("status", payload.Status, true); err != nil {
-			return err
-		}
+		return validateACPHeartbeatPayload(raw)
 	case ACPMessageProgress:
-		var payload ACPProgressPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if payload.Percent < 0 || payload.Percent > 100 {
-			return fmt.Errorf("percent must be between 0 and 100")
-		}
-		if err := validateACPText("message", payload.Message, true); err != nil {
-			return err
-		}
+		return validateACPProgressPayload(raw)
 	case ACPMessageEvidence:
-		var payload ACPEvidencePayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if task == "" {
-			return fmt.Errorf("task is required")
-		}
-		if len(payload.VerificationRef) == 0 || len(payload.VerificationRef) > ACPVerificationRefSize {
-			return fmt.Errorf("verificationRef must contain 1..%d bytes", ACPVerificationRefSize)
-		}
-		if err := validateACPText("summary", payload.Summary, true); err != nil {
-			return err
-		}
-		if err := validateACPPaths("changedFiles", payload.ChangedFiles); err != nil {
-			return err
-		}
-		if payload.DurationMs < 0 || payload.HostTokens < 0 {
-			return fmt.Errorf("durationMs and hostTokens must be non-negative")
-		}
-		if err := validateACPText("hostCost", payload.HostCost, false); err != nil {
-			return err
-		}
+		return validateACPEvidencePayload(task, raw)
 	case ACPMessageBlocker:
-		var payload ACPBlockerPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if err := validateACPText("reason", payload.Reason, true); err != nil {
-			return err
-		}
+		return validateACPBlockerPayload(raw)
 	case ACPMessageQuery:
-		var payload ACPQueryPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if err := validateACPText("text", payload.Text, true); err != nil {
-			return err
-		}
+		return validateACPQueryPayload(raw)
 	case ACPMessageDirective:
-		var payload ACPDirectivePayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if !acpActionSet[payload.Action] {
-			return fmt.Errorf("invalid action %q", payload.Action)
-		}
-		if err := validateACPText("reason", payload.Reason, true); err != nil {
-			return err
-		}
+		return validateACPDirectivePayload(raw)
 	case ACPMessageCancelled:
-		var payload ACPCancelledPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if err := validateACPText("reason", payload.Reason, true); err != nil {
-			return err
-		}
+		return validateACPCancelledPayload(raw)
 	case ACPMessageCheckpoint:
-		var payload ACPCheckpointPayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if task == "" {
-			return fmt.Errorf("task is required")
-		}
-		if payload.Percent < 0 || payload.Percent > 100 {
-			return fmt.Errorf("percent must be between 0 and 100")
-		}
-		if err := validateACPText("reason", payload.Reason, false); err != nil {
-			return err
-		}
-		if err := validateACPPaths("changedFiles", payload.ChangedFiles); err != nil {
-			return err
-		}
-		if err := validateACPText("gitHead", payload.GitHead, false); err != nil {
-			return err
-		}
+		return validateACPCheckpointPayload(task, raw)
 	case ACPMessageResume:
-		var payload ACPResumePayload
-		if err := decodeACPStrict(raw, &payload); err != nil {
-			return err
-		}
-		if task == "" {
-			return fmt.Errorf("task is required")
-		}
-		if payload.SuspendedSeconds < 0 {
-			return fmt.Errorf("suspendedSeconds must be non-negative")
-		}
-		if err := validateACPText("reason", payload.Reason, false); err != nil {
-			return err
-		}
+		return validateACPResumePayload(task, raw)
 	default:
 		return fmt.Errorf("unsupported type %q", messageType)
+	}
+}
+
+func validateACPMissionPayload(task string, raw []byte) error {
+	var payload ACPMissionPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if task == "" {
+		return fmt.Errorf("task is required")
+	}
+	if !acpDigestRE.MatchString(payload.DispatchDigest) {
+		return fmt.Errorf("invalid dispatchDigest")
+	}
+	if !IsValidRole(payload.Role) {
+		return fmt.Errorf("invalid role %q", payload.Role)
+	}
+	if err := validateACPText("contextCommand", payload.ContextCommand, true); err != nil {
+		return err
+	}
+	if err := validateMissionContextManifest(payload.ContextManifest, false); err != nil {
+		return err
+	}
+	if err := validateACPText("contract", payload.Contract, true); err != nil {
+		return err
+	}
+	if err := validateACPText("acceptance", payload.Acceptance, true); err != nil {
+		return err
+	}
+	if err := validateACPText("verifyCommand", payload.VerifyCommand, true); err != nil {
+		return err
+	}
+	if err := validateACPPaths("files", payload.Files); err != nil {
+		return err
+	}
+	if err := validateACPTaskIDs("dependencies", payload.Dependencies); err != nil {
+		return err
+	}
+	return validateACPAuthority(payload.Authority)
+}
+
+func validateACPAuthority(authority ACPAuthority) error {
+	if len(authority.AllowedActions) == 0 || len(authority.AllowedActions) > ACPMaxListItems {
+		return fmt.Errorf("authority.allowedActions must contain 1..%d items", ACPMaxListItems)
+	}
+	for _, action := range authority.AllowedActions {
+		if !acpAuthorityActionSet[action] {
+			return fmt.Errorf("invalid authority action %q", action)
+		}
+	}
+	return nil
+}
+
+func validateACPAcceptedPayload(raw []byte) error {
+	var payload ACPAcceptedPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	return validateACPWorkerID(payload.WorkerID)
+}
+
+func validateACPHeartbeatPayload(raw []byte) error {
+	var payload ACPHeartbeatPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if err := validateACPWorkerID(payload.WorkerID); err != nil {
+		return err
+	}
+	return validateACPText("status", payload.Status, true)
+}
+
+func validateACPProgressPayload(raw []byte) error {
+	var payload ACPProgressPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if payload.Percent < 0 || payload.Percent > 100 {
+		return fmt.Errorf("percent must be between 0 and 100")
+	}
+	return validateACPText("message", payload.Message, true)
+}
+
+func validateACPEvidencePayload(task string, raw []byte) error {
+	var payload ACPEvidencePayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if task == "" {
+		return fmt.Errorf("task is required")
+	}
+	if len(payload.VerificationRef) == 0 || len(payload.VerificationRef) > ACPVerificationRefSize {
+		return fmt.Errorf("verificationRef must contain 1..%d bytes", ACPVerificationRefSize)
+	}
+	if err := validateACPText("summary", payload.Summary, true); err != nil {
+		return err
+	}
+	if err := validateACPPaths("changedFiles", payload.ChangedFiles); err != nil {
+		return err
+	}
+	if payload.DurationMs < 0 || payload.HostTokens < 0 {
+		return fmt.Errorf("durationMs and hostTokens must be non-negative")
+	}
+	return validateACPText("hostCost", payload.HostCost, false)
+}
+
+func validateACPBlockerPayload(raw []byte) error {
+	var payload ACPBlockerPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	return validateACPText("reason", payload.Reason, true)
+}
+
+func validateACPQueryPayload(raw []byte) error {
+	var payload ACPQueryPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	return validateACPText("text", payload.Text, true)
+}
+
+func validateACPDirectivePayload(raw []byte) error {
+	var payload ACPDirectivePayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if !acpActionSet[payload.Action] {
+		return fmt.Errorf("invalid action %q", payload.Action)
+	}
+	return validateACPText("reason", payload.Reason, true)
+}
+
+func validateACPCancelledPayload(raw []byte) error {
+	var payload ACPCancelledPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	return validateACPText("reason", payload.Reason, true)
+}
+
+func validateACPCheckpointPayload(task string, raw []byte) error {
+	var payload ACPCheckpointPayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if task == "" {
+		return fmt.Errorf("task is required")
+	}
+	if payload.Percent < 0 || payload.Percent > 100 {
+		return fmt.Errorf("percent must be between 0 and 100")
+	}
+	if err := validateACPText("reason", payload.Reason, false); err != nil {
+		return err
+	}
+	if err := validateACPPaths("changedFiles", payload.ChangedFiles); err != nil {
+		return err
+	}
+	return validateACPText("gitHead", payload.GitHead, false)
+}
+
+func validateACPResumePayload(task string, raw []byte) error {
+	var payload ACPResumePayload
+	if err := decodeACPStrict(raw, &payload); err != nil {
+		return err
+	}
+	if task == "" {
+		return fmt.Errorf("task is required")
+	}
+	if payload.SuspendedSeconds < 0 {
+		return fmt.Errorf("suspendedSeconds must be non-negative")
+	}
+	return validateACPText("reason", payload.Reason, false)
+}
+
+func validateACPWorkerID(workerID string) error {
+	if !acpPartyRE.MatchString("pinky-" + workerID) {
+		return fmt.Errorf("invalid workerId")
 	}
 	return nil
 }

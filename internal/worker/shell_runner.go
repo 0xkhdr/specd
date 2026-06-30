@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/obs"
 )
 
 const waitDelay = 5 * time.Second
@@ -28,6 +29,10 @@ type ShellRunner struct {
 // Run executes m.Command as `sh -c`, passing mission state through a temp JSON
 // file and the stable SPECD_* environment contract.
 func (r ShellRunner) Run(parent context.Context, m Mission) (Result, error) {
+	if endSpan := obs.StartSpan("worker.run"); endSpan != nil {
+		defer endSpan()
+	}
+
 	start := time.Now()
 	payload := m.Payload
 	if payload == nil {

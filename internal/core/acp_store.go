@@ -15,6 +15,9 @@ import (
 
 const acpStoreLockTimeout = 5 * time.Second
 
+// ACPStore is the on-disk store for ACP session events: append-only,
+// sequence-ordered, immutable event files plus the runtime paths used to
+// locate them.
 type ACPStore struct {
 	paths ACPRuntimePaths
 }
@@ -39,6 +42,8 @@ var (
 	acpStoreLocks   = map[string]*acpLockEntry{}
 )
 
+// NewACPStore creates an ACPStore rooted at the project's ACP runtime
+// directory under root.
 func NewACPStore(root string) (*ACPStore, error) {
 	paths, err := NewACPRuntimePaths(root)
 	if err != nil {
@@ -103,6 +108,8 @@ func (s *ACPStore) WriteEvent(envelope ACPEnvelope) (ACPEnvelope, error) {
 	return written, err
 }
 
+// ReadEvents returns the session's events that are newer than workerID's
+// saved cursor, deduplicated by message ID.
 func (s *ACPStore) ReadEvents(sessionID, workerID string) ([]ACPEnvelope, error) {
 	cursor, err := s.LoadCursor(sessionID, workerID)
 	if err != nil {

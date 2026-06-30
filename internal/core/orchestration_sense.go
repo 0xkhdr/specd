@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+// SenseOrchestration builds the current OrchestrationSnapshot for a spec
+// session: it loads spec state, computes the runnable frontier and recent
+// failures, gathers active (including suspended-but-resumable) worker
+// leases, surfaces host-reported cost and session-expiry signals, carries
+// forward compaction-ledger state, and — when checkpointing is enabled —
+// attaches any resumable checkpoints, before validating the result.
 func SenseOrchestration(root, slug, sessionID string, policy OrchestrationPolicy) (OrchestrationSnapshot, error) {
 	loaded, err := LoadSpec(root, slug)
 	if err != nil {

@@ -10,6 +10,9 @@ import (
 	"github.com/0xkhdr/specd/internal/spec"
 )
 
+// MandatoryKeys, KeyOrder, and ValidRoles define the canonical task metadata
+// schema: which metadata keys every task must define, the order those keys
+// render in on disk, and which role names are recognized.
 var (
 	MandatoryKeys = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends"}
 	KeyOrder      = []string{"why", "role", "files", "contract", "acceptance", "verify", "depends", "requirements"}
@@ -33,13 +36,19 @@ func sliceToSet(ss []string) map[string]bool {
 	return m
 }
 
+// AnnotationKind identifies the kind of trailing annotation appended to a
+// task line, such as complete or blocked.
 type AnnotationKind string
 
+// AnnotComplete and AnnotBlocked are the two recognized AnnotationKind
+// values, marking a task as finished with evidence or stalled with a reason.
 const (
 	AnnotComplete AnnotationKind = "complete"
 	AnnotBlocked  AnnotationKind = "blocked"
 )
 
+// Annotation is the parsed trailing annotation on a task line: a completion
+// record (Evidence/Ts) or a blocked record (Reason), selected by Kind.
 type Annotation struct {
 	Kind     AnnotationKind
 	Evidence string // for complete
@@ -47,6 +56,9 @@ type Annotation struct {
 	Reason   string // for blocked
 }
 
+// ParsedTask is a single task entry parsed from tasks.md, including its id,
+// title, wave, checked state, metadata fields, optional annotation, and
+// source line number.
 type ParsedTask struct {
 	ID         string
 	Title      string
@@ -57,6 +69,8 @@ type ParsedTask struct {
 	Line       int
 }
 
+// ParsedTasks is the full parsed contents of a tasks.md file: its title and
+// the ordered list of tasks it contains.
 type ParsedTasks struct {
 	Title string
 	Tasks []ParsedTask
@@ -155,6 +169,9 @@ func decodeAnnotationField(s string) string {
 	return b.String()
 }
 
+// ParseDepends splits a task's `depends:` metadata value into a slice of
+// task ids, treating an empty value, "-", "—", and "none" (case-insensitive)
+// as no dependencies.
 func ParseDepends(value string) []string {
 	v := strings.TrimSpace(value)
 	if v == "" || v == "—" || v == "-" || strings.ToLower(v) == "none" {
@@ -191,6 +208,9 @@ func ParseAcceptanceMap(value string) map[string]string {
 	return out
 }
 
+// ParseRequirements parses a task's `requirements:` metadata value into the
+// requirement numbers it references, silently skipping any comma-separated
+// token that isn't a valid integer.
 func ParseRequirements(value string) []int {
 	parts := strings.Split(value, ",")
 	var out []int
@@ -203,6 +223,10 @@ func ParseRequirements(value string) []int {
 	return out
 }
 
+// ParseTasks parses the full contents of a tasks.md file into a ParsedTasks
+// value, validating wave headers, task id uniqueness, and the presence of
+// mandatory/known metadata keys, and returning a GateError describing the
+// first violation found.
 func ParseTasks(text string) (ParsedTasks, error) {
 	lines := splitLines(StripHTMLComments(text))
 	var title string
@@ -307,6 +331,8 @@ func serializeTask(t ParsedTask) string {
 	return strings.Join(parts, "\n")
 }
 
+// SerializeTasks renders a ParsedTasks value back into tasks.md markdown
+// text, grouping tasks under their `## Wave N` headers in ascending order.
 func SerializeTasks(doc ParsedTasks) string {
 	out := []string{fmt.Sprintf("# Tasks — %s", doc.Title), ""}
 	waveSet := make(map[int]bool)
@@ -332,6 +358,8 @@ func SerializeTasks(doc ParsedTasks) string {
 	return strings.Join(out, "\n") + "\n"
 }
 
+// FindTask returns a pointer to the task with the given id within doc, or
+// nil if no task with that id exists.
 func FindTask(doc ParsedTasks, id string) *ParsedTask {
 	for i, t := range doc.Tasks {
 		if t.ID == id {
@@ -341,6 +369,9 @@ func FindTask(doc ParsedTasks, id string) *ParsedTask {
 	return nil
 }
 
+// RenderTaskLine renders a single task's checklist line, including its
+// checkbox state and any trailing completion/blocked annotation, in the
+// on-disk tasks.md format.
 func RenderTaskLine(id, bareTitle string, checked bool, ann *Annotation) string {
 	ch := " "
 	if checked {
@@ -365,6 +396,9 @@ func annotationSuffix(ann *Annotation) string {
 	return ""
 }
 
+// ApplyTaskAnnotation updates the checklist line for task id within text,
+// setting its checked state and annotation, and returns the updated
+// document text, or a GateError if the task line cannot be found.
 func ApplyTaskAnnotation(text, id string, checked bool, ann *Annotation) (string, error) {
 	lines := splitLines(text)
 	scan := splitLines(StripHTMLComments(text))

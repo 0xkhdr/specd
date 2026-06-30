@@ -288,7 +288,7 @@ func callTool(rawParams json.RawMessage, dispatch Dispatcher, contextBudget int)
 	if !ok || metaCommands[command] {
 		return nil, &rpcError{Code: errInvalidParams, Message: "unknown tool: " + p.Name}
 	}
-	argv, err := buildArgv(p.Arguments)
+	argv, err := buildArgv(command, p.Arguments)
 	if err != nil {
 		return nil, &rpcError{Code: errInvalidParams, Message: err.Error()}
 	}
@@ -387,7 +387,13 @@ func enforceBoundedToolCall(command string, args cli.Args) error {
 	return nil
 }
 
-func buildArgv(arguments map[string]any) ([]string, error) {
+func buildArgv(command string, arguments map[string]any) ([]string, error) {
+	// Shape gate runs before any argv construction or per-command validation
+	// (e.g. ValidateSlug): an undeclared key or wrong-typed value is rejected
+	// here, defense in depth ahead of command dispatch.
+	if err := validateToolArgs(command, arguments); err != nil {
+		return nil, err
+	}
 	var argv []string
 	if raw, ok := arguments["args"]; ok && raw != nil {
 		list, ok := raw.([]any)

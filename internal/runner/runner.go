@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os/exec"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/obs"
 )
 
 // RunSpec is the fully-resolved description of one verify execution. The caller
@@ -51,6 +53,9 @@ func NewShRunner() Runner { return shRunner{} }
 func (shRunner) Name() string { return "none" }
 
 func (shRunner) Run(parent context.Context, spec RunSpec) RunResult {
+	started := time.Now()
+	defer func() { obs.RecordDuration("verify_run_duration", time.Since(started)) }()
+
 	ctx, cancel := context.WithTimeout(parent, spec.Timeout)
 	defer cancel()
 

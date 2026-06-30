@@ -8,6 +8,12 @@ import (
 	"github.com/0xkhdr/specd/internal/obs"
 )
 
+// RunBrain implements `specd brain`, dispatching to the start/run/status/step/
+// why/directive/pause/resume/cancel/checkpoint/compact/clear/ledger subcommands
+// that drive Brain orchestration sessions for a single spec or, with
+// --program, a whole multi-spec program.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunBrain(args cli.Args) int {
 	if len(args.Pos) == 0 {
 		return usageExit("usage: specd brain <start|run|status|step|why|directive|pause|resume|cancel|checkpoint|compact|clear|ledger> ...")

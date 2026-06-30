@@ -25,6 +25,9 @@ func IsOrchestrationSessionNotFound(err error) bool {
 	return errors.Is(err, errOrchestrationSessionNotFound)
 }
 
+// OrchestrationStepResult is the outcome of one StepOrchestration call: the
+// sensed snapshot, the decision made, the ACP event emitted (if any), and a
+// compaction outcome when the decision triggered context compaction.
 type OrchestrationStepResult struct {
 	Snapshot   OrchestrationSnapshot `json:"snapshot"`
 	Decision   OrchestrationDecision `json:"decision"`
@@ -32,6 +35,14 @@ type OrchestrationStepResult struct {
 	Compaction *CompactionOutcome    `json:"compaction,omitempty"`
 }
 
+// StepOrchestration runs one sense-decide-act cycle of the Brain orchestration
+// loop for a spec under the spec lock: it senses the current snapshot,
+// branches on the session's persisted lifecycle (paused/cancelling/terminal/
+// running), and otherwise decides and records the next orchestration
+// decision — dispatching work, advancing the planning phase, triggering
+// compaction, or completing/escalating the session as appropriate.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func StepOrchestration(root, slug, sessionID string, policy OrchestrationPolicy, cfg OrchestrationCfg) (OrchestrationStepResult, error) {
 	var result OrchestrationStepResult
 	_, err := WithSpecLock[struct{}](root, slug, func() (struct{}, error) {

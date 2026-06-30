@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+// ConfigLoadResult reports how config was loaded: the diagnostics collected
+// along the way, the global/project file paths that were used (if any), a
+// digest of the effective config contents, and whether any config file was
+// present at all.
 type ConfigLoadResult struct {
 	Diagnostics []ConfigDiagnostic `json:"diagnostics"`
 	ProjectPath string             `json:"projectPath,omitempty"`
@@ -24,11 +28,17 @@ type loadedConfigFile struct {
 	Doc  map[string]any
 }
 
+// LoadConfig loads the effective config for root, discarding diagnostics.
 func LoadConfig(root string) Config {
 	cfg, _ := LoadConfigWithDiagnostics(root)
 	return cfg
 }
 
+// LoadConfigWithDiagnostics builds the effective Config by layering the
+// global config file, the project config file, and environment variable
+// overrides (in that order) onto DefaultConfig, validating any orchestration
+// section before applying it, and collecting a diagnostic for every issue
+// encountered along the way.
 func LoadConfigWithDiagnostics(root string) (Config, ConfigLoadResult) {
 	cfg := DefaultConfig
 	res := ConfigLoadResult{}
@@ -71,6 +81,9 @@ func LoadConfigWithDiagnostics(root string) (Config, ConfigLoadResult) {
 	return cfg, res
 }
 
+// LoadConfigFromPath parses the config file at path (JSON or YAML, by
+// extension) as a project-layer config and returns the parsed document along
+// with any diagnostics produced while reading or parsing it.
 func LoadConfigFromPath(path string) (loadedConfigFile, []ConfigDiagnostic) {
 	return loadConfigFromPathLayer(path, "project")
 }

@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// PauseProgramOrchestration marks a program session paused and propagates the
+// pause to every active child orchestration session so new dispatch stops
+// across the program.
 func PauseProgramOrchestration(root, parentSessionID string) (ProgramSession, error) {
 	session, err := updateProgramSession(root, parentSessionID, OrchestrationSessionPaused)
 	if err != nil {
@@ -19,6 +22,8 @@ func PauseProgramOrchestration(root, parentSessionID string) (ProgramSession, er
 	return session, nil
 }
 
+// ResumeProgramOrchestration marks a program session running again and
+// propagates the resume to every active child orchestration session.
 func ResumeProgramOrchestration(root, parentSessionID string) (ProgramSession, error) {
 	session, err := updateProgramSession(root, parentSessionID, OrchestrationSessionRunning)
 	if err != nil {
@@ -30,6 +35,9 @@ func ResumeProgramOrchestration(root, parentSessionID string) (ProgramSession, e
 	return session, nil
 }
 
+// CancelProgramOrchestration marks a program session cancelling and
+// propagates a cooperative cancel to every active child orchestration
+// session.
 func CancelProgramOrchestration(root, parentSessionID string) (ProgramSession, error) {
 	session, err := updateProgramSession(root, parentSessionID, OrchestrationSessionCancelling)
 	if err != nil {
@@ -41,6 +49,9 @@ func CancelProgramOrchestration(root, parentSessionID string) (ProgramSession, e
 	return session, nil
 }
 
+// LoadProgramSession reads and validates a program session by its parent
+// session ID, returning errOrchestrationSessionNotFound (wrapped) if no
+// session file exists.
 func LoadProgramSession(root, parentSessionID string) (ProgramSession, error) {
 	if err := validateACPOpaqueID("program session ID", parentSessionID); err != nil {
 		return ProgramSession{}, err

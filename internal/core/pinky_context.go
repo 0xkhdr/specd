@@ -47,8 +47,6 @@ func HostContextBudgetFromEnv() int {
 	return v
 }
 
-// specArtifactReader returns a reader closure that feeds the context engine raw
-// artifact markdown for a spec, performing the IO outside the pure engine.
 // SpecArtifactReader returns the injected artifact reader the context engine
 // uses for measurement and slicing: it yields the raw markdown for a spec
 // artifact and ok=false when absent. Exported so command surfaces feed the same
@@ -57,6 +55,8 @@ func SpecArtifactReader(root, slug string) func(name string) (string, bool) {
 	return specArtifactReader(root, slug)
 }
 
+// specArtifactReader returns a reader closure that feeds the context engine raw
+// artifact markdown for a spec, performing the IO outside the pure engine.
 func specArtifactReader(root, slug string) func(name string) (string, bool) {
 	return func(name string) (string, bool) {
 		if raw := ReadArtifact(root, slug, name); raw != nil {
@@ -66,6 +66,7 @@ func specArtifactReader(root, slug string) func(name string) (string, bool) {
 	}
 }
 
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func validateMissionContextManifest(manifest contextpkg.MissionContextManifest, required bool) error {
 	if manifest.Version == 0 && len(manifest.Items) == 0 {
 		if required {

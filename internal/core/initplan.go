@@ -8,8 +8,13 @@ import (
 	"strings"
 )
 
+// InitResultSchemaVersion is the schema version stamped onto every InitResult
+// returned by ExecuteInitPlan, for consumers parsing the JSON output.
 const InitResultSchemaVersion = 1
 
+// InitOptions are the user-supplied flags that drive PlanInit: which root to
+// scaffold, which mutually-exclusive mode (force/repair/refresh) to run in,
+// dry-run/interactive behavior, and agent/scope selection.
 type InitOptions struct {
 	Root           string   `json:"root"`
 	Force          bool     `json:"force"`
@@ -21,6 +26,8 @@ type InitOptions struct {
 	Scope          string   `json:"scope"`
 }
 
+// InitAction is one planned filesystem action (write, merge, or skip) for a
+// single scaffold asset, including whether it is destructive or required.
 type InitAction struct {
 	Kind        string `json:"kind"`
 	Target      string `json:"target"`
@@ -31,6 +38,9 @@ type InitAction struct {
 	Content     string `json:"-"`
 }
 
+// InitPlan is the validated, write-free result of PlanInit: the resolved mode,
+// whether this is a fresh (.specd/-absent) install, and the ordered list of
+// actions to apply.
 type InitPlan struct {
 	Root     string        `json:"root"`
 	Mode     string        `json:"mode"`
@@ -40,6 +50,8 @@ type InitPlan struct {
 	Warnings []InitWarning `json:"warnings"`
 }
 
+// InitFileResults buckets the relative paths touched by an init run by
+// outcome: newly written, updated (merged), skipped (preserved), or failed.
 type InitFileResults struct {
 	Written []string `json:"written"`
 	Updated []string `json:"updated"`
@@ -47,28 +59,40 @@ type InitFileResults struct {
 	Failed  []string `json:"failed"`
 }
 
+// InitAgentResults buckets coding-agent hosts by outcome: passively detected,
+// automatically configured, or requiring manual setup.
 type InitAgentResults struct {
 	Detected   []string `json:"detected"`
 	Configured []string `json:"configured"`
 	Manual     []string `json:"manual"`
 }
 
+// InitVerificationResult reports the outcome of the in-process MCP handshake
+// performed during init: the MCP status, negotiated protocol version, and
+// discovered tool count.
 type InitVerificationResult struct {
 	MCP             string `json:"mcp"`
 	ProtocolVersion string `json:"protocolVersion"`
 	ToolCount       int    `json:"toolCount"`
 }
 
+// InitWarning is a non-fatal, machine-readable issue surfaced by an init run,
+// identified by a stable code and a human-readable message.
 type InitWarning struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
+// InitNextAction is the single suggested follow-up step returned to the
+// caller (typically the host agent) after init completes.
 type InitNextAction struct {
 	Kind string `json:"kind"`
 	Text string `json:"text"`
 }
 
+// InitResult is the complete, versioned outcome of an init run: status, file
+// and agent results, MCP verification, warnings, and the next suggested
+// action. It is the JSON document emitted under --json.
 type InitResult struct {
 	SchemaVersion int                    `json:"schemaVersion"`
 	Status        string                 `json:"status"`
@@ -81,6 +105,9 @@ type InitResult struct {
 	NextAction    InitNextAction         `json:"nextAction"`
 }
 
+// NewInitResult builds the default InitResult for the given root: schema
+// version stamped, status "ready", empty file/agent buckets, an
+// unattempted MCP verification, and the standard "create a spec" next action.
 func NewInitResult(root string) InitResult {
 	result := InitResult{
 		SchemaVersion: InitResultSchemaVersion,
@@ -108,6 +135,9 @@ func NewInitResult(root string) InitResult {
 	return result
 }
 
+// Normalize replaces any nil result slices with empty slices and sorts every
+// file/agent bucket and the warnings list, so JSON output is deterministic
+// regardless of the order actions were appended in.
 func (r *InitResult) Normalize() {
 	if r.Files.Written == nil {
 		r.Files.Written = []string{}
@@ -148,6 +178,8 @@ func (r *InitResult) Normalize() {
 	})
 }
 
+// InitExecutor abstracts the filesystem operations ExecuteInitPlan performs,
+// so tests can substitute fakes without touching the real disk.
 type InitExecutor struct {
 	WriteFile   func(path, content string) error
 	MergeAgents func(path, content string, force bool) error
@@ -156,6 +188,8 @@ type InitExecutor struct {
 	RemoveAll   func(path string) error
 }
 
+// DefaultInitExecutor returns the production InitExecutor, wired to the real
+// filesystem (AtomicWrite, MergeAgentsMD, and the os package primitives).
 func DefaultInitExecutor() InitExecutor {
 	return InitExecutor{
 		WriteFile:   AtomicWrite,
@@ -166,6 +200,9 @@ func DefaultInitExecutor() InitExecutor {
 	}
 }
 
+// ValidateInitOptions rejects InitOptions where more than one of
+// Force, Repair, and Refresh is set, since those modes are mutually
+// exclusive.
 func ValidateInitOptions(options InitOptions) error {
 	modes := 0
 	for _, enabled := range []bool{options.Force, options.Repair, options.Refresh} {
@@ -179,6 +216,8 @@ func ValidateInitOptions(options InitOptions) error {
 	return nil
 }
 
+// InitMode derives the mode label ("force", "repair", "refresh", or "init")
+// from InitOptions, used for InitPlan.Mode and InitResult.Mode.
 func InitMode(options InitOptions) string {
 	switch {
 	case options.Force:
@@ -194,6 +233,8 @@ func InitMode(options InitOptions) string {
 
 // PlanInit validates and resolves every template before returning actions. It
 // reads project state but performs no writes.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(string) (string, error)) (InitPlan, error) {
 	if options.Root == "" {
 		return InitPlan{}, fmt.Errorf("init root is required")
@@ -277,6 +318,11 @@ func PlanInit(options InitOptions, assets []ScaffoldAsset, readTemplate func(str
 	return plan, nil
 }
 
+// ExecuteInitPlan applies a previously computed InitPlan via executor,
+// returning the resulting InitResult. A dry-run plan only categorizes actions
+// without writing; a fresh-install plan stages and atomically renames the new
+// .specd/ tree via executeFreshInitPlan; otherwise actions are applied
+// in place, with the first failure on a required action stopping the run.
 func ExecuteInitPlan(plan InitPlan, force bool, executor InitExecutor) InitResult {
 	result := NewInitResult(plan.Root)
 	result.Mode = plan.Mode

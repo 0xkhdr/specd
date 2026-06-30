@@ -1,5 +1,7 @@
 package core
 
+// ProgramCounts summarizes how many child specs in a program fall into each
+// status bucket.
 type ProgramCounts struct {
 	Total     int `json:"total"`
 	Complete  int `json:"complete"`
@@ -8,6 +10,8 @@ type ProgramCounts struct {
 	Escalated int `json:"escalated"`
 }
 
+// ProgramWaveSummary summarizes one dependency wave's specs and how many of
+// them are complete or active.
 type ProgramWaveSummary struct {
 	Wave     int      `json:"wave"`
 	Specs    []string `json:"specs"`
@@ -15,6 +19,9 @@ type ProgramWaveSummary struct {
 	Active   int      `json:"active"`
 }
 
+// ProgramStatusReport is the full status view of a program orchestration
+// session: its session and snapshot state, the next decision, aggregate
+// counts, the runnable frontier, per-wave summaries, and any escalated specs.
 type ProgramStatusReport struct {
 	Session    ProgramSession       `json:"session"`
 	Snapshot   ProgramSnapshot      `json:"snapshot"`
@@ -25,6 +32,11 @@ type ProgramStatusReport struct {
 	Escalation []string             `json:"escalation"`
 }
 
+// SenseProgramOrchestration builds the current ProgramStatusReport for a
+// program session: it loads the session and program graph, builds the
+// runtime snapshot, derives the next decision (honoring paused/cancelling/
+// complete/failed session states before falling back to DecideProgram), and
+// assembles the counts, frontier, and wave summaries.
 func SenseProgramOrchestration(root, parentSessionID string, cfg OrchestrationCfg) (ProgramStatusReport, error) {
 	if err := validateACPOpaqueID("program session ID", parentSessionID); err != nil {
 		return ProgramStatusReport{}, err

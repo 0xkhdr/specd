@@ -2,6 +2,10 @@ package core
 
 import "fmt"
 
+// BuildProgramSnapshot builds a ProgramSnapshot from a ProgramGraph and a
+// simple active/inactive map keyed by spec slug. It is a convenience wrapper
+// over BuildProgramSnapshotWithRuntime for callers with no richer per-child
+// runtime data (e.g. escalation or child session ID) to report.
 func BuildProgramSnapshot(graph ProgramGraph, active map[string]bool, capacity int) (ProgramSnapshot, error) {
 	runtime := make(map[string]ProgramChildRuntime, len(active))
 	for slug, isActive := range active {
@@ -10,6 +14,12 @@ func BuildProgramSnapshot(graph ProgramGraph, active map[string]bool, capacity i
 	return BuildProgramSnapshotWithRuntime(graph, runtime, capacity)
 }
 
+// BuildProgramSnapshotWithRuntime assembles a ProgramSnapshot of the
+// cross-spec program: one ProgramChildSnapshot per spec in graph (merging in
+// per-child runtime state such as Active/Escalated/ChildSessionID), the count
+// of currently active children, the worker capacity, any dependency cycle or
+// orphaned dependencies, and the computed critical path. capacity must be
+// positive.
 func BuildProgramSnapshotWithRuntime(graph ProgramGraph, runtime map[string]ProgramChildRuntime, capacity int) (ProgramSnapshot, error) {
 	if capacity < 1 {
 		return ProgramSnapshot{}, fmt.Errorf("program orchestration: capacity must be positive")

@@ -2,6 +2,9 @@ package cli
 
 import "strings"
 
+// Args holds the parsed command-line arguments for a specd invocation: ordered
+// positional tokens and flag values keyed by flag name (without the leading
+// "--").
 type Args struct {
 	Pos   []string
 	Flags map[string]string
@@ -19,6 +22,11 @@ var booleanFlags = map[string]bool{
 	"ledger": true, "compact": true, "directive": true,
 }
 
+// ParseArgs splits argv into positional tokens and "--flag"/"--flag=value"
+// entries. A "--flag=value" token binds the value explicitly; a known boolean
+// flag (see booleanFlags) is recorded as "true" without consuming the next
+// token; any other "--flag" consumes the following token as its value unless
+// that token is itself a flag, in which case it is also recorded as "true".
 func ParseArgs(argv []string) Args {
 	args := Args{Flags: make(map[string]string)}
 	for i := 0; i < len(argv); i++ {
@@ -47,6 +55,12 @@ func ParseArgs(argv []string) Args {
 	return args
 }
 
-func (a Args) Bool(key string) bool  { return a.Flags[key] == "true" }
+// Bool reports whether the flag key was set to the literal value "true"
+// (the value ParseArgs assigns to boolean and bare flags).
+func (a Args) Bool(key string) bool { return a.Flags[key] == "true" }
+
+// Str returns the string value of flag key, or "" if the flag was not set.
 func (a Args) Str(key string) string { return a.Flags[key] }
-func (a Args) Has(key string) bool   { _, ok := a.Flags[key]; return ok }
+
+// Has reports whether flag key was set at all, regardless of its value.
+func (a Args) Has(key string) bool { _, ok := a.Flags[key]; return ok }

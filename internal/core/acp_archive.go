@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// ACPArchiveManifest describes a sealed ACP session archive: its schema
+// version, the archived session ID, when it was sealed, and the event count
+// and last sequence number it captured.
 type ACPArchiveManifest struct {
 	Version    int    `json:"version"`
 	SessionID  string `json:"sessionId"`
@@ -20,6 +23,12 @@ type ACPArchiveManifest struct {
 
 const acpArchiveVersion = 1
 
+// ArchiveSession seals a terminal session's events into an immutable archive
+// directory (writing it via a temp-dir-then-rename so the operation is
+// atomic and idempotent — a pre-existing archive is returned as-is) and, when
+// retention is non-positive, removes the live session directory afterward.
+// It returns an error if the session has no events or its last event is not
+// terminal.
 func (s *ACPStore) ArchiveSession(sessionID string, retention time.Duration) (ACPArchiveManifest, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return ACPArchiveManifest{}, err
@@ -99,6 +108,9 @@ func (s *ACPStore) ArchiveSession(sessionID string, retention time.Duration) (AC
 	return manifest, err
 }
 
+// ReplaySessionEvents returns a session's events, preferring the live
+// session store and falling back to its archive (if any) when the live
+// store has none.
 func (s *ACPStore) ReplaySessionEvents(sessionID string) ([]ACPEnvelope, error) {
 	events, err := s.readAllEvents(sessionID)
 	if err == nil && len(events) > 0 {
@@ -118,6 +130,9 @@ func (s *ACPStore) ReplaySessionEvents(sessionID string) ([]ACPEnvelope, error) 
 	return nil, archiveErr
 }
 
+// CleanupArchives removes every session archive sealed before olderThan and
+// returns the sorted list of session IDs that were removed. Archives with an
+// unreadable or invalid manifest are skipped rather than treated as errors.
 func (s *ACPStore) CleanupArchives(olderThan time.Time) ([]string, error) {
 	archivesDir, err := s.paths.ArchivesDir()
 	if err != nil {

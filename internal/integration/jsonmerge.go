@@ -31,6 +31,8 @@ type JSONMergeResult struct {
 
 // MergeJSONServer mutates one named nested server entry, preserving all other
 // semantic JSON values. Existing files are backed up before atomic replacement.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func MergeJSONServer(options JSONMergeOptions) (JSONMergeResult, error) {
 	result := JSONMergeResult{Target: options.Target}
 	if options.Root == "" || options.Target == "" || options.ServerName == "" || len(options.KeyPath) == 0 {

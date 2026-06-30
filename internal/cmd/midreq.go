@@ -9,6 +9,11 @@ import (
 
 var validImpacts = map[string]bool{"low": true, "medium": true, "high": true, "critical": true}
 
+// RunMidreq implements `specd midreq`: under the spec lock it bumps the spec's
+// turn counter, appends a mid-spec requirement-change entry (verbatim input,
+// interpretation, impact, and changes made) to mid-requirements.md, and, for
+// high or critical impact, sets the awaiting-approval gate so work stops until
+// the revised plan is approved.
 func RunMidreq(args cli.Args) int {
 	root, err := core.RequireSpecdRoot()
 	if err != nil {

@@ -153,6 +153,37 @@ assert_eq "$AFTER" "$BEFORE" "installer does not mutate the project directory"
 assert_missing "$AFTER" ".specd" "installer does not initialize the project"
 rm -rf "$SANDBOX"
 
+# --- verify_checksum: rejects mismatch, accepts match, --no-verify skips it ---
+SANDBOX="$(mktemp -d)"
+ARCHIVE="specd_test_archive.tar.gz"
+echo "fake release bytes" > "${SANDBOX}/${ARCHIVE}"
+WANT_HASH="$(cd "$SANDBOX" && sha256sum "$ARCHIVE" 2>/dev/null | awk '{print $1}')"
+if [ -z "$WANT_HASH" ]; then
+  WANT_HASH="$(cd "$SANDBOX" && shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+fi
+WRONG_HASH="0000000000000000000000000000000000000000000000000000000000000000"
+
+# download() normally fetches SHA256SUMS from GitHub; stub it so verify_checksum's
+# own pass/fail logic is exercised against a local fixture instead of the network.
+download() { cp "${SANDBOX}/SHA256SUMS.fixture" "$2"; }
+
+printf '%s  %s\n' "$WRONG_HASH" "$ARCHIVE" > "${SANDBOX}/SHA256SUMS.fixture"
+( verify_checksum "$SANDBOX" "$ARCHIVE" "v9.9.9" >/dev/null 2>&1 )
+assert_eq "$?" "1" "verify_checksum exits non-zero on checksum mismatch"
+
+printf '%s  %s\n' "$WANT_HASH" "$ARCHIVE" > "${SANDBOX}/SHA256SUMS.fixture"
+( verify_checksum "$SANDBOX" "$ARCHIVE" "v9.9.9" >/dev/null 2>&1 )
+assert_eq "$?" "0" "verify_checksum succeeds on matching checksum"
+
+printf '%s  %s\n' "$WRONG_HASH" "$ARCHIVE" > "${SANDBOX}/SHA256SUMS.fixture"
+NO_VERIFY=true
+( verify_checksum "$SANDBOX" "$ARCHIVE" "v9.9.9" >/dev/null 2>&1 )
+assert_eq "$?" "0" "--no-verify skips checksum verification even on mismatch"
+NO_VERIFY=false
+
+unset -f download
+rm -rf "$SANDBOX"
+
 # --- source fallback also verifies + hands off (static wiring check) ---
 SRC="$(cat "${SCRIPT_DIR}/install.sh")"
 case "$SRC" in

@@ -10,8 +10,13 @@ import (
 	"strings"
 )
 
+// FusionBootstrapVersion is the schema version reported in the Version field
+// of FusionBootstrap and FusionPolicy payloads.
 const FusionBootstrapVersion = 1
 
+// FusionBootstrap is the JSON payload returned by `specd fusion bootstrap`,
+// bundling the project root, the files an agent should load, command/config
+// summaries, scaffold health, active spec modes, and recommended next actions.
 type FusionBootstrap struct {
 	Version     int                    `json:"version"`
 	Root        string                 `json:"root"`
@@ -23,12 +28,17 @@ type FusionBootstrap struct {
 	NextActions []string               `json:"nextActions"`
 }
 
+// FusionLoadItem describes a single file a fusion-aware agent should load,
+// along with how to load it and why.
 type FusionLoadItem struct {
 	Path      string `json:"path"`
 	Mode      string `json:"mode"`
 	Rationale string `json:"rationale"`
 }
 
+// FusionCommandSummary summarizes the specd command schema (a digest and
+// count, with the full schema optionally attached) so an agent can detect
+// drift without always loading the entire schema.
 type FusionCommandSummary struct {
 	SchemaCommand string        `json:"schemaCommand"`
 	Digest        string        `json:"digest"`
@@ -36,6 +46,9 @@ type FusionCommandSummary struct {
 	Schema        []CommandMeta `json:"schema,omitempty"`
 }
 
+// FusionConfigSummary reports the effective specd config: its path and
+// digest, role/orchestration settings, gate severities, and where the
+// effective values were sourced from.
 type FusionConfigSummary struct {
 	Path                  string            `json:"path"`
 	Digest                string            `json:"digest"`
@@ -47,21 +60,29 @@ type FusionConfigSummary struct {
 	EffectiveConfigSource string            `json:"effectiveConfigSource"`
 }
 
+// FusionRolesConfig holds the subagent role configuration exposed in a
+// fusion summary.
 type FusionRolesConfig struct {
 	SubagentMode string `json:"subagentMode"`
 }
 
+// FusionOrchConfig holds the orchestration settings (enablement, approval
+// policy, worker mode) exposed in a fusion summary.
 type FusionOrchConfig struct {
 	Enabled        bool   `json:"enabled"`
 	ApprovalPolicy string `json:"approvalPolicy"`
 	WorkerMode     string `json:"workerMode"`
 }
 
+// FusionHealthSummary reports overall scaffold health plus the individual
+// checks that were run.
 type FusionHealthSummary struct {
 	OK     bool                `json:"ok"`
 	Checks []FusionHealthCheck `json:"checks"`
 }
 
+// FusionHealthCheck reports the result of one scaffold health check,
+// including any required files found missing.
 type FusionHealthCheck struct {
 	Name    string   `json:"name"`
 	OK      bool     `json:"ok"`
@@ -69,6 +90,8 @@ type FusionHealthCheck struct {
 	Message string   `json:"message,omitempty"`
 }
 
+// FusionActiveSpecMode summarizes one spec's status, phase, mode, mode
+// origin, and gate state for the active-modes listing in a fusion bootstrap.
 type FusionActiveSpecMode struct {
 	Slug   string `json:"slug"`
 	Status string `json:"status"`
@@ -78,6 +101,9 @@ type FusionActiveSpecMode struct {
 	Gate   string `json:"gate"`
 }
 
+// FusionPolicy is the JSON payload returned by `specd fusion policy`,
+// describing the effective orchestration/config policy plus any violations
+// and recommendations, optionally narrowed to a single spec.
 type FusionPolicy struct {
 	Version              int                `json:"version"`
 	Root                 string             `json:"root"`
@@ -101,6 +127,8 @@ type FusionPolicy struct {
 	Recommendations      []string           `json:"recommendations"`
 }
 
+// FusionMCPExposure describes which MCP tools are exposed and how,
+// mirroring the project's MCP exposure configuration.
 type FusionMCPExposure struct {
 	Expose               string   `json:"expose"`
 	EssentialTools       []string `json:"essentialTools,omitempty"`
@@ -108,6 +136,8 @@ type FusionMCPExposure struct {
 	IncludeOrchestration *bool    `json:"includeOrchestration,omitempty"`
 }
 
+// FusionSpecPolicy captures the resolved mode and allowed workflows (brain
+// orchestration vs. base loop) for one spec within a FusionPolicy.
 type FusionSpecPolicy struct {
 	Slug            string `json:"slug"`
 	SpecMode        string `json:"specMode"`
@@ -119,6 +149,11 @@ type FusionSpecPolicy struct {
 	PolicyViolation string `json:"policyViolation,omitempty"`
 }
 
+// BuildFusionPolicy resolves the effective orchestration policy for root
+// (auto-discovering it when root is empty) and, when slug is non-empty,
+// layers in spec-specific mode/workflow guidance and violation checks. When
+// expectDigest is non-empty it also records whether the loaded config
+// digest matches it.
 func BuildFusionPolicy(root, slug, expectDigest string) (FusionPolicy, error) {
 	if root == "" {
 		var ok bool
@@ -187,6 +222,11 @@ func BuildFusionPolicy(root, slug, expectDigest string) (FusionPolicy, error) {
 	return policy, nil
 }
 
+// BuildFusionBootstrap assembles the full fusion bootstrap payload for root
+// (auto-discovering it when root is empty), including the command schema
+// digest, config summary, scaffold health checks, active spec modes, and
+// recommended next actions. includeSchema controls whether the full command
+// schema is embedded in the result.
 func BuildFusionBootstrap(root string, includeSchema bool) (FusionBootstrap, error) {
 	if root == "" {
 		var ok bool

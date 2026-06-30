@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// PinkyProgressReport is a worker's progress update for one in-flight task
+// attempt: a percent-complete figure and free-form status message, recorded
+// as an ACP progress event.
 type PinkyProgressReport struct {
 	SessionID string
 	WorkerID  string
@@ -19,6 +22,8 @@ type PinkyProgressReport struct {
 	Message   string
 }
 
+// PinkyBlockerReport is a worker's report that a task attempt is blocked,
+// with a free-form reason, recorded as an ACP blocked event.
 type PinkyBlockerReport struct {
 	SessionID string
 	WorkerID  string
@@ -28,6 +33,8 @@ type PinkyBlockerReport struct {
 	Reason    string
 }
 
+// PinkyQueryReport is a worker's question to the Brain about a task attempt,
+// recorded as an ACP query event awaiting a directive reply.
 type PinkyQueryReport struct {
 	SessionID string
 	WorkerID  string
@@ -37,6 +44,9 @@ type PinkyQueryReport struct {
 	Text      string
 }
 
+// BrainDirective is the Brain's instruction back to a worker, recorded as an
+// ACP directive event. InReplyTo links it to the message ID of the query or
+// report it answers.
 type BrainDirective struct {
 	SessionID string
 	WorkerID  string
@@ -48,12 +58,18 @@ type BrainDirective struct {
 	InReplyTo string
 }
 
+// PinkyInbox is the set of directives and other ACP events addressed to one
+// worker, read back from the session's event log.
 type PinkyInbox struct {
 	SessionID  string        `json:"sessionId"`
 	WorkerID   string        `json:"workerId"`
 	Directives []ACPEnvelope `json:"directives"`
 }
 
+// PinkyTerminalReport is a worker's final report for a task attempt: the
+// verification reference, summary, changed files, observed git head, and
+// host-reported duration/token/cost figures used to reconcile evidence in
+// ReconcilePinkyEvidence.
 type PinkyTerminalReport struct {
 	SessionID       string
 	WorkerID        string
@@ -69,6 +85,9 @@ type PinkyTerminalReport struct {
 	HostCost        string
 }
 
+// RecordPinkyProgress appends a progress event for report to the session's
+// ACP event log, stamping the report time from the host clock (rather than
+// trusting the worker) so the driver can weight stall waits (R6).
 func RecordPinkyProgress(root string, report PinkyProgressReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	// Stamp the report time server-side from the host clock so a worker cannot
 	// spoof recency; the driver reads this to weight stall waits (R6).
@@ -80,16 +99,24 @@ func RecordPinkyProgress(root string, report PinkyProgressReport, cfg Orchestrat
 	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageProgress, payload, cfg)
 }
 
+// RecordPinkyBlocker appends a blocked event for report to the session's ACP
+// event log.
 func RecordPinkyBlocker(root string, report PinkyBlockerReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	payload := ACPBlockerPayload{Reason: report.Reason}
 	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageBlocker, payload, cfg)
 }
 
+// RecordPinkyQuery appends a query event for report to the session's ACP
+// event log.
 func RecordPinkyQuery(root string, report PinkyQueryReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	payload := ACPQueryPayload{Text: report.Text}
 	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageQuery, payload, cfg)
 }
 
+// RecordBrainDirective validates that the targeted worker holds an active
+// lease for the directive's task/attempt, then builds and appends a
+// directive event addressed to that worker, stamping its ID, timestamps, and
+// expiry from the host clock and configured message TTL.
 func RecordBrainDirective(root string, directive BrainDirective, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	store, err := NewACPStore(root)
 	if err != nil {
@@ -125,6 +152,8 @@ func RecordBrainDirective(root string, directive BrainDirective, cfg Orchestrati
 	return written, nil
 }
 
+// ReadPinkyInbox validates sessionID and workerID, then reads the session's
+// ACP event log and returns the directive events addressed to that worker.
 func ReadPinkyInbox(root, sessionID, workerID string) (PinkyInbox, error) {
 	if err := validateACPOpaqueID("session ID", sessionID); err != nil {
 		return PinkyInbox{}, err
@@ -150,6 +179,9 @@ func ReadPinkyInbox(root, sessionID, workerID string) (PinkyInbox, error) {
 	return out, nil
 }
 
+// RecordPinkyTerminalReport appends an evidence event for report to the
+// session's ACP event log, the worker's final word on a task attempt before
+// the Brain reconciles it via ReconcilePinkyEvidence.
 func RecordPinkyTerminalReport(root string, report PinkyTerminalReport, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	payload := ACPEvidencePayload{
 		VerificationRef: report.VerificationRef,
@@ -163,6 +195,9 @@ func RecordPinkyTerminalReport(root string, report PinkyTerminalReport, cfg Orch
 	return appendPinkyEvent(root, report.SessionID, report.WorkerID, report.Spec, report.TaskID, report.Attempt, ACPMessageEvidence, payload, cfg)
 }
 
+// AcknowledgePinkyCancellation appends a cancelled event for the given task
+// attempt to the session's ACP event log, the worker's acknowledgment that it
+// has stopped after a cancel directive.
 func AcknowledgePinkyCancellation(root, sessionID, workerID, spec, taskID string, attempt int, reason string, cfg OrchestrationCfg) (ACPEnvelope, error) {
 	payload := ACPCancelledPayload{Reason: reason}
 	return appendPinkyEvent(root, sessionID, workerID, spec, taskID, attempt, ACPMessageCancelled, payload, cfg)
@@ -229,6 +264,8 @@ type PinkyEvidenceResult struct {
 // complete` uses, so Pinky never becomes a second verification or completion
 // mechanism (R4.6, R4.7, R4.8, R4.14). It is idempotent: a duplicate report
 // re-records nothing and re-completes nothing.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func ReconcilePinkyEvidence(root string, report PinkyTerminalReport, cfg OrchestrationCfg) (PinkyEvidenceResult, error) {
 	// 1. Record the worker's claim. RecordPinkyTerminalReport validates that the
 	//    reporter still owns an active lease (V2) and is idempotent, so a forged

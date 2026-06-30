@@ -38,6 +38,13 @@ var validTaskStatuses = map[core.TaskStatus]bool{
 	core.TaskPending:  true,
 }
 
+// RunTask implements `specd task`: it validates the requested --status
+// transition for a task, then either delegates "complete" to
+// core.CompleteTask's integrity-checked path or, under the spec lock,
+// mutates the task's status/blocker/annotation directly, persisting both
+// state.json and tasks.md.
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunTask(args cli.Args) int {
 	root, err := core.RequireSpecdRoot()
 	if err != nil {

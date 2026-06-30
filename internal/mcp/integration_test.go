@@ -473,6 +473,67 @@ func TestMCPWireContract(t *testing.T) {
 	})
 }
 
+// TestMCPArgumentShapeValidation exercises Requirement 1 of the security-
+// hardening spec (S1): an undeclared argument key or a wrong-shaped value is
+// rejected with the existing -32602 envelope before any command dispatch,
+// while a shape-valid request still succeeds end to end (Requirement 1.4 —
+// the gate must not change behavior for already-valid requests).
+func TestMCPArgumentShapeValidation(t *testing.T) {
+	h := th.New(t)
+	h.Spec("widget").
+		Req("Auth", "As a user I want auth", "THE SYSTEM SHALL authenticate.").
+		FullDesign().
+		AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
+		Status(core.StatusExecuting).
+		Build()
+
+	resps := driveIntegration(t, h,
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"integration-test","version":"1"}}}`,
+		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		// specd_status declares "all" as a boolean flag; a string value is a shape violation.
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"specd_status","arguments":{"all":"yes"}}}`,
+		// "bogus" is not a declared argument for specd_status.
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"specd_status","arguments":{"bogus":"x"}}}`,
+		// A shape-valid call must still succeed (Requirement 1.4).
+		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"specd_status","arguments":{"args":["widget"]}}}`,
+	)
+
+	if len(resps) != 4 {
+		t.Fatalf("got %d responses, want 4 (initialize + 3 tools/call; notification skipped): %v", len(resps), resps)
+	}
+	// resps[0] is the initialize response (id 1); the three tools/call requests follow.
+
+	t.Run("wrong_typed_flag_rejected_before_dispatch", func(t *testing.T) {
+		e, ok := resps[1]["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("type-mismatched argument should return error, got result: %v", resps[1])
+		}
+		if code := e["code"].(float64); code != -32602 {
+			t.Errorf("error code = %v, want -32602", code)
+		}
+	})
+
+	t.Run("unknown_argument_key_rejected_before_dispatch", func(t *testing.T) {
+		e, ok := resps[2]["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("unknown argument key should return error, got result: %v", resps[2])
+		}
+		if code := e["code"].(float64); code != -32602 {
+			t.Errorf("error code = %v, want -32602", code)
+		}
+	})
+
+	t.Run("shape_valid_request_still_succeeds", func(t *testing.T) {
+		r, ok := resps[3]["result"].(map[string]any)
+		if !ok {
+			t.Fatalf("shape-valid call should succeed, got: %v", resps[3])
+		}
+		if r["isError"] != false {
+			t.Errorf("shape-valid call isError = %v, want false: %v", r["isError"], r)
+		}
+	})
+}
+
 // TestResourcesListAndRead exercises the resources channel end-to-end over the
 // stdio server (spec AC2–AC6): list enumerates a seeded spec's artifacts and
 // steering files, read returns content with the right mime, and traversal/unknown

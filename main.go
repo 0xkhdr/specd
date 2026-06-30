@@ -4,16 +4,22 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/cmd"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/obs"
 )
 
 // version is set at build time: go build -ldflags "-X main.version=v1.0.0"
 var version = "dev"
 
-func run(argv []string) int {
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
+func run(argv []string) (code int) {
+	started := time.Now()
+	defer func() { obs.RecordDuration("command_duration", time.Since(started)) }()
+
 	// Propagate version to core for help output.
 	core.Version = version
 

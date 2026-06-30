@@ -6,10 +6,13 @@ import (
 	"sort"
 )
 
+// ScaffoldPolicy controls how a scaffold asset is written to the project root.
 type ScaffoldPolicy string
 
 const (
-	ScaffoldCreate      ScaffoldPolicy = "create"
+	// ScaffoldCreate writes the target file only if it does not already exist.
+	ScaffoldCreate ScaffoldPolicy = "create"
+	// ScaffoldMarkerMerge merges template content into an existing file between markers.
 	ScaffoldMarkerMerge ScaffoldPolicy = "marker-merge"
 )
 

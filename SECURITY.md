@@ -39,7 +39,10 @@ highlights:
   tool is absent from `PATH` (or `container` has no pinned `SPECD_SANDBOX_IMAGE`),
   `specd verify` refuses to run rather than silently falling back to an
   unisolated shell — a verify that asked for isolation never quietly runs without
-  it.
+  it. `specd doctor` reports a missing `bwrap`/container dependency as an
+  advisory finding (with an OS-appropriate install hint) before a user hits
+  this fail-closed error directly; the advisory never changes `SelectRunner`'s
+  fail-closed behavior or `doctor`'s own exit code.
 - **Custom gates (unisolated).** Custom gates configured under `config.yml` (or legacy `config.json`) execute external programs on the host. Although their environment is scrubbed and execution is bounded by a timeout (`SPECD_CUSTOM_GATE_TIMEOUT_MS`), **custom gates do not run within bubblewrap or container sandbox isolation**. Only run `specd check` on projects where the custom gate commands are trusted.
 - **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
@@ -59,6 +62,14 @@ highlights:
   `Authorization: Bearer <token>` header (constant-time compared, `401` on a
   miss). Terminate TLS at a reverse proxy. See
   [`docs/mcp-guide.md`](docs/mcp-guide.md#exposure--auth).
+- **MCP argument-shape validation.** Every raw-passthrough `tools/call`
+  (`internal/mcp/argschema.go`) is checked against that tool's declared
+  argument schema — derived from the same `core.Commands` data used to
+  advertise `tools/list`, so the two can't drift apart — before any argv is
+  built or dispatched. An undeclared argument key, or a value whose shape
+  doesn't match the declared flag (e.g. an array/object where a scalar is
+  expected), is rejected with a JSON-RPC error ahead of command dispatch and
+  any per-command validation (e.g. `ValidateSlug`).
 - **No runtime dependencies, no network at rest.** The shipped binary is
   stdlib-only, makes no LLM calls, and reads no on-disk templates at runtime.
 

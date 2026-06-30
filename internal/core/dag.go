@@ -2,6 +2,8 @@ package core
 
 import "sort"
 
+// DagTask is a single task node in the task dependency graph, carrying its
+// wave assignment, dependency ids, and current execution status.
 type DagTask struct {
 	ID      string
 	Wave    int
@@ -9,8 +11,12 @@ type DagTask struct {
 	Status  TaskStatus
 }
 
+// NextResultKind identifies what NextRunnable found: a runnable task, that
+// all tasks are complete, that all remaining tasks are blocked, or that
+// remaining tasks are merely waiting on incomplete dependencies.
 type NextResultKind string
 
+// Possible NextResultKind values returned by NextRunnable.
 const (
 	NextTask        NextResultKind = "task"
 	NextAllComplete NextResultKind = "all-complete"
@@ -18,6 +24,9 @@ const (
 	NextWaiting     NextResultKind = "waiting"
 )
 
+// NextResult is the outcome of NextRunnable: the Kind discriminates whether
+// ID names the next runnable task, or Blocked/Blocking list the task ids
+// involved in a blocked or waiting state.
 type NextResult struct {
 	Kind     NextResultKind `json:"kind"`
 	ID       string         `json:"id,omitempty"`
@@ -57,6 +66,8 @@ func byID(tasks []DagTask) map[string]DagTask {
 	return m
 }
 
+// OrphanDeps returns every (task, dependency) pair where the dependency id
+// does not match any task in the list.
 func OrphanDeps(tasks []DagTask) []struct{ Task, Dep string } {
 	ids := make(map[string]bool, len(tasks))
 	for _, t := range tasks {
@@ -73,6 +84,8 @@ func OrphanDeps(tasks []DagTask) []struct{ Task, Dep string } {
 	return out
 }
 
+// DetectCycle runs a depth-first search over the task dependency graph and
+// returns the ids forming a cycle if one exists, or nil if the graph is acyclic.
 func DetectCycle(tasks []DagTask) []string {
 	m := byID(tasks)
 	const (
@@ -132,6 +145,8 @@ func DetectCycle(tasks []DagTask) []string {
 	return nil
 }
 
+// WaveViolations returns every (task, dependency) pair where the dependency
+// is assigned to a later wave than the task that depends on it.
 func WaveViolations(tasks []DagTask) []struct{ Task, Dep string } {
 	m := byID(tasks)
 	var out []struct{ Task, Dep string }
@@ -144,6 +159,18 @@ func WaveViolations(tasks []DagTask) []struct{ Task, Dep string } {
 		}
 	}
 	return out
+}
+
+// dagTaskOrder reports whether a sorts before b in the canonical wave/ordinal
+// order used for RunnableFrontier/NextRunnable's runnable-task output. It is
+// shared with FrontierDetector's incremental path (frontier.go) so both stay
+// in the same total order by construction rather than via two independent
+// sort implementations that could drift apart.
+func dagTaskOrder(a, b DagTask) bool {
+	if a.Wave != b.Wave {
+		return a.Wave < b.Wave
+	}
+	return ordinal(a.ID) < ordinal(b.ID)
 }
 
 func isRunnable(t DagTask, m map[string]DagTask) bool {
@@ -159,6 +186,10 @@ func isRunnable(t DagTask, m map[string]DagTask) bool {
 	return true
 }
 
+// NextRunnable selects the next task to run from tasks, preferring the
+// lowest-wave, lowest-ordinal pending task whose dependencies are all
+// complete. It reports NextAllComplete, NextAllBlocked, or NextWaiting when
+// no task is currently runnable.
 func NextRunnable(tasks []DagTask) NextResult {
 	m := byID(tasks)
 	remaining := make([]DagTask, 0, len(tasks))
@@ -177,12 +208,7 @@ func NextRunnable(tasks []DagTask) NextResult {
 			runnable = append(runnable, t)
 		}
 	}
-	sort.Slice(runnable, func(i, j int) bool {
-		if runnable[i].Wave != runnable[j].Wave {
-			return runnable[i].Wave < runnable[j].Wave
-		}
-		return ordinal(runnable[i].ID) < ordinal(runnable[j].ID)
-	})
+	sort.Slice(runnable, func(i, j int) bool { return dagTaskOrder(runnable[i], runnable[j]) })
 	if len(runnable) > 0 {
 		return NextResult{Kind: NextTask, ID: runnable[0].ID}
 	}
@@ -224,6 +250,8 @@ func NextRunnable(tasks []DagTask) NextResult {
 	return NextResult{Kind: NextWaiting, Blocking: blocking}
 }
 
+// RunnableFrontier returns every pending task whose dependencies are all
+// complete, ordered by wave then ordinal.
 func RunnableFrontier(tasks []DagTask) []DagTask {
 	m := byID(tasks)
 	var out []DagTask
@@ -232,20 +260,18 @@ func RunnableFrontier(tasks []DagTask) []DagTask {
 			out = append(out, t)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Wave != out[j].Wave {
-			return out[i].Wave < out[j].Wave
-		}
-		return ordinal(out[i].ID) < ordinal(out[j].ID)
-	})
+	sort.Slice(out, func(i, j int) bool { return dagTaskOrder(out[i], out[j]) })
 	return out
 }
 
+// WaveRow groups the tasks belonging to a single wave, as produced by GroupWaves.
 type WaveRow struct {
 	Wave  int
 	Tasks []DagTask
 }
 
+// GroupWaves partitions tasks into WaveRow groups ordered by ascending wave
+// number, with each group's tasks sorted by id ordinal.
 func GroupWaves(tasks []DagTask) []WaveRow {
 	waveSet := make(map[int]bool)
 	for _, t := range tasks {

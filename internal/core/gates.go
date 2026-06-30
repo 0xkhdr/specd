@@ -22,9 +22,10 @@ type CheckCtx struct {
 	Cfg        Config
 }
 
-// Gate is a pure check over CheckCtx returning the violations and warnings it
-// found. Gates never mutate the context and never perform IO beyond reading the
-// artifacts referenced by the context (design.md is read by GateDesign).
+// CheckGate is a pure check over CheckCtx returning the violations and
+// warnings it found. Gates never mutate the context and never perform IO
+// beyond reading the artifacts referenced by the context (design.md is read
+// by GateDesign).
 type CheckGate func(CheckCtx) (violations, warnings []Violation)
 
 // CheckGates is the ordered gate pipeline run by `specd check <slug>`. Order is
@@ -352,9 +353,6 @@ func GateContextBudget(c CheckCtx) (violations, warnings []Violation) {
 	return nil, []Violation{v}
 }
 
-// buildCheckContextManifest assembles the context manifest for the spec under
-// check, scoped to the next runnable task when one exists. The injected reader
-// is the only IO, mirroring the other artifact-reading gates.
 // GateModeCapability is the opt-in mode-capability gate. It is a no-op unless
 // cfg.Gates.ModeCapability names a severity ("warn"/"error"; "off"/""/"*"
 // disable it — the default, so Base projects stay clean). When enabled it flags
@@ -384,6 +382,9 @@ func GateModeCapability(c CheckCtx) (violations, warnings []Violation) {
 	return nil, []Violation{v}
 }
 
+// buildCheckContextManifest assembles the context manifest for the spec under
+// check, scoped to the next runnable task when one exists. The injected reader
+// is the only IO, mirroring the other artifact-reading gates.
 func buildCheckContextManifest(c CheckCtx) contextpkg.MissionContextManifest {
 	req := contextpkg.ContextRequest{
 		Slug:         c.Slug,

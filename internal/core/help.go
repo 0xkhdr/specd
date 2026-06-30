@@ -9,8 +9,12 @@ import (
 // Version is set at build time via -ldflags.
 var Version = "dev"
 
+// RenderHelp renders the top-level human-readable help text listing visible
+// commands grouped by category.
 func RenderHelp() string { return renderHelp(false) }
 
+// RenderHelpAll renders the top-level help text like RenderHelp but also
+// includes hidden commands.
 func RenderHelpAll() string { return renderHelp(true) }
 
 func renderHelp(includeHidden bool) string {
@@ -47,6 +51,9 @@ func renderHelp(includeHidden bool) string {
 	return b.String()
 }
 
+// RenderCommandHelp renders detailed, man-page-style help (synopsis,
+// description, flags, exit codes, examples) for the named command,
+// returning an error if cmdName is not a known command.
 func RenderCommandHelp(cmdName string) (string, error) {
 	var c *CommandMeta
 	for i, cmd := range Commands {
@@ -89,6 +96,8 @@ func RenderCommandHelp(cmdName string) (string, error) {
 	return b.String(), nil
 }
 
+// RenderHelpJSON renders the full, unfiltered command schema (including
+// hidden and deprecated commands) as indented JSON.
 func RenderHelpJSON() (string, error) {
 	b, err := json.MarshalIndent(Commands, "", "  ")
 	if err != nil {
@@ -97,6 +106,9 @@ func RenderHelpJSON() (string, error) {
 	return string(b), nil
 }
 
+// RenderHelpJSONAll renders the command schema as indented JSON, excluding
+// deprecated commands and including hidden commands only when includeHidden
+// is true.
 func RenderHelpJSONAll(includeHidden bool) (string, error) {
 	commands := make([]CommandMeta, 0, len(Commands))
 	for _, c := range Commands {

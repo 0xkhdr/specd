@@ -85,6 +85,9 @@ func MergeAgentsMD(path, template string, force bool) error {
 	return AtomicWrite(path, result)
 }
 
+// ValidateAgentsMD reports whether the AGENTS.md file at path has a
+// well-formed managed marker section (both begin and end markers present,
+// in order). It returns false, nil if the file does not exist.
 func ValidateAgentsMD(path string) (bool, error) {
 	content, err := os.ReadFile(path)
 	if os.IsNotExist(err) {

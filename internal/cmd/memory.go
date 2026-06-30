@@ -36,6 +36,12 @@ func extractMemBlock(text, key string) string {
 	return strings.TrimRight(strings.Join(body, "\n"), " \t\n")
 }
 
+// RunMemory implements `specd memory <slug> <add|promote>`. The "add"
+// subcommand appends a new pattern entry to the spec's memory.md; "promote"
+// lifts an existing entry into the shared steering/memory.md once it has been
+// observed in at least the configured threshold of specs (or with --force).
+//
+//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunMemory(args cli.Args) int {
 	root, err := core.RequireSpecdRoot()
 	if err != nil {
