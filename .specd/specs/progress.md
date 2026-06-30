@@ -3,32 +3,32 @@
 ## Overall Status
 - Total Specs: 5
 - Total Waves: 5 (suite-level integration waves; each spec carries 3 internal waves)
-- Tasks Complete: 10 / 27
-- Current Phase: cmd-mcp-sync complete
+- Tasks Complete: 27 / 27
+- Current Phase: Wave 5 integration verify complete; all specs complete
 
 > Surface target: 33 commands → **20 survivors** (16 daily workflow + 4 meta-hidden). 13 commands killed.
 
 ## Spec Registry
 | Spec | Status | Current Wave | Blockers |
 |------|--------|--------------|----------|
-| cmd-audit | verifying | complete | none |
-| cmd-merge | planned | — | depends on cmd-audit |
-| cmd-deprecate | planned | — | depends on cmd-audit |
+| cmd-audit | complete | complete | none |
+| cmd-merge | complete | complete | none |
+| cmd-deprecate | complete | complete | none |
 | cmd-mcp-sync | complete | complete | none |
-| cmd-docs | planned | — | depends on cmd-mcp-sync |
+| cmd-docs | complete | complete | none |
 
 ## Wave Schedule
 ### Wave 1: Audit & Analysis
 - [x] cmd-audit: T1–T5
 ### Wave 2: Merge & Deprecate
-- [ ] cmd-merge: T1–T6
-- [ ] cmd-deprecate: T1–T5
+- [x] cmd-merge: T1–T6
+- [x] cmd-deprecate: T1–T5
 ### Wave 3: MCP Sync
 - [x] cmd-mcp-sync: T1–T5
 ### Wave 4: Documentation
-- [ ] cmd-docs: T1–T6
+- [x] cmd-docs: T1–T6
 ### Wave 5: Integration Verify
-- [ ] All specs: final verify + approve
+- [x] All specs: final verify + approve
   - specd check cmd-audit && specd check cmd-merge && specd check cmd-deprecate && specd check cmd-mcp-sync && specd check cmd-docs
   - go test ./internal/core/ -run 'TestNoDuplicateCommands|TestFlagSingleOwner|TestPaletteCeiling'
   - go test ./internal/mcp/ -run TestCLIMCPParity

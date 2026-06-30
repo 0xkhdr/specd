@@ -62,20 +62,20 @@ Set in `.specd/config.yml` (or legacy `.specd/config.json`) via `roles.subagent_
 ### `delegate` mode
 - The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd fusion policy` / `.specd/config.yml` (or legacy `.specd/config.json`).
 - If the host lacks subagent capability, it must say so inline before work (for example: "Delegate mode requested, but this host has no subagents; running role inline under same constraints.").
-- Base mode uses `specd dispatch <slug> --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
+- Base mode uses `specd next <slug> --dispatch --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
 - Orchestrated mode prefers Brain/Pinky missions; the host maps each `dispatch` decision to a Pinky worker and the claim → heartbeat/progress → verify → report/block → release lifecycle.
 - **Pros:** Isolated context, reduced token consumption.
 - **Cons:** Requires agent-spawning capabilities (Claude Code, etc.).
 
 ### Frontier dispatch
 
-`specd dispatch <slug> --json` emits one ready-to-run packet per task in the
+`specd next <slug> --dispatch --json` emits one ready-to-run packet per task in the
 current frontier — contract, files, acceptance, verify command, the completion
 command, and a budgeted `contextManifest`. Pattern for parallel execution:
 
 ```bash
 # 1. Get dispatch packets
-specd dispatch my-feature --json
+specd next my-feature --dispatch --json
 
 # 2. For each packet, spawn a subagent with its contextManifest + contract.
 #    Resolve the role by name via the shared top-level `assets` map
@@ -136,7 +136,7 @@ Output sections:
 }
 ```
 
-All three surfaces — `specd context` (A), `specd dispatch` (B), and the Pinky
+All three surfaces — `specd context` (A), `specd next --dispatch` (B), and the Pinky
 mission brief (C) — are produced by one shared engine (`BuildContextManifest`),
 so they agree on what to load and never drift.
 
@@ -164,17 +164,16 @@ across runs:
 1. **Default Base.** "create/build/spec X" → author in Base; do **not** start
    Brain/Pinky. In Base the host owns every step.
 2. **Explicit opt-in → Orchestrated.** "use Pinky and the Brain", "orchestrate
-   this", "run autonomously" → `specd mode <slug> --set orchestrated`, then drive
-   with `specd brain run` (or MCP `brain_orchestrate`). Brain/Pinky refuse Base
-   specs.
+   this", "run autonomously" → create the spec with `specd new <slug> --orchestrated`,
+   then drive with `specd brain run` (or MCP `brain_orchestrate`). Brain/Pinky
+   refuse Base specs.
 3. **Recommend, don't impose.** After `tasks.md` is approved, consult
-   `specd mode <slug> --recommend --json` (or MCP `mode_recommend`). On
-   `suggest`/`strong`, surface a one-line suggestion and **wait for the user** —
-   the verdict is advisory (`userDecides: true`); never switch without a yes.
+   `specd status <slug> --json`; if the status signals orchestration would help,
+   surface a one-line suggestion and **wait for the user**. Never switch without
+   a yes.
 4. **Respect the recorded mode.** Later actions read `spec.executionMode` and
    follow it.
 
-MCP intent tools mirror this surface: `mode_get`, `mode_set`, `mode_recommend`.
 Capability (`orchestration.enabled`) only *permits* orchestration; the spec's
 `executionMode` *selects* it — never conflate them.
 
@@ -508,6 +507,22 @@ to execute Pinky dispatches; without one the loop stops at the first dispatch so
 the host can run the worker itself. Start-and-monitor is one tool call carrying a
 goal + spec — no `--approval-policy`/`--max-workers`/… plumbing.
 
+**Parity-tested tools.** Default MCP discovery exposes survivor-backed tools only:
+`specd_init`, `specd_new`, `specd_status`, `specd_context`, `specd_check`,
+`specd_approve`, `specd_next`, `specd_verify`, `specd_task`, `specd_report`,
+`specd_decision`, `specd_midreq`, `specd_memory`, `specd_waves`, `specd_brain`,
+and `specd_pinky`, plus the intent tools below. Meta-hidden commands (`help`,
+`version`, `mcp`, `fusion`) are excluded from the default list and appear only
+when a host asks for hidden/meta discovery.
+
+**Intent-to-flag mappings.** Composite tools route high-level intents to survivor
+flags: `specd_query view=dispatch` maps to `next --dispatch`; `specd_inspect
+view=schema` maps to `check --schema`; `specd_inspect view=validate` maps to
+`check --schema-only`; `specd_read view=serve` maps to `report --serve`;
+`specd_read view=watch` maps to `report --watch`; `specd_read view=history` maps
+to `report --history`; `specd_inspect view=diff` maps to `report --diff`; and
+`specd_inspect view=program` maps to `status --program`.
+
 **Raw passthrough (power users).** The generated `specd_brain` and `specd_pinky`
 tools remain. The `args` array is the normal CLI subcommand list; flags are
 ordinary tool arguments.
@@ -630,10 +645,10 @@ never resurrected. All of this is gated on
 For multi-spec efforts, declare dependencies between whole specs:
 
 ```bash
-specd program link api --on auth     # 'api' waits for 'auth'
-specd program unlink api --on auth   # remove the dependency
-specd program                        # view the program-level DAG
-specd program --json                 # JSON output for orchestrators
+specd new api --depends-on auth     # 'api' waits for 'auth'
+edit the spec dependency declaration to remove auth   # remove the dependency
+specd status --program                        # view the program-level DAG
+specd status --program --json                 # JSON output for orchestrators
 ```
 
 Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
@@ -645,5 +660,5 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 └─────────┘     └─────────┘     └─────────┘
 ```
 
-`specd program status` resolves which whole specs are runnable — the cross-spec
+`specd status --program` resolves which whole specs are runnable — the cross-spec
 analog of `specd next`.

@@ -2,12 +2,12 @@
 
 A versioned, machine-readable description of the on-disk artifacts specd
 produces and consumes. This document is the **prose standard**; the normative
-contract is the JSON Schema embedded in the binary, emitted by `specd schema`.
+contract is the JSON Schema embedded in the binary, emitted by `specd check --schema`.
 
 ```sh
-specd schema                 # current version to stdout
-specd schema --version 1     # an explicit version
-specd validate <slug> --schema   # check a spec's state.json against it
+specd check --schema                 # current version to stdout
+specd check --schema --version 1     # an explicit version
+specd check <slug> --schema-only   # check a spec's state.json against it
 ```
 
 ## Versioning
@@ -46,7 +46,7 @@ A spec lives under `.specd/specs/<slug>/`:
 
 `requirements.md`, `design.md`, and `tasks.md` are Markdown with conventions
 enforced by the validation gates (`docs/validation-gates.md`). `state.json` is
-the structured ledger validated by `specd validate --schema`.
+the structured ledger validated by `specd check --schema-only`.
 
 ## `state.json` — the validated document
 
@@ -76,7 +76,7 @@ constrained to their allowed values.
 
 ## Conformance modes
 
-`specd validate --schema` performs **structural** conformance: object/array
+`specd check --schema-only` performs **structural** conformance: object/array
 shape, required keys, closed property sets, and enum membership. It is
 intentionally independent of the seven semantic gates (`specd check`) and ships
 no third-party JSON Schema validator — the binary stays stdlib-only. Numeric

@@ -38,12 +38,11 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
-specd update            # self-update to the latest release
-specd update --force
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
 ```
 
 - Linux, macOS, or Windows (amd64 / arm64)
-  - *Windows note*: `specd` runs on Windows, except for `specd update` which is blocked by OS file locks (reinstall manually). Verification commands also require `sh` or `bash` (e.g. from Git for Windows) in the `PATH` since verify execution uses `-c`.
+  - *Windows note*: Windows users should reinstall with the installer command above instead of relying on in-place binary replacement. Verification commands also require `sh` or `bash` (e.g. from Git for Windows) in the `PATH` since verify execution uses `-c`.
 - Git (optional — tarball fallback available)
 - **Zero runtime dependencies** — single binary
 
@@ -92,8 +91,8 @@ for the full host matrix and trust boundaries.
 #### Verify and repair
 
 ```bash
-specd doctor          # scaffold + MCP server + host-registration health, with remedies
-specd doctor --fix    # apply safe, project-scoped, specd-owned repairs only
+specd init --repair          # scaffold + MCP server + host-registration health, with remedies
+specd init --repair    # apply safe, project-scoped, specd-owned repairs only
 specd init --repair   # restore missing managed files without overwriting your edits
 specd init --refresh  # update only specd-managed assets and AGENTS.md marker sections
 ```
@@ -151,7 +150,7 @@ orchestration:
   max_workers: 4
 ```
 
-Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. Existing `.specd/config.json` is still accepted; run `specd migrate config --dry-run` to preview YAML conversion, then `specd migrate config` to write `.specd/config.yml` and keep `.specd/config.json.bak`. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
+Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. Existing `.specd/config.json` is still accepted; run `specd init --migrate --dry-run` to preview YAML conversion, then `specd init --migrate` to write `.specd/config.yml` and keep `.specd/config.json.bak`. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
 
 ---
 
@@ -167,12 +166,12 @@ Each spec runs in one of two modes, recorded per spec in its `state.json`:
 - **Base** (default) — you drive every step yourself (`specd next` → implement →
   `specd verify`). This is the default for every new spec.
 - **Orchestrated** — the Brain/Pinky multi-agent layer may drive the spec. Opt in
-  explicitly: `specd new <slug> --orchestrated`, or `specd mode <slug> --set
+  explicitly: `specd new <slug> --orchestrated`, or `specd status <slug> --set
   orchestrated` on an existing spec (requires the project to have orchestration
   enabled via `specd init --orchestration …`).
 
-Inspect or change a spec's mode with `specd mode <slug>`. After your tasks are
-planned, `specd mode <slug> --recommend` prints a deterministic, advisory verdict
+Inspect or change a spec's mode with `specd status <slug>`. After your tasks are
+planned, `specd status <slug>` prints a deterministic, advisory verdict
 on whether orchestration would pay off — it's a suggestion, you decide. Base is
 always the default and orchestration is never enabled automatically.
 
@@ -201,7 +200,7 @@ always the default and orchestration is never enabled automatically.
       └───────────────────┴───────────────────┘
                           ▼
                   ┌─────────────┐
-                  │ 4. EXECUTE  │   specd next  / specd dispatch
+                  │ 4. EXECUTE  │   specd next  / specd next --dispatch
                   │  (execute)  │   specd verify / specd task
                   └─────────────┘
                           ▼
@@ -437,10 +436,10 @@ state (see the [Command Reference](./command-reference.md)):
 
 | Command | Use |
 |---|---|
-| `specd serve <slug>` | Live read-only HTML dashboard + `GET /api/report` JSON |
-| `specd watch [--once] [--sse <addr>] [--webhook <url>]` | Stream a `FrontierEvent` on every runnable-set change |
-| `specd replay <slug>` | Deterministic audit timeline from on-disk records |
-| `specd schema` · `specd validate <slug> --schema` | Emit / check against the open-spec-format JSON Schema |
+| `specd report <slug> --serve` | Live read-only HTML dashboard + `GET /api/report` JSON |
+| `specd report --watch [--once] [--sse <addr>] [--webhook <url>]` | Stream a `FrontierEvent` on every runnable-set change |
+| `specd report <slug> --history` | Deterministic audit timeline from on-disk records |
+| `specd check --schema` · `specd check <slug> --schema-only` | Emit / check against the open-spec-format JSON Schema |
 | `specd mcp` | Drive the whole workflow from an MCP client |
 
 ### Autonomous Orchestration (Brain/Pinky)

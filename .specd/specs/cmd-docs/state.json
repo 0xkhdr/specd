@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 5,
+  "revision": 21,
+  "spec": "cmd-docs",
+  "title": "cmd-docs",
+  "status": "complete",
+  "phase": "reflect",
+  "gate": "none",
+  "turn": 0,
+  "createdAt": "2026-06-30T00:00:00Z",
+  "updatedAt": "2026-06-30T16:40:35.004840831Z",
+  "tasks": {
+    "T1": {
+      "id": "T1",
+      "title": "Regenerate command reference from live registry",
+      "role": "builder",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        1
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T16:18:34.672746023Z",
+      "finishedAt": "2026-06-30T16:18:34.672746023Z",
+      "evidence": "docs/command-reference.md regenerated from help registry; grep count recorded",
+      "verification": {
+        "command": "grep -c 'specd ' docs/command-reference.md",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "49\n",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T16:18:34.586707943Z",
+        "gitHead": "fba462310cf71bc64d5233c300b720fc7a82ad77",
+        "changedFiles": [
+          ".specd/specs/cmd-docs/.lock",
+          ".specd/specs/cmd-docs/decisions.md",
+          ".specd/specs/cmd-docs/design.md",
+          ".specd/specs/cmd-docs/memory.md",
+          ".specd/specs/cmd-docs/mid-requirements.md",
+          ".specd/specs/cmd-docs/requirements.md",
+          ".specd/specs/cmd-docs/state.json",
+          "AGENTS.md",
+          "README.md",
+          "docs/README.md",
+          "docs/agent-harness-compat.md",
+          "docs/agent-integration.md",
+          "docs/command-reference.md",
+          "docs/concepts.md",
+          "docs/dashboard.md",
+          "docs/mcp-guide.md",
+          "docs/open-spec-format.md",
+          "docs/spec-packs.md",
+          "docs/troubleshooting.md",
+          "docs/user-guide.md",
+          "docs/validation-gates.md",
+          "scripts/docs-lint.sh"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 7,
+        "retries": 1
+      }
+    },
+    "T2": {
+      "id": "T2",
+      "title": "Update agent-integration for MCP parity",
+      "role": "builder",
+      "wave": 1,
+      "depends": [],
+      "requirements": [
+        2
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T16:18:34.824143704Z",
+      "finishedAt": "2026-06-30T16:18:34.824143704Z",
+      "evidence": "docs/agent-integration.md updated for survivor MCP parity and intent mappings",
+      "verification": {
+        "command": "! grep -E 'specd (serve|watch|replay|diff|dispatch)' docs/agent-integration.md",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T16:18:34.741084716Z",
+        "gitHead": "fba462310cf71bc64d5233c300b720fc7a82ad77",
+        "changedFiles": [
+          ".specd/specs/cmd-docs/.lock",
+          ".specd/specs/cmd-docs/decisions.md",
+          ".specd/specs/cmd-docs/design.md",
+          ".specd/specs/cmd-docs/memory.md",
+          ".specd/specs/cmd-docs/mid-requirements.md",
+          ".specd/specs/cmd-docs/requirements.md",
+          ".specd/specs/cmd-docs/state.json",
+          ".specd/specs/cmd-docs/tasks.md",
+          "AGENTS.md",
+          "README.md",
+          "docs/README.md",
+          "docs/agent-harness-compat.md",
+          "docs/agent-integration.md",
+          "docs/command-reference.md",
+          "docs/concepts.md",
+          "docs/dashboard.md",
+          "docs/mcp-guide.md",
+          "docs/open-spec-format.md",
+          "docs/spec-packs.md",
+          "docs/troubleshooting.md",
+          "docs/user-guide.md",
+          "docs/validation-gates.md",
+          "scripts/docs-lint.sh"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 7,
+        "retries": 1
+      }
+    },
+    "T3": {
+      "id": "T3",
+      "title": "Write migration appendix + cheat-sheet sentences",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T16:18:48.02472413Z",
+      "finishedAt": "2026-06-30T16:18:48.02472413Z",
+      "evidence": "Migration appendix covers 13 killed commands; CHEATSHEET exists with 20 entries",
+      "verification": {
+        "command": "test -f .specd/specs/CHEATSHEET.md",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 0,
+        "ranAt": "2026-06-30T16:18:47.93542751Z",
+        "gitHead": "fba462310cf71bc64d5233c300b720fc7a82ad77",
+        "changedFiles": [
+          ".specd/specs/cmd-docs/.lock",
+          ".specd/specs/cmd-docs/decisions.md",
+          ".specd/specs/cmd-docs/design.md",
+          ".specd/specs/cmd-docs/memory.md",
+          ".specd/specs/cmd-docs/mid-requirements.md",
+          ".specd/specs/cmd-docs/requirements.md",
+          ".specd/specs/cmd-docs/state.json",
+          ".specd/specs/cmd-docs/tasks.md",
+          "AGENTS.md",
+          "README.md",
+          "docs/README.md",
+          "docs/agent-harness-compat.md",
+          "docs/agent-integration.md",
+          "docs/command-reference.md",
+          "docs/concepts.md",
+          "docs/dashboard.md",
+          "docs/mcp-guide.md",
+          "docs/open-spec-format.md",
+          "docs/spec-packs.md",
+          "docs/troubleshooting.md",
+          "docs/user-guide.md",
+          "docs/validation-gates.md",
+          "scripts/docs-lint.sh"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "verifyDurationMs": 6,
+        "retries": 1
+      }
+    },
+    "T4": {
+      "id": "T4",
+      "title": "Sweep README + AGENTS for dead command references",
+      "role": "builder",
+      "wave": 2,
+      "depends": [
+        "T1"
+      ],
+      "requirements": [
+        1
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T16:18:48.183969675Z",
+      "finishedAt": "2026-06-30T16:21:35.123371242Z",
+      "evidence": "README.md and AGENTS.md swept for retired command invocations after update wording cleanup",
+      "verification": {
+        "command": "! grep -E '\\bspecd (doctor|mode|dispatch|validate|schema|serve|watch|replay|diff|program|update|uninstall|migrate)\\b' README.md AGENTS.md",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 1,
+        "ranAt": "2026-06-30T16:21:35.035494304Z",
+        "gitHead": "fba462310cf71bc64d5233c300b720fc7a82ad77",
+        "changedFiles": [
+          ".specd/specs/cmd-docs/.lock",
+          ".specd/specs/cmd-docs/decisions.md",
+          ".specd/specs/cmd-docs/design.md",
+          ".specd/specs/cmd-docs/memory.md",
+          ".specd/specs/cmd-docs/mid-requirements.md",
+          ".specd/specs/cmd-docs/requirements.md",
+          ".specd/specs/cmd-docs/state.json",
+          ".specd/specs/cmd-docs/tasks.md",
+          ".specd/specs/progress.md",
+          "AGENTS.md",
+          "README.md",
+          "docs/README.md",
+          "docs/agent-harness-compat.md",
+          "docs/agent-integration.md",
+          "docs/command-reference.md",
+          "docs/concepts.md",
+          "docs/dashboard.md",
+          "docs/mcp-guide.md",
+          "docs/open-spec-format.md",
+          "docs/spec-packs.md",
+          "docs/troubleshooting.md",
+          "docs/user-guide.md",
+          "docs/validation-gates.md",
+          "scripts/docs-lint.sh"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "durationMs": 166939,
+        "verifyDurationMs": 7,
+        "retries": 2
+      }
+    },
+    "T5": {
+      "id": "T5",
+      "title": "Docs-lint: no dead commands outside appendix",
+      "role": "reviewer",
+      "wave": 3,
+      "depends": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "requirements": [
+        1,
+        2,
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T16:18:57.571259975Z",
+      "finishedAt": "2026-06-30T16:21:37.51785469Z",
+      "evidence": "scripts/docs-lint.sh passed after final docs sweep",
+      "verification": {
+        "command": "bash scripts/docs-lint.sh",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "",
+        "stderrTail": "",
+        "durationMs": 2222,
+        "ranAt": "2026-06-30T16:21:35.196481445Z",
+        "gitHead": "fba462310cf71bc64d5233c300b720fc7a82ad77",
+        "changedFiles": [
+          ".specd/specs/cmd-docs/.lock",
+          ".specd/specs/cmd-docs/decisions.md",
+          ".specd/specs/cmd-docs/design.md",
+          ".specd/specs/cmd-docs/memory.md",
+          ".specd/specs/cmd-docs/mid-requirements.md",
+          ".specd/specs/cmd-docs/requirements.md",
+          ".specd/specs/cmd-docs/state.json",
+          ".specd/specs/cmd-docs/tasks.md",
+          ".specd/specs/progress.md",
+          "AGENTS.md",
+          "README.md",
+          "docs/README.md",
+          "docs/agent-harness-compat.md",
+          "docs/agent-integration.md",
+          "docs/command-reference.md",
+          "docs/concepts.md",
+          "docs/dashboard.md",
+          "docs/mcp-guide.md",
+          "docs/open-spec-format.md",
+          "docs/spec-packs.md",
+          "docs/troubleshooting.md",
+          "docs/user-guide.md",
+          "docs/validation-gates.md",
+          "scripts/docs-lint.sh"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "durationMs": 159946,
+        "verifyDurationMs": 2228,
+        "retries": 2
+      }
+    },
+    "T6": {
+      "id": "T6",
+      "title": "Gate cmd-docs spec",
+      "role": "verifier",
+      "wave": 3,
+      "depends": [
+        "T5"
+      ],
+      "requirements": [
+        1,
+        2,
+        3
+      ],
+      "status": "complete",
+      "startedAt": "2026-06-30T16:18:57.755722147Z",
+      "finishedAt": "2026-06-30T16:21:37.675932683Z",
+      "evidence": "specd check cmd-docs passed after final docs sweep",
+      "verification": {
+        "command": "specd check cmd-docs",
+        "exitCode": 0,
+        "verified": true,
+        "timedOut": false,
+        "stdoutTail": "✓ check passed — all gates green for 'cmd-docs'\n",
+        "stderrTail": "",
+        "durationMs": 4,
+        "ranAt": "2026-06-30T16:21:37.587501848Z",
+        "gitHead": "fba462310cf71bc64d5233c300b720fc7a82ad77",
+        "changedFiles": [
+          ".specd/specs/cmd-docs/.lock",
+          ".specd/specs/cmd-docs/decisions.md",
+          ".specd/specs/cmd-docs/design.md",
+          ".specd/specs/cmd-docs/memory.md",
+          ".specd/specs/cmd-docs/mid-requirements.md",
+          ".specd/specs/cmd-docs/requirements.md",
+          ".specd/specs/cmd-docs/state.json",
+          ".specd/specs/cmd-docs/tasks.md",
+          ".specd/specs/progress.md",
+          "AGENTS.md",
+          "README.md",
+          "docs/README.md",
+          "docs/agent-harness-compat.md",
+          "docs/agent-integration.md",
+          "docs/command-reference.md",
+          "docs/concepts.md",
+          "docs/dashboard.md",
+          "docs/mcp-guide.md",
+          "docs/open-spec-format.md",
+          "docs/spec-packs.md",
+          "docs/troubleshooting.md",
+          "docs/user-guide.md",
+          "docs/validation-gates.md",
+          "scripts/docs-lint.sh"
+        ],
+        "coverage": "unavailable"
+      },
+      "telemetry": {
+        "durationMs": 159920,
+        "verifyDurationMs": 9,
+        "retries": 2
+      }
+    }
+  },
+  "blockers": []
+}

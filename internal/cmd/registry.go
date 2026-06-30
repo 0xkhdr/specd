@@ -1,6 +1,11 @@
 package cmd
 
-import "github.com/0xkhdr/specd/internal/cli"
+import (
+	"fmt"
+
+	"github.com/0xkhdr/specd/internal/cli"
+	"github.com/0xkhdr/specd/internal/core"
+)
 
 // Command binds a CLI command name to its handler. The user-facing metadata
 // (summary, usage, flags, exit codes, examples) lives in core.Commands, which
@@ -55,7 +60,7 @@ func Dispatch(command string, args cli.Args) (int, bool) {
 func legacyAlias(command string) (func(cli.Args) int, bool) {
 	aliases := map[string]func(cli.Args) int{
 		"doctor":    RunDoctor,
-		"migrate":   RunMigrate,
+		"migrate":   deprecatedRuntimeCommand("migrate", "use `specd init --migrate` for one-time config migration"),
 		"mode":      RunMode,
 		"dispatch":  RunDispatch,
 		"program":   RunProgram,
@@ -65,9 +70,23 @@ func legacyAlias(command string) (func(cli.Args) int, bool) {
 		"diff":      RunDiff,
 		"serve":     RunServe,
 		"watch":     RunWatch,
-		"update":    RunUpdate,
-		"uninstall": RunUninstall,
+		"update":    deprecatedRuntimeCommand("update", "use `scripts/install.sh` or your package manager to update specd"),
+		"uninstall": deprecatedRuntimeCommand("uninstall", "use `scripts/uninstall.sh` or your package manager to uninstall specd"),
 	}
 	run, ok := aliases[command]
 	return run, ok
+}
+
+func deprecatedRuntimeCommand(name, hint string) func(cli.Args) int {
+	return func(args cli.Args) int {
+		message := fmt.Sprintf("specd %s has moved out of the runtime palette; %s", name, hint)
+		if args.Bool("json") {
+			if err := core.PrintJSON(map[string]any{"kind": "deprecated-command", "command": name, "message": message}); err != nil {
+				return specdExit(err)
+			}
+			return core.ExitGate
+		}
+		core.Error(message)
+		return core.ExitGate
+	}
 }

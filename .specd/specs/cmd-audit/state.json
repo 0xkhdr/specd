@@ -1,14 +1,14 @@
 {
   "schemaVersion": 5,
-  "revision": 12,
+  "revision": 13,
   "spec": "cmd-audit",
   "title": "cmd-audit",
-  "status": "verifying",
-  "phase": "verify",
+  "status": "complete",
+  "phase": "reflect",
   "gate": "none",
   "turn": 0,
   "createdAt": "2026-06-30T00:00:00Z",
-  "updatedAt": "2026-06-30T15:34:43.855173112Z",
+  "updatedAt": "2026-06-30T16:40:34.923153705Z",
   "tasks": {
     "T1": {
       "id": "T1",

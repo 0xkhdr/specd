@@ -17,7 +17,7 @@ are kept in sync by `Compatibility`, `Conformance`, and `Host` tests.
 `project` in the Adapter column means `specd init --agent <host>` can detect and
 inspect that host. `snippet` means only deterministic manual configuration is
 shipped. Named host integrations use stdio; HTTP remains a manual endpoint path.
-`Brain/Pinky tools` means `specd doctor` can prove the server exposes
+`Brain/Pinky tools` means `specd init --repair` can prove the server exposes
 `specd_brain` and `specd_pinky`; it does **not** mean specd can spawn, reload, or
 trust a coding-agent host.
 
@@ -32,7 +32,7 @@ trust a coding-agent host.
 
 ## Orchestration compatibility boundary
 
-`specd doctor` now separates two evidence layers:
+`specd init --repair` now separates two evidence layers:
 
 1. **Server capability:** in-process MCP initialize + `tools/list`, requiring the
    baseline CLI tools plus `specd_brain` and `specd_pinky`.

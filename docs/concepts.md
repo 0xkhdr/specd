@@ -20,10 +20,10 @@ strict, local, tool-gated pipeline.
 | **Frontier Dispatch** | Emits ready-to-run packets for parallel subagents with role prompts and contracts. |
 | **Verify Sandboxing & Rollback** | Run `verify:` under `bwrap`/container isolation (fail-closed) and optionally stash the tree on failure (`--revert-on-fail`). |
 | **Agent-Agnostic** | Works with Claude Code, Cursor, Aider, any command-running agent, or any [MCP](https://modelcontextprotocol.io) client (`specd mcp`). |
-| **Deterministic Reporting** | Markdown / self-contained HTML reports, a read-only live dashboard (`specd serve`), and a network-free PR summary — no LLM dependency. |
-| **Live Frontier Stream** | `specd watch` emits a `FrontierEvent` on every runnable-set change over NDJSON / SSE / webhook. |
-| **Replay & Diff** | Reconstruct a deterministic audit timeline (`specd replay`) or diff a spec's artifacts across git refs (`specd diff`). |
-| **Open Spec Format** | A versioned, embedded JSON Schema for all on-disk artifacts (`specd schema` / `specd validate --schema`). |
+| **Deterministic Reporting** | Markdown / self-contained HTML reports, a read-only live dashboard (`specd report --serve`), and a network-free PR summary — no LLM dependency. |
+| **Live Frontier Stream** | `specd report --watch` emits a `FrontierEvent` on every runnable-set change over NDJSON / SSE / webhook. |
+| **Replay & Diff** | Reconstruct a deterministic audit timeline (`specd report --history`) or diff a spec's artifacts across git refs (`specd report --diff`). |
+| **Open Spec Format** | A versioned, embedded JSON Schema for all on-disk artifacts (`specd check --schema` / `specd check --schema-only`). |
 | **Spec Packs** | Share a steering/role baseline as a declarative, file-only scaffold (`specd init --pack`). |
 | **Cost & Telemetry Ledger** | Per-task duration/retries plus annotated token/cost rolled up per wave/spec (stored, never computed). |
 | **Pluggable State Backend** | File backend by default; git-native, or Redis/Postgres behind build tags — the default binary links no DB driver. |
@@ -37,7 +37,7 @@ source of truth (never the chat context, never global config):
   every step itself (`specd next` → implement → `specd verify`). Broadest
   compatibility; works with any command-running agent.
 - **`orchestrated`** — the optional Brain/Pinky multi-agent layer may drive the
-  spec. Opt in with `specd mode <slug> --set orchestrated` (or
+  spec. Opt in with `specd new <slug> --orchestrated` (or
   `specd new <slug> --orchestrated`).
 
 Two ideas are kept strictly separate:
@@ -48,7 +48,7 @@ Two ideas are kept strictly separate:
   still have specs running Base.
 
 Base is always the default; orchestration is an explicit, per-spec opt-in — no
-heuristic ever flips the mode. After `tasks.md` is approved, `specd mode <slug>
+heuristic ever flips the mode. After `tasks.md` is approved, `specd status <slug>
 --recommend` emits a **deterministic, advisory** verdict computed from countable
 facts (task count, wave width, distinct roles, cross-spec edges, token estimate);
 the verdict is marked `userDecides: true` — the host surfaces it as a suggestion

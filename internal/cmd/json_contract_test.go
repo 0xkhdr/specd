@@ -327,23 +327,23 @@ func TestJSONNoANSI(t *testing.T) {
 	})
 }
 
-// TestJSONUninstall covers the uninstall --json contract on a clean HOME (no
-// install present): a stable {kind, removed, plan} object on the safe preview
-// path. HOME is redirected to a temp dir so no real install is ever touched.
+// TestJSONUninstall covers the retired runtime command contract: uninstall is
+// now install-script-only, but --json still emits a stable machine-readable
+// deprecation object with a non-zero exit.
 func TestJSONUninstall(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	h := th.New(t)
-	res := h.RunExpect(core.ExitOK, "uninstall", "--json")
+	res := h.RunExpect(core.ExitGate, "uninstall", "--json")
 	var got struct {
 		Kind    string `json:"kind"`
-		Removed bool   `json:"removed"`
+		Command string `json:"command"`
 	}
 	mustUnmarshal(t, res.Stdout, &got)
-	if got.Kind != "uninstall" {
-		t.Errorf("kind = %q, want uninstall", got.Kind)
+	if got.Kind != "deprecated-command" {
+		t.Errorf("kind = %q, want deprecated-command", got.Kind)
 	}
-	if got.Removed {
-		t.Errorf("removed = true on a clean HOME preview, want false")
+	if got.Command != "uninstall" {
+		t.Errorf("command = %q, want uninstall", got.Command)
 	}
 }
 

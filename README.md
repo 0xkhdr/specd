@@ -15,10 +15,10 @@ By defining clear phase transitions and validating structural correctness with d
 - 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are fully resolved.
 - 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
 - 🔒 **Sandboxed Verify & Rollback**: Run `verify:` under `bwrap`/container isolation (fail-closed if absent) and optionally stash the working tree on failure (`--revert-on-fail`).
-- 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd program` resolves which whole specs are runnable across a multi-spec program.
-- 🔌 **Agent-Agnostic + MCP auto-setup**: Teaches any command-running agent via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). `specd init --agent auto` detects supported coding agents and installs **project-scoped** MCP registration for you — managed adapters for **claude-code, codex, cursor, antigravity, and vscode** (host-native CLI or a safe JSON merge), plus deterministic `--config` snippets for **claude-desktop**. `.agents/` is intentionally VCS-tracked so Antigravity config stays in repo. `specd doctor` verifies the integration end to end.
-- 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd serve`), a frontier event stream (`specd watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
-- 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd schema` / `specd validate --schema`), shareable scaffold bundles (`specd init --pack`), and read-only audit `replay`/`diff`.
+- 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd next --dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd status --program` resolves which whole specs are runnable across a multi-spec program.
+- 🔌 **Agent-Agnostic + MCP auto-setup**: Teaches any command-running agent via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). `specd init --agent auto` detects supported coding agents and installs **project-scoped** MCP registration for you — managed adapters for **claude-code, codex, cursor, antigravity, and vscode** (host-native CLI or a safe JSON merge), plus deterministic `--config` snippets for **claude-desktop**. `.agents/` is intentionally VCS-tracked so Antigravity config stays in repo. `specd init --repair` verifies the integration end to end.
+- 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd report --serve`), a frontier event stream (`specd report --watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
+- 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd check --schema` / `specd check --schema-only`), shareable scaffold bundles (`specd init --pack`), and read-only report history / spec comparison views.
 
 ---
 
@@ -60,13 +60,12 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall
 
 ### Update
 ```bash
-specd update
-specd update --force
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
 ```
 
 ### Requirements
 - Linux, macOS, or Windows (amd64 / arm64)
-  - *Windows note*: `specd` is fully compatible with Windows, except that the in-place self-updater (`specd update`) is locked by the OS. Windows users should reinstall manually. Task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`. Brain/Pinky worker orchestration is POSIX-only on Windows and fails fast with: `orchestration requires a POSIX shell (sh); not supported on Windows — run under WSL`.
+  - *Windows note*: Windows users should reinstall with the installer command above instead of relying on in-place binary replacement. Task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`. Brain/Pinky worker orchestration is POSIX-only on Windows and fails fast with: `orchestration requires a POSIX shell (sh); not supported on Windows — run under WSL`.
 - Git (optional — tarball fallback available)
 
 ## For Agents
@@ -127,8 +126,8 @@ scaffolds and reports suggested host actions instead of mutating anything.
 **Check / repair** an existing setup:
 
 ```sh
-specd doctor                  # scaffold + MCP server + host registration health
-specd doctor --fix            # safe, project-scoped, specd-owned repairs only
+specd init --repair                  # scaffold + MCP server + host registration health
+specd init --repair            # safe, project-scoped, specd-owned repairs only
 specd init --repair           # restore missing managed files (keeps your edits)
 ```
 
