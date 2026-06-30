@@ -78,10 +78,11 @@ const nextMinorVersion = "v0.2.0"
 // We deliberately call the ORIGINAL handler rather than re-routing through the
 // survivor + injected flag: for the report/check/next/status survivors the flag
 // already delegates back to the original handler, so the result is identical;
-// for doctor and mode the survivor does NOT preserve full capability (doctor's
-// diagnostics ≠ `init --repair`; `mode --set` has no survivor yet — see
-// optimization-plan GAP-2 / Phase 2), so calling the original handler is the
-// only behaviour-preserving choice the grace period allows.
+// for doctor the survivor does NOT preserve full capability (doctor's
+// diagnostics ≠ `init --repair`), so calling the original handler is the only
+// behaviour-preserving choice the grace period allows. (mode's set/recommend
+// paths now have survivor homes under `status` — see optimization-plan Phase 2 —
+// but its alias still routes to RunMode for the remaining grace period.)
 type legacyAliasMeta struct {
 	home       string             // survivor home named in the warning
 	removedIn  string             // release at which this alias is deleted
@@ -103,11 +104,12 @@ var legacyAliases = map[string]legacyAliasMeta{
 	"diff":     {home: "specd report --diff", removedIn: nextMinorVersion, functional: true, run: RunDiff},
 	"serve":    {home: "specd report --serve", removedIn: nextMinorVersion, functional: true, run: RunServe},
 	"watch":    {home: "specd report --watch", removedIn: nextMinorVersion, functional: true, run: RunWatch},
-	// mode keeps its standalone handler during grace: `mode --set` (mutate an
-	// existing spec's mode) has no survivor home yet, so removing it now would
-	// silently drop that capability (optimization-plan GAP-2). Sunset is held a
-	// minor past the rest until Phase 2 ports set-mode to a survivor.
-	"mode": {home: "specd status (view) / specd new --orchestrated (create); set-mode survivor pending", removedIn: "v0.3.0", functional: true, run: RunMode},
+	// mode's capabilities now all have survivor homes (optimization-plan Phase 2):
+	// view → `specd status`, create → `specd new --orchestrated`, mutate an
+	// existing spec's mode → `specd status <slug> --set-mode`, advise →
+	// `specd status <slug> --recommend`. The alias stays functional through its
+	// recorded grace period; removing it at v0.3.0 now drops no capability.
+	"mode": {home: "specd status <slug> --set-mode | --recommend (set/advise), specd new --orchestrated (create)", removedIn: "v0.3.0", functional: true, run: RunMode},
 	// Genuinely retired from the runtime: no functional survivor, so these warn
 	// and exit non-zero rather than running anything.
 	"migrate":   {home: "specd init --migrate", removedIn: nextMinorVersion, functional: false},

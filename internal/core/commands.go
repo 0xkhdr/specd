@@ -187,11 +187,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "status", Category: "inspection",
 		Description: "Render durable ledger / board",
-		Usage:       "specd status [<slug>] [--all] [--program] [--json]", Synopsis: "specd status [<slug>] [--all] [--program] [--json]",
-		LongDescription: "Renders the durable status board of a specific spec, lists all specs, or displays the cross-spec program frontier.",
-		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "List all specs (default when no slug is supplied)"}, {Name: "program", Type: "boolean", Description: "Show the cross-spec program frontier"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd status", "specd status my-feature --json"},
+		Usage:       "specd status [<slug>] [--all] [--program] [--set-mode base|orchestrated] [--recommend] [--json]", Synopsis: "specd status [<slug>] [--all] [--program] [--json]",
+		LongDescription: "Renders the durable status board of a specific spec, lists all specs, or displays the cross-spec program frontier. With a slug, --set-mode records a new per-spec execution mode (orchestrated requires project capability; switching to base is refused while a Brain session is active) and --recommend emits a deterministic, advisory mode recommendation — the survivor home for the merged `mode` command's set/recommend paths.",
+		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "List all specs (default when no slug is supplied)"}, {Name: "program", Type: "boolean", Description: "Show the cross-spec program frontier"}, {Name: "set-mode", Type: "string", Description: "Set the spec's execution mode: base or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing or session-active refusal"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd status", "specd status my-feature --json", "specd status my-feature --set-mode orchestrated", "specd status my-feature --recommend --json"},
 	},
 
 	{

@@ -638,6 +638,14 @@
       "program": {
         "type": "boolean",
         "description": "Show the cross-spec program frontier"
+      },
+      "recommend": {
+        "type": "boolean",
+        "description": "Emit an advisory mode recommendation from countable spec facts"
+      },
+      "set-mode": {
+        "type": "string",
+        "description": "Set the spec's execution mode: base or orchestrated"
       }
     },
     "additionalProperties": false
