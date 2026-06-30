@@ -94,12 +94,12 @@ func watchLoop(ctx context.Context, root, specFilter string, det *core.FrontierD
 	}
 }
 
-// RunWatch streams runnable-frontier changes. Transports (highest precedence
+// runWatch streams runnable-frontier changes. Transports (highest precedence
 // first): --sse serves Server-Sent Events over net/http; otherwise it emits
 // NDJSON on stdout and, with --webhook, POSTs each event to a URL on a
 // non-blocking background worker. --once does a single pass and exits. The
 // long-running modes shut down cleanly on SIGINT/SIGTERM. Read-only throughout.
-func RunWatch(args cli.Args) int {
+func runWatch(args cli.Args) int {
 	root, err := core.RequireSpecdRoot()
 	if err != nil {
 		return specdExit(err)

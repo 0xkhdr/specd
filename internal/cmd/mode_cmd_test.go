@@ -30,9 +30,9 @@ func TestNewDefaultsToBase(t *testing.T) {
 		t.Errorf("EffectiveMode = %q, want base", st.EffectiveMode())
 	}
 
-	res := h.RunExpect(core.ExitOK, "mode", "auth")
-	if !strings.Contains(res.Out(), "base") {
-		t.Errorf("mode show should report base, got: %s", res.Out())
+	res := h.RunExpect(core.ExitOK, "status", "auth")
+	if !strings.Contains(res.Out(), "mode: base") {
+		t.Errorf("status should report mode base, got: %s", res.Out())
 	}
 }
 
@@ -53,40 +53,10 @@ func TestNewOrchestratedRequiresCapability(t *testing.T) {
 	}
 }
 
-func TestModeSetOrchestratedFailsClosedWithoutCapability(t *testing.T) {
-	h := testharness.New(t)
-	h.RunExpect(core.ExitOK, "new", "auth")
-	res := h.RunExpect(core.ExitGate, "mode", "auth", "--set", "orchestrated")
-	if !strings.Contains(res.Out(), "specd init --orchestration") {
-		t.Errorf("expected enabling-command remediation, got: %s", res.Out())
-	}
-	if h.State("auth").Raw().EffectiveMode() != core.ModeBase {
-		t.Error("spec must stay base after a refused --set")
-	}
-}
-
-func TestModeSetRecordsAndBumpsRevision(t *testing.T) {
-	h := testharness.New(t)
-	enableOrchestration(t, h)
-	h.RunExpect(core.ExitOK, "new", "auth")
-	before := h.State("auth").Raw().Revision
-
-	h.RunExpect(core.ExitOK, "mode", "auth", "--set", "orchestrated")
-	st := h.State("auth").Raw()
-	if st.ExecutionMode != core.ModeOrchestrated || st.ModeOrigin != core.OriginUser {
-		t.Errorf("got mode=%q origin=%q, want orchestrated/user", st.ExecutionMode, st.ModeOrigin)
-	}
-	if st.Revision <= before {
-		t.Errorf("revision %d did not advance past %d (audit trail)", st.Revision, before)
-	}
-
-	// Opting back out clears the fields so Base state stays byte-stable.
-	h.RunExpect(core.ExitOK, "mode", "auth", "--set", "base")
-	back := h.State("auth").Raw()
-	if back.ExecutionMode != "" || back.ModeOrigin != "" {
-		t.Errorf("switching to base should clear fields, got mode=%q origin=%q", back.ExecutionMode, back.ModeOrigin)
-	}
-}
+// The `mode --set` set/clear and fail-closed behaviors are now exercised through
+// the survivor `status --set-mode` entry point by TestStatusSetModeParity and
+// TestStatusSetModeFailsClosedWithoutCapability below; the legacy `mode` alias
+// itself is guarded by registry_sunset_test.go (warn + functional during grace).
 
 // TestStatusSetModeParity is the Phase 2 survivor-parity guard: the recovered
 // `status <slug> --set-mode` / `--recommend` paths must behave identically to
@@ -157,7 +127,7 @@ func TestBrainRefusesBaseSpec(t *testing.T) {
 func TestModeRecommendNeutralBeforeTasks(t *testing.T) {
 	h := testharness.New(t)
 	h.RunExpect(core.ExitOK, "new", "auth")
-	res := h.RunExpect(core.ExitOK, "mode", "auth", "--recommend", "--json")
+	res := h.RunExpect(core.ExitOK, "status", "auth", "--recommend", "--json")
 	for _, want := range []string{`"recommended": "base"`, `"confidence": "neutral"`, `"userDecides": true`} {
 		if !strings.Contains(res.Stdout, want) {
 			t.Errorf("recommend JSON missing %q; got: %s", want, res.Stdout)

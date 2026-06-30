@@ -9,13 +9,13 @@ import (
 	"github.com/0xkhdr/specd/internal/schema"
 )
 
-// RunValidate checks a spec's on-disk state.json against the embedded JSON
+// runValidate checks a spec's on-disk state.json against the embedded JSON
 // Schema. It is a *format* conformance mode — structural shape, required keys,
 // closed property sets, enums — explicitly independent of the seven semantic
 // gates (`specd check`). The `--schema` flag is required to select this mode so
 // the command can grow other validation modes later without changing defaults.
 // Read-only: it never writes state. `--version` selects a schema version.
-func RunValidate(args cli.Args) int {
+func runValidate(args cli.Args) int {
 	if !args.Bool("schema") {
 		return usageExit("usage: specd validate <slug> --schema [--version <v>]")
 	}

@@ -10,12 +10,13 @@ import (
 	th "github.com/0xkhdr/specd/internal/testharness"
 )
 
-// TestSchemaCmd confirms `specd schema` emits the embedded schema, that an
-// unknown version fails closed, and that no .specd/ root is required.
+// TestSchemaCmd confirms the survivor `specd check --schema` emits the embedded
+// schema, that an unknown version fails closed, and that no .specd/ root is
+// required.
 func TestSchemaCmd(t *testing.T) {
 	h := th.New(t)
 
-	res := h.RunExpect(core.ExitOK, "schema")
+	res := h.RunExpect(core.ExitOK, "check", "--schema")
 	if !strings.Contains(res.Stdout, "$defs") || !strings.Contains(res.Stdout, "specdSchemaVersion") {
 		t.Errorf("schema output missing expected keys:\n%s", res.Stdout)
 	}
@@ -25,25 +26,22 @@ func TestSchemaCmd(t *testing.T) {
 		t.Errorf("schema output is not valid JSON: %v", err)
 	}
 
-	h.RunExpect(core.ExitOK, "schema", "--version", "1")
-	h.RunExpect(core.ExitGate, "schema", "--version", "99")
+	h.RunExpect(core.ExitOK, "check", "--schema", "--version", "1")
+	h.RunExpect(core.ExitGate, "check", "--schema", "--version", "99")
 }
 
-// TestValidateSchema confirms a freshly-created spec conforms, that an injected
-// unknown property is reported as a violation, and that the mode requires the
-// --schema flag.
+// TestValidateSchema confirms a freshly-created spec conforms via the survivor
+// `specd check --schema-only`, and that an injected unknown property is reported
+// as a conformance violation.
 func TestValidateSchema(t *testing.T) {
 	h := th.New(t)
 	h.RunExpect(core.ExitOK, "new", "widget")
 
 	// A clean spec conforms.
-	res := h.RunExpect(core.ExitOK, "validate", "widget", "--schema")
+	res := h.RunExpect(core.ExitOK, "check", "widget", "--schema-only")
 	if !strings.Contains(res.Out(), "conforms") {
 		t.Errorf("expected conformance message, got:\n%s", res.Out())
 	}
-
-	// --schema is required to enter the mode.
-	h.RunExpect(core.ExitUsage, "validate", "widget")
 
 	// Inject an unknown top-level property and confirm it is flagged.
 	statePath := h.SpecPath("widget", "state.json")
@@ -61,7 +59,7 @@ func TestValidateSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bad := h.RunExpect(core.ExitGate, "validate", "widget", "--schema")
+	bad := h.RunExpect(core.ExitGate, "check", "widget", "--schema-only")
 	if !strings.Contains(bad.Out(), "bogusField") {
 		t.Errorf("expected violation naming bogusField, got:\n%s", bad.Out())
 	}

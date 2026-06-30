@@ -7,10 +7,10 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// RunReplay prints a spec's deterministic, audit-derived event timeline. It is
+// runReplay prints a spec's deterministic, audit-derived event timeline. It is
 // strictly read-only: it loads state and renders, never mutating anything. Text
 // by default; a typed JSON array under SPECD_JSON.
-func RunReplay(args cli.Args) int {
+func runReplay(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd replay <slug>")
 	if !ok {
 		return code

@@ -8,7 +8,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-func RunProgram(args cli.Args) int {
+func runProgram(args cli.Args) int {
 	root, err := core.RequireSpecdRoot()
 	if err != nil {
 		return specdExit(err)

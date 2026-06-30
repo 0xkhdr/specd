@@ -82,7 +82,7 @@ const nextMinorVersion = "v0.2.0"
 // diagnostics ≠ `init --repair`), so calling the original handler is the only
 // behaviour-preserving choice the grace period allows. (mode's set/recommend
 // paths now have survivor homes under `status` — see optimization-plan Phase 2 —
-// but its alias still routes to RunMode for the remaining grace period.)
+// but its alias still routes to runMode for the remaining grace period.)
 type legacyAliasMeta struct {
 	home       string             // survivor home named in the warning
 	removedIn  string             // release at which this alias is deleted
@@ -95,21 +95,21 @@ type legacyAliasMeta struct {
 // removal version and emits a deprecation warning — the guard that lets the
 // gates see the kitchen (hidden aliases), not just the visible palette menu.
 var legacyAliases = map[string]legacyAliasMeta{
-	"doctor":   {home: "specd init --repair", removedIn: nextMinorVersion, functional: true, run: RunDoctor},
-	"dispatch": {home: "specd next --dispatch", removedIn: nextMinorVersion, functional: true, run: RunDispatch},
-	"program":  {home: "specd status --program", removedIn: nextMinorVersion, functional: true, run: RunProgram},
-	"validate": {home: "specd check --schema-only", removedIn: nextMinorVersion, functional: true, run: RunValidate},
-	"schema":   {home: "specd check --schema", removedIn: nextMinorVersion, functional: true, run: RunSchema},
-	"replay":   {home: "specd report --history", removedIn: nextMinorVersion, functional: true, run: RunReplay},
-	"diff":     {home: "specd report --diff", removedIn: nextMinorVersion, functional: true, run: RunDiff},
-	"serve":    {home: "specd report --serve", removedIn: nextMinorVersion, functional: true, run: RunServe},
-	"watch":    {home: "specd report --watch", removedIn: nextMinorVersion, functional: true, run: RunWatch},
+	"doctor":   {home: "specd init --repair", removedIn: nextMinorVersion, functional: true, run: runDoctorCmd},
+	"dispatch": {home: "specd next --dispatch", removedIn: nextMinorVersion, functional: true, run: runDispatch},
+	"program":  {home: "specd status --program", removedIn: nextMinorVersion, functional: true, run: runProgram},
+	"validate": {home: "specd check --schema-only", removedIn: nextMinorVersion, functional: true, run: runValidate},
+	"schema":   {home: "specd check --schema", removedIn: nextMinorVersion, functional: true, run: runSchema},
+	"replay":   {home: "specd report --history", removedIn: nextMinorVersion, functional: true, run: runReplay},
+	"diff":     {home: "specd report --diff", removedIn: nextMinorVersion, functional: true, run: runDiff},
+	"serve":    {home: "specd report --serve", removedIn: nextMinorVersion, functional: true, run: runServe},
+	"watch":    {home: "specd report --watch", removedIn: nextMinorVersion, functional: true, run: runWatch},
 	// mode's capabilities now all have survivor homes (optimization-plan Phase 2):
 	// view → `specd status`, create → `specd new --orchestrated`, mutate an
 	// existing spec's mode → `specd status <slug> --set-mode`, advise →
 	// `specd status <slug> --recommend`. The alias stays functional through its
 	// recorded grace period; removing it at v0.3.0 now drops no capability.
-	"mode": {home: "specd status <slug> --set-mode | --recommend (set/advise), specd new --orchestrated (create)", removedIn: "v0.3.0", functional: true, run: RunMode},
+	"mode": {home: "specd status <slug> --set-mode | --recommend (set/advise), specd new --orchestrated (create)", removedIn: "v0.3.0", functional: true, run: runMode},
 	// Genuinely retired from the runtime: no functional survivor, so these warn
 	// and exit non-zero rather than running anything.
 	"migrate":   {home: "specd init --migrate", removedIn: nextMinorVersion, functional: false},

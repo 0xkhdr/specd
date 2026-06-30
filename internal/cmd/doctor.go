@@ -60,7 +60,7 @@ type doctorRuntime struct {
 	Probe    func(context.Context, mcp.Dispatcher, time.Duration) (mcp.ProbeResult, error)
 }
 
-func RunDoctor(args cli.Args) int {
+func runDoctorCmd(args cli.Args) int {
 	return runDoctor(args, doctorRuntime{Registry: integration.DefaultRegistry(), Probe: mcp.Probe})
 }
 

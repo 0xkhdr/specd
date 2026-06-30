@@ -54,7 +54,7 @@ func manifestRolePath(m contextpkg.MissionContextManifest) string {
 	return ""
 }
 
-func RunDispatch(args cli.Args) int {
+func runDispatch(args cli.Args) int {
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd dispatch <slug> [--json] [--inline-roles]")
 	if !ok {
 		return code

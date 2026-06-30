@@ -10,13 +10,13 @@ import (
 
 func RunCheck(args cli.Args) int {
 	if args.Bool("schema") {
-		return RunSchema(args)
+		return runSchema(args)
 	}
 	if args.Bool("schema-only") {
 		validateArgs := args
 		validateArgs.Flags = cloneFlags(args.Flags)
 		validateArgs.Flags["schema"] = "true"
-		return RunValidate(validateArgs)
+		return runValidate(validateArgs)
 	}
 	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--schema-only] [--json]")
 	if !ok {
