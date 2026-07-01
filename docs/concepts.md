@@ -125,7 +125,7 @@ specd/
 │   └── testharness/              # Deterministic test infrastructure
 │                                 # (sandbox repo, in-process runner, FakeClock)
 ├── .github/actions/specd-pr/     # Composite GitHub Action (PR gates + summary)
-├── scripts/                      # install.sh / uninstall.sh / stress.sh
+├── scripts/                      # install.sh / stress.sh
 ├── docs/                         # This documentation
 ├── README.md / AGENTS.md / TESTING.md / SECURITY.md
 ├── Makefile / go.mod / LICENSE / .goreleaser.yml

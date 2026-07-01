@@ -551,6 +551,28 @@ func TestIncludeMetaGate(t *testing.T) {
 	}
 }
 
+// TestMetaRiskGateFiltersWhenPopulated proves the metaRiskCommands gate
+// (tools.go ~line 342) actually filters. TestIncludeMetaGate above is vacuous
+// today because metaRiskCommands is empty (its former members update/uninstall
+// were removed in v0.1.0), so nothing exercises the branch. Seeding a temporary
+// entry keeps the reserved gate from silently rotting: a meta-risk command must
+// be hidden by default and reappear only under includeMeta:true.
+func TestMetaRiskGateFiltersWhenPopulated(t *testing.T) {
+	const probe = "status" // any surviving, always-exposed read-only command
+	metaRiskCommands[probe] = true
+	t.Cleanup(func() { delete(metaRiskCommands, probe) })
+
+	name := toolPrefix + probe
+	hidden := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
+	if hidden[name] {
+		t.Errorf("meta-risk %s exposed with includeMeta:false — gate did not filter", name)
+	}
+	shown := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all", IncludeMeta: true}}))
+	if !shown[name] {
+		t.Errorf("meta-risk %s hidden with includeMeta:true — gate over-filtered", name)
+	}
+}
+
 // TestOrchestrationGate covers AC4/AC5/R5/R5a: with orchestration disabled the
 // brain/pinky commands and every brain_* intent vanish; enabling brings them back.
 func TestOrchestrationGate(t *testing.T) {

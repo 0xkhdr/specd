@@ -37,8 +37,11 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 ### Uninstall / update
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
+# Update: reinstall in place with --force
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
+
+# Uninstall: removal is manual — delete the installed binary (there is no uninstall script)
+rm "$(command -v specd)"
 ```
 
 - Linux, macOS, or Windows (amd64 / arm64)
