@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed (breaking)
-
-- **`fusion` command renamed to `handshake`.** The hidden host-integration
-  surface is now `specd handshake bootstrap|policy` and the MCP tool is
-  `specd_handshake`. The name better reflects its responsibility: the
-  session-start negotiation between host agent and scaffold (load list, command
-  schema digest, binding policy, config-digest drift). Subcommands, flags,
-  payload shape, and exit codes are unchanged. The context-manifest item kind
-  `fusion-policy` is renamed to `handshake-policy`.
-
 ### Removed (breaking)
 
 - **`boot` and `enrich` commands removed**, along with the two repo-global
