@@ -30,10 +30,10 @@ auto-derives to status `verifying`.
 
 Adopt the task's assigned role from `.specd/roles/*`:
 
-- **investigator** — read-only research (`verify: N/A` allowed).
-- **builder** — writes exactly ONE task.
-- **reviewer** — read-only audit (`verify: N/A` allowed).
-- **verifier** — runs checks.
+- **scout** — read-only research (`verify: N/A` allowed).
+- **craftsman** — writes exactly ONE task.
+- **auditor** — read-only audit (`verify: N/A` allowed).
+- **validator** — runs checks.
 
 If your host has native subagents and `config.json.roles.subagentMode = "delegate"`,
 delegate the role; otherwise run it inline under the same constraints.
@@ -46,7 +46,7 @@ still finishes through the evidence loop above.
 
 ## The evidence gate (hardest rule)
 
-A builder's word is **not** evidence. `specd task <slug> <id> --status complete`
+A craftsman's word is **not** evidence. `specd task <slug> <id> --status complete`
 fails (exit 1) unless there is a passing verify record, or you pass `--unverified`
 with a non-empty `--evidence` manual proof. The `evidence` gate in `specd check`
 also flags any completed task lacking proof.

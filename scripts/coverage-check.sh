@@ -31,36 +31,42 @@
 # no longer silently lose tests.
 #
 # Usage: ./scripts/coverage-check.sh
-#   OVERALL_MIN  minimum total statement coverage          (default 77)
-#   CORE_MIN     minimum internal/core coverage            (default 86)
+#   OVERALL_MIN  minimum total statement coverage          (default 79)
+#   CORE_MIN     minimum internal/core coverage            (default 80)
 #   CMD_MIN      minimum internal/cmd coverage             (default 71)
 #   WORKER_MIN   minimum internal/worker coverage          (default 88)
 #   MCP_MIN      minimum internal/mcp coverage             (default 88)
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
-#   SPEC_MIN     minimum internal/spec coverage            (default 95)
-#   CONTEXT_MIN  minimum internal/context coverage         (default 90)
-#   RUNNER_MIN   minimum internal/runner coverage          (default 90)
-#   PACK_MIN     minimum internal/pack coverage            (default 85)
-#   SCHEMA_MIN   minimum internal/schema coverage          (default 82)
+#   SPEC_MIN     minimum internal/spec coverage            (default 99)
+#   CONTEXT_MIN  minimum internal/context coverage         (default 91)
+#   RUNNER_MIN   minimum internal/runner coverage          (default 92)
+#   PACK_MIN     minimum internal/pack coverage            (default 86)
+#   SCHEMA_MIN   minimum internal/schema coverage          (default 83)
 #
 # Wave 3 (A8) extends the ratchet to the previously-unguarded substantive
 # packages — internal/runner, internal/pack, internal/schema — so a regression
 # in one can no longer hide under the overall number, and raises internal/spec
 # from 46 to 95 after role/phase/status gained direct tests. New floors sit just
 # below the current measured coverage (ratchet, not a cliff).
+#
+# Post-cleanup ratchet (HARDENING-REGRESSION-ANALYSIS I1): with the suite stable
+# again, the floors with >=1% headroom were nudged one step toward the TESTING.md
+# targets (overall 78->79, spec 95->99, context 90->91, runner 90->92, pack
+# 85->86, schema 82->83). core/cmd/worker/mcp/testharness were left as-is because
+# their measured headroom was too thin to raise without risking noise flaps.
 set -euo pipefail
 
-OVERALL_MIN="${OVERALL_MIN:-78}"
+OVERALL_MIN="${OVERALL_MIN:-79}"
 CORE_MIN="${CORE_MIN:-80}"
 CMD_MIN="${CMD_MIN:-71}"
 WORKER_MIN="${WORKER_MIN:-88}"
 MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
-SPEC_MIN="${SPEC_MIN:-95}"
-CONTEXT_MIN="${CONTEXT_MIN:-90}"
-RUNNER_MIN="${RUNNER_MIN:-90}"
-PACK_MIN="${PACK_MIN:-85}"
-SCHEMA_MIN="${SCHEMA_MIN:-82}"
+SPEC_MIN="${SPEC_MIN:-99}"
+CONTEXT_MIN="${CONTEXT_MIN:-91}"
+RUNNER_MIN="${RUNNER_MIN:-92}"
+PACK_MIN="${PACK_MIN:-86}"
+SCHEMA_MIN="${SCHEMA_MIN:-83}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"

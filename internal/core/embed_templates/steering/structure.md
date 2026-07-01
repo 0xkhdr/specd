@@ -12,4 +12,4 @@ TODO: What may depend on what. Where new code goes.
 
 ## Naming
 
-TODO: File/symbol naming conventions a builder must follow.
+TODO: File/symbol naming conventions a craftsman must follow.

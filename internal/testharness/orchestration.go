@@ -51,7 +51,7 @@ func (host *FakeOrchestrationHost) StartSpec(slug, sessionID string) core.Orches
 // EnsureOrchestrated records executionMode=orchestrated on the spec so the Brain
 // CLI gate (which refuses Base specs) lets the orchestration host drive it. The
 // host models an already-capable, opted-in project, so it writes the recorded
-// fact directly rather than going through the capability-gated `specd mode --set`.
+// fact directly rather than going through the capability-gated `specd status --set-mode`.
 func (host *FakeOrchestrationHost) EnsureOrchestrated(slug string) {
 	host.H.T.Helper()
 	if _, err := core.WithSpecLock[int](host.H.Root, slug, func() (int, error) {

@@ -102,7 +102,7 @@ specd_workflow spec mode auth
 specd_workflow spec mode auth --set orchestrated
 ```
 
-`spec mode` checks native support through `specd help --json` or help text. If unsupported, wrapper exits with a gate failure and tells you to use the base workflow or upgrade native `specd`; it does not edit files.
+`spec mode` checks native support through `specd help --json` or help text. If unsupported, wrapper exits with a gate failure and tells you to use the simple workflow or upgrade native `specd`; it does not edit files.
 
 Evidence warning: wrappers never complete tasks for you. Use native verification before completion:
 

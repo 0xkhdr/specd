@@ -42,7 +42,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Refresh:  name == "reasoning.md" || name == "workflow.md",
 		})
 	}
-	for _, name := range []string{"investigator.md", "builder.md", "reviewer.md", "verifier.md", "brain.md", "pinky.md"} {
+	for _, name := range []string{"scout.md", "craftsman.md", "auditor.md", "validator.md", "brain.md", "pinky.md"} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "roles/" + name,
 			Target:   ".specd/roles/" + name,
@@ -66,7 +66,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 	}
 	// Worker-agent definitions (GAP-3): Claude Code sub-agents that turn a Brain
 	// dispatch into a running Pinky worker with zero ad-hoc prompt writing.
-	for _, role := range []string{"builder", "investigator", "reviewer", "verifier"} {
+	for _, role := range []string{"craftsman", "scout", "auditor", "validator"} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "agents/pinky-" + role + ".md",
 			Target:   ".claude/agents/pinky-" + role + ".md",

@@ -21,19 +21,22 @@ var metaCommands = map[string]bool{"help": true, "version": true, "mcp": true}
 // command is annotated readOnlyHint:false so a host knows it may change state.
 var readOnlyCommands = map[string]bool{
 	"status": true, "waves": true, "context": true, "check": true,
-	"next": true, "dispatch": true, "report": true, "fusion": true,
-	"serve": true, "watch": true, "validate": true, "replay": true, "diff": true,
+	"next": true, "report": true, "fusion": true,
 }
 
 // destructiveCommands mutate the install itself rather than spec state; they are
-// additionally flagged so a host can warn before invoking them.
-var destructiveCommands = map[string]bool{"uninstall": true, "update": true}
+// additionally flagged so a host can warn before invoking them. No current
+// command qualifies — the map stays as the classification point for one that
+// would (v0.1.0 dropped its only members, update/uninstall, as top-level
+// commands entirely).
+var destructiveCommands = map[string]bool{}
 
 // metaRiskCommands are spec-pack-author / install-maintenance tools hidden from
 // the default MCP surface (spec R4); they reappear only under includeMeta:true.
-// schema is reclassified here (spec §5.5): it stays a CLI command, but is no
-// longer advertised as an MCP tool by default.
-var metaRiskCommands = map[string]bool{"update": true, "uninstall": true, "schema": true}
+// No current command qualifies — the map stays as the classification point for
+// one that would (v0.1.0 dropped its only members, update/uninstall/schema, as
+// top-level commands entirely).
+var metaRiskCommands = map[string]bool{}
 
 // orchestrationCommands gate the Brain/Pinky surface (spec R5). They are hidden
 // unless orchestration is included (explicitly via includeOrchestration or

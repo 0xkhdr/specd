@@ -1,41 +1,10 @@
 package core
 
 import (
-	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 )
-
-func TestMigrateConfigPreviewAndFile(t *testing.T) {
-	root := t.TempDir()
-	source := filepath.Join(root, ".specd", "config.json")
-	target := filepath.Join(root, ".specd", "config.yml")
-	writeConfigFile(t, source, `{"defaultVerify":"go test ./...","report":{"format":"html"},"orchestration":{"enabled":true,"approvalPolicy":"planning","maxWorkers":3}}`)
-	yml, err := MigrateConfigPreview(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"version: 2", "verify_command", "approval_policy"} {
-		if !strings.Contains(yml, want) {
-			t.Fatalf("preview missing %q:\n%s", want, yml)
-		}
-	}
-	if err := MigrateConfigFile(source, target); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(source + ".bak"); err != nil {
-		t.Fatalf("backup missing: %v", err)
-	}
-	cfg := LoadConfig(root)
-	if cfg.DefaultVerify != "go test ./..." || cfg.Report.Format != "html" || cfg.Orchestration.MaxWorkers != 3 {
-		t.Fatalf("migrated config mismatch: %#v", cfg)
-	}
-	if err := MigrateConfigFile(source+".bak", target); err == nil {
-		t.Fatal("expected target collision")
-	}
-}
 
 func TestConfigYAMLJSONCompatibility(t *testing.T) {
 	jsonRoot := t.TempDir()

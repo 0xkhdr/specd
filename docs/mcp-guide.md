@@ -233,11 +233,11 @@ Every tool carries MCP annotations so a host can signal risk before invoking:
 
 | Annotation | Value | Commands |
 |---|---|---|
-| `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `dispatch`, `report`, `fusion`, and read-only variants (`serve`, `watch`, `validate`, `replay`, `diff`) |
+| `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `report`, `fusion`, and their read-only flag variants (`next --dispatch`, `report --serve`/`--watch`/`--history`/`--diff`, `check --schema`/`--schema-only`) |
 | `readOnlyHint` | `false` | All other commands (state-mutating) |
-| `destructiveHint` | `true` | `uninstall`, `update` (mutate the install itself) |
+| `destructiveHint` | `true` | None currently. `destructiveCommands` is an empty classification map, reserved for tools that mutate the install itself (its former members `update`/`uninstall` were removed in v0.1.0). |
 
-(`internal/mcp/tools.go:16-23`)
+(`internal/mcp/tools.go` — `destructiveCommands`, `commandToTool`)
 
 ### Output schema
 Tool results follow the MCP `tools/call` contract:
@@ -293,8 +293,6 @@ The following tools are exposed automatically. Refer to the
 | `specd_brain` | `specd brain` | Start, step, inspect, pause, resume, or cancel deterministic Brain sessions | No for mutations; status is read-only |
 | `specd_pinky` | `specd pinky` | Host worker claim, heartbeat, progress, report, block, and release operations | No |
 | `specd_check` with `--schema` | `specd check --schema` | Emit embedded spec-format JSON Schema | Yes |
-| install script update | `scripts/install.sh --force` | Update the specd binary | No (destructive) |
-| uninstall script | `scripts/uninstall.sh` | Remove specd from the system | No (destructive) |
 
 ---
 
@@ -312,7 +310,7 @@ byte-identical to the default — no behavioural change.**
     "essentialTools": ["specd_fusion",           // command/composite/intent names kept under "essential"
                        "specd_inspect", "specd_read", "specd_query",
                        "verify", "task", "approve"],
-    "includeMeta": false,                        // expose update/uninstall/schema (default false)
+    "includeMeta": false,                        // reserved meta-tool gate; true also bypasses role filtering (default false)
     "includeOrchestration": null                 // null => derive from orchestration.enabled
   }
 }
@@ -322,7 +320,7 @@ byte-identical to the default — no behavioural change.**
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
 | `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_fusion, specd_inspect, specd_read, specd_query, verify, task, approve` (fusion covers startup; composites cover the read surface). |
-| `includeMeta` | When false (default) the install-maintenance tools install script update, uninstall script, and the spec-pack-author tool `specd_check` with `--schema` are hidden from MCP (they remain available on the CLI). |
+| `includeMeta` | Gates the reserved `metaRiskCommands` classification (currently empty, so it hides no tools today) and, when `true`, bypasses role-based tool filtering to advertise the full surface regardless of the active role. Reserved for future install-maintenance / meta tools; its former members (`update`/`uninstall`) were removed in v0.1.0. |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
 Filtering only ever *hides* tools — it never grants new authority, and tool
@@ -465,7 +463,7 @@ deterministic templates (embedded — no network, no LLM).
 
 - `prompts/list` returns four phase prompts (`phase/requirements`,
   `phase/design`, `phase/tasks`, `phase/execute`) and two role prompts
-  (`role/builder`, `role/investigator`) with declared arguments.
+  (`role/craftsman`, `role/scout`) with declared arguments.
 - `prompts/get` renders a prompt's messages. Phase prompts accept an optional
   `slug` that injects a one-line spec-context header.
 - Identical inputs always render identical messages.
@@ -478,7 +476,7 @@ Brain/Pinky orchestration is exposed through generated tools, not custom MCP bus
 The MCP request is always one bounded CLI invocation; it never waits for an LLM worker to finish.
 Hosts must run their own worker loop and call Pinky tools as work progresses.
 
-Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Base mode, feed each subagent the `specd next --dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
+Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Simple mode, feed each subagent the `specd next --dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
 
 ### Brain control loop
 
@@ -579,7 +577,7 @@ for the per-host install method and verification depth.
 - **Host-native trust stands.** specd never bypasses a host's own trust/approval
   prompt, and never starts or controls the agent. Restart/reload of the host stays
   user-controlled.
-- specd records what it created in `.specd/integrations.json` so repair/uninstall only
+- specd records what it created in `.specd/integrations.json` so repair only
   touches specd-owned entries.
 
 ### Manual snippets (air-gapped / unmanaged hosts)

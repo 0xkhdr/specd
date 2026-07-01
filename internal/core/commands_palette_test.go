@@ -22,9 +22,6 @@ func TestFlagSingleOwner(t *testing.T) {
 	}
 	seen := map[string]map[string]bool{}
 	for _, c := range Commands {
-		if c.DeprecatedIn != "" {
-			continue
-		}
 		for _, f := range c.Flags {
 			if allowed[f.Name] == nil {
 				continue
@@ -50,9 +47,6 @@ func TestFlagSingleOwner(t *testing.T) {
 func TestPaletteCeiling(t *testing.T) {
 	daily, total := 0, 0
 	for _, c := range Commands {
-		if c.DeprecatedIn != "" {
-			continue
-		}
 		total++
 		if !c.Hidden {
 			daily++

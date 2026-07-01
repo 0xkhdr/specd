@@ -42,7 +42,7 @@ func TestBuildPhaseToolsSubsets(t *testing.T) {
 		t.Errorf("planning subset must not expose the drive loop: %v", planning)
 	}
 
-	executing := toolNameSet(buildPhaseTools(cfg, core.StatusExecuting, "builder"))
+	executing := toolNameSet(buildPhaseTools(cfg, core.StatusExecuting, "craftsman"))
 	if !executing["specd_next"] || !executing["specd_verify"] || !executing["specd_task"] {
 		t.Errorf("executing subset missing drive-loop tools: %v", executing)
 	}
@@ -54,7 +54,7 @@ func TestBuildPhaseToolsSubsets(t *testing.T) {
 // TestBuildPhaseToolsUnknownStatusFallsBack confirms an unmapped status yields
 // the essential set rather than an empty list (forward-compatibility).
 func TestBuildPhaseToolsUnknownStatusFallsBack(t *testing.T) {
-	got := toolNameSet(buildPhaseTools(phaseCfg(), core.SpecStatus("future-phase"), "builder"))
+	got := toolNameSet(buildPhaseTools(phaseCfg(), core.SpecStatus("future-phase"), "craftsman"))
 	for _, want := range []string{"specd_inspect", "specd_verify", "specd_task"} {
 		if !got[want] {
 			t.Errorf("fallback subset missing %q: %v", want, got)
@@ -63,15 +63,15 @@ func TestBuildPhaseToolsUnknownStatusFallsBack(t *testing.T) {
 }
 
 func TestBuildPhaseToolsRoleIntersection(t *testing.T) {
-	got := toolNameSet(buildPhaseTools(phaseCfg(), core.StatusExecuting, "verifier"))
+	got := toolNameSet(buildPhaseTools(phaseCfg(), core.StatusExecuting, "validator"))
 	for _, want := range []string{"specd_check", "specd_status", "specd_state_read"} {
 		if !got[want] {
-			t.Fatalf("verifier subset missing %s: %v", want, got)
+			t.Fatalf("validator subset missing %s: %v", want, got)
 		}
 	}
 	for _, forbid := range []string{"specd_next", "specd_dispatch", "specd_verify", "specd_task"} {
 		if got[forbid] {
-			t.Fatalf("verifier subset leaked %s: %v", forbid, got)
+			t.Fatalf("validator subset leaked %s: %v", forbid, got)
 		}
 	}
 }
@@ -118,7 +118,7 @@ func TestToolRegistryConcurrent(t *testing.T) {
 	reg := newToolRegistry(buildPhaseTools(cfg, core.StatusDesign, "architect"))
 	subsets := [][]toolDef{
 		buildPhaseTools(cfg, core.StatusDesign, "architect"),
-		buildPhaseTools(cfg, core.StatusExecuting, "builder"),
+		buildPhaseTools(cfg, core.StatusExecuting, "craftsman"),
 	}
 
 	var wg sync.WaitGroup
@@ -185,18 +185,18 @@ func TestPhaseWatcherTracksRoleChange(t *testing.T) {
 	state := core.InitialState("auth", "Auth")
 	state.Status = core.StatusExecuting
 	state.Phase = core.PhaseForStatus(state.Status)
-	state.Tasks["T1"] = core.TaskState{ID: "T1", Wave: 1, Role: "builder", Status: core.TaskPending}
+	state.Tasks["T1"] = core.TaskState{ID: "T1", Wave: 1, Role: "craftsman", Status: core.TaskPending}
 	if err := core.SaveState(root, "auth", &state); err != nil {
 		t.Fatal(err)
 	}
 	tasksPath := filepath.Join(root, ".specd", "specs", "auth", "tasks.md")
-	tasks := "# Tasks — Auth\n\n## Wave 1\n- [ ] T1 — Login\n  - why: w\n  - role: builder\n  - files: x.go\n  - contract: c\n  - acceptance: a\n  - verify: true\n  - depends: —\n  - requirements: 1\n"
+	tasks := "# Tasks — Auth\n\n## Wave 1\n- [ ] T1 — Login\n  - why: w\n  - role: craftsman\n  - files: x.go\n  - contract: c\n  - acceptance: a\n  - verify: true\n  - depends: —\n  - requirements: 1\n"
 	if err := os.WriteFile(tasksPath, []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	cfg := phaseCfg()
-	reg := newToolRegistry(buildPhaseTools(cfg, core.StatusExecuting, "builder"))
+	reg := newToolRegistry(buildPhaseTools(cfg, core.StatusExecuting, "craftsman"))
 	w := &phaseWatcher{registry: reg, cfg: cfg, interval: 5 * time.Millisecond, debounce: 5 * time.Millisecond}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -220,7 +220,7 @@ func TestPhaseWatcherTracksRoleChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read tasks.md: %v", err)
 	}
-	updated := strings.Replace(string(raw), "- role: builder", "- role: verifier", 1)
+	updated := strings.Replace(string(raw), "- role: craftsman", "- role: validator", 1)
 	if updated == string(raw) {
 		t.Fatal("task role line not found")
 	}
@@ -254,7 +254,7 @@ func TestPhaseWatcherPinnedSpecsStayIsolated(t *testing.T) {
 		if err := core.SaveState(root, slug, &state); err != nil {
 			t.Fatalf("SaveState(%s): %v", slug, err)
 		}
-		tasks := "# Tasks — " + slug + "\n\n## Wave 1\n- [ ] T1 — Login\n  - why: w\n  - role: builder\n  - files: x.go\n  - contract: c\n  - acceptance: a\n  - verify: true\n  - depends: —\n  - requirements: 1\n"
+		tasks := "# Tasks — " + slug + "\n\n## Wave 1\n- [ ] T1 — Login\n  - why: w\n  - role: craftsman\n  - files: x.go\n  - contract: c\n  - acceptance: a\n  - verify: true\n  - depends: —\n  - requirements: 1\n"
 		if err := os.WriteFile(filepath.Join(root, ".specd", "specs", slug, "tasks.md"), []byte(tasks), 0o644); err != nil {
 			t.Fatalf("write tasks(%s): %v", slug, err)
 		}

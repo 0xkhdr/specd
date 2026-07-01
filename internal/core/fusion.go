@@ -206,8 +206,8 @@ func BuildFusionPolicy(root, slug, expectDigest string) (FusionPolicy, error) {
 				specPolicy.BrainAllowed = false
 				specPolicy.BaseLoopAllowed = false
 				specPolicy.PolicyViolation = "spec is orchestrated but project orchestration is disabled"
-				specPolicy.Recommended = "specd mode " + slug + " --set base or enable orchestration"
-				specPolicy.NextCommand = "specd mode " + slug + " --set base"
+				specPolicy.Recommended = "specd status " + slug + " --set-mode simple or enable orchestration"
+				specPolicy.NextCommand = "specd status " + slug + " --set-mode simple"
 				policy.Violations = append(policy.Violations, specPolicy.PolicyViolation)
 			}
 		default:
@@ -326,7 +326,7 @@ func fusionGateSeverities(cfg Config) map[string]string {
 func fusionHealthChecks(root string) []FusionHealthCheck {
 	checks := []FusionHealthCheck{
 		pathHealth("steering", root, []string{".specd/steering/reasoning.md", ".specd/steering/workflow.md", ".specd/steering/product.md", ".specd/steering/tech.md", ".specd/steering/structure.md"}),
-		pathHealth("roles", root, []string{".specd/roles/investigator.md", ".specd/roles/builder.md", ".specd/roles/reviewer.md", ".specd/roles/verifier.md", ".specd/roles/brain.md", ".specd/roles/pinky.md"}),
+		pathHealth("roles", root, []string{".specd/roles/scout.md", ".specd/roles/craftsman.md", ".specd/roles/auditor.md", ".specd/roles/validator.md", ".specd/roles/brain.md", ".specd/roles/pinky.md"}),
 		pathHealth("skills", root, []string{".specd/skills/specd-foundations/SKILL.md", ".specd/skills/specd-steering/SKILL.md", ".specd/skills/specd-requirements/SKILL.md", ".specd/skills/specd-design/SKILL.md", ".specd/skills/specd-tasks/SKILL.md", ".specd/skills/specd-execute/SKILL.md"}),
 		pathHealth("config", root, []string{".specd/config.yml"}),
 	}

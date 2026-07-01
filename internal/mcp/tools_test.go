@@ -256,13 +256,13 @@ func TestApplyManifestRequiredGatedOffDiagnostic(t *testing.T) {
 	// AC3/R4: a required tool missing from the (config-gated) candidate set stays
 	// excluded and emits a diagnostic — config safety wins over manifest required.
 	cand := []toolDef{td("specd_status")}
-	m := core.ContextManifestTools{RequiredTools: []string{"specd_status", "specd_update"}}
+	m := core.ContextManifestTools{RequiredTools: []string{"specd_status", "specd_brain"}}
 	var got []toolDef
 	diag := captureStderr(t, func() { got = applyManifestFilter(cand, m) })
 	if strings.Join(names(got), ",") != "specd_status" {
 		t.Fatalf("gated required leaked into list: %v", names(got))
 	}
-	if !strings.Contains(diag, "specd_update") || !strings.Contains(diag, "config gate") {
+	if !strings.Contains(diag, "specd_brain") || !strings.Contains(diag, "config gate") {
 		t.Fatalf("missing R4 diagnostic, got: %q", diag)
 	}
 }
@@ -386,7 +386,7 @@ func TestNegotiateMaxContextTokensGarbageIsSafe(t *testing.T) {
 // effective manifest Budget; omitting it leaves the engine default untouched
 // (byte-identical path). AC-6.
 func TestCapabilityContextBudgetCapsManifest(t *testing.T) {
-	req := contextpkg.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "builder", Mode: contextpkg.ContextModeBriefing}
+	req := contextpkg.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "craftsman", Mode: contextpkg.ContextModeBriefing}
 	baseline := contextpkg.BuildContextManifest(req).Budget
 
 	restore := setContextBudgetEnv(2500)
@@ -551,6 +551,28 @@ func TestIncludeMetaGate(t *testing.T) {
 	}
 }
 
+// TestMetaRiskGateFiltersWhenPopulated proves the metaRiskCommands gate
+// (tools.go ~line 342) actually filters. TestIncludeMetaGate above is vacuous
+// today because metaRiskCommands is empty (its former members update/uninstall
+// were removed in v0.1.0), so nothing exercises the branch. Seeding a temporary
+// entry keeps the reserved gate from silently rotting: a meta-risk command must
+// be hidden by default and reappear only under includeMeta:true.
+func TestMetaRiskGateFiltersWhenPopulated(t *testing.T) {
+	const probe = "status" // any surviving, always-exposed read-only command
+	metaRiskCommands[probe] = true
+	t.Cleanup(func() { delete(metaRiskCommands, probe) })
+
+	name := toolPrefix + probe
+	hidden := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
+	if hidden[name] {
+		t.Errorf("meta-risk %s exposed with includeMeta:false — gate did not filter", name)
+	}
+	shown := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all", IncludeMeta: true}}))
+	if !shown[name] {
+		t.Errorf("meta-risk %s hidden with includeMeta:true — gate over-filtered", name)
+	}
+}
+
 // TestOrchestrationGate covers AC4/AC5/R5/R5a: with orchestration disabled the
 // brain/pinky commands and every brain_* intent vanish; enabling brings them back.
 func TestOrchestrationGate(t *testing.T) {
@@ -651,11 +673,11 @@ func TestBuildToolsRoleFilterFromActiveSpec(t *testing.T) {
 	got := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
 	want := []string{"specd_check", "specd_status", "specd_state_read"}
 	if len(got) != len(want) {
-		t.Fatalf("verifier tool count = %d, want %d: %v", len(got), len(want), got)
+		t.Fatalf("validator tool count = %d, want %d: %v", len(got), len(want), got)
 	}
 	for _, name := range want {
 		if !got[name] {
-			t.Fatalf("verifier tool list missing %s: %v", name, got)
+			t.Fatalf("validator tool list missing %s: %v", name, got)
 		}
 	}
 }

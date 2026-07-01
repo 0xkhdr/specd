@@ -515,7 +515,7 @@ func Reconcile(state *State, doc ParsedTasks) {
 			ts.Role = prev.Role
 		}
 		if ts.Role == "" {
-			ts.Role = "builder"
+			ts.Role = "craftsman"
 		}
 		if hasPrev {
 			ts.Status = prev.Status

@@ -1,11 +1,7 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -117,77 +113,6 @@ func wKV(b *strings.Builder, indent int, key string, v any) {
 
 func quoteYAML(s string) string {
 	return strconv.Quote(s)
-}
-
-// MigrateConfigPreview reads a legacy JSON config and returns canonical YAML.
-func MigrateConfigPreview(sourceJSON string) (string, error) {
-	raw, err := os.ReadFile(sourceJSON)
-	if err != nil {
-		return "", err
-	}
-	if err := rejectSecretBearingOrchestration(raw); err != nil {
-		return "", err
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return "", fmt.Errorf("invalid JSON: %w", err)
-	}
-	cfg := DefaultConfig
-	applyConfigDoc(&cfg, doc)
-	cfg.Version = 2
-	if err := ValidateConfigDoc(doc); err != nil {
-		return "", err
-	}
-	if err := ValidateOrchestrationConfig(&cfg.Orchestration); err != nil {
-		return "", err
-	}
-	yml := RenderConfigYAML(cfg)
-	parsed, err := parseSimpleYAML(yml)
-	if err != nil {
-		return "", fmt.Errorf("rendered YAML failed validation: %w", err)
-	}
-	round := DefaultConfig
-	applyConfigDoc(&round, parsed)
-	if err := ValidateOrchestrationConfig(&round.Orchestration); err != nil {
-		return "", fmt.Errorf("rendered YAML invalid: %w", err)
-	}
-	if !reflect.DeepEqual(cfg, round) {
-		return "", fmt.Errorf("rendered YAML does not preserve effective config")
-	}
-	return yml, nil
-}
-
-// MigrateConfigFile writes YAML then renames the legacy JSON to .bak. It fails closed on collisions.
-func MigrateConfigFile(sourceJSON, targetYAML string) error {
-	if _, err := os.Stat(targetYAML); err == nil {
-		return fmt.Errorf("target config already exists: %s", targetYAML)
-	} else if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	backup := sourceJSON + ".bak"
-	if _, err := os.Stat(backup); err == nil {
-		return fmt.Errorf("backup already exists: %s", backup)
-	} else if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	yml, err := MigrateConfigPreview(sourceJSON)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(targetYAML), 0o755); err != nil {
-		return err
-	}
-	if err := AtomicWrite(targetYAML, yml); err != nil {
-		return err
-	}
-	_, diags := LoadConfigFromPath(targetYAML)
-	if HasErrorDiagnostics(diags) {
-		return fmt.Errorf("rendered YAML failed validation")
-	}
-	if err := os.Rename(sourceJSON, backup); err != nil {
-		return err
-	}
-	return nil
 }
 
 // ValidateConfigDoc checks a parsed config document's enum-valued fields

@@ -147,8 +147,8 @@ func RunBrain(args cli.Args) int {
 }
 
 // requireOrchestratedSpec refuses a Brain entrypoint when the spec is not in
-// orchestrated execution mode. Base is the default and the Brain/Pinky layer
-// must never start a session for a Base spec — the remediation points the host
+// orchestrated execution mode. Simple is the default and the Brain/Pinky layer
+// must never start a session for a Simple spec — the remediation points the host
 // at the explicit opt-in. Returns ok=false with the exit code to return verbatim.
 func requireOrchestratedSpec(root, slug string) (code int, ok bool) {
 	state, err := core.LoadState(root, slug)
@@ -159,7 +159,7 @@ func requireOrchestratedSpec(root, slug string) (code int, ok bool) {
 		return specdExit(core.NotFoundError(fmt.Sprintf("spec '%s' not found", slug))), false
 	}
 	if state.EffectiveMode() != core.ModeOrchestrated {
-		core.Error(fmt.Sprintf("spec '%s' is in base execution mode — Brain/Pinky will not drive it. Opt in first with `specd mode %s --set orchestrated`, or run it manually with `specd next %s`.", slug, slug, slug))
+		core.Error(fmt.Sprintf("spec '%s' is in simple execution mode — Brain/Pinky will not drive it. Opt in first with `specd status %s --set-mode orchestrated`, or run it manually with `specd next %s`.", slug, slug, slug))
 		return core.ExitGate, false
 	}
 	return core.ExitOK, true

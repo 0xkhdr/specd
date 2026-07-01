@@ -8,8 +8,8 @@ import (
 )
 
 func TestEffectiveMode(t *testing.T) {
-	if got := (State{}).EffectiveMode(); got != ModeBase {
-		t.Errorf("empty ExecutionMode → %q, want %q", got, ModeBase)
+	if got := (State{}).EffectiveMode(); got != ModeSimple {
+		t.Errorf("empty ExecutionMode → %q, want %q", got, ModeSimple)
 	}
 	if got := (State{ExecutionMode: ModeOrchestrated}).EffectiveMode(); got != ModeOrchestrated {
 		t.Errorf("EffectiveMode = %q, want %q", got, ModeOrchestrated)
@@ -25,10 +25,10 @@ func TestResolveMode(t *testing.T) {
 		wantOrigin string
 	}{
 		{"flag wins over base spec", ModeOrchestrated, &State{}, ModeOrchestrated, OriginUser},
-		{"flag wins over orchestrated spec", ModeBase, &State{ExecutionMode: ModeOrchestrated, ModeOrigin: OriginUser}, ModeBase, OriginUser},
+		{"flag wins over orchestrated spec", ModeSimple, &State{ExecutionMode: ModeOrchestrated, ModeOrigin: OriginUser}, ModeSimple, OriginUser},
 		{"no flag, recorded orchestrated", "", &State{ExecutionMode: ModeOrchestrated, ModeOrigin: OriginRecommended}, ModeOrchestrated, OriginRecommended},
-		{"no flag, empty spec defaults base/default", "", &State{}, ModeBase, OriginDefault},
-		{"no flag, nil spec defaults base/default", "", nil, ModeBase, OriginDefault},
+		{"no flag, empty spec defaults base/default", "", &State{}, ModeSimple, OriginDefault},
+		{"no flag, nil spec defaults base/default", "", nil, ModeSimple, OriginDefault},
 		{"recorded mode without origin defaults origin", "", &State{ExecutionMode: ModeOrchestrated}, ModeOrchestrated, OriginDefault},
 	}
 	for _, c := range cases {
@@ -74,10 +74,10 @@ func TestComputeModeSignals(t *testing.T) {
 	}
 	state := &State{
 		Tasks: map[string]TaskState{
-			"T1": {ID: "T1", Wave: 1, Role: "builder"},
-			"T2": {ID: "T2", Wave: 1, Role: "investigator"},
-			"T3": {ID: "T3", Wave: 1, Role: "builder"},
-			"T4": {ID: "T4", Wave: 2, Role: "verifier"},
+			"T1": {ID: "T1", Wave: 1, Role: "craftsman"},
+			"T2": {ID: "T2", Wave: 1, Role: "scout"},
+			"T3": {ID: "T3", Wave: 1, Role: "craftsman"},
+			"T4": {ID: "T4", Wave: 2, Role: "validator"},
 		},
 	}
 	sig := computeModeSignals(root, slug, state)
@@ -88,7 +88,7 @@ func TestComputeModeSignals(t *testing.T) {
 		t.Errorf("MaxWaveWidth = %d, want 3 (wave 1)", sig.MaxWaveWidth)
 	}
 	if sig.DistinctRoles != 3 {
-		t.Errorf("DistinctRoles = %d, want 3 (builder/investigator/verifier)", sig.DistinctRoles)
+		t.Errorf("DistinctRoles = %d, want 3 (craftsman/scout/validator)", sig.DistinctRoles)
 	}
 	if sig.EstimatedTokens <= 0 {
 		t.Errorf("EstimatedTokens = %d, want > 0", sig.EstimatedTokens)
@@ -102,13 +102,13 @@ func TestVerdictFromSignals(t *testing.T) {
 		wantRec        string
 		wantConfidence string
 	}{
-		{"pre-tasks neutral", ModeSignals{}, ModeBase, ConfidenceNeutral},
-		{"small serial work stays base", ModeSignals{TaskCount: 5, MaxWaveWidth: 2, DistinctRoles: 2}, ModeBase, ConfidenceNeutral},
+		{"pre-tasks neutral", ModeSignals{}, ModeSimple, ConfidenceNeutral},
+		{"small serial work stays base", ModeSignals{TaskCount: 5, MaxWaveWidth: 2, DistinctRoles: 2}, ModeSimple, ConfidenceNeutral},
 		{"parallelism alone suggests", ModeSignals{TaskCount: 12, MaxWaveWidth: 4, DistinctRoles: 2}, ModeOrchestrated, ConfidenceSuggest},
 		{"roles alone suggests", ModeSignals{TaskCount: 6, MaxWaveWidth: 2, DistinctRoles: 3}, ModeOrchestrated, ConfidenceSuggest},
 		{"two payoffs strong", ModeSignals{TaskCount: 12, MaxWaveWidth: 4, DistinctRoles: 3}, ModeOrchestrated, ConfidenceStrong},
 		{"cross-spec edge alone suggests", ModeSignals{TaskCount: 4, MaxWaveWidth: 1, DistinctRoles: 1, CrossSpecEdges: 2}, ModeOrchestrated, ConfidenceSuggest},
-		{"tasks>=10 but narrow waves stays base", ModeSignals{TaskCount: 20, MaxWaveWidth: 2, DistinctRoles: 2}, ModeBase, ConfidenceNeutral},
+		{"tasks>=10 but narrow waves stays base", ModeSignals{TaskCount: 20, MaxWaveWidth: 2, DistinctRoles: 2}, ModeSimple, ConfidenceNeutral},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

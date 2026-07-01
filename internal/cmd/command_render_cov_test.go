@@ -33,14 +33,14 @@ func TestStatusCommandRenders(t *testing.T) {
 
 func TestReplayCommandRenders(t *testing.T) {
 	h, slug := buildExecutingSpec(t)
-	h.RunExpect(core.ExitOK, "replay", slug)
-	h.RunExpect(core.ExitOK, "replay", slug, "--json")
+	h.RunExpect(core.ExitOK, "report", slug, "--history")
+	h.RunExpect(core.ExitOK, "report", slug, "--history", "--json")
 }
 
 func TestModeRecommendRenders(t *testing.T) {
 	h, slug := buildExecutingSpec(t)
-	h.RunExpect(core.ExitOK, "mode", slug, "--recommend")
-	h.RunExpect(core.ExitOK, "mode", slug, "--recommend", "--json")
+	h.RunExpect(core.ExitOK, "status", slug, "--recommend")
+	h.RunExpect(core.ExitOK, "status", slug, "--recommend", "--json")
 }
 
 func TestProgramCommandRendersAndLinks(t *testing.T) {
@@ -59,15 +59,15 @@ func TestProgramCommandRendersAndLinks(t *testing.T) {
 		Build()
 
 	// Self-dependency and missing-spec are rejected (non-zero exit).
-	if res := h.Run("program", "link", a, "--on", a); res.Code == core.ExitOK {
+	if res := h.Run("status", "--program", "link", a, "--on", a); res.Code == core.ExitOK {
 		t.Fatalf("self-dependency link should fail, got OK: %s", res.Out())
 	}
-	if res := h.Run("program", "link", a, "--on", "ghost"); res.Code == core.ExitOK {
+	if res := h.Run("status", "--program", "link", a, "--on", "ghost"); res.Code == core.ExitOK {
 		t.Fatalf("link to missing spec should fail, got OK: %s", res.Out())
 	}
 
 	// Link alpha → beta, then render text and JSON.
-	h.RunExpect(core.ExitOK, "program", "link", a, "--on", b)
-	h.RunExpect(core.ExitOK, "program")
-	h.RunExpect(core.ExitOK, "program", "--json")
+	h.RunExpect(core.ExitOK, "status", "--program", "link", a, "--on", b)
+	h.RunExpect(core.ExitOK, "status", "--program")
+	h.RunExpect(core.ExitOK, "status", "--program", "--json")
 }

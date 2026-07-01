@@ -257,11 +257,11 @@ func defaultContextRole(req ContextRequest) string {
 	case spec.PhaseAnalyze, spec.PhasePlan:
 		return "architect"
 	case spec.PhaseVerify:
-		return "verifier"
+		return "validator"
 	case spec.PhaseReflect:
 		return "documenter"
 	default:
-		return "builder"
+		return "craftsman"
 	}
 }
 

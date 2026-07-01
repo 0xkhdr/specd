@@ -13,7 +13,7 @@ import (
 func TestEngineOutputValidates(t *testing.T) {
 	read := func(name string) (string, bool) {
 		if name == "tasks.md" {
-			return "## Wave 1\n\n- [ ] T1 — Demo\n  - role: builder\n", true
+			return "## Wave 1\n\n- [ ] T1 — Demo\n  - role: craftsman\n", true
 		}
 		return "", false
 	}
@@ -21,7 +21,7 @@ func TestEngineOutputValidates(t *testing.T) {
 		Slug:           "demo",
 		Status:         StatusExecuting,
 		TaskID:         "T1",
-		Role:           "builder",
+		Role:           "craftsman",
 		Files:          []string{"x.go"},
 		Mode:           contextpkg.ContextModeMission,
 		ContextCommand: "specd context demo",

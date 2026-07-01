@@ -75,7 +75,7 @@ func TestProgramCommandJSONRemainsCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res := h.RunExpect(core.ExitOK, "program", "--json")
+	res := h.RunExpect(core.ExitOK, "status", "--program", "--json")
 	var out map[string]any
 	if err := json.Unmarshal([]byte(res.Stdout), &out); err != nil {
 		t.Fatal(err)

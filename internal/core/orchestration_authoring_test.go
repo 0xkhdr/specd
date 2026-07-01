@@ -21,7 +21,7 @@ func TestSenseAuthoringFrontier(t *testing.T) {
 	if work == nil || ready {
 		t.Fatalf("empty requirements: want authoring item, got work=%v ready=%v", work, ready)
 	}
-	if work.WorkID != "A1" || work.Artifact != "requirements.md" || work.Role != "builder" {
+	if work.WorkID != "A1" || work.Artifact != "requirements.md" || work.Role != "craftsman" {
 		t.Fatalf("unexpected authoring item: %#v", work)
 	}
 
@@ -34,7 +34,7 @@ func TestSenseAuthoringFrontier(t *testing.T) {
 func TestDecideDispatchAuthoringUnderPlanning(t *testing.T) {
 	policy := validOrchestrationPolicy()
 	policy.ApprovalPolicy = "planning"
-	work := &OrchestrationAuthoring{WorkID: "A1", Artifact: "requirements.md", Gate: "ears", Role: "builder", Issues: []string{"requirements.md missing or empty"}}
+	work := &OrchestrationAuthoring{WorkID: "A1", Artifact: "requirements.md", Gate: "ears", Role: "craftsman", Issues: []string{"requirements.md missing or empty"}}
 	snapshot := planningSnapshot(StatusRequirements, work, false)
 
 	decision, err := DecideOrchestration(snapshot, policy)
@@ -62,7 +62,7 @@ func TestDecideDispatchAuthoringUnderPlanning(t *testing.T) {
 
 func TestDecideAuthoringManualRequestsApproval(t *testing.T) {
 	policy := validOrchestrationPolicy() // default ApprovalPolicy == "manual"
-	work := &OrchestrationAuthoring{WorkID: "A2", Artifact: "design.md", Gate: "design", Role: "builder", Issues: []string{"design.md missing or empty"}}
+	work := &OrchestrationAuthoring{WorkID: "A2", Artifact: "design.md", Gate: "design", Role: "craftsman", Issues: []string{"design.md missing or empty"}}
 	snapshot := planningSnapshot(StatusDesign, work, false)
 
 	decision, err := DecideOrchestration(snapshot, policy)

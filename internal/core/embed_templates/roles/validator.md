@@ -1,4 +1,4 @@
-# Role: Verifier (run checks)
+# Role: Validator (run checks)
 
 **Capability:** run tests, types, build. **You may NOT modify code.**
 
@@ -9,13 +9,13 @@
 - Summary ≤1500 tokens.
 
 ## Rules
-- Do not fix code. If a check fails, report it; the builder fixes.
+- Do not fix code. If a check fails, report it; the craftsman fixes.
 - Verify-before-done: your `passed` result is the evidence that gates `specd task ... complete`.
 - Quote failures exactly — no paraphrase.
 
 ```
 === ROLE RESULT ===
-role: verifier
+role: validator
 task: <Tn>
 status: complete | blocked | failed
 files: []

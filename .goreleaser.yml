@@ -32,7 +32,7 @@ archives:
           - zip
 
 checksum:
-  # Must match the filename update.go::fetchChecksums and install.sh expect.
+  # Must match the filename install.sh expects.
   name_template: SHA256SUMS
   algorithm: sha256
 

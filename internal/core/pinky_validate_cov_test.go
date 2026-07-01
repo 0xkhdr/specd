@@ -11,11 +11,11 @@ import (
 // classes.
 
 func TestPinkyAllowedActions(t *testing.T) {
-	rw := pinkyAllowedActions("builder")
+	rw := pinkyAllowedActions("craftsman")
 	if strings.Join(rw, ",") != "read,edit,verify,report" {
-		t.Errorf("builder actions = %v", rw)
+		t.Errorf("craftsman actions = %v", rw)
 	}
-	ro := pinkyAllowedActions("reviewer")
+	ro := pinkyAllowedActions("auditor")
 	if strings.Join(ro, ",") != "read,verify,report" {
 		t.Errorf("readonly actions = %v", ro)
 	}

@@ -209,7 +209,7 @@ func TestModeSwitchToBaseRefusedDuringActiveSession(t *testing.T) {
 	// StartSpec opts the spec into orchestrated mode and starts the session.
 	host.StartSpec("live", sessionID)
 
-	res := h.RunExpect(core.ExitGate, "mode", "live", "--set", "base")
+	res := h.RunExpect(core.ExitGate, "status", "live", "--set-mode", "simple")
 	if !strings.Contains(res.Out(), "Brain session") || !strings.Contains(res.Out(), "Cancel") {
 		t.Errorf("expected cancel-first refusal, got: %s", res.Out())
 	}

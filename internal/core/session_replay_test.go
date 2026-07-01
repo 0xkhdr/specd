@@ -21,7 +21,7 @@ func TestReplaySessionTimelineIncludesDecisionReason(t *testing.T) {
 			Type:      ACPMessageMission,
 			Spec:      "auth",
 			Task:      "T1",
-			Payload:   json.RawMessage(`{"role":"builder"}`),
+			Payload:   json.RawMessage(`{"role":"craftsman"}`),
 			Decision: &OrchestrationDecision{
 				Action:     OrchestrationDispatch,
 				Spec:       "auth",
@@ -55,7 +55,7 @@ func TestExplainCurrentSessionDecisionPrefersLatestDecision(t *testing.T) {
 		{
 			Sequence: 1,
 			Type:     ACPMessageMission,
-			Payload:  json.RawMessage(`{"role":"builder"}`),
+			Payload:  json.RawMessage(`{"role":"craftsman"}`),
 			Decision: &OrchestrationDecision{Action: OrchestrationDispatch, Reason: "dispatch T1"},
 		},
 		{

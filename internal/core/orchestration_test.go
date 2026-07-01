@@ -10,8 +10,8 @@ import (
 func TestOrchestrationModelCanonicalSnapshot(t *testing.T) {
 	snapshot := validOrchestrationSnapshot()
 	snapshot.Runnable = []OrchestrationTaskSnapshot{
-		{ID: "T10", Wave: 2, Status: TaskPending, Attempt: 1, Role: "builder", Depends: nil},
-		{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "investigator", Depends: []string{"T3", "T1"}},
+		{ID: "T10", Wave: 2, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: nil},
+		{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "scout", Depends: []string{"T3", "T1"}},
 	}
 	snapshot.ActiveLeases = nil
 	snapshot.RecentFailures = nil
@@ -157,8 +157,8 @@ func TestOrchestrationModelRejectsUnknownValues(t *testing.T) {
 
 	snapshot = validOrchestrationSnapshot()
 	snapshot.Runnable = []OrchestrationTaskSnapshot{
-		{ID: "T1", Wave: 1, Status: TaskPending, Attempt: 1, Role: "builder", Depends: []string{}},
-		{ID: "T1", Wave: 1, Status: TaskPending, Attempt: 1, Role: "builder", Depends: []string{}},
+		{ID: "T1", Wave: 1, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: []string{}},
+		{ID: "T1", Wave: 1, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: []string{}},
 	}
 	if _, err := CanonicalOrchestrationJSON(snapshot); err == nil {
 		t.Fatal("duplicate runnable task accepted")

@@ -37,8 +37,11 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 ### Uninstall / update
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
+# Update: reinstall in place with --force
 curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
+
+# Uninstall: removal is manual — delete the installed binary (there is no uninstall script)
+rm "$(command -v specd)"
 ```
 
 - Linux, macOS, or Windows (amd64 / arm64)
@@ -316,7 +319,7 @@ Tasks are Markdown checklist items grouped under `## Wave N` headers.
 | Key | Required | Description |
 |---|---|---|
 | `why` | ✅ | Architectural reason for this task |
-| `role` | ✅ | Persona: `investigator`, `builder`, `reviewer`, `verifier` |
+| `role` | ✅ | Persona: `scout`, `craftsman`, `auditor`, `validator` |
 | `files` | ✅ | Comma-separated files modified or researched |
 | `contract` | ✅ | Technical signature or behavior contract |
 | `acceptance` | ✅ | Test or user criteria for completion |
@@ -330,7 +333,7 @@ Tasks are Markdown checklist items grouped under `## Wave N` headers.
 ## Wave 1
 - [ ] T1 — Task title
   - why: Reason for this task
-  - role: builder
+  - role: craftsman
   - files: path/to/file.go, path/to/file_test.go
   - contract: Function signature or behavior
   - acceptance: Criteria for completion
@@ -341,7 +344,7 @@ Tasks are Markdown checklist items grouped under `## Wave N` headers.
 ## Wave 2
 - [ ] T2 — Dependent task
   - why: Reason for this task
-  - role: builder
+  - role: craftsman
   - files: path/to/file2.go
   - contract: Function signature or behavior
   - acceptance: Criteria for completion
@@ -384,8 +387,8 @@ specd task my-feature T1 --status complete
 
 | Task type | Evidence required | Command |
 |---|---|---|
-| **Builder / Verifier** | Passing `specd verify` record | `specd task <slug> <id> --status complete` |
-| **Investigator / Reviewer** | Manual evidence (read-only roles) | `specd task <slug> <id> --status complete --unverified --evidence "..."` |
+| **Craftsman / Validator** | Passing `specd verify` record | `specd task <slug> <id> --status complete` |
+| **Scout / Auditor** | Manual evidence (read-only roles) | `specd task <slug> <id> --status complete --unverified --evidence "..."` |
 
 ### Verification timeout
 

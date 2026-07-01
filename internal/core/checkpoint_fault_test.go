@@ -42,7 +42,7 @@ func seedFaultCheckpointSpec(root string) error {
 	state.Tasks["T1"] = TaskState{
 		ID:           "T1",
 		Title:        "Demo task",
-		Role:         "builder",
+		Role:         "craftsman",
 		Wave:         1,
 		Depends:      []string{},
 		Requirements: []int{1},
@@ -57,7 +57,7 @@ func seedFaultCheckpointSpec(root string) error {
 
 - [ ] T1 — Demo task
   - why: Needed.
-  - role: builder
+  - role: craftsman
   - files: internal/core/demo.go
   - contract: Change one file.
   - acceptance: Works.

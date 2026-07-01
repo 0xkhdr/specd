@@ -32,7 +32,7 @@ you do the inspection and authoring directly, then commit the files.
    solves, and explicit out-of-scope. Ground each claim in README/docs/manifest.
 
 3. **Author `structure.md`** — the real top-level layout, which modules may depend
-   on what, and the naming conventions a builder must follow. Derive from the dir
+   on what, and the naming conventions a craftsman must follow. Derive from the dir
    tree and imports, not aspiration.
 
 4. **Author `tech.md`** — the detected stack (languages, frameworks, versions) plus

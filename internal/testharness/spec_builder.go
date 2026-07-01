@@ -43,7 +43,7 @@ type designSection struct {
 type TaskSpec struct {
 	ID           string
 	Title        string
-	Role         string // default "builder"
+	Role         string // default "craftsman"
 	Wave         int    // default 1
 	Depends      []string
 	Requirements []int
@@ -264,7 +264,7 @@ func (t TaskSpec) withDefaults() TaskSpec {
 		t.Title = t.ID
 	}
 	if t.Role == "" {
-		t.Role = "builder"
+		t.Role = "craftsman"
 	}
 	if t.Wave == 0 {
 		t.Wave = 1

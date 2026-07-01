@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// evidenceFixture writes the demo spec, claims a builder lease for "wkr" on T1,
+// evidenceFixture writes the demo spec, claims a craftsman lease for "wkr" on T1,
 // and injects a passing specd verification record (the truth the reconciler must
 // bind to). It returns that record so a test can derive a matching report or
 // mutate a copy to forge one.
@@ -55,7 +55,7 @@ func setTaskRole(t *testing.T, root, role string) {
 	t.Helper()
 	path := ArtifactPath(root, "demo", "tasks.md")
 	raw := ReadOrDefault(path, "")
-	updated := strings.Replace(raw, "- role: builder", "- role: "+role, 1)
+	updated := strings.Replace(raw, "- role: craftsman", "- role: "+role, 1)
 	if updated == raw {
 		t.Fatalf("role line not found in tasks.md")
 	}
@@ -178,7 +178,7 @@ func TestPinkyEvidenceRejectsUndeclaredFilesWhenScopeError(t *testing.T) {
 
 func TestPinkyEvidenceRejectsReadOnlyRole(t *testing.T) {
 	root, sessionID, cfg, rec := evidenceFixture(t)
-	setTaskRole(t, root, "reviewer")
+	setTaskRole(t, root, "auditor")
 	report := validEvidenceReport(sessionID, rec)
 
 	if _, err := ReconcilePinkyEvidence(root, report, cfg); err == nil {

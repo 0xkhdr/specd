@@ -10,7 +10,7 @@ import (
 )
 
 // enableOrchestration writes a config.json granting the project orchestration
-// capability, so `--set orchestrated` / `new --orchestrated` can succeed.
+// capability, so `--set-mode orchestrated` / `new --orchestrated` can succeed.
 func enableOrchestration(t *testing.T, h *testharness.Harness) {
 	t.Helper()
 	if err := os.WriteFile(core.ConfigPath(h.Root), []byte(`{"version":1,"orchestration":{"enabled":true}}`), 0o644); err != nil {
@@ -18,21 +18,31 @@ func enableOrchestration(t *testing.T, h *testharness.Harness) {
 	}
 }
 
-func TestNewDefaultsToBase(t *testing.T) {
+func TestNewDefaultsToSimple(t *testing.T) {
 	h := testharness.New(t)
 	h.RunExpect(core.ExitOK, "new", "auth", "--title", "Auth")
 
 	st := h.State("auth").Raw()
 	if st.ExecutionMode != "" {
-		t.Errorf("Base spec should leave ExecutionMode empty (byte-stable), got %q", st.ExecutionMode)
+		t.Errorf("Simple spec should leave ExecutionMode empty (byte-stable), got %q", st.ExecutionMode)
 	}
-	if st.EffectiveMode() != core.ModeBase {
-		t.Errorf("EffectiveMode = %q, want base", st.EffectiveMode())
+	if st.EffectiveMode() != core.ModeSimple {
+		t.Errorf("EffectiveMode = %q, want simple", st.EffectiveMode())
 	}
 
 	res := h.RunExpect(core.ExitOK, "status", "auth")
-	if !strings.Contains(res.Out(), "mode: base") {
-		t.Errorf("status should report mode base, got: %s", res.Out())
+	if !strings.Contains(res.Out(), "mode: simple") {
+		t.Errorf("status should report mode simple, got: %s", res.Out())
+	}
+}
+
+func TestModeSetRejectsRenamedBaseValue(t *testing.T) {
+	h := testharness.New(t)
+	h.RunExpect(core.ExitOK, "new", "auth", "--title", "Auth")
+
+	res := h.RunExpect(core.ExitUsage, "status", "auth", "--set-mode", "base")
+	if !strings.Contains(res.Out(), "simple") {
+		t.Errorf("expected --set-mode base to fail with a message pointing at simple, got: %s", res.Out())
 	}
 }
 
@@ -79,11 +89,11 @@ func TestStatusSetModeParity(t *testing.T) {
 		t.Errorf("revision %d did not advance past %d (audit trail)", st.Revision, before)
 	}
 
-	// Opting back out clears the fields so Base state stays byte-stable.
-	h.RunExpect(core.ExitOK, "status", "auth", "--set-mode", "base")
+	// Opting back out clears the fields so Simple state stays byte-stable.
+	h.RunExpect(core.ExitOK, "status", "auth", "--set-mode", "simple")
 	back := h.State("auth").Raw()
 	if back.ExecutionMode != "" || back.ModeOrigin != "" {
-		t.Errorf("switching to base should clear fields, got mode=%q origin=%q", back.ExecutionMode, back.ModeOrigin)
+		t.Errorf("switching to simple should clear fields, got mode=%q origin=%q", back.ExecutionMode, back.ModeOrigin)
 	}
 
 	// --recommend emits the advisory verdict (read-only, never mutates).
@@ -104,12 +114,12 @@ func TestStatusSetModeFailsClosedWithoutCapability(t *testing.T) {
 	if !strings.Contains(res.Out(), "specd init --orchestration") {
 		t.Errorf("expected enabling-command remediation, got: %s", res.Out())
 	}
-	if h.State("auth").Raw().EffectiveMode() != core.ModeBase {
-		t.Error("spec must stay base after a refused --set-mode")
+	if h.State("auth").Raw().EffectiveMode() != core.ModeSimple {
+		t.Error("spec must stay simple after a refused --set-mode")
 	}
 }
 
-func TestBrainRefusesBaseSpec(t *testing.T) {
+func TestBrainRefusesSimpleSpec(t *testing.T) {
 	h := testharness.New(t)
 	h.Spec("auth").
 		Req("auth", "As a user, I want auth.", "THE SYSTEM SHALL authenticate.").
@@ -119,8 +129,8 @@ func TestBrainRefusesBaseSpec(t *testing.T) {
 		Build()
 
 	res := h.RunExpect(core.ExitGate, "brain", "start", "auth", "--session", strings.Repeat("a", 32))
-	if !strings.Contains(res.Out(), "base execution mode") || !strings.Contains(res.Out(), "--set orchestrated") {
-		t.Errorf("expected base-mode refusal with remediation, got: %s", res.Out())
+	if !strings.Contains(res.Out(), "simple execution mode") || !strings.Contains(res.Out(), "--set-mode orchestrated") {
+		t.Errorf("expected simple-mode refusal with remediation, got: %s", res.Out())
 	}
 }
 
@@ -128,7 +138,7 @@ func TestModeRecommendNeutralBeforeTasks(t *testing.T) {
 	h := testharness.New(t)
 	h.RunExpect(core.ExitOK, "new", "auth")
 	res := h.RunExpect(core.ExitOK, "status", "auth", "--recommend", "--json")
-	for _, want := range []string{`"recommended": "base"`, `"confidence": "neutral"`, `"userDecides": true`} {
+	for _, want := range []string{`"recommended": "simple"`, `"confidence": "neutral"`, `"userDecides": true`} {
 		if !strings.Contains(res.Stdout, want) {
 			t.Errorf("recommend JSON missing %q; got: %s", want, res.Stdout)
 		}

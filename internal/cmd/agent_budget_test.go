@@ -38,7 +38,7 @@ func TestAgentBriefingBudgets(t *testing.T) {
 	}{
 		{"context", budgetContextBytes, []string{"context"}},
 		{"next", budgetNextBytes, []string{"next"}},
-		{"dispatch", budgetDispatchBytes, []string{"dispatch"}},
+		{"dispatch", budgetDispatchBytes, []string{"next", "--dispatch"}},
 	}
 
 	for _, tc := range cases {
@@ -66,7 +66,7 @@ func TestAgentBriefingNoDecoration(t *testing.T) {
 		Status(core.StatusExecuting).
 		Build()
 
-	for _, cmd := range [][]string{{"context"}, {"next"}, {"dispatch"}, {"status"}} {
+	for _, cmd := range [][]string{{"context"}, {"next"}, {"next", "--dispatch"}, {"status"}} {
 		args := append(append([]string{}, cmd...), slug, "--json")
 		res := h.RunExpect(core.ExitOK, args[0], args[1:]...)
 		if strings.Contains(res.Stdout, "\x1b[") {

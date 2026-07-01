@@ -135,20 +135,20 @@ func TestSpecArtifactReader(t *testing.T) {
 
 func TestResolveTaskView(t *testing.T) {
 	md := "# Tasks — X\n\n## Wave 2\n- [ ] T1 — doc title\n" +
-		"  - why: w\n  - role: reviewer\n  - files: a.go\n  - contract: c\n" +
+		"  - why: w\n  - role: auditor\n  - files: a.go\n  - contract: c\n" +
 		"  - acceptance: 9.9=TestX\n  - verify: go test ./\n  - depends: —\n  - requirements: 1\n"
 	doc, err := ParseTasks(md)
 	if err != nil {
 		t.Fatalf("ParseTasks: %v", err)
 	}
 	st := State{Tasks: map[string]TaskState{
-		"T1": {ID: "T1", Title: "state title", Role: "builder", Wave: 1, Depends: []string{"T0"}, Requirements: []int{3}},
-		"T9": {ID: "T9", Title: "only state", Role: "builder", Wave: 5},
+		"T1": {ID: "T1", Title: "state title", Role: "craftsman", Wave: 1, Depends: []string{"T0"}, Requirements: []int{3}},
+		"T9": {ID: "T9", Title: "only state", Role: "craftsman", Wave: 5},
 	}}
 
 	// In doc → doc Title/Wave/Meta/role win; Depends/Requirements from state.
 	v := ResolveTaskView(doc, &st, "T1")
-	if !v.FromDoc || v.Title != "doc title" || v.Wave != 2 || v.Role != "reviewer" {
+	if !v.FromDoc || v.Title != "doc title" || v.Wave != 2 || v.Role != "auditor" {
 		t.Fatalf("doc merge = %#v", v)
 	}
 	if len(v.Depends) != 1 || v.Depends[0] != "T0" || len(v.Requirements) != 1 {
@@ -157,7 +157,7 @@ func TestResolveTaskView(t *testing.T) {
 
 	// Absent from doc → falls back to state entirely.
 	v = ResolveTaskView(doc, &st, "T9")
-	if v.FromDoc || v.Title != "only state" || v.Role != "builder" || v.Wave != 5 {
+	if v.FromDoc || v.Title != "only state" || v.Role != "craftsman" || v.Wave != 5 {
 		t.Fatalf("state fallback = %#v", v)
 	}
 }

@@ -3,13 +3,13 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// modePayload is the typed schema for `specd mode --json` (show / set). Field
-// order matches the human output: the effective mode, how it was chosen, and
-// whether the project can run orchestration at all (capability ≠ selection).
+// modePayload is the typed schema for `specd status --set-mode --json` (show /
+// set). Field order matches the human output: the effective mode, how it was
+// chosen, and whether the project can run orchestration at all (capability ≠
+// selection).
 type modePayload struct {
 	Spec       string `json:"spec"`
 	Mode       string `json:"mode"`
@@ -17,37 +17,11 @@ type modePayload struct {
 	Capability bool   `json:"orchestrationCapable"`
 }
 
-func runMode(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd mode <slug> [--set base|orchestrated] [--recommend] [--json]")
-	if !ok {
-		return code
-	}
-	if err := core.RequireSpec(root, slug); err != nil {
-		return specdExit(err)
-	}
-	jsonOut := args.Bool("json")
-
-	if args.Bool("recommend") {
-		return runModeRecommend(root, slug, jsonOut)
-	}
-
-	if args.Has("set") {
-		return runModeSet(root, slug, args.Str("set"), jsonOut)
-	}
-
-	// Default: show effective mode + origin + capability.
-	loaded, err := core.LoadSpec(root, slug)
-	if err != nil {
-		return specdExit(err)
-	}
-	return printMode(slug, loaded.State, root, jsonOut)
-}
-
 // runModeSet records a new per-spec execution mode, failing closed when
 // orchestration is requested without project capability.
 func runModeSet(root, slug, target string, jsonOut bool) int {
-	if target != core.ModeBase && target != core.ModeOrchestrated {
-		core.Error(fmt.Sprintf("--set: invalid mode %q, expected base|orchestrated", target))
+	if target != core.ModeSimple && target != core.ModeOrchestrated {
+		core.Error(fmt.Sprintf("--set: invalid mode %q, expected simple|orchestrated", target))
 		return core.ExitUsage
 	}
 	if target == core.ModeOrchestrated && !core.ProjectOrchestrationEnabled(root) {
@@ -62,11 +36,11 @@ func runModeSet(root, slug, target string, jsonOut bool) int {
 		}
 		state := loaded.State
 
-		// Refuse switching to Base while a Brain session is live — cancel first
+		// Refuse switching to Simple while a Brain session is live — cancel first
 		// so the running session is never orphaned.
-		if target == core.ModeBase && state.EffectiveMode() == core.ModeOrchestrated {
+		if target == core.ModeSimple && state.EffectiveMode() == core.ModeOrchestrated {
 			if session, err := core.ActiveOrchestrationSessionForSpec(root, slug); err == nil && session != nil {
-				core.Error(fmt.Sprintf("cannot switch '%s' to base: Brain session %s is active. Cancel it first with `specd brain cancel %s`.", slug, session.SessionID, slug))
+				core.Error(fmt.Sprintf("cannot switch '%s' to simple: Brain session %s is active. Cancel it first with `specd brain cancel %s`.", slug, session.SessionID, slug))
 				return core.ExitGate, core.GateError("brain session active")
 			}
 		}
@@ -76,8 +50,8 @@ func runModeSet(root, slug, target string, jsonOut bool) int {
 			return printMode(slug, state, root, jsonOut), nil
 		}
 
-		if target == core.ModeBase {
-			// Opting out: clear the fields so Base state stays byte-stable.
+		if target == core.ModeSimple {
+			// Opting out: clear the fields so Simple state stays byte-stable.
 			state.ExecutionMode = ""
 			state.ModeOrigin = ""
 		} else {
@@ -113,7 +87,7 @@ func runModeRecommend(root, slug string, jsonOut bool) int {
 		rec.Signals.TaskCount, rec.Signals.MaxWaveWidth, rec.Signals.DistinctRoles,
 		rec.Signals.CrossSpecEdges, rec.Signals.EstimatedTokens)
 	fmt.Printf("  %s\n", rec.Rationale)
-	fmt.Println("  (advisory — you decide; `specd mode " + slug + " --set orchestrated` to opt in)")
+	fmt.Println("  (advisory — you decide; `specd status " + slug + " --set-mode orchestrated` to opt in)")
 	return core.ExitOK
 }
 

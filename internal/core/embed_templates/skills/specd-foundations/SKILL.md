@@ -47,7 +47,7 @@ for you — that is your work.
     reasoning.md  workflow.md            # frozen: the thinking + lifecycle loop
     product.md    tech.md    structure.md # YOU author from repo evidence (see specd-steering)
     memory.md                            # promoted learnings (phase-scoped load)
-  roles/                   # investigator · builder · reviewer · verifier prompts
+  roles/                   # scout · craftsman · auditor · validator prompts
   skills/                  # this skill pack (read on demand, see index below)
   specs/<slug>/            # one dir per feature
     requirements.md (EARS) · design.md · tasks.md (wave DAG)

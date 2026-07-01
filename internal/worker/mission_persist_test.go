@@ -5,6 +5,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +23,7 @@ func TestShellRunnerPersistsSpecScopedMission(t *testing.T) {
 		Attempt:  2,
 		WorkerID: "w1",
 	}
-	r := ShellRunner{Stdout: os.NewFile(0, os.DevNull), Stderr: os.NewFile(0, os.DevNull)}
+	r := ShellRunner{Stdout: io.Discard, Stderr: io.Discard}
 	if _, err := r.Run(context.Background(), m); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -53,7 +54,7 @@ func TestShellRunnerPersistsSpecScopedMission(t *testing.T) {
 
 func TestShellRunnerDeterministicOverwrite(t *testing.T) {
 	root := t.TempDir()
-	r := ShellRunner{Stdout: os.NewFile(0, os.DevNull), Stderr: os.NewFile(0, os.DevNull)}
+	r := ShellRunner{Stdout: io.Discard, Stderr: io.Discard}
 	m := Mission{Command: "true", Root: root, Spec: "s1", TaskID: "T3", Attempt: 1, WorkerID: "w"}
 	if _, err := r.Run(context.Background(), m); err != nil {
 		t.Fatal(err)
@@ -73,7 +74,7 @@ func TestShellRunnerDeterministicOverwrite(t *testing.T) {
 
 func TestShellRunnerNoRootKeepsLegacyContract(t *testing.T) {
 	// Without Root, no durable record is written; the temp-file transport remains.
-	r := ShellRunner{Stdout: os.NewFile(0, os.DevNull), Stderr: os.NewFile(0, os.DevNull)}
+	r := ShellRunner{Stdout: io.Discard, Stderr: io.Discard}
 	if _, err := r.Run(context.Background(), Mission{Command: "true", WorkerID: "w"}); err != nil {
 		t.Fatalf("legacy mission run failed: %v", err)
 	}

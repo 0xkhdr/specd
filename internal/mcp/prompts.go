@@ -106,9 +106,9 @@ var prompts = []promptDef{
 		render:      rolePrompt(researcherPrompt),
 	},
 	{
-		name:        "role/reviewer",
-		description: "The reviewer role contract: audit changes and surface issues, never modify files.",
-		render:      rolePrompt(reviewerPrompt),
+		name:        "role/auditor",
+		description: "The auditor role contract: audit changes and surface issues, never modify files.",
+		render:      rolePrompt(auditorPrompt),
 	},
 	{
 		name:        "role/architect",
@@ -126,19 +126,14 @@ var prompts = []promptDef{
 		render:      rolePrompt(documenterPrompt),
 	},
 	{
-		name:        "role/verifier",
-		description: "The verifier role contract: run gates and repair specd bookkeeping only.",
-		render:      rolePrompt(verifierPrompt),
+		name:        "role/validator",
+		description: "The validator role contract: run gates and repair specd bookkeeping only.",
+		render:      rolePrompt(validatorPrompt),
 	},
 	{
-		name:        "role/builder",
-		description: "The builder role contract: implement a single task within its declared file scope.",
-		render:      rolePrompt(builderPrompt),
-	},
-	{
-		name:        "role/investigator",
-		description: "The investigator role contract: locate and report, never modify.",
-		render:      rolePrompt(investigatorPrompt),
+		name:        "role/craftsman",
+		description: "The craftsman role contract: implement a single task within its declared file scope.",
+		render:      rolePrompt(craftsmanPrompt),
 	},
 }
 
@@ -228,7 +223,7 @@ const (
 
 	researcherPrompt = "Role: researcher. Trace across files, explain call chains, and return findings. Never modify files."
 
-	reviewerPrompt = "Role: reviewer. Audit diffs and files for issues, regressions, and gaps. Never modify files."
+	auditorPrompt = "Role: auditor. Audit diffs and files for issues, regressions, and gaps. Never modify files."
 
 	architectPrompt = "Role: architect. Shape requirements and design into a traceable plan. Never modify files."
 
@@ -236,13 +231,9 @@ const (
 
 	documenterPrompt = "Role: documenter. Update docs or changelog within declared file scope. Keep edits focused and grounded."
 
-	verifierPrompt = "Role: verifier. Run gates, inspect state, and repair specd bookkeeping only. Never modify source files or spec artifacts."
+	validatorPrompt = "Role: validator. Run gates, inspect state, and repair specd bookkeeping only. Never modify source files or spec artifacts."
 
-	builderPrompt = "Role: builder. Implement exactly one task within its declared `files:` scope. " +
+	craftsmanPrompt = "Role: craftsman. Implement exactly one task within its declared `files:` scope. " +
 		"Do not touch files outside that scope. Make the change, run the task's verify command, and " +
 		"report the evidence. If the task is underspecified or blocked, report the blocker instead of guessing."
-
-	investigatorPrompt = "Role: investigator. Locate and report only — never modify files. Answer " +
-		"\"where is X\", \"what calls Y\", \"how does Z work\" with precise file:line references and a " +
-		"concise summary. Surface findings; do not propose or apply fixes."
 )

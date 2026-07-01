@@ -6,8 +6,6 @@ package cmd_test
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -105,7 +103,7 @@ func TestJSONContracts(t *testing.T) {
 	t.Run("dispatch", func(t *testing.T) {
 		h := th.New(t)
 		slug := newSpec(h)
-		res := h.RunExpect(core.ExitOK, "dispatch", slug, "--json")
+		res := h.RunExpect(core.ExitOK, "next", slug, "--dispatch", "--json")
 		var got struct {
 			Kind    string `json:"kind"`
 			Count   int    `json:"count"`
@@ -126,7 +124,7 @@ func TestJSONContracts(t *testing.T) {
 	t.Run("program", func(t *testing.T) {
 		h := th.New(t)
 		newSpec(h)
-		res := h.RunExpect(core.ExitOK, "program", "--json")
+		res := h.RunExpect(core.ExitOK, "status", "--program", "--json")
 		var got struct {
 			Kind  string `json:"kind"`
 			Count int    `json:"count"`
@@ -211,49 +209,6 @@ func TestJSONContracts(t *testing.T) {
 		}
 	})
 
-	t.Run("doctor", func(t *testing.T) {
-		h := th.New(t)
-		h.RunExpect(core.ExitOK, "init", "--agent", "none", "--non-interactive")
-		// Remove a required scaffold file to guarantee doctor fails with ExitGate
-		// regardless of the host's installed agent integrations.
-		_ = os.Remove(filepath.Join(h.Root, ".specd", "steering", "reasoning.md"))
-		res := h.RunExpect(core.ExitGate, "doctor", "--json")
-		var got struct {
-			SchemaVersion int    `json:"schemaVersion"`
-			Status        string `json:"status"`
-			Root          string `json:"root"`
-			Checks        []struct {
-				Name        string `json:"name"`
-				Status      string `json:"status"`
-				Detail      string `json:"detail"`
-				Remediation string `json:"remediation"`
-			} `json:"checks"`
-			Hosts []struct {
-				Name        string `json:"name"`
-				Detected    bool   `json:"detected"`
-				Registered  bool   `json:"registered"`
-				Owned       bool   `json:"owned"`
-				Status      string `json:"status"`
-				Reason      string `json:"reason"`
-				Remediation string `json:"remediation"`
-			} `json:"hosts"`
-			Remediations []string `json:"remediations"`
-			NextAction   string   `json:"nextAction"`
-		}
-		mustUnmarshal(t, res.Stdout, &got)
-		if got.SchemaVersion != 1 {
-			t.Errorf("schemaVersion = %d, want 1", got.SchemaVersion)
-		}
-		if got.Status != "unhealthy" {
-			t.Errorf("status = %q, want unhealthy", got.Status)
-		}
-		if got.Root == "" {
-			t.Errorf("root is empty")
-		}
-		if got.Checks == nil || got.Hosts == nil || got.Remediations == nil {
-			t.Errorf("checks/hosts/remediations must serialize as non-null arrays, got %+v", got)
-		}
-	})
 }
 
 // TestJSONErrorPath drives R2.3: a command that fails still emits a
@@ -303,8 +258,8 @@ func TestJSONNoANSI(t *testing.T) {
 		{"status", s, "--json"},
 		{"context", s, "--json"},
 		{"next", s, "--json"},
-		{"dispatch", s, "--json"},
-		{"program", "--json"},
+		{"next", s, "--dispatch", "--json"},
+		{"status", "--program", "--json"},
 		{"check", s, "--json"},
 		{"waves", s, "--json"},
 	}
@@ -315,35 +270,6 @@ func TestJSONNoANSI(t *testing.T) {
 				t.Errorf("%s --json stdout contains ANSI escape: %q", argv[0], res.Stdout)
 			}
 		})
-	}
-	t.Run("doctor", func(t *testing.T) {
-		// Remove a required scaffold file to guarantee doctor fails with ExitGate
-		// regardless of the host's installed agent integrations.
-		_ = os.Remove(filepath.Join(h.Root, ".specd", "steering", "reasoning.md"))
-		res := h.RunExpect(core.ExitGate, "doctor", "--json")
-		if strings.ContainsRune(res.Stdout, '\x1b') {
-			t.Errorf("doctor --json stdout contains ANSI escape: %q", res.Stdout)
-		}
-	})
-}
-
-// TestJSONUninstall covers the retired runtime command contract: uninstall is
-// now install-script-only, but --json still emits a stable machine-readable
-// deprecation object with a non-zero exit.
-func TestJSONUninstall(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	h := th.New(t)
-	res := h.RunExpect(core.ExitGate, "uninstall", "--json")
-	var got struct {
-		Kind    string `json:"kind"`
-		Command string `json:"command"`
-	}
-	mustUnmarshal(t, res.Stdout, &got)
-	if got.Kind != "deprecated-command" {
-		t.Errorf("kind = %q, want deprecated-command", got.Kind)
-	}
-	if got.Command != "uninstall" {
-		t.Errorf("command = %q, want uninstall", got.Command)
 	}
 }
 

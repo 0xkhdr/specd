@@ -127,17 +127,17 @@ func TestACPEnvelopeSizeLimit(t *testing.T) {
 func validACPMission() ACPMissionPayload {
 	return ACPMissionPayload{
 		DispatchDigest: strings.Repeat("a", 64),
-		Role:           "builder",
+		Role:           "craftsman",
 		ContextCommand: "specd context example",
 		ContextManifest: contextpkg.MissionContextManifest{
 			Version:          contextpkg.ManifestVersion,
 			SoftTokenCeiling: 12000,
 			Strategy:         "load required items first",
-			Role:             "builder",
+			Role:             "craftsman",
 			Items: []contextpkg.MissionContextItem{{
 				Order:     1,
 				Kind:      "role",
-				Path:      ".specd/roles/builder.md",
+				Path:      ".specd/roles/craftsman.md",
 				Mode:      "read-full",
 				Required:  true,
 				TokenHint: 100,

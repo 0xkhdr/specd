@@ -30,7 +30,7 @@ func TestNewSessionLoggerWritesBrainLog(t *testing.T) {
 	if closer != nil {
 		defer closer.Close()
 	}
-	LogEvent(WithFields(context.Background(), "auth", "execute", "builder"), logger, "dispatch", "s-1", "worker-1", "T1", 0, 0)
+	LogEvent(WithFields(context.Background(), "auth", "execute", "craftsman"), logger, "dispatch", "s-1", "worker-1", "T1", 0, 0)
 	if closer != nil {
 		closer.Close()
 	}
@@ -46,7 +46,7 @@ func TestNewSessionLoggerWritesBrainLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadTimeline: %v", err)
 	}
-	if len(events) != 1 || events[0].Event != "dispatch" || events[0].Worker != "worker-1" || events[0].Slug != "auth" || events[0].Phase != "execute" || events[0].Role != "builder" {
+	if len(events) != 1 || events[0].Event != "dispatch" || events[0].Worker != "worker-1" || events[0].Slug != "auth" || events[0].Phase != "execute" || events[0].Role != "craftsman" {
 		t.Fatalf("events = %+v", events)
 	}
 }

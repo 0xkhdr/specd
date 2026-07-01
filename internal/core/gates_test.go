@@ -63,7 +63,7 @@ func TestGateDesign(t *testing.T) {
 func TestGateTaskSchema(t *testing.T) {
 	// Passing: valid role + runnable verify.
 	good := &ParsedTasks{Tasks: []ParsedTask{
-		{ID: "T1", Line: 5, Meta: map[string]string{"role": "builder", "verify": "go test ./..."}},
+		{ID: "T1", Line: 5, Meta: map[string]string{"role": "craftsman", "verify": "go test ./..."}},
 	}}
 	v, _ := GateTaskSchema(CheckCtx{Doc: good})
 	if len(v) != 0 {
@@ -157,24 +157,24 @@ func TestGateEvidence(t *testing.T) {
 	ev := "manual proof"
 	// Passing: read-only role complete with evidence, no verification needed.
 	st := &State{Tasks: map[string]TaskState{
-		"T1": {ID: "T1", Role: "reviewer", Status: TaskComplete, Evidence: &ev},
+		"T1": {ID: "T1", Role: "auditor", Status: TaskComplete, Evidence: &ev},
 	}}
 	if v, _ := GateEvidence(CheckCtx{State: st}); len(v) != 0 {
 		t.Fatalf("readonly+evidence: want 0 violations, got %v", v)
 	}
 	// Violating: complete without evidence.
 	st2 := &State{Tasks: map[string]TaskState{
-		"T1": {ID: "T1", Role: "builder", Status: TaskComplete},
+		"T1": {ID: "T1", Role: "craftsman", Status: TaskComplete},
 	}}
 	if v, _ := GateEvidence(CheckCtx{State: st2}); len(v) != 1 || v[0].Gate != "evidence" {
 		t.Fatalf("no evidence: want 1 evidence violation, got %v", v)
 	}
-	// Violating: builder complete with evidence but no verified record.
+	// Violating: craftsman complete with evidence but no verified record.
 	st3 := &State{Tasks: map[string]TaskState{
-		"T1": {ID: "T1", Role: "builder", Status: TaskComplete, Evidence: &ev},
+		"T1": {ID: "T1", Role: "craftsman", Status: TaskComplete, Evidence: &ev},
 	}}
 	if v, _ := GateEvidence(CheckCtx{State: st3, Slug: "demo"}); len(v) != 1 {
-		t.Fatalf("unverified builder: want 1 evidence violation, got %v", v)
+		t.Fatalf("unverified craftsman: want 1 evidence violation, got %v", v)
 	}
 }
 
@@ -260,21 +260,21 @@ func TestPhaseAdvanceIsForwardOnlyRatchet(t *testing.T) {
 	}
 }
 
-// R2.2: a builder task flipped complete without evidence is rejected by the
+// R2.2: a craftsman task flipped complete without evidence is rejected by the
 // evidence gate; with evidence but no verified record it is still rejected.
 func TestGateEvidenceRejectsUnproven(t *testing.T) {
 	ev := "proof"
 	noEvidence := &State{Tasks: map[string]TaskState{
-		"T1": {ID: "T1", Role: "builder", Status: TaskComplete},
+		"T1": {ID: "T1", Role: "craftsman", Status: TaskComplete},
 	}}
 	if v, _ := GateEvidence(CheckCtx{State: noEvidence}); len(v) != 1 || v[0].Gate != "evidence" {
 		t.Fatalf("R2.2: complete-without-evidence must be 1 evidence violation, got %v", v)
 	}
 	noVerified := &State{Tasks: map[string]TaskState{
-		"T1": {ID: "T1", Role: "builder", Status: TaskComplete, Evidence: &ev},
+		"T1": {ID: "T1", Role: "craftsman", Status: TaskComplete, Evidence: &ev},
 	}}
 	if v, _ := GateEvidence(CheckCtx{State: noVerified, Slug: "demo"}); len(v) != 1 {
-		t.Fatalf("R2.2: evidence-but-unverified builder must be rejected, got %v", v)
+		t.Fatalf("R2.2: evidence-but-unverified craftsman must be rejected, got %v", v)
 	}
 }
 
@@ -332,7 +332,7 @@ func TestTaskFlipPersistsEvidenceAndTimestamp(t *testing.T) {
 	ev := "go test ./... → ok"
 	ts := NowISO()
 	st.Tasks = map[string]TaskState{
-		"T1": {ID: "T1", Role: "builder", Status: TaskComplete, Evidence: &ev, FinishedAt: &ts},
+		"T1": {ID: "T1", Role: "craftsman", Status: TaskComplete, Evidence: &ev, FinishedAt: &ts},
 	}
 	if err := SaveState(dir, slug, &st); err != nil {
 		t.Fatal(err)
@@ -386,7 +386,7 @@ const acceptanceTasksMd = `# Tasks — Login
 ## Wave 1
 - [ ] T1 — implement login
   - why: users need access
-  - role: builder
+  - role: craftsman
   - files: internal/auth/login.go
   - contract: login works
   - acceptance: 1.1=TestLoginValid
@@ -445,7 +445,7 @@ func TestGateAcceptanceCompleteWithoutPass(t *testing.T) {
 
 func TestGateAcceptanceUndefinedCriterionAlwaysError(t *testing.T) {
 	// acceptance maps to 9.9 which is not in requirements.md.
-	md := "# Tasks — X\n\n## Wave 1\n- [ ] T1 — x\n  - why: w\n  - role: builder\n  - files: a.go\n  - contract: c\n  - acceptance: 9.9=TestX\n  - verify: go test ./\n  - depends: —\n  - requirements: 1\n"
+	md := "# Tasks — X\n\n## Wave 1\n- [ ] T1 — x\n  - why: w\n  - role: craftsman\n  - files: a.go\n  - contract: c\n  - acceptance: 9.9=TestX\n  - verify: go test ./\n  - depends: —\n  - requirements: 1\n"
 	doc := mustParse(t, md)
 	st := &State{Tasks: map[string]TaskState{"T1": {ID: "T1", Status: TaskPending}}}
 	// Even in warn mode, a broken reference is a hard violation.
@@ -457,7 +457,7 @@ func TestGateAcceptanceUndefinedCriterionAlwaysError(t *testing.T) {
 }
 
 func scopeTasksMd(files string) string {
-	return "# Tasks — X\n\n## Wave 1\n- [ ] T1 — x\n  - why: w\n  - role: builder\n  - files: " + files +
+	return "# Tasks — X\n\n## Wave 1\n- [ ] T1 — x\n  - why: w\n  - role: craftsman\n  - files: " + files +
 		"\n  - contract: c\n  - acceptance: —\n  - verify: go test ./\n  - depends: —\n  - requirements: 1\n"
 }
 

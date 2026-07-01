@@ -88,16 +88,10 @@ func applyPack(root, ref string, args cli.Args) int {
 	return core.ExitOK
 }
 
-// RunInit implements `specd init`. With --migrate it delegates to RunMigrate to
-// move the legacy JSON config to YAML; otherwise it runs the workspace
-// onboarding flow (scaffolding .specd, applying packs, probing/registering MCP
-// integrations) via the default init executor and onboarding runtime.
+// RunInit implements `specd init`. It runs the workspace onboarding flow
+// (scaffolding .specd, applying packs, probing/registering MCP integrations)
+// via the default init executor and onboarding runtime.
 func RunInit(args cli.Args) int {
-	if args.Bool("migrate") {
-		migrateArgs := args
-		migrateArgs.Pos = []string{"config"}
-		return RunMigrate(migrateArgs)
-	}
 	return runInitWithRuntime(args, core.DefaultInitExecutor(), defaultOnboardingRuntime())
 }
 
@@ -511,7 +505,7 @@ func projectConfigDeprecationWarnings(root string) []core.InitWarning {
 	jsonExists := jsonErr == nil
 	ymlExists := ymlErr == nil
 	if jsonExists && !ymlExists {
-		return []core.InitWarning{{Code: "legacy-config-deprecated", Message: "config.json is deprecated; run specd migrate config to convert to config.yml."}}
+		return []core.InitWarning{{Code: "legacy-config-deprecated", Message: "config.json is deprecated; convert it to config.yml manually (see docs/user-guide.md) or continue using JSON."}}
 	}
 	if jsonExists && ymlExists {
 		return []core.InitWarning{{Code: "legacy-config-ignored", Message: "config.yml is active; config.json is ignored and deprecated."}}

@@ -16,7 +16,7 @@ func disabledModeRequest() ContextRequest {
 		Slug:         "demo",
 		Status:       spec.StatusExecuting,
 		TaskID:       "T1",
-		Role:         "builder",
+		Role:         "craftsman",
 		Files:        []string{"internal/core/demo.go"},
 		Mode:         ContextModeMission,
 		Requirements: []int{1, 2},

@@ -33,7 +33,7 @@ strict, local, tool-gated pipeline.
 Every spec records a per-spec **execution mode** in its `state.json`, the single
 source of truth (never the chat context, never global config):
 
-- **`base`** (default) — the plain spec-driven lifecycle; the host agent drives
+- **`simple`** (default) — the plain spec-driven lifecycle; the host agent drives
   every step itself (`specd next` → implement → `specd verify`). Broadest
   compatibility; works with any command-running agent.
 - **`orchestrated`** — the optional Brain/Pinky multi-agent layer may drive the
@@ -125,7 +125,7 @@ specd/
 │   └── testharness/              # Deterministic test infrastructure
 │                                 # (sandbox repo, in-process runner, FakeClock)
 ├── .github/actions/specd-pr/     # Composite GitHub Action (PR gates + summary)
-├── scripts/                      # install.sh / uninstall.sh / stress.sh
+├── scripts/                      # install.sh / stress.sh
 ├── docs/                         # This documentation
 ├── README.md / AGENTS.md / TESTING.md / SECURITY.md
 ├── Makefile / go.mod / LICENSE / .goreleaser.yml
@@ -151,8 +151,8 @@ your-project/
 │   │   ├── reasoning.md  workflow.md  product.md
 │   │   ├── tech.md       structure.md memory.md
 │   ├── roles/                    # Role prompts
-│   │   ├── investigator.md  builder.md  reviewer.md
-│   │   └── verifier.md      brain.md    pinky.md
+│   │   ├── scout.md      craftsman.md  auditor.md
+│   │   └── validator.md  brain.md      pinky.md
 │   ├── subagents/                # Orchestration runtime sessions, logs, and leases (auto-created)
 │   └── specs/
 │       └── my-feature/

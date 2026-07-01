@@ -419,10 +419,10 @@ func TestDriveProgramOrchestrationCrossSpecWalk(t *testing.T) {
 			// Stand in for the host's execute → verify → approve responsibility.
 			// The orchestration core marks the child *session* complete at
 			// `verifying` but deliberately never auto-clears the acceptance-evidence
-			// gate (`specd approve` Case 2 is verifier/host-owned, by design), so a
+			// gate (`specd approve` Case 2 is validator/host-owned, by design), so a
 			// stub worker that only reached `verifying` would stall the program
 			// frontier forever. Landing the spec at `complete` with evidence
-			// emulates the verifier worker that a real host would dispatch.
+			// emulates the validator worker that a real host would dispatch.
 			st, err := LoadState(root, d.Slug)
 			if err != nil {
 				return err

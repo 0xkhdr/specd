@@ -30,8 +30,8 @@ Each item carries a `mode`:
 ## Authority
 
 - One mission per worker invocation.
-- Builder may edit only declared files/scope.
-- Investigator, reviewer, and verifier are read-only except ACP progress/blocker/report messages.
+- Craftsman may edit only declared files/scope.
+- Scout, auditor, and validator are read-only except ACP progress/blocker/report messages.
 - Never flip `tasks.md` checkboxes. Never edit `state.json`. Never forge evidence refs.
 
 ## Progress, queries, blockers, cancellation

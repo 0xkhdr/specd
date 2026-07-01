@@ -7,7 +7,7 @@ import "testing"
 
 func TestGateModeCapabilityBranches(t *testing.T) {
 	orchestrated := &State{ExecutionMode: ModeOrchestrated}
-	base := &State{ExecutionMode: ModeBase}
+	base := &State{ExecutionMode: ModeSimple}
 
 	mkCfg := func(severity string, enabled bool) Config {
 		cfg := DefaultConfig

@@ -39,7 +39,7 @@ func TestInitDefaultRegression(t *testing.T) {
 	for _, f := range []string{
 		".specd/config.yml",
 		".specd/steering/product.md",
-		".specd/roles/builder.md",
+		".specd/roles/craftsman.md",
 		"AGENTS.md",
 	} {
 		h.AssertFileExists(f)

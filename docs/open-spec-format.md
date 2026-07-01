@@ -56,8 +56,8 @@ The root is a `State` object. The schema defines five `$defs`:
   `gate`, `turn`, `createdAt`, `updatedAt`, `tasks` (map of `TaskState`),
   `blockers` (array of `Blocker`); optional `acceptance` (map of
   `CriterionRecord`), `prompt`, and the execution-mode pair `executionMode`
-  (`base` | `orchestrated`) and `modeOrigin` (`default` | `user` |
-  `recommended-accepted`). All optional fields are `omitempty`, so a Base spec
+  (`simple` | `orchestrated`) and `modeOrigin` (`default` | `user` |
+  `recommended-accepted`). All optional fields are `omitempty`, so a Simple spec
   that never opted into orchestration keeps a byte-identical `state.json`.
 - **`TaskState`** — `id`, `title`, `role`, `wave`, `depends`, `requirements`,
   `status`; optional `startedAt`, `finishedAt`, `evidence`, `verification`,
