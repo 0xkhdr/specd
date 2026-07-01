@@ -2,13 +2,17 @@
 
 ## Overall Status
 
-**Status: specs authored, not yet executed.** All six specs and their task lists are
-written and internally validated (cross-referenced against a live re-inspection of the
-repository, not assumed from the analysis plan). No code, docs, or scripts have been
-changed yet — per the action prompt's stop condition, execution requires separate,
-explicit user instruction.
+**Status: all six specs executed and validated.** S1-S5 landed in prior sessions
+(confirmed via `git log`); S6 (this session) ran the final regression/hardening gate,
+fixed a real coverage-floor regression and an intermittent test flake it uncovered,
+resolved the `docs-lint.sh` open decision (Path B, user-confirmed), and documented the
+S1-S3 breaking changes in `CHANGELOG.md`. `make ci`, `make lint`, `govulncheck ./...`, and
+every acceptance-criteria command in `s6-hardening-ci-validation/spec.md` pass. See the
+"Completed / Remaining Waves" section below for the full per-spec record.
 
-**Current wave:** none (pre-execution).
+**Current wave:** none — Definition of Done reached. Per the action prompt's stop
+condition, tagging `v0.1.0`, opening a PR, or pushing to `main` all require separate,
+explicit user instruction and have not been done.
 
 ## Critical Deviation Flagged Before Spec Authoring
 
@@ -33,33 +37,33 @@ eventual release step.
 
 | Req | Description | Spec | Status |
 |---|---|---|---|
-| R1 | Remove deprecated CLI commands/aliases | S1 | Spec written |
-| R2 | Remove `update` handler | S1 | Spec written |
-| R3 | Remove `uninstall.sh` | S3 | Spec written |
-| R4 | Remove legacy config migration | S2 | Spec written |
-| R5 | Scrub docs of deprecated command refs | S4, S5 | Spec written |
-| R6 | Remove `AGENTS.md` RTK section | S4 | Spec written |
-| R7 | Update `README.md` for v0.1.0 | S4 | Spec written |
-| R8 | Update `SECURITY.md` for v0.1.0 | S4 | Spec written |
-| R9 | `make ci` passes after removals | S6 | Spec written |
-| R10 | Preserve zero-dependency invariant | S6 | Spec written |
-| R11 | Preserve exit-code contract | S1, S2, S6 | Spec written |
-| R12 | Preserve `SHA256SUMS` contract | S3, S6 | Spec written |
-| R13 | Remove `doctor` handler | S1 | Spec written |
-| R14 | Update version references to v0.1.0 | S4, S5, S6 | Spec written |
-| R15 | Install examples use `--version 0.1.0` | S4, S5, S6 | Spec written |
-| R16 | Remove old-version-gated code | S1, S2, S6 | Spec written |
+| R1 | Remove deprecated CLI commands/aliases | S1 | Executed |
+| R2 | Remove `update` handler | S1 | Executed |
+| R3 | Remove `uninstall.sh` | S3 | Executed |
+| R4 | Remove legacy config migration | S2 | Executed |
+| R5 | Scrub docs of deprecated command refs | S4, S5 | Executed |
+| R6 | Remove `AGENTS.md` RTK section | S4 | Executed |
+| R7 | Update `README.md` for v0.1.0 | S4 | Executed |
+| R8 | Update `SECURITY.md` for v0.1.0 | S4 | Executed |
+| R9 | `make ci` passes after removals | S6 | Executed |
+| R10 | Preserve zero-dependency invariant | S6 | Executed |
+| R11 | Preserve exit-code contract | S1, S2, S6 | Executed |
+| R12 | Preserve `SHA256SUMS` contract | S3, S6 | Executed |
+| R13 | Remove `doctor` handler | S1 | Executed |
+| R14 | Update version references to v0.1.0 | S4, S5, S6 | Executed |
+| R15 | Install examples use `--version 0.1.0` | S4, S5, S6 | Executed |
+| R16 | Remove old-version-gated code | S1, S2, S6 | Executed |
 
 ## Spec Status, Dependencies, Blockers
 
 | Spec | Wave | Depends on | Status | Notes |
 |---|---|---|---|---|
-| S1: Deprecation Cleanup — Commands | 1 | none | Spec + tasks written | See "Major Design Correction" below |
-| S2: Deprecation Cleanup — Config Migration | 1 | none (logically after/with S1) | Spec + tasks written | `config_migrate.go` is NOT deleted wholesale — see correction below |
-| S3: Deprecation Cleanup — Scripts | 1 | none | Spec + tasks written | Straightforward; matches analysis plan closely |
-| S4: Docs Alignment — Root | 2 | S1, S2, S3 | Spec + tasks written | SECURITY.md needs substantive (not cosmetic) rewrite for the `doctor` advisory loss |
-| S5: Docs Alignment — Guides | 2 | S1, S2, S3 | Spec + tasks written | Only `command-reference.md` needs edits; 13 other files audited clean |
-| S6: Hardening — CI & Validation | 3 | S1-S5 | Spec + tasks written | New findings: `docs-lint.sh` is broken/unwired; `CHANGELOG.md` needs breaking-change entries |
+| S1: Deprecation Cleanup — Commands | 1 | none | Executed | See "Major Design Correction" below |
+| S2: Deprecation Cleanup — Config Migration | 1 | none (logically after/with S1) | Executed | `config_migrate.go` is NOT deleted wholesale — see correction below |
+| S3: Deprecation Cleanup — Scripts | 1 | none | Executed | Straightforward; matches analysis plan closely |
+| S4: Docs Alignment — Root | 2 | S1, S2, S3 | Executed | SECURITY.md needs substantive (not cosmetic) rewrite for the `doctor` advisory loss |
+| S5: Docs Alignment — Guides | 2 | S1, S2, S3 | Executed | Only `command-reference.md` needs edits; 13 other files audited clean |
+| S6: Hardening — CI & Validation | 3 | S1-S5 | Executed | New findings: `docs-lint.sh` is broken/unwired; `CHANGELOG.md` needs breaking-change entries |
 
 No spec is blocked. S1/S2/S3 have no interdependencies and can execute in parallel. S4/S5
 must follow S1-S3. S6 is terminal.
@@ -156,8 +160,11 @@ the implementation vision from analysis-plan §6:
 - [x] Pre-flight repository re-inspection (this document's basis).
 - [x] All six specs (`spec.md` + `tasks.md`) authored and cross-checked against live repo
       state.
-- [ ] S1 execution (Wave 1: orphaned-file deletion; Wave 2: shared-code surgery + alias
-      removal; Wave 3: metadata removal; Wave 4: regression).
+- [x] S1 execution (Wave 1: orphaned-file deletion; Wave 2: shared-code surgery + alias
+      removal; Wave 3: metadata removal; Wave 4: regression). Landed in commit `79fe85e`
+      (checkbox above was stale — this document under-reported already-completed work;
+      corrected during S6's final gate after confirming via `git log` and live
+      re-verification that all 13 legacy aliases are unknown commands, exit 2).
 - [x] S2 execution (Wave 1: delete migration command/functions; Wave 2: remove `--migrate`
       flag; Wave 3: regression). Also fixed a compile-blocking caller in
       `internal/cmd/config_e2e_test.go` (`TestConfigInitMigrateE2E`'s migrate subtest) that
@@ -184,10 +191,79 @@ the implementation vision from analysis-plan §6:
       All Wave 5 gates clean except one intentional historical `doctor` mention in
       `SECURITY.md:43` explaining the capability's removal (allowed by spec). No code
       changed — doc-only wave, `go build`/`go test` not required.
-- [ ] S5 execution (Wave 1: command-reference.md edits; Wave 2: audit pass; Wave 3: handoff
-      to S6).
-- [ ] S6 execution (Wave 1: regression; Wave 2: release-artifact checks; Wave 3:
+- [x] S5 execution (Wave 1: `docs/command-reference.md` edits — dropped the "migration
+      appendix" forward-reference, dropped "migration" from the `init` cheat-sheet row,
+      removed the "Legacy config conversion lives under `specd init --migrate`" bullet,
+      reworded the binary-lifecycle bullet to drop `scripts/uninstall.sh`, reworded the
+      legacy-JSON-config sentence to drop the "optimized init migration flag" mention, and
+      deleted the entire "## Migration appendix" section plus its `docs-lint:
+      migration-appendix begin/end` delimiter comments, replacing it with a one-line note
+      that v0.1.0 has no deprecated commands or aliases. Wave 2: re-ran the deprecated-command
+      and old-version grep across all other `docs/*.md` files — all still clean, no edits
+      needed; confirmed `docs/user-guide.md`'s install example still pinned to
+      `--version 0.1.0`. Wave 3 handoff to S6: with the appendix and its delimiter comments
+      gone, `scripts/docs-lint.sh`'s `in_appendix` whitelist logic (lines ~27-31) is now dead
+      code tracking a section that no longer exists — S6 should remove that branch as part of
+      its `docs-lint.sh` fix (S6 already owns this file per its "Wave 3: `docs-lint.sh` fix"
+      task below). `bash scripts/docs-lint.sh` still fails today on the pre-existing, unrelated
+      missing-`audit.csv` issue — expected per spec, not a regression from this wave.
+      **Finding beyond the spec's inventory**: the "Daily workflow commands" table's
+      `specd init` row (usage string and flags column) still listed the removed `--migrate`
+      flag — not caught by the spec's grep patterns (they matched `specd migrate`/`init
+      --migrate`, not the bare `--migrate` token in a flags list) or the analysis plan.
+      Removed both occurrences; `grep -n migrate docs/command-reference.md` now returns
+      nothing.
+- [x] S6 execution (Wave 1: regression; Wave 2: release-artifact checks; Wave 3:
       `docs-lint.sh` fix; Wave 4: `CHANGELOG.md`; Wave 5: final gate / Definition of Done).
+      Wave 1: `go build`/`go vet` clean; `go test ./... -race -count=1` — 1590 tests pass;
+      `make ci` green; `GOOS=windows go build ./...` succeeds; installed `govulncheck`
+      locally (not preinstalled) and ran it directly — no vulnerabilities found.
+      `make ci`'s first run surfaced a real, non-pre-existing-doc regression: the
+      `internal/worker` coverage floor failed at 87.4% (< 88%), and `test-order`
+      (`go test ./... -count=2`) intermittently failed with `bad file descriptor` — root
+      cause was `mission_persist_test.go` using `os.NewFile(0, os.DevNull)`, which does
+      **not** open `/dev/null` (the first arg is a raw fd number, not resolved from the
+      second arg) — it wraps real fd 0 (stdin); its GC finalizer closing that file closes
+      the process's actual stdin, and fd 0 gets recycled into unrelated later tests,
+      causing intermittent "bad file descriptor" failures. Fixed by switching all three
+      occurrences to `io.Discard`. Coverage gap closed properly (not by lowering the
+      floor, which `coverage-check.sh`'s own comment forbids) by adding two tests to
+      `internal/worker/shell_runner_test.go` covering previously-untested branches in
+      `deadlineContext` (nil parent) — the `m.Root != ""` persistence branch turned out to
+      already be covered by pre-existing `mission_persist_test.go`, so no test was added
+      there. `internal/worker` coverage: 87.4% → 88.5%. Confirmed via 5x repeated
+      `-count=2` runs that the flake is gone.
+      Wave 2: `go.mod` has zero `require` lines (confirmed by reading the file directly,
+      not just grep). `.goreleaser.yml`'s `checksum.name_template: SHA256SUMS` unchanged;
+      its comment referencing `update.go` by name (now-deleted file) reworded to name only
+      `install.sh`. `scripts/install.sh`'s `SHA256SUMS` download/verify logic (lines 56-64)
+      confirmed independent of `update.go`, no change needed.
+      Wave 3: user confirmed **Path B** (recommended) for the `docs-lint.sh` open decision —
+      simplified the script to drop the CSV-driven dead-command scanner entirely (the
+      "grace period" deprecation model it tracked no longer exists post-S1: commands are
+      either present or fully deleted), keeping only the cheat-sheet-consistency check.
+      Created `.specd/specs/CHEATSHEET.md` (20 rows, verbatim mirror of
+      `docs/command-reference.md`'s cheat sheet) so the check has something to compare
+      against. Wired the fixed script into `Makefile`'s `lint` target as a new `docs-lint`
+      prerequisite. `bash scripts/docs-lint.sh` and `make lint` both exit 0.
+      Wave 4: added `CHANGELOG.md` bullets under the existing `[Unreleased]` →
+      `### Removed (breaking)` heading (appended after the existing boot/enrich bullet, not
+      replacing it): all 13 removed legacy aliases with survivor-flag homes (`doctor`
+      called out explicitly as a real capability loss with no replacement, per its own
+      bullet), `specd migrate config`/`init --migrate` removal, `scripts/uninstall.sh`
+      removal, `specd update` removal. Every named command/file verified actually gone by
+      running each alias against the built binary (all exit 2 / unknown command) and
+      confirming `uninstall.sh`/`update.go`/`doctor.go` don't exist and
+      `grep -rn legacyAliases internal/` is empty.
+      Wave 5 (Definition of Done): `grep -rn 'legacyAlias\|nextMinorVersion\|DeprecatedIn' internal/`
+      → empty. `grep -rn 'v0\.2\.0\|v0\.3\.0\|v1\.0\.0\|pre-1\.0\|pre-release' docs/ README.md
+      AGENTS.md TESTING.md SECURITY.md` → empty. `--version` install examples in
+      `README.md`/`docs/user-guide.md`/`scripts/install.sh` all show `0.1.0` (the one other
+      `--version` hit, `docs/open-spec-format.md:9`, is an unrelated schema-version flag
+      example, not an install example — not in scope). `TestRegistryMatchesHelp`,
+      `TestPaletteCeiling`, `TestFlagSingleOwner` all pass; `TestLegacyAliasSunset` confirmed
+      absent from `internal/`. Also corrected this document's own stale S1 checkbox (see
+      above) as part of this final gate.
 
 ## Stop Condition Reminder
 

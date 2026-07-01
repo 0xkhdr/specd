@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 func TestShellRunnerMissionEnvPropagation(t *testing.T) {
@@ -132,6 +134,48 @@ func TestShellRunnerPipeDrainNoHang(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > waitDelay+2*time.Second {
 		t.Fatalf("Run hung past WaitDelay margin: %s", elapsed)
+	}
+}
+
+func TestShellRunnerPersistsMissionRecordWhenRootSet(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX shell runner")
+	}
+	root := t.TempDir()
+	r := ShellRunner{Stdout: &bytes.Buffer{}}
+	m := Mission{
+		Command:  `true`,
+		Root:     root,
+		Spec:     "spec-a",
+		TaskID:   "T1",
+		Attempt:  1,
+		WorkerID: "persist",
+		Deadline: time.Now().Add(5 * time.Second).Format(time.RFC3339Nano),
+	}
+	if _, err := r.Run(context.Background(), m); err != nil {
+		t.Fatal(err)
+	}
+	paths, err := core.NewACPRuntimePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	missionPath, err := paths.MissionPath(m.Spec, m.TaskID, m.Attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(missionPath); err != nil {
+		t.Fatalf("expected durable mission record at %s: %v", missionPath, err)
+	}
+}
+
+func TestDeadlineContextNilParentFallsBackToBackground(t *testing.T) {
+	ctx, cancel := deadlineContext(nil, time.Now().Add(time.Second).Format(time.RFC3339Nano))
+	defer cancel()
+	if ctx == nil {
+		t.Fatal("expected non-nil context")
+	}
+	if _, ok := ctx.Deadline(); !ok {
+		t.Fatal("expected deadline to be set from a valid future timestamp")
 	}
 }
 

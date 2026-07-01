@@ -1,12 +1,12 @@
 # Command Reference
 
-This reference lists the optimized command palette only: 16 daily workflow commands and 4 meta-hidden integration commands. It is generated from `specd help --all --json`; deprecated commands appear only in the migration appendix.
+This reference lists the optimized command palette only: 16 daily workflow commands and 4 meta-hidden integration commands. It is generated from `specd help --all --json`. specd v0.1.0 has no deprecated commands or aliases.
 
 ## Cheat sheet
 
 | Command | One-sentence description |
 |---|---|
-| `specd init` | Scaffold `.specd/`, managed agent integration, repair, migration, packs, and orchestration defaults. |
+| `specd init` | Scaffold `.specd/`, managed agent integration, repair, packs, and orchestration defaults. |
 | `specd new` | Create a spec and optionally select orchestrated execution with `--orchestrated`. |
 | `specd status` | Show one-spec/all-spec progress, recorded mode, and the cross-spec frontier with `--program`. |
 | `specd context` | Print the phase-scoped briefing and budgeted LOAD-NOW manifest. |
@@ -31,7 +31,7 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 
 | Command | Usage | Flags | Exit codes |
 |---|---|---|---|
-| `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--migrate] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --migrate, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
+| `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
 | `specd new` | `specd new <slug> [--title "..."] [--orchestrated]` | --title, --orchestrated | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
 | `specd status` | `specd status [<slug>] [--all] [--program] [--json]` | --all, --program, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd context` | `specd context <slug> [--json]` | --json | 0 Success, 2 Usage error, 3 Spec not found |
@@ -62,13 +62,12 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 ## Merged behavior homes
 
 - Diagnostics and safe repair live under `specd init --repair`.
-- Legacy config conversion lives under `specd init --migrate`.
 - Execution mode is selected by `specd new --orchestrated` and observed through `specd status`.
 - Dispatch packets live under `specd next --dispatch`.
 - Schema emission and validation live under `specd check --schema` and `specd check --schema-only`.
 - HTML serving, frontier streaming, history replay, and spec diffs live under `specd report` flags.
 - Cross-spec program inspection lives under `specd status --program`; dependency authoring belongs in spec creation/planning.
-- Binary lifecycle operations use `scripts/install.sh` and `scripts/uninstall.sh`.
+- Binary install/reinstall uses `scripts/install.sh`; removal is manual (delete the installed binary — there is no uninstall script).
 
 ## Exit code semantics
 
@@ -81,7 +80,7 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 
 ## Environment variables and config
 
-Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global config → project config → `SPECD_*` overrides. Human-authored config is YAML v2 by default; legacy JSON is still read and can be upgraded with the optimized init migration flag.
+Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global config → project config → `SPECD_*` overrides. Human-authored config is YAML v2 by default; legacy JSON is still read but has no built-in conversion path (convert manually).
 
 Observability env vars:
 
@@ -91,23 +90,4 @@ Observability env vars:
 | `SPECD_METRICS_ENDPOINT=<addr>` | Opt-in Prometheus text endpoint for duration samples, e.g. `127.0.0.1:9099`; unset starts no listener. |
 | `SPECD_TRACE_FILE=<path>` | With `go build -tags specd_trace`, writes Chrome trace JSON spans to this path. |
 
-<!-- docs-lint: migration-appendix begin -->
-## Migration appendix
-
-| Old command | New home | Removed in | Notes |
-|---|---|---|---|
-| `doctor` | `init --repair` | `v0.2.0` | `Health checks fold into init repair/refresh diagnostics.` |
-| `migrate` | `init --migrate` | `v0.2.0` | `Legacy config conversion is an init-time maintenance operation.` |
-| `mode` | `new --orchestrated / status` | `v0.2.0` | `Mode choice is made at creation; status reports recorded mode.` |
-| `dispatch` | `next --dispatch` | `v0.2.0` | `Frontier packet generation belongs to next.` |
-| `validate` | `check --schema-only` | `v0.2.0` | `Structural validation is a check gate variant.` |
-| `schema` | `check --schema` | `v0.2.0` | `Schema emission is a check metadata variant.` |
-| `serve` | `report --serve` | `v0.2.0` | `Live dashboard is a report view.` |
-| `watch` | `report --watch` | `v0.2.0` | `Frontier stream is a report view.` |
-| `replay` | `report --history` | `v0.2.0` | `Timeline replay is report history.` |
-| `diff` | `report --diff` | `v0.2.0` | `Spec artifact diffs are report snapshots.` |
-| `program` | `status --program` | `v0.2.0` | `Cross-spec frontier is a status view.` |
-| `update` | `scripts/install.sh --force` | `v0.2.0` | `Self-update moved to the install script.` |
-| `uninstall` | `scripts/uninstall.sh` | `v0.2.0` | `Removal is script-only.` |
-
-<!-- docs-lint: migration-appendix end -->
+specd v0.1.0 has no deprecated commands or aliases — the command surface above is complete.

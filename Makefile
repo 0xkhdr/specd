@@ -44,7 +44,7 @@ fmt-check:
 	@unformatted="$$(gofmt -l .)"; \
 	if [ -n "$$unformatted" ]; then echo "not gofmt-clean:"; echo "$$unformatted"; exit 1; fi
 
-lint: fmt-check shellcheck test-lint
+lint: fmt-check shellcheck test-lint docs-lint
 	$(GO) vet ./...
 
 # Structural lint for the test suite (spec.md §7): no banned file suffixes, no
@@ -54,6 +54,11 @@ test-lint:
 
 shellcheck:
 	shellcheck scripts/*.sh
+
+# Cross-checks docs/command-reference.md's cheat sheet against its canonical
+# spec copy so the two never drift apart.
+docs-lint:
+	./scripts/docs-lint.sh
 
 # Cross-process concurrency stress (Stage 07 F6).
 stress: build

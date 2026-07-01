@@ -15,6 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the binary, violating the Foundational Split (the agent reasons; the harness
   enforces). `specd boot` and `specd enrich` are now unknown commands (exit 2).
 
+- **13 deprecated legacy command aliases removed.** Each is now an unknown
+  command (exit 2); the surviving flag-based home is listed where one exists:
+  - `doctor` — no replacement. `specd init --repair` covers scaffold/pack
+    repair, but `doctor`'s diagnostics (sandbox/container availability, MCP and
+    host-registration health checks) are **not** preserved. This is a real
+    capability loss, not a rename — see `SECURITY.md` for the updated
+    threat-model note.
+  - `dispatch` → `specd next --dispatch`
+  - `program` → `specd status --program`
+  - `validate` → `specd check --schema-only`
+  - `schema` → `specd check --schema`
+  - `replay` → `specd report --history`
+  - `diff` → `specd report --diff`
+  - `serve` → `specd report --serve`
+  - `watch` → `specd report --watch`
+  - `mode` → `specd status <slug> --set-mode` / `--recommend`, `specd new --orchestrated`
+  - `migrate` — removed along with `specd init --migrate` (see below)
+  - `update` — removed (see below)
+  - `uninstall` — removed (see below)
+
+- **`specd migrate config` / `specd init --migrate` removed.** Legacy JSON
+  config is still *read* automatically; it is just no longer convertible to the
+  current format via a built-in command.
+
+- **`scripts/uninstall.sh` removed.** See `README.md`'s Uninstall section for
+  the manual removal steps (the installer only ever placed a plain binary in
+  `~/.local/bin`, with no directory or symlink to clean up).
+
+- **`specd update` self-update command removed.** Reinstall via
+  `scripts/install.sh --force` or your package manager instead.
+
 ### Added
 
 - **`init` scaffolds a skill pack** under `.specd/skills/`: `specd-foundations`,
