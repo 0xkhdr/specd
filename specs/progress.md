@@ -168,7 +168,15 @@ the implementation vision from analysis-plan §6:
       assumption was wrong; the CLI parser's unknown-flag tolerance is pre-existing,
       intentional, and covered by `TestUnknownFlagIsTolerated` — no fix needed, not an S2
       regression.
-- [ ] S3 execution (Wave 1: delete script; Wave 2: CI confirmation).
+- [x] S3 execution (Wave 1: delete script; Wave 2: CI confirmation). Deleted
+      `scripts/uninstall.sh` (confirmed zero cross-references first, per T1.1); `shellcheck
+      scripts/*.sh` exits 0. `make ci` run in full: only failure is a pre-existing
+      `internal/worker` coverage-floor gap (87.4% < 88%) — confirmed unrelated via `git
+      diff --stat internal/worker/` showing zero changes to that package; flagged to S6 as
+      a gap this cleanup did not introduce but S6's final gate must still resolve. Found two
+      additional dangling doc references not in the original spec inventory —
+      `docs/mcp-guide.md` and `docs/concepts.md` (alongside the expected `README.md` and
+      `docs/command-reference.md`) — flagged for S4/S5.
 - [ ] S4 execution (Waves 1-5: README, AGENTS.md, SECURITY.md, TESTING.md, cross-file gate).
 - [ ] S5 execution (Wave 1: command-reference.md edits; Wave 2: audit pass; Wave 3: handoff
       to S6).
