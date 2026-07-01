@@ -64,7 +64,7 @@ func TestSpecBuilderProducesCheckCleanSpec(t *testing.T) {
 		Build()
 
 	if res := h.Run("check", "demo"); res.Code != core.ExitOK {
-		t.Fatalf("builder spec failed check (%d): %s", res.Code, res.Out())
+		t.Fatalf("craftsman spec failed check (%d): %s", res.Code, res.Out())
 	}
 	h.State("demo").Status(core.StatusTasks).TaskStatus("T1", core.TaskPending)
 }

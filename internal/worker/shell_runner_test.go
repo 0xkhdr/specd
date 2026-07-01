@@ -34,7 +34,7 @@ func TestShellRunnerMissionEnvPropagation(t *testing.T) {
 		WorkerID:  "worker-1",
 		Spec:      "spec-a",
 		TaskID:    "T1",
-		Role:      "builder",
+		Role:      "craftsman",
 		Files:     []string{"/tmp/a.md", "dir/b.go"},
 		Deadline:  time.Now().Add(5 * time.Second).Format(time.RFC3339Nano),
 		Payload: map[string]any{
@@ -54,7 +54,7 @@ func TestShellRunnerMissionEnvPropagation(t *testing.T) {
 		"[worker-1] WORKER=worker-1\n",
 		"[worker-1] SPEC=spec-a\n",
 		"[worker-1] TASK=T1\n",
-		"[worker-1] ROLE=builder\n",
+		"[worker-1] ROLE=craftsman\n",
 		"[worker-1] ARTIFACT=a.md,b.go\n",
 		"[worker-1] MISSION_JSON=worker-1\n",
 	} {

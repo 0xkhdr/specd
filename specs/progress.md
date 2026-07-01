@@ -95,3 +95,65 @@ spec in this set changes any of these.
 
 **Rollback:** every spec is source-level only; no state-file or schema
 migrations are introduced. Rollback is `git revert` per spec/commit.
+
+---
+
+# Rename Base Mode and Roles — Status
+
+**Spec:** `specs/rename-base-mode-and-roles/spec.md` / `tasks.md`
+**Overall status:** Complete. All 7 waves implemented and verified.
+**Current wave:** none (done)
+
+**Requirement-to-spec coverage:**
+
+| Requirement | Spec section | Status |
+|---|---|---|
+| R1 mode rename in Go source | Wave 1 | Done |
+| R2 mode rename in templates | Wave 2 (scope corrected — near-empty) | Done |
+| R3 mode/role docs | Wave 2, Wave 5 | Done |
+| R4 `.claude/agents/` | Wave 4 | Done |
+| R5 CLI metadata/enums | Wave 1, Wave 3 (schema) | Done |
+| R6 role rename | Wave 3, Wave 4 | Done |
+| R7 dispatch/context logic | Wave 3 | Done |
+| R8 tests/fixtures | Wave 6 | Done |
+| R9 `state.json` mode value | Wave 1 — **deviates from spec.md's D2 recommendation**, see below | Done |
+| R10 validation gates/schema | Wave 3 | Done |
+| R11-R17 (discovered during verification: partial scout rename, scaffold.go, fusion.go, phase-default pickers, orchestration_authoring.go, spec_builder.go, schema v1.json 3 enums, skill/steering/stub templates) | Wave 3, Wave 4 | Done |
+
+**Decision gates:**
+- G1 ✅ — User selected role names: `scout`, `craftsman`, `auditor`,
+  `validator` (`brain`/`pinky` unchanged).
+- G2 ✅ — User resolved D2-D5 explicitly **against** spec.md's recommendation:
+  "I don't need to migrate from old versions as we still develop in first
+  release." Implementation therefore did a **clean rename with zero legacy
+  aliases**, not the permanent-alias design spec.md proposed:
+  - `ModeBase`/`"base"` removed outright (renamed to `ModeSimple`/`"simple"`),
+    no dual-resolution branch for old on-disk values.
+  - The pre-existing `investigator` legacy alias in the role registry (from
+    an earlier, unrelated rename) was also removed for consistency — the
+    registry now has exactly 8 roles, all canonical, no aliases.
+  - `internal/core/fusion.go`'s roles health check requires the new names
+    only (no OR-logic accepting old paths) — verified by hand-constructing
+    an old-style `.specd/roles/` directory and confirming `specd doctor`
+    correctly reports it unhealthy.
+  - MCP `prompts.go` exposes only the 8 canonical `role/*` resources (no
+    `role/builder`/`role/investigator`/etc duplicates).
+  - Schema v1.json's `executionMode` and all three `role` enums list only
+    the new names.
+
+**Baselines/targets:** `make test` (race detector) passes; `make ci` lint +
+race `-count=2` + stress all pass. `cover-check`'s `internal/worker` floor
+failure (87.4% vs 88%) is pre-existing on `HEAD` (confirmed via `git stash`
+before any of this spec's edits) and unrelated to this rename — not fixed
+here, out of scope.
+
+**Occurrence sweep (docs/ + README.md + AGENTS.md + internal/core/embed_templates/):**
+old role/mode name mentions went from 74 (baseline, `git show HEAD`) to 0
+(one confirmed generic-English exception: `docs/contributor-guide.md:31`
+"spec builder", unrelated to the persona system).
+
+**Dependencies/blockers:** none — implementation complete.
+
+**Waves:** 1 (mode core) → 2 (mode docs) → 3 (role core, largest/highest-risk)
+→ 4 (role templates/agents) → 5 (role docs) → 6 (tests) → 7 (final
+validation). All 7 waves complete.

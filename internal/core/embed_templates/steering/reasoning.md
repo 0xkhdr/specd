@@ -19,7 +19,7 @@ PERCEIVE → ANALYZE → PLAN → EXECUTE → VERIFY → REFLECT
 
 ## The evidence gate (hardest rule)
 
-A builder's "done" is **NOT** evidence. A verify step or manual check must pass before any task
+A craftsman's "done" is **NOT** evidence. A verify step or manual check must pass before any task
 is marked complete. The CLI enforces this: `specd task <spec> <id> --status complete` **requires**
 a non-empty `--evidence`.
 

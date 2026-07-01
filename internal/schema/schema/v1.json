@@ -58,7 +58,7 @@
           "additionalProperties": { "$ref": "#/$defs/CriterionRecord" }
         },
         "prompt": { "type": "string" },
-        "executionMode": { "type": "string", "enum": ["base", "orchestrated"] },
+        "executionMode": { "type": "string", "enum": ["simple", "orchestrated"] },
         "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
       }
     },
@@ -71,7 +71,7 @@
         "title": { "type": "string" },
         "role": {
           "type": "string",
-          "enum": ["investigator", "builder", "reviewer", "verifier"]
+          "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"]
         },
         "wave": { "type": "integer", "minimum": 1 },
         "depends": { "type": "array", "items": { "type": "string" } },
@@ -204,7 +204,7 @@
         "version": { "type": "integer", "const": 1 },
         "softTokenCeiling": { "type": "integer", "minimum": 1000, "maximum": 200000 },
         "strategy": { "type": "string", "minLength": 1, "maxLength": 16384 },
-        "role": { "type": "string", "enum": ["scout", "researcher", "reviewer", "architect", "builder", "tester", "documenter", "verifier", "investigator"] },
+        "role": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
         "items": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/MissionContextItem" } },
         "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 200000 },
         "budget": { "type": "integer", "minimum": 0, "maximum": 200000 },
@@ -244,7 +244,7 @@
       "required": ["dispatchDigest", "role", "contextCommand", "contract", "files", "acceptance", "verifyCommand", "dependencies", "authority"],
       "properties": {
         "dispatchDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "role": { "type": "string", "enum": ["investigator", "builder", "reviewer", "verifier"] },
+        "role": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
         "contextCommand": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "contextManifest": { "$ref": "#/$defs/MissionContextManifest" },
         "contract": { "type": "string", "minLength": 1, "maxLength": 16384 },

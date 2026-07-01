@@ -29,7 +29,7 @@ func TestCostBrakeEventsAndNoDispatchAfterHalt(t *testing.T) {
 	policy := validOrchestrationPolicy()
 	policy.HostReportedCostLimitUSD = 10
 	snapshot := validOrchestrationSnapshot()
-	snapshot.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "builder", Depends: []string{}}}
+	snapshot.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: []string{}}}
 
 	var events []DriverEvent
 	observer := func(ev DriverEvent) { events = append(events, ev) }

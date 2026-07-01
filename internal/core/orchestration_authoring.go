@@ -38,9 +38,9 @@ type authoringStep struct {
 // IDs (T<n>) — and flow through the existing ACP/lease/mission machinery
 // unchanged (see acpTaskIDRE).
 var authoringSteps = map[SpecStatus]authoringStep{
-	StatusRequirements: {WorkID: "A1", Artifact: "requirements.md", Gate: "ears", Role: "builder"},
-	StatusDesign:       {WorkID: "A2", Artifact: "design.md", Gate: "design", Role: "builder"},
-	StatusTasks:        {WorkID: "A3", Artifact: "tasks.md", Gate: "task-schema, dag, traceability", Role: "builder"},
+	StatusRequirements: {WorkID: "A1", Artifact: "requirements.md", Gate: "ears", Role: "craftsman"},
+	StatusDesign:       {WorkID: "A2", Artifact: "design.md", Gate: "design", Role: "craftsman"},
+	StatusTasks:        {WorkID: "A3", Artifact: "tasks.md", Gate: "task-schema, dag, traceability", Role: "craftsman"},
 }
 
 // authoringArtifactID returns the reserved work ID for a planning artifact, or

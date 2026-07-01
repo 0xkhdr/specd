@@ -39,9 +39,9 @@ func TestManifestHelperBranches(t *testing.T) {
 		want string
 	}{
 		{ContextRequest{Status: spec.StatusRequirements}, "architect"},
-		{ContextRequest{Status: spec.StatusVerifying}, "verifier"},
+		{ContextRequest{Status: spec.StatusVerifying}, "validator"},
 		{ContextRequest{Status: spec.StatusComplete}, "documenter"},
-		{ContextRequest{TaskID: "T1"}, "builder"},
+		{ContextRequest{TaskID: "T1"}, "craftsman"},
 	}
 	for _, tc := range roles {
 		if got := defaultContextRole(tc.req); got != tc.want {
@@ -55,7 +55,7 @@ func TestManifestHelperBranches(t *testing.T) {
 	if got := deriveContextBudget(ContextRequest{Status: spec.StatusDesign, Role: "architect", Files: []string{"a", "b"}}); got <= missionContextSoftCeiling {
 		t.Fatalf("planning architect budget too small: %d", got)
 	}
-	if got := deriveContextBudget(ContextRequest{Status: spec.StatusVerifying, Role: "reviewer", HostBudget: 500}); got != MinSoftCeiling {
+	if got := deriveContextBudget(ContextRequest{Status: spec.StatusVerifying, Role: "auditor", HostBudget: 500}); got != MinSoftCeiling {
 		t.Fatalf("host budget should clamp to min: %d", got)
 	}
 	if got := clampContextBudget(MaxSoftCeiling + 1); got != MaxSoftCeiling {

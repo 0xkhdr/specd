@@ -35,7 +35,7 @@ func TestSessionLoggerWithAttrsAndGroup(t *testing.T) {
 
 	// .With / .WithGroup fan out across the teeHandler to both sinks.
 	derived := logger.With("k", "v").WithGroup("grp")
-	ctx := WithFields(context.Background(), "demo", "execute", "builder")
+	ctx := WithFields(context.Background(), "demo", "execute", "craftsman")
 	LogEvent(ctx, derived, "timeout", "s-2", "wkr", "T1", 250*time.Millisecond, 0)
 	LogEvent(ctx, derived, "complete", "s-2", "wkr", "T1", 0, 0)
 	LogEvent(ctx, derived, "escalate", "s-2", "wkr", "T2", time.Second, 2)

@@ -13,7 +13,7 @@ import (
 func TestCustomGateSchema(t *testing.T) {
 	in := CustomGateInput{
 		Spec: "auth", Root: "/tmp/x", Status: "executing",
-		Tasks: []CustomGateTaskRef{{ID: "T1", Status: "pending", Role: "builder", Wave: 1}},
+		Tasks: []CustomGateTaskRef{{ID: "T1", Status: "pending", Role: "craftsman", Wave: 1}},
 	}
 	b, err := json.Marshal(in)
 	if err != nil {
@@ -46,7 +46,7 @@ func TestCustomGateSchema(t *testing.T) {
 	}
 
 	// BuildCustomGateInput projects state read-only.
-	st := mkState("auth", 1, TaskState{ID: "T1", Wave: 1, Role: "builder", Status: TaskPending})
+	st := mkState("auth", 1, TaskState{ID: "T1", Wave: 1, Role: "craftsman", Status: TaskPending})
 	bi := BuildCustomGateInput("/root", st)
 	if bi.Spec != "auth" || bi.Root != "/root" || len(bi.Tasks) != 1 {
 		t.Errorf("BuildCustomGateInput = %+v", bi)

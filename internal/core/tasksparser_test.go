@@ -10,7 +10,7 @@ const sampleDoc = `# Tasks — My Feature
 ## Wave 1
 - [ ] T1 — Build the API
   - why: Need the API endpoint
-  - role: builder
+  - role: craftsman
   - files: api.go
   - contract: Returns JSON
   - acceptance: API responds 200
@@ -46,7 +46,7 @@ func TestParseAnnotationComplete(t *testing.T) {
 ## Wave 1
 - [x] T1 — Build API ✓ complete · evidence: tested · 2024-01-01T00:00:00Z
   - why: a
-  - role: builder
+  - role: craftsman
   - files: f
   - contract: c
   - acceptance: a
@@ -76,7 +76,7 @@ func TestMissingMandatoryKey(t *testing.T) {
 ## Wave 1
 - [ ] T1 — Missing fields
   - why: something
-  - role: builder
+  - role: craftsman
   - files: f
   - contract: c
   - acceptance: a
@@ -93,7 +93,7 @@ func TestMissingMandatoryKey(t *testing.T) {
 
 // metaBlock returns the 7 mandatory meta lines for a task, with the given deps.
 func metaBlock(deps string) string {
-	return "  - why: w\n  - role: builder\n  - files: f\n  - contract: c\n" +
+	return "  - why: w\n  - role: craftsman\n  - files: f\n  - contract: c\n" +
 		"  - acceptance: a\n  - verify: v\n  - depends: " + deps + "\n"
 }
 
@@ -189,7 +189,7 @@ func TestAnnotationSeparatorRoundTrip(t *testing.T) {
 				Title:      "a",
 				Wave:       1,
 				Checked:    true,
-				Meta:       map[string]string{"why": "w", "role": "builder", "files": "f", "contract": "c", "acceptance": "a", "verify": "v", "depends": "—"},
+				Meta:       map[string]string{"why": "w", "role": "craftsman", "files": "f", "contract": "c", "acceptance": "a", "verify": "v", "depends": "—"},
 				Annotation: &Annotation{Kind: AnnotComplete, Evidence: ev, Ts: "2024-01-01T00:00:00Z"},
 			}},
 		}

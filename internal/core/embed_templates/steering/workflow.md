@@ -25,7 +25,7 @@ Follow this loop for every change request. Each `→` is a gate. Mutate state **
 
 5. EXECUTE     Loop until done:
                a. `specd next <feature>`            → focused task.
-               b. Adopt/delegate the assigned role  → builder implements ONE task.
+               b. Adopt/delegate the assigned role  → craftsman implements ONE task.
                c. VERIFY: run the task's verify line; capture evidence.
                d. `specd task <feature> <Tn> --status complete --evidence "<proof>"`
                   (or `--status blocked --reason "..."` and STOP after one retry).

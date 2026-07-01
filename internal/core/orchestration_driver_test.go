@@ -48,7 +48,7 @@ const passingTasks = `# Tasks — Auth
 ## Wave 1
 - [ ] T1 — Build login
   - why: Requirement 1 needs a handler
-  - role: builder
+  - role: craftsman
   - files: auth.go
   - contract: Implement login
   - acceptance: returns 200
@@ -148,14 +148,14 @@ func artifactFixture(artifact string) string {
 	return ""
 }
 
-// waveTasksMD builds a tasks.md with n independent builder tasks in wave 1.
+// waveTasksMD builds a tasks.md with n independent craftsman tasks in wave 1.
 func waveTasksMD(n int) string {
 	var b strings.Builder
 	b.WriteString("# Tasks — Auth\n\n## Wave 1\n")
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(&b, `- [ ] T%d — Build %d
   - why: Requirement 1 needs handler %d
-  - role: builder
+  - role: craftsman
   - files: f%d.go
   - contract: Implement %d
   - acceptance: returns 200

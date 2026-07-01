@@ -465,7 +465,7 @@ deterministic templates (embedded — no network, no LLM).
 
 - `prompts/list` returns four phase prompts (`phase/requirements`,
   `phase/design`, `phase/tasks`, `phase/execute`) and two role prompts
-  (`role/builder`, `role/investigator`) with declared arguments.
+  (`role/craftsman`, `role/scout`) with declared arguments.
 - `prompts/get` renders a prompt's messages. Phase prompts accept an optional
   `slug` that injects a one-line spec-context header.
 - Identical inputs always render identical messages.
@@ -478,7 +478,7 @@ Brain/Pinky orchestration is exposed through generated tools, not custom MCP bus
 The MCP request is always one bounded CLI invocation; it never waits for an LLM worker to finish.
 Hosts must run their own worker loop and call Pinky tools as work progresses.
 
-Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Base mode, feed each subagent the `specd next --dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
+Delegate mode protocol: if `roles.subagentMode=delegate` and the host supports subagents, spawn role-bound subagents for implementation work. In Simple mode, feed each subagent the `specd next --dispatch --json` packet. In Orchestrated mode, feed each worker the Brain/Pinky mission. If the host has no subagent capability, it must warn inline before doing the same role work in-process.
 
 ### Brain control loop
 

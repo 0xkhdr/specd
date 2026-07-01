@@ -27,12 +27,12 @@ func TestPhaseForStatus(t *testing.T) {
 }
 
 func TestIsReadonlyRole(t *testing.T) {
-	for _, r := range []string{"scout", "researcher", "reviewer", "architect", "investigator"} {
+	for _, r := range []string{"scout", "researcher", "auditor", "architect"} {
 		if !IsReadonlyRole(r) {
 			t.Errorf("IsReadonlyRole(%q) = false, want true", r)
 		}
 	}
-	for _, r := range []string{"builder", "tester", "documenter", "verifier", ""} {
+	for _, r := range []string{"craftsman", "tester", "documenter", "validator", ""} {
 		if IsReadonlyRole(r) {
 			t.Errorf("IsReadonlyRole(%q) = true, want false", r)
 		}
@@ -50,7 +50,7 @@ func TestStatusAndPhaseConstants(t *testing.T) {
 }
 
 func TestRoleRegistryContracts(t *testing.T) {
-	want := []string{"scout", "researcher", "reviewer", "architect", "builder", "tester", "documenter", "verifier", "investigator"}
+	want := []string{"scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"}
 	if got := RoleNames(); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("RoleNames() = %v, want %v", got, want)
 	}
@@ -66,7 +66,7 @@ func TestRoleRegistryContracts(t *testing.T) {
 			t.Fatalf("RoleTools(%q) length mismatch: %v vs %v", name, RoleTools(name), def.Tools)
 		}
 	}
-	if !RoleAllowsTool("verifier", "specd_state_read") {
-		t.Fatal("verifier should allow specd_state_read")
+	if !RoleAllowsTool("validator", "specd_state_read") {
+		t.Fatal("validator should allow specd_state_read")
 	}
 }

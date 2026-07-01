@@ -6,7 +6,7 @@ Add tasks below grouped by wave. Each task is a checkbox item followed by a meta
 ## Wave 1
 - [ ] T1 — short imperative title
   - why: the reason this task exists (tie to a requirement)
-  - role: investigator | builder | reviewer | verifier
+  - role: scout | craftsman | auditor | validator
   - files: path/a.ts, path/b.ts
   - contract: exactly what to do and what NOT to do
   - acceptance: observable criteria that make this done

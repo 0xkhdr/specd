@@ -33,7 +33,7 @@ var Roles = []RoleDef{
 		PromptClass:   "gate-only",
 	},
 	{
-		Name:          "reviewer",
+		Name:          "auditor",
 		RW:            "readonly",
 		BudgetTier:    "medium",
 		PhaseAffinity: []Phase{PhasePerceive, PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
@@ -51,7 +51,7 @@ var Roles = []RoleDef{
 		PromptClass:   "gate-only",
 	},
 	{
-		Name:          "builder",
+		Name:          "craftsman",
 		RW:            "readwrite",
 		BudgetTier:    "focused",
 		PhaseAffinity: []Phase{PhaseExecute},
@@ -78,23 +78,13 @@ var Roles = []RoleDef{
 		PromptClass:   "card",
 	},
 	{
-		Name:          "verifier",
+		Name:          "validator",
 		RW:            "readwrite",
 		BudgetTier:    "medium",
 		PhaseAffinity: []Phase{PhaseExecute, PhaseVerify},
 		Tools:         []string{"specd_check", "specd_status", "specd_state_read", "specd_doctor"},
 		FilePolicy:    "specd state only",
 		PromptClass:   "contract",
-	},
-	// Legacy alias; keep until later deprecation cycle.
-	{
-		Name:          "investigator",
-		RW:            "readonly",
-		BudgetTier:    "minimal",
-		PhaseAffinity: []Phase{PhasePerceive, PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect},
-		Tools:         []string{"specd_inspect", "specd_read", "specd_query", "specd_status", "specd_context"},
-		FilePolicy:    "no writes",
-		PromptClass:   "gate-only",
 	},
 }
 

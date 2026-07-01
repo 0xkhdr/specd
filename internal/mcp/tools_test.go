@@ -386,7 +386,7 @@ func TestNegotiateMaxContextTokensGarbageIsSafe(t *testing.T) {
 // effective manifest Budget; omitting it leaves the engine default untouched
 // (byte-identical path). AC-6.
 func TestCapabilityContextBudgetCapsManifest(t *testing.T) {
-	req := contextpkg.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "builder", Mode: contextpkg.ContextModeBriefing}
+	req := contextpkg.ContextRequest{Slug: "demo", Status: core.StatusExecuting, Role: "craftsman", Mode: contextpkg.ContextModeBriefing}
 	baseline := contextpkg.BuildContextManifest(req).Budget
 
 	restore := setContextBudgetEnv(2500)
@@ -651,11 +651,11 @@ func TestBuildToolsRoleFilterFromActiveSpec(t *testing.T) {
 	got := toolNames(buildTools(&core.Config{MCP: core.MCPConfig{Expose: "all"}}))
 	want := []string{"specd_check", "specd_status", "specd_state_read"}
 	if len(got) != len(want) {
-		t.Fatalf("verifier tool count = %d, want %d: %v", len(got), len(want), got)
+		t.Fatalf("validator tool count = %d, want %d: %v", len(got), len(want), got)
 	}
 	for _, name := range want {
 		if !got[name] {
-			t.Fatalf("verifier tool list missing %s: %v", name, got)
+			t.Fatalf("validator tool list missing %s: %v", name, got)
 		}
 	}
 }

@@ -18,7 +18,7 @@ type modePayload struct {
 }
 
 func runMode(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd mode <slug> [--set base|orchestrated] [--recommend] [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd mode <slug> [--set simple|orchestrated] [--recommend] [--json]")
 	if !ok {
 		return code
 	}
@@ -46,8 +46,8 @@ func runMode(args cli.Args) int {
 // runModeSet records a new per-spec execution mode, failing closed when
 // orchestration is requested without project capability.
 func runModeSet(root, slug, target string, jsonOut bool) int {
-	if target != core.ModeBase && target != core.ModeOrchestrated {
-		core.Error(fmt.Sprintf("--set: invalid mode %q, expected base|orchestrated", target))
+	if target != core.ModeSimple && target != core.ModeOrchestrated {
+		core.Error(fmt.Sprintf("--set: invalid mode %q, expected simple|orchestrated", target))
 		return core.ExitUsage
 	}
 	if target == core.ModeOrchestrated && !core.ProjectOrchestrationEnabled(root) {
@@ -62,11 +62,11 @@ func runModeSet(root, slug, target string, jsonOut bool) int {
 		}
 		state := loaded.State
 
-		// Refuse switching to Base while a Brain session is live — cancel first
+		// Refuse switching to Simple while a Brain session is live — cancel first
 		// so the running session is never orphaned.
-		if target == core.ModeBase && state.EffectiveMode() == core.ModeOrchestrated {
+		if target == core.ModeSimple && state.EffectiveMode() == core.ModeOrchestrated {
 			if session, err := core.ActiveOrchestrationSessionForSpec(root, slug); err == nil && session != nil {
-				core.Error(fmt.Sprintf("cannot switch '%s' to base: Brain session %s is active. Cancel it first with `specd brain cancel %s`.", slug, session.SessionID, slug))
+				core.Error(fmt.Sprintf("cannot switch '%s' to simple: Brain session %s is active. Cancel it first with `specd brain cancel %s`.", slug, session.SessionID, slug))
 				return core.ExitGate, core.GateError("brain session active")
 			}
 		}
@@ -76,8 +76,8 @@ func runModeSet(root, slug, target string, jsonOut bool) int {
 			return printMode(slug, state, root, jsonOut), nil
 		}
 
-		if target == core.ModeBase {
-			// Opting out: clear the fields so Base state stays byte-stable.
+		if target == core.ModeSimple {
+			// Opting out: clear the fields so Simple state stays byte-stable.
 			state.ExecutionMode = ""
 			state.ModeOrigin = ""
 		} else {

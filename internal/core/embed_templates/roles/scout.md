@@ -1,4 +1,4 @@
-# Role: Investigator (read-only)
+# Role: Scout (read-only)
 
 **Capability:** locate, understand, trace. **You may NOT write code or files.**
 
@@ -15,7 +15,7 @@
 
 ```
 === ROLE RESULT ===
-role: investigator
+role: scout
 task: <Tn>
 status: complete | blocked | failed
 files: [<paths you read>]

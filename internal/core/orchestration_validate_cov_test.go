@@ -48,16 +48,16 @@ func TestValidateOrchestrationSnapshotBranches(t *testing.T) {
 		"inf cost":     func(s *OrchestrationSnapshot) { s.AccumulatedCostUSD = math.Inf(1) },
 		"neg cost":     func(s *OrchestrationSnapshot) { s.AccumulatedCostUSD = -1 },
 		"bad runnable id": func(s *OrchestrationSnapshot) {
-			s.Runnable = []OrchestrationTaskSnapshot{{ID: "bad id", Wave: 1, Attempt: 1, Status: TaskPending, Role: "builder"}}
+			s.Runnable = []OrchestrationTaskSnapshot{{ID: "bad id", Wave: 1, Attempt: 1, Status: TaskPending, Role: "craftsman"}}
 		},
 		"bad runnable role": func(s *OrchestrationSnapshot) {
 			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T1", Wave: 1, Attempt: 1, Status: TaskPending, Role: "wizard"}}
 		},
 		"dup dependency": func(s *OrchestrationSnapshot) {
-			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T1", Wave: 1, Attempt: 1, Status: TaskPending, Role: "builder", Depends: []string{"T2", "T2"}}}
+			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T1", Wave: 1, Attempt: 1, Status: TaskPending, Role: "craftsman", Depends: []string{"T2", "T2"}}}
 		},
 		"bad dependency": func(s *OrchestrationSnapshot) {
-			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T1", Wave: 1, Attempt: 1, Status: TaskPending, Role: "builder", Depends: []string{"bad dep"}}}
+			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T1", Wave: 1, Attempt: 1, Status: TaskPending, Role: "craftsman", Depends: []string{"bad dep"}}}
 		},
 		"bad lease task": func(s *OrchestrationSnapshot) {
 			s.ActiveLeases = []OrchestrationLeaseSnapshot{{WorkerID: "w1", TaskID: "bad", Attempt: 1, LeaseUntil: s.SessionExpiresAt}}

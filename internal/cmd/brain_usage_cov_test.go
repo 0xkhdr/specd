@@ -33,13 +33,13 @@ func TestBrainRoutingUsage(t *testing.T) {
 	}
 }
 
-// TestBrainRefusesBaseSpecGate covers requireOrchestratedSpec's gate branch: Brain
-// must refuse a base-mode spec for both start and run.
-func TestBrainRefusesBaseSpecGate(t *testing.T) {
+// TestBrainRefusesSimpleSpecGate covers requireOrchestratedSpec's gate branch: Brain
+// must refuse a simple-mode spec for both start and run.
+func TestBrainRefusesSimpleSpecGate(t *testing.T) {
 	h := testharness.New(t)
 	h.Init()
-	slug := h.Spec("base-spec").
-		Req("base", "As an operator I keep a base spec.", "THE SYSTEM SHALL stay base.").
+	slug := h.Spec("simple-spec").
+		Req("simple", "As an operator I keep a simple spec.", "THE SYSTEM SHALL stay simple.").
 		FullDesign().
 		Status(core.StatusExecuting).
 		AddTask(testharness.TaskSpec{ID: "T1"}).
@@ -47,13 +47,13 @@ func TestBrainRefusesBaseSpecGate(t *testing.T) {
 
 	host := testharness.NewFakeOrchestrationHost(h)
 	if res := h.Run("brain", append([]string{"start", slug}, host.PolicyArgs(repeat("a"))...)...); res.Code != core.ExitGate {
-		t.Fatalf("base start exit = %d, want gate; out=%s", res.Code, res.Out())
+		t.Fatalf("simple start exit = %d, want gate; out=%s", res.Code, res.Out())
 	}
 	if res := h.Run("brain", "run", slug, "--worker-cmd", "true"); res.Code != core.ExitGate {
-		t.Fatalf("base run exit = %d, want gate; out=%s", res.Code, res.Out())
+		t.Fatalf("simple run exit = %d, want gate; out=%s", res.Code, res.Out())
 	}
 	if res := h.Run("brain", append([]string{"step", slug}, host.PolicyArgs(repeat("b"))...)...); res.Code != core.ExitGate {
-		t.Fatalf("base step exit = %d, want gate; out=%s", res.Code, res.Out())
+		t.Fatalf("simple step exit = %d, want gate; out=%s", res.Code, res.Out())
 	}
 }
 

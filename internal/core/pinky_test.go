@@ -33,7 +33,7 @@ func TestPinkyMissionDeterministic(t *testing.T) {
 		t.Fatalf("mission missing task contract: %#v", first)
 	}
 	if first.Authority.ReadOnly || strings.Join(first.Authority.AllowedActions, ",") != "read,edit,verify,report" {
-		t.Fatalf("authority = %#v, want builder edit authority", first.Authority)
+		t.Fatalf("authority = %#v, want craftsman edit authority", first.Authority)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestPinkyMissionContextManifest(t *testing.T) {
 	}
 	joined := missionContextTestString(manifest)
 	for _, want := range []string{
-		".specd/roles/builder.md",
+		".specd/roles/craftsman.md",
 		".specd/skills/specd-pinky/SKILL.md",
 		".specd/skills/specd-execute/SKILL.md",
 		"specd context demo",
@@ -125,7 +125,7 @@ func writePinkySpec(t *testing.T) string {
 	state.Tasks["T1"] = TaskState{
 		ID:           "T1",
 		Title:        "Demo task",
-		Role:         "builder",
+		Role:         "craftsman",
 		Wave:         1,
 		Depends:      []string{},
 		Requirements: []int{1},
@@ -140,7 +140,7 @@ func writePinkySpec(t *testing.T) string {
 
 - [ ] T1 — Demo task
   - why: Needed.
-  - role: builder
+  - role: craftsman
   - files: internal/core/demo.go
   - contract: Change one file.
   - acceptance: Works.

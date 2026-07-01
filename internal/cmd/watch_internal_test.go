@@ -27,7 +27,7 @@ func seedRunnableSpec(t *testing.T, root, slug string) {
 	st := core.InitialState(slug, slug)
 	st.Status = core.StatusExecuting
 	st.Tasks = map[string]core.TaskState{
-		"T1": {ID: "T1", Title: "build", Role: "builder", Wave: 1, Status: core.TaskPending, Depends: []string{}, Requirements: []int{1}},
+		"T1": {ID: "T1", Title: "build", Role: "craftsman", Wave: 1, Status: core.TaskPending, Depends: []string{}, Requirements: []int{1}},
 	}
 	b := core.DefaultBackend()
 	if err := b.WithLock(root, slug, func() error { return b.Save(root, slug, &st) }); err != nil {

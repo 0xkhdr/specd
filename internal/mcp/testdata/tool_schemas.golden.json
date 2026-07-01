@@ -645,7 +645,7 @@
       },
       "set-mode": {
         "type": "string",
-        "description": "Set the spec's execution mode: base or orchestrated"
+        "description": "Set the spec's execution mode: simple or orchestrated"
       }
     },
     "additionalProperties": false

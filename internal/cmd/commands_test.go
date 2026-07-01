@@ -20,7 +20,7 @@ import (
 	th "github.com/0xkhdr/specd/internal/testharness"
 )
 
-// validSpec seeds a gate-clean spec at the given status with one builder task.
+// validSpec seeds a gate-clean spec at the given status with one craftsman task.
 func validSpec(h *th.Harness, slug string, status core.SpecStatus) string {
 	return h.Spec(slug).
 		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
@@ -344,7 +344,7 @@ func TestInitIdempotent(t *testing.T) {
 	h.RunExpect(core.ExitOK, "init")
 	h.AssertFileExists("AGENTS.md")
 	h.AssertFileExists(".specd/config.yml")
-	h.AssertFileExists(".specd/roles/builder.md")
+	h.AssertFileExists(".specd/roles/craftsman.md")
 	// The skill pack is scaffolded: every skill in the init list lands on disk.
 	for _, s := range []string{"specd-foundations", "specd-steering", "specd-requirements", "specd-design", "specd-tasks", "specd-execute"} {
 		h.AssertFileExists(".specd/skills/" + s + "/SKILL.md")

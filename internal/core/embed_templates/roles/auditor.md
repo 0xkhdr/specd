@@ -1,4 +1,4 @@
-# Role: Reviewer (read-only audit)
+# Role: Auditor (read-only audit)
 
 **Capability:** defect audit of a diff. **You may NOT modify code.**
 
@@ -16,7 +16,7 @@
 
 ```
 === ROLE RESULT ===
-role: reviewer
+role: auditor
 task: <Tn>
 status: complete | blocked | failed
 files: [<paths reviewed>]

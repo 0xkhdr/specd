@@ -180,14 +180,14 @@ MCP is needed — if you can run a shell command, you can run this harness.
    - Windows orchestration is POSIX-only and fails fast with a clear WSL message; non-orchestration workflow remains portable.
    - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
 
-4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
-   builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic
+4. **Adopt roles** from `.specd/roles/*` when executing: scout (read-only research),
+   craftsman (write ONE task), auditor (read-only audit), validator (run checks), brain (deterministic
    controller), or pinky (host worker). If your host has native subagents and
    `config.json.roles.subagentMode = "delegate"`, delegate; otherwise run the role inline
    under the same constraints.
 
 5. **Evidence gate.** Never mark a task complete without a passing verify or a manual proof, and
-   pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
+   pass that proof as `--evidence`. A craftsman's word is not evidence. Pinky completion reports
    must bind to a matching verification record; host-reported telemetry (tokens, cost, duration) is stored as metadata and is not proof of correctness.
 
 ## Skills — progressive disclosure

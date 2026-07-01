@@ -204,9 +204,9 @@ var Commands = []CommandMeta{
 	{
 		Command: "status", Category: "inspection",
 		Description: "Render durable ledger / board",
-		Usage:       "specd status [<slug>] [--all] [--program] [--set-mode base|orchestrated] [--recommend] [--json]", Synopsis: "specd status [<slug>] [--all] [--program] [--json]",
-		LongDescription: "Renders the durable status board of a specific spec, lists all specs, or displays the cross-spec program frontier. With a slug, --set-mode records a new per-spec execution mode (orchestrated requires project capability; switching to base is refused while a Brain session is active) and --recommend emits a deterministic, advisory mode recommendation — the survivor home for the merged `mode` command's set/recommend paths.",
-		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "List all specs (default when no slug is supplied)"}, {Name: "program", Type: "boolean", Description: "Show the cross-spec program frontier"}, {Name: "set-mode", Type: "string", Description: "Set the spec's execution mode: base or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean"}},
+		Usage:       "specd status [<slug>] [--all] [--program] [--set-mode simple|orchestrated] [--recommend] [--json]", Synopsis: "specd status [<slug>] [--all] [--program] [--json]",
+		LongDescription: "Renders the durable status board of a specific spec, lists all specs, or displays the cross-spec program frontier. With a slug, --set-mode records a new per-spec execution mode (orchestrated requires project capability; switching to simple is refused while a Brain session is active) and --recommend emits a deterministic, advisory mode recommendation — the survivor home for the merged `mode` command's set/recommend paths.",
+		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "List all specs (default when no slug is supplied)"}, {Name: "program", Type: "boolean", Description: "Show the cross-spec program frontier"}, {Name: "set-mode", Type: "string", Description: "Set the spec's execution mode: simple or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing or session-active refusal"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd status", "specd status my-feature --json", "specd status my-feature --set-mode orchestrated", "specd status my-feature --recommend --json"},
 	},
@@ -214,9 +214,9 @@ var Commands = []CommandMeta{
 	{
 		Command: "mode", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
 		Description: "Show or set a spec's execution mode",
-		Usage:       "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]", Synopsis: "specd mode <slug> [--set base|orchestrated] [--recommend] [--json]",
-		LongDescription: "Shows the effective execution mode (base | orchestrated), its origin, and project orchestration capability for a spec. --set records a new per-spec mode (orchestrated requires project capability; switching to base is refused while a Brain session is active). --recommend emits a deterministic, advisory recommendation computed from on-disk spec facts — the user decides.",
-		Flags:           []FlagMeta{{Name: "set", Type: "string", Description: "Set the spec's execution mode: base or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean", Description: "Output in JSON format"}},
+		Usage:       "specd mode <slug> [--set simple|orchestrated] [--recommend] [--json]", Synopsis: "specd mode <slug> [--set simple|orchestrated] [--recommend] [--json]",
+		LongDescription: "Shows the effective execution mode (simple | orchestrated), its origin, and project orchestration capability for a spec. --set records a new per-spec mode (orchestrated requires project capability; switching to simple is refused while a Brain session is active). --recommend emits a deterministic, advisory recommendation computed from on-disk spec facts — the user decides.",
+		Flags:           []FlagMeta{{Name: "set", Type: "string", Description: "Set the spec's execution mode: simple or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean", Description: "Output in JSON format"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing or session-active refusal"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd mode my-feature", "specd mode my-feature --set orchestrated", "specd mode my-feature --recommend --json"},
 	},
@@ -511,8 +511,8 @@ func init() {
 		"program":  executionCompat(),
 	}
 	modeCompat := map[string]*ModeCompatibilityMeta{
-		"new":     {Modes: []string{"base", "orchestrated"}},
-		"mode":    {Modes: []string{"base", "orchestrated"}},
+		"new":     {Modes: []string{"simple", "orchestrated"}},
+		"mode":    {Modes: []string{"simple", "orchestrated"}},
 		"brain":   {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
 		"pinky":   {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
 		"program": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
@@ -588,7 +588,7 @@ func annotateFlagEnums(cmd *CommandMeta) {
 				flag.Required = true
 			}
 		case "set":
-			flag.Enum = []string{ModeBase, ModeOrchestrated}
+			flag.Enum = []string{ModeSimple, ModeOrchestrated}
 		case "format":
 			flag.Enum = []string{"md", "html", "prometheus"}
 		case "action":

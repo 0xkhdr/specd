@@ -25,7 +25,7 @@ type ModeSignals struct {
 // ModeRecommendation is the advisory verdict. UserDecides is always true: the
 // recommendation is input to a human choice, never an automatic action.
 type ModeRecommendation struct {
-	Recommended string      `json:"recommended"` // "base" | "orchestrated"
+	Recommended string      `json:"recommended"` // "simple" | "orchestrated"
 	Confidence  string      `json:"confidence"`  // "neutral" | "suggest" | "strong"
 	Signals     ModeSignals `json:"signals"`
 	Rationale   string      `json:"rationale"`
@@ -118,7 +118,7 @@ func verdictFromSignals(sig ModeSignals) ModeRecommendation {
 	rec := ModeRecommendation{Signals: sig, UserDecides: true}
 
 	if sig.TaskCount == 0 {
-		rec.Recommended = ModeBase
+		rec.Recommended = ModeSimple
 		rec.Confidence = ConfidenceNeutral
 		rec.Rationale = "No tasks.md DAG yet — nothing to measure. Stay Base; reconsider after tasks are planned."
 		return rec
@@ -137,7 +137,7 @@ func verdictFromSignals(sig ModeSignals) ModeRecommendation {
 
 	switch len(reasons) {
 	case 0:
-		rec.Recommended = ModeBase
+		rec.Recommended = ModeSimple
 		rec.Confidence = ConfidenceNeutral
 		rec.Rationale = fmt.Sprintf("Small/serial work (%d tasks, max wave width %d, %d roles) — Base mode is the simpler fit.", sig.TaskCount, sig.MaxWaveWidth, sig.DistinctRoles)
 	case 1:

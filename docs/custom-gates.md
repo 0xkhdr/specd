@@ -68,7 +68,7 @@ loading and no network access from specd.
   "root": "/abs/path/to/project",
   "status": "executing",
   "tasks": [
-    { "id": "T1", "status": "complete", "role": "builder", "wave": 1 }
+    { "id": "T1", "status": "complete", "role": "craftsman", "wave": 1 }
   ]
 }
 ```

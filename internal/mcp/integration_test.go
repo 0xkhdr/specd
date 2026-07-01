@@ -591,20 +591,20 @@ func TestPromptsListAndGet(t *testing.T) {
 		`{"jsonrpc":"2.0","id":1,"method":"prompts/list"}`,
 		`{"jsonrpc":"2.0","id":2,"method":"prompts/get","params":{"name":"phase/design","arguments":{"slug":"auth"}}}`,
 		`{"jsonrpc":"2.0","id":3,"method":"prompts/get","params":{"name":"phase/design","arguments":{"slug":"auth"}}}`,
-		`{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"role/builder"}}`,
+		`{"jsonrpc":"2.0","id":4,"method":"prompts/get","params":{"name":"role/craftsman"}}`,
 		`{"jsonrpc":"2.0","id":5,"method":"prompts/get","params":{"name":"phase/bogus"}}`,
 	)
 
-	// list (AC2): the thirteen expected prompt names with arguments declared.
+	// list (AC2): the twelve expected prompt names with arguments declared.
 	prompts := result(t, resps[0])["prompts"].([]any)
-	if len(prompts) != 13 {
-		t.Fatalf("prompts/list count = %d, want 13", len(prompts))
+	if len(prompts) != 12 {
+		t.Fatalf("prompts/list count = %d, want 12", len(prompts))
 	}
 	names := map[string]bool{}
 	for _, p := range prompts {
 		names[p.(map[string]any)["name"].(string)] = true
 	}
-	for _, want := range []string{"phase/requirements", "phase/design", "phase/tasks", "phase/execute", "role/scout", "role/researcher", "role/reviewer", "role/architect", "role/tester", "role/documenter", "role/verifier", "role/builder", "role/investigator"} {
+	for _, want := range []string{"phase/requirements", "phase/design", "phase/tasks", "phase/execute", "role/scout", "role/researcher", "role/auditor", "role/architect", "role/tester", "role/documenter", "role/validator", "role/craftsman"} {
 		if !names[want] {
 			t.Errorf("prompts/list missing %s", want)
 		}
@@ -623,10 +623,10 @@ func TestPromptsListAndGet(t *testing.T) {
 		t.Errorf("phase/design not deterministic:\n%q\nvs\n%q", text, text2)
 	}
 
-	// role/builder returns a contract message (AC4).
+	// role/craftsman returns a contract message (AC4).
 	rb := result(t, resps[3])["messages"].([]any)
 	if len(rb) == 0 {
-		t.Error("role/builder returned no messages")
+		t.Error("role/craftsman returned no messages")
 	}
 
 	// unknown prompt errors (AC5).

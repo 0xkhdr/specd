@@ -45,10 +45,10 @@ Prompts under `.specd/roles/`. Each task's `role:` key binds it to one persona.
 
 | Role | Permissions | Responsibilities |
 |---|---|---|
-| 🔍 `investigator` | Read-only | Explore code, trace paths, find integration points. Reports exact file/line refs. |
-| 🛠️ `builder` | Write | Implement the task contract. Modifies designated files + tests. Runs verify. |
-| 🧪 `verifier` | Read-only | Runs tests independently. Captures output as evidence. |
-| 🛡️ `reviewer` | Read-only | Audits git diffs. Logs issues with severity tags + exact locations. |
+| 🔍 `scout` | Read-only | Explore code, trace paths, find integration points. Reports exact file/line refs. |
+| 🛠️ `craftsman` | Write | Implement the task contract. Modifies designated files + tests. Runs verify. |
+| 🧪 `validator` | Read-only | Runs tests independently. Captures output as evidence. |
+| 🛡️ `auditor` | Read-only | Audits git diffs. Logs issues with severity tags + exact locations. |
 
 ## Subagent coordination modes
 
@@ -62,7 +62,7 @@ Set in `.specd/config.yml` (or legacy `.specd/config.json`) via `roles.subagent_
 ### `delegate` mode
 - The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd fusion policy` / `.specd/config.yml` (or legacy `.specd/config.json`).
 - If the host lacks subagent capability, it must say so inline before work (for example: "Delegate mode requested, but this host has no subagents; running role inline under same constraints.").
-- Base mode uses `specd next <slug> --dispatch --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
+- Simple mode uses `specd next <slug> --dispatch --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
 - Orchestrated mode prefers Brain/Pinky missions; the host maps each `dispatch` decision to a Pinky worker and the claim → heartbeat/progress → verify → report/block → release lifecycle.
 - **Pros:** Isolated context, reduced token consumption.
 - **Cons:** Requires agent-spawning capabilities (Claude Code, etc.).
@@ -157,7 +157,7 @@ per-item `selector` metadata so hosts can load exact slices. Enable the gate in
 
 ## Execution mode — host decision protocol
 
-Each spec runs in `base` (default) or `orchestrated` mode, recorded in its
+Each spec runs in `simple` (default) or `orchestrated` mode, recorded in its
 `state.json`. The host agent follows a fixed protocol so behavior is identical
 across runs:
 
@@ -204,7 +204,7 @@ or experimental agents.
 The **Brain & Pinky model** is `specd`'s native multi-agent orchestration architecture. It transforms the harness from a passive command-line validator into an active, autonomous coordinator.
 
 Unlike traditional orchestration stacks, `specd` separates concerns into two layers:
-1. **The Brain (Deterministic Controller):** A state machine that analyzes the current spec state (requirements, design, task DAG progress) and makes decisions (e.g., "dispatch builder for T1", "await human approval for planning"). **The Brain never calls an LLM and never executes unsafe code directly.**
+1. **The Brain (Deterministic Controller):** A state machine that analyzes the current spec state (requirements, design, task DAG progress) and makes decisions (e.g., "dispatch craftsman for T1", "await human approval for planning"). **The Brain never calls an LLM and never executes unsafe code directly.**
 2. **Pinky (Ephemeral Execution Workers):** Independent AI agents spawned by your application or host environment. They receive a structured **Mission** from the Brain, claim a temporary filesystem lease, perform the work (using specialized role personas), run the verification tests, and write back evidence.
 
 ---
@@ -304,7 +304,7 @@ The Brain will output a structured JSON response detailing the latest decision:
     "workerID": "w-T1-attempt-1",
     "spec": "my-feature",
     "taskID": "T1",
-    "role": "builder",
+    "role": "craftsman",
     "deadline": "2026-06-20T17:30:00Z",
     "files": ["src/login.go", "src/login_test.go"],
     "verifyCommand": "go test ./src -run TestLogin"
@@ -561,7 +561,7 @@ Brain drives both **planning** and **execution**, not just execution:
   required role + Pinky skill + one phase-scoped skill + `specd context` + scoped
   files, optional source artifacts, and a soft token ceiling so different hosts
   package the same minimal sufficient context. `specd init` installs Claude Code
-  sub-agent definitions at `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md`, each a thin
+  sub-agent definitions at `.claude/agents/pinky-{craftsman,scout,auditor,validator}.md`, each a thin
   shell that follows the manifest and runs claim → execute → verify → report.
 
 The core stays deterministic: the driver loop and briefs are orchestration glue;

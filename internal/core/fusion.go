@@ -326,7 +326,7 @@ func fusionGateSeverities(cfg Config) map[string]string {
 func fusionHealthChecks(root string) []FusionHealthCheck {
 	checks := []FusionHealthCheck{
 		pathHealth("steering", root, []string{".specd/steering/reasoning.md", ".specd/steering/workflow.md", ".specd/steering/product.md", ".specd/steering/tech.md", ".specd/steering/structure.md"}),
-		pathHealth("roles", root, []string{".specd/roles/investigator.md", ".specd/roles/builder.md", ".specd/roles/reviewer.md", ".specd/roles/verifier.md", ".specd/roles/brain.md", ".specd/roles/pinky.md"}),
+		pathHealth("roles", root, []string{".specd/roles/scout.md", ".specd/roles/craftsman.md", ".specd/roles/auditor.md", ".specd/roles/validator.md", ".specd/roles/brain.md", ".specd/roles/pinky.md"}),
 		pathHealth("skills", root, []string{".specd/skills/specd-foundations/SKILL.md", ".specd/skills/specd-steering/SKILL.md", ".specd/skills/specd-requirements/SKILL.md", ".specd/skills/specd-design/SKILL.md", ".specd/skills/specd-tasks/SKILL.md", ".specd/skills/specd-execute/SKILL.md"}),
 		pathHealth("config", root, []string{".specd/config.yml"}),
 	}

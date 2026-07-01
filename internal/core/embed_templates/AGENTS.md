@@ -38,17 +38,17 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
    `specd_brain`/`specd_pinky` are raw passthrough for flags the intent tools don't surface —
    see `docs/agent-integration.md`.
 
-4. **Adopt roles** from `.specd/roles/*` when executing: investigator (read-only research),
-   builder (write ONE task), reviewer (read-only audit), verifier (run checks), brain (deterministic
+4. **Adopt roles** from `.specd/roles/*` when executing: scout (read-only research),
+   craftsman (write ONE task), auditor (read-only audit), validator (run checks), brain (deterministic
    controller), or pinky (host worker). If your host has native subagents and
    `config.json.roles.subagentMode = "delegate"`, spawn role-bound subagents for implementation
-   work: Base mode uses `specd dispatch --json` packets, Orchestrated mode uses Brain/Pinky
-   missions and the scaffolded `.claude/agents/pinky-{builder,investigator,reviewer,verifier}.md`
+   work: Simple mode uses `specd dispatch --json` packets, Orchestrated mode uses Brain/Pinky
+   missions and the scaffolded `.claude/agents/pinky-{craftsman,scout,auditor,validator}.md`
    workers. If the host lacks subagents, say so inline before work and run the role inline under
    the same constraints.
 
 5. **Evidence gate.** Never mark a task complete without a passing verify or a manual proof, and
-   pass that proof as `--evidence`. A builder's word is not evidence. Pinky completion reports
+   pass that proof as `--evidence`. A craftsman's word is not evidence. Pinky completion reports
    must bind to a matching verification record; host-reported telemetry (tokens, cost, duration) is stored as metadata and is not proof of correctness.
 
 ## Optional slash/workflow wrappers
@@ -60,18 +60,18 @@ when executing, and `/pinky-brain` delegates to Brain/Pinky or read-only status 
 Wrappers never bypass gates, never complete tasks, never edit `state.json`, and never
 forge Pinky reports. If wrapper behavior is unclear, use native `specd` directly.
 
-## Execution mode — Base vs Orchestrated (per spec, user decides)
+## Execution mode — Simple vs Orchestrated (per spec, user decides)
 
 Every spec records its own **execution mode** in `state.json` (`specd mode <spec>` shows it).
-Base is the default and the broad-compatibility path; orchestration is always an explicit
+Simple is the default and the broad-compatibility path; orchestration is always an explicit
 opt-in. Capability vs selection are distinct: project `orchestration.enabled` only *permits*
 orchestration, while a spec's `executionMode` *selects* it.
 
-1. **Default Base.** "create/build/spec X" → author the spec in Base mode. Do **not** start
-   Brain/Pinky. In Base you own every step (`specd next` → implement → `specd verify`).
+1. **Default Simple.** "create/build/spec X" → author the spec in Simple mode. Do **not** start
+   Brain/Pinky. In Simple you own every step (`specd next` → implement → `specd verify`).
 2. **Explicit opt-in → Orchestrated.** "use Pinky and the Brain", "orchestrate this", "run it
    autonomously" → `specd mode <spec> --set orchestrated`, then drive with `specd brain run`.
-   Brain/Pinky **refuse** Base specs, pointing you back here.
+   Brain/Pinky **refuse** Simple specs, pointing you back here.
 3. **Recommend, don't impose.** After `tasks.md` is approved, consult
    `specd mode <spec> --recommend --json`. On `suggest`/`strong`, surface a one-line suggestion
    (e.g. "23 tasks across wide waves — run with Brain/Pinky, or proceed normally?") and **wait

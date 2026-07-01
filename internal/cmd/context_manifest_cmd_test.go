@@ -95,8 +95,8 @@ func TestContextManifestHuman(t *testing.T) {
 func TestDispatchRoleDedup(t *testing.T) {
 	h := th.New(t)
 	slug := execSpec(h,
-		th.TaskSpec{ID: "T1", Title: "Login form", Role: "builder", Verify: "true", Requirements: []int{1}},
-		th.TaskSpec{ID: "T2", Title: "Login api", Role: "builder", Verify: "true", Requirements: []int{1}},
+		th.TaskSpec{ID: "T1", Title: "Login form", Role: "craftsman", Verify: "true", Requirements: []int{1}},
+		th.TaskSpec{ID: "T2", Title: "Login api", Role: "craftsman", Verify: "true", Requirements: []int{1}},
 	)
 	res := h.RunExpect(core.ExitOK, "dispatch", slug, "--json")
 
@@ -119,8 +119,8 @@ func TestDispatchRoleDedup(t *testing.T) {
 	if got.Count != 2 || len(got.Packets) != 2 {
 		t.Fatalf("want 2 packets, got %+v", got.Packets)
 	}
-	if len(got.Assets) != 1 || got.Assets["role/builder"] == "" {
-		t.Errorf("assets = %+v, want single role/builder entry", got.Assets)
+	if len(got.Assets) != 1 || got.Assets["role/craftsman"] == "" {
+		t.Errorf("assets = %+v, want single role/craftsman entry", got.Assets)
 	}
 	for _, p := range got.Packets {
 		if p.RolePrompt != "" {
@@ -141,8 +141,8 @@ func TestDispatchInlineRoles(t *testing.T) {
 	h := th.New(t)
 	h.Init() // scaffold roles/ so the inlined role prompt has content
 	slug := execSpec(h,
-		th.TaskSpec{ID: "T1", Title: "Login form", Role: "builder", Verify: "true", Requirements: []int{1}},
-		th.TaskSpec{ID: "T2", Title: "Login api", Role: "builder", Verify: "true", Requirements: []int{1}},
+		th.TaskSpec{ID: "T1", Title: "Login form", Role: "craftsman", Verify: "true", Requirements: []int{1}},
+		th.TaskSpec{ID: "T2", Title: "Login api", Role: "craftsman", Verify: "true", Requirements: []int{1}},
 	)
 	res := h.RunExpect(core.ExitOK, "dispatch", slug, "--json", "--inline-roles")
 

@@ -39,7 +39,7 @@ func TestContextManifestOrderingAndKinds(t *testing.T) {
 		Slug:           "demo",
 		Status:         spec.StatusExecuting,
 		TaskID:         "T1",
-		Role:           "builder",
+		Role:           "craftsman",
 		Files:          []string{"internal/core/demo.go"},
 		Mode:           ContextModeMission,
 		ContextCommand: "specd context demo",
@@ -68,7 +68,7 @@ func TestContextManifestMeasuredHints(t *testing.T) {
 		Slug:         "demo",
 		Status:       spec.StatusDesign,
 		TaskID:       "A2",
-		Role:         "builder",
+		Role:         "craftsman",
 		Mode:         ContextModeBriefing,
 		ReadArtifact: fakeArtifacts(map[string]string{"design.md": big}),
 	}
@@ -102,7 +102,7 @@ func TestContextManifestTargetedRequirementSlice(t *testing.T) {
 		Slug:         "demo",
 		Status:       spec.StatusExecuting,
 		TaskID:       "T1",
-		Role:         "builder",
+		Role:         "craftsman",
 		Requirements: []int{1, 3},
 		ReadArtifact: fakeArtifacts(map[string]string{"requirements.md": req}),
 	}
@@ -128,7 +128,7 @@ func TestContextManifestSourceArtifactsPhaseFiltered(t *testing.T) {
 		spec.StatusComplete:     {"tasks.md"},
 	}
 	for status, want := range cases {
-		m := BuildContextManifest(ContextRequest{Slug: "demo", Status: status, Role: "builder"})
+		m := BuildContextManifest(ContextRequest{Slug: "demo", Status: status, Role: "craftsman"})
 		var got []string
 		for _, item := range m.Items {
 			if item.Kind == "source-artifact" {
@@ -142,16 +142,16 @@ func TestContextManifestSourceArtifactsPhaseFiltered(t *testing.T) {
 }
 
 func TestContextManifestBudgetHostCap(t *testing.T) {
-	base := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, Role: "builder", Files: []string{"a.go", "b.go"}})
+	base := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, Role: "craftsman", Files: []string{"a.go", "b.go"}})
 	if base.Budget < MinSoftCeiling || base.Budget > MaxSoftCeiling {
 		t.Fatalf("budget out of bounds: %d", base.Budget)
 	}
-	capped := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, Role: "builder", Files: []string{"a.go", "b.go"}, HostBudget: 2000})
+	capped := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, Role: "craftsman", Files: []string{"a.go", "b.go"}, HostBudget: 2000})
 	if capped.Budget != 2000 {
 		t.Fatalf("host budget not honored: got %d want 2000", capped.Budget)
 	}
 	// A garbage-ish tiny host budget is clamped to the minimum, not below.
-	floor := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, Role: "builder", HostBudget: 1})
+	floor := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, Role: "craftsman", HostBudget: 1})
 	if floor.Budget != MinSoftCeiling {
 		t.Fatalf("budget floor = %d, want %d", floor.Budget, MinSoftCeiling)
 	}
@@ -172,7 +172,7 @@ func TestContextManifestSurfaceParity(t *testing.T) {
 			Slug:           "demo",
 			Status:         spec.StatusExecuting,
 			TaskID:         "T1",
-			Role:           "builder",
+			Role:           "craftsman",
 			Files:          []string{"x.go"},
 			Mode:           mode,
 			ContextCommand: "specd context demo",
@@ -210,7 +210,7 @@ func TestContextManifestSurfaceParity(t *testing.T) {
 }
 
 func TestContextManifestEstimatedTokensSumsRequired(t *testing.T) {
-	m := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, TaskID: "T1", Role: "builder", Files: []string{"x.go"}, ContextCommand: "specd context demo"})
+	m := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, TaskID: "T1", Role: "craftsman", Files: []string{"x.go"}, ContextCommand: "specd context demo"})
 	sum := 0
 	for _, item := range m.Items {
 		if item.Required {
@@ -225,7 +225,7 @@ func TestContextManifestEstimatedTokensSumsRequired(t *testing.T) {
 // TestContextManifestNoReaderBackCompat proves AC-7: a reader-less request keeps
 // default hints and whole-file reference modes for source artifacts.
 func TestContextManifestNoReaderBackCompat(t *testing.T) {
-	m := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, TaskID: "T1", Role: "builder", Files: []string{"x.go"}, ContextCommand: "specd context demo"})
+	m := BuildContextManifest(ContextRequest{Slug: "demo", Status: spec.StatusExecuting, TaskID: "T1", Role: "craftsman", Files: []string{"x.go"}, ContextCommand: "specd context demo"})
 	for _, item := range m.Items {
 		if item.Kind == "source-artifact" {
 			if item.Mode != "reference-if-needed" || item.TokenHint != ctxHintArtifact {
@@ -244,10 +244,10 @@ func TestContextManifestRoundTrips(t *testing.T) {
 		Slug:           "demo",
 		Status:         spec.StatusExecuting,
 		TaskID:         "T1",
-		Role:           "builder",
+		Role:           "craftsman",
 		Files:          []string{"x.go"},
 		ContextCommand: "specd context demo",
-		ReadArtifact:   fakeArtifacts(map[string]string{"tasks.md": "## Wave 1\n\n- [ ] T1 — Demo\n  - role: builder\n"}),
+		ReadArtifact:   fakeArtifacts(map[string]string{"tasks.md": "## Wave 1\n\n- [ ] T1 — Demo\n  - role: craftsman\n"}),
 	})
 	// Round-trips through JSON unchanged (additive fields present, version 1).
 	b, err := json.Marshal(m)

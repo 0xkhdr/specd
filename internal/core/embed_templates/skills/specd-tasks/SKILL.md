@@ -14,12 +14,12 @@ Phase PLAN (tasks): decompose the approved design into an ordered wave DAG. Load
 Each task is a checkbox item carrying all seven keys, or it is not a task:
 
 1. `why` — the reason this task exists (the requirement/design need it serves).
-2. `role` — `investigator` | `builder` | `reviewer` | `verifier`.
+2. `role` — `scout` | `craftsman` | `auditor` | `validator`.
 3. `files` — the concrete files it will touch.
 4. `contract` — exactly what it must do.
 5. `acceptance` — the observable done-condition.
 6. `verify` — the deterministic command that proves it (`verify: N/A` is allowed
-   **only** for read-only roles: investigator, reviewer).
+   **only** for read-only roles: scout, auditor).
 7. `depends` — task IDs it depends on (`—` if none).
 
 Also tag `requirements:` with the requirement numbers each task covers — every

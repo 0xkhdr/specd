@@ -40,7 +40,7 @@ Notes:
 ### Gate 3 — Task schema
 - **Source:** `internal/core/tasksparser.go`
 - **Checks:** Every task has the 7 mandatory keys (`why`, `role`, `files`, `contract`, `acceptance`, `verify`, `depends`).
-- **Fails on:** Missing key; a `builder`/`verifier` task with `verify: N/A`.
+- **Fails on:** Missing key; a `craftsman`/`validator` task with `verify: N/A`.
 
 ### Gate 4 — DAG
 - **Source:** `internal/core/dag.go`

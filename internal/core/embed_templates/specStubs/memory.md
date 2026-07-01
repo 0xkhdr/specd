@@ -10,7 +10,7 @@ Only generalizable patterns, never raw observations. Promote to project steering
 ## <key-slug>
 **Pattern:** <one-line generalizable claim>
 **Detail:** <why it's true; the mechanism>
-**Source:** Task T3, Turn 2, discovered by investigator
+**Source:** Task T3, Turn 2, discovered by scout
 **Criticality:** important
 **Related:** [[other-key]]
 -->

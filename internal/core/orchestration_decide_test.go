@@ -12,7 +12,7 @@ func TestOrchestrationDecideTable(t *testing.T) {
 	}{
 		{"approval", func(s *OrchestrationSnapshot) { s.Gate = GateAwaitingApproval; s.HumanOnlyGate = true }, OrchestrationRequestApproval, ""},
 		{"dispatch", func(s *OrchestrationSnapshot) {
-			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "builder", Depends: []string{}, Verified: false}}
+			s.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: []string{}, Verified: false}}
 		}, OrchestrationDispatch, "T2"},
 		{"worker-limit", func(s *OrchestrationSnapshot) {
 			s.ActiveLeases = []OrchestrationLeaseSnapshot{{WorkerID: "pinky-a", TaskID: "T1", Attempt: 1, LeaseUntil: s.SessionExpiresAt}}
@@ -52,7 +52,7 @@ func TestOrchestrationCostLimitEscalates(t *testing.T) {
 	policy.HostReportedCostLimitUSD = 5.0
 
 	snapshot := validOrchestrationSnapshot()
-	snapshot.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "builder", Depends: []string{}}}
+	snapshot.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: []string{}}}
 
 	// Under the limit: dispatch proceeds.
 	snapshot.AccumulatedCostUSD = 4.99
@@ -91,7 +91,7 @@ func TestOrchestrationCostLimitEscalates(t *testing.T) {
 func TestOrchestrationSessionTimeoutEscalates(t *testing.T) {
 	policy := validOrchestrationPolicy()
 	snapshot := validOrchestrationSnapshot()
-	snapshot.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "builder", Depends: []string{}}}
+	snapshot.Runnable = []OrchestrationTaskSnapshot{{ID: "T2", Wave: 1, Status: TaskPending, Attempt: 1, Role: "craftsman", Depends: []string{}}}
 	snapshot.SessionExpired = true
 
 	decision, err := DecideOrchestration(snapshot, policy)

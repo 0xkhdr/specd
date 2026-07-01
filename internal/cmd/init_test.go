@@ -182,7 +182,7 @@ func TestInitRepairAndRefreshPreserveUserContent(t *testing.T) {
 		t.Fatalf("initial init exit=%d", code)
 	}
 	product := filepath.Join(root, ".specd", "steering", "product.md")
-	role := filepath.Join(root, ".specd", "roles", "builder.md")
+	role := filepath.Join(root, ".specd", "roles", "craftsman.md")
 	agents := filepath.Join(root, "AGENTS.md")
 	if err := os.WriteFile(product, []byte("user product\n"), 0o644); err != nil {
 		t.Fatal(err)

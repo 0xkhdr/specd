@@ -10,16 +10,16 @@ const sliceTasksFixture = `# Tasks — Demo
 ## Wave 0
 - [ ] T1 — First task
   - why: because
-  - role: builder
+  - role: craftsman
   - files: a.go
 
 - [x] T2 — Second task
-  - role: builder
+  - role: craftsman
   - files: b.go
 
 ## Wave 1
 - [ ] T3 — Third task
-  - role: reviewer
+  - role: auditor
 `
 
 func TestTaskSlice(t *testing.T) {
@@ -34,19 +34,19 @@ func TestTaskSlice(t *testing.T) {
 			name:      "first_task_stops_at_next_task",
 			id:        "T1",
 			wantFound: true,
-			want:      "- [ ] T1 — First task\n  - why: because\n  - role: builder\n  - files: a.go",
+			want:      "- [ ] T1 — First task\n  - why: because\n  - role: craftsman\n  - files: a.go",
 		},
 		{
 			name:      "checked_task_stops_at_wave_header",
 			id:        "T2",
 			wantFound: true,
-			want:      "- [x] T2 — Second task\n  - role: builder\n  - files: b.go",
+			want:      "- [x] T2 — Second task\n  - role: craftsman\n  - files: b.go",
 		},
 		{
 			name:      "last_task_runs_to_eof",
 			id:        "T3",
 			wantFound: true,
-			want:      "- [ ] T3 — Third task\n  - role: reviewer",
+			want:      "- [ ] T3 — Third task\n  - role: auditor",
 		},
 		{name: "unknown_task_not_found", id: "T9", wantFound: false, want: ""},
 	}

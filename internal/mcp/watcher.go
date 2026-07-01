@@ -175,7 +175,7 @@ func activeRoleForSpec(doc core.ParsedTasks, state *core.State) string {
 		}
 		return roleForStatus(state.Status)
 	case core.StatusVerifying:
-		return "verifier"
+		return "validator"
 	case core.StatusComplete:
 		return "documenter"
 	default:
@@ -188,10 +188,10 @@ func roleForStatus(status core.SpecStatus) string {
 	case core.StatusRequirements, core.StatusDesign, core.StatusTasks:
 		return "architect"
 	case core.StatusVerifying:
-		return "verifier"
+		return "validator"
 	case core.StatusComplete:
 		return "documenter"
 	default:
-		return "builder"
+		return "craftsman"
 	}
 }

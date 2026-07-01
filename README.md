@@ -168,7 +168,7 @@ See [docs/user-guide.md](docs/user-guide.md) for the full onboarding guide,
    specd verify my-feature T1                  # specd runs the task's verify: command, records exit code + git HEAD
    specd task my-feature T1 --status complete   # allowed only because the verify record passed (exit 0)
    ```
-   Read-only roles (investigator/reviewer) whose `verify` is `N/A` complete with the manual escape hatch: `specd task my-feature T1 --status complete --unverified --evidence "<proof>"`.
+   Read-only roles (scout/auditor) whose `verify` is `N/A` complete with the manual escape hatch: `specd task my-feature T1 --status complete --unverified --evidence "<proof>"`.
 6. **Final Verification**: Once all tasks are complete, run final checks and sign off:
    ```sh
    specd approve my-feature # Closes the spec, promoting learnings and generating final reports

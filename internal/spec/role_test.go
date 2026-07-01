@@ -6,11 +6,11 @@ import "testing"
 // registry's fail-loud lookups (and their unknown-role paths) stay covered.
 func TestRoleAccessors(t *testing.T) {
 	// Known role: every accessor returns the registry value.
-	if got := RoleBudgetTier("builder"); got != "focused" {
-		t.Errorf("RoleBudgetTier(builder) = %q, want focused", got)
+	if got := RoleBudgetTier("craftsman"); got != "focused" {
+		t.Errorf("RoleBudgetTier(craftsman) = %q, want focused", got)
 	}
-	if got := RolePromptClass("builder"); got != "card" {
-		t.Errorf("RolePromptClass(builder) = %q, want card", got)
+	if got := RolePromptClass("craftsman"); got != "card" {
+		t.Errorf("RolePromptClass(craftsman) = %q, want card", got)
 	}
 	if got := RoleFilePolicy("scout"); got != "no writes" {
 		t.Errorf("RoleFilePolicy(scout) = %q, want \"no writes\"", got)
@@ -78,12 +78,12 @@ func TestRoleToolSetAndAllows(t *testing.T) {
 }
 
 func TestRoleToolsIsCopy(t *testing.T) {
-	tools := RoleTools("builder")
+	tools := RoleTools("craftsman")
 	if len(tools) == 0 {
-		t.Fatal("RoleTools(builder) empty")
+		t.Fatal("RoleTools(craftsman) empty")
 	}
 	tools[0] = "MUTATED"
-	if again := RoleTools("builder"); again[0] == "MUTATED" {
+	if again := RoleTools("craftsman"); again[0] == "MUTATED" {
 		t.Fatal("RoleTools returned a reference into the registry, not a copy")
 	}
 	if RoleTools("nope") != nil {
@@ -93,7 +93,7 @@ func TestRoleToolsIsCopy(t *testing.T) {
 
 func TestReadonlyRoleNames(t *testing.T) {
 	got := ReadonlyRoleNames()
-	want := map[string]bool{"scout": true, "researcher": true, "reviewer": true, "architect": true, "investigator": true}
+	want := map[string]bool{"scout": true, "researcher": true, "auditor": true, "architect": true}
 	if len(got) != len(want) {
 		t.Fatalf("ReadonlyRoleNames() = %v, want %d names", got, len(want))
 	}
