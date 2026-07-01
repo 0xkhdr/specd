@@ -54,9 +54,14 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 ```
 
 ### Uninstall
+`install.sh` places a single binary with no separate install directory, so removal is
+manual:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | bash
+rm -f ~/.local/bin/specd
 ```
+If you no longer need `~/.local/bin` on your `PATH`, also remove the `# specd`-tagged
+`export PATH=...` line `install.sh` added to `~/.bashrc`, `~/.zshrc`, or `~/.profile`
+(whichever your shell uses).
 
 ### Update
 ```bash
@@ -140,7 +145,7 @@ specd mcp --config claude-code   # print a ready-to-merge snippet for the host
 
 See [docs/user-guide.md](docs/user-guide.md) for the full onboarding guide,
 [docs/mcp-guide.md](docs/mcp-guide.md) for host details and trust boundaries, and
-[docs/troubleshooting.md](docs/troubleshooting.md) for `doctor` remediation.
+[docs/troubleshooting.md](docs/troubleshooting.md) for scaffold and MCP remediation.
 
 ### Creating and Running a Spec
 

@@ -177,7 +177,13 @@ the implementation vision from analysis-plan §6:
       additional dangling doc references not in the original spec inventory —
       `docs/mcp-guide.md` and `docs/concepts.md` (alongside the expected `README.md` and
       `docs/command-reference.md`) — flagged for S4/S5.
-- [ ] S4 execution (Waves 1-5: README, AGENTS.md, SECURITY.md, TESTING.md, cross-file gate).
+- [x] S4 execution (Waves 1-5: README, AGENTS.md, SECURITY.md, TESTING.md, cross-file
+      gate). One deviation from the spec's guess: `scripts/install.sh` installs a plain
+      binary to `~/.local/bin` (no `~/.local/share/specd`/`~/.specd-repo` directory, no
+      symlink) — the new README Uninstall section describes the real mechanism instead.
+      All Wave 5 gates clean except one intentional historical `doctor` mention in
+      `SECURITY.md:43` explaining the capability's removal (allowed by spec). No code
+      changed — doc-only wave, `go build`/`go test` not required.
 - [ ] S5 execution (Wave 1: command-reference.md edits; Wave 2: audit pass; Wave 3: handoff
       to S6).
 - [ ] S6 execution (Wave 1: regression; Wave 2: release-artifact checks; Wave 3:

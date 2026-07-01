@@ -13,7 +13,7 @@ disclosure timeline with you.
 
 ## Supported versions
 
-specd is pre-1.0; only the latest tagged release receives security fixes.
+specd is currently at v0.1.0; only the latest tagged release receives security fixes.
 
 ## Threat model
 
@@ -39,17 +39,17 @@ highlights:
   tool is absent from `PATH` (or `container` has no pinned `SPECD_SANDBOX_IMAGE`),
   `specd verify` refuses to run rather than silently falling back to an
   unisolated shell — a verify that asked for isolation never quietly runs without
-  it. `specd doctor` reports a missing `bwrap`/container dependency as an
-  advisory finding (with an OS-appropriate install hint) before a user hits
-  this fail-closed error directly; the advisory never changes `SelectRunner`'s
-  fail-closed behavior or `doctor`'s own exit code.
+  it. There is no separate pre-check that advises on a missing `bwrap`/container
+  dependency ahead of time (the `specd doctor` command that used to report it has
+  been removed); `SelectRunner`'s fail-closed refusal at `specd verify` time is
+  now the only signal that the requested isolation backend is unavailable.
 - **Custom gates (unisolated).** Custom gates configured under `config.yml` (or legacy `config.json`) execute external programs on the host. Although their environment is scrubbed and execution is bounded by a timeout (`SPECD_CUSTOM_GATE_TIMEOUT_MS`), **custom gates do not run within bubblewrap or container sandbox isolation**. Only run `specd check` on projects where the custom gate commands are trusted.
 - **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
   path traversal under `.specd/`.
-- **Self-update integrity.** `install.sh` and `specd update` fetch a release
-  archive and fail closed if the `SHA256SUMS` digest does not match
-  (`--no-verify` skips with a loud warning).
+- **Install integrity.** `install.sh` fetches a release archive and fails
+  closed if the `SHA256SUMS` digest does not match (`--no-verify` skips with a
+  loud warning).
 - **MCP `--http` is loopback-by-design.** The MCP HTTP/SSE transport
   (`specd mcp --http`) defaults to a loopback bind (`127.0.0.1`); a bare or
   host-less address is rewritten to loopback so spec contents never leave the

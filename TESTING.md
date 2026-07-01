@@ -220,9 +220,9 @@ is thin command glue; its integrity-relevant branches (exit codes, traversal
 rejection, gate handling) are tested directly rather than chasing
 print-formatting lines.
 
-The **dark-path inventory** — every `internal/core` function still under its
-target, each assigned to a follow-up test task or annotated "won't test:
-<reason>" — lives in `COVERAGE_GAPS.md`.
+Every `internal/core` function still under its coverage target is tracked as a
+follow-up test task or annotated "won't test: <reason>" at the call site; there
+is no separate dark-path inventory file.
 
 ## CI & platform matrix
 
@@ -241,25 +241,23 @@ suite, then GoReleaser.
 
 ### Windows limitation (known, documented)
 
-specd **builds and runs on Windows**, but `specd update` self-replacement is
-**known-limited**: it renames the new binary over the running executable
-(`update.go`), which Windows forbids for an in-use file. Tests run on Linux +
-macOS; Windows is build-only in CI. Windows users should reinstall via
-`install.sh` semantics / a fresh download rather than `specd update`. Lifting
-this requires the rename-to-sidecar + relaunch dance and is tracked as
-follow-up, not silently broken.
+specd **builds and runs on Windows**, but task execution and Brain/Pinky
+worker orchestration depend on a POSIX shell (execution commands are invoked
+with `-c`; orchestration fails fast with `orchestration requires a POSIX
+shell (sh); not supported on Windows — run under WSL`, see `README.md`'s
+Windows note). Tests run on Linux + macOS; Windows is build-only in CI.
+Windows users should run under WSL, or use a bash-like environment (e.g. Git
+for Windows) on the `PATH`, for orchestration and verification work.
 
 ## Releases & checksum verification
 
 GoReleaser publishes a `SHA256SUMS` file alongside the archives
 (`.goreleaser.yml` → `checksum.name_template: SHA256SUMS`). The filename is
-load-bearing and must stay identical across three consumers:
+load-bearing and must stay identical across two consumers:
 
 - `.goreleaser.yml` — produces `SHA256SUMS`
-- `internal/cmd/update.go` — `fetchChecksums` downloads `SHA256SUMS`, fails
-  closed on mismatch
 - `scripts/install.sh` — downloads + verifies `SHA256SUMS` (`--no-verify` opts
   out loudly)
 
-Changing the name in one place breaks self-update and install verification.
+Changing the name in one place breaks install verification.
 cosign signing is a documented follow-up, intentionally not implemented yet.
