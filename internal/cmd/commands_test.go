@@ -124,7 +124,7 @@ func TestNextAndDispatch(t *testing.T) {
 	t.Run("dispatch_json_lists_packets", func(t *testing.T) {
 		h := th.New(t)
 		validSpec(h, "auth", core.StatusExecuting)
-		res := h.RunExpect(core.ExitOK, "dispatch", "auth", "--json")
+		res := h.RunExpect(core.ExitOK, "next", "auth", "--dispatch", "--json")
 		if !strings.Contains(res.Stdout, "\"id\": \"T1\"") {
 			t.Errorf("expected T1 packet, got %q", res.Stdout)
 		}
@@ -145,7 +145,7 @@ func TestNextAndDispatch(t *testing.T) {
 
 	t.Run("dispatch_unknown_spec_not_found", func(t *testing.T) {
 		h := th.New(t)
-		h.RunExpect(core.ExitNotFound, "dispatch", "ghost")
+		h.RunExpect(core.ExitNotFound, "next", "ghost", "--dispatch")
 	})
 }
 
@@ -361,17 +361,17 @@ func TestProgramLinkCycleAndFrontier(t *testing.T) {
 	validSpec(h, "feat-a", core.StatusExecuting)
 	validSpec(h, "feat-b", core.StatusExecuting)
 
-	h.RunExpect(core.ExitOK, "program", "link", "feat-b", "--on", "feat-a")
-	res := h.RunExpect(core.ExitOK, "program", "--json")
+	h.RunExpect(core.ExitOK, "status", "--program", "link", "feat-b", "--on", "feat-a")
+	res := h.RunExpect(core.ExitOK, "status", "--program", "--json")
 	if !strings.Contains(res.Stdout, "feat-a") {
 		t.Errorf("program json missing feat-a: %q", res.Stdout)
 	}
 
 	// Self-dependency is rejected.
-	h.RunExpect(core.ExitUsage, "program", "link", "feat-a", "--on", "feat-a")
+	h.RunExpect(core.ExitUsage, "status", "--program", "link", "feat-a", "--on", "feat-a")
 
 	// Creating a cycle is a gate error.
-	h.RunExpect(core.ExitGate, "program", "link", "feat-a", "--on", "feat-b")
+	h.RunExpect(core.ExitGate, "status", "--program", "link", "feat-a", "--on", "feat-b")
 }
 
 func TestNoSpecdRootIsNotFound(t *testing.T) {
@@ -442,7 +442,7 @@ func TestWatchNDJSON(t *testing.T) {
 	validSpec(h, "alpha", core.StatusExecuting)
 	validSpec(h, "beta", core.StatusExecuting)
 
-	res := h.RunExpect(core.ExitOK, "watch", "--once")
+	res := h.RunExpect(core.ExitOK, "report", "--watch", "--once")
 	lines := strings.Split(strings.TrimSpace(res.Stdout), "\n")
 	if len(lines) != 2 {
 		t.Fatalf("want 2 NDJSON lines, got %d:\n%s", len(lines), res.Stdout)
@@ -461,7 +461,7 @@ func TestWatchNDJSON(t *testing.T) {
 	}
 
 	// --spec narrows the stream to one spec.
-	res2 := h.RunExpect(core.ExitOK, "watch", "--once", "--spec", "alpha")
+	res2 := h.RunExpect(core.ExitOK, "report", "--watch", "--once", "--spec", "alpha")
 	out := strings.TrimSpace(res2.Stdout)
 	if strings.Count(out, "\n") != 0 {
 		t.Fatalf("--spec alpha should emit one line, got:\n%s", out)
@@ -662,12 +662,12 @@ func TestReplayCmd(t *testing.T) {
 		Build()
 
 	t.Run("text_output_lists_events_read_only", func(t *testing.T) {
-		res := h.RunExpect(core.ExitOK, "replay", "auth")
+		res := h.RunExpect(core.ExitOK, "report", "auth", "--history")
 		if !strings.Contains(res.Stdout, "replay — auth") {
 			t.Errorf("missing header: %q", res.Stdout)
 		}
 		// Read-only: a second run is identical.
-		res2 := h.RunExpect(core.ExitOK, "replay", "auth")
+		res2 := h.RunExpect(core.ExitOK, "report", "auth", "--history")
 		if res.Stdout != res2.Stdout {
 			t.Error("replay not deterministic / mutated state")
 		}
@@ -675,7 +675,7 @@ func TestReplayCmd(t *testing.T) {
 
 	t.Run("json_is_a_typed_array", func(t *testing.T) {
 		t.Setenv("SPECD_JSON", "1")
-		res := h.RunExpect(core.ExitOK, "replay", "auth")
+		res := h.RunExpect(core.ExitOK, "report", "auth", "--history")
 		var events []core.TimelineEvent
 		if err := json.Unmarshal([]byte(res.Stdout), &events); err != nil {
 			t.Fatalf("not a JSON array: %v\n%s", err, res.Stdout)
@@ -683,7 +683,7 @@ func TestReplayCmd(t *testing.T) {
 	})
 
 	t.Run("unknown_spec_is_not_found", func(t *testing.T) {
-		h.RunExpect(core.ExitNotFound, "replay", "ghost")
+		h.RunExpect(core.ExitNotFound, "report", "ghost", "--history")
 	})
 }
 

@@ -206,8 +206,8 @@ func BuildFusionPolicy(root, slug, expectDigest string) (FusionPolicy, error) {
 				specPolicy.BrainAllowed = false
 				specPolicy.BaseLoopAllowed = false
 				specPolicy.PolicyViolation = "spec is orchestrated but project orchestration is disabled"
-				specPolicy.Recommended = "specd mode " + slug + " --set base or enable orchestration"
-				specPolicy.NextCommand = "specd mode " + slug + " --set base"
+				specPolicy.Recommended = "specd status " + slug + " --set-mode simple or enable orchestration"
+				specPolicy.NextCommand = "specd status " + slug + " --set-mode simple"
 				policy.Violations = append(policy.Violations, specPolicy.PolicyViolation)
 			}
 		default:

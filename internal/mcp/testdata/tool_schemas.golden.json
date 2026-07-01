@@ -320,10 +320,6 @@
         "type": "boolean",
         "description": "List the embedded spec packs and exit"
       },
-      "migrate": {
-        "type": "boolean",
-        "description": "Migrate legacy config.json to config.yml"
-      },
       "non-interactive": {
         "type": "boolean",
         "description": "Disable prompts"

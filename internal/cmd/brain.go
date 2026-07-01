@@ -159,7 +159,7 @@ func requireOrchestratedSpec(root, slug string) (code int, ok bool) {
 		return specdExit(core.NotFoundError(fmt.Sprintf("spec '%s' not found", slug))), false
 	}
 	if state.EffectiveMode() != core.ModeOrchestrated {
-		core.Error(fmt.Sprintf("spec '%s' is in simple execution mode — Brain/Pinky will not drive it. Opt in first with `specd mode %s --set orchestrated`, or run it manually with `specd next %s`.", slug, slug, slug))
+		core.Error(fmt.Sprintf("spec '%s' is in simple execution mode — Brain/Pinky will not drive it. Opt in first with `specd status %s --set-mode orchestrated`, or run it manually with `specd next %s`.", slug, slug, slug))
 		return core.ExitGate, false
 	}
 	return core.ExitOK, true

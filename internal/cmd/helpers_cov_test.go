@@ -46,15 +46,6 @@ func TestFrontierStuckReason(t *testing.T) {
 	}
 }
 
-func TestFirstRemediation(t *testing.T) {
-	if got := firstRemediation(nil); !strings.Contains(got, "doctor") {
-		t.Errorf("empty remediation fallback = %q", got)
-	}
-	if got := firstRemediation([]string{"fix this", "then that"}); got != "fix this" {
-		t.Errorf("first remediation = %q", got)
-	}
-}
-
 func TestFindSpecNode(t *testing.T) {
 	specs := []core.SpecNode{{Slug: "a"}, {Slug: "b"}}
 	if got := findSpecNode(specs, "b"); got == nil || got.Slug != "b" {

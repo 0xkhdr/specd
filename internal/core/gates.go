@@ -374,7 +374,7 @@ func GateModeCapability(c CheckCtx) (violations, warnings []Violation) {
 	v := Violation{
 		Gate:     "mode-capability",
 		Location: "state.json",
-		Message:  "spec is orchestrated but project has no orchestration capability — enable it with `specd init --orchestration session` (or manual|planning), or switch the spec back with `specd mode <slug> --set base`",
+		Message:  "spec is orchestrated but project has no orchestration capability — enable it with `specd init --orchestration session` (or manual|planning), or switch the spec back with `specd status <slug> --set-mode simple`",
 	}
 	if mode == "error" {
 		return []Violation{v}, nil

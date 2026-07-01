@@ -256,13 +256,13 @@ func TestApplyManifestRequiredGatedOffDiagnostic(t *testing.T) {
 	// AC3/R4: a required tool missing from the (config-gated) candidate set stays
 	// excluded and emits a diagnostic — config safety wins over manifest required.
 	cand := []toolDef{td("specd_status")}
-	m := core.ContextManifestTools{RequiredTools: []string{"specd_status", "specd_update"}}
+	m := core.ContextManifestTools{RequiredTools: []string{"specd_status", "specd_brain"}}
 	var got []toolDef
 	diag := captureStderr(t, func() { got = applyManifestFilter(cand, m) })
 	if strings.Join(names(got), ",") != "specd_status" {
 		t.Fatalf("gated required leaked into list: %v", names(got))
 	}
-	if !strings.Contains(diag, "specd_update") || !strings.Contains(diag, "config gate") {
+	if !strings.Contains(diag, "specd_brain") || !strings.Contains(diag, "config gate") {
 		t.Fatalf("missing R4 diagnostic, got: %q", diag)
 	}
 }

@@ -3,44 +3,18 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// modePayload is the typed schema for `specd mode --json` (show / set). Field
-// order matches the human output: the effective mode, how it was chosen, and
-// whether the project can run orchestration at all (capability ≠ selection).
+// modePayload is the typed schema for `specd status --set-mode --json` (show /
+// set). Field order matches the human output: the effective mode, how it was
+// chosen, and whether the project can run orchestration at all (capability ≠
+// selection).
 type modePayload struct {
 	Spec       string `json:"spec"`
 	Mode       string `json:"mode"`
 	Origin     string `json:"origin"`
 	Capability bool   `json:"orchestrationCapable"`
-}
-
-func runMode(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd mode <slug> [--set simple|orchestrated] [--recommend] [--json]")
-	if !ok {
-		return code
-	}
-	if err := core.RequireSpec(root, slug); err != nil {
-		return specdExit(err)
-	}
-	jsonOut := args.Bool("json")
-
-	if args.Bool("recommend") {
-		return runModeRecommend(root, slug, jsonOut)
-	}
-
-	if args.Has("set") {
-		return runModeSet(root, slug, args.Str("set"), jsonOut)
-	}
-
-	// Default: show effective mode + origin + capability.
-	loaded, err := core.LoadSpec(root, slug)
-	if err != nil {
-		return specdExit(err)
-	}
-	return printMode(slug, loaded.State, root, jsonOut)
 }
 
 // runModeSet records a new per-spec execution mode, failing closed when
@@ -113,7 +87,7 @@ func runModeRecommend(root, slug string, jsonOut bool) int {
 		rec.Signals.TaskCount, rec.Signals.MaxWaveWidth, rec.Signals.DistinctRoles,
 		rec.Signals.CrossSpecEdges, rec.Signals.EstimatedTokens)
 	fmt.Printf("  %s\n", rec.Rationale)
-	fmt.Println("  (advisory — you decide; `specd mode " + slug + " --set orchestrated` to opt in)")
+	fmt.Println("  (advisory — you decide; `specd status " + slug + " --set-mode orchestrated` to opt in)")
 	return core.ExitOK
 }
 

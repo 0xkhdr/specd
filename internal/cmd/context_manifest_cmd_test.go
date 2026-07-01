@@ -98,7 +98,7 @@ func TestDispatchRoleDedup(t *testing.T) {
 		th.TaskSpec{ID: "T1", Title: "Login form", Role: "craftsman", Verify: "true", Requirements: []int{1}},
 		th.TaskSpec{ID: "T2", Title: "Login api", Role: "craftsman", Verify: "true", Requirements: []int{1}},
 	)
-	res := h.RunExpect(core.ExitOK, "dispatch", slug, "--json")
+	res := h.RunExpect(core.ExitOK, "next", slug, "--dispatch", "--json")
 
 	var got struct {
 		Count   int               `json:"count"`
@@ -144,7 +144,7 @@ func TestDispatchInlineRoles(t *testing.T) {
 		th.TaskSpec{ID: "T1", Title: "Login form", Role: "craftsman", Verify: "true", Requirements: []int{1}},
 		th.TaskSpec{ID: "T2", Title: "Login api", Role: "craftsman", Verify: "true", Requirements: []int{1}},
 	)
-	res := h.RunExpect(core.ExitOK, "dispatch", slug, "--json", "--inline-roles")
+	res := h.RunExpect(core.ExitOK, "next", slug, "--dispatch", "--json", "--inline-roles")
 
 	var got struct {
 		Assets  map[string]string `json:"assets"`

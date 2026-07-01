@@ -59,7 +59,6 @@ type CommandMeta struct {
 	ExitCodes          []ExitCodeMeta          `json:"exitCodes"`
 	Examples           []string                `json:"examples"`
 	Hidden             bool                    `json:"hidden,omitempty"`
-	DeprecatedIn       string                  `json:"deprecatedIn,omitempty"`
 	RemovedIn          string                  `json:"removedIn,omitempty"`
 }
 
@@ -70,32 +69,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "init", Category: "lifecycle",
 		Description: "Scaffold project assets and configure coding agents",
-		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--migrate] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
+		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
 		LongDescription: "Scaffolds .specd/ and AGENTS.md, passively detects supported coding-agent hosts, optionally installs project-scoped MCP registration, verifies the in-process MCP server, and returns one next action. Non-interactive auto-detection never mutates host configuration unless --yes is supplied. Global scope requires explicit consent.",
-		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "migrate", Type: "boolean", Description: "Migrate legacy config.json to config.yml"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
+		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Initialization or pack operation failed"}, {2, "Usage error"}},
 		Examples:        []string{"specd init --agent auto --yes", "specd init --agent none --non-interactive", "specd init --agent all --dry-run --json", "specd init --repair"},
-	},
-
-	{
-		Command: "doctor", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Diagnose scaffold, MCP, and coding-agent registration",
-		Usage:       "specd doctor [--agent <name|all>] [--fix] [--json]", Synopsis: "specd doctor [--agent <name|all>] [--fix] [--json]",
-		LongDescription: "Checks the current project binary, required scaffold assets, in-process MCP handshake and baseline tools, detected coding-agent hosts, and project registration state. --fix repairs only safe project-scoped state and refuses conflicting or unowned registrations.",
-		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Inspect one host or all detected hosts"}, {Name: "fix", Type: "boolean", Description: "Repair safe project-scoped scaffold and registration state"}, {Name: "json", Type: "boolean", Description: "Output one deterministic JSON document"}},
-		ExitCodes:       []ExitCodeMeta{{0, "All requested checks pass"}, {1, "One or more health checks failed"}, {2, "Usage error"}},
-		Examples:        []string{"specd doctor", "specd doctor --agent codex --json", "specd doctor --fix"},
-	},
-
-	{
-		Command: "migrate", Category: "lifecycle", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Migrate legacy config.json to config.yml",
-		Usage:       "specd migrate config [--dry-run] [--global]", Synopsis: "specd migrate config [--dry-run] [--global]",
-		LongDescription: "Converts legacy JSON configuration to deterministic YAML, validates the rendered config, then renames the JSON file to .bak. --dry-run prints YAML without mutating files. --global migrates the user-level legacy config and does not require a project root.",
-		Flags:           []FlagMeta{{Name: "dry-run", Type: "boolean", Description: "Print YAML without writing or renaming"}, {Name: "global", Type: "boolean", Description: "Migrate the legacy global config"}, {Name: "json", Type: "boolean", Description: "Output migration result as JSON"}},
-		Positionals:     []PositionalMeta{{Name: "subcommand", Required: true, Description: "config"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Migration failed validation or safety checks"}, {2, "Usage error"}, {3, ".specd/ or legacy config not found"}},
-		Examples:        []string{"specd migrate config --dry-run", "specd migrate config", "specd migrate config --global"},
 	},
 
 	{
@@ -170,16 +148,6 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "dispatch", Category: "execution", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Ready-to-run packets for frontier",
-		Usage:       "specd dispatch <slug> [--json]", Synopsis: "specd dispatch <slug> [--json]",
-		LongDescription: "Produces ready-to-run packets for all tasks in the current runnable frontier.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd dispatch my-feature --json"},
-	},
-
-	{
 		Command: "verify", Category: "execution",
 		Description:     "Run task verify command / record proof",
 		Usage:           "specd verify <slug> <id>  |  specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence \"...\"",
@@ -212,16 +180,6 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "mode", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Show or set a spec's execution mode",
-		Usage:       "specd mode <slug> [--set simple|orchestrated] [--recommend] [--json]", Synopsis: "specd mode <slug> [--set simple|orchestrated] [--recommend] [--json]",
-		LongDescription: "Shows the effective execution mode (simple | orchestrated), its origin, and project orchestration capability for a spec. --set records a new per-spec mode (orchestrated requires project capability; switching to simple is refused while a Brain session is active). --recommend emits a deterministic, advisory recommendation computed from on-disk spec facts — the user decides.",
-		Flags:           []FlagMeta{{Name: "set", Type: "string", Description: "Set the spec's execution mode: simple or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean", Description: "Output in JSON format"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing or session-active refusal"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd mode my-feature", "specd mode my-feature --set orchestrated", "specd mode my-feature --recommend --json"},
-	},
-
-	{
 		Command: "check", Category: "inspection",
 		Description: "Run all validation gates",
 		Usage:       "specd check <slug> [--schema-only] [--json] | specd check --schema", Synopsis: "specd check <slug> [--schema-only] [--json] | specd check --schema",
@@ -242,28 +200,6 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "validate", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description:     "Check state.json against the open spec schema",
-		Usage:           "specd validate <slug> --schema [--version <v>]",
-		Synopsis:        "specd validate <slug> --schema [--version <v>]",
-		LongDescription: "Validates a spec's on-disk state.json against the embedded open spec format JSON Schema. A structural/format conformance mode (shape, required keys, closed property sets, enums) — independent of the seven semantic gates in `specd check`. Read-only. Text by default; JSON under SPECD_JSON.",
-		Flags:           []FlagMeta{{Name: "schema", Type: "boolean", Description: "Validate against the embedded JSON Schema (required)"}, {Name: "version", Type: "string", Description: "Schema version to validate against (default: current)"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Conformant"}, {1, "Conformance violations found"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd validate my-feature --schema", "SPECD_JSON=1 specd validate my-feature --schema"},
-	},
-
-	{
-		Command: "schema", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description:     "Emit the embedded open spec format JSON Schema",
-		Usage:           "specd schema [--version <v>]",
-		Synopsis:        "specd schema [--version <v>]",
-		LongDescription: "Writes the embedded, versioned JSON Schema for the specd on-disk artifacts to stdout. The schema is the published, machine-readable format contract; the Go types in internal/core are its single source of truth (a conformance test fails CI on drift). Requires no .specd/ root.",
-		Flags:           []FlagMeta{{Name: "version", Type: "string", Description: "Schema version to emit (default: current)"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Unknown schema version"}, {2, "Usage error"}},
-		Examples:        []string{"specd schema", "specd schema --version 1 > spec-schema.json"},
-	},
-
-	{
 		Command: "report", Category: "inspection",
 		Description: "Generate markdown, HTML, or metrics report",
 		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--serve|--watch|--history|--diff]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]",
@@ -271,47 +207,6 @@ var Commands = []CommandMeta{
 		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}, {Name: "serve", Type: "boolean", Description: "Serve the live dashboard"}, {Name: "watch", Type: "boolean", Description: "Stream runnable-frontier changes"}, {Name: "history", Type: "boolean", Description: "Replay the spec audit timeline"}, {Name: "diff", Type: "boolean", Description: "Diff spec artifacts between git refs"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd report my-feature --format html --out ./report.html", "specd report my-feature --format prometheus"},
-	},
-
-	{
-		Command: "serve", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Serve a read-only live dashboard",
-		Usage:       "specd serve <slug> [--addr 127.0.0.1:8765]", Synopsis: "specd serve <slug> [--addr 127.0.0.1:8765]",
-		LongDescription: "Starts a read-only HTTP server (loopback by default) that renders the same HTML as `specd report --format html` at GET /, and the JSON ReportData at GET /api/report. No mutating routes; data is rebuilt from disk per request.",
-		Flags:           []FlagMeta{{Name: "addr", Type: "string", Description: "Bind address (default 127.0.0.1:8765)"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd serve my-feature", "specd serve my-feature --addr 127.0.0.1:9000"},
-	},
-
-	{
-		Command: "replay", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Replay a spec's audit timeline",
-		Usage:       "specd replay <slug> [--acp-session <id>]", Synopsis: "specd replay <slug> [--acp-session <id>]",
-		LongDescription: "Reconstructs a deterministic, read-only event timeline (task start/finish/verify/block + acceptance records) from the spec's on-disk audit data. Text by default; a typed JSON array under SPECD_JSON.",
-		Flags:           []FlagMeta{{Name: "acp-session", Type: "string", Description: "Replay events for a specific orchestration session ID"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd replay my-feature", "specd replay my-feature --acp-session 11111111111111111111111111111111", "SPECD_JSON=1 specd replay my-feature"},
-	},
-
-	{
-		Command: "diff", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description:     "Diff a spec's artifacts between two git refs",
-		Usage:           "specd diff <slug> --from <ref> [--to <ref>]",
-		Synopsis:        "specd diff <slug> --from <ref> [--to <ref>]",
-		LongDescription: "Shows how a spec's on-disk artifacts changed between two git refs — a deterministic, read-only `git diff --name-status` scoped to the spec directory. --from is required; --to defaults to the working tree. Text by default; a typed JSON object under SPECD_JSON.",
-		Flags:           []FlagMeta{{Name: "from", Type: "string", Description: "Base git ref (required)"}, {Name: "to", Type: "string", Description: "Target git ref (default: working tree)"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "git diff failed (bad ref / not a repo)"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd diff my-feature --from HEAD~5", "specd diff my-feature --from v0.1.0 --to HEAD"},
-	},
-
-	{
-		Command: "watch", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Stream runnable-frontier changes (NDJSON / SSE / webhook)",
-		Usage:       "specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]", Synopsis: "specd watch [--once] [--spec <slug>] [--sse <addr>] [--webhook <url>]",
-		LongDescription: "Watches spec state and emits a FrontierEvent whenever a spec's runnable task set changes. Read-only: it never writes state. Transports: by default NDJSON on stdout; --sse <addr> serves Server-Sent Events at GET /events over net/http; --webhook <url> POSTs each event on a non-blocking background worker with bounded retry/backoff. --once does a single pass and exits; long-running modes shut down cleanly on SIGINT/SIGTERM. Polls at SPECD_WATCH_INTERVAL_MS (default 1000ms). Stdlib-only.",
-		Flags:           []FlagMeta{{Name: "once", Type: "boolean", Description: "Emit current frontiers once and exit"}, {Name: "spec", Type: "string", Description: "Limit the stream to a single spec slug"}, {Name: "sse", Type: "string", Description: "Serve Server-Sent Events at this bind address (e.g. 127.0.0.1:8766)"}, {Name: "webhook", Type: "string", Description: "POST each frontier event to this URL"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, ".specd/ not found"}},
-		Examples:        []string{"specd watch --once", "specd watch --spec my-feature", "specd watch --sse 127.0.0.1:8766", "specd watch --webhook https://ci.example/hook"},
 	},
 
 	{
@@ -392,42 +287,6 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "program", Category: "inspection", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description:     "Cross-spec DAG runnable frontier",
-		Usage:           "specd program [status] [--json]  |  specd program <link|unlink> <spec> --on <dep>",
-		Synopsis:        "specd program [status|link|unlink] [args] [flags]",
-		LongDescription: "Manages cross-spec dependencies and displays the cross-spec runnable frontier.",
-		Flags:           []FlagMeta{{Name: "on", Type: "string"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}},
-		Examples:        []string{"specd program status", "specd program link feat-b --on feat-a"},
-	},
-
-	{
-		Command: "update", Category: "meta", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description: "Update specd to latest version",
-		Usage:       "specd update [--force]", Synopsis: "specd update [--force]",
-		LongDescription: "Downloads the latest pre-built binary from GitHub Releases and replaces the running binary.",
-		Flags:           []FlagMeta{{Name: "force", Type: "boolean", Description: "Force update even if already up to date"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Update failed"}, {2, "Usage error"}},
-		Examples:        []string{"specd update", "specd update --force"},
-	},
-
-	{
-		Command: "uninstall", Category: "meta", Hidden: true, DeprecatedIn: "v0.2.0",
-		Description:     "Remove specd from this machine",
-		Usage:           "specd uninstall [--force] [--dry-run] [--json]",
-		Synopsis:        "specd uninstall [--force] [--dry-run] [--json]",
-		LongDescription: "Removes the specd install directory, the ~/.local/bin/specd link, and the '# specd' PATH lines install.sh added to your shell rc files (backed up to <rc>.specd.bak). A bare invocation only previews the plan; pass --force to actually remove. Project-local '.specd/' directories are always preserved.",
-		Flags: []FlagMeta{
-			{Name: "force", Type: "boolean", Description: "Perform the removal (without it, only the plan is shown)"},
-			{Name: "dry-run", Type: "boolean", Description: "Show what would be removed and exit"},
-			{Name: "json", Type: "boolean", Description: "Machine-readable output"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Uninstall failed"}, {2, "Usage error"}},
-		Examples:  []string{"specd uninstall", "specd uninstall --dry-run", "specd uninstall --force"},
-	},
-
-	{
 		Command: "version", Category: "meta", Hidden: true,
 		Description: "Show version information",
 		Usage:       "specd version [--json]", Synopsis: "specd version [--json]",
@@ -470,21 +329,15 @@ func init() {
 		"midreq":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "input", Required: true, Description: "Feedback text"}},
 		"memory":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "action", Required: true, Description: "add or promote"}},
 		"next":     {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"dispatch": {{Name: "slug", Required: true, Description: "Spec slug"}},
 		"verify":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "id", Required: false, Description: "Task id when running task verify"}},
 		"task":     {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "id", Required: true, Description: "Task id"}},
 		"status":   {{Name: "slug", Required: false, Description: "Optional spec slug"}},
-		"mode":     {{Name: "slug", Required: true, Description: "Spec slug"}},
 		"check":    {{Name: "slug", Required: true, Description: "Spec slug"}},
 		"context":  {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"validate": {{Name: "slug", Required: true, Description: "Spec slug"}},
 		"report":   {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"serve":    {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"replay":   {{Name: "slug", Required: true, Description: "Spec slug"}},
 		"waves":    {{Name: "slug", Required: true, Description: "Spec slug"}},
 		"brain":    {{Name: "action", Required: true, Description: "start, run, status, step, why, directive, pause, resume, or cancel"}, {Name: "slug", Required: false, Description: "Spec slug for spec-scoped actions"}},
 		"pinky":    {{Name: "action", Required: true, Description: "claim, brief, heartbeat, progress, query, report, block, release, or inbox"}},
-		"program":  {{Name: "action", Required: false, Description: "status, link, or unlink"}, {Name: "spec", Required: false, Description: "Spec slug for link/unlink"}},
 		"mcp":      {{Name: "action", Required: false, Description: "Run server by default; config mode via --config"}},
 		"help":     {{Name: "command", Required: false, Description: "Command name"}},
 	}
@@ -494,28 +347,19 @@ func init() {
 		"midreq":   anySpecCompat(),
 		"memory":   executionReflectCompat(),
 		"next":     executionCompat(),
-		"dispatch": executionCompat(),
 		"verify":   executionVerificationCompat(),
 		"task":     executionCompat(),
-		"mode":     anySpecCompat(),
 		"check":    anySpecCompat(),
 		"context":  anySpecCompat(),
-		"validate": anySpecCompat(),
 		"report":   completeReflectCompat(),
-		"serve":    anySpecCompat(),
-		"replay":   anySpecCompat(),
-		"diff":     anySpecCompat(),
 		"waves":    anySpecCompat(),
 		"brain":    executionCompat(),
 		"pinky":    executionCompat(),
-		"program":  executionCompat(),
 	}
 	modeCompat := map[string]*ModeCompatibilityMeta{
-		"new":     {Modes: []string{"simple", "orchestrated"}},
-		"mode":    {Modes: []string{"simple", "orchestrated"}},
-		"brain":   {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
-		"pinky":   {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
-		"program": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
+		"new":   {Modes: []string{"simple", "orchestrated"}},
+		"brain": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
+		"pinky": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
 	}
 	for i := range Commands {
 		cmd := &Commands[i]

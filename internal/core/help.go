@@ -32,9 +32,6 @@ func renderHelp(includeHidden bool) string {
 	for _, cat := range categories {
 		fmt.Fprintf(&b, "%s\n", cat.label)
 		for _, c := range Commands {
-			if c.DeprecatedIn != "" {
-				continue
-			}
 			if c.Category == cat.key && (includeHidden || !c.Hidden) {
 				bare := strings.TrimPrefix(c.Usage, "specd ")
 				line := "  " + bare
@@ -106,15 +103,11 @@ func RenderHelpJSON() (string, error) {
 	return string(b), nil
 }
 
-// RenderHelpJSONAll renders the command schema as indented JSON, excluding
-// deprecated commands and including hidden commands only when includeHidden
-// is true.
+// RenderHelpJSONAll renders the command schema as indented JSON, including
+// hidden commands only when includeHidden is true.
 func RenderHelpJSONAll(includeHidden bool) (string, error) {
 	commands := make([]CommandMeta, 0, len(Commands))
 	for _, c := range Commands {
-		if c.DeprecatedIn != "" {
-			continue
-		}
 		if includeHidden || !c.Hidden {
 			commands = append(commands, c)
 		}

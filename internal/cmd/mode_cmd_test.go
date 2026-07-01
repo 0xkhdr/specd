@@ -10,7 +10,7 @@ import (
 )
 
 // enableOrchestration writes a config.json granting the project orchestration
-// capability, so `--set orchestrated` / `new --orchestrated` can succeed.
+// capability, so `--set-mode orchestrated` / `new --orchestrated` can succeed.
 func enableOrchestration(t *testing.T, h *testharness.Harness) {
 	t.Helper()
 	if err := os.WriteFile(core.ConfigPath(h.Root), []byte(`{"version":1,"orchestration":{"enabled":true}}`), 0o644); err != nil {
@@ -40,9 +40,9 @@ func TestModeSetRejectsRenamedBaseValue(t *testing.T) {
 	h := testharness.New(t)
 	h.RunExpect(core.ExitOK, "new", "auth", "--title", "Auth")
 
-	res := h.RunExpect(core.ExitUsage, "mode", "auth", "--set", "base")
+	res := h.RunExpect(core.ExitUsage, "status", "auth", "--set-mode", "base")
 	if !strings.Contains(res.Out(), "simple") {
-		t.Errorf("expected --set base to fail with a message pointing at simple, got: %s", res.Out())
+		t.Errorf("expected --set-mode base to fail with a message pointing at simple, got: %s", res.Out())
 	}
 }
 
@@ -129,7 +129,7 @@ func TestBrainRefusesSimpleSpec(t *testing.T) {
 		Build()
 
 	res := h.RunExpect(core.ExitGate, "brain", "start", "auth", "--session", strings.Repeat("a", 32))
-	if !strings.Contains(res.Out(), "simple execution mode") || !strings.Contains(res.Out(), "--set orchestrated") {
+	if !strings.Contains(res.Out(), "simple execution mode") || !strings.Contains(res.Out(), "--set-mode orchestrated") {
 		t.Errorf("expected simple-mode refusal with remediation, got: %s", res.Out())
 	}
 }
