@@ -47,7 +47,7 @@ func (r *toolRegistry) swap(tools []toolDef) {
 const (
 	latestProtocolVersion = "2025-11-25"
 	legacyProtocolVersion = "2024-11-05"
-	serverInstructions    = "Start with specd_fusion bootstrap/policy when present. Fallback: specd_status, specd_context, specd_help --json/schema before acting. Prefer brain_* intents; raw specd_brain start/step/status stays for power users. MCP bounded: watch --once only; host runs Pinky workers. Never edit state/tasks checkboxes. Approval policy-gated; completion needs specd_verify evidence."
+	serverInstructions    = "Start with specd_handshake bootstrap/policy when present. Fallback: specd_status, specd_context, specd_help --json/schema before acting. Prefer brain_* intents; raw specd_brain start/step/status stays for power users. MCP bounded: watch --once only; host runs Pinky workers. Never edit state/tasks checkboxes. Approval policy-gated; completion needs specd_verify evidence."
 )
 
 // supportedProtocolVersions is newest-first so fallback negotiation is stable.

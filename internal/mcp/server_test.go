@@ -104,7 +104,7 @@ func TestMCPInstructionsAgentBudget(t *testing.T) {
 		t.Fatalf("instructions use %d bytes, want <= 512", len(instructions))
 	}
 	for _, phrase := range []string{
-		"specd_fusion bootstrap/policy",
+		"specd_handshake bootstrap/policy",
 		"specd_status",
 		"specd_context",
 		"specd_help --json/schema",

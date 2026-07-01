@@ -20,11 +20,11 @@ func TestValidateToolArgs(t *testing.T) {
 		{"undeclared_key_rejected", "status", map[string]any{"bogus": "x"}, true},
 		{"args_array_of_strings_ok", "status", map[string]any{"args": []any{"widget"}}, false},
 		{"args_must_be_array_not_string", "status", map[string]any{"args": "widget"}, true},
-		{"non_boolean_flag_accepts_string", "fusion", map[string]any{"expect-config-digest": "abc123"}, false},
+		{"non_boolean_flag_accepts_string", "handshake", map[string]any{"expect-config-digest": "abc123"}, false},
 		{"non_boolean_flag_accepts_number", "brain", map[string]any{"max-retries": float64(2)}, false},
-		{"non_boolean_flag_rejects_array", "fusion", map[string]any{"expect-config-digest": []any{"a", "b"}}, true},
-		{"non_boolean_flag_rejects_object", "fusion", map[string]any{"expect-config-digest": map[string]any{"a": "b"}}, true},
-		{"non_boolean_flag_rejects_bool", "fusion", map[string]any{"expect-config-digest": true}, true},
+		{"non_boolean_flag_rejects_array", "handshake", map[string]any{"expect-config-digest": []any{"a", "b"}}, true},
+		{"non_boolean_flag_rejects_object", "handshake", map[string]any{"expect-config-digest": map[string]any{"a": "b"}}, true},
+		{"non_boolean_flag_rejects_bool", "handshake", map[string]any{"expect-config-digest": true}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

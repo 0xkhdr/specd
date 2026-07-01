@@ -21,7 +21,7 @@ var metaCommands = map[string]bool{"help": true, "version": true, "mcp": true}
 // command is annotated readOnlyHint:false so a host knows it may change state.
 var readOnlyCommands = map[string]bool{
 	"status": true, "waves": true, "context": true, "check": true,
-	"next": true, "report": true, "fusion": true,
+	"next": true, "report": true, "handshake": true,
 }
 
 // destructiveCommands mutate the install itself rather than spec state; they are

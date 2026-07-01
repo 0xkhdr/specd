@@ -27,7 +27,7 @@ func TestHiddenExcluded(t *testing.T) {
 		"specd_doctor", "specd_migrate", "specd_mode", "specd_dispatch",
 		"specd_validate", "specd_schema", "specd_serve", "specd_replay",
 		"specd_diff", "specd_watch", "specd_program", "specd_update",
-		"specd_uninstall", "specd_fusion", "specd_version", "specd_help", "specd_mcp",
+		"specd_uninstall", "specd_handshake", "specd_version", "specd_help", "specd_mcp",
 	} {
 		if tools[name] {
 			t.Fatalf("hidden/retired command %s exposed in MCP default tool list", name)

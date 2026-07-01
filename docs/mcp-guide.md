@@ -195,7 +195,7 @@ curl -s -X POST http://127.0.0.1:8765/rpc \
 
 ## Tool Mapping Contract
 
-On session start, call `specd_fusion` with `args:["bootstrap"]` when it is exposed; before acting on one spec, call `specd_fusion` with `args:["policy","<slug>"]`. If `specd_fusion` is not exposed, fall back to `specd_status`, `specd_context`, and command schema discovery (`specd_help --json` via shell, or MCP tool schemas/enums from `tools/list`).
+On session start, call `specd_handshake` with `args:["bootstrap"]` when it is exposed; before acting on one spec, call `specd_handshake` with `args:["policy","<slug>"]`. If `specd_handshake` is not exposed, fall back to `specd_status`, `specd_context`, and command schema discovery (`specd_help --json` via shell, or MCP tool schemas/enums from `tools/list`).
 
 The server automatically maps every registered command in `specd` — except the meta commands
 `help`, `version`, and `mcp` — to an MCP tool at startup. **No separate registration is
@@ -233,7 +233,7 @@ Every tool carries MCP annotations so a host can signal risk before invoking:
 
 | Annotation | Value | Commands |
 |---|---|---|
-| `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `report`, `fusion`, and their read-only flag variants (`next --dispatch`, `report --serve`/`--watch`/`--history`/`--diff`, `check --schema`/`--schema-only`) |
+| `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `report`, `handshake`, and their read-only flag variants (`next --dispatch`, `report --serve`/`--watch`/`--history`/`--diff`, `check --schema`/`--schema-only`) |
 | `readOnlyHint` | `false` | All other commands (state-mutating) |
 | `destructiveHint` | `true` | None currently. `destructiveCommands` is an empty classification map, reserved for tools that mutate the install itself (its former members `update`/`uninstall` were removed in v0.1.0). |
 
@@ -269,7 +269,7 @@ The following tools are exposed automatically. Refer to the
 |---|---|---|---|
 | `specd_init` | `specd init` | Scaffold `.specd/` directory and role configurations | No |
 | `specd_init` with `--repair` | `specd init --repair` | Diagnose scaffold, MCP server, and host registration health | Yes |
-| `specd_fusion` | `specd fusion` | Bootstrap session context and read binding policy | Yes |
+| `specd_handshake` | `specd handshake` | Bootstrap session context and read binding policy | Yes |
 | `specd_new` | `specd new` | Create a new spec with artifact stubs | No |
 | `specd_approve` | `specd approve` | Clear phase approval gate | No |
 | `specd_decision` | `specd decision` | Record architectural decision (ADR) | No |
@@ -307,7 +307,7 @@ byte-identical to the default — no behavioural change.**
 {
   "mcp": {
     "expose": "essential",                      // "all" (default) | "essential" | "phase"
-    "essentialTools": ["specd_fusion",           // command/composite/intent names kept under "essential"
+    "essentialTools": ["specd_handshake",           // command/composite/intent names kept under "essential"
                        "specd_inspect", "specd_read", "specd_query",
                        "verify", "task", "approve"],
     "includeMeta": false,                        // reserved meta-tool gate; true also bypasses role filtering (default false)
@@ -319,7 +319,7 @@ byte-identical to the default — no behavioural change.**
 | Field | Effect |
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
-| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_fusion, specd_inspect, specd_read, specd_query, verify, task, approve` (fusion covers startup; composites cover the read surface). |
+| `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_handshake, specd_inspect, specd_read, specd_query, verify, task, approve` (handshake covers startup; composites cover the read surface). |
 | `includeMeta` | Gates the reserved `metaRiskCommands` classification (currently empty, so it hides no tools today) and, when `true`, bypasses role-based tool filtering to advertise the full surface regardless of the active role. Reserved for future install-maintenance / meta tools; its former members (`update`/`uninstall`) were removed in v0.1.0. |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 

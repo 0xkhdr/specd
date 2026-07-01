@@ -7,13 +7,13 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// RunFusion implements `specd fusion`, dispatching to the "bootstrap" subcommand
+// RunHandshake implements `specd handshake`, dispatching to the "bootstrap" subcommand
 // (a machine-readable startup oracle for host agents) and the "policy"
 // subcommand (effective subagent/orchestration/sandbox policy plus any
 // violations, optionally scoped to a spec).
-func RunFusion(args cli.Args) int {
+func RunHandshake(args cli.Args) int {
 	if len(args.Pos) == 0 {
-		return usageExit("usage: specd fusion <bootstrap|policy> [flags]")
+		return usageExit("usage: specd handshake <bootstrap|policy> [flags]")
 	}
 	root, err := core.RequireSpecdRoot()
 	if err != nil {
@@ -22,7 +22,7 @@ func RunFusion(args cli.Args) int {
 	sub := args.Pos[0]
 	switch sub {
 	case "bootstrap":
-		out, err := core.BuildFusionBootstrap(root, args.Bool("include-schema"))
+		out, err := core.BuildHandshakeBootstrap(root, args.Bool("include-schema"))
 		if err != nil {
 			return specdExit(err)
 		}
@@ -32,14 +32,14 @@ func RunFusion(args cli.Args) int {
 			}
 			return core.ExitOK
 		}
-		fmt.Println("fusion bootstrap: run with --json for machine-readable startup oracle")
+		fmt.Println("handshake bootstrap: run with --json for machine-readable startup oracle")
 		return core.ExitOK
 	case "policy":
 		slug := ""
 		if len(args.Pos) > 1 {
 			slug = args.Pos[1]
 		}
-		out, err := core.BuildFusionPolicy(root, slug, args.Str("expect-config-digest"))
+		out, err := core.BuildHandshakePolicy(root, slug, args.Str("expect-config-digest"))
 		if err != nil {
 			return specdExit(err)
 		}
@@ -48,7 +48,7 @@ func RunFusion(args cli.Args) int {
 				return specdExit(err)
 			}
 		} else {
-			fmt.Printf("fusion policy: subagents=%s orchestration=%v verifySandbox=%s digest=%s\n", out.SubagentMode, out.OrchestrationEnabled, out.VerifySandbox, out.ConfigDigest)
+			fmt.Printf("handshake policy: subagents=%s orchestration=%v verifySandbox=%s digest=%s\n", out.SubagentMode, out.OrchestrationEnabled, out.VerifySandbox, out.ConfigDigest)
 			if out.Spec != nil {
 				fmt.Printf("spec %s: mode=%s origin=%s recommended=%s\n", out.Spec.Slug, out.Spec.SpecMode, out.Spec.ModeOrigin, out.Spec.Recommended)
 			}
@@ -61,6 +61,6 @@ func RunFusion(args cli.Args) int {
 		}
 		return core.ExitOK
 	default:
-		return usageExit("usage: specd fusion <bootstrap|policy> [flags]")
+		return usageExit("usage: specd handshake <bootstrap|policy> [flags]")
 	}
 }
