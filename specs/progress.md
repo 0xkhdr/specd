@@ -1,7 +1,7 @@
 # specd Production Regression — Progress
 
-**Overall status:** Wave 1 baseline complete; Wave 2 implementation ready.
-**Current wave:** Wave 1 complete → ready for Wave 2.
+**Overall status:** Wave 1 baseline complete; Wave 2 implementation complete.
+**Current wave:** Wave 2 complete → ready for Wave 3.
 **Wave 1 evidence:** `specs/wave1-baseline.md`.
 
 ## Requirement → Spec coverage (R1–R15)
@@ -94,5 +94,6 @@ All 15 requirements covered by ≥1 spec. ✅
 ## Remaining work
 
 - [x] Execute Wave 1 baseline tasks (`specs/wave1-baseline.md`).
-- [ ] Execute Wave 2 → Wave 4 implementation tasks.
+- [x] Execute Wave 2 implementation tasks.
+- [ ] Execute Wave 3 → Wave 4 implementation tasks.
 - [ ] Final gate: `make ci` green, floors held/raised, stress green.

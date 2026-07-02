@@ -12,15 +12,15 @@ Requirement coverage: R5. Dependencies: S1.
 
 ## Wave 2 — Core regression tests (depends on Wave 1)
 
-- [ ] JSON-RPC framing over stdio and HTTP: valid request → well-formed result.
+- [x] JSON-RPC framing over stdio and HTTP: valid request → well-formed result.
   File: `internal/mcp/transport_test.go` (extend).
-- [ ] Constant-time auth: bad token rejected, valid accepted. File:
+- [x] Constant-time auth: bad token rejected, valid accepted. File:
   `internal/mcp/transport_http_auth_test.go` (extend).
-- [ ] Tool-list parity: assert against golden fixture (add/remove fails). File:
+- [x] Tool-list parity: assert against golden fixture (add/remove fails). File:
   `internal/mcp/parity_test.go` (extend).
-- [ ] Malformed frame → JSON-RPC error, no panic. File:
+- [x] Malformed frame → JSON-RPC error, no panic. File:
   `internal/mcp/transport_http_test.go` (extend).
-- **Validation:** `go test ./internal/mcp/... -run 'Auth|Transport|Parity|Tools' -race -count=1`
+- **Validation:** `go test ./internal/mcp/... -run 'Auth|Transport|Parity|Tools' -race -count=1` ✅
 
 ## Wave 3 — SSE & determinism (depends on Wave 2)
 

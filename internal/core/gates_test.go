@@ -100,6 +100,15 @@ func TestGateDAG(t *testing.T) {
 	if len(v) != 1 || v[0].Gate != "dag" {
 		t.Fatalf("bad dag: want 1 dag violation, got %v", v)
 	}
+	// Violating: cycle must be reported by the gate, not left for execution.
+	cyclic := &ParsedTasks{Tasks: []ParsedTask{
+		{ID: "T1", Wave: 1, Meta: map[string]string{"depends": "T2"}},
+		{ID: "T2", Wave: 1, Meta: map[string]string{"depends": "T1"}},
+	}}
+	v, _ = GateDAG(CheckCtx{Doc: cyclic})
+	if len(v) != 1 || v[0].Gate != "dag" || !strings.Contains(v[0].Message, "cycle") {
+		t.Fatalf("cyclic dag: want 1 cycle dag violation, got %v", v)
+	}
 }
 
 func TestGateSync(t *testing.T) {

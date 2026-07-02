@@ -64,6 +64,33 @@ func TestTokenAuthEnforcesBearer(t *testing.T) {
 	}
 }
 
+func TestTokenAuthRejectsMalformedBearerWithoutDispatch(t *testing.T) {
+	const token = "s3cret-token"
+	for _, header := range []string{
+		"Bearer",
+		"Bearer ",
+		"bearer " + token,
+		"Bearer " + token + " extra",
+		"Basic " + token,
+		"Bearer s3cret-token\x00",
+	} {
+		t.Run(header, func(t *testing.T) {
+			var reached bool
+			h := tokenAuth(token, recordingHandler(&reached))
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/rpc", nil)
+			req.Header.Set("Authorization", header)
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("code = %d, want 401", rec.Code)
+			}
+			if reached {
+				t.Fatal("malformed bearer reached dispatch")
+			}
+		})
+	}
+}
+
 func TestIsLoopbackBind(t *testing.T) {
 	cases := []struct {
 		addr string

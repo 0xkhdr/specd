@@ -11,15 +11,15 @@ Requirement coverage: R10 (+R4, R5). Dependencies: S2, S4, S5.
 
 ## Wave 2 — Core regression tests (depends on Wave 1)
 
-- [ ] Path traversal: `..`, absolute, and separator slugs rejected pre-FS. File:
+- [x] Path traversal: `..`, absolute, and separator slugs rejected pre-FS. File:
   `internal/core/slug_test.go` (extend).
-- [ ] Env scrub: sensitive host vars absent from verify env. File:
+- [x] Env scrub: sensitive host vars absent from verify env. File:
   `internal/core/env_test.go` (extend).
-- [ ] MCP auth: constant-time reject of bad/malformed token. File:
+- [x] MCP auth: constant-time reject of bad/malformed token. File:
   `internal/mcp/transport_http_auth_test.go` (extend).
-- [ ] Fail-closed sandbox reference test (cross-links S4). File:
+- [x] Fail-closed sandbox reference test (cross-links S4). File:
   `internal/runner/runner_sandbox_test.go`.
-- **Validation:** `go test ./... -run 'Slug|Security|Auth|Env|Scrub' -race -count=1`
+- **Validation:** `go test ./... -run 'Slug|Security|Auth|Env|Scrub' -race -count=1` ✅
 
 ## Wave 3 — Static scanners (depends on Wave 2)
 

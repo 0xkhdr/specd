@@ -10,15 +10,15 @@ Requirement coverage: R3. Dependencies: S2.
 
 ## Wave 2 — Core regression tests (depends on Wave 1)
 
-- [ ] Frontier correctness: deps-complete → runnable; deps-incomplete → excluded.
+- [x] Frontier correctness: deps-complete → runnable; deps-incomplete → excluded.
   File: `internal/core/frontier_test.go` (extend).
-- [ ] Cycle rejection: build a cyclic graph, assert `GateDAG` violation. File:
+- [x] Cycle rejection: build a cyclic graph, assert `GateDAG` violation. File:
   `internal/core/gates_test.go` (extend).
-- [ ] Orphan detection: dep referencing a missing task id → violation. File:
+- [x] Orphan detection: dep referencing a missing task id → violation. File:
   `internal/core/dag_test.go` (extend).
-- [ ] Empty-frontier reason: all-complete graph → empty frontier + "complete"
+- [x] Empty-frontier reason: all-complete graph → empty frontier + "complete"
   reason from `NextRunnable`. File: `internal/core/dag_test.go`.
-- **Validation:** `go test ./internal/core/... -run 'DAG|Frontier|GateDAG' -race -count=1`
+- **Validation:** `go test ./internal/core/... -run 'DAG|Frontier|GateDAG' -race -count=1` ✅
 
 ## Wave 3 — Wave ordering & determinism (depends on Wave 2)
 
