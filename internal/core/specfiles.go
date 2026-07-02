@@ -17,6 +17,7 @@ type Config struct {
 	Version            int              `json:"version"`
 	DefaultVerify      string           `json:"defaultVerify"`
 	Report             ReportCfg        `json:"report"`
+	Routing            RoutingCfg       `json:"routing,omitempty"`
 	Roles              RolesCfg         `json:"roles"`
 	PromotionThreshold int              `json:"promotionThreshold"`
 	Gates              GatesCfg         `json:"gates"`
