@@ -21,7 +21,7 @@ type Command struct {
 // Registry lists every dispatchable command in help-display order.
 var Registry = []Command{
 	{"init", RunInit},
-	{"fusion", RunFusion},
+	{"handshake", RunHandshake},
 	{"new", RunNew},
 	{"approve", RunApprove},
 	{"decision", RunDecision},

@@ -66,6 +66,12 @@ func TestAllComplete(t *testing.T) {
 	if r.Kind != NextAllComplete {
 		t.Errorf("expected all-complete, got %s", r.Kind)
 	}
+	if string(r.Kind) != "all-complete" {
+		t.Errorf("all-complete reason = %q, want all-complete", r.Kind)
+	}
+	if r.ID != "" || len(r.Blocked) != 0 || len(r.Blocking) != 0 {
+		t.Errorf("all-complete result should carry no task ids: %+v", r)
+	}
 }
 
 func TestCriticalPath(t *testing.T) {

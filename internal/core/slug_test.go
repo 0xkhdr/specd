@@ -19,6 +19,8 @@ func TestValidateSlug(t *testing.T) {
 		{"uppercase_rejected", "Auth", true, ExitUsage},
 		{"underscore_rejected", "user_auth", true, ExitUsage},
 		{"path_separator_rejected", "a/b", true, ExitUsage},
+		{"windows_separator_rejected", `a\\b`, true, ExitUsage},
+		{"embedded_parent_traversal_rejected", "a/../b", true, ExitUsage},
 		{"parent_traversal_rejected", "..", true, ExitUsage},
 		{"nested_traversal_rejected", "../../etc/passwd", true, ExitUsage},
 		{"absolute_path_rejected", "/etc/passwd", true, ExitUsage},

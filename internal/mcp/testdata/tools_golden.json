@@ -1,0 +1,797 @@
+[
+  {
+    "name": "specd_init",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"
+        },
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd init [--agent \u003cname\u003e] [--yes] [--dry-run]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dry-run": {
+          "type": "boolean",
+          "description": "Preview exact actions without writing"
+        },
+        "force": {
+          "type": "boolean",
+          "description": "Destructively overwrite all scaffold files and AGENTS.md"
+        },
+        "json": {
+          "type": "boolean",
+          "description": "Output one versioned InitResult document"
+        },
+        "list-packs": {
+          "type": "boolean",
+          "description": "List the embedded spec packs and exit"
+        },
+        "non-interactive": {
+          "type": "boolean",
+          "description": "Disable prompts"
+        },
+        "orchestration": {
+          "type": "string",
+          "description": "Enable Brain/Pinky and set approval policy (manual, planning, session)"
+        },
+        "orchestration-cost-limit": {
+          "type": "string",
+          "description": "Host-reported cost brake in USD (default 0)"
+        },
+        "orchestration-mode": {
+          "type": "string",
+          "description": "Subagent coordination mode: inline or delegate (default delegate)"
+        },
+        "orchestration-retries": {
+          "type": "string",
+          "description": "Retry budget for failed/reclaimed work (0..10, default 2)"
+        },
+        "orchestration-sandbox": {
+          "type": "string",
+          "description": "Default verify sandbox: none, bwrap, or container (default none)"
+        },
+        "orchestration-timeout": {
+          "type": "string",
+          "description": "Session wall-clock timeout in minutes (1..1440, default 120)"
+        },
+        "orchestration-workers": {
+          "type": "string",
+          "description": "Max concurrent Pinky workers (1..64, default 4)"
+        },
+        "pack": {
+          "type": "string",
+          "description": "Apply a spec pack by built-in name or http(s) URL"
+        },
+        "refresh": {
+          "type": "boolean",
+          "description": "Refresh frozen managed assets and AGENTS.md markers"
+        },
+        "repair": {
+          "type": "boolean",
+          "description": "Restore missing managed assets only"
+        },
+        "scope": {
+          "type": "string",
+          "description": "Integration scope (default project)"
+        },
+        "sha256": {
+          "type": "string",
+          "description": "Pinned SHA256 digest required for a remote --pack URL"
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Include detailed path results"
+        },
+        "yes": {
+          "type": "boolean",
+          "description": "Accept non-destructive project-scoped integration changes"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_new",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd new \u003cslug\u003e [--title \"...\"] [--orchestrated]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "orchestrated": {
+          "type": "boolean",
+          "description": "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the spec"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_approve",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd approve \u003cslug\u003e [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "json": {
+          "type": "boolean",
+          "description": "Output in JSON format"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_decision",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd decision \u003cslug\u003e \"\u003ctext\u003e\" [--supersedes \u003cid\u003e]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supersedes": {
+          "type": "string",
+          "description": "ID of the decision being superseded"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_midreq",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd midreq \u003cslug\u003e \"\u003cinput\u003e\" --impact \u003clow|medium|high|critical\u003e",
+          "items": {
+            "type": "string"
+          }
+        },
+        "changes": {
+          "type": "string"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Impact level (low/medium/high/critical)"
+        },
+        "interpretation": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_memory",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd memory \u003cslug\u003e \u003cadd|promote\u003e [flags]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "body": {
+          "type": "string"
+        },
+        "criticality": {
+          "type": "string"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "key": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "related": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_next",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean",
+          "description": "Print all runnable tasks"
+        },
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd next \u003cslug\u003e [--all] [--dispatch] [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dispatch": {
+          "type": "boolean",
+          "description": "Emit ready-to-run dispatch packets for the runnable frontier"
+        },
+        "json": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_verify",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd verify \u003cslug\u003e [id] [flags]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "criterion": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "revert-on-fail": {
+          "type": "boolean",
+          "description": "On a failed verify, stash the working tree (recoverable) instead of leaving it dirty"
+        },
+        "sandbox": {
+          "type": "string",
+          "description": "Isolation backend for this run (none|bwrap|container); overrides verify.sandbox config"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_task",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd task \u003cslug\u003e \u003cid\u003e --status \u003cstatus\u003e [flags]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cost": {
+          "type": "string",
+          "description": "Annotate task telemetry with a cost (stored, not computed)"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "tokens": {
+          "type": "string",
+          "description": "Annotate task telemetry with a token count (stored, not computed)"
+        },
+        "unverified": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_status",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean",
+          "description": "List all specs (default when no slug is supplied)"
+        },
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd status [\u003cslug\u003e] [--all] [--program] [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "program": {
+          "type": "boolean",
+          "description": "Show the cross-spec program frontier"
+        },
+        "recommend": {
+          "type": "boolean",
+          "description": "Emit an advisory mode recommendation from countable spec facts"
+        },
+        "set-mode": {
+          "type": "string",
+          "description": "Set the spec's execution mode: simple or orchestrated"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_check",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd check \u003cslug\u003e [--schema-only] [--json] | specd check --schema",
+          "items": {
+            "type": "string"
+          }
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "schema": {
+          "type": "boolean",
+          "description": "Emit the embedded open spec format JSON Schema"
+        },
+        "schema-only": {
+          "type": "boolean",
+          "description": "Validate state.json against the embedded open spec schema only"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_context",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd context \u003cslug\u003e [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "json": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_report",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd report \u003cslug\u003e [--format md|html|prometheus] [--out \u003cpath\u003e] [--pr-summary]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diff": {
+          "type": "boolean",
+          "description": "Diff spec artifacts between git refs"
+        },
+        "format": {
+          "type": "string",
+          "description": "Output format: md, html, or prometheus"
+        },
+        "history": {
+          "type": "boolean",
+          "description": "Replay the spec audit timeline"
+        },
+        "out": {
+          "type": "string"
+        },
+        "pr-summary": {
+          "type": "boolean",
+          "description": "Emit a deterministic PR summary instead of the full report"
+        },
+        "serve": {
+          "type": "boolean",
+          "description": "Serve the live dashboard"
+        },
+        "watch": {
+          "type": "boolean",
+          "description": "Stream runnable-frontier changes"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_waves",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd waves \u003cslug\u003e [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "json": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_brain",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "directive action: continue, retry, cancel, reassign, or escalate"
+        },
+        "approval-policy": {
+          "type": "string",
+          "description": "required approval policy for start/step"
+        },
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd brain \u003cstart|status|step|pause|resume|cancel|checkpoint\u003e ... [--program]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attempt": {
+          "type": "string",
+          "description": "positive attempt number for directive"
+        },
+        "auto-step": {
+          "type": "boolean",
+          "description": "Start then drive the Brain loop (merged from brain run)"
+        },
+        "bootstrap": {
+          "type": "boolean",
+          "description": "automatically bootstrap missing specs during run"
+        },
+        "compact": {
+          "type": "boolean",
+          "description": "Compact/checkpoint context before host clear"
+        },
+        "cost-limit": {
+          "type": "string",
+          "description": "optional host-reported cost limit"
+        },
+        "directive": {
+          "type": "boolean",
+          "description": "Record a host directive on brain step"
+        },
+        "in-reply-to": {
+          "type": "string",
+          "description": "query message id this directive answers"
+        },
+        "json": {
+          "type": "boolean",
+          "description": "emit JSON"
+        },
+        "ledger": {
+          "type": "boolean",
+          "description": "Show the session context ledger"
+        },
+        "max-retries": {
+          "type": "string",
+          "description": "required retry limit for start/step"
+        },
+        "max-steps": {
+          "type": "string",
+          "description": "max driver loop steps (default 100 for single, 200 for program)"
+        },
+        "max-workers": {
+          "type": "string",
+          "description": "required worker concurrency limit for start/step"
+        },
+        "program": {
+          "type": "boolean",
+          "description": "operate on the cross-spec program session instead of one spec"
+        },
+        "reason": {
+          "type": "string",
+          "description": "directive reason"
+        },
+        "session": {
+          "type": "string",
+          "description": "explicit orchestration session id"
+        },
+        "spec": {
+          "type": "string",
+          "description": "spec slug for directive"
+        },
+        "task": {
+          "type": "string",
+          "description": "task id for directive"
+        },
+        "timeout-seconds": {
+          "type": "string",
+          "description": "required session timeout for start/step"
+        },
+        "title": {
+          "type": "string",
+          "description": "title to use when bootstrapping a missing spec"
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Explain scheduling state (merged from brain why)"
+        },
+        "worker": {
+          "type": "string",
+          "description": "worker id for directive"
+        },
+        "worker-cmd": {
+          "type": "string",
+          "description": "host shell command to spawn Pinky workers"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_pinky",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd pinky \u003cclaim|status|update|report|block|release\u003e ...",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifact": {
+          "type": "string",
+          "description": "the artifact template name for brief (e.g. requirements.md)"
+        },
+        "attempt": {
+          "type": "string",
+          "description": "positive attempt number"
+        },
+        "changed-files": {
+          "type": "string",
+          "description": "comma-separated changed files"
+        },
+        "duration-ms": {
+          "type": "string",
+          "description": "host-reported task duration in milliseconds"
+        },
+        "git-head": {
+          "type": "string",
+          "description": "git commit observed by the host worker"
+        },
+        "host-cost": {
+          "type": "string",
+          "description": "host-reported cost (stored, not computed)"
+        },
+        "host-tokens": {
+          "type": "string",
+          "description": "host-reported token count (stored, not computed)"
+        },
+        "json": {
+          "type": "boolean",
+          "description": "emit JSON"
+        },
+        "message": {
+          "type": "string",
+          "description": "progress message"
+        },
+        "mission": {
+          "type": "string",
+          "description": "mission JSON path or - for claim"
+        },
+        "percent": {
+          "type": "string",
+          "description": "progress percent"
+        },
+        "reason": {
+          "type": "string",
+          "description": "blocker reason"
+        },
+        "session": {
+          "type": "string",
+          "description": "session id"
+        },
+        "spec": {
+          "type": "string",
+          "description": "spec slug"
+        },
+        "summary": {
+          "type": "string",
+          "description": "terminal summary"
+        },
+        "task": {
+          "type": "string",
+          "description": "task id"
+        },
+        "text": {
+          "type": "string",
+          "description": "bounded Pinky query text"
+        },
+        "verification-ref": {
+          "type": "string",
+          "description": "terminal verification reference"
+        },
+        "worker": {
+          "type": "string",
+          "description": "worker id"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "brain_orchestrate",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "approval_policy": {
+          "type": "string",
+          "description": "Override the approval policy (default: planning). One of manual|planning|session."
+        },
+        "goal": {
+          "type": "string",
+          "description": "One-line goal/title used when bootstrapping a new spec."
+        },
+        "max_steps": {
+          "type": "string",
+          "description": "Maximum Brain steps before the driver stops (safety bound)."
+        },
+        "no_bootstrap": {
+          "type": "boolean",
+          "description": "Do not auto-create a missing spec; fail closed instead."
+        },
+        "session": {
+          "type": "string",
+          "description": "Resume or name a specific session id instead of the active one."
+        },
+        "spec": {
+          "type": "string",
+          "description": "Spec slug to orchestrate (created if absent)."
+        },
+        "worker_cmd": {
+          "type": "string",
+          "description": "Shell command run per Pinky dispatch; receives the mission via SPECD_* env. Omit to stop at the first dispatch."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "brain_status",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ledger": {
+          "type": "boolean",
+          "description": "Show the session context ledger instead of the scheduling explanation."
+        },
+        "program": {
+          "type": "boolean",
+          "description": "Target a program (cross-spec) session instead of a single spec."
+        },
+        "session": {
+          "type": "string",
+          "description": "Orchestration session id to act on."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "brain_approve",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spec": {
+          "type": "string",
+          "description": "Spec slug whose gate to clear / phase to advance."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "brain_pause",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "boolean",
+          "description": "Target a program (cross-spec) session instead of a single spec."
+        },
+        "session": {
+          "type": "string",
+          "description": "Orchestration session id to act on."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "brain_resume",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "max_age_minutes": {
+          "type": "string",
+          "description": "When listing, exclude sessions whose updatedAt is older than this many minutes."
+        },
+        "program": {
+          "type": "boolean",
+          "description": "Target a program (cross-spec) session instead of a single spec."
+        },
+        "session": {
+          "type": "string",
+          "description": "Session id to resume. Omit to list resumable sessions instead."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "brain_cancel",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "boolean",
+          "description": "Target a program (cross-spec) session instead of a single spec."
+        },
+        "session": {
+          "type": "string",
+          "description": "Orchestration session id to act on."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+]

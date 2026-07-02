@@ -93,7 +93,7 @@ func BuildContextManifest(req ContextRequest) MissionContextManifest {
 	}
 	if req.Mode == ContextModeBriefing && req.ContextCommand == "" {
 		if req.Slug != "" {
-			add("fusion-policy", "", "specd fusion policy "+req.Slug+" --json", "run-command", true, 120, "binding config and mode policy; do not inline help schema", nil)
+			add("handshake-policy", "", "specd handshake policy "+req.Slug+" --json", "run-command", true, 120, "binding config and mode policy; do not inline help schema", nil)
 		}
 		add("command-schema", "", "specd help --json", "run-command", false, 120, "cache command schema digest when host has no cached schema", nil)
 	}

@@ -153,7 +153,7 @@ orchestration:
   max_workers: 4
 ```
 
-Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. Existing `.specd/config.json` is still accepted; run `specd init --migrate --dry-run` to preview YAML conversion, then `specd init --migrate` to write `.specd/config.yml` and keep `.specd/config.json.bak`. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
+Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. Existing `.specd/config.json` is still accepted but deprecated; convert it to `.specd/config.yml` manually and keep a `.specd/config.json.bak` if you need rollback. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
 
 ---
 

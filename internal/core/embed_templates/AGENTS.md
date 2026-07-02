@@ -9,10 +9,10 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
 
 ## Five rules (non-negotiable)
 
-1. **Load context first.** At session start run `specd fusion bootstrap --json` when available,
+1. **Load context first.** At session start run `specd handshake bootstrap --json` when available,
    cache command/config digests, then read always-on steering files
    `.specd/steering/{reasoning,workflow,product,tech,structure}.md`. Before acting on a spec run
-   `specd fusion policy <spec> --expect-config-digest <cached> --json` and obey its mode/config
+   `specd handshake policy <spec> --expect-config-digest <cached> --json` and obey its mode/config
    decision. The sixth steering file, `memory.md`, is loaded phase-scoped (EXECUTE + REFLECT) —
    `specd context <spec>` tells you exactly what to load when.
 

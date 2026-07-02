@@ -60,7 +60,7 @@ Set in `.specd/config.yml` (or legacy `.specd/config.json`) via `roles.subagent_
 - **Cons:** Context bloat from full chat history.
 
 ### `delegate` mode
-- The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd fusion policy` / `.specd/config.yml` (or legacy `.specd/config.json`).
+- The host spawns specialized subagents per role for implementation work when native subagents are available. This is binding policy from `specd handshake policy` / `.specd/config.yml` (or legacy `.specd/config.json`).
 - If the host lacks subagent capability, it must say so inline before work (for example: "Delegate mode requested, but this host has no subagents; running role inline under same constraints.").
 - Simple mode uses `specd next <slug> --dispatch --json` packets; spawn one role-bound subagent per packet and pass its `contextManifest`, files, contract, acceptance, verify, and completion command.
 - Orchestrated mode prefers Brain/Pinky missions; the host maps each `dispatch` decision to a Pinky worker and the claim → heartbeat/progress → verify → report/block → release lifecycle.
@@ -92,16 +92,16 @@ packet — a 5-task wave on one role no longer repeats the role prompt 5×. Host
 that cannot resolve asset paths pass `--inline-roles` to restore full-text
 `rolePrompt` in every packet (back-compat).
 
-## Fusion bootstrap, policy sentinel, and command discovery
+## Handshake bootstrap, policy sentinel, and command discovery
 
-At session start, run `specd fusion bootstrap --json` when available. Cache its
+At session start, run `specd handshake bootstrap --json` when available. Cache its
 `commands.digest` and `config.digest`. Before acting on one spec, run
-`specd fusion policy <slug> --expect-config-digest <cached> --json`; digest
+`specd handshake policy <slug> --expect-config-digest <cached> --json`; digest
 mismatch means rerun bootstrap. The policy output is binding for
 `roles.subagentMode`, orchestration capability, verify sandbox, gate severities,
 MCP exposure, and Base vs Orchestrated loop choice.
 
-Command syntax comes from schema, not memory: shell hosts call `specd help <command> --json` (or `specd help --json` for registry overview); MCP hosts read `tools/list` input schemas, annotations, and enum fields. If `specd_fusion` is hidden, use `specd_status`, `specd_context`, and schema discovery before acting.
+Command syntax comes from schema, not memory: shell hosts call `specd help <command> --json` (or `specd help --json` for registry overview); MCP hosts read `tools/list` input schemas, annotations, and enum fields. If `specd_handshake` is hidden, use `specd_status`, `specd_context`, and schema discovery before acting.
 
 ## Context engineering
 
@@ -512,7 +512,7 @@ goal + spec — no `--approval-policy`/`--max-workers`/… plumbing.
 `specd_approve`, `specd_next`, `specd_verify`, `specd_task`, `specd_report`,
 `specd_decision`, `specd_midreq`, `specd_memory`, `specd_waves`, `specd_brain`,
 and `specd_pinky`, plus the intent tools below. Meta-hidden commands (`help`,
-`version`, `mcp`, `fusion`) are excluded from the default list and appear only
+`version`, `mcp`, `handshake`) are excluded from the default list and appear only
 when a host asks for hidden/meta discovery.
 
 **Intent-to-flag mappings.** Composite tools route high-level intents to survivor

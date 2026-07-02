@@ -329,7 +329,7 @@ func CriticalPath(tasks []DagTask) []string {
 					continue
 				}
 				p := longest(d, seen)
-				if len(p) > len(best) {
+				if longerOrEarlierPath(p, best) {
 					best = p
 				}
 			}
@@ -343,9 +343,25 @@ func CriticalPath(tasks []DagTask) []string {
 	var best []string
 	for _, t := range tasks {
 		p := longest(t.ID, make(map[string]bool))
-		if len(p) > len(best) {
+		if longerOrEarlierPath(p, best) {
 			best = p
 		}
 	}
 	return best
+}
+
+func longerOrEarlierPath(candidate, current []string) bool {
+	if len(candidate) != len(current) {
+		return len(candidate) > len(current)
+	}
+	for i := range candidate {
+		ci, cj := ordinal(candidate[i]), ordinal(current[i])
+		if ci != cj {
+			return ci < cj
+		}
+		if candidate[i] != current[i] {
+			return candidate[i] < current[i]
+		}
+	}
+	return false
 }

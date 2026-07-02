@@ -45,9 +45,10 @@ make ci    # lint + race test + count=2 + coverage floor + perf-gate + stress
 ```
 
 The `perf-gate` step runs the onboarding deterministic-output checks
-(`-run 'Deterministic|BenchmarkContract' -count=2`): byte-stable `init --json`
-receipts and stable MCP probe contract fields. Latency baselines are recorded with
-`make bench` and **reviewed, not gated** (no flaky wall-clock CI assertions) — see
+(`-run 'Deterministic|BenchmarkContract|ManifestDisabledMode' -count=2`): byte-stable `init --json`
+receipts, stable MCP probe contract fields, and disabled-mode manifest behavior.
+Latency baselines are recorded with `make bench` and **reviewed, not gated** (no
+flaky wall-clock CI assertions) — see
 [docs/agent-harness-baselines.md](docs/agent-harness-baselines.md). Supported vs
 snippet-only host evidence lives in
 [docs/agent-harness-compat.md](docs/agent-harness-compat.md) and is parity-checked
@@ -187,17 +188,17 @@ below the floor:
 
 | Scope | Floor (enforced) | Long-term target |
 |---|---|---|
-| overall | `OVERALL_MIN` = **78%** | 85% |
+| overall | `OVERALL_MIN` = **79%** | 85% |
 | `internal/core` (the engine) | `CORE_MIN` = **80%** | 90% → 95% |
 | `internal/cmd` (CLI/orchestration glue) | `CMD_MIN` = **71%** | 80% |
 | `internal/worker` (process seam) | `WORKER_MIN` = **88%** | 95% |
 | `internal/mcp` | `MCP_MIN` = **88%** | 90% |
 | `internal/testharness` | `HARNESS_MIN` = **80%** | 90% |
-| `internal/spec` (role/phase/status enums) | `SPEC_MIN` = **95%** | 95% |
-| `internal/context` | `CONTEXT_MIN` = **90%** | 95% |
-| `internal/runner` (verify sandbox backends) | `RUNNER_MIN` = **90%** | 95% |
-| `internal/pack` | `PACK_MIN` = **85%** | 90% |
-| `internal/schema` | `SCHEMA_MIN` = **82%** | 90% |
+| `internal/spec` (role/phase/status enums) | `SPEC_MIN` = **99%** | 99% |
+| `internal/context` | `CONTEXT_MIN` = **92%** | 95% |
+| `internal/runner` (verify sandbox backends) | `RUNNER_MIN` = **92%** | 95% |
+| `internal/pack` | `PACK_MIN` = **87%** | 90% |
+| `internal/schema` | `SCHEMA_MIN` = **84%** | 90% |
 
 The floors sit just under current measured coverage so a refactor can't
 silently lose tests; the targets are where we're driving them. Raise the floors
@@ -230,11 +231,17 @@ is no separate dark-path inventory file.
 
 | Job | Runs on | Gate |
 |---|---|---|
-| `lint` | ubuntu | `gofmt -l` (fail on output), `go vet`, `shellcheck scripts/` |
-| `test` | ubuntu + macOS | `go test -race -count=1 -coverprofile`, then `-count=2` (includes the onboarding deterministic-output gate; also runnable standalone via `make perf-gate`) |
+| `lint` | ubuntu | `gofmt -l` (fail on output), `go vet`, `shellcheck scripts/`, docs lint |
+| `analyze` | ubuntu | `go mod tidy` diff check, golangci-lint v2.1.6, govulncheck |
+| `test` | ubuntu + macOS | `go test -race -count=1 -coverprofile`, then `-count=2`, plus `make perf-gate` |
 | `coverage-floor` | ubuntu | `scripts/coverage-check.sh` |
 | `stress` | ubuntu | `scripts/stress.sh` cross-process contention |
-| `build` | ubuntu + macOS + Windows | `go build` |
+| `stress-acp` | ubuntu | `scripts/stress-acp.sh` ACP ledger contention |
+| `stress-orchestration` | ubuntu | `scripts/stress-orchestration.sh` Brain/Pinky orchestration contention |
+| `stress-program` | ubuntu | `scripts/stress-program.sh` cross-spec program scheduling contention |
+| `stress-brain-recovery` | ubuntu | `scripts/stress-brain-recovery.sh` recovery/reclaim paths |
+| `stress-checkpoint-fault` | ubuntu | `scripts/stress-checkpoint-fault.sh` checkpoint fault injection |
+| `build` | ubuntu + macOS + Windows | host `go build`; ubuntu also cross-compiles linux/arm64, darwin/arm64, windows/amd64 |
 
 `.github/workflows/release.yml` runs only on `v*` tags: it re-runs the race
 suite, then GoReleaser.

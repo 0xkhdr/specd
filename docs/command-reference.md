@@ -25,7 +25,7 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd version` | Print the binary version. |
 | `specd help` | Show human help or dump the command registry JSON. |
 | `specd mcp` | Run the MCP server or print host configuration snippets. |
-| `specd fusion` | Emit hidden host bootstrap and binding-policy diagnostics. |
+| `specd handshake` | Emit hidden host bootstrap and binding-policy diagnostics. |
 
 ## Daily workflow commands
 
@@ -57,7 +57,7 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 | `specd version` | `specd version [--json]` | --json | 0 Success |
 | `specd help` | `specd help [command]` | --all, --json | 0 Success, 2 Usage error (unknown command) |
 | `specd mcp` | `specd mcp [--root <path>] [--spec <slug>] [--config <host>]` | --root, --spec, --config | 0 Success (stream closed or config printed), 1 Server error, 2 Usage error |
-| `specd fusion` | `specd fusion bootstrap [--include-schema] [--json] | specd fusion policy [<slug>] [--expect-config-digest <sha256>] [--json]` | --include-schema, --expect-config-digest, --json | 0 Success, 1 Policy violation or digest mismatch, 2 Usage error, 3 .specd/ or spec not found |
+| `specd handshake` | `specd handshake bootstrap [--include-schema] [--json] | specd handshake policy [<slug>] [--expect-config-digest <sha256>] [--json]` | --include-schema, --expect-config-digest, --json | 0 Success, 1 Policy violation or digest mismatch, 2 Usage error, 3 .specd/ or spec not found |
 
 ## Merged behavior homes
 

@@ -88,7 +88,7 @@ perf-gate:
 
 # Record onboarding latency baselines (informational; never a CI gate).
 bench:
-	$(GO) test ./internal/cmd/... ./internal/mcp/... -run '^$$' -bench 'Init|Probe|Detection' -benchmem
+	$(GO) test ./internal/cmd/... ./internal/mcp/... ./internal/core/... -run '^$$' -bench 'Init|Probe|Detection|RunnableFrontier' -benchmem
 
 # Everything CI runs, locally.
 ci: lint test test-order cover-check perf-gate stress stress-acp stress-orchestration stress-program stress-brain-recovery stress-checkpoint-fault

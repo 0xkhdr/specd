@@ -77,14 +77,14 @@ var Commands = []CommandMeta{
 	},
 
 	{
-		Command: "fusion", Category: "inspection", Hidden: true,
+		Command: "handshake", Category: "inspection", Hidden: true,
 		Description: "Emit startup bootstrap and binding policy oracles",
-		Usage:       "specd fusion bootstrap [--include-schema] [--json] | specd fusion policy [<slug>] [--expect-config-digest <sha256>] [--json]", Synopsis: "specd fusion <bootstrap|policy> [slug] [--json]",
+		Usage:       "specd handshake bootstrap [--include-schema] [--json] | specd handshake policy [<slug>] [--expect-config-digest <sha256>] [--json]", Synopsis: "specd handshake <bootstrap|policy> [slug] [--json]",
 		LongDescription: "Read-only agent integration surface. bootstrap returns the first-turn load list, command schema digest, config digest, health, and active modes. policy summarizes binding config, optional spec execution mode, allowed loop family, diagnostics, and config digest drift.",
 		Flags:           []FlagMeta{{Name: "include-schema", Type: "boolean", Description: "Inline full command schema in bootstrap output"}, {Name: "expect-config-digest", Type: "string", Description: "Fail if current config digest differs from this sha256"}, {Name: "json", Type: "boolean", Description: "Output JSON"}},
 		Positionals:     []PositionalMeta{{Name: "subcommand", Required: true, Description: "bootstrap or policy"}, {Name: "slug", Required: false, Description: "Spec slug for policy mode"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Policy violation or digest mismatch"}, {2, "Usage error"}, {3, ".specd/ or spec not found"}},
-		Examples:        []string{"specd fusion bootstrap --json", "specd fusion policy my-feature --json", "specd fusion policy --expect-config-digest <sha256> --json"},
+		Examples:        []string{"specd handshake bootstrap --json", "specd handshake policy my-feature --json", "specd handshake policy --expect-config-digest <sha256> --json"},
 	},
 
 	{

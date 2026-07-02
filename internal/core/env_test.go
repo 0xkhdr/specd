@@ -1,6 +1,33 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestScrubbedEnvDropsSensitiveHostVars(t *testing.T) {
+	t.Setenv("PATH", "/usr/bin")
+	t.Setenv("HOME", "/tmp/specd-home")
+	t.Setenv("LANG", "C.UTF-8")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "secret")
+	t.Setenv("GITHUB_TOKEN", "token")
+	t.Setenv("SSH_AUTH_SOCK", "/tmp/agent.sock")
+	t.Setenv("DATABASE_URL", "postgres://secret")
+	t.Setenv("SPECD_VERIFY_TIMEOUT_MS", "1000")
+
+	env := ScrubbedEnv()
+	joined := "\x00" + strings.Join(env, "\x00") + "\x00"
+	for _, want := range []string{"PATH=/usr/bin", "HOME=/tmp/specd-home", "LANG=C.UTF-8", "SPECD_VERIFY_TIMEOUT_MS=1000"} {
+		if !strings.Contains(joined, "\x00"+want+"\x00") {
+			t.Errorf("ScrubbedEnv missing %s in %v", want, env)
+		}
+	}
+	for _, forbidden := range []string{"AWS_SECRET_ACCESS_KEY=", "GITHUB_TOKEN=", "SSH_AUTH_SOCK=", "DATABASE_URL="} {
+		if strings.Contains(joined, "\x00"+forbidden) {
+			t.Errorf("ScrubbedEnv leaked %s in %v", forbidden, env)
+		}
+	}
+}
 
 func TestEnvInt(t *testing.T) {
 	const name = "SPECD_TEST_ENVINT"

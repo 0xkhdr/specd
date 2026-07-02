@@ -218,7 +218,7 @@
       "required": ["order", "kind", "mode", "required", "rationale"],
       "properties": {
         "order": { "type": "integer", "minimum": 1, "maximum": 128 },
-        "kind": { "type": "string", "enum": ["role", "skill", "steering", "phase-skill", "fusion-policy", "command-schema", "spec-context", "scope-file", "source-artifact"] },
+        "kind": { "type": "string", "enum": ["role", "skill", "steering", "phase-skill", "handshake-policy", "command-schema", "spec-context", "scope-file", "source-artifact"] },
         "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
         "command": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "mode": { "type": "string", "enum": ["read-full", "run-command", "read-targeted", "reference-if-needed"] },
