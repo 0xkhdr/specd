@@ -35,6 +35,9 @@ var Registry = []Command{
 	{"status", RunStatus},
 	{"context", RunContext},
 	{"check", RunCheck},
+	{"eval", RunEval},
+	{"promote", RunPromote},
+	{"conductor", RunConductor},
 	{"report", RunReport},
 	{"waves", RunWaves},
 }

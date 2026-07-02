@@ -116,6 +116,9 @@ func RunReport(args cli.Args) int {
 	if args.Bool("pr-summary") {
 		return runPRSummary(root, slug, state)
 	}
+	if args.Bool("conductor") {
+		return runConductorReport(root, slug, args.Bool("json"))
+	}
 
 	format := args.Str("format")
 	if format == "" {

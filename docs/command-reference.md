@@ -15,6 +15,9 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd next` | Show the next runnable task, all frontier tasks, or dispatch packets with `--dispatch`. |
 | `specd verify` | Run a task verification command or record per-criterion proof. |
 | `specd task` | Perform the evidence-gated task status transition and telemetry annotation. |
+| `specd eval` | Score a spec against its rubric, compile a rubric skeleton with `init`, or report trends. |
+| `specd promote` | Promote a prototype spec to a full spec after a passing eval. |
+| `specd conductor` | Drive the interactive micro-task conductor session over an append-only ledger. |
 | `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
 | `specd decision` | Append an architectural decision record to `decisions.md`. |
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
@@ -32,15 +35,18 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | Command | Usage | Flags | Exit codes |
 |---|---|---|---|
 | `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
-| `specd new` | `specd new <slug> [--title "..."] [--orchestrated]` | --title, --orchestrated | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
+| `specd new` | `specd new <slug> [--title "..."] [--orchestrated] [--prototype]` | --title, --orchestrated, --prototype | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
 | `specd status` | `specd status [<slug>] [--all] [--program] [--json]` | --all, --program, --json | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd context` | `specd context <slug> [--json]` | --json | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd context` | `specd context <slug> [--hud] [--json]` | --hud, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd check` | `specd check <slug> [--schema-only] [--json] | specd check --schema` | --schema-only, --schema, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
 | `specd approve` | `specd approve <slug> [--json]` | --json | 0 Success, 1 Gate validation failed, 2 Usage error, 3 Spec not found |
 | `specd next` | `specd next <slug> [--all] [--dispatch] [--json]` | --all, --dispatch, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd verify` | `specd verify <slug> <id>  |  specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence "..."` | --criterion, --status, --evidence, --revert-on-fail, --sandbox | 0 Success, 1 Verification failed, 2 Usage error, 3 Spec or task not found |
 | `specd task` | `specd task <slug> <id> --status <s> [--evidence "..."] [--reason "..."] [--force]` | --status, --evidence, --reason, --force, --unverified, --tokens, --cost | 0 Success, 1 Gate verification failed, 2 Usage error, 3 Spec or task not found |
-| `specd report` | `specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--serve|--watch|--history|--diff]` | --format, --out, --pr-summary, --serve, --watch, --history, --diff | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd eval` | `specd eval <slug> [init|trend] [--suite <name>] [--force] [--json]` | --suite, --force, --json | 0 Success, 1 Score below minScore, 2 Usage error, 3 Spec or rubric not found |
+| `specd promote` | `specd promote <slug> --evidence "..." [--suite <name>] [--json]` | --evidence, --suite, --json | 0 Success, 1 Not a prototype, eval failed, or missing evidence, 2 Usage error, 3 Spec not found |
+| `specd conductor` | `specd conductor <slug> <start|step|accept|reject|stop|replay|switch|status> [micro] [--reason "..."] [--json]` | --reason, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
+| `specd report` | `specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]` | --format, --out, --pr-summary, --conductor, --serve, --watch, --history, --diff | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd decision` | `specd decision <slug> "<text>" [--supersedes <id>]` | --supersedes | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd midreq` | `specd midreq <slug> "<input>" --impact <low|medium|high|critical>` | --impact, --interpretation, --changes | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd memory` | `specd memory <slug> add|promote [flags]` | --key, --pattern, --body, --source, --criticality, --related, --force | 0 Success, 2 Usage error, 3 Spec not found |

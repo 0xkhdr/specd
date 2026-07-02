@@ -184,6 +184,11 @@ type GatesCfg struct {
 	// capability (orchestration.enabled absent/false). Off by default keeps Base
 	// projects clean.
 	ModeCapability string `json:"modeCapability"`
+	// Eval is the opt-in eval-completion gate: "" / "off" = no-op (default,
+	// including migrated repos), "required" blocks `approve` from marking a spec
+	// complete until at least one recorded rubric run passed its minScore. New
+	// inits may default this on (V5 quality flywheel).
+	Eval string `json:"eval"`
 	// Custom lists external, declarative custom gates run after the core
 	// pipeline. Each is an ordinary subprocess (no Go plugin, no network).
 	Custom []CustomGateCfg `json:"custom"`

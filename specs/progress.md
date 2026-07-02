@@ -1,8 +1,8 @@
 # specd v0.2.0 — Implementation Progress
 
 **Program:** Full-cycle harness (SPECD_V0.2.0_ACTION_PLAN.md).
-**Overall status:** Specs authored; implementation not started.
-**Current wave:** Wave 1 ready to start.
+**Overall status:** Waves 1–3 landed green; Wave 4 next.
+**Current wave:** Wave 4 (V7 orchestrator/escalation, V8 review/security).
 **Note:** `specs/progress.md` tracks the separate regression program; this
 file tracks v0.2.0 only.
 
@@ -42,12 +42,12 @@ All 26 plan tasks covered by exactly one spec. ✅
 
 | Spec | Directory | Deps | Wave | Status | Primary validation |
 |------|-----------|------|------|--------|--------------------|
-| V1  | `specs/v020-state-schema-v2` | — | 1 | Authored | `go test ./internal/core/... -run 'State|Migrat' -count=2 && make stress` |
-| V2  | `specs/v020-guardrails-gate` | — | 1 | Authored | `go test ./internal/core/... -run Guardrail -count=2` |
-| V3  | `specs/v020-trajectory-ledger` | V1 | 2 | Authored | `go test ./internal/core/... -run Trajectory && make stress` |
-| V4  | `specs/v020-model-routing-economics` | V1 | 2 | Authored | `go test ./internal/core/... -run 'Rout|Cost'` |
-| V5  | `specs/v020-eval-framework` | V1,V2,V3 | 3 | Authored | `go test ./... -run 'Eval|Promote' -count=2` |
-| V6  | `specs/v020-conductor-mode` | V1,V3(,V4) | 3 | Authored | `go test ./... -run 'Conductor|Micro' -count=2` |
+| V1  | `specs/v020-state-schema-v2` | — | 1 | Done ✅ | `go test ./internal/core/... -run 'State|Migrat' -count=2 && make stress` |
+| V2  | `specs/v020-guardrails-gate` | — | 1 | Done ✅ | `go test ./internal/core/... -run Guardrail -count=2` |
+| V3  | `specs/v020-trajectory-ledger` | V1 | 2 | Done ✅ | `go test ./internal/core/... -run Trajectory && make stress` |
+| V4  | `specs/v020-model-routing-economics` | V1 | 2 | Done ✅ | `go test ./internal/core/... -run 'Rout|Cost'` |
+| V5  | `specs/v020-eval-framework` | V1,V2,V3 | 3 | Done ✅ | `go test ./... -run 'Eval|Promote' -count=2` |
+| V6  | `specs/v020-conductor-mode` | V1,V3(,V4) | 3 | Done ✅ | `go test ./... -run 'Conductor|Micro' -count=2` |
 | V7  | `specs/v020-orchestrator-escalation` | V1,V4,V6 | 4 | Authored | `go test ./... -run 'Backend|Escalat|Submit'` |
 | V8  | `specs/v020-review-security-gates` | V1,V2,V5,V7 | 4 | Authored | `go test ./... -run 'Review|Secur' -count=2` |
 | V9  | `specs/v020-deploy-observe` | V5,V7,V8 | 5 | Authored | `make ci` (flywheel e2e) |
@@ -57,9 +57,9 @@ All 26 plan tasks covered by exactly one spec. ✅
 
 ## Waves (implementation order; mark done after each lands green)
 
-- [ ] **Wave 1 (foundation, no deps):** V1 state schema v6, V2 guardrails gate
-- [ ] **Wave 2 (ledgers + policy):** V3 trajectory (←V1), V4 routing/economics (←V1)
-- [ ] **Wave 3 (eval + conductor):** V5 evals (←V1,V2,V3), V6 conductor (←V1,V3)
+- [x] **Wave 1 (foundation, no deps):** V1 state schema v6, V2 guardrails gate
+- [x] **Wave 2 (ledgers + policy):** V3 trajectory (←V1), V4 routing/economics (←V1)
+- [x] **Wave 3 (eval + conductor):** V5 evals (←V1,V2,V3), V6 conductor (←V1,V3)
 - [ ] **Wave 4 (scale + trust):** V7 orchestrator/escalation (←V4,V6), V8 review/security (←V2,V5,V7)
 - [ ] **Wave 5 (lifecycle close):** V9 deploy/observe/flywheel (←V5,V7,V8), V10 ingestion/packs (←V5,V7)
 - [ ] **Wave 6 (platform + ship):** V11 harness sharing/dashboard (←V9), V12 release (←all)
@@ -115,9 +115,10 @@ submit, V9 drivers) exist. Per-phase P0-only fallback applies (plan risk 1).
 
 ## Remaining work
 
-- [ ] Execute Wave 1 (V1, V2)
-- [ ] Execute Wave 2 (V3, V4)
-- [ ] Execute Wave 3 (V5, V6)
+- [x] Execute Wave 1 (V1, V2)
+- [x] Execute Wave 2 (V3, V4)
+- [x] Execute Wave 3 (V5, V6) — eval framework + prototype lifecycle, conductor
+  mode + micro-tasks, context HUD, rejection analytics; eval gate + skill + docs
 - [ ] Execute Wave 4 (V7, V8)
 - [ ] Execute Wave 5 (V9, V10)
 - [ ] Execute Wave 6 (V11, V12)

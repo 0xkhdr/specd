@@ -168,6 +168,7 @@ func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
 	stringEnv(diags, "SPECD_GATES_TRACEABILITY", "gates.traceability", func(v string) { cfg.Gates.Traceability = v })
 	stringEnv(diags, "SPECD_GATES_ACCEPTANCE", "gates.acceptance", func(v string) { cfg.Gates.Acceptance = v })
 	stringEnv(diags, "SPECD_GATES_SCOPE", "gates.scope", func(v string) { cfg.Gates.Scope = v })
+	stringEnv(diags, "SPECD_GATES_EVAL", "gates.eval", func(v string) { cfg.Gates.Eval = v })
 	stringEnv(diags, "SPECD_GATES_CONTEXT_BUDGET", "gates.contextBudget", func(v string) { cfg.Gates.ContextBudget = v })
 	intEnv(diags, "SPECD_MAX_CONTEXT_TOKENS", "gates.maxContextTokens", cfg.Gates.MaxContextTokens, 0, MaxSoftContextTokens(), func(v int) { cfg.Gates.MaxContextTokens = v })
 	stringEnv(diags, "SPECD_VERIFY_SANDBOX", "verify.sandbox", func(v string) { cfg.Verify.Sandbox = v })
@@ -345,6 +346,9 @@ func applyGates(g *GatesCfg, m map[string]any) {
 	}
 	if v, ok := stringAt(m, "modeCapability", "mode_capability"); ok {
 		g.ModeCapability = v
+	}
+	if v, ok := stringAt(m, "eval"); ok {
+		g.Eval = v
 	}
 	if custom, ok := customGatesAt(m, "custom"); ok {
 		g.Custom = custom

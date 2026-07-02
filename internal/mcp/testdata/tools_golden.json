@@ -102,7 +102,7 @@
       "properties": {
         "args": {
           "type": "array",
-          "description": "Positional arguments, in order. Usage: specd new \u003cslug\u003e [--title \"...\"] [--orchestrated]",
+          "description": "Positional arguments, in order. Usage: specd new \u003cslug\u003e [--title \"...\"] [--orchestrated] [--prototype]",
           "items": {
             "type": "string"
           }
@@ -110,6 +110,10 @@
         "orchestrated": {
           "type": "boolean",
           "description": "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"
+        },
+        "prototype": {
+          "type": "boolean",
+          "description": "Create a prototype spec (planning gates relaxed; cannot complete until promoted)"
         },
         "title": {
           "type": "string",
@@ -390,13 +394,67 @@
       "properties": {
         "args": {
           "type": "array",
-          "description": "Positional arguments, in order. Usage: specd context \u003cslug\u003e [--json]",
+          "description": "Positional arguments, in order. Usage: specd context \u003cslug\u003e [--hud] [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hud": {
+          "type": "boolean",
+          "description": "Render the context HUD (load files, byte/token cost, mode/tier) instead of the phase briefing"
+        },
+        "json": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_eval",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd eval \u003cslug\u003e [init|trend] [--suite \u003cname\u003e] [--json]",
+          "items": {
+            "type": "string"
+          }
+        },
+        "force": {
+          "type": "boolean",
+          "description": "Overwrite an existing rubric on eval init"
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "suite": {
+          "type": "string",
+          "description": "Rubric suite name (default reads eval-rubric.json)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "specd_conductor",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "description": "Positional arguments, in order. Usage: specd conductor \u003cslug\u003e \u003cstart|step|accept|reject|stop|status\u003e",
           "items": {
             "type": "string"
           }
         },
         "json": {
           "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Mandatory rejection reason (reject) or transition note (switch/stop)"
         }
       },
       "additionalProperties": false
@@ -409,10 +467,14 @@
       "properties": {
         "args": {
           "type": "array",
-          "description": "Positional arguments, in order. Usage: specd report \u003cslug\u003e [--format md|html|prometheus] [--out \u003cpath\u003e] [--pr-summary]",
+          "description": "Positional arguments, in order. Usage: specd report \u003cslug\u003e [--format md|html|prometheus] [--out \u003cpath\u003e] [--pr-summary] [--conductor]",
           "items": {
             "type": "string"
           }
+        },
+        "conductor": {
+          "type": "boolean",
+          "description": "Cluster conductor rejection reasons (exact string + count)"
         },
         "diff": {
           "type": "boolean",

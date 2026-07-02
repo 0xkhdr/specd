@@ -108,6 +108,7 @@ before, so you pay context only for the work in front of you.
 | `specd-design` | Entering the design phase (the 7 `design.md` sections + the `design` gate). |
 | `specd-tasks` | Entering the tasks phase (wave DAG, 7 task keys, `task-schema`/`dag` gates). |
 | `specd-execute` | Entering executing/verifying (the next→verify→complete loop + `evidence` gate). |
+| `specd-eval-author` | Authoring/refining an eval rubric after `specd eval init` (check kinds, scoring, sandboxed `command`). |
 | `specd-brain` | Entering orchestration (sensing, deterministic stepping, program scheduling, no-LLM boundary). |
 | `specd-pinky` | Operating a Pinky worker (context, claim, heartbeat, progress, query/inbox, blocker, report, release). |
 

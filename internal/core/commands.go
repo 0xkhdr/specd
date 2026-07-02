@@ -90,11 +90,11 @@ var Commands = []CommandMeta{
 	{
 		Command: "new", Category: "lifecycle",
 		Description: "Create a spec with six artifacts",
-		Usage:       "specd new <slug> [--title \"...\"] [--orchestrated]", Synopsis: "specd new <slug> [--title \"...\"] [--orchestrated]",
-		LongDescription: "Creates a new spec directory under .specd/specs/<slug>/ with six artifact stubs. Specs default to Base execution mode; --orchestrated records executionMode=orchestrated (origin user) and requires project orchestration capability.",
-		Flags:           []FlagMeta{{Name: "title", Type: "string", Description: "The title of the spec"}, {Name: "orchestrated", Type: "boolean", Description: "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"}},
+		Usage:       "specd new <slug> [--title \"...\"] [--orchestrated] [--prototype]", Synopsis: "specd new <slug> [--title \"...\"] [--orchestrated] [--prototype]",
+		LongDescription: "Creates a new spec directory under .specd/specs/<slug>/ with six artifact stubs. Specs default to Base execution mode; --orchestrated records executionMode=orchestrated (origin user) and requires project orchestration capability. --prototype creates a prototype spec that skips the design/tasks planning gates but can never reach complete — run `specd promote` to convert it to a full spec.",
+		Flags:           []FlagMeta{{Name: "title", Type: "string", Description: "The title of the spec"}, {Name: "orchestrated", Type: "boolean", Description: "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"}, {Name: "prototype", Type: "boolean", Description: "Create a prototype spec (planning gates relaxed; cannot complete until promoted)"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Orchestration requested without project capability"}, {2, "Usage error"}, {3, ".specd/ not found or spec already exists"}},
-		Examples:        []string{"specd new my-feature", "specd new my-feature --title \"My Feature\"", "specd new payments --title \"Billing\" --orchestrated"},
+		Examples:        []string{"specd new my-feature", "specd new my-feature --title \"My Feature\"", "specd new payments --title \"Billing\" --orchestrated", "specd new spike-idea --prototype"},
 	},
 
 	{
@@ -192,21 +192,51 @@ var Commands = []CommandMeta{
 	{
 		Command: "context", Category: "inspection",
 		Description: "Phase-scoped briefing",
-		Usage:       "specd context <slug> [--json]", Synopsis: "specd context <slug> [--json]",
-		LongDescription: "Provides a minimal phase-scoped briefing for the current spec phase.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
+		Usage:       "specd context <slug> [--hud] [--json]", Synopsis: "specd context <slug> [--hud] [--json]",
+		LongDescription: "Provides a minimal phase-scoped briefing for the current spec phase. --hud renders the deterministic context heads-up display instead: the steering/skill load files with their on-disk byte and approximate token cost, plus the active mode and routing tier (all measured from disk and recorded state — no interpretation).",
+		Flags:           []FlagMeta{{Name: "hud", Type: "boolean", Description: "Render the context HUD (load files, byte/token cost, mode/tier) instead of the phase briefing"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd context my-feature", "specd context my-feature --json"},
+		Examples:        []string{"specd context my-feature", "specd context my-feature --hud", "specd context my-feature --json"},
+	},
+
+	{
+		Command: "eval", Category: "inspection",
+		Description: "Score a spec against its eval rubric",
+		Usage:       "specd eval <slug> [init|trend] [--suite <name>] [--force] [--json]", Synopsis: "specd eval <slug> [init|trend] [--suite <name>] [--json]",
+		LongDescription: "Runs a spec's eval rubric and records the score to state.json and a result file. `eval init` compiles approved requirements into a rubric skeleton (one stub per acceptance criterion); `eval trend` reports score deltas and failure clustering over the result history. Scoring is deterministic; command checks run through the shared sandboxed exec path.",
+		Flags:           []FlagMeta{{Name: "suite", Type: "string", Description: "Rubric suite name (default reads eval-rubric.json)"}, {Name: "force", Type: "boolean", Description: "Overwrite an existing rubric on eval init"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Score below minScore"}, {2, "Usage error"}, {3, "Spec or rubric not found"}},
+		Examples:        []string{"specd eval my-feature", "specd eval my-feature init", "specd eval my-feature trend --json"},
+	},
+
+	{
+		Command: "promote", Category: "lifecycle", Hidden: true,
+		Description: "Promote a prototype spec after a passing eval",
+		Usage:       "specd promote <slug> --evidence \"...\" [--suite <name>] [--json]", Synopsis: "specd promote <slug> --evidence \"...\"",
+		LongDescription: "Converts a prototype spec into a full spec once its eval rubric passes. The evidence string is mandatory — promotion never bypasses the evidence discipline. The normal approve ratchet applies to the promoted spec.",
+		Flags:           []FlagMeta{{Name: "evidence", Type: "string", Description: "Required promotion evidence", Required: true}, {Name: "suite", Type: "string", Description: "Rubric suite name (default reads eval-rubric.json)"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Not a prototype, eval failed, or missing evidence"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd promote my-feature --evidence \"eval green, owner sign-off\""},
+	},
+
+	{
+		Command: "conductor", Category: "execution",
+		Description: "Drive the interactive micro-task conductor session",
+		Usage:       "specd conductor <slug> <start|step|accept|reject|stop|replay|switch|status> [micro] [--reason \"...\"] [--json]", Synopsis: "specd conductor <slug> <start|step|accept|reject|stop|status>",
+		LongDescription: "Runs the hands-on conductor mode over a task's micro-tasks with an append-only ledger (conductor.jsonl). start opens a session under a spec lock; step briefs the next micro-task; accept/reject record the outcome (reject requires --reason — it is the training signal); stop closes the session. Acceptance never substitutes for verify evidence.",
+		Flags:           []FlagMeta{{Name: "reason", Type: "string", Description: "Mandatory rejection reason (reject) or transition note (switch/stop)"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (no session, missing reason, lock contention)"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd conductor my-feature start", "specd conductor my-feature reject --reason \"wrong file touched\"", "specd conductor my-feature status --json"},
 	},
 
 	{
 		Command: "report", Category: "inspection",
 		Description: "Generate markdown, HTML, or metrics report",
-		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--serve|--watch|--history|--diff]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary]",
-		LongDescription: "Compiles a comprehensive HTML or Markdown progress report, or an opt-in Prometheus textfile metrics view. With --pr-summary, emits a deterministic, network-free pull-request summary (Markdown, or JSON under SPECD_JSON): wave/task progress, gate status, and the commit↔task link map.",
-		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}, {Name: "serve", Type: "boolean", Description: "Serve the live dashboard"}, {Name: "watch", Type: "boolean", Description: "Stream runnable-frontier changes"}, {Name: "history", Type: "boolean", Description: "Replay the spec audit timeline"}, {Name: "diff", Type: "boolean", Description: "Diff spec artifacts between git refs"}},
+		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor]",
+		LongDescription: "Compiles a comprehensive HTML or Markdown progress report, or an opt-in Prometheus textfile metrics view. With --pr-summary, emits a deterministic, network-free pull-request summary (Markdown, or JSON under SPECD_JSON): wave/task progress, gate status, and the commit↔task link map. With --conductor, clusters the conductor ledger's rejection reasons (exact string + count) — the deterministic rejection-analytics view.",
+		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}, {Name: "conductor", Type: "boolean", Description: "Cluster conductor rejection reasons (exact string + count)"}, {Name: "serve", Type: "boolean", Description: "Serve the live dashboard"}, {Name: "watch", Type: "boolean", Description: "Stream runnable-frontier changes"}, {Name: "history", Type: "boolean", Description: "Replay the spec audit timeline"}, {Name: "diff", Type: "boolean", Description: "Diff spec artifacts between git refs"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd report my-feature --format html --out ./report.html", "specd report my-feature --format prometheus"},
+		Examples:        []string{"specd report my-feature --format html --out ./report.html", "specd report my-feature --format prometheus", "specd report my-feature --conductor"},
 	},
 
 	{

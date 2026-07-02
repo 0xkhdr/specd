@@ -221,6 +221,7 @@ type State struct {
 	Evals         map[string]EvalSummary     `json:"evals,omitempty"`
 	Routing       map[string]RoutingStamp    `json:"routing,omitempty"`
 	Conductor     *ConductorSession          `json:"conductor,omitempty"`
+	Prototype     *PrototypeState            `json:"prototype,omitempty"`
 	Escalation    *EscalationRecord          `json:"escalation,omitempty"`
 	// Prompt is the optional originating `specd new --from` text. omitempty keeps
 	// state.json byte-identical for specs created without --from.

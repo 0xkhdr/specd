@@ -85,6 +85,17 @@ These run after the seven core gates only when enabled. With their defaults,
 - **Fails on:** A task that touched a file outside its declared `files:` glob set.
   Coverage is recorded as **evidence**, not enforced as a numeric floor.
 
+### Gate 10 — Eval (completion requires a passing rubric run)
+- **Source:** `internal/cmd/approve.go` (`hasPassingEval`); rubric engine in
+  `internal/core/eval.go`.
+- **Config:** `config.gates.eval` — `off`/unset = no-op (default, including
+  migrated repos), `required` blocks `specd approve` from marking a spec
+  complete until at least one recorded eval run passed its `minScore`.
+- **Checks:** `state.json.evals` holds a passing suite summary (from
+  `specd eval <slug>`).
+- **Fails on:** `approve` of a `verifying` spec with no passing eval recorded.
+  Off by default to avoid gate fatigue; new inits may default it on.
+
 ### Custom gates
 - **Source:** `internal/core/customgate.go`
 - **Config:** `config.gates.custom` — a list of `{name, command, severity}`.

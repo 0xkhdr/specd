@@ -71,6 +71,33 @@ func RunApprove(args cli.Args) int {
 					return core.ExitGate, nil
 				}
 			}
+			// Prototype specs can never reach `complete` — they must be promoted
+			// to full specs first (V5 prototype lifecycle, invariant 5).
+			if state.Prototype != nil && state.Prototype.Status != core.PrototypePromoted {
+				msg := fmt.Sprintf("cannot complete prototype spec '%s' — run `specd promote %s --evidence \"...\"` to convert it to a full spec first", slug, slug)
+				if jsonOut {
+					if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": []string{msg}}); err != nil {
+						return specdExit(err), err
+					}
+				} else {
+					errLine("✗ %s", msg)
+				}
+				return core.ExitGate, nil
+			}
+			// Eval gate: when configured `required`, completion needs at least one
+			// passing recorded rubric run (config-on for new inits, off for
+			// migrated repos — gate-fatigue mitigation).
+			if cfg.Gates.Eval == "required" && !hasPassingEval(state) {
+				msg := fmt.Sprintf("eval gate: no passing eval run recorded for '%s' — run `specd eval %s` (score ≥ minScore) before completing", slug, slug)
+				if jsonOut {
+					if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": []string{msg}}); err != nil {
+						return specdExit(err), err
+					}
+				} else {
+					errLine("✗ %s", msg)
+				}
+				return core.ExitGate, nil
+			}
 			from := state.Status
 			state.Status = core.StatusComplete
 			state.Phase = core.PhaseForStatus(core.StatusComplete)
@@ -92,7 +119,12 @@ func RunApprove(args cli.Args) int {
 		if !ok {
 			return specdExit(core.GateError(fmt.Sprintf("approve: nothing to approve — spec '%s' is '%s'.", slug, state.Status))), core.GateError("")
 		}
-		problems := core.PhaseReadiness(state.Status, core.ReadArtifact(root, slug, "requirements.md"), core.ReadArtifact(root, slug, "design.md"), doc)
+		// Prototype specs skip the design/tasks planning gates (V5): the ratchet
+		// still advances status but PhaseReadiness content checks are relaxed.
+		var problems []string
+		if state.Prototype == nil || state.Prototype.Status == core.PrototypePromoted {
+			problems = core.PhaseReadiness(state.Status, core.ReadArtifact(root, slug, "requirements.md"), core.ReadArtifact(root, slug, "design.md"), doc)
+		}
 		if len(problems) > 0 {
 			if jsonOut {
 				if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": problems}); err != nil {
@@ -125,4 +157,15 @@ func RunApprove(args cli.Args) int {
 		return specdExit(err)
 	}
 	return result
+}
+
+// hasPassingEval reports whether any recorded eval suite passed its minScore.
+// It reads only recorded state — deterministic, no re-run of the rubric.
+func hasPassingEval(state *core.State) bool {
+	for _, e := range state.Evals {
+		if e.Pass {
+			return true
+		}
+	}
+	return false
 }

@@ -58,8 +58,8 @@ func TestScaffoldManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 		targets := SortedScaffoldTargets(assets)
-		if len(targets) != 27 {
-			t.Fatalf("target count = %d, want 27", len(targets))
+		if len(targets) != 28 {
+			t.Fatalf("target count = %d, want 28", len(targets))
 		}
 		for i := 1; i < len(targets); i++ {
 			if targets[i] == targets[i-1] {
@@ -110,6 +110,7 @@ func TestScaffoldManifest(t *testing.T) {
 			".specd/runtime/.gitignore",
 			".specd/skills/specd-brain/SKILL.md",
 			".specd/skills/specd-design/SKILL.md",
+			".specd/skills/specd-eval-author/SKILL.md",
 			".specd/skills/specd-execute/SKILL.md",
 			".specd/skills/specd-foundations/SKILL.md",
 			".specd/skills/specd-pinky/SKILL.md",

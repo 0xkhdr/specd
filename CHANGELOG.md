@@ -10,6 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add state schema v6 with v5 migration support and optional `evals`, `routing`, `conductor`, and `escalation` blocks.
+- **Eval framework (`specd eval`, `specd promote`).** Deterministic rubric
+  engine with `artifact_present`, `regex`, `trajectory`, and sandboxed `command`
+  check kinds; `specd eval <slug> init` compiles a rubric skeleton from approved
+  requirements; `specd eval <slug> trend` reports score deltas and failure
+  clustering. New opt-in `config.gates.eval=required` blocks completion until a
+  passing rubric run is recorded (off by default, including migrated repos).
+  Ships the `specd-eval-author` skill.
+- **Prototype lifecycle.** `specd new --prototype` creates a spec that skips the
+  design/tasks planning gates but can never reach `complete`; `specd promote`
+  converts it to a full spec after a passing eval (evidence mandatory).
+- **Conductor mode (`specd conductor`).** Interactive micro-task sessions
+  (`start|step|accept|reject|stop|replay|switch|status`) over an append-only
+  `conductor.jsonl` ledger, with `micro:` task syntax in `tasks.md`;
+  `reject --reason` is mandatory (the training signal). Micro-approval never
+  bypasses the `verify:` evidence gate. Exposed as the `specd_conductor` MCP tool.
+- **Context HUD.** `specd context <slug> --hud` renders the deterministic load
+  list with measured byte/approx-token cost and the active mode/tier.
+- **Rejection analytics.** `specd report <slug> --conductor` clusters conductor
+  rejection reasons (exact string + count) from the ledger.
 
 ### Removed (breaking)
 

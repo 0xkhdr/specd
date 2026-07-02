@@ -86,6 +86,7 @@ a suggestion and let the user decide. See AGENTS.md "Execution mode" for the ful
 | `specd-design` | Entering the design phase. The mandatory `design.md` sections + the `design` gate. |
 | `specd-tasks` | Entering the tasks phase. The wave DAG, the seven task keys, acyclicity + the `task-schema`/`dag` gates. |
 | `specd-execute` | Entering executing/verifying. The next→implement→verify→complete loop, roles, `dispatch`, the `evidence` gate. |
+| `specd-eval-author` | Authoring/refining an eval rubric after `specd eval init`. The four check kinds, scoring/`minScore`, trajectory predicates, the sandboxed `command` contract. |
 | `specd-brain` | Entering orchestration. Sensing specd-owned state, deterministic stepping, program scheduling, the no-LLM boundary. |
 | `specd-pinky` | Operating a Pinky worker. Context, claim, heartbeat, progress, query/inbox, blocker, report, release under lease. |
 

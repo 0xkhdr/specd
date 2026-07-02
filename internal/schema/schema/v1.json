@@ -66,6 +66,7 @@
           "additionalProperties": { "$ref": "#/$defs/RoutingStamp" }
         },
         "conductor": { "$ref": "#/$defs/ConductorSession" },
+        "prototype": { "$ref": "#/$defs/PrototypeState" },
         "escalation": { "$ref": "#/$defs/EscalationRecord" },
         "prompt": { "type": "string" },
         "executionMode": { "type": "string", "enum": ["simple", "orchestrated", "conductor"] },
@@ -153,6 +154,20 @@
         "pass": { "type": "boolean" },
         "seq": { "type": "integer", "minimum": 0 },
         "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PrototypeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "promotedAt": { "type": "string", "format": "date-time" },
+        "evalReport": { "type": "string" },
+        "evalDigest": { "type": "string" },
+        "evidence": { "type": "string" },
+        "promotedScore": { "type": "string" }
       }
     },
     "RoutingStamp": {

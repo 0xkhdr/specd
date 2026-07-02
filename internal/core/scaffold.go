@@ -54,7 +54,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 	for _, name := range []string{
 		"specd-foundations", "specd-steering", "specd-requirements",
 		"specd-design", "specd-tasks", "specd-execute",
-		"specd-brain", "specd-pinky",
+		"specd-eval-author", "specd-brain", "specd-pinky",
 	} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "skills/" + name + "/SKILL.md",

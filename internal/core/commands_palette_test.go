@@ -18,7 +18,7 @@ func TestFlagSingleOwner(t *testing.T) {
 		"revert-on-fail": {"verify": true},
 		"all":            {"next": true, "status": true, "help": true},
 		"format":         {"report": true},
-		"evidence":       {"verify": true, "task": true},
+		"evidence":       {"verify": true, "task": true, "promote": true},
 	}
 	seen := map[string]map[string]bool{}
 	for _, c := range Commands {
@@ -52,10 +52,12 @@ func TestPaletteCeiling(t *testing.T) {
 			daily++
 		}
 	}
-	if daily > 16 {
-		t.Fatalf("daily palette = %d, want <=16", daily)
+	// v0.2.0 Wave 3 adds the eval and conductor execution/inspection surfaces
+	// (promote is Hidden). The palette stays deliberately bounded.
+	if daily > 18 {
+		t.Fatalf("daily palette = %d, want <=18", daily)
 	}
-	if total > 20 {
-		t.Fatalf("total commands = %d, want <=20", total)
+	if total > 23 {
+		t.Fatalf("total commands = %d, want <=23", total)
 	}
 }
