@@ -189,6 +189,20 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		return emitInitResult(result, args.Bool("json"))
 	}
 	result.Warnings = append(result.Warnings, initWarnings...)
+	if args.Bool("guardrails") {
+		created, err := core.EnsureGuardrailsScaffold(plan.Root)
+		if err != nil {
+			result.Status = "failed"
+			result.Warnings = append(result.Warnings, core.InitWarning{Code: "guardrails-failed", Message: err.Error()})
+			result.Normalize()
+			return emitInitResult(result, args.Bool("json"))
+		}
+		if created {
+			result.Files.Written = append(result.Files.Written, ".specd/guardrails.json")
+		} else {
+			result.Files.Skipped = append(result.Files.Skipped, ".specd/guardrails.json")
+		}
+	}
 	applyInitOrchestrationNextAction(&result, orchConfig, selected)
 
 	return emitInitResult(result, args.Bool("json"), args.Bool("verbose"))

@@ -99,14 +99,22 @@ func RunStatus(args cli.Args) int {
 	}
 	state := loaded.State
 	c := core.CountTasks(state)
+	guardrailsDigest, guardrailsPresent, err := core.GuardrailsDigest(root)
+	if err != nil {
+		return specdExit(err)
+	}
 
 	if jsonOut {
 		type fullState struct {
 			*core.State
-			Counts core.Counts     `json:"counts"`
-			Next   core.NextResult `json:"next"`
+			Counts           core.Counts     `json:"counts"`
+			Next             core.NextResult `json:"next"`
+			GuardrailsDigest string          `json:"guardrailsDigest,omitempty"`
 		}
 		out := fullState{State: state, Counts: c, Next: core.NextRunnable(core.DagTasksFromState(state))}
+		if guardrailsPresent {
+			out.GuardrailsDigest = guardrailsDigest
+		}
 		if err := core.PrintJSON(out); err != nil {
 			return specdExit(err)
 		}
@@ -115,6 +123,9 @@ func RunStatus(args cli.Args) int {
 
 	fmt.Printf("# %s (%s)\n", state.Title, state.Spec)
 	fmt.Printf("status: %s · phase: %s · gate: %s · turn: %d\n", state.Status, state.Phase, state.Gate, state.Turn)
+	if guardrailsPresent {
+		fmt.Printf("guardrails: %s\n", guardrailsDigest)
+	}
 	fmt.Printf("mode: %s (origin %s)\n", state.EffectiveMode(), modeOriginOrDefault(state))
 	fmt.Printf("tasks: %d complete · %d running · %d pending · %d blocked · %d total\n", c.Complete, c.Running, c.Pending, c.Blocked, c.Total)
 	fmt.Println()

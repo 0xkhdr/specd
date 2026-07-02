@@ -22,7 +22,7 @@ func RunCheck(args cli.Args) int {
 		validateArgs.Flags["schema"] = "true"
 		return runValidate(validateArgs)
 	}
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--schema-only] [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--schema-only] [--all] [--json]")
 	if !ok {
 		return code
 	}
@@ -31,7 +31,7 @@ func RunCheck(args cli.Args) int {
 	}
 	jsonOut := args.Bool("json")
 
-	ctx, pre, err := buildCheckCtx(root, slug)
+	ctx, pre, err := buildCheckCtx(root, slug, args.Bool("all"))
 	if err != nil {
 		return specdExit(err)
 	}
@@ -89,7 +89,7 @@ func renderCheckHuman(slug string, violations, warnings []core.Violation) int {
 // returns the context, any pre-gate violations (currently only a tasks.md parse
 // error surfaced as a task-schema violation), and a hard error for
 // non-recoverable load failures.
-func buildCheckCtx(root, slug string) (core.CheckCtx, []core.Violation, error) {
+func buildCheckCtx(root, slug string, guardrailsAll bool) (core.CheckCtx, []core.Violation, error) {
 	var pre []core.Violation
 
 	reqMd := core.ReadArtifact(root, slug, "requirements.md")
@@ -119,11 +119,12 @@ func buildCheckCtx(root, slug string) (core.CheckCtx, []core.Violation, error) {
 	}
 
 	return core.CheckCtx{
-		Root:  root,
-		Slug:  slug,
-		ReqMd: reqMd,
-		Doc:   doc,
-		State: state,
-		Cfg:   core.LoadConfig(root),
+		Root:          root,
+		Slug:          slug,
+		ReqMd:         reqMd,
+		Doc:           doc,
+		State:         state,
+		Cfg:           core.LoadConfig(root),
+		GuardrailsAll: guardrailsAll,
 	}, pre, nil
 }

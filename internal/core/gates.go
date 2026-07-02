@@ -15,11 +15,12 @@ import (
 // CheckCtx is the shared, read-only context every check gate operates over. It
 // is built once by the caller (RunCheck) and passed to each gate in turn.
 type CheckCtx struct {
-	Root, Slug string
-	ReqMd      *string
-	Doc        *ParsedTasks
-	State      *State
-	Cfg        Config
+	Root, Slug    string
+	ReqMd         *string
+	Doc           *ParsedTasks
+	State         *State
+	Cfg           Config
+	GuardrailsAll bool
 }
 
 // CheckGate is a pure check over CheckCtx returning the violations and
@@ -32,6 +33,7 @@ type CheckGate func(CheckCtx) (violations, warnings []Violation)
 // a user/agent-visible contract (it determines violation listing order) and
 // must not change without intent.
 var CheckGates = []CheckGate{
+	GateGuardrails,
 	GateEars,
 	GateDesign,
 	GateTaskSchema,
