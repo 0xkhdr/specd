@@ -31,6 +31,10 @@ func RenderMissionBrief(mission PinkyMission) string {
 	if mission.Title != "" {
 		fmt.Fprintf(&sb, "- title: %s\n", mission.Title)
 	}
+	if mission.Tier != "" {
+		fmt.Fprintf(&sb, "- tier: `%s`\n", mission.Tier)
+	}
+	renderHandoff(&sb, mission.Handoff)
 
 	sb.WriteString("\n## Context manifest (minimal sufficient context)\n")
 	renderContextManifest(&sb, mission.ContextManifest)
@@ -148,4 +152,17 @@ func backticked(items []string) []string {
 		out[i] = "`" + it + "`"
 	}
 	return out
+}
+
+// renderHandoff writes the inter-role handoff section of a mission brief (P3.3)
+// when the mission carries one. A fresh dispatch (nil handoff) renders nothing,
+// keeping briefs byte-identical to the pre-handoff format.
+func renderHandoff(sb *strings.Builder, h *ACPHandoff) {
+	if h == nil {
+		return
+	}
+	fmt.Fprintf(sb, "- handoff: from `%s` — %s\n", h.From, h.Reason)
+	if len(h.Artifacts) > 0 {
+		fmt.Fprintf(sb, "  - artifacts: %s\n", strings.Join(backticked(h.Artifacts), ", "))
+	}
 }

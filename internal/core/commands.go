@@ -182,9 +182,9 @@ var Commands = []CommandMeta{
 	{
 		Command: "check", Category: "inspection",
 		Description: "Run all validation gates",
-		Usage:       "specd check <slug> [--schema-only] [--json] | specd check --schema", Synopsis: "specd check <slug> [--schema-only] [--json] | specd check --schema",
-		LongDescription: "Runs all seven validation gates on the specified spec. --schema-only validates state.json against the embedded open spec schema; --schema emits that schema.",
-		Flags:           []FlagMeta{{Name: "schema-only", Type: "boolean", Description: "Validate state.json against the embedded open spec schema only"}, {Name: "schema", Type: "boolean", Description: "Emit the embedded open spec format JSON Schema"}, {Name: "json", Type: "boolean"}},
+		Usage:       "specd check <slug> [--schema-only] [--security] [--json] | specd check --schema", Synopsis: "specd check <slug> [--schema-only] [--security] [--json] | specd check --schema",
+		LongDescription: "Runs all seven validation gates on the specified spec. --schema-only validates state.json against the embedded open spec schema; --schema emits that schema. --security runs the deterministic security suite (secrets, injection, slopsquatting) over the working-tree changed files and records a summary in state; advisory scanners never fail the command, only blocking (error-severity) findings do.",
+		Flags:           []FlagMeta{{Name: "schema-only", Type: "boolean", Description: "Validate state.json against the embedded open spec schema only"}, {Name: "schema", Type: "boolean", Description: "Emit the embedded open spec format JSON Schema"}, {Name: "security", Type: "boolean", Description: "Run the deterministic security suite over changed files"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd check my-feature", "specd check my-feature --json"},
 	},
@@ -227,6 +227,36 @@ var Commands = []CommandMeta{
 		Flags:           []FlagMeta{{Name: "reason", Type: "string", Description: "Mandatory rejection reason (reject) or transition note (switch/stop)"}, {Name: "json", Type: "boolean"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (no session, missing reason, lock contention)"}, {2, "Usage error"}, {3, "Spec not found"}},
 		Examples:        []string{"specd conductor my-feature start", "specd conductor my-feature reject --reason \"wrong file touched\"", "specd conductor my-feature status --json"},
+	},
+
+	{
+		Command: "review", Category: "inspection",
+		Description: "Scaffold a review report or extract a review checklist",
+		Usage:       "specd review <slug> [checklist] [--force] [--json]", Synopsis: "specd review <slug> [checklist]",
+		LongDescription: "Scaffolds review_report.md with the mandatory sections (Summary, Bugs, Security, Hallucinated Dependencies, Style, Verdict) and prints the read-only adversarial reviewer brief. `review checklist` deterministically extracts a human checklist from design.md sections and tasks.md contracts (extraction only). When config.review.required is on, `approve` blocks verifying→complete until a fresh, valid report with an `approve` verdict exists — human approval stays final.",
+		Flags:           []FlagMeta{{Name: "force", Type: "boolean", Description: "Overwrite an existing review_report.md scaffold"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd review my-feature", "specd review my-feature checklist --json"},
+	},
+
+	{
+		Command: "orchestrate", Category: "execution",
+		Description: "Inspect and resolve auto-escalations",
+		Usage:       "specd orchestrate <slug> <status|resume> [--override] [--json]", Synopsis: "specd orchestrate <slug> <status|resume --override>",
+		LongDescription: "Surfaces and resolves deterministic auto-escalations (V7). `status` prints the active escalation record (task, rule, facts) and the advisory conductor-handoff recommendation; `resume --override` is the human override that clears the escalation so orchestration may proceed. The binary never auto-clears an escalation and never auto-switches mode — resolution is always an explicit human action.",
+		Flags:           []FlagMeta{{Name: "override", Type: "boolean", Description: "Clear the active escalation (required by resume)"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (no escalation, missing --override)"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd orchestrate my-feature status", "specd orchestrate my-feature resume --override"},
+	},
+
+	{
+		Command: "submit", Category: "execution",
+		Description: "Validate all gates and run the configured PR submit command",
+		Usage:       "specd submit <slug> [--waves w1,w2] [--dry-run] [--json]", Synopsis: "specd submit <slug> [--dry-run]",
+		LongDescription: "Batch PR submission (V7). Validates that every configured gate is green for the spec, generates the deterministic, network-free PR summary, and streams it on stdin to the operator-configured config.submit.command (e.g. `gh pr create --body-file -`) run through the shared sandboxed exec path with a scrubbed env. No git/GitHub logic is embedded. A gate violation or a non-zero command exit is a failure with no partial state; --dry-run prints the summary without executing.",
+		Flags:           []FlagMeta{{Name: "waves", Type: "string", Description: "Restrict the summary to a comma-separated wave bundle"}, {Name: "dry-run", Type: "boolean", Description: "Print the PR summary without running the submit command"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate violation or submit command failure"}, {2, "Usage error"}, {3, "Spec not found"}},
+		Examples:        []string{"specd submit my-feature --dry-run", "specd submit my-feature"},
 	},
 
 	{

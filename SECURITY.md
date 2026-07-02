@@ -44,6 +44,39 @@ highlights:
   been removed); `SelectRunner`'s fail-closed refusal at `specd verify` time is
   now the only signal that the requested isolation backend is unavailable.
 - **Custom gates (unisolated).** Custom gates configured under `config.yml` (or legacy `config.json`) execute external programs on the host. Although their environment is scrubbed and execution is bounded by a timeout (`SPECD_CUSTOM_GATE_TIMEOUT_MS`), **custom gates do not run within bubblewrap or container sandbox isolation**. Only run `specd check` on projects where the custom gate commands are trusted.
+- **Eval rubric commands (V5).** `specd eval` `command`-kind checks execute
+  operator-authored shell through the **same shared sandboxed exec path** as
+  `verify` (scrubbed env, `verify.sandbox` backend, fail-closed on a missing
+  backend, NUL-byte rejection, bounded timeout). A rubric is untrusted input: its
+  `command` never runs unless the rubric is explicitly present in the repo, and it
+  is scrubbed/isolated identically to a `verify:` line. **Only run `specd eval` on
+  rubrics you trust.**
+- **Executable guardrails (V2).** Guardrail commands run through the shared
+  sandboxed path; the gate is opt-in per `config.gates.guardrails` and off for
+  migrated repos. Same scrub/isolation/timeout guarantees as verify.
+- **Submit command (V7/P3.4).** `specd submit` streams the deterministic PR
+  summary on stdin to the operator-configured `config.submit.command` run through
+  the shared sandboxed path with a scrubbed env — **no git/GitHub logic is
+  embedded**. The command runs only if configured; a gate violation or non-zero
+  exit fails with no partial state. Treat `submit.command` as trusted operator
+  policy.
+- **Maintenance schedules (P3.5).** `specd program tick` runs each due
+  `program.json` schedule's `command` through the shared sandboxed path with a
+  scrubbed env. specd **never daemonizes** — a host scheduler invokes `tick`, and
+  the claim is CAS-guarded under the program lock so a double-invoked tick cannot
+  run a schedule twice. Schedule commands are operator-authored policy; a hostile
+  `program.json` never executes unless a host actually invokes `tick` against it.
+- **Security scanners (V8).** `specd check --security` scanners
+  (`secrets`/`injection`/`slopsquat`) are **pure stdlib analysis of changed
+  files** — no network, no CVE DB, no code execution. The allowlist
+  (`.specd/security/allow.json`) requires a mandatory reason per entry and is
+  parsed defensively (a malformed allowlist errors closed). The `deps` plugin gate,
+  when configured, runs through the shared sandboxed path like any custom gate.
+- **Deploy drivers & observe listener (V9 — pending).** These exec/inbound
+  surfaces are not yet shipped. When V9 lands, deploy drivers run through the
+  shared sandboxed path and the observability listener treats every inbound
+  payload as hostile input; this section will be extended before the v0.2.0
+  release gate.
 - **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
   path traversal under `.specd/`.

@@ -21,6 +21,7 @@ var booleanFlags = map[string]bool{
 	"watch": true, "history": true, "diff": true, "auto-step": true, "prototype": true, "promote": true,
 	"hud": true, "conductor": true,
 	"ledger": true, "compact": true, "directive": true,
+	"security": true, "override": true, "remove": true,
 }
 
 // ParseArgs splits argv into positional tokens and "--flag"/"--flag=value"

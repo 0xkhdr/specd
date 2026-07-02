@@ -172,6 +172,14 @@ func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
 	stringEnv(diags, "SPECD_GATES_CONTEXT_BUDGET", "gates.contextBudget", func(v string) { cfg.Gates.ContextBudget = v })
 	intEnv(diags, "SPECD_MAX_CONTEXT_TOKENS", "gates.maxContextTokens", cfg.Gates.MaxContextTokens, 0, MaxSoftContextTokens(), func(v int) { cfg.Gates.MaxContextTokens = v })
 	stringEnv(diags, "SPECD_VERIFY_SANDBOX", "verify.sandbox", func(v string) { cfg.Verify.Sandbox = v })
+	boolEnv(diags, "SPECD_ESCALATION_ENABLED", "escalation.enabled", func(v bool) { cfg.Escalation.Enabled = v })
+	intEnv(diags, "SPECD_ESCALATION_VERIFY_FAIL_THRESHOLD", "escalation.verifyFailThreshold", cfg.Escalation.VerifyFailThreshold, 0, 1000, func(v int) { cfg.Escalation.VerifyFailThreshold = v })
+	boolEnv(diags, "SPECD_REVIEW_REQUIRED", "review.required", func(v bool) { cfg.Review.Required = v })
+	stringEnv(diags, "SPECD_SECURITY_SECRETS", "security.secrets", func(v string) { cfg.Security.Secrets = v })
+	stringEnv(diags, "SPECD_SECURITY_INJECTION", "security.injection", func(v string) { cfg.Security.Injection = v })
+	stringEnv(diags, "SPECD_SECURITY_SLOPSQUAT", "security.slopsquat", func(v string) { cfg.Security.Slopsquat = v })
+	stringEnv(diags, "SPECD_SUBMIT_COMMAND", "submit.command", func(v string) { cfg.Submit.Command = v })
+	stringEnv(diags, "SPECD_SUBMIT_SANDBOX", "submit.sandbox", func(v string) { cfg.Submit.Sandbox = v })
 	boolEnv(diags, "SPECD_ORCHESTRATION_ENABLED", "orchestration.enabled", func(v bool) { cfg.Orchestration.Enabled = v })
 	stringEnv(diags, "SPECD_ORCHESTRATION_APPROVAL_POLICY", "orchestration.approvalPolicy", func(v string) { cfg.Orchestration.ApprovalPolicy = v })
 	intEnv(diags, "SPECD_ORCHESTRATION_MAX_WORKERS", "orchestration.maxWorkers", cfg.Orchestration.MaxWorkers, minMaxWorkers, maxMaxWorkers, func(v int) { cfg.Orchestration.MaxWorkers = v })
@@ -325,6 +333,55 @@ func applyConfigDoc(cfg *Config, doc map[string]any) {
 	}
 	if m, ok := mapAt(doc, "mcp"); ok {
 		applyMCP(&cfg.MCP, m)
+	}
+	if m, ok := mapAt(doc, "escalation"); ok {
+		applyEscalation(&cfg.Escalation, m)
+	}
+	if m, ok := mapAt(doc, "review"); ok {
+		if v, ok := boolAt(m, "required"); ok {
+			cfg.Review.Required = v
+		}
+	}
+	if m, ok := mapAt(doc, "security"); ok {
+		applySecurity(&cfg.Security, m)
+	}
+	if m, ok := mapAt(doc, "submit"); ok {
+		if v, ok := stringAt(m, "command"); ok {
+			cfg.Submit.Command = v
+		}
+		if v, ok := stringAt(m, "sandbox"); ok {
+			cfg.Submit.Sandbox = v
+		}
+	}
+}
+
+func applyEscalation(e *EscalationConfig, m map[string]any) {
+	if v, ok := boolAt(m, "enabled"); ok {
+		e.Enabled = v
+	}
+	if v, ok := intAt(m, "verifyFailThreshold", "verify_fail_threshold"); ok {
+		e.VerifyFailThreshold = v
+	}
+	if v, ok := intAt(m, "blockerThreshold", "blocker_threshold"); ok {
+		e.BlockerThreshold = v
+	}
+	if v, ok := intAt(m, "complexityThreshold", "complexity_threshold"); ok {
+		e.ComplexityThreshold = v
+	}
+}
+
+func applySecurity(s *SecurityCfg, m map[string]any) {
+	if v, ok := stringAt(m, "secrets"); ok {
+		s.Secrets = v
+	}
+	if v, ok := stringAt(m, "injection"); ok {
+		s.Injection = v
+	}
+	if v, ok := stringAt(m, "slopsquat"); ok {
+		s.Slopsquat = v
+	}
+	if v, ok := stringAt(m, "deps"); ok {
+		s.Deps = v
 	}
 }
 

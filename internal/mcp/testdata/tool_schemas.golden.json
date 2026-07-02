@@ -238,7 +238,7 @@
     "properties": {
       "args": {
         "type": "array",
-        "description": "Positional arguments, in order. Usage: specd check \u003cslug\u003e [--schema-only] [--json] | specd check --schema",
+        "description": "Positional arguments, in order. Usage: specd check \u003cslug\u003e [--schema-only] [--security] [--json] | specd check --schema",
         "items": {
           "type": "string"
         }
@@ -253,6 +253,10 @@
       "schema-only": {
         "type": "boolean",
         "description": "Validate state.json against the embedded open spec schema only"
+      },
+      "security": {
+        "type": "boolean",
+        "description": "Run the deterministic security suite over changed files"
       }
     },
     "additionalProperties": false
@@ -537,6 +541,26 @@
     },
     "additionalProperties": false
   },
+  "specd_orchestrate": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd orchestrate \u003cslug\u003e \u003cstatus|resume --override\u003e",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "override": {
+        "type": "boolean",
+        "description": "Clear the active escalation (required by resume)"
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_pinky": {
     "type": "object",
     "properties": {
@@ -670,6 +694,26 @@
     },
     "additionalProperties": false
   },
+  "specd_review": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd review \u003cslug\u003e [checklist]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "force": {
+        "type": "boolean",
+        "description": "Overwrite an existing review_report.md scaffold"
+      },
+      "json": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_status": {
     "type": "object",
     "properties": {
@@ -698,6 +742,30 @@
       "set-mode": {
         "type": "string",
         "description": "Set the spec's execution mode: simple or orchestrated"
+      }
+    },
+    "additionalProperties": false
+  },
+  "specd_submit": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd submit \u003cslug\u003e [--dry-run]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "dry-run": {
+        "type": "boolean",
+        "description": "Print the PR summary without running the submit command"
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "waves": {
+        "type": "string",
+        "description": "Restrict the summary to a comma-separated wave bundle"
       }
     },
     "additionalProperties": false

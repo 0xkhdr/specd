@@ -96,6 +96,36 @@ These run after the seven core gates only when enabled. With their defaults,
 - **Fails on:** `approve` of a `verifying` spec with no passing eval recorded.
   Off by default to avoid gate fatigue; new inits may default it on.
 
+### Gate 11 — Review (completion requires a fresh, approving review report)
+- **Source:** `internal/cmd/approve.go`; parser/gate in `internal/core/review.go`.
+- **Config:** `config.review.required` — `false` (default, including migrated
+  repos) = no-op; `true` blocks `specd approve` verifying→complete until a review
+  report passes.
+- **Checks:** `review_report.md` exists (scaffold via `specd review <slug>`), is
+  structurally valid (mandatory sections: Summary, Bugs, Security, Hallucinated
+  Dependencies, Style, Verdict), carries a verdict, is **fresh** (newer than the
+  latest task completion — staleness prevents rubber-stamping an old report), and
+  the verdict is `approve`. The outcome is recorded in `state.review`.
+- **Human approval stays final** — the report is evidence, not the decision.
+
+### Gate 12 — Security suite (`specd check --security`)
+- **Source:** `internal/core/security/` (pure, stdlib-only scanners);
+  `internal/cmd/security.go` wiring.
+- **Config:** `config.security.{secrets,injection,slopsquat}` — each `off` (default),
+  `warn` (advisory), or `error` (blocking). `config.security.deps` names an
+  external CVE-scan command (no CVE database is embedded).
+- **Checks over working-tree changed files:** `secrets` (entropy + known formats:
+  cloud keys, PEM, JWT), `injection` (SQL-concat / exec-interpolation heuristics),
+  `slopsquat` (manifest dep names edit-distance-checked against an embedded
+  popular-package list). Findings are recorded in `state.security` and rendered in
+  the PR summary. **Only blocking (`error`) findings fail the command** — advisory
+  scanners are reported but never fail (a noisy gate that gets disabled is worse
+  than a modest one).
+- **False-positive workflow:** allowlist a value at `.specd/security/allow.json`
+  (`{"allow":[{"value":"...","reason":"..."}]}`) — a **reason is mandatory**; a
+  reasonless entry is a hard error. Prefer lowering a noisy scanner to `warn` over
+  disabling it.
+
 ### Custom gates
 - **Source:** `internal/core/customgate.go`
 - **Config:** `config.gates.custom` — a list of `{name, command, severity}`.

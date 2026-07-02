@@ -68,6 +68,8 @@
         "conductor": { "$ref": "#/$defs/ConductorSession" },
         "prototype": { "$ref": "#/$defs/PrototypeState" },
         "escalation": { "$ref": "#/$defs/EscalationRecord" },
+        "security": { "$ref": "#/$defs/SecurityScan" },
+        "review": { "$ref": "#/$defs/ReviewRecord" },
         "prompt": { "type": "string" },
         "executionMode": { "type": "string", "enum": ["simple", "orchestrated", "conductor"] },
         "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
@@ -106,6 +108,7 @@
         "durationMs": { "type": "integer" },
         "verifyDurationMs": { "type": "integer" },
         "retries": { "type": "integer" },
+        "verifyFails": { "type": "integer" },
         "tokens": { "type": "integer" },
         "cost": { "type": "string" }
       }
@@ -199,6 +202,30 @@
         "task": { "type": "string" },
         "rule": { "type": "string" },
         "facts": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "SecurityScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findings", "blocking", "time"],
+      "properties": {
+        "findings": { "type": "integer" },
+        "blocking": { "type": "integer" },
+        "byScanner": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ReviewRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "fresh", "time"],
+      "properties": {
+        "verdict": { "type": "string" },
+        "fresh": { "type": "boolean" },
         "time": { "type": "string", "format": "date-time" }
       }
     },
@@ -322,7 +349,19 @@
         "acceptance": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "verifyCommand": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "dependencies": { "type": "array", "maxItems": 128, "items": { "type": "string", "pattern": "^[TA][0-9]+$" } },
-        "authority": { "$ref": "#/$defs/ACPAuthority" }
+        "authority": { "$ref": "#/$defs/ACPAuthority" },
+        "tier": { "type": "string", "maxLength": 64 },
+        "handoff": { "$ref": "#/$defs/ACPHandoff" }
+      }
+    },
+    "ACPHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "reason"],
+      "properties": {
+        "from": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "artifacts": { "type": "array", "maxItems": 128, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } }
       }
     },
     "ACPAcceptedPayload": {

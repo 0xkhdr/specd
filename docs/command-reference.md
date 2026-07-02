@@ -11,6 +11,7 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd status` | Show one-spec/all-spec progress, recorded mode, and the cross-spec frontier with `--program`. |
 | `specd context` | Print the phase-scoped briefing and budgeted LOAD-NOW manifest. |
 | `specd check` | Run validation gates or emit/validate the embedded schema with `--schema`/`--schema-only`. |
+| `specd review` | Scaffold a structured review report, or extract a deterministic review checklist. |
 | `specd approve` | Clear a human approval gate and ratchet the spec to the next phase. |
 | `specd next` | Show the next runnable task, all frontier tasks, or dispatch packets with `--dispatch`. |
 | `specd verify` | Run a task verification command or record per-criterion proof. |
@@ -18,6 +19,8 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd eval` | Score a spec against its rubric, compile a rubric skeleton with `init`, or report trends. |
 | `specd promote` | Promote a prototype spec to a full spec after a passing eval. |
 | `specd conductor` | Drive the interactive micro-task conductor session over an append-only ledger. |
+| `specd orchestrate` | Inspect and resolve deterministic auto-escalations (status, or resume with an override). |
+| `specd submit` | Validate all gates, build the PR summary, and run the configured submit command. |
 | `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
 | `specd decision` | Append an architectural decision record to `decisions.md`. |
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
@@ -38,7 +41,8 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd new` | `specd new <slug> [--title "..."] [--orchestrated] [--prototype]` | --title, --orchestrated, --prototype | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
 | `specd status` | `specd status [<slug>] [--all] [--program] [--json]` | --all, --program, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd context` | `specd context <slug> [--hud] [--json]` | --hud, --json | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd check` | `specd check <slug> [--schema-only] [--json] | specd check --schema` | --schema-only, --schema, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
+| `specd check` | `specd check <slug> [--schema-only] [--security] [--json] | specd check --schema` | --schema-only, --schema, --security, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
+| `specd review` | `specd review <slug> [checklist] [--force] [--json]` | --force, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
 | `specd approve` | `specd approve <slug> [--json]` | --json | 0 Success, 1 Gate validation failed, 2 Usage error, 3 Spec not found |
 | `specd next` | `specd next <slug> [--all] [--dispatch] [--json]` | --all, --dispatch, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd verify` | `specd verify <slug> <id>  |  specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence "..."` | --criterion, --status, --evidence, --revert-on-fail, --sandbox | 0 Success, 1 Verification failed, 2 Usage error, 3 Spec or task not found |
@@ -46,6 +50,8 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd eval` | `specd eval <slug> [init|trend] [--suite <name>] [--force] [--json]` | --suite, --force, --json | 0 Success, 1 Score below minScore, 2 Usage error, 3 Spec or rubric not found |
 | `specd promote` | `specd promote <slug> --evidence "..." [--suite <name>] [--json]` | --evidence, --suite, --json | 0 Success, 1 Not a prototype, eval failed, or missing evidence, 2 Usage error, 3 Spec not found |
 | `specd conductor` | `specd conductor <slug> <start|step|accept|reject|stop|replay|switch|status> [micro] [--reason "..."] [--json]` | --reason, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
+| `specd orchestrate` | `specd orchestrate <slug> <status\|resume> [--override] [--json]` | --override, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
+| `specd submit` | `specd submit <slug> [--waves w1,w2] [--dry-run] [--json]` | --waves, --dry-run, --json | 0 Success, 1 Gate violation or submit failure, 2 Usage error, 3 Spec not found |
 | `specd report` | `specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]` | --format, --out, --pr-summary, --conductor, --serve, --watch, --history, --diff | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd decision` | `specd decision <slug> "<text>" [--supersedes <id>]` | --supersedes | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd midreq` | `specd midreq <slug> "<input>" --impact <low|medium|high|critical>` | --impact, --interpretation, --changes | 0 Success, 2 Usage error, 3 Spec not found |
@@ -64,6 +70,7 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 | `specd help` | `specd help [command]` | --all, --json | 0 Success, 2 Usage error (unknown command) |
 | `specd mcp` | `specd mcp [--root <path>] [--spec <slug>] [--config <host>]` | --root, --spec, --config | 0 Success (stream closed or config printed), 1 Server error, 2 Usage error |
 | `specd handshake` | `specd handshake bootstrap [--include-schema] [--json] | specd handshake policy [<slug>] [--expect-config-digest <sha256>] [--json]` | --include-schema, --expect-config-digest, --json | 0 Success, 1 Policy violation or digest mismatch, 2 Usage error, 3 .specd/ or spec not found |
+| `specd program` | `specd program [--json] | specd program <link\|unlink> <spec> --on <dep> | specd program schedule [<name> --interval <seconds> --command <cmd> [--sandbox <backend>] | <name> --remove] | specd program tick [--now <unix>] [--json]` | --on, --interval, --command, --sandbox, --remove, --now, --json | 0 Success, 1 Gate/link failure or scheduled command failure, 2 Usage error, 3 Spec not found |
 
 ## Merged behavior homes
 

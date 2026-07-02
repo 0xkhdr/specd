@@ -22,9 +22,12 @@ func RunCheck(args cli.Args) int {
 		validateArgs.Flags["schema"] = "true"
 		return runValidate(validateArgs)
 	}
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--schema-only] [--all] [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd check <slug> [--schema-only] [--security] [--all] [--json]")
 	if !ok {
 		return code
+	}
+	if args.Bool("security") {
+		return runSecurityCheck(root, slug, args)
 	}
 	if err := core.RequireSpec(root, slug); err != nil {
 		return specdExit(err)

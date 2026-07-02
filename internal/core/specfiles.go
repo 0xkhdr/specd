@@ -24,6 +24,49 @@ type Config struct {
 	Verify             VerifyCfg        `json:"verify"`
 	Orchestration      OrchestrationCfg `json:"orchestration"`
 	MCP                MCPConfig        `json:"mcp"`
+	// Escalation configures the deterministic auto-escalation engine (V7/P3.2).
+	// Off by default (Enabled=false); omitempty keeps pre-escalation config files
+	// byte-identical.
+	Escalation EscalationConfig `json:"escalation,omitempty"`
+	// Review configures the AI-first review workflow gate (V8/P4.1). Required=off
+	// by default for migrated repos; omitempty keeps configs byte-identical.
+	Review ReviewCfg `json:"review,omitempty"`
+	// Security configures the deterministic security gate suite (V8/P4.2). All
+	// gates advisory/off by default; omitempty keeps configs byte-identical.
+	Security SecurityCfg `json:"security,omitempty"`
+	// Submit configures the batch PR submission command (V7/P3.4). Empty command
+	// disables `specd submit` exec; omitempty keeps configs byte-identical.
+	Submit SubmitCfg `json:"submit,omitempty"`
+}
+
+// ReviewCfg configures the review workflow gate. Required gates the
+// verifying→complete approve transition on a fresh, structurally-valid
+// review_report.md. Off for migrated repos (invariant 9); new inits may default
+// it on.
+type ReviewCfg struct {
+	Required bool `json:"required,omitempty"`
+}
+
+// SecurityCfg configures the security gate suite. Each sub-gate carries a
+// severity: "" / "off" disables it, "warn" is advisory (default for the noisy
+// heuristics — plan risk 2), "error" blocks. Secrets defaults to "error" only
+// when explicitly enabled; the zero value is fully off so migrated repos are
+// unaffected.
+type SecurityCfg struct {
+	Secrets   string `json:"secrets,omitempty"`
+	Injection string `json:"injection,omitempty"`
+	Slopsquat string `json:"slopsquat,omitempty"`
+	// Deps names an external CVE-scan command (osv-scanner/grype). Empty disables
+	// the plugin gate — no CVE database is ever embedded (invariant 2/3).
+	Deps string `json:"deps,omitempty"`
+}
+
+// SubmitCfg configures the batch PR submission command. Command is trusted
+// operator input (not agent-authored) run through the shared sandboxed exec path
+// with a scrubbed env; the PR summary is streamed to it on stdin.
+type SubmitCfg struct {
+	Command string `json:"command,omitempty"`
+	Sandbox string `json:"sandbox,omitempty"`
 }
 
 // MCPConfig tunes which tools the native MCP server advertises on tools/list.

@@ -141,6 +141,7 @@ type Telemetry struct {
 	DurationMs       int64  `json:"durationMs,omitempty"`       // running → complete elapsed
 	VerifyDurationMs int64  `json:"verifyDurationMs,omitempty"` // most recent verify run
 	Retries          int    `json:"retries,omitempty"`          // verify re-runs for this task
+	VerifyFails      int    `json:"verifyFails,omitempty"`      // cumulative failed verify runs (V7 escalation fact)
 	Tokens           int    `json:"tokens,omitempty"`           // annotated, not computed
 	Cost             string `json:"cost,omitempty"`             // annotated (e.g. "0.42"), not computed
 }
@@ -195,6 +196,26 @@ type EscalationRecord struct {
 	Time  string `json:"time"`
 }
 
+// SecurityScan is the recorded summary of a security-suite run: total findings,
+// how many were blocking (error-severity), the per-scanner tally, and the scan
+// time. It is a deterministic projection of the findings, so reports/PR summaries
+// render it without re-scanning.
+type SecurityScan struct {
+	Findings  int            `json:"findings"`
+	Blocking  int            `json:"blocking"`
+	ByScanner map[string]int `json:"byScanner,omitempty"`
+	Time      string         `json:"time"`
+}
+
+// ReviewRecord is the recorded outcome of the review gate: the verdict parsed
+// from review_report.md, whether the report was fresh relative to the latest task
+// completion, and when the gate evaluated.
+type ReviewRecord struct {
+	Verdict string `json:"verdict"`
+	Fresh   bool   `json:"fresh"`
+	Time    string `json:"time"`
+}
+
 type Blocker struct {
 	Task   string `json:"task"`
 	Reason string `json:"reason"`
@@ -223,6 +244,13 @@ type State struct {
 	Conductor     *ConductorSession          `json:"conductor,omitempty"`
 	Prototype     *PrototypeState            `json:"prototype,omitempty"`
 	Escalation    *EscalationRecord          `json:"escalation,omitempty"`
+	// Security holds the last `specd check --security` scan summary (V8/P4.2).
+	// Pointer + omitempty keeps state.json byte-identical for repos that never run
+	// the security suite.
+	Security *SecurityScan `json:"security,omitempty"`
+	// Review holds the last review-gate evaluation (V8/P4.1). Pointer + omitempty
+	// keeps state.json byte-identical for repos without a review report.
+	Review *ReviewRecord `json:"review,omitempty"`
 	// Prompt is the optional originating `specd new --from` text. omitempty keeps
 	// state.json byte-identical for specs created without --from.
 	Prompt string `json:"prompt,omitempty"`

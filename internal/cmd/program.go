@@ -17,8 +17,13 @@ func runProgram(args cli.Args) int {
 	if len(args.Pos) > 0 {
 		sub = args.Pos[0]
 	}
-	if sub == "link" || sub == "unlink" {
+	switch sub {
+	case "link", "unlink":
 		return programMutate(root, sub, args)
+	case "schedule":
+		return programSchedule(root, args)
+	case "tick":
+		return programTick(root, args)
 	}
 	return programRender(root, args.Bool("json"))
 }

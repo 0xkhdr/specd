@@ -111,6 +111,8 @@ before, so you pay context only for the work in front of you.
 | `specd-eval-author` | Authoring/refining an eval rubric after `specd eval init` (check kinds, scoring, sandboxed `command`). |
 | `specd-brain` | Entering orchestration (sensing, deterministic stepping, program scheduling, no-LLM boundary). |
 | `specd-pinky` | Operating a Pinky worker (context, claim, heartbeat, progress, query/inbox, blocker, report, release). |
+| `specd-review` | Running the review workflow (`review_report.md` sections, reviewer brief, `review checklist`, the `review` gate). |
+| `specd-maintenance` | Registering/running scheduled maintenance (`program schedule`/`program tick`, host-triggered, idempotent). |
 
 ## Quickstart
 

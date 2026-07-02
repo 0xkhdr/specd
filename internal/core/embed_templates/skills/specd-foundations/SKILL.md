@@ -89,6 +89,8 @@ a suggestion and let the user decide. See AGENTS.md "Execution mode" for the ful
 | `specd-eval-author` | Authoring/refining an eval rubric after `specd eval init`. The four check kinds, scoring/`minScore`, trajectory predicates, the sandboxed `command` contract. |
 | `specd-brain` | Entering orchestration. Sensing specd-owned state, deterministic stepping, program scheduling, the no-LLM boundary. |
 | `specd-pinky` | Operating a Pinky worker. Context, claim, heartbeat, progress, query/inbox, blocker, report, release under lease. |
+| `specd-review` | Reviewing a completed spec. The `review_report.md` sections, reviewer brief, `review checklist`, and the `review` gate. |
+| `specd-maintenance` | Scheduled maintenance programs. `program schedule`/`program tick`, host-triggered, no-daemon, idempotent ticks. |
 
 Pay context only for the stage you are in. This `specd-foundations` is the only
 always-loaded skill; it indexes all seven stage skills above.

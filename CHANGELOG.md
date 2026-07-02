@@ -9,7 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Scheduled maintenance programs (`specd program schedule` / `specd program
+  tick`, P3.5).** Register recurring maintenance in `program.json`
+  (`schedule <name> --interval <seconds> --command <cmd> [--sandbox <backend>]`);
+  a host scheduler invokes `program tick`, which runs each due schedule exactly
+  once through the shared sandboxed exec path with a scrubbed env. specd never
+  daemonizes — the claim is CAS-guarded under the program lock, so a
+  double-invoked tick is idempotent (nothing due runs twice). Ships the
+  `specd-maintenance` skill.
+- **ACP inter-role handoff (P3.3).** Mission payloads and briefs now carry an
+  optional `tier` and `handoff {from, reason, artifacts}` (e.g. scout → craftsman),
+  schema-versioned and validated (known origin role, non-empty reason). The
+  fields are omitempty and excluded from the dispatch digest, so a fresh dispatch
+  is byte-identical to the pre-handoff format. Maps to the A2A handoff concept.
+- **Reviewer role + `specd-review` skill.** The read-only adversarial reviewer
+  role is now a scaffolded `.specd/roles/reviewer.md` template (seeds a reviewer
+  sub-agent), and the `specd-review` skill documents the report structure, the
+  `review checklist`, and the `review` gate.
+- **Threat-model refresh (P4.4).** SECURITY.md now documents every v0.2.0 exec
+  surface — eval rubric commands, executable guardrails, `submit`, maintenance
+  `tick`, and the security scanners — and how each is scrubbed/sandboxed/opt-in
+  (deploy drivers + observe listener tracked as pending until V9).
 - Add state schema v6 with v5 migration support and optional `evals`, `routing`, `conductor`, and `escalation` blocks.
+- **Auto-escalation engine (`specd orchestrate`).** Deterministic, opt-in
+  (`config.escalation.enabled`) rule set over countable facts — `verify-fail`,
+  `retry-exhausted`, `blocker`, `cost-over-budget`, `complexity` — evaluated on a
+  failed verify. When a rule fires the task's `state.escalation` is recorded and a
+  conductor handoff is *recommended*, never auto-switched. `specd orchestrate
+  <slug> status` surfaces the escalation; `resume --override` is the human
+  override that clears it. Off by default (migrated repos unaffected).
+- **Security gate suite (`specd check --security`).** Deterministic, stdlib-only
+  scanners over working-tree changed files: `secrets` (entropy + known formats,
+  allowlist with mandatory reasons at `.specd/security/allow.json`), `injection`
+  (SQL-concat / exec-interpolation heuristics, advisory by default), and
+  `slopsquat` (manifest parsing + edit distance vs an embedded popular-package
+  list — no network, no CVE DB). Findings are recorded in `state.security` and
+  rendered in the PR summary. Each scanner is `off`/`warn`/`error` per
+  `config.security.*`; advisory findings never fail the command.
+- **Review workflow (`specd review`).** Scaffolds a structured `review_report.md`
+  (Summary, Bugs, Security, Hallucinated Dependencies, Style, Verdict) and prints
+  the read-only adversarial reviewer brief; `review checklist` deterministically
+  extracts a review checklist from `design.md` + `tasks.md`. New opt-in review
+  gate (`config.review.required`) blocks `approve` verifying→complete until a
+  fresh, structurally-valid report with an `approve` verdict exists — human
+  approval stays final. Off for migrated repos.
+- **Batch PR submission (`specd submit`).** Validates all configured gates are
+  green, generates the deterministic PR summary (now including eval / security /
+  escalation sections), and streams it on stdin to the operator-configured
+  `config.submit.command` run through the shared sandboxed exec path with a
+  scrubbed env. No git/GitHub logic embedded; `--dry-run` prints without
+  executing. A gate violation or non-zero command exit fails with no partial state.
 - **Eval framework (`specd eval`, `specd promote`).** Deterministic rubric
   engine with `artifact_present`, `regex`, `trajectory`, and sandboxed `command`
   check kinds; `specd eval <slug> init` compiles a rubric skeleton from approved

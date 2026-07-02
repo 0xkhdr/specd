@@ -52,12 +52,13 @@ func TestPaletteCeiling(t *testing.T) {
 			daily++
 		}
 	}
-	// v0.2.0 Wave 3 adds the eval and conductor execution/inspection surfaces
-	// (promote is Hidden). The palette stays deliberately bounded.
-	if daily > 18 {
-		t.Fatalf("daily palette = %d, want <=18", daily)
+	// v0.2.0 Wave 3 added eval/conductor; Wave 4 adds the trust/scale surfaces
+	// (orchestrate, review, submit — promote stays Hidden). The palette stays
+	// deliberately bounded.
+	if daily > 21 {
+		t.Fatalf("daily palette = %d, want <=21", daily)
 	}
-	if total > 23 {
-		t.Fatalf("total commands = %d, want <=23", total)
+	if total > 26 {
+		t.Fatalf("total commands = %d, want <=26", total)
 	}
 }

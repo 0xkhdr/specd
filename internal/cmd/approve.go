@@ -84,6 +84,26 @@ func RunApprove(args cli.Args) int {
 				}
 				return core.ExitGate, nil
 			}
+			// Review gate: when configured required, completion needs a fresh,
+			// structurally-valid review_report.md whose verdict is `approve` (off for
+			// migrated repos). Human approval stays final — this only enforces that the
+			// review evidence exists and is current, never substitutes for it.
+			if cfg.Review.Required {
+				body, mod := core.ReadReviewReport(root, slug)
+				res := core.EvaluateReviewGate(state, body, mod)
+				if !res.OK {
+					msg := "review gate: " + res.Problem
+					if jsonOut {
+						if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": []string{msg}}); err != nil {
+							return specdExit(err), err
+						}
+					} else {
+						errLine("✗ %s", msg)
+					}
+					return core.ExitGate, nil
+				}
+				state.Review = &core.ReviewRecord{Verdict: string(res.Verdict), Fresh: res.Fresh, Time: core.NowISO()}
+			}
 			// Eval gate: when configured `required`, completion needs at least one
 			// passing recorded rubric run (config-on for new inits, off for
 			// migrated repos — gate-fatigue mitigation).
