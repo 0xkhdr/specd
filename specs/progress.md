@@ -1,101 +1,125 @@
-# specd Production Regression — Progress
+# specd v0.2.0 — Implementation Progress
 
-**Overall status:** Wave 1 baseline complete; Wave 2 implementation complete; Wave 3 complete; Wave 4 implementation complete locally.
-**Current wave:** Wave 4 complete locally → pending remote PR CI confirmation.
-**Wave 1 evidence:** `specs/wave1-baseline.md`.
+**Program:** Full-cycle harness (SPECD_V0.2.0_ACTION_PLAN.md).
+**Overall status:** Specs authored; implementation not started.
+**Current wave:** Wave 1 ready to start.
+**Note:** `specs/progress.md` tracks the separate regression program; this
+file tracks v0.2.0 only.
 
-## Requirement → Spec coverage (R1–R15)
+## Plan task → spec coverage (P1.1–P6.4)
 
-| Req | Description | Spec(s) |
-|-----|-------------|---------|
-| R1  | Deterministic exit codes | S1, (S15 robustness) |
-| R2  | State atomicity (CAS + lock) | S2 |
-| R3  | DAG frontier/cycle/wave | S3 |
-| R4  | Verify shell/bwrap/container fail-closed | S4, S10 |
-| R5  | MCP stdio/HTTP/SSE + auth | S5, S10 |
-| R6  | `init` idempotency / packs / host detection | S6 |
-| R7  | Report Markdown/HTML/PR summary | S7 |
-| R8  | Install checksum fail-closed | S8 |
-| R9  | Cross-platform builds | S9 |
-| R10 | Path/env/auth/isolation boundaries | S10 |
-| R11 | Custom gates scrubbed env + timeout | S4 |
-| R12 | Docs match behavior | S1, S14 |
-| R13 | Performance baselines ±10% | S11 |
-| R14 | Coverage floors maintained | S12 |
-| R15 | CI reliable & complete | S13 |
+| Plan task | Description | Spec |
+|-----------|-------------|------|
+| P1.1 | state.json schema v2 + migration | V1 |
+| P1.2 | Trajectory ledger | V3 |
+| P1.3 | Eval rubric engine + `specd eval` (+ prototype/promote from §4) | V5 |
+| P1.4 | Executable guardrails gate | V2 |
+| P1.5 | Model router policy engine | V4 |
+| P1.6 | Token economics report | V4 |
+| P2.1–P2.6 | Micro-tasks, conductor engine, SSE/MCP surface, HUD, replay/analytics, host bindings | V6 |
+| P3.1 | Remote worker pool hardening | V7 |
+| P3.2 | Auto-escalation engine | V7 |
+| P3.3 | ACP handoff interop (A2A-ready) | V7 |
+| P3.4 | Batch PR workflow (`submit`) | V7 |
+| P3.5 | Scheduled maintenance programs | V7 |
+| P4.1 | Review workflow + gate | V8 |
+| P4.2 | Security gate suite | V8 |
+| P4.3 | Review checklist generator | V8 |
+| P4.4 | Threat-model refresh (release gate) | V8 |
+| P5.1 | Deploy driver runner | V9 |
+| P5.2 | Production observability inbound | V9 |
+| P5.3 | Legacy ingestion workflow | V10 |
+| P5.4 | Migration spec packs | V10 |
+| P5.5 | Feedback flywheel wiring + docs | V9 |
+| P6.1 | Team harness sharing | V11 |
+| P6.2 | Unified dashboard | V11 |
+| P6.3 | Spec pack registry | V11 |
+| P6.4 | Release engineering | V12 |
 
-All 15 requirements covered by ≥1 spec. ✅
+All 26 plan tasks covered by exactly one spec. ✅
 
 ## Spec status
 
-| Spec | Directory | Deps | Wave | Status | Validation |
-|------|-----------|------|------|--------|-----------|
-| S1  | `regression-cli-commands` | — | 1 | Authored | `go test ./internal/cmd/... -count=2` |
-| S2  | `regression-state-atomicity` | — | 1 | Authored | `make stress` |
-| S4  | `regression-verify-sandbox` | — | 1 | Authored | `go test ./internal/runner/...` |
-| S8  | `regression-install-integrity` | — | 1 | Authored | `bash scripts/install_test.sh` |
-| S15 | `regression-fuzz-parsers` | — | 1 | Authored | `go test ./internal/core/... -run Fuzz` |
-| S3  | `regression-dag-scheduling` | S2 | 2 | Authored | `go test ./internal/core/... -run 'DAG\|Frontier'` |
-| S5  | `regression-mcp-server` | S1 | 2 | Authored | `go test ./internal/mcp/...` |
-| S10 | `regression-security-boundaries` | S2,S4,S5 | 2 | Authored | `golangci-lint run && govulncheck ./...` |
-| S6  | `regression-onboarding` | S5 | 3 | Authored | `make perf-gate` |
-| S7  | `regression-reporting` | S3 | 3 | Authored | `go test ./internal/core/... -run Report` |
-| S9  | `regression-cross-platform` | — | 4 | Authored | `GOOS=windows go build ./...` |
-| S11 | `regression-performance-baselines` | S1–S10 | 4 | Authored | `make bench` |
-| S12 | `regression-coverage-floors` | S1–S10 | 4 | Authored | `make cover-check` |
-| S13 | `regression-ci-pipeline` | S1–S12 | 4 | Authored | `make ci` |
-| S14 | `regression-documentation-accuracy` | S1 | 4 | Authored | `make docs-lint` |
+| Spec | Directory | Deps | Wave | Status | Primary validation |
+|------|-----------|------|------|--------|--------------------|
+| V1  | `specs/v020-state-schema-v2` | — | 1 | Authored | `go test ./internal/core/... -run 'State|Migrat' -count=2 && make stress` |
+| V2  | `specs/v020-guardrails-gate` | — | 1 | Authored | `go test ./internal/core/... -run Guardrail -count=2` |
+| V3  | `specs/v020-trajectory-ledger` | V1 | 2 | Authored | `go test ./internal/core/... -run Trajectory && make stress` |
+| V4  | `specs/v020-model-routing-economics` | V1 | 2 | Authored | `go test ./internal/core/... -run 'Rout|Cost'` |
+| V5  | `specs/v020-eval-framework` | V1,V2,V3 | 3 | Authored | `go test ./... -run 'Eval|Promote' -count=2` |
+| V6  | `specs/v020-conductor-mode` | V1,V3(,V4) | 3 | Authored | `go test ./... -run 'Conductor|Micro' -count=2` |
+| V7  | `specs/v020-orchestrator-escalation` | V1,V4,V6 | 4 | Authored | `go test ./... -run 'Backend|Escalat|Submit'` |
+| V8  | `specs/v020-review-security-gates` | V1,V2,V5,V7 | 4 | Authored | `go test ./... -run 'Review|Secur' -count=2` |
+| V9  | `specs/v020-deploy-observe` | V5,V7,V8 | 5 | Authored | `make ci` (flywheel e2e) |
+| V10 | `specs/v020-legacy-ingestion-packs` | V1,V5,V7 | 5 | Authored | `go test ./... -run 'Ingest|Pack' -count=2` |
+| V11 | `specs/v020-harness-sharing-platform` | V2,V4,V5,V8,V9 | 6 | Authored | `go test ./... -run 'Harness|Dashboard'` |
+| V12 | `specs/v020-release-engineering` | V1–V11 | 6 | Authored | `make ci` + upgrade e2e |
 
-## Waves
+## Waves (implementation order; mark done after each lands green)
 
-- **Wave 1 (no deps):** S1, S2, S4, S8, S15
-- **Wave 2:** S3 (←S2), S5 (←S1), S10 (←S2,S4,S5)
-- **Wave 3:** S6 (←S5), S7 (←S3)
-- **Wave 4:** S9, S11, S12, S13, S14
+- [ ] **Wave 1 (foundation, no deps):** V1 state schema v6, V2 guardrails gate
+- [ ] **Wave 2 (ledgers + policy):** V3 trajectory (←V1), V4 routing/economics (←V1)
+- [ ] **Wave 3 (eval + conductor):** V5 evals (←V1,V2,V3), V6 conductor (←V1,V3)
+- [ ] **Wave 4 (scale + trust):** V7 orchestrator/escalation (←V4,V6), V8 review/security (←V2,V5,V7)
+- [ ] **Wave 5 (lifecycle close):** V9 deploy/observe/flywheel (←V5,V7,V8), V10 ingestion/packs (←V5,V7)
+- [ ] **Wave 6 (platform + ship):** V11 harness sharing/dashboard (←V9), V12 release (←all)
 
-## Baselines / targets
+Ordering note: V8 depends on V7 only for PR-summary section wiring (P3.4
+stubs); V8 Waves 1–2 can start in parallel with V7 if needed — the P4.4
+threat-model wave must land after all exec surfaces (V5 command checks, V7
+submit, V9 drivers) exist. Per-phase P0-only fallback applies (plan risk 1).
 
-| Metric | Source | Current |
-|--------|--------|---------|
-| Coverage floors | `scripts/coverage-check.sh` | overall 79, core 80, cmd 71, worker 88, mcp 88, harness 80, spec 99, context 91, runner 92, pack 86, schema 83 |
-| Coverage targets | `TESTING.md` | 85 overall; core 90→95 |
-| Perf baselines | `docs/agent-harness-baselines.md` | read locally; refresh via `make bench` |
-| Schema version | `internal/core/state.go:16` | 5 |
-| Go | `go.mod` | 1.22 (toolchain go1.22.0), stdlib-only |
+## Constitution checklist (every spec, every PR)
 
-## Decisions & deviations (from the analysis plan)
+1. Foundational Split — binary never perceives/reasons/generates prose
+2. Zero LLM calls in the binary (judges = external command plugins)
+3. Zero external Go deps — stdlib JSON only, no YAML, `go.mod` stays 3 lines
+4. State mutated only via CLI; dual-write discipline on every new ledger
+5. Evidence gates every state change (micro-approval never bypasses `verify:`)
+6. Deterministic reporting from state/ledgers, no generated prose
+7. Byte-stable round-trips; FakeClock; fuzz every new parser
+8. New exec surfaces = hostile input: env scrub, path validation, bwrap;
+   single shared sandboxed exec path; adversarial tests in the same PR
+9. Backward compat: v0.1.x commands unchanged; additive JSON; exit codes
+   0/1/2/3 untouched; migrated repos default-off for new gates
+10. Registry discipline: cmd file + Registry + CommandMeta + parity tests
 
-- **D1 — Command set corrected.** Plan lists 13 commands incl. `migrate` +
-  `doctor`. Verified `registry.go` has **17** dispatchable commands (`init`,
-  `handshake`, `new`, `approve`, `decision`, `midreq`, `memory`, `brain`,
-  `pinky`, `next`, `verify`, `task`, `status`, `context`, `check`, `report`,
-  `waves`) + `mcp`/`help`/`version` in `main.go`. `migrate` and `doctor` do not
-  exist. Affects S1, S14.
-- **D2 — No prior specs.** Plan claims `specs/` holds 7 optimization specs.
-  `specs/` was empty; these 15 regression specs are the first. No prior-spec
-  regression check needed (U1 resolved).
-- **D3 — Coverage floors corrected.** worker floor is **88** (not 50); floors
-  exist for mcp/harness/spec/context/runner/pack/schema. Plan's F6 ("raise
-  worker to 70") already exceeded. Affects S12.
-- **D4 — Larger subsystem.** Codebase includes ACP (`acp*.go`), orchestration
-  engine (`orchestration*.go`), program lifecycle (`program*.go`), and
-  brain/pinky workers (`brain*.go`, `pinky*.go`) not in the plan's architecture.
-  Their state paths fold into S2/S3; stress via `stress-acp/orchestration/
-  program/brain-recovery/checkpoint-fault.sh`.
-- **D5 — More CI/stress jobs.** CI has `stress`, `stress-brain-recovery`,
-  `stress-checkpoint-fault`; `make ci` additionally runs `stress-acp`,
-  `stress-orchestration`, `stress-program` (not yet dedicated CI jobs). Parity
-  gap flagged in S13.
-- **D6 — Fuzz already partial.** `internal/mcp/host_caps_fuzz_test.go` exists;
-  S15 adds fuzz for the *core parsers* that lack it. Affects S5, S15.
-- **D7 — `mcp` routing.** `mcp` is handled in `main.go` (pre-dispatch), not the
-  registry. Affects S1.
+## Success metrics (plan Part III — verify at V12)
+
+| Metric | Target | Measured by |
+|--------|--------|-------------|
+| First-pass verify success | >85% | telemetry rollup per spec |
+| Security fixture catch rate | >90% | V8 corpus test in CI |
+| Mode-switch friction | <30s, zero context loss | V6 e2e timing + ledger continuity |
+| Ingestion coverage | 100% mapped/waived | V10 `ingest` gate |
+| Cost visibility | 100% tasks tier+cost attributed | V4 reconciliation test |
+| Eval coverage | every completed spec ≥1 eval run | V5 gate (config-on) |
+| Production correlation | every error → midreq w/ evidence | V9 tests |
+
+## Decisions & deviations (plan vs verified codebase)
+
+- **DV1 — Package path.** Plan references `internal/spec/*.go` for core
+  machinery. Actual: `internal/core/` holds state/gates/parsers/briefs/
+  telemetry/mode/programs; `internal/spec/` is a small phase/role/status
+  package. All specs use `internal/core` paths.
+- **DV2 — Schema version.** Plan says state "migrates version 1 → 2".
+  Actual SchemaVersion is **5** (`internal/core/state.go`); v0.2.0 bumps
+  **5 → 6** using the existing migration pattern. Plan's "v2 blocks" = v6
+  blocks.
+- **DV3 — Progress file placement.** `specs/progress.md` already tracks the
+  regression program; v0.2.0 progress lives here (repo root) to avoid
+  clobbering evidence.
+- **DV4 — Prototype lifecycle homed in V5.** Plan §4 lists
+  `--prototype`/`promote` under Requirements without a Phase-1 task ID;
+  covered explicitly in V5 Wave 4 so no gap remains.
 
 ## Remaining work
 
-- [x] Execute Wave 1 baseline tasks (`specs/wave1-baseline.md`).
-- [x] Execute Wave 2 implementation tasks.
-- [x] Execute Wave 3 implementation tasks.
-- [x] Execute Wave 4 implementation tasks.
-- [x] Final local gate: `make ci` green, floors held/raised, stress green.
-- [ ] Remote PR CI green confirmation.
+- [ ] Execute Wave 1 (V1, V2)
+- [ ] Execute Wave 2 (V3, V4)
+- [ ] Execute Wave 3 (V5, V6)
+- [ ] Execute Wave 4 (V7, V8)
+- [ ] Execute Wave 5 (V9, V10)
+- [ ] Execute Wave 6 (V11, V12)
+- [ ] Final release gate: `make ci` green, metrics table verified, v0.2.0
+  tagged from `main`
