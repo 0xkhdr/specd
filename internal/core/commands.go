@@ -432,7 +432,7 @@ func annotateFlagEnums(cmd *CommandMeta) {
 				flag.Required = true
 			}
 		case "set":
-			flag.Enum = []string{ModeSimple, ModeOrchestrated}
+			flag.Enum = []string{ModeSimple, ModeOrchestrated, ModeConductor}
 		case "format":
 			flag.Enum = []string{"md", "html", "prometheus"}
 		case "action":

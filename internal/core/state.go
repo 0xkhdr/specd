@@ -13,7 +13,7 @@ import (
 // SchemaVersion is the current state.json schema version this build of specd
 // writes and understands. LoadState refuses to read a state.json whose
 // schemaVersion is newer than this value.
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 // Execution mode for a spec. Simple is the plain spec-driven lifecycle the host
 // agent drives itself; Orchestrated lets the Brain/Pinky multi-agent layer drive.
@@ -22,6 +22,7 @@ const SchemaVersion = 5
 const (
 	ModeSimple       = "simple"
 	ModeOrchestrated = "orchestrated"
+	ModeConductor    = "conductor"
 )
 
 // Origin records how a spec's execution mode was chosen, for audit via replay.
@@ -165,6 +166,35 @@ type TaskState struct {
 
 // Blocker records why a task is blocked: which task, the reason, and when it
 // became blocked.
+type EvalSummary struct {
+	Suite    string  `json:"suite"`
+	Score    float64 `json:"score"`
+	MinScore float64 `json:"minScore"`
+	Pass     bool    `json:"pass"`
+	Seq      int     `json:"seq"`
+	Time     string  `json:"time"`
+}
+
+type RoutingStamp struct {
+	Tier      string  `json:"tier"`
+	BudgetUSD float64 `json:"budgetUSD"`
+	RuleIndex int     `json:"ruleIndex"`
+}
+
+type ConductorSession struct {
+	SessionID string `json:"sessionID"`
+	Task      string `json:"task"`
+	Micro     string `json:"micro"`
+	StartedAt string `json:"startedAt"`
+}
+
+type EscalationRecord struct {
+	Task  string `json:"task"`
+	Rule  string `json:"rule"`
+	Facts string `json:"facts"`
+	Time  string `json:"time"`
+}
+
 type Blocker struct {
 	Task   string `json:"task"`
 	Reason string `json:"reason"`
@@ -188,6 +218,10 @@ type State struct {
 	Tasks         map[string]TaskState       `json:"tasks"`
 	Blockers      []Blocker                  `json:"blockers"`
 	Acceptance    map[string]CriterionRecord `json:"acceptance,omitempty"`
+	Evals         map[string]EvalSummary     `json:"evals,omitempty"`
+	Routing       map[string]RoutingStamp    `json:"routing,omitempty"`
+	Conductor     *ConductorSession          `json:"conductor,omitempty"`
+	Escalation    *EscalationRecord          `json:"escalation,omitempty"`
 	// Prompt is the optional originating `specd new --from` text. omitempty keeps
 	// state.json byte-identical for specs created without --from.
 	Prompt string `json:"prompt,omitempty"`
@@ -276,7 +310,19 @@ func migrate(raw map[string]json.RawMessage) (State, error) {
 	if err := json.Unmarshal(b, &s); err != nil {
 		return State{}, err
 	}
+	if err := validateExecutionMode(s.ExecutionMode); err != nil {
+		return State{}, err
+	}
 	return s, nil
+}
+
+func validateExecutionMode(mode string) error {
+	switch mode {
+	case "", ModeSimple, ModeOrchestrated, ModeConductor:
+		return nil
+	default:
+		return GateError(fmt.Sprintf("state.json executionMode %q is unknown", mode))
+	}
 }
 
 func statePath(root, slug string) string {

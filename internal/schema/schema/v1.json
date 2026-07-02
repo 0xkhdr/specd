@@ -4,7 +4,7 @@
   "title": "specd open spec format",
   "description": "Versioned, machine-readable description of the specd on-disk artifacts. The Go types in internal/core are the single source of truth; this schema mirrors them and a conformance test fails CI on drift.",
   "specdSchemaVersion": "1",
-  "stateSchemaVersion": 5,
+  "stateSchemaVersion": 6,
   "type": "object",
   "$ref": "#/$defs/State",
   "$defs": {
@@ -26,7 +26,7 @@
         "blockers"
       ],
       "properties": {
-        "schemaVersion": { "type": "integer", "const": 5 },
+        "schemaVersion": { "type": "integer", "const": 6 },
         "revision": { "type": "integer", "minimum": 0 },
         "spec": { "type": "string" },
         "title": { "type": "string" },
@@ -57,8 +57,18 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/CriterionRecord" }
         },
+        "evals": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/EvalSummary" }
+        },
+        "routing": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/RoutingStamp" }
+        },
+        "conductor": { "$ref": "#/$defs/ConductorSession" },
+        "escalation": { "$ref": "#/$defs/EscalationRecord" },
         "prompt": { "type": "string" },
-        "executionMode": { "type": "string", "enum": ["simple", "orchestrated"] },
+        "executionMode": { "type": "string", "enum": ["simple", "orchestrated", "conductor"] },
         "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
       }
     },
@@ -130,6 +140,51 @@
         "status": { "type": "string", "enum": ["pass", "fail"] },
         "evidence": { "type": "string" },
         "ranAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EvalSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "score", "minScore", "pass", "seq", "time"],
+      "properties": {
+        "suite": { "type": "string" },
+        "score": { "type": "number" },
+        "minScore": { "type": "number" },
+        "pass": { "type": "boolean" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "RoutingStamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budgetUSD", "ruleIndex"],
+      "properties": {
+        "tier": { "type": "string" },
+        "budgetUSD": { "type": "number", "minimum": 0 },
+        "ruleIndex": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ConductorSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sessionID", "task", "micro", "startedAt"],
+      "properties": {
+        "sessionID": { "type": "string" },
+        "task": { "type": "string" },
+        "micro": { "type": "string" },
+        "startedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EscalationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "rule", "facts", "time"],
+      "properties": {
+        "task": { "type": "string" },
+        "rule": { "type": "string" },
+        "facts": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
       }
     },
     "Blocker": {

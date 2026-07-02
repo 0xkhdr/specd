@@ -20,12 +20,12 @@ type modePayload struct {
 // runModeSet records a new per-spec execution mode, failing closed when
 // orchestration is requested without project capability.
 func runModeSet(root, slug, target string, jsonOut bool) int {
-	if target != core.ModeSimple && target != core.ModeOrchestrated {
-		core.Error(fmt.Sprintf("--set: invalid mode %q, expected simple|orchestrated", target))
+	if target != core.ModeSimple && target != core.ModeOrchestrated && target != core.ModeConductor {
+		core.Error(fmt.Sprintf("--set: invalid mode %q, expected simple|orchestrated|conductor", target))
 		return core.ExitUsage
 	}
-	if target == core.ModeOrchestrated && !core.ProjectOrchestrationEnabled(root) {
-		core.Error("--set orchestrated: project has no orchestration capability. Enable it with `specd init --orchestration session` (or manual|planning), then retry.")
+	if target != core.ModeSimple && !core.ProjectOrchestrationEnabled(root) {
+		core.Error("--set mode: project has no orchestration capability. Enable it with `specd init --orchestration session` (or manual|planning), then retry.")
 		return core.ExitGate
 	}
 
