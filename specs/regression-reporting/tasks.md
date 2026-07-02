@@ -25,7 +25,7 @@ Requirement coverage: R7. Dependencies: S3.
 
 ## Wave 3 — Determinism (depends on Wave 2)
 
-- [ ] Run `-count=2` to catch map-key ordering drift in rendered output.
+- [x] Run `-count=2` to catch map-key ordering drift in rendered output.
 - **Validation:** `go test ./internal/core/... -count=2`
 
 ## Rollout & cleanup

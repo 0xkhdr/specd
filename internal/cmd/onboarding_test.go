@@ -173,6 +173,25 @@ func TestInitAgentSelectionConsentAndScope(t *testing.T) {
 	})
 }
 
+func TestOnboardingHostDetectionDeterministic(t *testing.T) {
+	root := initTestRoot(t)
+	registry := integration.MustRegistry(
+		&onboardingAdapter{name: "zeta", detected: true, scopes: []integration.Scope{integration.ScopeProject}},
+		&onboardingAdapter{name: "alpha", detected: true, scopes: []integration.Scope{integration.ScopeProject, integration.ScopeGlobal}},
+	)
+	first, err := json.Marshal(registry.Detect(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := json.Marshal(registry.Detect(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatalf("host detection not deterministic\nfirst:  %s\nsecond: %s", first, second)
+	}
+}
+
 func TestInitHumanReceiptNextActionBudget(t *testing.T) {
 	initTestRoot(t)
 	runtime := onboardingRuntime{Registry: integration.MustRegistry(), Probe: passingProbe, Interactive: func() bool { return false }}

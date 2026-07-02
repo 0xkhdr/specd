@@ -63,6 +63,11 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: go mod tidy check
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
       # staticcheck (and friends) via golangci-lint, governed by .golangci.yml.
       - name: staticcheck (golangci-lint)
         uses: golangci/golangci-lint-action@v6
@@ -138,6 +143,48 @@ jobs:
       - name: Cross-process contention on one spec
         run: ./scripts/stress.sh
 
+  stress-acp:
+    name: ACP ledger stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: ACP append/replay contention
+        run: ./scripts/stress-acp.sh
+
+  stress-orchestration:
+    name: Orchestration stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Brain/Pinky orchestration contention
+        run: ./scripts/stress-orchestration.sh
+
+  stress-program:
+    name: Program scheduler stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Cross-spec program scheduling contention
+        run: ./scripts/stress-program.sh
+
   stress-brain-recovery:
     name: Brain recovery stress
     runs-on: ubuntu-latest
@@ -186,3 +233,15 @@ jobs:
       # binary still builds and all non-self-update commands work.
       - name: Build binary
         run: go build -ldflags "-s -w -X main.version=ci" -o specd .
+
+      - name: Cross-compile linux/arm64
+        if: matrix.os == 'ubuntu-latest'
+        run: GOOS=linux GOARCH=arm64 go build ./...
+
+      - name: Cross-compile darwin/arm64
+        if: matrix.os == 'ubuntu-latest'
+        run: GOOS=darwin GOARCH=arm64 go build ./...
+
+      - name: Cross-compile windows/amd64
+        if: matrix.os == 'ubuntu-latest'
+        run: GOOS=windows GOARCH=amd64 go build ./...

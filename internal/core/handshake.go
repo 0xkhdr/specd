@@ -18,14 +18,14 @@ const HandshakeBootstrapVersion = 1
 // bundling the project root, the files an agent should load, command/config
 // summaries, scaffold health, active spec modes, and recommended next actions.
 type HandshakeBootstrap struct {
-	Version     int                    `json:"version"`
-	Root        string                 `json:"root"`
+	Version     int                       `json:"version"`
+	Root        string                    `json:"root"`
 	Load        []HandshakeLoadItem       `json:"load"`
 	Commands    HandshakeCommandSummary   `json:"commands"`
 	Config      HandshakeConfigSummary    `json:"config"`
 	Health      HandshakeHealthSummary    `json:"health"`
 	Modes       []HandshakeActiveSpecMode `json:"modes"`
-	NextActions []string               `json:"nextActions"`
+	NextActions []string                  `json:"nextActions"`
 }
 
 // HandshakeLoadItem describes a single file a handshake-aware agent should load,
@@ -50,14 +50,14 @@ type HandshakeCommandSummary struct {
 // digest, role/orchestration settings, gate severities, and where the
 // effective values were sourced from.
 type HandshakeConfigSummary struct {
-	Path                  string            `json:"path"`
-	Digest                string            `json:"digest"`
+	Path                  string               `json:"path"`
+	Digest                string               `json:"digest"`
 	Roles                 HandshakeRolesConfig `json:"roles"`
 	Orchestration         HandshakeOrchConfig  `json:"orchestration"`
-	VerifySandbox         string            `json:"verifySandbox"`
-	GateSeverities        map[string]string `json:"gateSeverities"`
-	ConfigFilePresent     bool              `json:"configFilePresent"`
-	EffectiveConfigSource string            `json:"effectiveConfigSource"`
+	VerifySandbox         string               `json:"verifySandbox"`
+	GateSeverities        map[string]string    `json:"gateSeverities"`
+	ConfigFilePresent     bool                 `json:"configFilePresent"`
+	EffectiveConfigSource string               `json:"effectiveConfigSource"`
 }
 
 // HandshakeRolesConfig holds the subagent role configuration exposed in a
@@ -77,7 +77,7 @@ type HandshakeOrchConfig struct {
 // HandshakeHealthSummary reports overall scaffold health plus the individual
 // checks that were run.
 type HandshakeHealthSummary struct {
-	OK     bool                `json:"ok"`
+	OK     bool                   `json:"ok"`
 	Checks []HandshakeHealthCheck `json:"checks"`
 }
 
@@ -105,26 +105,26 @@ type HandshakeActiveSpecMode struct {
 // describing the effective orchestration/config policy plus any violations
 // and recommendations, optionally narrowed to a single spec.
 type HandshakePolicy struct {
-	Version              int                `json:"version"`
-	Root                 string             `json:"root"`
-	SubagentMode         string             `json:"subagentMode"`
-	OrchestrationEnabled bool               `json:"orchestrationEnabled"`
-	ApprovalPolicy       string             `json:"approvalPolicy"`
-	WorkerMode           string             `json:"workerMode"`
-	MaxWorkers           int                `json:"maxWorkers"`
-	MaxRetries           int                `json:"maxRetries"`
-	TimeoutSeconds       int                `json:"timeoutSeconds"`
-	VerifySandbox        string             `json:"verifySandbox"`
-	GateSeverities       map[string]string  `json:"gateSeverities"`
-	MCPExposure          HandshakeMCPExposure  `json:"mcpExposure"`
-	ConfigDigest         string             `json:"configDigest"`
-	ConfigFilePresent    bool               `json:"configFilePresent"`
-	DigestMatch          *bool              `json:"digestMatch,omitempty"`
-	ExpectedConfigDigest string             `json:"expectedConfigDigest,omitempty"`
-	Spec                 *HandshakeSpecPolicy  `json:"spec,omitempty"`
-	Diagnostics          []ConfigDiagnostic `json:"diagnostics"`
-	Violations           []string           `json:"violations"`
-	Recommendations      []string           `json:"recommendations"`
+	Version              int                  `json:"version"`
+	Root                 string               `json:"root"`
+	SubagentMode         string               `json:"subagentMode"`
+	OrchestrationEnabled bool                 `json:"orchestrationEnabled"`
+	ApprovalPolicy       string               `json:"approvalPolicy"`
+	WorkerMode           string               `json:"workerMode"`
+	MaxWorkers           int                  `json:"maxWorkers"`
+	MaxRetries           int                  `json:"maxRetries"`
+	TimeoutSeconds       int                  `json:"timeoutSeconds"`
+	VerifySandbox        string               `json:"verifySandbox"`
+	GateSeverities       map[string]string    `json:"gateSeverities"`
+	MCPExposure          HandshakeMCPExposure `json:"mcpExposure"`
+	ConfigDigest         string               `json:"configDigest"`
+	ConfigFilePresent    bool                 `json:"configFilePresent"`
+	DigestMatch          *bool                `json:"digestMatch,omitempty"`
+	ExpectedConfigDigest string               `json:"expectedConfigDigest,omitempty"`
+	Spec                 *HandshakeSpecPolicy `json:"spec,omitempty"`
+	Diagnostics          []ConfigDiagnostic   `json:"diagnostics"`
+	Violations           []string             `json:"violations"`
+	Recommendations      []string             `json:"recommendations"`
 }
 
 // HandshakeMCPExposure describes which MCP tools are exposed and how,

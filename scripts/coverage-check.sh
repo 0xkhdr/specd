@@ -38,10 +38,10 @@
 #   MCP_MIN      minimum internal/mcp coverage             (default 88)
 #   HARNESS_MIN  minimum internal/testharness coverage     (default 80)
 #   SPEC_MIN     minimum internal/spec coverage            (default 99)
-#   CONTEXT_MIN  minimum internal/context coverage         (default 91)
+#   CONTEXT_MIN  minimum internal/context coverage         (default 92)
 #   RUNNER_MIN   minimum internal/runner coverage          (default 92)
-#   PACK_MIN     minimum internal/pack coverage            (default 86)
-#   SCHEMA_MIN   minimum internal/schema coverage          (default 83)
+#   PACK_MIN     minimum internal/pack coverage            (default 87)
+#   SCHEMA_MIN   minimum internal/schema coverage          (default 84)
 #
 # Wave 3 (A8) extends the ratchet to the previously-unguarded substantive
 # packages — internal/runner, internal/pack, internal/schema — so a regression
@@ -54,6 +54,11 @@
 # targets (overall 78->79, spec 95->99, context 90->91, runner 90->92, pack
 # 85->86, schema 82->83). core/cmd/worker/mcp/testharness were left as-is because
 # their measured headroom was too thin to raise without risking noise flaps.
+#
+# Wave 4 ratchet (2026-07-02): after measured coverage showed >=1% headroom,
+# context moved 91->92, pack 86->87, and schema 83->84. Overall/core/cmd/worker/
+# mcp/testharness/runner stayed unchanged due to thin headroom; spec stayed at
+# its 99% floor.
 set -euo pipefail
 
 OVERALL_MIN="${OVERALL_MIN:-79}"
@@ -63,10 +68,10 @@ WORKER_MIN="${WORKER_MIN:-88}"
 MCP_MIN="${MCP_MIN:-88}"
 HARNESS_MIN="${HARNESS_MIN:-80}"
 SPEC_MIN="${SPEC_MIN:-99}"
-CONTEXT_MIN="${CONTEXT_MIN:-91}"
+CONTEXT_MIN="${CONTEXT_MIN:-92}"
 RUNNER_MIN="${RUNNER_MIN:-92}"
-PACK_MIN="${PACK_MIN:-86}"
-SCHEMA_MIN="${SCHEMA_MIN:-83}"
+PACK_MIN="${PACK_MIN:-87}"
+SCHEMA_MIN="${SCHEMA_MIN:-84}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo"

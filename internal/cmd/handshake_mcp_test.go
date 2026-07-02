@@ -57,6 +57,25 @@ func TestHandshakeCommand(t *testing.T) {
 	})
 }
 
+func TestMCPConfigCommandDeterministic(t *testing.T) {
+	run := func() string {
+		return th.CaptureStdout(t, func() {
+			if got := cmd.RunMCP(cli.ParseArgs([]string{"--config", "claude-code", "--root", "/repo"})); got != core.ExitOK {
+				t.Fatalf("RunMCP config = %d, want %d", got, core.ExitOK)
+			}
+		})
+	}
+	first, second := run(), run()
+	if first != second {
+		t.Fatalf("mcp config output not deterministic\nfirst:\n%s\nsecond:\n%s", first, second)
+	}
+	for _, want := range []string{"# Paste into:", "/repo", "specd"} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("stable config missing %q:\n%s", want, first)
+		}
+	}
+}
+
 func TestMCPConfigCommand(t *testing.T) {
 	t.Run("known_host_prints_config", func(t *testing.T) {
 		out := th.CaptureStdout(t, func() {

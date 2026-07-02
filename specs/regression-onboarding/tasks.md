@@ -24,7 +24,7 @@ Requirement coverage: R6. Dependencies: S5.
 
 ## Wave 3 — Determinism gate (depends on Wave 2)
 
-- [ ] Ensure new tests are `-count=2` clean and folded into `perf-gate`'s
+- [x] Ensure new tests are `-count=2` clean and folded into `perf-gate`'s
   `Deterministic` run filter where relevant.
 - **Validation:** `make perf-gate`
 
