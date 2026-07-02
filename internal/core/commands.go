@@ -260,6 +260,36 @@ var Commands = []CommandMeta{
 	},
 
 	{
+		Command: "deploy", Category: "execution",
+		Description: "Run the evidence-gated deploy driver or its rollback",
+		Usage:       "specd deploy <slug> --env <env> [--dry-run] [--json]  |  specd deploy rollback <slug> --env <env> [--json]", Synopsis: "specd deploy <slug> --env <env> [--dry-run]",
+		LongDescription: "Evidence-gated deploy driver runner (V9). Refuses unless the spec is complete, every gate named in the env's `.specd/deploy/<env>.json` requiresGates is recorded green, and — for a production env or an approval-required plan — a human deploy approval exists (`specd approve <slug> --deploy --env <env>`). Runs the plan's steps sequenced through the shared sandboxed exec path with a scrubbed env, appending every result to deploy.jsonl. `deploy rollback` replays the recorded inverse chain (successful steps, reverse order); a failing rollback step halts and exits 3. No CD logic is embedded — steps are operator-authored commands.",
+		Flags:           []FlagMeta{{Name: "env", Type: "string", Description: "Target environment (matches .specd/deploy/<env>.json)"}, {Name: "dry-run", Type: "boolean", Description: "Show the plan and precondition status without executing"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Precondition/gate failure or step failure"}, {2, "Usage error"}, {3, "Spec/config not found or rollback halted"}},
+		Examples:        []string{"specd deploy my-feature --env staging --dry-run", "specd approve my-feature --deploy --env production", "specd deploy my-feature --env production", "specd deploy rollback my-feature --env staging"},
+	},
+
+	{
+		Command: "observe", Category: "inspection",
+		Description: "Correlate a production error into a mid-requirement",
+		Usage:       "specd observe correlate <payload.json> [--spec <slug>] [--json]  |  specd observe --listen [--spec <slug>]", Synopsis: "specd observe correlate <payload.json> [--spec <slug>]",
+		LongDescription: "Inbound production-error correlation (V9). `correlate` reads a schema-validated, size-capped error payload (a CI-piped Sentry export), deterministically attributes it to a spec by matching stack-frame files against task `files:` contracts (falling back to the recent deploy ledger), and appends an evidenced entry to that spec's mid-requirements.md — gating high/critical impact for human approval, exactly like `specd midreq`. `--listen` starts an optional loopback-only, token-authed HTTP receiver that applies the same transform per payload. The transform is the feature; the listener is optional.",
+		Flags:           []FlagMeta{{Name: "listen", Type: "boolean", Description: "Start the loopback token-authed HTTP receiver"}, {Name: "spec", Type: "string", Description: "Force attribution to this spec"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Invalid payload or no correlation"}, {2, "Usage error"}, {3, "Payload/root not found"}},
+		Examples:        []string{"specd observe correlate error.json", "specd observe correlate error.json --spec my-feature", "specd observe --listen"},
+	},
+
+	{
+		Command: "ingest", Category: "lifecycle",
+		Description: "Inventory a legacy codebase into an ingestion spec",
+		Usage:       "specd ingest new <slug> --path <dir> [--include-ignored] [--json]", Synopsis: "specd ingest new <slug> --path <dir>",
+		LongDescription: "Legacy ingestion (V10). `ingest new` validates the path (no traversal outside the repo), writes a deterministic inventory.json (sorted file list, sizes, and manifest-derived module names via stdlib — countable facts only, the binary never reads legacy semantics), and scaffolds an ingestion-flavored spec. File scoping respects `.gitignore` via `git ls-files` when in a git repo (`--include-ignored` forces a bounded walk with default excludes). The `specd-ingest` skill teaches the agent to reverse-engineer requirements/design/tasks; the opt-in `ingest` gate then enforces that every inventoried file is referenced by ≥1 requirement or waived with a reason.",
+		Flags:           []FlagMeta{{Name: "path", Type: "string", Description: "Directory to inventory (inside the repo)"}, {Name: "include-ignored", Type: "boolean", Description: "Walk all files instead of git-tracked only"}, {Name: "title", Type: "string", Description: "Spec title (default derived from slug)"}, {Name: "json", Type: "boolean"}},
+		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Invalid path or existing spec"}, {2, "Usage error"}, {3, "Path/root not found"}},
+		Examples:        []string{"specd ingest new legacy-billing --path ./billing", "specd ingest new legacy-billing --path ./billing --include-ignored"},
+	},
+
+	{
 		Command: "report", Category: "inspection",
 		Description: "Generate markdown, HTML, or metrics report",
 		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor]",

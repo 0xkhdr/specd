@@ -70,6 +70,9 @@
         "escalation": { "$ref": "#/$defs/EscalationRecord" },
         "security": { "$ref": "#/$defs/SecurityScan" },
         "review": { "$ref": "#/$defs/ReviewRecord" },
+        "deploy": { "$ref": "#/$defs/DeployRecord" },
+        "deployApproval": { "$ref": "#/$defs/DeployApproval" },
+        "ingest": { "$ref": "#/$defs/IngestRecord" },
         "prompt": { "type": "string" },
         "executionMode": { "type": "string", "enum": ["simple", "orchestrated", "conductor"] },
         "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
@@ -226,6 +229,36 @@
       "properties": {
         "verdict": { "type": "string" },
         "fresh": { "type": "boolean" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DeployRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "outcome", "steps", "approved", "time"],
+      "properties": {
+        "env": { "type": "string" },
+        "outcome": { "type": "string" },
+        "steps": { "type": "integer" },
+        "approved": { "type": "boolean" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DeployApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "time"],
+      "properties": {
+        "env": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "IngestRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "time"],
+      "properties": {
+        "files": { "type": "integer" },
         "time": { "type": "string", "format": "date-time" }
       }
     },

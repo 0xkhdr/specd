@@ -72,11 +72,31 @@ highlights:
   (`.specd/security/allow.json`) requires a mandatory reason per entry and is
   parsed defensively (a malformed allowlist errors closed). The `deps` plugin gate,
   when configured, runs through the shared sandboxed path like any custom gate.
-- **Deploy drivers & observe listener (V9 — pending).** These exec/inbound
-  surfaces are not yet shipped. When V9 lands, deploy drivers run through the
-  shared sandboxed path and the observability listener treats every inbound
-  payload as hostile input; this section will be extended before the v0.2.0
-  release gate.
+- **Deploy drivers (V9).** `.specd/deploy/<env>.json` is operator-authored,
+  untrusted policy input: it is strictly schema-validated (unknown fields, empty
+  step lists, and duplicate names rejected), every step must declare a positive,
+  bounded `timeoutSeconds`, and the `--env` name is validated to a safe filename
+  segment so it cannot traverse out of `.specd/deploy/`. Step and rollback
+  commands run through the **shared sandboxed exec path** with a scrubbed env
+  (`config.deploy.sandbox` selects the backend; an unavailable backend fails the
+  step closed) — identical to `verify`/`submit`/custom gates. A mid-chain failure
+  halts execution and records the ledger; the rollback chain is computed only
+  from *recorded successful* steps, so there is no partial-execution ambiguity. A
+  **production deploy is impossible without a recorded human approval**.
+- **Observe listener (V9).** `specd observe --listen` binds **loopback only**
+  (non-loopback addresses are refused) and requires a `config.observe.token`
+  bearer secret compared in constant time on every request. Every inbound error
+  payload is hostile input: strictly schema-validated, size-capped
+  (`config.observe.maxPayloadBytes`), and any stack-frame path that is absolute or
+  traverses the repo is rejected with a reason. Correlation reads recorded state
+  and matches file paths only — the binary never perceives production semantics.
+  The listener is never started implicitly; the offline `observe correlate`
+  transform requires no network at all.
+- **Ingestion (V10).** `specd ingest new --path` validates that the path stays
+  inside the repository (traversal rejected), does not follow symlinks, and the
+  inventory reads only countable facts. The manifest parsers (go.mod,
+  package.json, Cargo/pyproject TOML) are hostile-input parsers, size-capped and
+  fuzzed.
 - **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
   path traversal under `.specd/`.

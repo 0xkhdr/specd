@@ -222,6 +222,36 @@ type Blocker struct {
 	Since  string `json:"since"`
 }
 
+// DeployRecord is the recorded summary of the last `specd deploy` run (V9/P5.1):
+// the target env, terminal outcome ("succeeded"|"failed"|"rolled-back"), how
+// many steps ran, whether a human deploy approval was recorded, and the time.
+// It is a deterministic projection of deploy.jsonl so reports render it without
+// replaying the ledger. Pointer + omitempty keeps state.json byte-identical for
+// specs that never deploy.
+type DeployRecord struct {
+	Env      string `json:"env"`
+	Outcome  string `json:"outcome"`
+	Steps    int    `json:"steps"`
+	Approved bool   `json:"approved"`
+	Time     string `json:"time"`
+}
+
+// DeployApproval is the recorded human deploy gate (V9/P5.1): `specd approve
+// --deploy` writes it, and `specd deploy --env production` refuses without a
+// current one. Pointer + omitempty keeps state.json byte-identical otherwise.
+type DeployApproval struct {
+	Env  string `json:"env"`
+	Time string `json:"time"`
+}
+
+// IngestRecord is the recorded summary of the last ingestion inventory
+// (V10/P5.3): how many files the deterministic inventory captured and when.
+// Pointer + omitempty keeps state.json byte-identical for non-ingestion specs.
+type IngestRecord struct {
+	Files int    `json:"files"`
+	Time  string `json:"time"`
+}
+
 // State is the full on-disk representation of a spec's state.json: schema and
 // revision bookkeeping, lifecycle status/phase/gate, its tasks, blockers,
 // acceptance evidence, and execution-mode metadata.
@@ -251,6 +281,14 @@ type State struct {
 	// Review holds the last review-gate evaluation (V8/P4.1). Pointer + omitempty
 	// keeps state.json byte-identical for repos without a review report.
 	Review *ReviewRecord `json:"review,omitempty"`
+	// Deploy holds the last `specd deploy` outcome (V9/P5.1); DeployApproval holds
+	// the current human deploy gate (`specd approve --deploy`). Pointer + omitempty
+	// keeps state.json byte-identical for specs that never deploy.
+	Deploy         *DeployRecord   `json:"deploy,omitempty"`
+	DeployApproval *DeployApproval `json:"deployApproval,omitempty"`
+	// Ingest holds the last ingestion inventory summary (V10/P5.3). Pointer +
+	// omitempty keeps state.json byte-identical for non-ingestion specs.
+	Ingest *IngestRecord `json:"ingest,omitempty"`
 	// Prompt is the optional originating `specd new --from` text. omitempty keeps
 	// state.json byte-identical for specs created without --from.
 	Prompt string `json:"prompt,omitempty"`

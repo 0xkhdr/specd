@@ -126,6 +126,31 @@ These run after the seven core gates only when enabled. With their defaults,
   reasonless entry is a hard error. Prefer lowering a noisy scanner to `warn` over
   disabling it.
 
+### Gate 13 — Ingest coverage (`gates.ingest`)
+- **Source:** `internal/core/ingest.go` (`GateIngest`), run in the `specd check`
+  pipeline.
+- **Config:** `config.gates.ingest` — `off`/`""` (default, including migrated
+  repos), `warn`, or `error`.
+- **Checks:** For an ingestion spec with an `inventory.json`, every inventoried
+  file must be **mapped** (its path appears in `requirements.md`) or **waived**
+  (an `inventory.json` `waivers` entry with a non-empty reason). Any file that is
+  neither is flagged. Coverage is a countable fact, not a judgment — the binary
+  inventories, the agent understands (via `specd-ingest`), the gate enforces.
+- **Waivers:** `inventory.json` `"waivers": {"<path>": "<reason>"}`; a
+  reasonless waiver does not count (same discipline as the security allowlist).
+
+### Deploy preconditions (`specd deploy`)
+- **Source:** `internal/core/deploy.go` (`DeployPreconditions`),
+  `internal/cmd/deploy.go`.
+- **Not a `check` gate** — enforced at deploy time. `specd deploy <slug> --env
+  <env>` refuses unless: the spec is **complete**; every gate named in the
+  env's `.specd/deploy/<env>.json` `requiresGates` (`eval`/`security`/`review`)
+  is recorded green in `state.json`; and — for a **production** env or an
+  `approvalRequired` plan — a human deploy approval exists (`specd approve
+  <slug> --deploy --env <env>`). Preconditions read recorded evidence only; they
+  never re-run a gate. A production deploy is impossible without the human
+  approval record.
+
 ### Custom gates
 - **Source:** `internal/core/customgate.go`
 - **Config:** `config.gates.custom` — a list of `{name, command, severity}`.

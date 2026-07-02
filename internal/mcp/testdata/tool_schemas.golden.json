@@ -318,6 +318,30 @@
     },
     "additionalProperties": false
   },
+  "specd_deploy": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd deploy \u003cslug\u003e --env \u003cenv\u003e [--dry-run]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "dry-run": {
+        "type": "boolean",
+        "description": "Show the plan and precondition status without executing"
+      },
+      "env": {
+        "type": "string",
+        "description": "Target environment (matches .specd/deploy/\u003cenv\u003e.json)"
+      },
+      "json": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
   "specd_eval": {
     "type": "object",
     "properties": {
@@ -338,6 +362,34 @@
       "suite": {
         "type": "string",
         "description": "Rubric suite name (default reads eval-rubric.json)"
+      }
+    },
+    "additionalProperties": false
+  },
+  "specd_ingest": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd ingest new \u003cslug\u003e --path \u003cdir\u003e",
+        "items": {
+          "type": "string"
+        }
+      },
+      "include-ignored": {
+        "type": "boolean",
+        "description": "Walk all files instead of git-tracked only"
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "path": {
+        "type": "string",
+        "description": "Directory to inventory (inside the repo)"
+      },
+      "title": {
+        "type": "string",
+        "description": "Spec title (default derived from slug)"
       }
     },
     "additionalProperties": false
@@ -537,6 +589,30 @@
       },
       "json": {
         "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "specd_observe": {
+    "type": "object",
+    "properties": {
+      "args": {
+        "type": "array",
+        "description": "Positional arguments, in order. Usage: specd observe correlate \u003cpayload.json\u003e [--spec \u003cslug\u003e]",
+        "items": {
+          "type": "string"
+        }
+      },
+      "json": {
+        "type": "boolean"
+      },
+      "listen": {
+        "type": "boolean",
+        "description": "Start the loopback token-authed HTTP receiver"
+      },
+      "spec": {
+        "type": "string",
+        "description": "Force attribution to this spec"
       }
     },
     "additionalProperties": false

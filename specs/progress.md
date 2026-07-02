@@ -1,8 +1,8 @@
 # specd v0.2.0 — Implementation Progress
 
 **Program:** Full-cycle harness (SPECD_V0.2.0_ACTION_PLAN.md).
-**Overall status:** Waves 1–3 landed green; Wave 4 next.
-**Current wave:** Wave 4 (V7 orchestrator/escalation, V8 review/security).
+**Overall status:** Waves 1–5 landed green; Wave 6 next.
+**Current wave:** Wave 6 (V11 harness sharing/dashboard, V12 release).
 **Note:** `specs/progress.md` tracks the separate regression program; this
 file tracks v0.2.0 only.
 
@@ -50,8 +50,8 @@ All 26 plan tasks covered by exactly one spec. ✅
 | V6  | `specs/v020-conductor-mode` | V1,V3(,V4) | 3 | Done ✅ | `go test ./... -run 'Conductor|Micro' -count=2` |
 | V7  | `specs/v020-orchestrator-escalation` | V1,V4,V6 | 4 | Done ✅ | `go test ./... -run 'Backend|Escalat|Submit'` |
 | V8  | `specs/v020-review-security-gates` | V1,V2,V5,V7 | 4 | Done ✅ (P4.4 deploy/observe deferred to post-V9 per note) | `go test ./... -run 'Review|Secur' -count=2` |
-| V9  | `specs/v020-deploy-observe` | V5,V7,V8 | 5 | Authored | `make ci` (flywheel e2e) |
-| V10 | `specs/v020-legacy-ingestion-packs` | V1,V5,V7 | 5 | Authored | `go test ./... -run 'Ingest|Pack' -count=2` |
+| V9  | `specs/v020-deploy-observe` | V5,V7,V8 | 5 | Done ✅ | `make ci` (flywheel e2e) |
+| V10 | `specs/v020-legacy-ingestion-packs` | V1,V5,V7 | 5 | Done ✅ | `go test ./... -run 'Ingest|Pack' -count=2` |
 | V11 | `specs/v020-harness-sharing-platform` | V2,V4,V5,V8,V9 | 6 | Authored | `go test ./... -run 'Harness|Dashboard'` |
 | V12 | `specs/v020-release-engineering` | V1–V11 | 6 | Authored | `make ci` + upgrade e2e |
 
@@ -61,7 +61,7 @@ All 26 plan tasks covered by exactly one spec. ✅
 - [x] **Wave 2 (ledgers + policy):** V3 trajectory (←V1), V4 routing/economics (←V1)
 - [x] **Wave 3 (eval + conductor):** V5 evals (←V1,V2,V3), V6 conductor (←V1,V3)
 - [x] **Wave 4 (scale + trust):** V7 orchestrator/escalation (←V4,V6), V8 review/security (←V2,V5,V7) — escalation engine, ACP scout→craftsman handoff, submit, `program schedule`/`tick` maintenance, review workflow + gate, security scanners, checklist; threat-model P4.4 covers exec surfaces now shipped (deploy/observe extended when V9 lands)
-- [ ] **Wave 5 (lifecycle close):** V9 deploy/observe/flywheel (←V5,V7,V8), V10 ingestion/packs (←V5,V7)
+- [x] **Wave 5 (lifecycle close):** V9 deploy/observe/flywheel (←V5,V7,V8), V10 ingestion/packs (←V5,V7) — evidence-gated `deploy` driver + rollback + `approve --deploy`, `observe` correlate/listen → gated midreq, flywheel e2e + `docs/flywheel.md`, `ingest new` + inventory + `ingest` gate + `specd-ingest` skill, `migrate-deps`/`modernize-tests`/`upgrade-go` migration packs
 - [ ] **Wave 6 (platform + ship):** V11 harness sharing/dashboard (←V9), V12 release (←all)
 
 Ordering note: V8 depends on V7 only for PR-summary section wiring (P3.4
@@ -124,7 +124,9 @@ submit, V9 drivers) exist. Per-phase P0-only fallback applies (plan risk 1).
   (`program schedule`/`tick`, `specd-maintenance` skill), review workflow + gate
   + reviewer role + `specd-review` skill, security scanner suite, review
   checklist, threat-model refresh (deploy/observe surfaces land with V9)
-- [ ] Execute Wave 5 (V9, V10)
+- [x] Execute Wave 5 (V9, V10) — deploy driver + rollback, observe correlation +
+  loopback listener, feedback flywheel e2e + docs, legacy ingestion inventory +
+  coverage gate + `specd-ingest` skill, migration spec packs
 - [ ] Execute Wave 6 (V11, V12)
 - [ ] Final release gate: `make ci` green, metrics table verified, v0.2.0
   tagged from `main`

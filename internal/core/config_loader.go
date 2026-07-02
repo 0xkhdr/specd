@@ -169,6 +169,7 @@ func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
 	stringEnv(diags, "SPECD_GATES_ACCEPTANCE", "gates.acceptance", func(v string) { cfg.Gates.Acceptance = v })
 	stringEnv(diags, "SPECD_GATES_SCOPE", "gates.scope", func(v string) { cfg.Gates.Scope = v })
 	stringEnv(diags, "SPECD_GATES_EVAL", "gates.eval", func(v string) { cfg.Gates.Eval = v })
+	stringEnv(diags, "SPECD_GATES_INGEST", "gates.ingest", func(v string) { cfg.Gates.Ingest = v })
 	stringEnv(diags, "SPECD_GATES_CONTEXT_BUDGET", "gates.contextBudget", func(v string) { cfg.Gates.ContextBudget = v })
 	intEnv(diags, "SPECD_MAX_CONTEXT_TOKENS", "gates.maxContextTokens", cfg.Gates.MaxContextTokens, 0, MaxSoftContextTokens(), func(v int) { cfg.Gates.MaxContextTokens = v })
 	stringEnv(diags, "SPECD_VERIFY_SANDBOX", "verify.sandbox", func(v string) { cfg.Verify.Sandbox = v })
@@ -353,6 +354,22 @@ func applyConfigDoc(cfg *Config, doc map[string]any) {
 			cfg.Submit.Sandbox = v
 		}
 	}
+	if m, ok := mapAt(doc, "deploy"); ok {
+		if v, ok := stringAt(m, "sandbox"); ok {
+			cfg.Deploy.Sandbox = v
+		}
+	}
+	if m, ok := mapAt(doc, "observe"); ok {
+		if v, ok := stringAt(m, "token"); ok {
+			cfg.Observe.Token = v
+		}
+		if v, ok := stringAt(m, "addr"); ok {
+			cfg.Observe.Addr = v
+		}
+		if v, ok := intAt(m, "maxPayloadBytes", "max_payload_bytes"); ok {
+			cfg.Observe.MaxPayloadBytes = v
+		}
+	}
 }
 
 func applyEscalation(e *EscalationConfig, m map[string]any) {
@@ -406,6 +423,9 @@ func applyGates(g *GatesCfg, m map[string]any) {
 	}
 	if v, ok := stringAt(m, "eval"); ok {
 		g.Eval = v
+	}
+	if v, ok := stringAt(m, "ingest"); ok {
+		g.Ingest = v
 	}
 	if custom, ok := customGatesAt(m, "custom"); ok {
 		g.Custom = custom

@@ -17,6 +17,9 @@
 | `specd conductor` | Drive the interactive micro-task conductor session over an append-only ledger. |
 | `specd orchestrate` | Inspect and resolve deterministic auto-escalations (status, or resume with an override). |
 | `specd submit` | Validate all gates, build the PR summary, and run the configured submit command. |
+| `specd deploy` | Run the evidence-gated deploy driver or replay the recorded rollback chain. |
+| `specd observe` | Correlate a production error payload into an evidenced mid-requirement. |
+| `specd ingest` | Inventory a legacy codebase into an ingestion-flavored spec. |
 | `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
 | `specd decision` | Append an architectural decision record to `decisions.md`. |
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |

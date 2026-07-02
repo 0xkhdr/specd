@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Deploy driver runner (`specd deploy`, P5.1).** Evidence-gated deploy past
+  `complete`: `.specd/deploy/<env>.json` declares `steps` (each with a
+  `command`, optional `rollbackCommand`, and a mandatory `timeoutSeconds`) plus
+  `requiresGates` and `approvalRequired`. `specd deploy <slug> --env <env>`
+  refuses unless the spec is complete, every required gate is recorded green,
+  and — for a production env or an approval-required plan — a human deploy
+  approval exists (`specd approve <slug> --deploy --env <env>`). Steps run
+  sequenced through the shared sandboxed exec path with a scrubbed env; every
+  result is appended to the append-only `deploy.jsonl`. `specd deploy rollback`
+  replays the recorded inverse chain (successful steps, reverse order); a failing
+  rollback step halts and exits 3. No CD logic is embedded. Deploy configs are
+  hostile input (strict schema, mandatory/bounded timeouts, env-name traversal
+  rejection) with adversarial tests in the same PR.
+- **Production observability inbound (`specd observe`, P5.2).** `observe
+  correlate <payload.json>` reads a schema-validated, size-capped error payload,
+  deterministically attributes it to a spec by matching stack-frame files against
+  task `files:` contracts (falling back to the recent deploy ledger), and appends
+  an evidenced entry to that spec's `mid-requirements.md` — gating high/critical
+  impact for human approval, exactly like `specd midreq`. `observe --listen`
+  starts an optional loopback-only, bearer-token-authed HTTP receiver applying the
+  same transform. Frame paths that are absolute or traverse the repo are rejected.
+- **Feedback flywheel (P5.5).** observe → midreq → approve → … → deploy → observe
+  is now a composed, fake-driver end-to-end test in the suite, plus the
+  `docs/flywheel.md` operator guide.
+- **Legacy ingestion (`specd ingest`, P5.3).** `ingest new <slug> --path <dir>`
+  validates the path (no traversal outside the repo), writes a deterministic
+  `inventory.json` (sorted file list, sizes, and manifest-derived module names via
+  stdlib — countable facts only; the binary never reads legacy semantics), and
+  scaffolds an ingestion-flavored spec. Scoping respects `.gitignore` via `git
+  ls-files` (`--include-ignored` forces a bounded walk with default excludes). The
+  opt-in `ingest` gate (`gates.ingest`) flags any inventoried file that no
+  requirement references and no reasoned waiver excuses. Ships the `specd-ingest`
+  skill (reverse-engineering workflow) and fuzzed manifest parsers.
+- **Migration spec packs (P5.4).** `migrate-deps`, `modernize-tests`, and
+  `upgrade-go` built-in packs (`specd init --pack <name>`) each ship a steering
+  file, a task-DAG template, and a V5 eval rubric; runnable on V7 schedules.
 - **Scheduled maintenance programs (`specd program schedule` / `specd program
   tick`, P3.5).** Register recurring maintenance in `program.json`
   (`schedule <name> --interval <seconds> --command <cmd> [--sandbox <backend>]`);

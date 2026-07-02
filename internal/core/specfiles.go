@@ -37,6 +37,31 @@ type Config struct {
 	// Submit configures the batch PR submission command (V7/P3.4). Empty command
 	// disables `specd submit` exec; omitempty keeps configs byte-identical.
 	Submit SubmitCfg `json:"submit,omitempty"`
+	// Deploy configures the deploy driver runner (V9/P5.1). Sandbox selects the
+	// isolation backend for step commands; omitempty keeps configs byte-identical.
+	Deploy DeployCfg `json:"deploy,omitempty"`
+	// Observe configures the production-error correlation listener (V9/P5.2).
+	// Empty token disables `observe --listen`; omitempty keeps configs identical.
+	Observe ObserveCfg `json:"observe,omitempty"`
+}
+
+// DeployCfg configures the deploy driver runner. Sandbox is the isolation
+// backend for every step/rollback command ("none" (default), "bwrap",
+// "container"); an unavailable backend fails the step closed. Step commands are
+// operator-authored config (`.specd/deploy/<env>.json`), run with a scrubbed env
+// through the shared sandboxed exec path.
+type DeployCfg struct {
+	Sandbox string `json:"sandbox,omitempty"`
+}
+
+// ObserveCfg configures the inbound observability listener. Token is the shared
+// bearer secret required on every request (empty disables the listener); Addr is
+// the localhost bind address (default 127.0.0.1:0); MaxPayloadBytes caps a single
+// error payload (0 = built-in default). No listener is ever started implicitly.
+type ObserveCfg struct {
+	Token           string `json:"token,omitempty"`
+	Addr            string `json:"addr,omitempty"`
+	MaxPayloadBytes int    `json:"maxPayloadBytes,omitempty"`
 }
 
 // ReviewCfg configures the review workflow gate. Required gates the
@@ -232,6 +257,12 @@ type GatesCfg struct {
 	// complete until at least one recorded rubric run passed its minScore. New
 	// inits may default this on (V5 quality flywheel).
 	Eval string `json:"eval"`
+	// Ingest is the opt-in ingestion-coverage gate (V10/P5.3): "" / "off" = no-op
+	// (default, including migrated repos), else "warn"/"error". When set it flags
+	// any inventory.json file that no requirement references and no waiver excuses
+	// — coverage as a countable fact. Off by default keeps non-ingestion specs
+	// clean.
+	Ingest string `json:"ingest,omitempty"`
 	// Custom lists external, declarative custom gates run after the core
 	// pipeline. Each is an ordinary subprocess (no Go plugin, no network).
 	Custom []CustomGateCfg `json:"custom"`

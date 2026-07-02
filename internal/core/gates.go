@@ -45,6 +45,7 @@ var CheckGates = []CheckGate{
 	GateScope,
 	GateContextBudget,
 	GateModeCapability,
+	GateIngest,
 }
 
 // RunGates runs the full check pipeline: the ordered pure-gate slice followed by

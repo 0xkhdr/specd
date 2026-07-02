@@ -48,7 +48,10 @@ func LoadConfigStrict(root string) (Config, []ConfigDiagnostic) {
 		validateStringEnum(doc, p, []string{"", "off", "warn", "error"}, &d)
 	}
 	validateStringEnum(doc, "gates.eval", []string{"", "off", "required"}, &d)
+	validateStringEnum(doc, "gates.ingest", []string{"", "off", "warn", "error"}, &d)
 	validateStringEnum(doc, "verify.sandbox", []string{"none", "bwrap", "container"}, &d)
+	validateStringEnum(doc, "deploy.sandbox", []string{"", "none", "bwrap", "container"}, &d)
+	validateIntRange(doc, "observe.maxPayloadBytes", 0, 16*1024*1024, &d)
 	validateStringEnum(doc, "orchestration.approvalPolicy", []string{"manual", "planning", "session"}, &d)
 	validateStringEnum(doc, "orchestration.workerMode", []string{"host"}, &d)
 	validateStringEnum(doc, "orchestration.transport.kind", []string{"file"}, &d)

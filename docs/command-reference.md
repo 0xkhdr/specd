@@ -21,6 +21,9 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd conductor` | Drive the interactive micro-task conductor session over an append-only ledger. |
 | `specd orchestrate` | Inspect and resolve deterministic auto-escalations (status, or resume with an override). |
 | `specd submit` | Validate all gates, build the PR summary, and run the configured submit command. |
+| `specd deploy` | Run the evidence-gated deploy driver or replay the recorded rollback chain. |
+| `specd observe` | Correlate a production error payload into an evidenced mid-requirement. |
+| `specd ingest` | Inventory a legacy codebase into an ingestion-flavored spec. |
 | `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
 | `specd decision` | Append an architectural decision record to `decisions.md`. |
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
@@ -52,6 +55,9 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd conductor` | `specd conductor <slug> <start|step|accept|reject|stop|replay|switch|status> [micro] [--reason "..."] [--json]` | --reason, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
 | `specd orchestrate` | `specd orchestrate <slug> <status\|resume> [--override] [--json]` | --override, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
 | `specd submit` | `specd submit <slug> [--waves w1,w2] [--dry-run] [--json]` | --waves, --dry-run, --json | 0 Success, 1 Gate violation or submit failure, 2 Usage error, 3 Spec not found |
+| `specd deploy` | `specd deploy <slug> --env <env> [--dry-run] [--json]  \|  specd deploy rollback <slug> --env <env> [--json]` | --env, --dry-run, --json | 0 Success, 1 Precondition/gate/step failure, 2 Usage error, 3 Spec/config not found or rollback halted |
+| `specd observe` | `specd observe correlate <payload.json> [--spec <slug>] [--json]  \|  specd observe --listen [--spec <slug>]` | --listen, --spec, --json | 0 Success, 1 Invalid payload or no correlation, 2 Usage error, 3 Payload/root not found |
+| `specd ingest` | `specd ingest new <slug> --path <dir> [--include-ignored] [--json]` | --path, --include-ignored, --title, --json | 0 Success, 1 Invalid path or existing spec, 2 Usage error, 3 Path/root not found |
 | `specd report` | `specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]` | --format, --out, --pr-summary, --conductor, --serve, --watch, --history, --diff | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd decision` | `specd decision <slug> "<text>" [--supersedes <id>]` | --supersedes | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd midreq` | `specd midreq <slug> "<input>" --impact <low|medium|high|critical>` | --impact, --interpretation, --changes | 0 Success, 2 Usage error, 3 Spec not found |
