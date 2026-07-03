@@ -54,12 +54,13 @@ func TestPaletteCeiling(t *testing.T) {
 	}
 	// v0.2.0 Wave 3 added eval/conductor; Wave 4 added the trust/scale surfaces
 	// (orchestrate, review, submit — promote stays Hidden); Wave 5 adds the
-	// lifecycle-close surfaces (deploy, observe, ingest). The palette stays
-	// deliberately bounded.
+	// lifecycle-close surfaces (deploy, observe, ingest); Wave 6 adds the platform
+	// surfaces (harness, dashboard, migrate) as Hidden infra so the daily palette
+	// stays bounded while total grows. The palette stays deliberately bounded.
 	if daily > 24 {
 		t.Fatalf("daily palette = %d, want <=24", daily)
 	}
-	if total > 29 {
-		t.Fatalf("total commands = %d, want <=29", total)
+	if total > 32 {
+		t.Fatalf("total commands = %d, want <=32", total)
 	}
 }

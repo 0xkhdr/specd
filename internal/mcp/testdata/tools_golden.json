@@ -65,11 +65,15 @@
         },
         "pack": {
           "type": "string",
-          "description": "Apply a spec pack by built-in name or http(s) URL"
+          "description": "Apply a spec pack by built-in name, registry name, or http(s) URL"
         },
         "refresh": {
           "type": "boolean",
           "description": "Refresh frozen managed assets and AGENTS.md markers"
+        },
+        "registry": {
+          "type": "string",
+          "description": "Git URL of a pack registry index; resolves a named --pack and pins it in .specd/pack.lock"
         },
         "repair": {
           "type": "boolean",

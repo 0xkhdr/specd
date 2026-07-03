@@ -192,6 +192,13 @@ func runServe(args cli.Args) int {
 	}
 	handler := NewServeHandler(root, slug)
 	fmt.Printf("specd serve: read-only dashboard for '%s' on http://%s/ (Ctrl-C to stop)\n", slug, addr)
+	return serveHandler(addr, handler)
+}
+
+// serveHandler binds handler to addr with the shared read-only-server timeout
+// bounds and blocks serving until interrupted. It is the single listen path for
+// both `serve` and the unified `dashboard`.
+func serveHandler(addr string, handler http.Handler) int {
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           handler,

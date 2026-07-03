@@ -71,7 +71,7 @@ var Commands = []CommandMeta{
 		Description: "Scaffold project assets and configure coding agents",
 		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--guardrails] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
 		LongDescription: "Scaffolds .specd/ and AGENTS.md, passively detects supported coding-agent hosts, optionally installs project-scoped MCP registration, verifies the in-process MCP server, and returns one next action. Non-interactive auto-detection never mutates host configuration unless --yes is supplied. Global scope requires explicit consent.",
-		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
+		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name, registry name, or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "registry", Type: "string", Description: "Git URL of a pack registry index; resolves a named --pack and pins it in .specd/pack.lock"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
 		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Initialization or pack operation failed"}, {2, "Usage error"}},
 		Examples:        []string{"specd init --agent auto --yes", "specd init --agent none --non-interactive", "specd init --agent all --dry-run --json", "specd init --repair"},
 	},
@@ -377,6 +377,54 @@ var Commands = []CommandMeta{
 	},
 
 	{
+		Command:         "harness",
+		Category:        "platform",
+		Hidden:          true,
+		Description:     "Share the configured harness (guardrails, deploy, roles, routing) as a versioned team asset.",
+		Usage:           "specd harness <push|pull|list|enable> ... [--name <n>] [--force] [--json]",
+		Synopsis:        "specd harness <push|pull|list|enable> ... [--force]",
+		LongDescription: "Bundles the project's declarative policy — guardrails, deploy templates, roles, routing — under .specd/harness/ with a SHA256-pinned harness.json manifest, and shares it over stdlib-exec git (scrubbed env, transport allowlist, remote-URL validation).\n\npush builds the current bundle (version advances monotonically) and pushes it to a git URL. pull clones a remote bundle, verifies every pinned checksum, refuses a version downgrade or a locally-modified overwrite without --force, and quarantines every imported executable `command` artifact — copied to .specd/harness/quarantine/, listed, never installed — until an operator runs enable, which is recorded in the harness decision log. list shows the bundle and the quarantine; enable installs one quarantined artifact.",
+		Flags: []FlagMeta{
+			{Name: "name", Type: "string", Description: "Bundle name on push (defaults to the prior name or project dir)"},
+			{Name: "force", Type: "boolean", Description: "Override a version downgrade or a locally-modified overwrite"},
+			{Name: "json", Type: "boolean", Description: "Emit JSON"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (refused overwrite, checksum mismatch, downgrade)"}, {2, "Usage error"}, {3, "No bundle or quarantined item not found"}},
+		Examples:  []string{"specd harness push git@example.com:team/harness.git --name platform", "specd harness pull https://example.com/team/harness.git", "specd harness list --json", "specd harness enable .specd/deploy/prod.json"},
+	},
+
+	{
+		Command:         "migrate",
+		Category:        "lifecycle",
+		Hidden:          true,
+		Description:     "Migrate a v0.1.x project onto v0.2.0 state schema and report available config blocks.",
+		Usage:           "specd migrate [--json]",
+		Synopsis:        "specd migrate [--json]",
+		LongDescription: "Idempotent one-shot upgrade. Rewrites every spec's state.json at the current schema version (the v5→v6 migration is otherwise silent on first load) and reports which additive v0.2.0 policy blocks — guardrails, routing, eval/review gates — are available to adopt. It never writes policy content, so a migrated repo keeps the new gates default-off (backward-compat invariant). Running it a second time is a no-op.",
+		Flags: []FlagMeta{
+			{Name: "json", Type: "boolean", Description: "Emit the migration report as JSON"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Migration failed (concurrent write or corrupt state)"}, {2, "Usage error"}, {3, ".specd/ not found"}},
+		Examples:  []string{"specd migrate", "specd migrate --json"},
+	},
+
+	{
+		Command:         "dashboard",
+		Category:        "inspection",
+		Hidden:          true,
+		Description:     "Serve the unified, read-only project dashboard (waves, cost, escalations, evals, harness).",
+		Usage:           "specd dashboard [<slug>] [--addr 127.0.0.1:8765] [--mode <all|conductor|orchestrator|cost|eval>]",
+		Synopsis:        "specd dashboard [<slug>] [--addr 127.0.0.1:8765] [--mode all]",
+		LongDescription: "Starts the read-only, browser-native unified dashboard bound to loopback. Renders project-wide state from local state and ledgers only — conductor sessions, orchestrator waves, eval trends, cost attribution, escalations, and the shared harness bundle — with zero outbound network. Reuses the existing SSE stream for live updates. --mode filters the rendered panels; the default lists every panel. A read-only alias over `specd report --serve` with a project-wide home page.",
+		Flags: []FlagMeta{
+			{Name: "addr", Type: "string", Description: "Loopback bind address (default 127.0.0.1:8765)"},
+			{Name: "mode", Type: "string", Description: "Panel filter: all, conductor, orchestrator, cost, or eval (default all)"},
+		},
+		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Server error"}, {2, "Usage error"}},
+		Examples:  []string{"specd dashboard", "specd dashboard --mode cost", "specd dashboard my-feature --addr 127.0.0.1:9000"},
+	},
+
+	{
 		Command: "version", Category: "meta", Hidden: true,
 		Description: "Show version information",
 		Usage:       "specd version [--json]", Synopsis: "specd version [--json]",
@@ -531,6 +579,11 @@ func annotateFlagEnums(cmd *CommandMeta) {
 			flag.Enum = []string{"antigravity", "claude-code", "claude-desktop", "codex", "cursor", "vscode"}
 		case "from", "schema":
 			flag.Required = true
+		case "mode":
+			if cmd.Command == "dashboard" {
+				flag.Enum = []string{"all", "conductor", "orchestrator", "cost", "eval"}
+				flag.Default = "all"
+			}
 		}
 	}
 }

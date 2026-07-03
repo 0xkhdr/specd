@@ -52,8 +52,8 @@ All 26 plan tasks covered by exactly one spec. ✅
 | V8  | `specs/v020-review-security-gates` | V1,V2,V5,V7 | 4 | Done ✅ (P4.4 deploy/observe deferred to post-V9 per note) | `go test ./... -run 'Review|Secur' -count=2` |
 | V9  | `specs/v020-deploy-observe` | V5,V7,V8 | 5 | Done ✅ | `make ci` (flywheel e2e) |
 | V10 | `specs/v020-legacy-ingestion-packs` | V1,V5,V7 | 5 | Done ✅ | `go test ./... -run 'Ingest|Pack' -count=2` |
-| V11 | `specs/v020-harness-sharing-platform` | V2,V4,V5,V8,V9 | 6 | Authored | `go test ./... -run 'Harness|Dashboard'` |
-| V12 | `specs/v020-release-engineering` | V1–V11 | 6 | Authored | `make ci` + upgrade e2e |
+| V11 | `specs/v020-harness-sharing-platform` | V2,V4,V5,V8,V9 | 6 | Done ✅ | `go test ./internal/core/... ./internal/pack/... ./internal/cmd/... -run 'Harness|Dashboard|Registry|Pack' -race -count=2` |
+| V12 | `specs/v020-release-engineering` | V1–V11 | 6 | In progress (W1 landed; docs/bench/tag remain) | `make ci` + upgrade e2e |
 
 ## Waves (implementation order; mark done after each lands green)
 
@@ -62,7 +62,9 @@ All 26 plan tasks covered by exactly one spec. ✅
 - [x] **Wave 3 (eval + conductor):** V5 evals (←V1,V2,V3), V6 conductor (←V1,V3)
 - [x] **Wave 4 (scale + trust):** V7 orchestrator/escalation (←V4,V6), V8 review/security (←V2,V5,V7) — escalation engine, ACP scout→craftsman handoff, submit, `program schedule`/`tick` maintenance, review workflow + gate, security scanners, checklist; threat-model P4.4 covers exec surfaces now shipped (deploy/observe extended when V9 lands)
 - [x] **Wave 5 (lifecycle close):** V9 deploy/observe/flywheel (←V5,V7,V8), V10 ingestion/packs (←V5,V7) — evidence-gated `deploy` driver + rollback + `approve --deploy`, `observe` correlate/listen → gated midreq, flywheel e2e + `docs/flywheel.md`, `ingest new` + inventory + `ingest` gate + `specd-ingest` skill, `migrate-deps`/`modernize-tests`/`upgrade-go` migration packs
-- [ ] **Wave 6 (platform + ship):** V11 harness sharing/dashboard (←V9), V12 release (←all)
+- [~] **Wave 6 (platform + ship):** V11 harness sharing/dashboard/registry (←V9)
+  **done**; V12 release (←all) — `migrate` + upgrade e2e landed; docs sweep,
+  benchmark refresh, and the `main` tag remain
 
 Ordering note: V8 depends on V7 only for PR-summary section wiring (P3.4
 stubs); V8 Waves 1–2 can start in parallel with V7 if needed — the P4.4
@@ -127,6 +129,17 @@ submit, V9 drivers) exist. Per-phase P0-only fallback applies (plan risk 1).
 - [x] Execute Wave 5 (V9, V10) — deploy driver + rollback, observe correlation +
   loopback listener, feedback flywheel e2e + docs, legacy ingestion inventory +
   coverage gate + `specd-ingest` skill, migration spec packs
-- [ ] Execute Wave 6 (V11, V12)
-- [ ] Final release gate: `make ci` green, metrics table verified, v0.2.0
-  tagged from `main`
+- [~] Execute Wave 6 (V11, V12) — V11 harness sharing (`harness push/pull/list/
+  enable` + quarantine + decision log), unified `dashboard` (project-wide
+  read-only panels, `--mode` filter, zero outbound), pack registry (`init
+  --pack <name> --registry <git-url>` + `.specd/pack.lock` checksum pin) all
+  landed with tests + docs; V12 `specd migrate` + upgrade e2e landed, CHANGELOG +
+  SECURITY quarantine model + command-reference updated
+- [x] `make ci` restored to GREEN (2026-07-03 review pass): raised coverage on
+  new V11/V12 code above all floors (overall 79.1%, core 80.8%, cmd 71.2%,
+  pack 87.6%) and renamed six banned `wave4_*`/`wave5_*` test files that were
+  hard-failing `test-lint`. See `SPECD_V0.2.0_IMPLEMENTATION_REVIEW.md`.
+- [ ] V12 remaining: full docs sweep (user-guide/validation-gates/mcp-guide/
+  AGENTS.md — `specd migrate` absent outside command-reference), `make bench`
+  vs v0.1.x baseline refresh, success-metrics table verification wiring
+- [ ] Final release gate: metrics table verified in CI, v0.2.0 tagged from `main`

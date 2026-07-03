@@ -97,6 +97,28 @@ highlights:
   inventory reads only countable facts. The manifest parsers (go.mod,
   package.json, Cargo/pyproject TOML) are hostile-input parsers, size-capped and
   fuzzed.
+- **Harness sharing quarantine (V11/P6.1).** An imported harness bundle is
+  untrusted supply-chain input. `specd harness pull` treats it hostile: the
+  `harness.json` manifest is parsed with unknown-field rejection and every file
+  path is confined to `.specd/` (absolute, `..`, and non-canonical paths
+  rejected); every file's pinned SHA256 is verified before anything is written
+  (any mismatch writes nothing). The load-bearing property is **quarantine**: any
+  artifact carrying an executable `command` check (deploy step, eval command,
+  custom gate — detected by a fail-closed recursive scan, where an unparseable
+  artifact counts as executable) arrives **disabled** in
+  `.specd/harness/quarantine/`, is listed, and is never installed to its active
+  path until an operator runs `specd harness enable <path>`, which is recorded in
+  the harness decision log. A pull never overwrites a locally-modified file or
+  downgrades the manifest version without `--force`. Git runs through the same
+  hardened exec path as the state backend: scrubbed env, `GIT_TERMINAL_PROMPT=0`,
+  a `GIT_ALLOW_PROTOCOL` allowlist that excludes git's arbitrary-command ext/fd
+  transports, and remote-URL validation (option-injection and control characters
+  rejected).
+- **Pack registry lockfile (V11/P6.3).** A named `--pack` resolved through a git
+  registry index is pinned in `.specd/pack.lock`; a later resolution whose bytes
+  disagree with the lock is a hard failure (mutated-registry guard). The referenced
+  pack's SHA256 is verified fail-closed before parsing, and pack manifests stay
+  declarative-only (executable hooks rejected by `ParsePack`).
 - **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
   path traversal under `.specd/`.

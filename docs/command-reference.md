@@ -8,6 +8,7 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 |---|---|
 | `specd init` | Scaffold `.specd/`, managed agent integration, repair, packs, and orchestration defaults. |
 | `specd new` | Create a spec and optionally select orchestrated execution with `--orchestrated`. |
+| `specd migrate` | Migrate a v0.1.x project onto the v0.2.0 state schema and report available config blocks. |
 | `specd status` | Show one-spec/all-spec progress, recorded mode, and the cross-spec frontier with `--program`. |
 | `specd context` | Print the phase-scoped briefing and budgeted LOAD-NOW manifest. |
 | `specd check` | Run validation gates or emit/validate the embedded schema with `--schema`/`--schema-only`. |
@@ -29,6 +30,8 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
 | `specd memory` | Add or promote a durable learning from a spec. |
 | `specd waves` | Render the task wave DAG, critical paths, and blockers. |
+| `specd harness` | Share the configured harness (guardrails, deploy, roles, routing) as a versioned team asset with quarantine. |
+| `specd dashboard` | Serve the unified, read-only project dashboard (waves, cost, escalations, evals, harness). |
 | `specd brain` | Drive deterministic orchestration sessions and context checkpoints. |
 | `specd pinky` | Record worker claims, briefs, heartbeats, progress, queries, reports, blockers, and releases. |
 | `specd version` | Print the binary version. |
@@ -40,8 +43,9 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 
 | Command | Usage | Flags | Exit codes |
 |---|---|---|---|
-| `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
+| `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox, --registry | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
 | `specd new` | `specd new <slug> [--title "..."] [--orchestrated] [--prototype]` | --title, --orchestrated, --prototype | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
+| `specd migrate` | `specd migrate [--json]` | --json | 0 Success, 1 Migration failed (concurrent write or corrupt state), 2 Usage error, 3 .specd/ not found |
 | `specd status` | `specd status [<slug>] [--all] [--program] [--json]` | --all, --program, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd context` | `specd context <slug> [--hud] [--json]` | --hud, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd check` | `specd check <slug> [--schema-only] [--security] [--json] | specd check --schema` | --schema-only, --schema, --security, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
@@ -65,6 +69,8 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd waves` | `specd waves <slug> [--json]` | --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd brain` | `specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program] [--auto-step|--verbose|--ledger|--directive|--compact]` | --program, --auto-step, --verbose, --ledger, --compact, --directive, --session, --approval-policy, --max-workers, --max-retries, --timeout-seconds, --cost-limit, --worker-cmd, --bootstrap, --max-steps, --title, --worker, --spec, --task, --attempt, --action, --reason, --in-reply-to, --json | 0 Success, 1 Gate or validation failure, 2 Usage error, 3 Workspace or session not found |
 | `specd pinky` | `specd pinky <claim|status|update|report|block|release> ...` | --mission, --session, --worker, --spec, --task, --attempt, --artifact, --percent, --message, --reason, --text, --verification-ref, --summary, --changed-files, --git-head, --duration-ms, --host-tokens, --host-cost, --json | 0 Success, 1 Gate or validation failure, 2 Usage error, 3 Workspace or session not found |
+| `specd harness` | `specd harness <push|pull|list|enable> ... [--name <n>] [--force] [--json]` | --name, --force, --json | 0 Success, 1 Gate failure (refused overwrite, checksum mismatch, downgrade), 2 Usage error, 3 No bundle or quarantined item not found |
+| `specd dashboard` | `specd dashboard [<slug>] [--addr 127.0.0.1:8765] [--mode <all|conductor|orchestrator|cost|eval>]` | --addr, --mode | 0 Success, 1 Server error, 2 Usage error |
 
 ## Meta-hidden commands
 

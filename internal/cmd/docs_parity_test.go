@@ -19,7 +19,7 @@ func TestCommandReferenceMatchesRegistry(t *testing.T) {
 	}
 	doc := string(docBytes)
 
-	for _, stale := range []string{"`specd doctor`", "`specd migrate`"} {
+	for _, stale := range []string{"`specd doctor`"} {
 		if strings.Contains(doc, stale) {
 			t.Fatalf("command reference contains stale command %s", stale)
 		}

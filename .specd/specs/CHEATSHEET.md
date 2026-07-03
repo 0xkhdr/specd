@@ -4,6 +4,7 @@
 |---|---|
 | `specd init` | Scaffold `.specd/`, managed agent integration, repair, packs, and orchestration defaults. |
 | `specd new` | Create a spec and optionally select orchestrated execution with `--orchestrated`. |
+| `specd migrate` | Migrate a v0.1.x project onto the v0.2.0 state schema and report available config blocks. |
 | `specd status` | Show one-spec/all-spec progress, recorded mode, and the cross-spec frontier with `--program`. |
 | `specd context` | Print the phase-scoped briefing and budgeted LOAD-NOW manifest. |
 | `specd check` | Run validation gates or emit/validate the embedded schema with `--schema`/`--schema-only`. |
@@ -25,6 +26,8 @@
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
 | `specd memory` | Add or promote a durable learning from a spec. |
 | `specd waves` | Render the task wave DAG, critical paths, and blockers. |
+| `specd harness` | Share the configured harness (guardrails, deploy, roles, routing) as a versioned team asset with quarantine. |
+| `specd dashboard` | Serve the unified, read-only project dashboard (waves, cost, escalations, evals, harness). |
 | `specd brain` | Drive deterministic orchestration sessions and context checkpoints. |
 | `specd pinky` | Record worker claims, briefs, heartbeats, progress, queries, reports, blockers, and releases. |
 | `specd version` | Print the binary version. |

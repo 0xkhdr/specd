@@ -4,10 +4,10 @@ Plan coverage: P6.4. Dependencies: V1–V11 (terminal spec).
 
 ## Wave 1 — Migration tooling
 
-- [ ] `specd migrate`: one-shot config/state migration wrapper (idempotent,
+- [x] `specd migrate`: one-shot config/state migration wrapper (idempotent,
   reports available new config blocks, never writes policy content);
   registry + CommandMeta + parity tests.
-- [ ] Upgrade e2e: v0.1.x-initialized fixture repo → `specd migrate` → every
+- [x] Upgrade e2e: v0.1.x-initialized fixture repo → `specd migrate` → every
   v0.2.0 command runs correctly.
 - **Validation:** `go test ./internal/cmd/... -run 'Migrate|Upgrade' -race -count=2`
 

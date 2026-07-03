@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Team harness sharing (`specd harness`, P6.1).** The configured policy —
+  guardrails, deploy templates, roles, routing — becomes a versioned, shareable
+  team asset under `.specd/harness/` with a SHA256-pinned `harness.json`
+  manifest. `specd harness push <git-url>` bundles and pushes (monotonic
+  version); `pull` clones, verifies every pinned checksum, refuses a version
+  downgrade or a locally-modified overwrite without `--force`, and — the
+  load-bearing supply-chain guard — **quarantines** every imported executable
+  `command` artifact: copied to `.specd/harness/quarantine/`, listed, never
+  installed until `specd harness enable <path>`, which is recorded in the harness
+  decision log. Sharing rides the same hardened git-exec discipline as the git
+  state backend (scrubbed env, transport allowlist, remote-URL validation). No
+  hosted services. Hostile manifest/URL fixtures ship in the same PR.
+- **Unified dashboard (`specd dashboard`, P6.2).** A read-only, dependency-free,
+  loopback-bound project dashboard rendering every spec's status, orchestrator
+  waves, conductor sessions, eval trends, cost attribution, escalations, and the
+  shared harness bundle — assembled purely from local state and ledgers with zero
+  outbound network. `--mode <all|conductor|orchestrator|cost|eval>` filters
+  panels; the existing SSE stream drives live updates. A project-wide alias over
+  the `serve` machinery; the render is a pure function of on-disk state
+  (snapshot-tested).
+- **Pack registry (`specd init --pack <name> --registry <git-url>`, P6.3).**
+  Named packs resolve without a hosted service: the registry index is itself a
+  git repo holding a `registry.json` that maps a pack name to a pinned
+  `{url, sha256}`. Resolution clones the index over the hardened git-exec path,
+  verifies the referenced pack's SHA256 fail-closed, and pins the result in
+  `.specd/pack.lock`; a later resolution whose content disagrees with the lock is
+  a hard failure (mutated-registry guard). Pack manifests remain declarative-only
+  (no executable hooks) — the quarantine equivalent for packs.
+- **Migration tooling (`specd migrate`, P6.4).** Idempotent one-shot that moves a
+  v0.1.x project onto v0.2.0: it rewrites every spec's `state.json` at the current
+  schema version (the v5→v6 migration is otherwise silent on first load) and
+  reports which additive policy blocks (guardrails, routing, eval/review gates)
+  are available to adopt. It never writes policy content, so a migrated repo keeps
+  the new gates default-off (backward-compat invariant 9). Running it twice is a
+  no-op.
 - **Deploy driver runner (`specd deploy`, P5.1).** Evidence-gated deploy past
   `complete`: `.specd/deploy/<env>.json` declares `steps` (each with a
   `command`, optional `rollbackCommand`, and a mandatory `timeoutSeconds`) plus
