@@ -16,6 +16,7 @@
 | `specd next` | Show the next runnable task, all frontier tasks, or dispatch packets with `--dispatch`. |
 | `specd verify` | Run a task verification command or record per-criterion proof. |
 | `specd task` | Perform the evidence-gated task status transition and telemetry annotation. |
+<<<<<<< HEAD
 | `specd eval` | Score a spec against its rubric, compile a rubric skeleton with `init`, or report trends. |
 | `specd promote` | Promote a prototype spec to a full spec after a passing eval. |
 | `specd conductor` | Drive the interactive micro-task conductor session over an append-only ledger. |
@@ -24,13 +25,18 @@
 | `specd deploy` | Run the evidence-gated deploy driver or replay the recorded rollback chain. |
 | `specd observe` | Correlate a production error payload into an evidenced mid-requirement. |
 | `specd ingest` | Inventory a legacy codebase into an ingestion-flavored spec. |
+=======
+>>>>>>> f918e74739408607887e1161609e15734d90004d
 | `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
 | `specd decision` | Append an architectural decision record to `decisions.md`. |
 | `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
 | `specd memory` | Add or promote a durable learning from a spec. |
 | `specd waves` | Render the task wave DAG, critical paths, and blockers. |
+<<<<<<< HEAD
 | `specd harness` | Share the configured harness (guardrails, deploy, roles, routing) as a versioned team asset with quarantine. |
 | `specd dashboard` | Serve the unified, read-only project dashboard (waves, cost, escalations, evals, harness). |
+=======
+>>>>>>> f918e74739408607887e1161609e15734d90004d
 | `specd brain` | Drive deterministic orchestration sessions and context checkpoints. |
 | `specd pinky` | Record worker claims, briefs, heartbeats, progress, queries, reports, blockers, and releases. |
 | `specd version` | Print the binary version. |

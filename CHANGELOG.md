@@ -190,6 +190,10 @@ steering authoring live in the agent-facing skill pack, not in the CLI.
   to `specd next --dispatch`; the self-`update` and `uninstall` commands and
   `scripts/uninstall.sh` were dropped (reinstall via `scripts/install.sh --force`).
 
+<<<<<<< HEAD
 [Unreleased]: https://github.com/0xkhdr/specd/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/0xkhdr/specd/compare/v0.1.0...v0.2.0
+=======
+[Unreleased]: https://github.com/0xkhdr/specd/compare/v0.1.0...HEAD
+>>>>>>> f918e74739408607887e1161609e15734d90004d
 [0.1.0]: https://github.com/0xkhdr/specd/releases/tag/v0.1.0
