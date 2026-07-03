@@ -1,0 +1,80 @@
+package core
+
+import (
+	"strconv"
+	"strings"
+)
+
+func applyConfigMap(cfg *Config, values map[string]string, path string, diagnostics *[]Diagnostic) {
+	for key, value := range values {
+		if isSecretKey(key) {
+			*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "secret value not allowed: " + key})
+			continue
+		}
+		switch key {
+		case "version":
+			cfg.Version = value
+		case "agent":
+			cfg.Agent = value
+		case "gates.verify":
+			cfg.Gates.Verify = value
+		case "context.max_tokens":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed <= 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "context.max_tokens must be positive integer"})
+				continue
+			}
+			cfg.Context.MaxTokens = parsed
+		case "orchestration.enabled":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "orchestration.enabled must be boolean"})
+				continue
+			}
+			cfg.Orchestration.Enabled = parsed
+		case "orchestration.model":
+			cfg.Orchestration.Model = value
+		default:
+			*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "unknown config key: " + key})
+		}
+	}
+}
+
+func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
+	for key, value := range env {
+		switch key {
+		case "SPECD_AGENT":
+			cfg.Agent = value
+		case "SPECD_GATES_VERIFY":
+			cfg.Gates.Verify = value
+		case "SPECD_CONTEXT_MAX_TOKENS":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed <= 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_CONTEXT_MAX_TOKENS must be positive integer"})
+				continue
+			}
+			cfg.Context.MaxTokens = parsed
+		case "SPECD_ORCHESTRATION_ENABLED":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_ORCHESTRATION_ENABLED must be boolean"})
+				continue
+			}
+			cfg.Orchestration.Enabled = parsed
+		case "SPECD_ORCHESTRATION_MODEL":
+			cfg.Orchestration.Model = value
+		}
+	}
+}
+
+func isSecretKey(key string) bool {
+	key = strings.ToLower(key)
+	for _, part := range strings.FieldsFunc(key, func(r rune) bool {
+		return r == '.' || r == '-' || r == '_'
+	}) {
+		if part == "secret" || part == "token" || part == "apikey" {
+			return true
+		}
+	}
+	return strings.Contains(key, "api_key")
+}

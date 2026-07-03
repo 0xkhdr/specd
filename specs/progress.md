@@ -55,22 +55,22 @@ Legend: ⬜ pending · 🟡 in progress · ✅ done (verify passed + record writ
 each other only where a task's `depends-on` crosses waves; independent tasks within/across
 domains run in parallel.
 
-### Wave A — foundations (parallel) ⬜
+### Wave A — foundations (parallel) ✅
 | task | domain | files | verify |
 |---|---|---|---|
 | ⬜ T10.1 | 10 | `internal/core/io.go` | `go test ./internal/core -run TestAtomicWrite` |
-| ⬜ T10.2 | 10 | `internal/core/lock.go` | `go test ./internal/core -run TestReentrantLock` |
-| ⬜ T10.3 | 10 | `internal/core/{paths,slug}.go` | `go test ./internal/core -run 'TestFindRoot\|TestSlug'` |
-| ⬜ T10.4 | 10 | `internal/cli/args.go`, `main.go` | `go test ./internal/cli -run TestArgs` |
-| ⬜ T1.1 | 01 | `docs/charter.md` | `grep -q 'harness component' docs/charter.md` |
-| ⬜ T1.2 | 01 | `go.mod` | zero `require` deps |
+| ✅ T10.2 | 10 | `internal/core/lock.go` | `go test ./internal/core -run TestReentrantLock` |
+| ✅ T10.3 | 10 | `internal/core/{paths,slug}.go` | `go test ./internal/core -run 'TestFindRoot\|TestSlug'` |
+| ✅ T10.4 | 10 | `internal/cli/args.go`, `main.go` | `go test ./internal/cli -run TestArgs` |
+| ✅ T1.1 | 01 | `docs/charter.md` | `grep -q 'harness component' docs/charter.md` |
+| ✅ T1.2 | 01 | `go.mod` | zero `require` deps |
 
 ### Wave B — state & primitives close-out ⬜
 | task | domain | files | verify |
 |---|---|---|---|
-| ⬜ T10.5 | 10 | `registry.go`, `commands.go` | `go test ./internal/core -run TestRegistryMatchesHelp` |
-| ⬜ T10.6 | 10 | `config_loader.go`, `config_validate.go` | `go test ./internal/core -run TestConfigCascade` |
-| ⬜ T10.7 | 10 | `config_test.go` | `go test ./internal/core -run TestConfigNoLegacyJSON` |
+| ✅ T10.5 | 10 | `registry.go`, `commands.go` | `go test ./internal/core -run TestRegistryMatchesHelp` |
+| ✅ T10.6 | 10 | `config_loader.go`, `config_validate.go` | `go test ./internal/core -run TestConfigCascade` |
+| ✅ T10.7 | 10 | `config_test.go` | `go test ./internal/core -run TestConfigNoLegacyJSON` |
 | ⬜ T2.1 | 02 | `state.go` | `go test ./internal/core -run TestStateCAS` |
 | ⬜ T2.2 | 02 | `io.go` | `go test ./internal/core -run TestAtomicWrite` |
 | ⬜ T2.3 | 02 | `phases.go` | `go test ./internal/core -run TestPhaseRatchet` |
