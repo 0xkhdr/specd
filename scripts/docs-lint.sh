@@ -9,7 +9,7 @@ cd "$root"
 # left here is that the cheat sheet and its canonical spec copy agree.
 #
 # `docs/command-reference.md`'s "## Cheat sheet" table is the single source of
-# truth; `.specd/specs/CHEATSHEET.md` is a verbatim mirror. This lint asserts
+# truth; `docs/CHEATSHEET.md` is a verbatim mirror. This lint asserts
 # *content equality* between the two tables (not just a row count) so the mirror
 # cannot silently drift — a wrong command, reordering, or edited description in
 # either file fails the check. The survivor list is derived from the source
@@ -38,7 +38,7 @@ def cheat_rows(text, *, section=None):
     return [(c, d.strip()) for c, d in rows if c not in ('Command', '`Command`')]
 
 ref = cheat_rows(Path('docs/command-reference.md').read_text(), section='Cheat sheet')
-mirror = cheat_rows(Path('.specd/specs/CHEATSHEET.md').read_text())
+mirror = cheat_rows(Path('docs/CHEATSHEET.md').read_text())
 
 if not ref:
     sys.exit('command-reference cheat sheet is empty')

@@ -49,7 +49,7 @@ jobs:
 
       - name: docs-lint (cheat-sheet ↔ command-reference sync)
         # Gate cheat-sheet drift on PRs, not only at release (make ci). Asserts
-        # .specd/specs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
+        # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
         run: ./scripts/docs-lint.sh
 
   analyze:
