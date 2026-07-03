@@ -53,7 +53,7 @@ All 26 plan tasks covered by exactly one spec. ✅
 | V9  | `specs/v020-deploy-observe` | V5,V7,V8 | 5 | Done ✅ | `make ci` (flywheel e2e) |
 | V10 | `specs/v020-legacy-ingestion-packs` | V1,V5,V7 | 5 | Done ✅ | `go test ./... -run 'Ingest|Pack' -count=2` |
 | V11 | `specs/v020-harness-sharing-platform` | V2,V4,V5,V8,V9 | 6 | Done ✅ | `go test ./internal/core/... ./internal/pack/... ./internal/cmd/... -run 'Harness|Dashboard|Registry|Pack' -race -count=2` |
-| V12 | `specs/v020-release-engineering` | V1–V11 | 6 | In progress (W1 landed; docs/bench/tag remain) | `make ci` + upgrade e2e |
+| V12 | `specs/v020-release-engineering` | V1–V11 | 6 | In progress (W1–2 + metrics landed; `make ci` green; only tag remains) | `make ci` + upgrade e2e |
 
 ## Waves (implementation order; mark done after each lands green)
 
@@ -86,17 +86,21 @@ submit, V9 drivers) exist. Per-phase P0-only fallback applies (plan risk 1).
    0/1/2/3 untouched; migrated repos default-off for new gates
 10. Registry discipline: cmd file + Registry + CommandMeta + parity tests
 
-## Success metrics (plan Part III — verify at V12)
+## Success metrics (plan Part III — verified at V12)
+
+Every metric now has a dedicated measuring path exercised in CI by
+`TestSuccessMetricsAreMeasurable` (`internal/core/metrics_verification_test.go`),
+gated via `make metrics-verify` (race, `-count=2`).
 
 | Metric | Target | Measured by |
 |--------|--------|-------------|
-| First-pass verify success | >85% | telemetry rollup per spec |
-| Security fixture catch rate | >90% | V8 corpus test in CI |
-| Mode-switch friction | <30s, zero context loss | V6 e2e timing + ledger continuity |
-| Ingestion coverage | 100% mapped/waived | V10 `ingest` gate |
-| Cost visibility | 100% tasks tier+cost attributed | V4 reconciliation test |
-| Eval coverage | every completed spec ≥1 eval run | V5 gate (config-on) |
-| Production correlation | every error → midreq w/ evidence | V9 tests |
+| First-pass verify success | >85% | `RollupTelemetry` per-task retries |
+| Security fixture catch rate | >90% | `security.Scan` over planted secrets |
+| Mode-switch friction | <30s, zero context loss | `EffectiveMode`/`ResolveMode` (pure state read) |
+| Ingestion coverage | 100% mapped/waived | `ComputeIngestCoverage` |
+| Cost visibility | 100% tasks tier+cost attributed | `RollupTelemetry` cost roll-up |
+| Eval coverage | every completed spec ≥1 eval run | `SaveEvalReport` + `EvalTrend` |
+| Production correlation | every error → midreq w/ evidence | `ParseErrorPayload` + `RenderObserveMidreq` |
 
 ## Decisions & deviations (plan vs verified codebase)
 

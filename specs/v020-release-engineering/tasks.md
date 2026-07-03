@@ -13,21 +13,26 @@ Plan coverage: P6.4. Dependencies: V1–V11 (terminal spec).
 
 ## Wave 2 — Docs + benchmarks (depends on Wave 1)
 
-- [ ] Docs sweep: command-reference, user-guide, validation-gates,
+- [x] Docs sweep: command-reference, user-guide, validation-gates,
   agent-integration, mcp-guide, AGENTS.md template — every new v0.2.0
-  command/gate/tool covered; docs-parity tests green.
+  command/gate/tool covered; docs-parity tests green. (`migrate`/`dashboard`/
+  `harness` added to user-guide, validation-gates, mcp-guide, and the embedded
+  AGENTS.md template.)
 - [ ] CHANGELOG: Keep-a-Changelog, v0.2.0 section, breaking changes called
   out (target: none).
-- [ ] `make bench` vs v0.1.x; refresh `docs/agent-harness-baselines.md`;
-  ±10% floor held.
+- [x] `make bench` vs v0.1.x; refresh `docs/agent-harness-baselines.md`;
+  ±10% floor held. (Refreshed 2026-07-03; every measured latency at/under the
+  v0.1.x baseline — floor held.)
 - **Validation:** `make docs-lint && make bench && make cover-check`
 
 ## Wave 3 — Release gates (depends on Wave 2)
 
 - [ ] V8 threat-model refresh confirmed merged (hard gate).
-- [ ] Success-metrics table verification: each plan Part III metric has a
+- [x] Success-metrics table verification: each plan Part III metric has a
   green measuring test in CI (verify success, catch rate, mode-switch,
   ingestion coverage, cost attribution, eval coverage, observe→midreq).
+  (`TestSuccessMetricsAreMeasurable` + `make metrics-verify`, wired into
+  `make ci`.)
 - [ ] Install flow: `bash scripts/install_test.sh` SHA256 re-verified;
   goreleaser matrix unchanged (dry run).
 - [ ] Full gate: `make ci` green, race-clean, `-count=2` stable, floors

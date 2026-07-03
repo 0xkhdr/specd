@@ -151,6 +151,18 @@ These run after the seven core gates only when enabled. With their defaults,
   never re-run a gate. A production deploy is impossible without the human
   approval record.
 
+### Harness import quarantine (`specd harness`)
+- **Source:** `internal/core/harness.go` (`PullHarness`, `EnableHarnessItem`,
+  `SecureGitClone`), `internal/cmd/harness.go`.
+- **Not a `check` gate** — enforced at import time. `specd harness pull`
+  installs declarative policy directly but **quarantines every executable
+  `command` artifact** until an operator runs `specd harness enable <path>`,
+  which records the decision in the harness log. This is the constitution's
+  evidence-gate rule (#5) applied to shared policy: a pulled bundle can never
+  silently introduce code that runs on your machine. Locally modified files are
+  **refused** (exit `1`) unless `--force` is passed, and every bundle is SHA256
+  pinned — a checksum mismatch or version downgrade fails closed.
+
 ### Custom gates
 - **Source:** `internal/core/customgate.go`
 - **Config:** `config.gates.custom` — a list of `{name, command, severity}`.
@@ -212,6 +224,15 @@ every `verify:` line and every env var as hostile until validated.
   `SHA256SUMS` from the same release and verify the archive digest before
   replacing any binary. Both **fail closed** on a missing or mismatched
   checksum. `install.sh --no-verify` skips the check with a loud warning.
+- **Harness git transport.** `specd harness push/pull` shells out to git through
+  a single hardened `SecureGitClone` path with a scrubbed environment and a
+  transport allowlist; local-arbitrary-command URL schemes (`ext::`, `file::`)
+  are rejected. Pulled bundles are SHA256 pinned and imported executables are
+  quarantined until `harness enable` (see
+  [Harness import quarantine](#harness-import-quarantine-specd-harness)).
+- **Migration.** `specd migrate` only rewrites spec state at the current schema
+  and reports available config blocks; it **never writes policy content**, so
+  upgrading a project cannot enable a gate or change behavior on its own.
 - **Lock file.** A spec's `.lock` holds `PID epochMillis` only — it is
   **non-secret** and created `0644`. Written artifacts (`state.json`,
   `tasks.md`) land as `0644` minus umask.

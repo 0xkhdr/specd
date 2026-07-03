@@ -10,7 +10,8 @@ For the *why*, read [Concepts](./concepts.md); for command-level detail, the
 2. [The spec lifecycle](#the-spec-lifecycle)
 3. [Writing spec artifacts](#writing-spec-artifacts)
 4. [Task execution & evidence](#task-execution--evidence)
-5. [Troubleshooting](#troubleshooting)
+5. [Sharing, dashboards & migration](#sharing-dashboards--migration)
+6. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -43,6 +44,14 @@ curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.s
 # Uninstall: removal is manual — delete the installed binary (there is no uninstall script)
 rm "$(command -v specd)"
 ```
+
+**Upgrading a v0.1.x project to v0.2.0.** After replacing the binary, run
+`specd migrate` once inside the project root. It rewrites each spec's on-disk
+state to the current schema (the v5→v6 migration is otherwise silent on first
+load) and lists the additive v0.2.0 config blocks (guardrails, deploy, routing,
+eval, resilience) you can adopt. It never writes policy content — every new gate
+stays default-off — and is idempotent, so re-running it is a no-op. See
+[Sharing, dashboards & migration](#sharing-dashboards--migration).
 
 - Linux, macOS, or Windows (amd64 / arm64)
   - *Windows note*: Windows users should reinstall with the installer command above instead of relying on in-place binary replacement. Verification commands also require `sh` or `bash` (e.g. from Git for Windows) in the `PATH` since verify execution uses `-c`.
@@ -475,6 +484,71 @@ This command:
 - `--orchestration-sandbox <none|bwrap|container>`: Default task verification sandbox (default: `none`).
 
 For more details on orchestration configuration, see the [Agent Integration Guide](./agent-integration.md#brainpinky-orchestration).
+
+---
+
+## Sharing, dashboards & migration
+
+Three v0.2.0 commands operate on the project as a whole rather than a single
+spec: `migrate` (upgrade), `dashboard` (observe), and `harness` (share policy).
+
+### `specd migrate` — upgrade a v0.1.x project
+
+Run once after upgrading the binary. It is the documented, idempotent path onto
+the v0.2.0 state schema:
+
+```bash
+specd migrate            # human-readable report
+specd migrate --json     # {schemaVersion, specs[], hints[]}
+```
+
+It rewrites each spec's state at schema v6 and reports which additive config
+blocks (`guardrails`, `deploy`, `routing`, `eval`, `resilience`) are present
+(`●`) versus available to adopt (`○`). It never writes policy content, so a
+migrated repo keeps every new gate default-off; adopt each block explicitly.
+Exit codes: `0` success, `1` migration failed (concurrent write / corrupt
+state), `3` no `.specd/`.
+
+### `specd dashboard` — unified read-only view
+
+A project-wide, loopback-only web view that aggregates every spec's status,
+orchestrator waves, conductor sessions, eval trends, cost, escalations, and the
+shared harness bundle. It is read-only (no mutating routes) and makes **zero
+outbound network calls** — everything renders from local state and ledgers.
+
+```bash
+specd dashboard                                  # http://127.0.0.1:8765/
+specd dashboard --mode cost                       # focus one panel: all|conductor|orchestrator|cost|eval
+specd dashboard <slug> --addr 127.0.0.1:9000      # per-spec report as the default target
+```
+
+`GET /` is the aggregate view, `GET /s/<slug>` a per-spec report, `GET
+/api/dashboard` the deterministic JSON projection, and `/events` the same SSE
+live-update stream as `specd serve`. Append `?mode=` to any request to switch
+panels without a restart. It binds loopback only; put it behind a
+TLS-terminating reverse proxy to expose it.
+
+### `specd harness` — share your policy as a team asset
+
+Bundle the configured harness — guardrails, deploy templates, roles, routing —
+and share it as a versioned asset over git, with SHA256 pinning and a
+fail-closed quarantine for anything executable.
+
+```bash
+specd harness push <git-url> [--name <n>]   # bundle current policy and push
+specd harness pull <git-url> [--force]      # import a bundle (refuses to clobber local edits without --force)
+specd harness list                          # show the bundle + quarantine
+specd harness enable <path> [--force]       # install one quarantined artifact, recording the decision
+```
+
+`pull` imports declarative policy directly but **quarantines every executable
+`command` artifact** until you run `harness enable` on it — a deliberate
+evidence gate (constitution #5) so a shared bundle can never silently introduce
+code that runs on your machine. Locally modified files are refused unless you
+pass `--force`. Exit `1` on any gate failure (refused overwrite, checksum
+mismatch, downgrade). All git transport goes through a single hardened
+`SecureGitClone` path (scrubbed env, transport allowlist — `ext::`/`file::`
+style URLs are rejected).
 
 ---
 

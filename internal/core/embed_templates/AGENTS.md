@@ -33,6 +33,9 @@ Brain schedules deterministically; it never thinks. Don't ask the core to reason
    - `specd pinky <claim|heartbeat|progress|query|report|block|release|inbox> [flags]` — record deterministic worker leases, telemetry, bounded queries, progress, and terminal reports. (MCP: `specd_pinky`)
    - Windows orchestration is POSIX-only and fails fast with a clear WSL message; non-orchestration workflow remains portable.
    - `specd init [--orchestration <policy>]` — bootstrap and configure the Brain/Pinky orchestration stack.
+   - `specd migrate [--json]` — one-shot, idempotent upgrade of a v0.1.x project onto the v0.2.0 state schema; reports available config blocks and never writes policy content (new gates stay default-off). Run once after upgrading the binary.
+   - `specd dashboard [<slug>] [--mode all|conductor|orchestrator|cost|eval] [--addr 127.0.0.1:8765]` — read-only, loopback-only unified web view (waves, cost, escalations, evals, harness). Zero outbound network; no mutating routes. Not an MCP tool.
+   - `specd harness <push|pull|list|enable> <git-url|path> [--name <n>] [--force] [--json]` — share/import the configured policy (guardrails, deploy, roles, routing) as a versioned team asset over git. `pull` quarantines every executable artifact until `harness enable` (evidence gate); locally modified files are refused without `--force`. Not an MCP tool.
 
    MCP hosts: prefer the **intent-level tools** (`brain_orchestrate`, `brain_status`, …);
    `specd_brain`/`specd_pinky` are raw passthrough for flags the intent tools don't surface —
