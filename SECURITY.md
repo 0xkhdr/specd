@@ -60,7 +60,7 @@ highlights:
   embedded**. The command runs only if configured; a gate violation or non-zero
   exit fails with no partial state. Treat `submit.command` as trusted operator
   policy.
-- **Maintenance schedules (P3.5).** `specd program tick` runs each due
+- **Maintenance schedules (P3.5).** `specd status --program tick` runs each due
   `program.json` schedule's `command` through the shared sandboxed path with a
   scrubbed env. specd **never daemonizes** — a host scheduler invokes `tick`, and
   the claim is CAS-guarded under the program lock so a double-invoked tick cannot

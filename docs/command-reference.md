@@ -1,6 +1,6 @@
 # Command Reference
 
-This reference lists the optimized command palette only: 16 daily workflow commands and 4 meta-hidden integration commands. It is generated from `specd help --all --json`. specd v0.1.0 has no deprecated commands or aliases.
+This reference lists the optimized command palette only: 28 daily workflow commands and 4 meta-hidden integration commands (32 rows in the cheat sheet). It is generated from `specd help --all --json`. specd v0.2.0 has no deprecated commands or aliases.
 
 ## Cheat sheet
 
@@ -46,7 +46,7 @@ This reference lists the optimized command palette only: 16 daily workflow comma
 | `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox, --registry | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
 | `specd new` | `specd new <slug> [--title "..."] [--orchestrated] [--prototype]` | --title, --orchestrated, --prototype | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
 | `specd migrate` | `specd migrate [--json]` | --json | 0 Success, 1 Migration failed (concurrent write or corrupt state), 2 Usage error, 3 .specd/ not found |
-| `specd status` | `specd status [<slug>] [--all] [--program] [--json]` | --all, --program, --json | 0 Success, 2 Usage error, 3 Spec not found |
+| `specd status` | `specd status [<slug>] [--all] [--program [<link\|unlink\|schedule\|tick>] ...] [--set-mode <simple\|orchestrated>] [--recommend] [--json]` | --all, --program, --on, --interval, --command, --sandbox, --remove, --now, --set-mode, --recommend, --json | 0 Success, 1 Capability missing, session-active refusal, dependency cycle, or scheduled command failure, 2 Usage error, 3 Spec not found |
 | `specd context` | `specd context <slug> [--hud] [--json]` | --hud, --json | 0 Success, 2 Usage error, 3 Spec not found |
 | `specd check` | `specd check <slug> [--schema-only] [--security] [--json] | specd check --schema` | --schema-only, --schema, --security, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
 | `specd review` | `specd review <slug> [checklist] [--force] [--json]` | --force, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
@@ -82,7 +82,6 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 | `specd help` | `specd help [command]` | --all, --json | 0 Success, 2 Usage error (unknown command) |
 | `specd mcp` | `specd mcp [--root <path>] [--spec <slug>] [--config <host>]` | --root, --spec, --config | 0 Success (stream closed or config printed), 1 Server error, 2 Usage error |
 | `specd handshake` | `specd handshake bootstrap [--include-schema] [--json] | specd handshake policy [<slug>] [--expect-config-digest <sha256>] [--json]` | --include-schema, --expect-config-digest, --json | 0 Success, 1 Policy violation or digest mismatch, 2 Usage error, 3 .specd/ or spec not found |
-| `specd program` | `specd program [--json] | specd program <link\|unlink> <spec> --on <dep> | specd program schedule [<name> --interval <seconds> --command <cmd> [--sandbox <backend>] | <name> --remove] | specd program tick [--now <unix>] [--json]` | --on, --interval, --command, --sandbox, --remove, --now, --json | 0 Success, 1 Gate/link failure or scheduled command failure, 2 Usage error, 3 Spec not found |
 
 ## Merged behavior homes
 
@@ -91,7 +90,7 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 - Dispatch packets live under `specd next --dispatch`.
 - Schema emission and validation live under `specd check --schema` and `specd check --schema-only`.
 - HTML serving, frontier streaming, history replay, and spec diffs live under `specd report` flags.
-- Cross-spec program inspection lives under `specd status --program`; dependency authoring belongs in spec creation/planning.
+- Program frontier & scheduling live under `specd status --program`: bare `--program` inspects the cross-spec frontier, `--program link|unlink <spec> --on <dep>` authors cross-spec dependencies (cycles refused), and `--program schedule`/`--program tick` register and run host-triggered maintenance schedules. There is no top-level `program` command — it was removed in v0.2.0 and these sub-verbs are its survivors.
 - Binary install/reinstall uses `scripts/install.sh`; removal is manual (delete the installed binary — there is no uninstall script).
 
 ## Exit code semantics
@@ -105,7 +104,7 @@ Meta-hidden commands exist for hosts, integrations, and diagnostics; they are ex
 
 ## Environment variables and config
 
-Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global config → project config → `SPECD_*` overrides. Human-authored config is YAML v2 by default; legacy JSON is still read but has no built-in conversion path (convert manually).
+Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global YAML → project YAML → `SPECD_*` overrides. Human-authored config is YAML v2 only (`config.yml`); as of v0.2.0 the runtime loader no longer reads legacy JSON config — a present `.json` config is ignored. Convert an existing `.specd/config.json` with `specd migrate`, which renders it to YAML v2.
 
 Observability env vars:
 
@@ -115,4 +114,4 @@ Observability env vars:
 | `SPECD_METRICS_ENDPOINT=<addr>` | Opt-in Prometheus text endpoint for duration samples, e.g. `127.0.0.1:9099`; unset starts no listener. |
 | `SPECD_TRACE_FILE=<path>` | With `go build -tags specd_trace`, writes Chrome trace JSON spans to this path. |
 
-specd v0.1.0 has no deprecated commands or aliases — the command surface above is complete.
+specd v0.2.0 has no deprecated commands or aliases — the command surface above is complete.

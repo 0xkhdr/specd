@@ -137,7 +137,7 @@ agent's job (the Foundational Split).
 
 ### Global vs Project Config
 
-`specd` reads config as embedded defaults → global YAML/JSON → project YAML/legacy JSON → `SPECD_*` environment overrides. Use global config for personal defaults and project config for repository policy:
+`specd` reads config as embedded defaults → global YAML → project YAML → `SPECD_*` environment overrides. Config is YAML-only as of v0.2.0 (`config.yml`). Use global config for personal defaults and project config for repository policy:
 
 ```yaml
 # ~/.config/specd/config.yml
@@ -162,7 +162,7 @@ orchestration:
   max_workers: 4
 ```
 
-Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. Existing `.specd/config.json` is still accepted but deprecated; convert it to `.specd/config.yml` manually and keep a `.specd/config.json.bak` if you need rollback. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
+Project values override global values field-by-field; lists replace lower-layer lists. `SPECD_DEFAULT_VERIFY`, `SPECD_VERIFY_SANDBOX`, and orchestration env overrides win last for one process. The runtime loader no longer reads legacy JSON config — a present `.specd/config.json` is ignored, not merged. Convert an existing one to `.specd/config.yml` with `specd migrate`, which renders it to YAML v2. Runtime files such as `state.json`, `.specd/program.json`, `session.json`, and integration state remain JSON.
 
 ---
 
@@ -549,6 +549,46 @@ pass `--force`. Exit `1` on any gate failure (refused overwrite, checksum
 mismatch, downgrade). All git transport goes through a single hardened
 `SecureGitClone` path (scrubbed env, transport allowlist — `ext::`/`file::`
 style URLs are rejected).
+
+#### Walkthrough: pull a bundle and recover a quarantined command
+
+After `specd harness pull`, declarative policy (guardrails, roles, routing) is
+installed immediately, but every artifact carrying an executable `command` is
+held in quarantine — it is present on disk but never runs until you explicitly
+enable it. `specd harness list` shows what landed and what is still gated. A `⚠`
+marks executable files, and quarantined items are listed separately:
+
+```
+$ specd harness pull https://github.com/acme/specd-harness.git
+harness pull: "acme-standard" v3
+  installed:   1
+  quarantined: 2 (executable — enable explicitly):
+    ⚠ .specd/hooks/pre-submit.sh → `specd harness enable .specd/hooks/pre-submit.sh`
+    ⚠ .specd/deploy/staging.sh → `specd harness enable .specd/deploy/staging.sh`
+
+$ specd harness list
+harness "acme-standard" v3 (from https://github.com/acme/specd-harness.git)
+    .specd/guardrails.yml
+  ⚠ .specd/hooks/pre-submit.sh
+  ⚠ .specd/deploy/staging.sh
+quarantined (awaiting enable):
+  ⚠ .specd/hooks/pre-submit.sh
+  ⚠ .specd/deploy/staging.sh
+```
+
+Inspect each quarantined file, then enable the ones you trust one at a time.
+Each `enable` records the decision in the harness decision log (the evidence
+gate, constitution #5), so the choice is auditable:
+
+```
+$ specd harness enable .specd/hooks/pre-submit.sh
+✓ harness enable: installed .specd/hooks/pre-submit.sh (recorded in harness decision log)
+```
+
+If a bundle update would overwrite a file you edited locally, `enable` refuses
+until you re-run it with `--force`. A quarantined path that does not exist exits
+`3`; any gate failure (checksum mismatch, downgrade, refused overwrite) exits
+`1`. Nothing executable ever runs on your machine without this explicit step.
 
 ---
 

@@ -14,7 +14,7 @@ func TestNoDuplicateCommands(t *testing.T) {
 
 func TestFlagSingleOwner(t *testing.T) {
 	allowed := map[string]map[string]bool{
-		"sandbox":        {"verify": true},
+		"sandbox":        {"verify": true, "status": true},
 		"revert-on-fail": {"verify": true},
 		"all":            {"next": true, "status": true, "help": true},
 		"format":         {"report": true},

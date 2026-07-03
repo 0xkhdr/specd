@@ -808,16 +808,40 @@
           "type": "string"
         }
       },
+      "command": {
+        "type": "string",
+        "description": "With --program schedule: the sandboxed shell command to run"
+      },
+      "interval": {
+        "type": "string",
+        "description": "With --program schedule: rerun interval in seconds"
+      },
       "json": {
         "type": "boolean"
       },
+      "now": {
+        "type": "string",
+        "description": "With --program tick: deterministic unix clock for host scheduling / tests"
+      },
+      "on": {
+        "type": "string",
+        "description": "With --program link|unlink: the dependency spec slug"
+      },
       "program": {
         "type": "boolean",
-        "description": "Show the cross-spec program frontier"
+        "description": "Show the cross-spec program frontier, or run a program sub-verb (link|unlink|schedule|tick)"
       },
       "recommend": {
         "type": "boolean",
         "description": "Emit an advisory mode recommendation from countable spec facts"
+      },
+      "remove": {
+        "type": "boolean",
+        "description": "With --program schedule \u003cname\u003e: delete the named schedule"
+      },
+      "sandbox": {
+        "type": "string",
+        "description": "With --program schedule: isolation backend for the scheduled command (none|bwrap|container)"
       },
       "set-mode": {
         "type": "string",

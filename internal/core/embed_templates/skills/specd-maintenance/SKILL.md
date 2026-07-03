@@ -1,21 +1,21 @@
 ---
 name: specd-maintenance
-description: Register and run scheduled maintenance programs with `specd program schedule` and `specd program tick`. Load when setting up recurring maintenance (dep audits, eval sweeps, security scans) driven by a host scheduler. Covers the manifest, the host-triggered no-daemon model, and tick idempotency.
+description: Register and run scheduled maintenance programs with `specd status --program schedule` and `specd status --program tick`. Load when setting up recurring maintenance (dep audits, eval sweeps, security scans) driven by a host scheduler. Covers the manifest, the host-triggered no-daemon model, and tick idempotency.
 ---
 
 # specd maintenance schedules
 
 specd never daemonizes and never runs anything on a timer of its own. A
 maintenance schedule is a **declaration** in `program.json`; a host scheduler
-(cron, CI, systemd timer, `ScheduleWakeup`) invokes `specd program tick`, which
+(cron, CI, systemd timer, `ScheduleWakeup`) invokes `specd status --program tick`, which
 runs each due schedule exactly once through the shared sandboxed exec path.
 
 ## Register
 
 ```
-specd program schedule <name> --interval <seconds> --command "<cmd>" [--sandbox <backend>]
-specd program schedule                 # list registered schedules
-specd program schedule <name> --remove # delete one
+specd status --program schedule <name> --interval <seconds> --command "<cmd>" [--sandbox <backend>]
+specd status --program schedule                 # list registered schedules
+specd status --program schedule <name> --remove # delete one
 ```
 
 - `<name>` is kebab-case (`[a-z0-9-]`, max 64).
@@ -28,9 +28,9 @@ specd program schedule <name> --remove # delete one
 ## Tick
 
 ```
-specd program tick            # run everything due now
-specd program tick --now <unix>   # deterministic clock (host scheduling / tests)
-specd program tick --json
+specd status --program tick            # run everything due now
+specd status --program tick --now <unix>   # deterministic clock (host scheduling / tests)
+specd status --program tick --json
 ```
 
 A schedule is due when it has never run or `now - lastRun >= intervalSeconds`.
@@ -44,11 +44,11 @@ A schedule is due when it has never run or `now - lastRun >= intervalSeconds`.
 
 ## Host wiring
 
-Point your scheduler at `specd program tick` on whatever cadence is at least as
+Point your scheduler at `specd status --program tick` on whatever cadence is at least as
 fine as your shortest interval:
 
 ```
-*/15 * * * *  cd /repo && specd program tick
+*/15 * * * *  cd /repo && specd status --program tick
 ```
 
 There is no lock to babysit and no daemon to keep alive — every tick is a fresh,

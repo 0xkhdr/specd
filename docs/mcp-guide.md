@@ -235,7 +235,7 @@ Every tool carries MCP annotations so a host can signal risk before invoking:
 |---|---|---|
 | `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `report`, `handshake`, and their read-only flag variants (`next --dispatch`, `report --serve`/`--watch`/`--history`/`--diff`, `check --schema`/`--schema-only`) |
 | `readOnlyHint` | `false` | All other commands (state-mutating) |
-| `destructiveHint` | `true` | None currently. `destructiveCommands` is an empty classification map, reserved for tools that mutate the install itself (its former members `update`/`uninstall` were removed in v0.1.0). |
+| `destructiveHint` | `true` | None currently. `destructiveCommands` is an empty classification map, reserved for tools that mutate the install itself (its former members `update`/`uninstall` have been removed). |
 
 (`internal/mcp/tools.go` — `destructiveCommands`, `commandToTool`)
 
@@ -320,7 +320,7 @@ byte-identical to the default — no behavioural change.**
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
 | `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_handshake, specd_inspect, specd_read, specd_query, verify, task, approve` (handshake covers startup; composites cover the read surface). |
-| `includeMeta` | Gates the reserved `metaRiskCommands` classification (currently empty, so it hides no tools today) and, when `true`, bypasses role-based tool filtering to advertise the full surface regardless of the active role. Reserved for future install-maintenance / meta tools; its former members (`update`/`uninstall`) were removed in v0.1.0. |
+| `includeMeta` | Gates the reserved `metaRiskCommands` classification (currently empty, so it hides no tools today) and, when `true`, bypasses role-based tool filtering to advertise the full surface regardless of the active role. Reserved for future install-maintenance / meta tools; its former members (`update`/`uninstall`) have been removed. |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
 Filtering only ever *hides* tools — it never grants new authority, and tool

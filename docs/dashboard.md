@@ -42,6 +42,48 @@ specd report --serve --addr 0.0.0.0:8765   # off-host: read-only, but exposes sp
 
 A failed bind exits with a gate error.
 
+## The unified `specd dashboard` server
+
+`specd report --serve` (above) serves one project's spec reports. `specd
+dashboard` is the **project-wide** view: a single loopback server that aggregates
+every spec's status alongside orchestrator waves, conductor sessions, eval
+trends, cost, escalations, and the shared harness bundle. It is read-only and
+makes zero outbound network calls — every panel renders from local `state.json`
+and ledgers.
+
+```bash
+specd dashboard                                 # http://127.0.0.1:8765/
+specd dashboard --mode cost                      # focus one panel
+specd dashboard <slug> --addr 127.0.0.1:9000     # per-spec report as the default target
+```
+
+### Endpoints
+
+| Route | Method | Returns |
+|-------|--------|---------|
+| `/` | GET | Aggregate dashboard HTML across all specs (append `?mode=` to switch panels) |
+| `/s/<slug>` | GET | That spec's live report HTML |
+| `/api/dashboard` | GET | Deterministic JSON projection of the aggregate view (honors `?mode=`) |
+| `/events` | GET | Server-Sent Events stream of frontier changes |
+
+`--mode` (or `?mode=`) selects one of `all` (default), `conductor`,
+`orchestrator`, `cost`, or `eval` — switching panels needs no restart. Like
+`report --serve`, every route is **GET-only and read-only**: a non-GET request
+gets `405`, an unknown spec `404`, and each response is rebuilt from state per
+request. The server never mutates spec state.
+
+### The `/events` streaming model
+
+`/events` is a Server-Sent Events (`text/event-stream`) endpoint — the same live
+stream `specd report --watch`/`--serve` exposes. The page opens one `EventSource`
+connection; when a viewed spec's runnable frontier changes, the server pushes an
+event and the page re-fetches and re-renders in place. There is no polling, no
+full reload, and no LLM call. The connection is one-way (server → browser) and
+carries change signals only, never mutations.
+
+Bind loopback-only by default (`127.0.0.1:8765`); to expose it, put it behind a
+TLS-terminating reverse proxy rather than binding a public address.
+
 ## Migration from the VS Code extension
 
 Earlier specd shipped a VS Code extension (`editors/vscode/`) whose only job was to

@@ -80,10 +80,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Migration spec packs (P5.4).** `migrate-deps`, `modernize-tests`, and
   `upgrade-go` built-in packs (`specd init --pack <name>`) each ship a steering
   file, a task-DAG template, and a V5 eval rubric; runnable on V7 schedules.
-- **Scheduled maintenance programs (`specd program schedule` / `specd program
-  tick`, P3.5).** Register recurring maintenance in `program.json`
-  (`schedule <name> --interval <seconds> --command <cmd> [--sandbox <backend>]`);
-  a host scheduler invokes `program tick`, which runs each due schedule exactly
+- **Scheduled maintenance programs (`specd status --program schedule` /
+  `specd status --program tick`, P3.5).** Register recurring maintenance in `program.json`
+  (`--program schedule <name> --interval <seconds> --command <cmd> [--sandbox <backend>]`);
+  a host scheduler invokes `status --program tick`, which runs each due schedule exactly
   once through the shared sandboxed exec path with a scrubbed env. specd never
   daemonizes — the claim is CAS-guarded under the program lock, so a
   double-invoked tick is idempotent (nothing due runs twice). Ships the

@@ -115,7 +115,7 @@ before, so you pay context only for the work in front of you.
 | `specd-brain` | Entering orchestration (sensing, deterministic stepping, program scheduling, no-LLM boundary). |
 | `specd-pinky` | Operating a Pinky worker (context, claim, heartbeat, progress, query/inbox, blocker, report, release). |
 | `specd-review` | Running the review workflow (`review_report.md` sections, reviewer brief, `review checklist`, the `review` gate). |
-| `specd-maintenance` | Registering/running scheduled maintenance (`program schedule`/`program tick`, host-triggered, idempotent). |
+| `specd-maintenance` | Registering/running scheduled maintenance (`status --program schedule`/`status --program tick`, host-triggered, idempotent). |
 | `specd-ingest` | Bringing a legacy codebase under the harness (read `inventory.json`, reverse-engineer requirements, close the `ingest` gate). |
 
 ## Quickstart
