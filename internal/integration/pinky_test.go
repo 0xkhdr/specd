@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -101,7 +102,7 @@ func TestFakePinkyWorkerRetryAfterExpiredFailedAttempt(t *testing.T) {
 
 func TestFakePinkyWorkerScopeViolationFailsClosed(t *testing.T) {
 	h := newPinkyHarness(t, "true")
-	if err := core.AtomicWrite(core.ConfigPath(h.Root), `{"gates":{"scope":"error"}}`+"\n"); err != nil {
+	if err := core.AtomicWrite(filepath.Join(h.Root, ".specd", "config.yml"), "gates:\n  scope: error\n"); err != nil {
 		t.Fatal(err)
 	}
 	cfg := core.LoadConfig(h.Root).Orchestration

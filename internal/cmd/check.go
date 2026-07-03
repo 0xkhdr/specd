@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/schema"
 )
 
 // RunCheck implements `specd check`: it loads the spec's artifacts and state,
@@ -130,4 +133,81 @@ func buildCheckCtx(root, slug string, guardrailsAll bool) (core.CheckCtx, []core
 		Cfg:           core.LoadConfig(root),
 		GuardrailsAll: guardrailsAll,
 	}, pre, nil
+}
+
+// runValidate checks a spec's on-disk state.json against the embedded JSON
+// Schema. It is a *format* conformance mode — structural shape, required keys,
+// closed property sets, enums — explicitly independent of the seven semantic
+// gates (`specd check`). The `--schema` flag is required to select this mode so
+// the command can grow other validation modes later without changing defaults.
+// Read-only: it never writes state. `--version` selects a schema version.
+func runValidate(args cli.Args) int {
+	if !args.Bool("schema") {
+		return usageExit("usage: specd validate <slug> --schema [--version <v>]")
+	}
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd validate <slug> --schema [--version <v>]")
+	if !ok {
+		return code
+	}
+	if err := core.RequireSpec(root, slug); err != nil {
+		return specdExit(err)
+	}
+
+	raw := core.ReadOrNull(filepath.Join(core.SpecDir(root, slug), "state.json"))
+	if raw == nil {
+		return specdExit(core.NotFoundError(fmt.Sprintf("no state.json for spec '%s'", slug)))
+	}
+
+	viols, err := schema.ValidateState([]byte(*raw), args.Str("version"))
+	if err != nil {
+		return specdExit(err)
+	}
+
+	if core.IsJSONMode() {
+		if viols == nil {
+			viols = []string{}
+		}
+		if err := core.PrintJSON(struct {
+			Spec       string   `json:"spec"`
+			Schema     string   `json:"schema"`
+			Conformant bool     `json:"conformant"`
+			Violations []string `json:"violations"`
+		}{slug, schema.SchemaVersionID, len(viols) == 0, viols}); err != nil {
+			return specdExit(err)
+		}
+		if len(viols) > 0 {
+			return core.ExitGate
+		}
+		return core.ExitOK
+	}
+
+	if len(viols) == 0 {
+		core.Info(fmt.Sprintf("schema: %s conforms to open spec format v%s", slug, schema.SchemaVersionID))
+		return core.ExitOK
+	}
+	core.Error(fmt.Sprintf("schema: %s has %d conformance violation(s):", slug, len(viols)))
+	for _, v := range viols {
+		core.Error("  • " + v)
+	}
+	return core.ExitGate
+}
+
+// runSchema writes the embedded JSON Schema for the open spec format to stdout.
+// `--version` selects a schema version (default: the current one); an unknown
+// version fails closed. It is pure output — no spec, no .specd/ root required —
+// so it works anywhere as the published, machine-readable format contract.
+func runSchema(args cli.Args) int {
+	doc, err := schema.Schema(args.Str("version"))
+	if err != nil {
+		return specdExit(err)
+	}
+	if _, err := os.Stdout.Write(doc); err != nil {
+		return specdExit(err)
+	}
+	// Embedded schema files do not carry a trailing newline guarantee; add one
+	// so piping to a terminal or file is clean.
+	if len(doc) > 0 && doc[len(doc)-1] != '\n' {
+		fmt.Println()
+	}
+	return core.ExitOK
 }

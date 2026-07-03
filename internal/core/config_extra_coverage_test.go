@@ -12,35 +12,29 @@ func TestWave4ConfigLoadsSecurityAndEscalation(t *testing.T) {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	config := []byte(`{
-		"security": {
-			"secrets": "block",
-			"injection": "warn",
-			"slopsquat": "off"
-		},
-		"escalation": {
-			"enabled": true,
-			"verifyFailThreshold": 4,
-			"blockerThreshold": 2,
-			"complexityThreshold": 9.5
-		},
-		"orchestration": {
-			"maxWorkers": 3,
-			"resilience": {
-				"autoResume": {
-					"enabled": true,
-					"maxAgeMinutes": 15
-				}
-			}
-		}
-	}`)
-	if err := os.WriteFile(filepath.Join(configDir, "config.json"), config, 0o644); err != nil {
+	config := []byte(`security:
+  secrets: block
+  injection: warn
+  slopsquat: "off"
+escalation:
+  enabled: true
+  verifyFailThreshold: 4
+  blockerThreshold: 2
+  complexityThreshold: 9.5
+orchestration:
+  maxWorkers: 3
+  resilience:
+    autoResume:
+      enabled: true
+      maxAgeMinutes: 15
+`)
+	if err := os.WriteFile(filepath.Join(configDir, "config.yml"), config, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	cfg, result := LoadConfigWithDiagnostics(root)
-	if len(result.Diagnostics) == 0 {
-		t.Fatal("expected diagnostics for unsupported fixture values")
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("valid YAML config must load without diagnostics; got %#v", result.Diagnostics)
 	}
 	if cfg.Security.Secrets != "block" || cfg.Security.Injection != "warn" || cfg.Security.Slopsquat != "off" {
 		t.Fatalf("security config = %#v", cfg.Security)

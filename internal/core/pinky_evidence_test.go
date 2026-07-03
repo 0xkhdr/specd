@@ -160,7 +160,7 @@ func TestPinkyEvidenceRejectsChangedVerifyCommand(t *testing.T) {
 
 func TestPinkyEvidenceRejectsUndeclaredFilesWhenScopeError(t *testing.T) {
 	root, sessionID, cfg, rec := evidenceFixture(t)
-	if err := AtomicWrite(ConfigPath(root), `{"gates":{"scope":"error"}}`+"\n"); err != nil {
+	if err := AtomicWrite(filepath.Join(root, ".specd", "config.yml"), "gates:\n  scope: error\n"); err != nil {
 		t.Fatal(err)
 	}
 	scoped := *rec

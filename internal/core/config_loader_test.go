@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -105,7 +106,12 @@ func TestConfigCandidatePriorityAndCascade(t *testing.T) {
 	}
 }
 
-func TestConfigLoaderLegacyJSONStillWorks(t *testing.T) {
+// TestConfigLoaderLegacyJSONRejected pins the v0.2.0 YAML-only break: a project
+// config.json (with no YAML alongside) is no longer parsed. It surfaces an
+// unsupported-extension error and LoadConfig falls back to defaults rather than
+// applying the JSON.
+func TestConfigLoaderLegacyJSONRejected(t *testing.T) {
+	isolateGlobalConfig(t)
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, ".specd"), 0o755); err != nil {
 		t.Fatal(err)
@@ -113,8 +119,17 @@ func TestConfigLoaderLegacyJSONStillWorks(t *testing.T) {
 	if err := os.WriteFile(ConfigPath(root), []byte(`{"defaultVerify":"go test ./...","roles":{"subagentMode":"delegate"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cfg := LoadConfig(root)
-	if cfg.DefaultVerify != "go test ./..." || cfg.Roles.SubagentMode != "delegate" {
-		t.Fatalf("legacy JSON not preserved: %#v", cfg)
+	cfg, res := LoadConfigWithDiagnostics(root)
+	if cfg.DefaultVerify == "go test ./..." || cfg.Roles.SubagentMode == "delegate" {
+		t.Fatalf("legacy JSON must not be applied, but fields loaded: %#v", cfg)
+	}
+	rejected := false
+	for _, d := range res.Diagnostics {
+		if d.Severity == "error" && strings.Contains(d.Message, "unsupported config extension") {
+			rejected = true
+		}
+	}
+	if !rejected {
+		t.Fatalf("expected unsupported-extension error for config.json; got %#v", res.Diagnostics)
 	}
 }

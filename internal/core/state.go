@@ -349,6 +349,11 @@ func InitialState(spec, title string) State {
 	}
 }
 
+// migrate normalizes a decoded state.json to the current schema. SchemaVersion
+// (6) is the floor this build writes: all historical schemas are
+// shape-compatible, so migration leniently stamps any older `schemaVersion` up
+// to 6 (no v5→v6 conversion body is needed) rather than rejecting old `.specd/`
+// trees. It only refuses state written by a newer specd (sv > SchemaVersion).
 func migrate(raw map[string]json.RawMessage) (State, error) {
 	var sv int
 	if v, ok := raw["schemaVersion"]; ok {

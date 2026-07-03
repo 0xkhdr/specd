@@ -100,10 +100,6 @@ func loadConfigFromPathLayer(path, layer string) (loadedConfigFile, []ConfigDiag
 	}
 	var doc map[string]any
 	switch ext {
-	case ".json":
-		if err := json.Unmarshal(raw, &doc); err != nil {
-			return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: "error", Message: "invalid JSON: " + err.Error()}}
-		}
 	case ".yml", ".yaml":
 		parsed, err := parseSimpleYAML(string(raw))
 		if err != nil {
@@ -111,13 +107,13 @@ func loadConfigFromPathLayer(path, layer string) (loadedConfigFile, []ConfigDiag
 		}
 		doc = parsed
 	default:
+		// Config is YAML-only as of v0.2.0. Legacy JSON (`config.json`,
+		// `SPECD_CONFIG_FORMAT=json`) is no longer parsed — a present `.json`
+		// config surfaces here as a clear unsupported-extension error rather
+		// than a silent skip.
 		return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: "error", Message: "unsupported config extension " + ext}}
 	}
-	diags := []ConfigDiagnostic{}
-	if ext == ".json" {
-		diags = append(diags, ConfigDiagnostic{Path: path, Source: path, Layer: layer, Severity: "warning", Message: "legacy JSON config is deprecated; prefer config.yml"})
-	}
-	return loadedConfigFile{Path: path, Doc: doc}, diags
+	return loadedConfigFile{Path: path, Doc: doc}, []ConfigDiagnostic{}
 }
 
 func selectConfigCandidate(layer string, paths []string, formatPref string, diags *[]ConfigDiagnostic) string {
@@ -142,23 +138,23 @@ func configFormatPreference(diags *[]ConfigDiagnostic) string {
 	if v == "" {
 		return ""
 	}
-	if v == "yaml" || v == "json" {
+	// Config is YAML-only as of v0.2.0; `yaml` is the sole accepted preference.
+	if v == "yaml" {
 		*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "info", Message: "config candidate format preference active"})
 		return v
 	}
-	*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "warning", Message: "unsupported config format preference; expected yaml or json"})
+	*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "warning", Message: "unsupported config format preference; expected yaml"})
 	return ""
 }
 
+// configPathFormat classifies a candidate path by format. Only YAML is a
+// supported config format; anything else (including legacy `.json`) returns ""
+// so it is never matched by a `yaml` format preference.
 func configPathFormat(path string) string {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".yml", ".yaml":
+	if ext := strings.ToLower(filepath.Ext(path)); ext == ".yml" || ext == ".yaml" {
 		return "yaml"
-	case ".json":
-		return "json"
-	default:
-		return ""
 	}
+	return ""
 }
 
 func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {

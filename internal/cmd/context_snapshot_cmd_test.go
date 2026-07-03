@@ -15,8 +15,8 @@ import (
 // leaving every other field to LoadConfig defaults via partial merge.
 func enableContextSnapshot(t *testing.T, root string) {
 	t.Helper()
-	raw := []byte(`{"orchestration":{"enabled":true,"resilience":{"contextSnapshotEnabled":true}}}`)
-	if err := os.WriteFile(core.ConfigPath(root), raw, 0o644); err != nil {
+	raw := []byte("orchestration:\n  enabled: true\n  resilience:\n    contextSnapshotEnabled: true\n")
+	if err := os.WriteFile(filepath.Join(root, ".specd", "config.yml"), raw, 0o644); err != nil {
 		t.Fatalf("write context-snapshot config: %v", err)
 	}
 }
