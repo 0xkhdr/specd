@@ -85,6 +85,84 @@ These run after the seven core gates only when enabled. With their defaults,
 - **Fails on:** A task that touched a file outside its declared `files:` glob set.
   Coverage is recorded as **evidence**, not enforced as a numeric floor.
 
+### Gate 10 — Eval (completion requires a passing rubric run)
+- **Source:** `internal/cmd/approve.go` (`hasPassingEval`); rubric engine in
+  `internal/core/eval.go`.
+- **Config:** `config.gates.eval` — `off`/unset = no-op (default, including
+  migrated repos), `required` blocks `specd approve` from marking a spec
+  complete until at least one recorded eval run passed its `minScore`.
+- **Checks:** `state.json.evals` holds a passing suite summary (from
+  `specd eval <slug>`).
+- **Fails on:** `approve` of a `verifying` spec with no passing eval recorded.
+  Off by default to avoid gate fatigue; new inits may default it on.
+
+### Gate 11 — Review (completion requires a fresh, approving review report)
+- **Source:** `internal/cmd/approve.go`; parser/gate in `internal/core/review.go`.
+- **Config:** `config.review.required` — `false` (default, including migrated
+  repos) = no-op; `true` blocks `specd approve` verifying→complete until a review
+  report passes.
+- **Checks:** `review_report.md` exists (scaffold via `specd review <slug>`), is
+  structurally valid (mandatory sections: Summary, Bugs, Security, Hallucinated
+  Dependencies, Style, Verdict), carries a verdict, is **fresh** (newer than the
+  latest task completion — staleness prevents rubber-stamping an old report), and
+  the verdict is `approve`. The outcome is recorded in `state.review`.
+- **Human approval stays final** — the report is evidence, not the decision.
+
+### Gate 12 — Security suite (`specd check --security`)
+- **Source:** `internal/core/security/` (pure, stdlib-only scanners);
+  `internal/cmd/security.go` wiring.
+- **Config:** `config.security.{secrets,injection,slopsquat}` — each `off` (default),
+  `warn` (advisory), or `error` (blocking). `config.security.deps` names an
+  external CVE-scan command (no CVE database is embedded).
+- **Checks over working-tree changed files:** `secrets` (entropy + known formats:
+  cloud keys, PEM, JWT), `injection` (SQL-concat / exec-interpolation heuristics),
+  `slopsquat` (manifest dep names edit-distance-checked against an embedded
+  popular-package list). Findings are recorded in `state.security` and rendered in
+  the PR summary. **Only blocking (`error`) findings fail the command** — advisory
+  scanners are reported but never fail (a noisy gate that gets disabled is worse
+  than a modest one).
+- **False-positive workflow:** allowlist a value at `.specd/security/allow.json`
+  (`{"allow":[{"value":"...","reason":"..."}]}`) — a **reason is mandatory**; a
+  reasonless entry is a hard error. Prefer lowering a noisy scanner to `warn` over
+  disabling it.
+
+### Gate 13 — Ingest coverage (`gates.ingest`)
+- **Source:** `internal/core/ingest.go` (`GateIngest`), run in the `specd check`
+  pipeline.
+- **Config:** `config.gates.ingest` — `off`/`""` (default, including migrated
+  repos), `warn`, or `error`.
+- **Checks:** For an ingestion spec with an `inventory.json`, every inventoried
+  file must be **mapped** (its path appears in `requirements.md`) or **waived**
+  (an `inventory.json` `waivers` entry with a non-empty reason). Any file that is
+  neither is flagged. Coverage is a countable fact, not a judgment — the binary
+  inventories, the agent understands (via `specd-ingest`), the gate enforces.
+- **Waivers:** `inventory.json` `"waivers": {"<path>": "<reason>"}`; a
+  reasonless waiver does not count (same discipline as the security allowlist).
+
+### Deploy preconditions (`specd deploy`)
+- **Source:** `internal/core/deploy.go` (`DeployPreconditions`),
+  `internal/cmd/deploy.go`.
+- **Not a `check` gate** — enforced at deploy time. `specd deploy <slug> --env
+  <env>` refuses unless: the spec is **complete**; every gate named in the
+  env's `.specd/deploy/<env>.json` `requiresGates` (`eval`/`security`/`review`)
+  is recorded green in `state.json`; and — for a **production** env or an
+  `approvalRequired` plan — a human deploy approval exists (`specd approve
+  <slug> --deploy --env <env>`). Preconditions read recorded evidence only; they
+  never re-run a gate. A production deploy is impossible without the human
+  approval record.
+
+### Harness import quarantine (`specd harness`)
+- **Source:** `internal/core/harness.go` (`PullHarness`, `EnableHarnessItem`,
+  `SecureGitClone`), `internal/cmd/harness.go`.
+- **Not a `check` gate** — enforced at import time. `specd harness pull`
+  installs declarative policy directly but **quarantines every executable
+  `command` artifact** until an operator runs `specd harness enable <path>`,
+  which records the decision in the harness log. This is the constitution's
+  evidence-gate rule (#5) applied to shared policy: a pulled bundle can never
+  silently introduce code that runs on your machine. Locally modified files are
+  **refused** (exit `1`) unless `--force` is passed, and every bundle is SHA256
+  pinned — a checksum mismatch or version downgrade fails closed.
+
 ### Custom gates
 - **Source:** `internal/core/customgate.go`
 - **Config:** `config.gates.custom` — a list of `{name, command, severity}`.
@@ -146,6 +224,15 @@ every `verify:` line and every env var as hostile until validated.
   `SHA256SUMS` from the same release and verify the archive digest before
   replacing any binary. Both **fail closed** on a missing or mismatched
   checksum. `install.sh --no-verify` skips the check with a loud warning.
+- **Harness git transport.** `specd harness push/pull` shells out to git through
+  a single hardened `SecureGitClone` path with a scrubbed environment and a
+  transport allowlist; local-arbitrary-command URL schemes (`ext::`, `file::`)
+  are rejected. Pulled bundles are SHA256 pinned and imported executables are
+  quarantined until `harness enable` (see
+  [Harness import quarantine](#harness-import-quarantine-specd-harness)).
+- **Migration.** `specd migrate` only rewrites spec state at the current schema
+  and reports available config blocks; it **never writes policy content**, so
+  upgrading a project cannot enable a gate or change behavior on its own.
 - **Lock file.** A spec's `.lock` holds `PID epochMillis` only — it is
   **non-secret** and created `0644`. Written artifacts (`state.json`,
   `tasks.md`) land as `0644` minus umask.

@@ -254,6 +254,8 @@ func recordOrchestrationDecision(root, sessionID string, decision OrchestrationD
 			VerifyCommand:   mission.VerifyCommand,
 			Dependencies:    append([]string{}, mission.Dependencies...),
 			Authority:       mission.Authority,
+			Tier:            mission.Tier,
+			Handoff:         mission.Handoff,
 		}
 	case OrchestrationCancel:
 		messageType = ACPMessageDirective

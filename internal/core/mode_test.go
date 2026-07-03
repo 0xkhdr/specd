@@ -48,11 +48,11 @@ func TestProjectOrchestrationEnabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ProjectOrchestrationEnabled(root) {
-		t.Error("no config.json should mean no orchestration capability")
+		t.Error("no config should mean no orchestration capability")
 	}
 	// Config with orchestration.enabled → capable.
-	cfg := `{"version":1,"orchestration":{"enabled":true}}`
-	if err := os.WriteFile(ConfigPath(root), []byte(cfg), 0o644); err != nil {
+	cfg := "version: 1\norchestration:\n  enabled: true\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd", "config.yml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if !ProjectOrchestrationEnabled(root) {

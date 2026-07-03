@@ -10,11 +10,13 @@ import (
 // ProgramVersion is the current schema version for program.json.
 const ProgramVersion = 1
 
-// ProgramManifest is the persisted program.json document: the schema version
-// and the declared cross-spec dependency edges, keyed by spec slug.
+// ProgramManifest is the persisted program.json document: the schema version,
+// the declared cross-spec dependency edges (keyed by spec slug), and any
+// registered maintenance schedules (P3.5).
 type ProgramManifest struct {
-	Version   int                 `json:"version"`
-	DependsOn map[string][]string `json:"dependsOn"`
+	Version   int                   `json:"version"`
+	DependsOn map[string][]string   `json:"dependsOn"`
+	Schedules []MaintenanceSchedule `json:"schedules,omitempty"`
 }
 
 // ProgramPath returns the path to program.json under the spec root's .specd
@@ -79,6 +81,11 @@ func SaveProgram(root string, manifest ProgramManifest) error {
 		}
 	}
 	out := map[string]interface{}{"version": manifest.Version, "dependsOn": dependsOn}
+	if len(manifest.Schedules) > 0 {
+		schedules := append([]MaintenanceSchedule(nil), manifest.Schedules...)
+		sort.Slice(schedules, func(i, j int) bool { return schedules[i].Name < schedules[j].Name })
+		out["schedules"] = schedules
+	}
 	b, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return err

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	contextpkg "github.com/0xkhdr/specd/internal/context"
@@ -199,6 +201,9 @@ func RunContext(args cli.Args) int {
 	c := core.CountTasks(state)
 	load := append([]string{}, baseSteering...)
 	load = append(load, b.load...)
+	if args.Bool("hud") {
+		return renderContextHUD(root, slug, state, load, skill, jsonOut)
+	}
 	manifest := buildContextManifest(root, slug, state, loaded.Doc)
 	if args.Bool("snapshot") {
 		if code := writeContextSnapshot(root, slug, state, manifest, args); code != core.ExitOK {
@@ -285,6 +290,64 @@ func RunContext(args cli.Args) int {
 	fmt.Printf("FOCUS: %s\n", b.focus)
 	fmt.Printf("NEXT:  %s\n", b.next)
 	return core.ExitOK
+}
+
+// renderContextHUD builds and prints the deterministic context HUD: the load
+// files with their measured byte/token cost, active skill, and mode/tier. The
+// tier comes from the next runnable task's V4 routing stamp when present. Output
+// is identical across runs for the same on-disk state (invariant 6/7).
+func renderContextHUD(root, slug string, state *core.State, load []string, skill string, jsonOut bool) int {
+	files := append([]string{}, load...)
+	var skills []string
+	if skill != "" {
+		files = append(files, skill)
+		skills = append(skills, skill)
+	}
+	hud := contextpkg.BuildContextHUD(root, slug, state.EffectiveMode(), hudTier(state), files, skills)
+	if jsonOut {
+		if err := core.PrintJSON(hud); err != nil {
+			return specdExit(err)
+		}
+		return core.ExitOK
+	}
+	fmt.Printf("=== HUD: %s ===\n", slug)
+	tier := hud.Tier
+	if tier == "" {
+		tier = "-"
+	}
+	fmt.Printf("mode %s · tier %s · %d files · %d bytes · ~%d tokens\n", hud.Mode, tier, len(hud.Files), hud.TotalBytes, hud.ApproxTokens)
+	fmt.Println()
+	for _, f := range hud.Files {
+		mark := " "
+		if !f.Exists {
+			mark = "?"
+		}
+		fmt.Printf("  %s %-48s %7d B  ~%-6d tok\n", mark, f.Path, f.Bytes, f.ApproxTokens)
+	}
+	if len(hud.Skills) > 0 {
+		fmt.Printf("\nSKILLS: %s\n", strings.Join(hud.Skills, ", "))
+	}
+	return core.ExitOK
+}
+
+// hudTier returns the routing tier for the next runnable task when a V4 routing
+// stamp exists, else "" (no tier recorded). Deterministic: it reads only state.
+func hudTier(state *core.State) string {
+	if len(state.Routing) == 0 {
+		return ""
+	}
+	if next := core.NextRunnable(core.DagTasksFromState(state)); next.Kind == core.NextTask {
+		if stamp, ok := state.Routing[next.ID]; ok {
+			return stamp.Tier
+		}
+	}
+	// Fall back to any recorded stamp in deterministic (task-id) order.
+	ids := make([]string, 0, len(state.Routing))
+	for id := range state.Routing {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return state.Routing[ids[0]].Tier
 }
 
 // contextSnapshotEnabled reports whether per-turn context snapshots are on. The

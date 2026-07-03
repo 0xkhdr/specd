@@ -42,7 +42,7 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 			Refresh:  name == "reasoning.md" || name == "workflow.md",
 		})
 	}
-	for _, name := range []string{"scout.md", "craftsman.md", "auditor.md", "validator.md", "brain.md", "pinky.md"} {
+	for _, name := range []string{"scout.md", "craftsman.md", "auditor.md", "validator.md", "reviewer.md", "brain.md", "pinky.md"} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "roles/" + name,
 			Target:   ".specd/roles/" + name,
@@ -54,7 +54,8 @@ func DefaultScaffoldManifest() []ScaffoldAsset {
 	for _, name := range []string{
 		"specd-foundations", "specd-steering", "specd-requirements",
 		"specd-design", "specd-tasks", "specd-execute",
-		"specd-brain", "specd-pinky",
+		"specd-eval-author", "specd-brain", "specd-pinky",
+		"specd-review", "specd-maintenance", "specd-ingest",
 	} {
 		assets = append(assets, ScaffoldAsset{
 			Template: "skills/" + name + "/SKILL.md",

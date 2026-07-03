@@ -39,7 +39,7 @@ func gitRecentCommits(root string) []core.Commit {
 // link map when a local git history is available. It runs the same gate pipeline
 // as `specd check` and makes no network calls.
 func runPRSummary(root, slug string, state *core.State) int {
-	ctx, pre, err := buildCheckCtx(root, slug)
+	ctx, pre, err := buildCheckCtx(root, slug, false)
 	if err != nil {
 		return specdExit(err)
 	}
@@ -115,6 +115,9 @@ func RunReport(args cli.Args) int {
 
 	if args.Bool("pr-summary") {
 		return runPRSummary(root, slug, state)
+	}
+	if args.Bool("conductor") {
+		return runConductorReport(root, slug, args.Bool("json"))
 	}
 
 	format := args.Str("format")

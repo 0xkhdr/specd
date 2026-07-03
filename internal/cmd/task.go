@@ -138,6 +138,12 @@ func RunTask(args cli.Args) int {
 		if err := core.AtomicWrite(tasksPath, updated); err != nil {
 			return specdExit(err), err
 		}
+		cfg := core.LoadConfig(root)
+		if routing, _, err := core.ResolveRoutingStamps(cfg.Routing, state.Tasks); err != nil {
+			return specdExit(err), err
+		} else if len(routing) > 0 {
+			state.Routing = routing
+		}
 		core.DeriveSpecStatus(state)
 		if err := core.SaveState(root, slug, state); err != nil {
 			return specdExit(err), err

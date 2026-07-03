@@ -47,18 +47,28 @@ func TestConfigTruncatedYAMLRejected(t *testing.T) {
 	}
 }
 
-// Req 1.2 — JSON with duplicate keys. Go's decoder takes the last value; we pin
-// that documented resolution rather than inventing new behavior.
-func TestConfigDuplicateJSONKeysLastWins(t *testing.T) {
+// Req 1.2 — legacy JSON config is no longer parsed (v0.2.0, YAML-only). A
+// leftover config.json must fail loud with an unsupported-extension error and
+// never be applied — not silently ignored.
+func TestConfigLegacyJSONRejected(t *testing.T) {
 	isolateGlobalConfig(t)
 	root := t.TempDir()
-	writeConfigFile(t, projectConfig(root, "config.json"), `{"gates":{"maxContextTokens":1000},"gates":{"maxContextTokens":7000}}`)
-	cfg, res := LoadConfigWithDiagnostics(root)
-	if hasDiagError(res.Diagnostics) {
-		t.Fatalf("duplicate-key JSON should parse (last wins), got error: %+v", res.Diagnostics)
+	writeConfigFile(t, projectConfig(root, "config.json"), `{"gates":{"maxContextTokens":7000}}`)
+	_, res := LoadConfigWithDiagnostics(root)
+	if !hasDiagError(res.Diagnostics) {
+		t.Fatalf("legacy JSON config should produce an error diagnostic; got %+v", res.Diagnostics)
 	}
-	if cfg.Gates.MaxContextTokens != 7000 {
-		t.Fatalf("duplicate JSON key resolution = %d, want 7000 (last value wins)", cfg.Gates.MaxContextTokens)
+	announced := false
+	for _, d := range res.Diagnostics {
+		if strings.Contains(d.Message, "unsupported config extension") && strings.HasSuffix(d.Source, "config.json") {
+			announced = true
+		}
+	}
+	if !announced {
+		t.Fatalf("expected an unsupported-extension error naming config.json; diagnostics=%+v", res.Diagnostics)
+	}
+	if res.ProjectPath != "" {
+		t.Fatalf("rejected JSON config must not be applied, but ProjectPath=%q", res.ProjectPath)
 	}
 }
 

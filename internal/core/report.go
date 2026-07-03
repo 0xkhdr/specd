@@ -139,6 +139,9 @@ func buildSections(d ReportData) []reportSection {
 		{"🧠", "Build Knowledge", deref(d.Memory, "_None._")},
 		{"📓", "Decisions", deref(d.Decisions, "_None._")},
 	}
+	if body := tokenEconomics(d.State); body != "" {
+		s = append(s, reportSection{"💸", "Token Economics", body})
+	}
 	if len(d.State.Acceptance) > 0 {
 		keys := make([]string, 0, len(d.State.Acceptance))
 		for k := range d.State.Acceptance {
@@ -176,6 +179,30 @@ func buildSections(d ReportData) []reportSection {
 // and coverage) captured by `specd verify`. It is evidence reporting only —
 // coverage is shown as data, never as a pass/fail floor. Tasks without a verify
 // record are omitted; an empty body suppresses the whole section.
+func tokenEconomics(state *State) string {
+	if state == nil || len(state.Routing) == 0 {
+		return ""
+	}
+	e := RoutingEconomicsFromState(state)
+	if len(e.ByTier) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Total: **%s USD** · **%d** tokens\n\n", e.TotalCostUSD, e.TotalTokens))
+	b.WriteString("| Tier | Tasks | Tokens | Cost USD |\n")
+	b.WriteString("|---|---:|---:|---:|\n")
+	tiers := make([]string, 0, len(e.ByTier))
+	for tier := range e.ByTier {
+		tiers = append(tiers, tier)
+	}
+	sort.Strings(tiers)
+	for _, tier := range tiers {
+		row := e.ByTier[tier]
+		b.WriteString(fmt.Sprintf("| %s | %d | %d | %s |\n", tier, row.Tasks, row.Tokens, row.CostUSD))
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
 func verificationEvidence(state *State) string {
 	ids := make([]string, 0, len(state.Tasks))
 	for id, t := range state.Tasks {

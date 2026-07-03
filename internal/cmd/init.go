@@ -60,12 +60,14 @@ func plural(n int) string {
 }
 
 // applyPack resolves and transactionally applies a pack into root. A bare name
-// resolves to a built-in; an http(s) URL requires --sha256 (fail-closed). It
-// writes nothing on any resolve/apply error.
+// resolves to a built-in, or — when --registry <git-url> is supplied and the
+// name is not built-in — via the git-repo pack registry with a checksum lockfile
+// (V11/P6.3). An http(s) URL requires --sha256 (fail-closed). It writes nothing
+// on any resolve/apply/lock error.
 func applyPack(root, ref string, args cli.Args) int {
-	pk, err := pack.ResolvePack(ref, args.Str("sha256"))
-	if err != nil {
-		return specdExit(err)
+	pk, code, ok := resolvePackForInit(root, ref, args)
+	if !ok {
+		return code
 	}
 	res, err := pack.ApplyPack(root, pk, args.Bool("force"))
 	if err != nil {
@@ -86,6 +88,38 @@ func applyPack(root, ref string, args cli.Args) int {
 		core.Info("  + " + w)
 	}
 	return core.ExitOK
+}
+
+// resolvePackForInit resolves a --pack reference, routing a named pack through
+// the git-repo registry when --registry is supplied (pinning the resolved digest
+// into .specd/pack.lock), and otherwise through the built-in/remote resolver. It
+// returns (pack, exitCode, ok); on any error ok is false and exitCode is the
+// mapped specd exit.
+func resolvePackForInit(root, ref string, args cli.Args) (*pack.Pack, int, bool) {
+	registry := strings.TrimSpace(args.Str("registry"))
+	isHTTP := strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://")
+	if registry != "" && !isHTTP {
+		pk, entry, err := pack.ResolveFromRegistry(ref, registry)
+		if err != nil {
+			return nil, specdExit(err), false
+		}
+		lock, err := pack.LoadPackLock(root)
+		if err != nil {
+			return nil, specdExit(err), false
+		}
+		if err := lock.CheckAndPin(entry.Name, entry.SHA256); err != nil {
+			return nil, specdExit(err), false
+		}
+		if err := lock.Save(root); err != nil {
+			return nil, specdExit(err), false
+		}
+		return pk, core.ExitOK, true
+	}
+	pk, err := pack.ResolvePack(ref, args.Str("sha256"))
+	if err != nil {
+		return nil, specdExit(err), false
+	}
+	return pk, core.ExitOK, true
 }
 
 // RunInit implements `specd init`. It runs the workspace onboarding flow
@@ -189,6 +223,20 @@ func runInitWithRuntime(args cli.Args, executor core.InitExecutor, runtime onboa
 		return emitInitResult(result, args.Bool("json"))
 	}
 	result.Warnings = append(result.Warnings, initWarnings...)
+	if args.Bool("guardrails") {
+		created, err := core.EnsureGuardrailsScaffold(plan.Root)
+		if err != nil {
+			result.Status = "failed"
+			result.Warnings = append(result.Warnings, core.InitWarning{Code: "guardrails-failed", Message: err.Error()})
+			result.Normalize()
+			return emitInitResult(result, args.Bool("json"))
+		}
+		if created {
+			result.Files.Written = append(result.Files.Written, ".specd/guardrails.json")
+		} else {
+			result.Files.Skipped = append(result.Files.Skipped, ".specd/guardrails.json")
+		}
+	}
 	applyInitOrchestrationNextAction(&result, orchConfig, selected)
 
 	return emitInitResult(result, args.Bool("json"), args.Bool("verbose"))

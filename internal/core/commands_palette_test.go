@@ -14,11 +14,11 @@ func TestNoDuplicateCommands(t *testing.T) {
 
 func TestFlagSingleOwner(t *testing.T) {
 	allowed := map[string]map[string]bool{
-		"sandbox":        {"verify": true},
+		"sandbox":        {"verify": true, "status": true},
 		"revert-on-fail": {"verify": true},
 		"all":            {"next": true, "status": true, "help": true},
 		"format":         {"report": true},
-		"evidence":       {"verify": true, "task": true},
+		"evidence":       {"verify": true, "task": true, "promote": true},
 	}
 	seen := map[string]map[string]bool{}
 	for _, c := range Commands {
@@ -52,10 +52,15 @@ func TestPaletteCeiling(t *testing.T) {
 			daily++
 		}
 	}
-	if daily > 16 {
-		t.Fatalf("daily palette = %d, want <=16", daily)
+	// v0.2.0 Wave 3 added eval/conductor; Wave 4 added the trust/scale surfaces
+	// (orchestrate, review, submit — promote stays Hidden); Wave 5 adds the
+	// lifecycle-close surfaces (deploy, observe, ingest); Wave 6 adds the platform
+	// surfaces (harness, dashboard, migrate) as Hidden infra so the daily palette
+	// stays bounded while total grows. The palette stays deliberately bounded.
+	if daily > 24 {
+		t.Fatalf("daily palette = %d, want <=24", daily)
 	}
-	if total > 20 {
-		t.Fatalf("total commands = %d, want <=20", total)
+	if total > 32 {
+		t.Fatalf("total commands = %d, want <=32", total)
 	}
 }

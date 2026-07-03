@@ -662,3 +662,33 @@ Edges are stored in `.specd/program.json`. Self-edges and cycles are rejected.
 
 `specd status --program` resolves which whole specs are runnable — the cross-spec
 analog of `specd next`.
+
+## Inter-role handoff (ACP → A2A)
+
+When one worker passes its work to another — the canonical case is a **scout →
+craftsman** handoff — the mission payload and the worker brief carry an optional
+handoff record alongside the routing `tier`:
+
+```json
+"tier": "standard",
+"handoff": {
+  "from": "scout",
+  "reason": "located the parser and its callers",
+  "artifacts": [".specd/specs/demo/scout-notes.md"]
+}
+```
+
+- `from` must be a known role; `reason` is required; `artifacts` are the paths or
+  IDs the origin role produced for the receiver. The record is validated on both
+  the ACP wire (`validateACPMissionPayload`) and the internal mission
+  (`validatePinkyMission`).
+- Both fields are `omitempty` and **excluded from the dispatch digest**, so a
+  fresh dispatch (no handoff) is byte-identical to the pre-handoff format and
+  digests stay stable across the addition.
+- The brief renders the handoff so the receiving worker sees where its inputs
+  came from, without re-deriving them.
+
+**A2A mapping.** This is specd's expression of the Agent-to-Agent (A2A) handoff
+concept: `from` ↔ the origin agent, `reason` ↔ the handoff cause, `artifacts` ↔
+the produced work products the next agent consumes. The ACP envelope version
+carries the schema version; the handoff object is additive within it.

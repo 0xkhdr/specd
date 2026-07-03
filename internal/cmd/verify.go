@@ -231,13 +231,31 @@ func RunVerify(args cli.Args) int {
 		// via the injectable clock (deterministic under the test clock).
 		tel := ensureTelemetry(&ts)
 		tel.Retries++
+		if !rec.Verified {
+			tel.VerifyFails++
+		}
 		tel.VerifyDurationMs = core.DurationMsBetween(rec.RanAt, core.NowISO())
 
 		// State mutation: persist the verification record under the spec lock.
 		ts.Verification = rec
 		state.Tasks[id] = ts
+
+		// Auto-escalation (V7/P3.2): on a failed verify, apply the deterministic rule
+		// set. When it fires we record state.Escalation and surface a conductor-handoff
+		// recommendation — never an automatic mode switch. Opt-in via
+		// config.escalation.enabled, so the default path stays byte-identical.
+		cfg := core.LoadConfig(root)
+		var escalation *core.EscalationRecord
+		if !rec.Verified && cfg.Escalation.Enabled {
+			traj, _ := core.ReadTrajectory(root, slug)
+			escalation = core.EscalateOnVerify(state, traj, id, cfg.Escalation, cfg.Orchestration.MaxRetries, 0, 0)
+		}
 		if err := core.SaveState(root, slug, state); err != nil {
 			return specdExit(err), err
+		}
+		if escalation != nil {
+			errLine("⚠ escalation: task %s hit rule %q (%s) — resolve in conductor mode (`specd mode --set conductor`) or override (`specd orchestrate %s resume --override`)",
+				escalation.Task, escalation.Rule, escalation.Facts, slug)
 		}
 
 		// Presentation is factored out so this closure only does IO/state.

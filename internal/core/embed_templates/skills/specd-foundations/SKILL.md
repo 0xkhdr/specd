@@ -86,8 +86,12 @@ a suggestion and let the user decide. See AGENTS.md "Execution mode" for the ful
 | `specd-design` | Entering the design phase. The mandatory `design.md` sections + the `design` gate. |
 | `specd-tasks` | Entering the tasks phase. The wave DAG, the seven task keys, acyclicity + the `task-schema`/`dag` gates. |
 | `specd-execute` | Entering executing/verifying. The next→implement→verify→complete loop, roles, `dispatch`, the `evidence` gate. |
+| `specd-eval-author` | Authoring/refining an eval rubric after `specd eval init`. The four check kinds, scoring/`minScore`, trajectory predicates, the sandboxed `command` contract. |
 | `specd-brain` | Entering orchestration. Sensing specd-owned state, deterministic stepping, program scheduling, the no-LLM boundary. |
 | `specd-pinky` | Operating a Pinky worker. Context, claim, heartbeat, progress, query/inbox, blocker, report, release under lease. |
+| `specd-review` | Reviewing a completed spec. The `review_report.md` sections, reviewer brief, `review checklist`, and the `review` gate. |
+| `specd-maintenance` | Scheduled maintenance programs. `status --program schedule`/`status --program tick`, host-triggered, no-daemon, idempotent ticks. |
+| `specd-ingest` | Legacy ingestion. Read `inventory.json`, reverse-engineer requirements/design/tasks, close the `ingest` coverage gate. |
 
 Pay context only for the stage you are in. This `specd-foundations` is the only
 always-loaded skill; it indexes all seven stage skills above.

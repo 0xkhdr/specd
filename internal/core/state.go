@@ -13,7 +13,7 @@ import (
 // SchemaVersion is the current state.json schema version this build of specd
 // writes and understands. LoadState refuses to read a state.json whose
 // schemaVersion is newer than this value.
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 // Execution mode for a spec. Simple is the plain spec-driven lifecycle the host
 // agent drives itself; Orchestrated lets the Brain/Pinky multi-agent layer drive.
@@ -22,6 +22,7 @@ const SchemaVersion = 5
 const (
 	ModeSimple       = "simple"
 	ModeOrchestrated = "orchestrated"
+	ModeConductor    = "conductor"
 )
 
 // Origin records how a spec's execution mode was chosen, for audit via replay.
@@ -140,6 +141,7 @@ type Telemetry struct {
 	DurationMs       int64  `json:"durationMs,omitempty"`       // running → complete elapsed
 	VerifyDurationMs int64  `json:"verifyDurationMs,omitempty"` // most recent verify run
 	Retries          int    `json:"retries,omitempty"`          // verify re-runs for this task
+	VerifyFails      int    `json:"verifyFails,omitempty"`      // cumulative failed verify runs (V7 escalation fact)
 	Tokens           int    `json:"tokens,omitempty"`           // annotated, not computed
 	Cost             string `json:"cost,omitempty"`             // annotated (e.g. "0.42"), not computed
 }
@@ -165,10 +167,89 @@ type TaskState struct {
 
 // Blocker records why a task is blocked: which task, the reason, and when it
 // became blocked.
+type EvalSummary struct {
+	Suite    string  `json:"suite"`
+	Score    float64 `json:"score"`
+	MinScore float64 `json:"minScore"`
+	Pass     bool    `json:"pass"`
+	Seq      int     `json:"seq"`
+	Time     string  `json:"time"`
+}
+
+type RoutingStamp struct {
+	Tier      string  `json:"tier"`
+	BudgetUSD float64 `json:"budgetUSD"`
+	RuleIndex int     `json:"ruleIndex"`
+}
+
+type ConductorSession struct {
+	SessionID string `json:"sessionID"`
+	Task      string `json:"task"`
+	Micro     string `json:"micro"`
+	StartedAt string `json:"startedAt"`
+}
+
+type EscalationRecord struct {
+	Task  string `json:"task"`
+	Rule  string `json:"rule"`
+	Facts string `json:"facts"`
+	Time  string `json:"time"`
+}
+
+// SecurityScan is the recorded summary of a security-suite run: total findings,
+// how many were blocking (error-severity), the per-scanner tally, and the scan
+// time. It is a deterministic projection of the findings, so reports/PR summaries
+// render it without re-scanning.
+type SecurityScan struct {
+	Findings  int            `json:"findings"`
+	Blocking  int            `json:"blocking"`
+	ByScanner map[string]int `json:"byScanner,omitempty"`
+	Time      string         `json:"time"`
+}
+
+// ReviewRecord is the recorded outcome of the review gate: the verdict parsed
+// from review_report.md, whether the report was fresh relative to the latest task
+// completion, and when the gate evaluated.
+type ReviewRecord struct {
+	Verdict string `json:"verdict"`
+	Fresh   bool   `json:"fresh"`
+	Time    string `json:"time"`
+}
+
 type Blocker struct {
 	Task   string `json:"task"`
 	Reason string `json:"reason"`
 	Since  string `json:"since"`
+}
+
+// DeployRecord is the recorded summary of the last `specd deploy` run (V9/P5.1):
+// the target env, terminal outcome ("succeeded"|"failed"|"rolled-back"), how
+// many steps ran, whether a human deploy approval was recorded, and the time.
+// It is a deterministic projection of deploy.jsonl so reports render it without
+// replaying the ledger. Pointer + omitempty keeps state.json byte-identical for
+// specs that never deploy.
+type DeployRecord struct {
+	Env      string `json:"env"`
+	Outcome  string `json:"outcome"`
+	Steps    int    `json:"steps"`
+	Approved bool   `json:"approved"`
+	Time     string `json:"time"`
+}
+
+// DeployApproval is the recorded human deploy gate (V9/P5.1): `specd approve
+// --deploy` writes it, and `specd deploy --env production` refuses without a
+// current one. Pointer + omitempty keeps state.json byte-identical otherwise.
+type DeployApproval struct {
+	Env  string `json:"env"`
+	Time string `json:"time"`
+}
+
+// IngestRecord is the recorded summary of the last ingestion inventory
+// (V10/P5.3): how many files the deterministic inventory captured and when.
+// Pointer + omitempty keeps state.json byte-identical for non-ingestion specs.
+type IngestRecord struct {
+	Files int    `json:"files"`
+	Time  string `json:"time"`
 }
 
 // State is the full on-disk representation of a spec's state.json: schema and
@@ -188,6 +269,26 @@ type State struct {
 	Tasks         map[string]TaskState       `json:"tasks"`
 	Blockers      []Blocker                  `json:"blockers"`
 	Acceptance    map[string]CriterionRecord `json:"acceptance,omitempty"`
+	Evals         map[string]EvalSummary     `json:"evals,omitempty"`
+	Routing       map[string]RoutingStamp    `json:"routing,omitempty"`
+	Conductor     *ConductorSession          `json:"conductor,omitempty"`
+	Prototype     *PrototypeState            `json:"prototype,omitempty"`
+	Escalation    *EscalationRecord          `json:"escalation,omitempty"`
+	// Security holds the last `specd check --security` scan summary (V8/P4.2).
+	// Pointer + omitempty keeps state.json byte-identical for repos that never run
+	// the security suite.
+	Security *SecurityScan `json:"security,omitempty"`
+	// Review holds the last review-gate evaluation (V8/P4.1). Pointer + omitempty
+	// keeps state.json byte-identical for repos without a review report.
+	Review *ReviewRecord `json:"review,omitempty"`
+	// Deploy holds the last `specd deploy` outcome (V9/P5.1); DeployApproval holds
+	// the current human deploy gate (`specd approve --deploy`). Pointer + omitempty
+	// keeps state.json byte-identical for specs that never deploy.
+	Deploy         *DeployRecord   `json:"deploy,omitempty"`
+	DeployApproval *DeployApproval `json:"deployApproval,omitempty"`
+	// Ingest holds the last ingestion inventory summary (V10/P5.3). Pointer +
+	// omitempty keeps state.json byte-identical for non-ingestion specs.
+	Ingest *IngestRecord `json:"ingest,omitempty"`
 	// Prompt is the optional originating `specd new --from` text. omitempty keeps
 	// state.json byte-identical for specs created without --from.
 	Prompt string `json:"prompt,omitempty"`
@@ -248,6 +349,11 @@ func InitialState(spec, title string) State {
 	}
 }
 
+// migrate normalizes a decoded state.json to the current schema. SchemaVersion
+// (6) is the floor this build writes: all historical schemas are
+// shape-compatible, so migration leniently stamps any older `schemaVersion` up
+// to 6 (no v5→v6 conversion body is needed) rather than rejecting old `.specd/`
+// trees. It only refuses state written by a newer specd (sv > SchemaVersion).
 func migrate(raw map[string]json.RawMessage) (State, error) {
 	var sv int
 	if v, ok := raw["schemaVersion"]; ok {
@@ -276,7 +382,19 @@ func migrate(raw map[string]json.RawMessage) (State, error) {
 	if err := json.Unmarshal(b, &s); err != nil {
 		return State{}, err
 	}
+	if err := validateExecutionMode(s.ExecutionMode); err != nil {
+		return State{}, err
+	}
 	return s, nil
+}
+
+func validateExecutionMode(mode string) error {
+	switch mode {
+	case "", ModeSimple, ModeOrchestrated, ModeConductor:
+		return nil
+	default:
+		return GateError(fmt.Sprintf("state.json executionMode %q is unknown", mode))
+	}
 }
 
 func statePath(root, slug string) string {

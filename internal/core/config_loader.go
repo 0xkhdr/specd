@@ -100,10 +100,6 @@ func loadConfigFromPathLayer(path, layer string) (loadedConfigFile, []ConfigDiag
 	}
 	var doc map[string]any
 	switch ext {
-	case ".json":
-		if err := json.Unmarshal(raw, &doc); err != nil {
-			return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: "error", Message: "invalid JSON: " + err.Error()}}
-		}
 	case ".yml", ".yaml":
 		parsed, err := parseSimpleYAML(string(raw))
 		if err != nil {
@@ -111,13 +107,13 @@ func loadConfigFromPathLayer(path, layer string) (loadedConfigFile, []ConfigDiag
 		}
 		doc = parsed
 	default:
+		// Config is YAML-only as of v0.2.0. Legacy JSON (`config.json`,
+		// `SPECD_CONFIG_FORMAT=json`) is no longer parsed — a present `.json`
+		// config surfaces here as a clear unsupported-extension error rather
+		// than a silent skip.
 		return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: "error", Message: "unsupported config extension " + ext}}
 	}
-	diags := []ConfigDiagnostic{}
-	if ext == ".json" {
-		diags = append(diags, ConfigDiagnostic{Path: path, Source: path, Layer: layer, Severity: "warning", Message: "legacy JSON config is deprecated; prefer config.yml"})
-	}
-	return loadedConfigFile{Path: path, Doc: doc}, diags
+	return loadedConfigFile{Path: path, Doc: doc}, []ConfigDiagnostic{}
 }
 
 func selectConfigCandidate(layer string, paths []string, formatPref string, diags *[]ConfigDiagnostic) string {
@@ -142,23 +138,23 @@ func configFormatPreference(diags *[]ConfigDiagnostic) string {
 	if v == "" {
 		return ""
 	}
-	if v == "yaml" || v == "json" {
+	// Config is YAML-only as of v0.2.0; `yaml` is the sole accepted preference.
+	if v == "yaml" {
 		*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "info", Message: "config candidate format preference active"})
 		return v
 	}
-	*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "warning", Message: "unsupported config format preference; expected yaml or json"})
+	*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "warning", Message: "unsupported config format preference; expected yaml"})
 	return ""
 }
 
+// configPathFormat classifies a candidate path by format. Only YAML is a
+// supported config format; anything else (including legacy `.json`) returns ""
+// so it is never matched by a `yaml` format preference.
 func configPathFormat(path string) string {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".yml", ".yaml":
+	if ext := strings.ToLower(filepath.Ext(path)); ext == ".yml" || ext == ".yaml" {
 		return "yaml"
-	case ".json":
-		return "json"
-	default:
-		return ""
 	}
+	return ""
 }
 
 func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
@@ -168,9 +164,19 @@ func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
 	stringEnv(diags, "SPECD_GATES_TRACEABILITY", "gates.traceability", func(v string) { cfg.Gates.Traceability = v })
 	stringEnv(diags, "SPECD_GATES_ACCEPTANCE", "gates.acceptance", func(v string) { cfg.Gates.Acceptance = v })
 	stringEnv(diags, "SPECD_GATES_SCOPE", "gates.scope", func(v string) { cfg.Gates.Scope = v })
+	stringEnv(diags, "SPECD_GATES_EVAL", "gates.eval", func(v string) { cfg.Gates.Eval = v })
+	stringEnv(diags, "SPECD_GATES_INGEST", "gates.ingest", func(v string) { cfg.Gates.Ingest = v })
 	stringEnv(diags, "SPECD_GATES_CONTEXT_BUDGET", "gates.contextBudget", func(v string) { cfg.Gates.ContextBudget = v })
 	intEnv(diags, "SPECD_MAX_CONTEXT_TOKENS", "gates.maxContextTokens", cfg.Gates.MaxContextTokens, 0, MaxSoftContextTokens(), func(v int) { cfg.Gates.MaxContextTokens = v })
 	stringEnv(diags, "SPECD_VERIFY_SANDBOX", "verify.sandbox", func(v string) { cfg.Verify.Sandbox = v })
+	boolEnv(diags, "SPECD_ESCALATION_ENABLED", "escalation.enabled", func(v bool) { cfg.Escalation.Enabled = v })
+	intEnv(diags, "SPECD_ESCALATION_VERIFY_FAIL_THRESHOLD", "escalation.verifyFailThreshold", cfg.Escalation.VerifyFailThreshold, 0, 1000, func(v int) { cfg.Escalation.VerifyFailThreshold = v })
+	boolEnv(diags, "SPECD_REVIEW_REQUIRED", "review.required", func(v bool) { cfg.Review.Required = v })
+	stringEnv(diags, "SPECD_SECURITY_SECRETS", "security.secrets", func(v string) { cfg.Security.Secrets = v })
+	stringEnv(diags, "SPECD_SECURITY_INJECTION", "security.injection", func(v string) { cfg.Security.Injection = v })
+	stringEnv(diags, "SPECD_SECURITY_SLOPSQUAT", "security.slopsquat", func(v string) { cfg.Security.Slopsquat = v })
+	stringEnv(diags, "SPECD_SUBMIT_COMMAND", "submit.command", func(v string) { cfg.Submit.Command = v })
+	stringEnv(diags, "SPECD_SUBMIT_SANDBOX", "submit.sandbox", func(v string) { cfg.Submit.Sandbox = v })
 	boolEnv(diags, "SPECD_ORCHESTRATION_ENABLED", "orchestration.enabled", func(v bool) { cfg.Orchestration.Enabled = v })
 	stringEnv(diags, "SPECD_ORCHESTRATION_APPROVAL_POLICY", "orchestration.approvalPolicy", func(v string) { cfg.Orchestration.ApprovalPolicy = v })
 	intEnv(diags, "SPECD_ORCHESTRATION_MAX_WORKERS", "orchestration.maxWorkers", cfg.Orchestration.MaxWorkers, minMaxWorkers, maxMaxWorkers, func(v int) { cfg.Orchestration.MaxWorkers = v })
@@ -325,6 +331,71 @@ func applyConfigDoc(cfg *Config, doc map[string]any) {
 	if m, ok := mapAt(doc, "mcp"); ok {
 		applyMCP(&cfg.MCP, m)
 	}
+	if m, ok := mapAt(doc, "escalation"); ok {
+		applyEscalation(&cfg.Escalation, m)
+	}
+	if m, ok := mapAt(doc, "review"); ok {
+		if v, ok := boolAt(m, "required"); ok {
+			cfg.Review.Required = v
+		}
+	}
+	if m, ok := mapAt(doc, "security"); ok {
+		applySecurity(&cfg.Security, m)
+	}
+	if m, ok := mapAt(doc, "submit"); ok {
+		if v, ok := stringAt(m, "command"); ok {
+			cfg.Submit.Command = v
+		}
+		if v, ok := stringAt(m, "sandbox"); ok {
+			cfg.Submit.Sandbox = v
+		}
+	}
+	if m, ok := mapAt(doc, "deploy"); ok {
+		if v, ok := stringAt(m, "sandbox"); ok {
+			cfg.Deploy.Sandbox = v
+		}
+	}
+	if m, ok := mapAt(doc, "observe"); ok {
+		if v, ok := stringAt(m, "token"); ok {
+			cfg.Observe.Token = v
+		}
+		if v, ok := stringAt(m, "addr"); ok {
+			cfg.Observe.Addr = v
+		}
+		if v, ok := intAt(m, "maxPayloadBytes", "max_payload_bytes"); ok {
+			cfg.Observe.MaxPayloadBytes = v
+		}
+	}
+}
+
+func applyEscalation(e *EscalationConfig, m map[string]any) {
+	if v, ok := boolAt(m, "enabled"); ok {
+		e.Enabled = v
+	}
+	if v, ok := intAt(m, "verifyFailThreshold", "verify_fail_threshold"); ok {
+		e.VerifyFailThreshold = v
+	}
+	if v, ok := intAt(m, "blockerThreshold", "blocker_threshold"); ok {
+		e.BlockerThreshold = v
+	}
+	if v, ok := intAt(m, "complexityThreshold", "complexity_threshold"); ok {
+		e.ComplexityThreshold = v
+	}
+}
+
+func applySecurity(s *SecurityCfg, m map[string]any) {
+	if v, ok := stringAt(m, "secrets"); ok {
+		s.Secrets = v
+	}
+	if v, ok := stringAt(m, "injection"); ok {
+		s.Injection = v
+	}
+	if v, ok := stringAt(m, "slopsquat"); ok {
+		s.Slopsquat = v
+	}
+	if v, ok := stringAt(m, "deps"); ok {
+		s.Deps = v
+	}
 }
 
 func applyGates(g *GatesCfg, m map[string]any) {
@@ -345,6 +416,12 @@ func applyGates(g *GatesCfg, m map[string]any) {
 	}
 	if v, ok := stringAt(m, "modeCapability", "mode_capability"); ok {
 		g.ModeCapability = v
+	}
+	if v, ok := stringAt(m, "eval"); ok {
+		g.Eval = v
+	}
+	if v, ok := stringAt(m, "ingest"); ok {
+		g.Ingest = v
 	}
 	if custom, ok := customGatesAt(m, "custom"); ok {
 		g.Custom = custom

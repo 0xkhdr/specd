@@ -31,18 +31,22 @@ func TestConfigOrchestrationDefault(t *testing.T) {
 
 func TestConfigOrchestrationLegacy(t *testing.T) {
 	root := t.TempDir()
-	legacy := `{
-		"version": 7,
-		"defaultVerify": "go test ./...",
-		"report": {"format": "html", "autoRefreshSeconds": 15},
-		"roles": {"subagentMode": "delegate"},
-		"promotionThreshold": 5,
-		"gates": {"traceability": "error", "acceptance": "warn", "scope": "error"},
-		"verify": {"sandbox": "bwrap"}
-	}`
-	if err := AtomicWrite(ConfigPath(root), legacy); err != nil {
-		t.Fatal(err)
-	}
+	legacy := `version: 7
+defaultVerify: "go test ./..."
+report:
+  format: html
+  autoRefreshSeconds: 15
+roles:
+  subagentMode: delegate
+promotionThreshold: 5
+gates:
+  traceability: error
+  acceptance: warn
+  scope: error
+verify:
+  sandbox: bwrap
+`
+	writeConfigFile(t, projectConfig(root, "config.yml"), legacy)
 
 	got := LoadConfig(root)
 	if got.Version != 7 ||
@@ -63,25 +67,19 @@ func TestConfigOrchestrationLegacy(t *testing.T) {
 
 func TestConfigOrchestrationPartial(t *testing.T) {
 	root := t.TempDir()
-	partial := `{
-		"defaultVerify": "make test",
-		"orchestration": {
-			"enabled": true,
-			"approvalPolicy": "planning",
-			"maxWorkers": 8,
-			"hostReportedCostLimitUSD": 0,
-			"transport": {
-				"pollIntervalMillis": 250,
-				"heartbeatSeconds": 10
-			},
-			"program": {
-				"maxConcurrentSpecs": 3
-			}
-		}
-	}`
-	if err := AtomicWrite(ConfigPath(root), partial); err != nil {
-		t.Fatal(err)
-	}
+	partial := `defaultVerify: make test
+orchestration:
+  enabled: true
+  approvalPolicy: planning
+  maxWorkers: 8
+  hostReportedCostLimitUSD: 0
+  transport:
+    pollIntervalMillis: 250
+    heartbeatSeconds: 10
+  program:
+    maxConcurrentSpecs: 3
+`
+	writeConfigFile(t, projectConfig(root, "config.yml"), partial)
 
 	want := DefaultConfig
 	want.DefaultVerify = "make test"
@@ -231,20 +229,18 @@ func TestOrchestrationConfigFailClosedValidation(t *testing.T) {
 		name          string
 		orchestration string
 	}{
-		{"invalid enum", `{"enabled":true,"workerMode":"embedded"}`},
-		{"api key", `{"enabled":true,"apiKey":"top-secret"}`},
-		{"provider credentials", `{"enabled":true,"providerCredentials":{"user":"x"}}`},
-		{"shell command", `{"enabled":true,"transport":{"command":"curl example.test"}}`},
-		{"model selection", `{"enabled":true,"model":"vendor-model"}`},
+		{"invalid enum", "  enabled: true\n  workerMode: embedded\n"},
+		{"api key", "  enabled: true\n  apiKey: top-secret\n"},
+		{"provider credentials", "  enabled: true\n  providerCredentials:\n    user: x\n"},
+		{"shell command", "  enabled: true\n  transport:\n    command: \"curl example.test\"\n"},
+		{"model selection", "  enabled: true\n  model: vendor-model\n"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
-			raw := `{"defaultVerify":"make test","orchestration":` + tt.orchestration + `}`
-			if err := AtomicWrite(ConfigPath(root), raw); err != nil {
-				t.Fatal(err)
-			}
+			raw := "defaultVerify: make test\norchestration:\n" + tt.orchestration
+			writeConfigFile(t, projectConfig(root, "config.yml"), raw)
 
 			got := LoadConfig(root)
 			if got.DefaultVerify != "make test" {
@@ -314,10 +310,12 @@ func TestConfigMCPAbsentBlock(t *testing.T) {
 // "unset vs explicit false" distinction for IncludeOrchestration (spec §8 risk).
 func TestConfigMCPPartialMerge(t *testing.T) {
 	root := t.TempDir()
-	raw := `{"mcp":{"expose":"essential","essentialTools":["status","verify"],"includeMeta":true}}`
-	if err := AtomicWrite(ConfigPath(root), raw); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	raw := `mcp:
+  expose: essential
+  essentialTools: [status, verify]
+  includeMeta: true
+`
+	writeConfigFile(t, projectConfig(root, "config.yml"), raw)
 	got := LoadConfig(root)
 	if got.MCP.Expose != "essential" {
 		t.Errorf("Expose = %q, want essential", got.MCP.Expose)
@@ -338,9 +336,7 @@ func TestConfigMCPPartialMerge(t *testing.T) {
 // preserved as a non-nil pointer, distinct from the unset case.
 func TestConfigMCPExplicitFalse(t *testing.T) {
 	root := t.TempDir()
-	if err := AtomicWrite(ConfigPath(root), `{"mcp":{"includeOrchestration":false}}`); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	writeConfigFile(t, projectConfig(root, "config.yml"), "mcp:\n  includeOrchestration: false\n")
 	got := LoadConfig(root)
 	if got.MCP.IncludeOrchestration == nil {
 		t.Fatal("IncludeOrchestration = nil, want explicit false pointer")

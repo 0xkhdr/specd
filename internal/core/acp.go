@@ -115,6 +115,36 @@ type ACPMissionPayload struct {
 	VerifyCommand   string                            `json:"verifyCommand"`
 	Dependencies    []string                          `json:"dependencies"`
 	Authority       ACPAuthority                      `json:"authority"`
+	Tier            string                            `json:"tier,omitempty"`
+	Handoff         *ACPHandoff                       `json:"handoff,omitempty"`
+}
+
+// ACPHandoff records an inter-role handoff on an ACP mission (P3.3): a prior
+// worker passing its work to the mission's role. It is versioned by the
+// enclosing ACP envelope and validated by ValidateHandoff. Maps to the A2A
+// "handoff" concept (from-agent, cause, produced artifacts).
+type ACPHandoff struct {
+	// From is the role that produced the work being handed off (e.g. "scout").
+	From string `json:"from"`
+	// Reason states why the handoff occurred (e.g. "scan complete, ready to build").
+	Reason string `json:"reason"`
+	// Artifacts are the paths or IDs the From role produced for the receiver.
+	Artifacts []string `json:"artifacts,omitempty"`
+}
+
+// ValidateHandoff checks an inter-role handoff is well-formed: a known origin
+// role and a non-empty reason. Nil is valid (a fresh dispatch has no handoff).
+func ValidateHandoff(h *ACPHandoff) error {
+	if h == nil {
+		return nil
+	}
+	if !IsValidRole(h.From) {
+		return GateError(fmt.Sprintf("handoff.from %q is not a known role", h.From))
+	}
+	if strings.TrimSpace(h.Reason) == "" {
+		return GateError("handoff.reason is empty — state why the work was handed off")
+	}
+	return nil
 }
 
 // ACPAcceptedPayload is the body of an accepted-message reply, identifying
@@ -385,6 +415,9 @@ func validateACPMissionPayload(task string, raw []byte) error {
 		return err
 	}
 	if err := validateACPTaskIDs("dependencies", payload.Dependencies); err != nil {
+		return err
+	}
+	if err := ValidateHandoff(payload.Handoff); err != nil {
 		return err
 	}
 	return validateACPAuthority(payload.Authority)

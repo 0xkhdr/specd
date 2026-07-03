@@ -12,7 +12,7 @@ STRESS_PROGRAM_TIMEOUT ?= 180s
 STRESS_BRAIN_RECOVERY_TIMEOUT ?= 180s
 STRESS_CHECKPOINT_FAULT_TIMEOUT ?= 240s
 
-.PHONY: all build install test wrapper-test test-order cover cover-check fmt-check lint test-lint shellcheck stress stress-acp stress-orchestration stress-program stress-brain-recovery stress-checkpoint-fault perf-gate bench ci clean
+.PHONY: all build install test wrapper-test test-order cover cover-check fmt-check lint test-lint shellcheck stress stress-acp stress-orchestration stress-program stress-brain-recovery stress-checkpoint-fault perf-gate bench metrics-verify ci clean
 
 all: build
 
@@ -90,8 +90,14 @@ perf-gate:
 bench:
 	$(GO) test ./internal/cmd/... ./internal/mcp/... ./internal/core/... -run '^$$' -bench 'Init|Probe|Detection|RunnableFrontier' -benchmem
 
+# Success-metrics table verification (plan Part III / V12): assert every shipped
+# success metric has a live, deterministic measuring path. Race + -count=2 so a
+# non-deterministic measurement fails the gate.
+metrics-verify:
+	$(GO) test ./internal/core/... -run 'TestSuccessMetricsAreMeasurable' -race -count=2
+
 # Everything CI runs, locally.
-ci: lint test test-order cover-check perf-gate stress stress-acp stress-orchestration stress-program stress-brain-recovery stress-checkpoint-fault
+ci: lint test test-order cover-check metrics-verify perf-gate stress stress-acp stress-orchestration stress-program stress-brain-recovery stress-checkpoint-fault
 
 clean:
 	rm -f $(BIN) coverage.out coverage-core.out

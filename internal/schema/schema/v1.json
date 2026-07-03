@@ -4,7 +4,7 @@
   "title": "specd open spec format",
   "description": "Versioned, machine-readable description of the specd on-disk artifacts. The Go types in internal/core are the single source of truth; this schema mirrors them and a conformance test fails CI on drift.",
   "specdSchemaVersion": "1",
-  "stateSchemaVersion": 5,
+  "stateSchemaVersion": 6,
   "type": "object",
   "$ref": "#/$defs/State",
   "$defs": {
@@ -26,7 +26,7 @@
         "blockers"
       ],
       "properties": {
-        "schemaVersion": { "type": "integer", "const": 5 },
+        "schemaVersion": { "type": "integer", "const": 6 },
         "revision": { "type": "integer", "minimum": 0 },
         "spec": { "type": "string" },
         "title": { "type": "string" },
@@ -57,8 +57,24 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/CriterionRecord" }
         },
+        "evals": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/EvalSummary" }
+        },
+        "routing": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/RoutingStamp" }
+        },
+        "conductor": { "$ref": "#/$defs/ConductorSession" },
+        "prototype": { "$ref": "#/$defs/PrototypeState" },
+        "escalation": { "$ref": "#/$defs/EscalationRecord" },
+        "security": { "$ref": "#/$defs/SecurityScan" },
+        "review": { "$ref": "#/$defs/ReviewRecord" },
+        "deploy": { "$ref": "#/$defs/DeployRecord" },
+        "deployApproval": { "$ref": "#/$defs/DeployApproval" },
+        "ingest": { "$ref": "#/$defs/IngestRecord" },
         "prompt": { "type": "string" },
-        "executionMode": { "type": "string", "enum": ["simple", "orchestrated"] },
+        "executionMode": { "type": "string", "enum": ["simple", "orchestrated", "conductor"] },
         "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
       }
     },
@@ -95,6 +111,7 @@
         "durationMs": { "type": "integer" },
         "verifyDurationMs": { "type": "integer" },
         "retries": { "type": "integer" },
+        "verifyFails": { "type": "integer" },
         "tokens": { "type": "integer" },
         "cost": { "type": "string" }
       }
@@ -130,6 +147,119 @@
         "status": { "type": "string", "enum": ["pass", "fail"] },
         "evidence": { "type": "string" },
         "ranAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EvalSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "score", "minScore", "pass", "seq", "time"],
+      "properties": {
+        "suite": { "type": "string" },
+        "score": { "type": "number" },
+        "minScore": { "type": "number" },
+        "pass": { "type": "boolean" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PrototypeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "promotedAt": { "type": "string", "format": "date-time" },
+        "evalReport": { "type": "string" },
+        "evalDigest": { "type": "string" },
+        "evidence": { "type": "string" },
+        "promotedScore": { "type": "string" }
+      }
+    },
+    "RoutingStamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budgetUSD", "ruleIndex"],
+      "properties": {
+        "tier": { "type": "string" },
+        "budgetUSD": { "type": "number", "minimum": 0 },
+        "ruleIndex": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ConductorSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sessionID", "task", "micro", "startedAt"],
+      "properties": {
+        "sessionID": { "type": "string" },
+        "task": { "type": "string" },
+        "micro": { "type": "string" },
+        "startedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EscalationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "rule", "facts", "time"],
+      "properties": {
+        "task": { "type": "string" },
+        "rule": { "type": "string" },
+        "facts": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "SecurityScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findings", "blocking", "time"],
+      "properties": {
+        "findings": { "type": "integer" },
+        "blocking": { "type": "integer" },
+        "byScanner": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ReviewRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "fresh", "time"],
+      "properties": {
+        "verdict": { "type": "string" },
+        "fresh": { "type": "boolean" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DeployRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "outcome", "steps", "approved", "time"],
+      "properties": {
+        "env": { "type": "string" },
+        "outcome": { "type": "string" },
+        "steps": { "type": "integer" },
+        "approved": { "type": "boolean" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DeployApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "time"],
+      "properties": {
+        "env": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "IngestRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "time"],
+      "properties": {
+        "files": { "type": "integer" },
+        "time": { "type": "string", "format": "date-time" }
       }
     },
     "Blocker": {
@@ -252,7 +382,19 @@
         "acceptance": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "verifyCommand": { "type": "string", "minLength": 1, "maxLength": 16384 },
         "dependencies": { "type": "array", "maxItems": 128, "items": { "type": "string", "pattern": "^[TA][0-9]+$" } },
-        "authority": { "$ref": "#/$defs/ACPAuthority" }
+        "authority": { "$ref": "#/$defs/ACPAuthority" },
+        "tier": { "type": "string", "maxLength": 64 },
+        "handoff": { "$ref": "#/$defs/ACPHandoff" }
+      }
+    },
+    "ACPHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "reason"],
+      "properties": {
+        "from": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "artifacts": { "type": "array", "maxItems": 128, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } }
       }
     },
     "ACPAcceptedPayload": {

@@ -71,8 +71,19 @@ func RunNew(args cli.Args) int {
 		state.ExecutionMode = core.ModeOrchestrated
 		state.ModeOrigin = core.OriginUser
 	}
+	if args.Bool("prototype") {
+		// A prototype spec skips the design/tasks planning gates but can never
+		// reach `complete` — `specd promote` converts it to a full spec through
+		// the normal ratchet (V5 prototype lifecycle).
+		state.Prototype = &core.PrototypeState{Status: core.PrototypePending, CreatedAt: core.Clock().UTC().Format("2006-01-02T15:04:05.999999999Z07:00")}
+	}
 	if err := core.SaveState(root, slug, &state); err != nil {
 		return specdExit(err)
+	}
+	if state.Prototype != nil {
+		fmt.Printf("specd new: created prototype spec '%s' (%s)\n", slug, title)
+		fmt.Printf("  .specd/specs/%s/ — planning gates relaxed; run `specd promote %s` to convert to a full spec\n", slug, slug)
+		return core.ExitOK
 	}
 	fmt.Printf("specd new: created spec '%s' (%s)\n", slug, title)
 	fmt.Printf("  .specd/specs/%s/ — six artifacts + state.json (status: requirements)\n", slug)

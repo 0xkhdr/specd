@@ -11,15 +11,18 @@ type Args struct {
 }
 
 var booleanFlags = map[string]bool{
-	"force": true, "json": true, "all": true, "unverified": true, "dry-run": true,
+	"force": true, "json": true, "all": true, "guardrails": true, "unverified": true, "dry-run": true,
 	"list-packs": true, "once": true, "pr-summary": true, "revert-on-fail": true,
 	"schema": true, "repair": true, "refresh": true, "yes": true,
 	"non-interactive": true, "verbose": true, "fix": true, "program": true,
 	"bootstrap": true, "inline-roles": true, "orchestrated": true,
 	"recommend": true, "list": true, "snapshot": true, "include-schema": true,
 	"global": true, "migrate": true, "dispatch": true, "schema-only": true, "serve": true,
-	"watch": true, "history": true, "diff": true, "auto-step": true,
+	"watch": true, "history": true, "diff": true, "auto-step": true, "prototype": true, "promote": true,
+	"hud": true, "conductor": true,
 	"ledger": true, "compact": true, "directive": true,
+	"security": true, "override": true, "remove": true,
+	"deploy": true, "listen": true, "include-ignored": true,
 }
 
 // ParseArgs splits argv into positional tokens and "--flag"/"--flag=value"

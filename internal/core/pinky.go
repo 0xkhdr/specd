@@ -42,6 +42,15 @@ type PinkyMission struct {
 	// fresh-dispatch and a resume mission for the same (task, attempt) share a
 	// digest and a non-resume mission stays byte-identical to today.
 	Resume *PinkyResume `json:"resume,omitempty"`
+	// Tier is the routing tier the Brain dispatched this mission at (V4), carried
+	// through the ACP handoff so a downstream host can attribute cost. Omitempty
+	// and excluded from the dispatch digest — a mission without it is byte-identical.
+	Tier string `json:"tier,omitempty"`
+	// Handoff records an inter-role handoff (P3.3): when a prior worker (e.g. a
+	// scout) passes its work to this mission's role (e.g. a craftsman), it names
+	// the origin role, the reason, and the artifacts produced. Nil for a fresh
+	// dispatch. Omitempty and excluded from the dispatch digest.
+	Handoff *ACPHandoff `json:"handoff,omitempty"`
 }
 
 // PinkyResume is the resume payload threaded into a mission when the Brain
@@ -349,6 +358,9 @@ func validatePinkyMission(m PinkyMission) error {
 	}
 	if !acpDigestRE.MatchString(m.DispatchDigest) || m.DispatchDigest != pinkyMissionDigest(m) {
 		return fmt.Errorf("pinky: invalid dispatchDigest")
+	}
+	if err := ValidateHandoff(m.Handoff); err != nil {
+		return err
 	}
 	return nil
 }

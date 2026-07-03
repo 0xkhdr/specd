@@ -1,0 +1,22 @@
+{
+  "name": "migrate-deps",
+  "version": "1.0.0",
+  "description": "Migration pack: move off a deprecated/vulnerable dependency onto a supported one, gate-passing and eval-scored.",
+  "files": [
+    {
+      "path": ".specd/steering/migrate-deps.md",
+      "content": "# Steering \u2014 {{TITLE}}\n\nGoal: replace a deprecated or vulnerable dependency with a supported alternative without behavior change.\n\nConventions:\n- Every removed/added dependency is justified in design.md.\n- No public API change unless a requirement demands it.\n- Prove behavior parity with the existing test suite before and after.\n"
+    },
+    {
+      "path": ".specd/packs/migrate-deps/tasks-template.md",
+      "content": "# Tasks \u2014 {{TITLE}} (template)\n\nTask DAG shape (fill in `files:` and `verify:` per your repo):\n\n- T1 Inventory current usages of the old dependency. deps: \u2014\n- T2 Introduce the replacement behind the same seams. deps: T1\n- T3 Migrate call sites module-by-module. deps: T2\n- T4 Remove the old dependency; prove parity. deps: T3\n"
+    },
+    {
+      "path": ".specd/packs/migrate-deps/eval-rubric.json",
+      "content": "{\n  \"schemaVersion\": 1,\n  \"suite\": \"migrate-deps\",\n  \"minScore\": 1.0,\n  \"checks\": [\n    {\n      \"id\": \"build\",\n      \"kind\": \"command\",\n      \"command\": \"go build ./...\",\n      \"timeoutMs\": 120000\n    },\n    {\n      \"id\": \"tests\",\n      \"kind\": \"command\",\n      \"command\": \"go test ./...\",\n      \"timeoutMs\": 300000\n    }\n  ]\n}\n"
+    }
+  ],
+  "vars": {
+    "TITLE": "Dependency Migration"
+  }
+}

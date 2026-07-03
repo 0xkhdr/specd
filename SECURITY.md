@@ -44,6 +44,81 @@ highlights:
   been removed); `SelectRunner`'s fail-closed refusal at `specd verify` time is
   now the only signal that the requested isolation backend is unavailable.
 - **Custom gates (unisolated).** Custom gates configured under `config.yml` (or legacy `config.json`) execute external programs on the host. Although their environment is scrubbed and execution is bounded by a timeout (`SPECD_CUSTOM_GATE_TIMEOUT_MS`), **custom gates do not run within bubblewrap or container sandbox isolation**. Only run `specd check` on projects where the custom gate commands are trusted.
+- **Eval rubric commands (V5).** `specd eval` `command`-kind checks execute
+  operator-authored shell through the **same shared sandboxed exec path** as
+  `verify` (scrubbed env, `verify.sandbox` backend, fail-closed on a missing
+  backend, NUL-byte rejection, bounded timeout). A rubric is untrusted input: its
+  `command` never runs unless the rubric is explicitly present in the repo, and it
+  is scrubbed/isolated identically to a `verify:` line. **Only run `specd eval` on
+  rubrics you trust.**
+- **Executable guardrails (V2).** Guardrail commands run through the shared
+  sandboxed path; the gate is opt-in per `config.gates.guardrails` and off for
+  migrated repos. Same scrub/isolation/timeout guarantees as verify.
+- **Submit command (V7/P3.4).** `specd submit` streams the deterministic PR
+  summary on stdin to the operator-configured `config.submit.command` run through
+  the shared sandboxed path with a scrubbed env — **no git/GitHub logic is
+  embedded**. The command runs only if configured; a gate violation or non-zero
+  exit fails with no partial state. Treat `submit.command` as trusted operator
+  policy.
+- **Maintenance schedules (P3.5).** `specd status --program tick` runs each due
+  `program.json` schedule's `command` through the shared sandboxed path with a
+  scrubbed env. specd **never daemonizes** — a host scheduler invokes `tick`, and
+  the claim is CAS-guarded under the program lock so a double-invoked tick cannot
+  run a schedule twice. Schedule commands are operator-authored policy; a hostile
+  `program.json` never executes unless a host actually invokes `tick` against it.
+- **Security scanners (V8).** `specd check --security` scanners
+  (`secrets`/`injection`/`slopsquat`) are **pure stdlib analysis of changed
+  files** — no network, no CVE DB, no code execution. The allowlist
+  (`.specd/security/allow.json`) requires a mandatory reason per entry and is
+  parsed defensively (a malformed allowlist errors closed). The `deps` plugin gate,
+  when configured, runs through the shared sandboxed path like any custom gate.
+- **Deploy drivers (V9).** `.specd/deploy/<env>.json` is operator-authored,
+  untrusted policy input: it is strictly schema-validated (unknown fields, empty
+  step lists, and duplicate names rejected), every step must declare a positive,
+  bounded `timeoutSeconds`, and the `--env` name is validated to a safe filename
+  segment so it cannot traverse out of `.specd/deploy/`. Step and rollback
+  commands run through the **shared sandboxed exec path** with a scrubbed env
+  (`config.deploy.sandbox` selects the backend; an unavailable backend fails the
+  step closed) — identical to `verify`/`submit`/custom gates. A mid-chain failure
+  halts execution and records the ledger; the rollback chain is computed only
+  from *recorded successful* steps, so there is no partial-execution ambiguity. A
+  **production deploy is impossible without a recorded human approval**.
+- **Observe listener (V9).** `specd observe --listen` binds **loopback only**
+  (non-loopback addresses are refused) and requires a `config.observe.token`
+  bearer secret compared in constant time on every request. Every inbound error
+  payload is hostile input: strictly schema-validated, size-capped
+  (`config.observe.maxPayloadBytes`), and any stack-frame path that is absolute or
+  traverses the repo is rejected with a reason. Correlation reads recorded state
+  and matches file paths only — the binary never perceives production semantics.
+  The listener is never started implicitly; the offline `observe correlate`
+  transform requires no network at all.
+- **Ingestion (V10).** `specd ingest new --path` validates that the path stays
+  inside the repository (traversal rejected), does not follow symlinks, and the
+  inventory reads only countable facts. The manifest parsers (go.mod,
+  package.json, Cargo/pyproject TOML) are hostile-input parsers, size-capped and
+  fuzzed.
+- **Harness sharing quarantine (V11/P6.1).** An imported harness bundle is
+  untrusted supply-chain input. `specd harness pull` treats it hostile: the
+  `harness.json` manifest is parsed with unknown-field rejection and every file
+  path is confined to `.specd/` (absolute, `..`, and non-canonical paths
+  rejected); every file's pinned SHA256 is verified before anything is written
+  (any mismatch writes nothing). The load-bearing property is **quarantine**: any
+  artifact carrying an executable `command` check (deploy step, eval command,
+  custom gate — detected by a fail-closed recursive scan, where an unparseable
+  artifact counts as executable) arrives **disabled** in
+  `.specd/harness/quarantine/`, is listed, and is never installed to its active
+  path until an operator runs `specd harness enable <path>`, which is recorded in
+  the harness decision log. A pull never overwrites a locally-modified file or
+  downgrades the manifest version without `--force`. Git runs through the same
+  hardened exec path as the state backend: scrubbed env, `GIT_TERMINAL_PROMPT=0`,
+  a `GIT_ALLOW_PROTOCOL` allowlist that excludes git's arbitrary-command ext/fd
+  transports, and remote-URL validation (option-injection and control characters
+  rejected).
+- **Pack registry lockfile (V11/P6.3).** A named `--pack` resolved through a git
+  registry index is pinned in `.specd/pack.lock`; a later resolution whose bytes
+  disagree with the lock is a hard failure (mutated-registry guard). The referenced
+  pack's SHA256 is verified fail-closed before parsing, and pack manifests stay
+  declarative-only (executable hooks rejected by `ParsePack`).
 - **Config precedence.** Human-authored config is untrusted policy input. Effective config is embedded defaults → global config → project config → supported `SPECD_*` env overrides, then validation. Env diagnostics expose variable names and target fields, never an environment dump; secret-bearing orchestration keys remain rejected.
 - **Path safety.** Spec slugs are validated (`internal/core/slug.go`) to prevent
   path traversal under `.specd/`.

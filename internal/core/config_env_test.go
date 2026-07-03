@@ -132,22 +132,26 @@ func TestConfigFormatPreference(t *testing.T) {
 	root := t.TempDir()
 	isolateGlobalConfig(t)
 	writeConfigFile(t, filepath.Join(root, ".specd", "config.yml"), "defaults:\n  verify_command: yaml\n")
-	writeConfigFile(t, filepath.Join(root, ".specd", "config.json"), `{"defaultVerify":"json"}`)
-	t.Setenv("SPECD_CONFIG_FORMAT", "json")
+	// yaml is the sole accepted preference (v0.2.0, YAML-only) and selects the
+	// YAML config.
+	t.Setenv("SPECD_CONFIG_FORMAT", "yaml")
 	cfg, result := LoadConfigWithDiagnostics(root)
-	if cfg.DefaultVerify != "json" || filepath.Base(result.ProjectPath) != "config.json" {
+	if cfg.DefaultVerify != "yaml" || filepath.Base(result.ProjectPath) != "config.yml" {
 		t.Fatalf("format preference not applied: cfg=%#v path=%q", cfg, result.ProjectPath)
 	}
-	t.Setenv("SPECD_CONFIG_FORMAT", "toml")
-	_, result = LoadConfigWithDiagnostics(root)
-	found := false
-	for _, d := range result.Diagnostics {
-		if d.Source == "SPECD_CONFIG_FORMAT" && d.Severity == "warning" {
-			found = true
+	// Any non-yaml preference (legacy json, toml) is unsupported and warns.
+	for _, pref := range []string{"json", "toml"} {
+		t.Setenv("SPECD_CONFIG_FORMAT", pref)
+		_, result = LoadConfigWithDiagnostics(root)
+		found := false
+		for _, d := range result.Diagnostics {
+			if d.Source == "SPECD_CONFIG_FORMAT" && d.Severity == "warning" {
+				found = true
+			}
 		}
-	}
-	if !found {
-		t.Fatalf("missing invalid format warning: %#v", result.Diagnostics)
+		if !found {
+			t.Fatalf("missing invalid format warning for %q: %#v", pref, result.Diagnostics)
+		}
 	}
 }
 

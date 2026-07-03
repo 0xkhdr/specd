@@ -14,7 +14,7 @@ specd check <slug> --schema-only   # check a spec's state.json against it
 
 - **`specdSchemaVersion`** (`"1"`) versions *this format standard* — the
   published JSON Schema contract.
-- **`stateSchemaVersion`** (`5`) versions the *on-disk migration shape* of
+- **`stateSchemaVersion`** (`6`) versions the *on-disk migration shape* of
   `state.json` (see `internal/core/state.go`). The two are independent: the
   format standard can gain a new published version without changing the
   migration number, and vice versa.

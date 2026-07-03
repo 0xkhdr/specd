@@ -50,25 +50,29 @@ tracked so they are not regressed silently (R2.3).
 > deterministic init-receipt contract (R1.3, R5.2).
 
 Latency is recorded with `make bench` (`go test -bench 'Init|Probe|Detection|RunnableFrontier'`).
-Baselines below were refreshed on 2026-07-02 on this repo with a scaffold-only,
-offline runtime (empty host registry, in-process probe). Latency is
-machine-dependent; **CI does not gate on wall-clock** — see policy below.
+Baselines below were refreshed on 2026-07-03 for the v0.2.0 release on this repo
+with a scaffold-only, offline runtime (empty host registry, in-process probe).
+Latency is machine-dependent; **CI does not gate on wall-clock** — see policy
+below. Every measured latency held at or under the previous v0.1.x baseline (the
+±10% regression floor is held); allocations on the init/probe paths grew
+modestly as v0.2.0 landed guardrails/deploy/routing config, still far inside the
+p95 budgets.
 
 | Operation (`-bench`)      | Baseline (ms) | p95 budget (ms) | Alloc/op |
 |---------------------------|--------------:|----------------:|---------:|
-| `BenchmarkInitFresh`      |          28.6 |             500 |  333 KiB |
-| `BenchmarkInitRerun`      |           2.0 |             100 |  320 KiB |
-| `BenchmarkAgentDetection` |          0.11 |              50 |   15 KiB |
-| `BenchmarkProbe`          |           1.6 |             500 |  175 KiB |
+| `BenchmarkInitFresh`      |          23.4 |             500 |  402 KiB |
+| `BenchmarkInitRerun`      |           1.5 |             100 |  391 KiB |
+| `BenchmarkAgentDetection` |          0.07 |              50 |   11 KiB |
+| `BenchmarkProbe`          |           1.5 |             500 |  226 KiB |
 
 DAG/frontier microbenchmarks are also part of `make bench` so scheduling
 throughput stays comparable across changes:
 
 | Operation (`-bench`)              | Baseline (ms) | Alloc/op |
 |-----------------------------------|--------------:|---------:|
-| `BenchmarkRunnableFrontier20`     |          0.36 |  129 KiB |
-| `BenchmarkRunnableFrontier100`    |           5.3 | 2529 KiB |
-| `BenchmarkRunnableFrontier500`    |         152.5 | 70322 KiB |
+| `BenchmarkRunnableFrontier20`     |          0.30 |  129 KiB |
+| `BenchmarkRunnableFrontier100`    |           4.6 | 2530 KiB |
+| `BenchmarkRunnableFrontier500`    |         131.3 | 70321 KiB |
 
 ### Deterministic-output gate (CI)
 

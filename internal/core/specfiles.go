@@ -17,12 +17,81 @@ type Config struct {
 	Version            int              `json:"version"`
 	DefaultVerify      string           `json:"defaultVerify"`
 	Report             ReportCfg        `json:"report"`
+	Routing            RoutingCfg       `json:"routing,omitempty"`
 	Roles              RolesCfg         `json:"roles"`
 	PromotionThreshold int              `json:"promotionThreshold"`
 	Gates              GatesCfg         `json:"gates"`
 	Verify             VerifyCfg        `json:"verify"`
 	Orchestration      OrchestrationCfg `json:"orchestration"`
 	MCP                MCPConfig        `json:"mcp"`
+	// Escalation configures the deterministic auto-escalation engine (V7/P3.2).
+	// Off by default (Enabled=false); omitempty keeps pre-escalation config files
+	// byte-identical.
+	Escalation EscalationConfig `json:"escalation,omitempty"`
+	// Review configures the AI-first review workflow gate (V8/P4.1). Required=off
+	// by default for migrated repos; omitempty keeps configs byte-identical.
+	Review ReviewCfg `json:"review,omitempty"`
+	// Security configures the deterministic security gate suite (V8/P4.2). All
+	// gates advisory/off by default; omitempty keeps configs byte-identical.
+	Security SecurityCfg `json:"security,omitempty"`
+	// Submit configures the batch PR submission command (V7/P3.4). Empty command
+	// disables `specd submit` exec; omitempty keeps configs byte-identical.
+	Submit SubmitCfg `json:"submit,omitempty"`
+	// Deploy configures the deploy driver runner (V9/P5.1). Sandbox selects the
+	// isolation backend for step commands; omitempty keeps configs byte-identical.
+	Deploy DeployCfg `json:"deploy,omitempty"`
+	// Observe configures the production-error correlation listener (V9/P5.2).
+	// Empty token disables `observe --listen`; omitempty keeps configs identical.
+	Observe ObserveCfg `json:"observe,omitempty"`
+}
+
+// DeployCfg configures the deploy driver runner. Sandbox is the isolation
+// backend for every step/rollback command ("none" (default), "bwrap",
+// "container"); an unavailable backend fails the step closed. Step commands are
+// operator-authored config (`.specd/deploy/<env>.json`), run with a scrubbed env
+// through the shared sandboxed exec path.
+type DeployCfg struct {
+	Sandbox string `json:"sandbox,omitempty"`
+}
+
+// ObserveCfg configures the inbound observability listener. Token is the shared
+// bearer secret required on every request (empty disables the listener); Addr is
+// the localhost bind address (default 127.0.0.1:0); MaxPayloadBytes caps a single
+// error payload (0 = built-in default). No listener is ever started implicitly.
+type ObserveCfg struct {
+	Token           string `json:"token,omitempty"`
+	Addr            string `json:"addr,omitempty"`
+	MaxPayloadBytes int    `json:"maxPayloadBytes,omitempty"`
+}
+
+// ReviewCfg configures the review workflow gate. Required gates the
+// verifying→complete approve transition on a fresh, structurally-valid
+// review_report.md. Off for migrated repos (invariant 9); new inits may default
+// it on.
+type ReviewCfg struct {
+	Required bool `json:"required,omitempty"`
+}
+
+// SecurityCfg configures the security gate suite. Each sub-gate carries a
+// severity: "" / "off" disables it, "warn" is advisory (default for the noisy
+// heuristics — plan risk 2), "error" blocks. Secrets defaults to "error" only
+// when explicitly enabled; the zero value is fully off so migrated repos are
+// unaffected.
+type SecurityCfg struct {
+	Secrets   string `json:"secrets,omitempty"`
+	Injection string `json:"injection,omitempty"`
+	Slopsquat string `json:"slopsquat,omitempty"`
+	// Deps names an external CVE-scan command (osv-scanner/grype). Empty disables
+	// the plugin gate — no CVE database is ever embedded (invariant 2/3).
+	Deps string `json:"deps,omitempty"`
+}
+
+// SubmitCfg configures the batch PR submission command. Command is trusted
+// operator input (not agent-authored) run through the shared sandboxed exec path
+// with a scrubbed env; the PR summary is streamed to it on stdin.
+type SubmitCfg struct {
+	Command string `json:"command,omitempty"`
+	Sandbox string `json:"sandbox,omitempty"`
 }
 
 // MCPConfig tunes which tools the native MCP server advertises on tools/list.
@@ -183,6 +252,17 @@ type GatesCfg struct {
 	// capability (orchestration.enabled absent/false). Off by default keeps Base
 	// projects clean.
 	ModeCapability string `json:"modeCapability"`
+	// Eval is the opt-in eval-completion gate: "" / "off" = no-op (default,
+	// including migrated repos), "required" blocks `approve` from marking a spec
+	// complete until at least one recorded rubric run passed its minScore. New
+	// inits may default this on (V5 quality flywheel).
+	Eval string `json:"eval"`
+	// Ingest is the opt-in ingestion-coverage gate (V10/P5.3): "" / "off" = no-op
+	// (default, including migrated repos), else "warn"/"error". When set it flags
+	// any inventory.json file that no requirement references and no waiver excuses
+	// — coverage as a countable fact. Off by default keeps non-ingestion specs
+	// clean.
+	Ingest string `json:"ingest,omitempty"`
 	// Custom lists external, declarative custom gates run after the core
 	// pipeline. Each is an ordinary subprocess (no Go plugin, no network).
 	Custom []CustomGateCfg `json:"custom"`

@@ -2,15 +2,15 @@ package core
 
 import (
 	"path/filepath"
-	"reflect"
 	"testing"
 )
 
-func TestConfigYAMLJSONCompatibility(t *testing.T) {
-	jsonRoot := t.TempDir()
+// TestConfigYAMLLoadsFullConfig loads a full, every-section YAML config and
+// spot-checks representative fields across each block. Config is YAML-only as of
+// v0.2.0; a leftover config.json is rejected rather than parsed.
+func TestConfigYAMLLoadsFullConfig(t *testing.T) {
 	yamlRoot := t.TempDir()
 	isolateGlobalConfig(t)
-	writeConfigFile(t, filepath.Join(jsonRoot, ".specd", "config.json"), `{"defaultVerify":"make test","report":{"format":"html","autoRefreshSeconds":5},"roles":{"subagentMode":"delegate"},"gates":{"traceability":"error","acceptance":"warn","scope":"error","contextBudget":"warn","maxContextTokens":12345,"custom":[{"name":"lint","command":"make lint","severity":"warn"}]},"verify":{"sandbox":"bwrap"},"orchestration":{"enabled":true,"approvalPolicy":"planning","workerMode":"host","maxWorkers":5,"maxRetries":1,"sessionTimeoutMinutes":60,"hostReportedCostLimitUSD":1.5,"transport":{"kind":"file","pollIntervalMillis":250,"messageTTLSeconds":600,"leaseSeconds":60,"heartbeatSeconds":10},"program":{"maxConcurrentSpecs":3},"resilience":{"checkpointEnabled":true,"maxSuspendSeconds":300,"contextSnapshotEnabled":true,"progressTimeoutSeconds":120,"autoResume":{"enabled":true,"onHostStart":true,"maxAgeMinutes":30}}},"mcp":{"expose":"essential","includeMeta":true,"includeOrchestration":true,"essentialTools":["status","next"]}}`)
 	writeConfigFile(t, filepath.Join(yamlRoot, ".specd", "config.yml"), `version: 2
 defaults:
   verify_command: "make test"
@@ -25,7 +25,6 @@ gates:
   scope: "error"
   context_budget: "warn"
   max_context_tokens: 12345
-  custom: [{name: "lint", command: "make lint", severity: "warn"}]
 verify:
   sandbox: "bwrap"
 orchestration:
@@ -59,14 +58,36 @@ mcp:
   include_orchestration: true
   essential_tools: [status, next]
 `)
-	jsonCfg := LoadConfig(jsonRoot)
-	yamlCfg := LoadConfig(yamlRoot)
-	jsonCfg.Version = yamlCfg.Version
-	// The simple YAML subset intentionally treats inline map arrays as absent; custom gates are covered by JSON compatibility and runtime validation separately.
-	jsonCfg.Gates.Custom = nil
-	yamlCfg.Gates.Custom = nil
-	if !reflect.DeepEqual(jsonCfg, yamlCfg) {
-		t.Fatalf("yaml/json effective config differ:\njson=%#v\nyaml=%#v", jsonCfg, yamlCfg)
+	cfg := LoadConfig(yamlRoot)
+	if cfg.DefaultVerify != "make test" {
+		t.Errorf("DefaultVerify = %q, want make test", cfg.DefaultVerify)
+	}
+	if cfg.Report != (ReportCfg{Format: "html", AutoRefreshSeconds: 5}) {
+		t.Errorf("Report = %#v", cfg.Report)
+	}
+	if cfg.Roles != (RolesCfg{SubagentMode: "delegate"}) {
+		t.Errorf("Roles = %#v", cfg.Roles)
+	}
+	if cfg.Gates.Traceability != "error" || cfg.Gates.MaxContextTokens != 12345 {
+		t.Errorf("Gates = %#v", cfg.Gates)
+	}
+	if cfg.Verify != (VerifyCfg{Sandbox: "bwrap"}) {
+		t.Errorf("Verify = %#v", cfg.Verify)
+	}
+	if !cfg.Orchestration.Enabled || cfg.Orchestration.MaxWorkers != 5 ||
+		cfg.Orchestration.Transport.LeaseSeconds != 60 ||
+		!cfg.Orchestration.Resilience.AutoResume.OnHostStart {
+		t.Errorf("Orchestration = %#v", cfg.Orchestration)
+	}
+	if cfg.MCP.Expose != "essential" || !cfg.MCP.IncludeMeta {
+		t.Errorf("MCP = %#v", cfg.MCP)
+	}
+
+	// Legacy JSON config is no longer parsed — it must be rejected, not applied.
+	jsonRoot := t.TempDir()
+	writeConfigFile(t, filepath.Join(jsonRoot, ".specd", "config.json"), `{"defaultVerify":"make test"}`)
+	if _, res := LoadConfigWithDiagnostics(jsonRoot); !hasDiagError(res.Diagnostics) {
+		t.Fatalf("legacy JSON config should be rejected; diagnostics=%+v", res.Diagnostics)
 	}
 }
 

@@ -235,7 +235,7 @@ Every tool carries MCP annotations so a host can signal risk before invoking:
 |---|---|---|
 | `readOnlyHint` | `true` | `status`, `waves`, `context`, `check`, `next`, `report`, `handshake`, and their read-only flag variants (`next --dispatch`, `report --serve`/`--watch`/`--history`/`--diff`, `check --schema`/`--schema-only`) |
 | `readOnlyHint` | `false` | All other commands (state-mutating) |
-| `destructiveHint` | `true` | None currently. `destructiveCommands` is an empty classification map, reserved for tools that mutate the install itself (its former members `update`/`uninstall` were removed in v0.1.0). |
+| `destructiveHint` | `true` | None currently. `destructiveCommands` is an empty classification map, reserved for tools that mutate the install itself (its former members `update`/`uninstall` have been removed). |
 
 (`internal/mcp/tools.go` — `destructiveCommands`, `commandToTool`)
 
@@ -320,7 +320,7 @@ byte-identical to the default — no behavioural change.**
 |---|---|
 | `expose` | `"all"` advertises every non-meta tool; `"essential"` advertises only the `essentialTools` set; `"phase"` advertises a subset that adapts to the active spec's lifecycle status (see below). An unknown value degrades to `"all"` with one stderr diagnostic (never on the protocol stream). |
 | `essentialTools` | Names kept under `expose:"essential"`. Empty ⇒ built-in default set: `specd_handshake, specd_inspect, specd_read, specd_query, verify, task, approve` (handshake covers startup; composites cover the read surface). |
-| `includeMeta` | Gates the reserved `metaRiskCommands` classification (currently empty, so it hides no tools today) and, when `true`, bypasses role-based tool filtering to advertise the full surface regardless of the active role. Reserved for future install-maintenance / meta tools; its former members (`update`/`uninstall`) were removed in v0.1.0. |
+| `includeMeta` | Gates the reserved `metaRiskCommands` classification (currently empty, so it hides no tools today) and, when `true`, bypasses role-based tool filtering to advertise the full surface regardless of the active role. Reserved for future install-maintenance / meta tools; its former members (`update`/`uninstall`) have been removed. |
 | `includeOrchestration` | A `*bool`: `null`/absent derives from `orchestration.enabled`; an explicit `true`/`false` overrides it. When excluded, `specd_brain`, `specd_pinky`, and every `brain_*` intent tool are hidden. |
 
 Filtering only ever *hides* tools — it never grants new authority, and tool
@@ -713,3 +713,4 @@ Run `specd mcp --config codex --root /path/to/your/project` to get a pre-filled 
 | **Static tool list (default)** | `tools.listChanged` is `false` except under `expose:"phase"`, where the tool list mutates with the active phase and `listChanged` is advertised `true`. In other modes the list is fixed for the process lifetime. |
 | **Serial tool calls** | Tool calls are processed one at a time. Concurrent calls from the same host are serialised by the stdio loop. |
 | **Host config schema drift** | MCP support in Cursor and VS Code is evolving. Config examples in this guide target the `2024-11-05` protocol revision and may need adjustment for future host versions. |
+| **CLI-only platform commands** | `specd migrate` (v0.1.x→v0.2.0 upgrade), `specd dashboard` (read-only unified web view), and `specd harness` (share/import policy over git) are **not exposed as MCP tools** — they are operator-facing and involve process/network side effects (a long-lived HTTP server, git transport, quarantine decisions) that fall outside the request/response tool contract. Run them from the CLI. `specd dashboard` is a separate loopback HTTP server distinct from `specd mcp --http`; see the [Command Reference](./command-reference.md) and [User Guide](./user-guide.md#sharing-dashboards--migration). |

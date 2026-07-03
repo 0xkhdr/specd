@@ -58,8 +58,8 @@ func TestScaffoldManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 		targets := SortedScaffoldTargets(assets)
-		if len(targets) != 27 {
-			t.Fatalf("target count = %d, want 27", len(targets))
+		if len(targets) != 32 {
+			t.Fatalf("target count = %d, want 32", len(targets))
 		}
 		for i := 1; i < len(targets); i++ {
 			if targets[i] == targets[i-1] {
@@ -105,15 +105,20 @@ func TestScaffoldManifest(t *testing.T) {
 			".specd/roles/brain.md",
 			".specd/roles/craftsman.md",
 			".specd/roles/pinky.md",
+			".specd/roles/reviewer.md",
 			".specd/roles/scout.md",
 			".specd/roles/validator.md",
 			".specd/runtime/.gitignore",
 			".specd/skills/specd-brain/SKILL.md",
 			".specd/skills/specd-design/SKILL.md",
+			".specd/skills/specd-eval-author/SKILL.md",
 			".specd/skills/specd-execute/SKILL.md",
 			".specd/skills/specd-foundations/SKILL.md",
+			".specd/skills/specd-ingest/SKILL.md",
+			".specd/skills/specd-maintenance/SKILL.md",
 			".specd/skills/specd-pinky/SKILL.md",
 			".specd/skills/specd-requirements/SKILL.md",
+			".specd/skills/specd-review/SKILL.md",
 			".specd/skills/specd-steering/SKILL.md",
 			".specd/skills/specd-tasks/SKILL.md",
 			".specd/steering/memory.md",

@@ -60,8 +60,10 @@ func SpecsDir(root string) string { return filepath.Join(root, ".specd", "specs"
 // .specd/specs directory.
 func SpecDir(root, slug string) string { return filepath.Join(root, ".specd", "specs", slug) }
 
-// ConfigPaths returns project config candidates in priority order. YAML is the
-// human-authored default; JSON is retained as the legacy compatibility path.
+// ConfigPaths returns project config candidates in priority order. Config is
+// YAML-only as of v0.2.0; the legacy `config.json` path is still listed last so
+// a leftover JSON config is discovered and reported as a clear
+// unsupported-extension error rather than being silently ignored.
 func ConfigPaths(root string) []string {
 	return []string{
 		filepath.Join(root, ".specd", "config.yml"),
@@ -71,6 +73,8 @@ func ConfigPaths(root string) []string {
 }
 
 // LegacyConfigPath returns the path to root's legacy .specd/config.json file.
+// JSON configs are no longer parsed (v0.2.0, YAML-only); this path exists only
+// so a leftover config.json surfaces a clear unsupported-extension error.
 func LegacyConfigPath(root string) string { return filepath.Join(root, ".specd", "config.json") }
 
 // ConfigPath is the deprecated legacy JSON compatibility helper. New config

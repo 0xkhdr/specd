@@ -175,6 +175,34 @@ func WithSpecLock[T any](root, slug string, fn func() (T, error)) (T, error) {
 	return fn()
 }
 
+// WithProgramLock runs fn while holding the repo-wide program lock, using the
+// same cross-process O_EXCL primitive (with stale reclamation) as WithSpecLock.
+// It serializes program.json mutations — notably the maintenance-schedule
+// claim/tick path (P3.5) — so a double-invoked `specd program tick` cannot run a
+// due schedule twice. Unlike WithSpecLock it is not reentrant and is keyed on a
+// single fixed path, since program-level operations never nest under a spec lock.
+func WithProgramLock[T any](root string, fn func() (T, error)) (T, error) {
+	if err := os.MkdirAll(SpecdDir(root), 0o755); err != nil { //nolint:gosec // .specd holds non-secret project artifacts (see SECURITY.md)
+		var zero T
+		return zero, err
+	}
+	path := filepath.Join(SpecdDir(root), ".program.lock")
+	deadline := time.Now().Add(timeoutMs())
+	for !tryAcquire(path) {
+		if isStale(path) {
+			os.Remove(path)
+			continue
+		}
+		if time.Now().After(deadline) {
+			var zero T
+			return zero, GateError(fmt.Sprintf("program is locked by another specd process — retry shortly, or remove %s if it is stale", path))
+		}
+		time.Sleep(retryInterval)
+	}
+	defer os.Remove(path)
+	return fn()
+}
+
 // lockHeldBy reports whether the current goroutine owns the spec lock for
 // (root, slug). Used by SaveState's debug assertion to catch callers that
 // mutate state outside WithSpecLock.

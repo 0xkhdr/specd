@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
@@ -15,11 +16,19 @@ import (
 //
 //nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
 func RunApprove(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd approve <slug> [--json]")
+	root, slug, code, ok := requireRootAndSlug(args, "usage: specd approve <slug> [--deploy --env <env>] [--json]")
 	if !ok {
 		return code
 	}
 	jsonOut := args.Bool("json")
+
+	// Deploy human gate (V9/P5.1): `specd approve <slug> --deploy --env <env>`
+	// records the human deploy approval that `specd deploy --env production` (and
+	// any approval-required plan) hard-requires. It is orthogonal to the lifecycle
+	// gate handling below — a boundary sign-off, not a status advance.
+	if args.Bool("deploy") {
+		return runApproveDeploy(root, slug, strings.TrimSpace(args.Str("env")), jsonOut)
+	}
 
 	result, err := core.WithSpecLock[int](root, slug, func() (int, error) {
 		loaded, err := core.LoadSpec(root, slug)
@@ -71,6 +80,53 @@ func RunApprove(args cli.Args) int {
 					return core.ExitGate, nil
 				}
 			}
+			// Prototype specs can never reach `complete` — they must be promoted
+			// to full specs first (V5 prototype lifecycle, invariant 5).
+			if state.Prototype != nil && state.Prototype.Status != core.PrototypePromoted {
+				msg := fmt.Sprintf("cannot complete prototype spec '%s' — run `specd promote %s --evidence \"...\"` to convert it to a full spec first", slug, slug)
+				if jsonOut {
+					if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": []string{msg}}); err != nil {
+						return specdExit(err), err
+					}
+				} else {
+					errLine("✗ %s", msg)
+				}
+				return core.ExitGate, nil
+			}
+			// Review gate: when configured required, completion needs a fresh,
+			// structurally-valid review_report.md whose verdict is `approve` (off for
+			// migrated repos). Human approval stays final — this only enforces that the
+			// review evidence exists and is current, never substitutes for it.
+			if cfg.Review.Required {
+				body, mod := core.ReadReviewReport(root, slug)
+				res := core.EvaluateReviewGate(state, body, mod)
+				if !res.OK {
+					msg := "review gate: " + res.Problem
+					if jsonOut {
+						if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": []string{msg}}); err != nil {
+							return specdExit(err), err
+						}
+					} else {
+						errLine("✗ %s", msg)
+					}
+					return core.ExitGate, nil
+				}
+				state.Review = &core.ReviewRecord{Verdict: string(res.Verdict), Fresh: res.Fresh, Time: core.NowISO()}
+			}
+			// Eval gate: when configured `required`, completion needs at least one
+			// passing recorded rubric run (config-on for new inits, off for
+			// migrated repos — gate-fatigue mitigation).
+			if cfg.Gates.Eval == "required" && !hasPassingEval(state) {
+				msg := fmt.Sprintf("eval gate: no passing eval run recorded for '%s' — run `specd eval %s` (score ≥ minScore) before completing", slug, slug)
+				if jsonOut {
+					if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": []string{msg}}); err != nil {
+						return specdExit(err), err
+					}
+				} else {
+					errLine("✗ %s", msg)
+				}
+				return core.ExitGate, nil
+			}
 			from := state.Status
 			state.Status = core.StatusComplete
 			state.Phase = core.PhaseForStatus(core.StatusComplete)
@@ -92,7 +148,12 @@ func RunApprove(args cli.Args) int {
 		if !ok {
 			return specdExit(core.GateError(fmt.Sprintf("approve: nothing to approve — spec '%s' is '%s'.", slug, state.Status))), core.GateError("")
 		}
-		problems := core.PhaseReadiness(state.Status, core.ReadArtifact(root, slug, "requirements.md"), core.ReadArtifact(root, slug, "design.md"), doc)
+		// Prototype specs skip the design/tasks planning gates (V5): the ratchet
+		// still advances status but PhaseReadiness content checks are relaxed.
+		var problems []string
+		if state.Prototype == nil || state.Prototype.Status == core.PrototypePromoted {
+			problems = core.PhaseReadiness(state.Status, core.ReadArtifact(root, slug, "requirements.md"), core.ReadArtifact(root, slug, "design.md"), doc)
+		}
 		if len(problems) > 0 {
 			if jsonOut {
 				if err := core.PrintJSON(map[string]interface{}{"ok": false, "action": "blocked", "status": state.Status, "problems": problems}); err != nil {
@@ -125,4 +186,52 @@ func RunApprove(args cli.Args) int {
 		return specdExit(err)
 	}
 	return result
+}
+
+// runApproveDeploy records the human deploy approval for env under the spec lock.
+// It requires the spec to exist and a valid env; the recorded approval is what
+// `specd deploy` checks (a production deploy is impossible without it).
+func runApproveDeploy(root, slug, env string, jsonOut bool) int {
+	if err := core.RequireSpec(root, slug); err != nil {
+		return specdExit(err)
+	}
+	if env == "" {
+		return usageExit("usage: specd approve <slug> --deploy --env <env>")
+	}
+	if err := core.ValidateEnv(env); err != nil {
+		return specdExit(err)
+	}
+	rc, err := core.WithSpecLock[int](root, slug, func() (int, error) {
+		state, err := core.LoadState(root, slug)
+		if err != nil || state == nil {
+			return specdExit(err), err
+		}
+		state.DeployApproval = &core.DeployApproval{Env: env, Time: core.NowISO()}
+		if err := core.SaveState(root, slug, state); err != nil {
+			return specdExit(err), err
+		}
+		if jsonOut {
+			if err := core.PrintJSON(map[string]interface{}{"ok": true, "action": "deploy-approved", "env": env}); err != nil {
+				return specdExit(err), err
+			}
+		} else {
+			fmt.Printf("approve: deploy to env '%s' authorized for '%s'.\n", env, slug)
+		}
+		return core.ExitOK, nil
+	})
+	if err != nil {
+		return specdExit(err)
+	}
+	return rc
+}
+
+// hasPassingEval reports whether any recorded eval suite passed its minScore.
+// It reads only recorded state — deterministic, no re-run of the rubric.
+func hasPassingEval(state *core.State) bool {
+	for _, e := range state.Evals {
+		if e.Pass {
+			return true
+		}
+	}
+	return false
 }

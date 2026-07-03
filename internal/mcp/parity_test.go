@@ -54,6 +54,14 @@ func TestToolListGoldenParity(t *testing.T) {
 		got = append(got, snapshot{Name: tl.Name, InputSchema: tl.InputSchema})
 	}
 
+	if os.Getenv("UPDATE_GOLDEN") != "" {
+		gb, _ := json.MarshalIndent(got, "", "  ")
+		if err := os.WriteFile("testdata/tools_golden.json", append(gb, '\n'), 0o644); err != nil {
+			t.Fatalf("write golden tool fixture: %v", err)
+		}
+		return
+	}
+
 	body, err := os.ReadFile("testdata/tools_golden.json")
 	if err != nil {
 		t.Fatalf("read golden tool fixture: %v", err)

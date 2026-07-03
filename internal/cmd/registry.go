@@ -35,8 +35,20 @@ var Registry = []Command{
 	{"status", RunStatus},
 	{"context", RunContext},
 	{"check", RunCheck},
+	{"review", RunReview},
+	{"eval", RunEval},
+	{"promote", RunPromote},
+	{"conductor", RunConductor},
+	{"orchestrate", RunOrchestrate},
+	{"submit", RunSubmit},
+	{"deploy", RunDeploy},
+	{"observe", RunObserve},
+	{"ingest", RunIngest},
 	{"report", RunReport},
 	{"waves", RunWaves},
+	{"harness", RunHarness},
+	{"dashboard", RunDashboard},
+	{"migrate", RunMigrate},
 }
 
 // Dispatch runs the handler registered for command. It returns (exitCode, true)
