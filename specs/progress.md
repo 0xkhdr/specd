@@ -150,7 +150,7 @@ domains run in parallel.
 | ⬜ T9.4 | 09 | `orchestration/acp.go` | `go test ./internal/orchestration -run TestACPRoundtrip` |
 | ⬜ T9.5 | 09 | `orchestration/lease.go` | `go test ./internal/orchestration -run TestLeaseReclaim` |
 | ⬜ T9.6 | 09 | `orchestration/session.go` | `go test ./internal/orchestration -run TestSessionCAS` |
-| ⬜ T9.7 | 09 | `cmd/brain.go`, `orchestration/driver.go` | `go run . brain run demo --worker-cmd ...` |
+| ⬜ T9.7 | 09 | `cmd/brain.go`, `orchestration/driver.go` | `go test ./internal/orchestration -run TestBrainDriverDispatchesFrontier` |
 | ⬜ T9.8 | 09 | `cmd/pinky.go`, `brain_worker.go` | `go test ./internal/cmd -run TestReportRequiresVerify` |
 | ⬜ T9.9 | 09 | orchestration authority config | `go test ./internal/orchestration -run TestFailClosedAuthority` |
 | ⬜ T9.10 | 09 | `orchestration/decide_test.go` | `go test ./internal/orchestration -run TestNoLLM` |

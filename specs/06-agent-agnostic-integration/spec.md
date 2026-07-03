@@ -84,6 +84,6 @@ cannot be bound to write tasks.
 ## 7. Risks & open questions
 - **Risk:** adapter proliferation re-bloats the tree. → snippet is primary; ship ≤1 reference
   adapter in v1; conformance kit gates any new one.
-- **Open:** ship any managed adapter in v1 or snippet-only? **Proposed:** snippet-only for MVP,
-  one reference adapter as a follow-up wave.
+- **Decision:** ship snippet-only integration for MVP, with a tiny conformance kit. Managed
+  adapters are follow-up/plugin work unless a real partner proves one necessary.
 - **Doc cleanup:** move all Brain/Pinky material out of the integration doc into Spec 09's doc.

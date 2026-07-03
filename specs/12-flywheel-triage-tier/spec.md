@@ -81,6 +81,5 @@ pinning (when the feature returns).
 - **Risk:** deferring makes specd look "less capable" than the current tree. → frame v1 as the
   *harness core*; the flywheel is a documented, contract-stable plugin roadmap — subtraction
   with a re-entry plan, not amputation.
-- **Open:** is any flywheel command a genuine MVP dependency for a design partner? If a
-  concrete user needs (say) `deploy` approval on day one, promote *only that one* from DEFER to
-  a late wave — the gate/records seams already support it.
+- **Decision:** no flywheel command is an MVP dependency. Promote only one command later if a
+  concrete design partner proves it blocks adoption; never promote the whole tier at once.

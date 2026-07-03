@@ -16,8 +16,8 @@
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | T6.4 | craftsman | `internal/integration/registry.go` | — | `go test ./internal/integration -run TestSnippetFallback` | snippet emitted with no adapter |
-| T6.5 | craftsman | `internal/integration/<host>.go` | T6.4 | `go test ./internal/integration -run TestAdapterConformance` | reference adapter passes the kit |
-| T6.6 | craftsman | role-injection wiring | T6.1 | `go test ./internal/core -run TestRolePromptDedup` | prompt emitted once per response |
+| T6.5 | craftsman | `docs/agent-integration.md`, `internal/integration/snippet.go` | T6.4 | `go test ./internal/integration -run TestSnippetCompiles` | snippet-only adapter guidance compiles and stays host-agnostic |
+| T6.6 | craftsman | `internal/core/roles.go`, `internal/core/roles_test.go` | T6.1 | `go test ./internal/core -run TestRolePromptDedup` | prompt emitted once per response |
 | T6.7 | validator | `internal/integration/conformance_test.go` | T6.5 | `go test ./internal/integration -run TestAdapterConformance` | idempotent install; ownership recorded |
 
 ## Traceability (task → requirement)

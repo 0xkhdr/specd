@@ -78,5 +78,5 @@ Projection purity (no LLM/network in render); byte-stable renders; telemetry ver
 ## 7. Risks & open questions
 - **Risk:** deferring streams disappoints orchestration users wanting live progress. →
   `FrontierEvent` + append-only `trajectory.jsonl` retained, so a stream is additive later.
-- **Open:** commit evidence/trajectory to git or gitignore? **Proposed:** commit report inputs
-  (auditable), gitignore transient stream state.
+- **Decision:** commit report inputs needed for audit, including evidence and trajectory.
+  Gitignore only transient stream state.

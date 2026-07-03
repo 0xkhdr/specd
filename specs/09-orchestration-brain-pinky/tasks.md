@@ -23,9 +23,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| T9.7 | craftsman | `internal/cmd/brain.go`, `internal/orchestration/driver.go` | T9.1, T9.5, T9.6 | `go run . brain run demo --worker-cmd ...` | driver loop dispatches frontier |
+| T9.7 | craftsman | `internal/cmd/brain.go`, `internal/orchestration/driver.go` | T9.1, T9.5, T9.6 | `go test ./internal/orchestration -run TestBrainDriverDispatchesFrontier` | driver loop dispatches frontier |
 | T9.8 | craftsman | `internal/cmd/pinky.go`, `internal/cmd/brain_worker.go` | T9.4 | `go test ./internal/cmd -run TestReportRequiresVerify` | report rejected without passing record |
-| T9.9 | craftsman | orchestration authority config | T9.6 | `go test ./internal/orchestration -run TestFailClosedAuthority` | disabled by default; can't clear high/critical gates |
+| T9.9 | craftsman | `internal/core/config_validate.go`, `internal/orchestration/authority.go` | T9.6 | `go test ./internal/orchestration -run TestFailClosedAuthority` | disabled by default; can't clear high/critical gates |
 | T9.10 | validator | `internal/orchestration/decide_test.go` | T9.1 | `go test ./internal/orchestration -run TestNoLLM` | grep proves no model/network import in decision path |
 
 ## Traceability (task → requirement)

@@ -74,5 +74,5 @@ results; policy fail-safe (malformed manifest → empty policy, not open).
 ## 7. Risks & open questions
 - **Risk:** parity drift as the CLI evolves. → data-drive tool registration from the command
   registry so there is one source (Spec 10).
-- **Open:** expose `report`/`decision`/`memory` as tools in v1? **Proposed:** no — keep the
-  tool set to the enforcement/query core; authoring tools can come later.
+- **Decision:** do not expose `report`, `decision`, or `memory` tools in v1. Keep MCP to the
+  enforcement/query core; authoring tools can come later after real workflow pressure.

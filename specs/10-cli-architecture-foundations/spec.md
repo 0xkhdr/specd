@@ -82,5 +82,5 @@ tools), Spec 09 (config authority block + file backend). Depends on Spec 01 (cha
 ## 7. Risks & open questions
 - **Risk:** hand-maintained help drifts. → single `Command` table drives dispatch+help+MCP;
   parity test is CI-blocking.
-- **Open:** fully generate help from the registry vs keep rich hand-written help. **Proposed:**
-  registry-generated usage + short summary; long-form help only where a verb needs examples.
+- **Decision:** registry-generated usage and short summaries are canonical. Long-form help is
+  allowed only where a verb needs examples, and the registry remains source of truth.

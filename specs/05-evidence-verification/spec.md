@@ -82,5 +82,5 @@ Evidence gate absolute; scrubbed env; NUL rejection; atomic dual-write of
 ## 7. Risks & open questions
 - **Risk:** `sh -c` of agent-authored `verify:` lines is real code execution. → trust boundary
   explicit + documented; env scrubbed; sandbox opt-in fail-closed; command printed for audit.
-- **Open:** commit the evidence ledger to git or gitignore? **Proposed:** commit (evidence is
-  auditable history) — interacts with Spec 11.
+- **Decision:** commit the evidence ledger to git. Evidence is auditable harness state under
+  the SDLC paper's model; ignore only transient or oversized logs outside the ledger.
