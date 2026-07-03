@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,12 +10,12 @@ import (
 	"github.com/0xkhdr/specd/internal/testharness"
 )
 
-// enableOrchestration writes a config.json granting the project orchestration
+// enableOrchestration writes a config.yml granting the project orchestration
 // capability, so `--set-mode orchestrated` / `new --orchestrated` can succeed.
 func enableOrchestration(t *testing.T, h *testharness.Harness) {
 	t.Helper()
-	if err := os.WriteFile(core.ConfigPath(h.Root), []byte(`{"version":1,"orchestration":{"enabled":true}}`), 0o644); err != nil {
-		t.Fatalf("write config.json: %v", err)
+	if err := os.WriteFile(filepath.Join(h.Root, ".specd", "config.yml"), []byte("version: 1\norchestration:\n  enabled: true\n"), 0o644); err != nil {
+		t.Fatalf("write config.yml: %v", err)
 	}
 }
 
