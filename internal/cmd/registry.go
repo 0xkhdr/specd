@@ -22,24 +22,47 @@ type Handler func(root string, args []string, flags map[string]string) error
 
 var Registry = buildRegistry()
 
+// ErrUnknownCommand is returned by Run for a verb that is not registered or
+// carries no handler. The dispatcher must fail closed on it (exit 2), never 0.
+var ErrUnknownCommand = errors.New("unknown command")
+
 var executable = map[string]Handler{
+	"approve":   runApprove,
 	"check":     runCheck,
 	"context":   runContext,
+	"decision":  runDecision,
 	"handshake": runHandshake,
+	"help":      runHelp,
 	"init":      runInit,
 	"mcp":       runMCP,
+	"midreq":    runMidreq,
+	"new":       runNew,
 	"next":      runNext,
 	"report":    runReport,
 	"status":    runStatus,
+	"task":      runTask,
 	"verify":    runVerify,
 }
 
 func buildRegistry() map[string]Handler {
 	registry := make(map[string]Handler, len(core.Commands))
 	for _, command := range core.Commands {
+		if command.Deferred {
+			registry[command.Name] = deferredHandler(command.Name)
+			continue
+		}
 		registry[command.Name] = executable[command.Name]
 	}
 	return registry
+}
+
+// deferredHandler reports an explicit deferral notice and exits 0 (R13.8): a
+// deferred verb never silently no-ops.
+func deferredHandler(name string) Handler {
+	return func(string, []string, map[string]string) error {
+		fmt.Fprintf(os.Stdout, "specd %s: deferred — not yet wired\n", name)
+		return nil
+	}
 }
 
 func RegisteredCommandNames() []string {
@@ -53,7 +76,7 @@ func RegisteredCommandNames() []string {
 func Run(root, name string, args []string, flags map[string]string) error {
 	handler, ok := Registry[name]
 	if !ok || handler == nil {
-		return nil
+		return fmt.Errorf("%w: %q", ErrUnknownCommand, name)
 	}
 	return handler(root, args, flags)
 }

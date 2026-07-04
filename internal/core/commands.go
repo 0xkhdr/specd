@@ -2,18 +2,22 @@ package core
 
 // Flag describes one command-line flag surfaced by help metadata.
 type Flag struct {
-	Name        string
-	TakesValue  bool
-	Description string
+	Name        string `json:"name"`
+	TakesValue  bool   `json:"takes_value,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // Command describes one supported top-level command. This metadata is the
 // source of truth for help and integration surfaces.
 type Command struct {
-	Name        string
-	Usage       string
-	Description string
-	Flags       []Flag
+	Name        string `json:"name"`
+	Usage       string `json:"usage"`
+	Description string `json:"description"`
+	Flags       []Flag `json:"flags,omitempty"`
+	// Deferred marks a registered verb whose implementation is intentionally
+	// not wired yet. The dispatcher reports the deferral and exits 0; the
+	// handler-parity test treats a deferred verb as satisfied.
+	Deferred bool `json:"deferred,omitempty"`
 }
 
 // Commands is the stable top-level command palette.
@@ -81,6 +85,15 @@ var Commands = []Command{
 		Description: "Show task details.",
 	},
 	{
+		Name:        "check",
+		Usage:       "specd check <spec> [--security] [--json]",
+		Description: "Run the validation gate registry against a spec.",
+		Flags: []Flag{
+			{Name: "security", Description: "Include the opt-in security gate."},
+			{Name: "json", Description: "Emit machine-readable findings."},
+		},
+	},
+	{
 		Name:        "verify",
 		Usage:       "specd verify <task-id>",
 		Description: "Run and record task verification.",
@@ -107,6 +120,7 @@ var Commands = []Command{
 		Name:        "brain",
 		Usage:       "specd brain <start|step|run|status|approve|cancel|resume>",
 		Description: "Run the opt-in deterministic orchestration controller.",
+		Deferred:    true,
 	},
 	{
 		Name:        "report",
@@ -122,6 +136,7 @@ var Commands = []Command{
 		Name:        "triage",
 		Usage:       "specd triage <spec>",
 		Description: "Run the opt-in extended-loop triage tier.",
+		Deferred:    true,
 	},
 }
 

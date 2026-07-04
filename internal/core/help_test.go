@@ -9,9 +9,9 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-func TestHelpListsSixteenRegistryCommands(t *testing.T) {
-	if got := len(core.Commands); got != 16 {
-		t.Fatalf("len(core.Commands) = %d, want 16", got)
+func TestHelpListsRegistryCommands(t *testing.T) {
+	if got := len(core.Commands); got != 17 {
+		t.Fatalf("len(core.Commands) = %d, want 17", got)
 	}
 
 	var buf bytes.Buffer

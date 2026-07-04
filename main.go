@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -21,6 +22,10 @@ func main() {
 	}
 	if err := cmd.Run(".", args.Command, args.Pos, args.Flags); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		if errors.Is(err, cmd.ErrUnknownCommand) {
+			cli.Usage(os.Stderr)
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }
