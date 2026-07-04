@@ -24,7 +24,7 @@ T5.2     pending rc=-   SKIP     (no verify command)
 T5.3     green   rc=0   PASS     go test ./internal/core/verify -run TestChangedFiles
 T3.1     green   rc=0   PASS     go test ./internal/core/gates -run TestRegistryOrder
 T3.2     green   rc=0   PASS     go test ./internal/core/gates -run TestCoreGates
-T3.3     green   rc=0   PASS     go run . check demo
+T3.3     green   rc=1   FAIL     go run . check demo
 T5.4     green   rc=0   PASS     go test ./internal/core -run TestCompleteRequiresEvidence
 T5.5     pending rc=1   FAIL     go run . verify demo T1
 T5.6     green   rc=0   PASS     go test ./internal/cmd -run TestRevertOnFail
@@ -43,7 +43,7 @@ T6.4     green   rc=0   PASS     go test ./internal/integration -run TestSnippet
 T6.5     green   rc=0   PASS     go test ./internal/integration -run TestAdapterConformance
 T6.6     green   rc=0   PASS     go test ./internal/core -run TestRolePromptDedup
 T6.7     green   rc=0   PASS     go test ./internal/integration -run TestAdapterConformance
-T3.4     green   rc=0   PASS     go run . check demo --security
+T3.4     green   rc=1   FAIL     go run . check demo --security
 T3.5     green   rc=0   PASS     go test ./internal/core/gates -run TestContextBudgetGate
 T3.6     green   rc=0   PASS     go test ./internal/core/gates -run TestByteIdenticalWhenOptInsOff
 T7.1     green   rc=-   SKIP     (no verify command)
@@ -52,7 +52,7 @@ T7.3     green   rc=0   PASS     go test ./internal/core -run TestForbiddenTool
 T7.4     green   rc=-   SKIP     (no verify command)
 T7.5     green   rc=0   PASS     go test ./internal/mcp -run TestBrainToolsGatedByConfig
 T7.6     green   rc=0   PASS     go test ./internal/mcp -run TestMCPParity
-T8.5     green   rc=0   PASS     SPECD_MAX_CONTEXT_TOKENS=10 go run . check demo
+T8.5     green   rc=1   FAIL     SPECD_MAX_CONTEXT_TOKENS=10 go run . check demo
 T8.6     green   rc=0   PASS     grep -q read-targeted docs/context.md
 T8.7     green   rc=0   PASS     go test ./internal/context -run TestManifestValidate
 T11.1    green   rc=0   PASS     go test ./internal/core -run TestReportModel

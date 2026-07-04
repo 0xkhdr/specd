@@ -219,6 +219,18 @@ reachable). Deliberately CUT: brain/pinky/reviewer as *roles*; the `skills/` SKI
 acceptance`); front-loading `decisions.md`/`mid-requirements.md` (created on demand).
 Deferred: `config.yml` seeding (spec 10); pinky subagent prompts + runtime gitignore (spec 09).
 
+**ADR-11 — Standing regression (W7).** The concept↔functionality gap is closed by a
+standing regression, not a one-time audit. Three deterministic scripts under `scripts/`
+run at HEAD and are re-runnable on every push: `regress-all.sh` re-runs **every** `verify:`
+in `review-specs/00..06/tasks.md` literally via `sh -c` and takes its verdict from the
+exit-code log, never judgment (the W7 wave itself is excluded to avoid self-recursion);
+`regress-lint.sh` is a static smell audit (authoring `specs/` read where runtime reads
+`.specd/specs/` → G1; hollow existence-only verify → G4; `files:`/verify target failing
+`test -e` → G3); `regress-domains.sh` re-asserts each wave's owned invariant black-box
+against a freshly built binary in a throwaway tree (W0 honesty … W6 release), exiting on
+the first violation. No LLM, no network in any verdict path — same determinism guardrail
+as the gates. A wave stays open until its live evidence exists; no surface is unowned.
+
 ---
 
 ## 5. Scope triage: v1's 29 commands → 16 verbs

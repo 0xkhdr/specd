@@ -15,7 +15,7 @@
 ## Wave DAG
 
 ```
-W0 restore-truth ──► W1 close-the-loop ──► W2 seal-trust-boundary ──► W5 surface-config ──► W6 hardening-release
+W0 restore-truth ──► W1 close-the-loop ──► W2 seal-trust-boundary ──► W5 surface-config ──► W6 hardening-release ──► W7 regression-acceptance
                           │                                              ▲
                           ├──► W3 records-integrity ─────────────────────┤
                           └──► W4 gates-and-constitution ────────────────┘
@@ -26,6 +26,7 @@ W0 restore-truth ──► W1 close-the-loop ──► W2 seal-trust-boundary �
 - W3 ∥ W4 after W1.
 - W5 after W4 (memory-verb decision depends on P4.3 making memory functional).
 - W6 last; its dogfood gate requires every prior wave closed via `specd task complete` with real evidence.
+- **W7 standing regression** (`07-regression-acceptance`) — after W6; re-runs every wave's verify at HEAD and re-asserts each wave's per-domain best-practice invariant (REGRESSION_REVIEW.md audit method) so no later wave silently regresses an earlier one, and no wave is marked done ahead of live evidence.
 
 ## Dogfood rule
 
@@ -52,6 +53,7 @@ evidence is the literal verify commands passing.
 | F12 repo .specd/ contradicts scaffold | 🟠 | W0 R0.2 |
 | F13 progress.md files: wrong | 🟡 | W0 R0.1 |
 | F14 small gaps (git_head unknown, timestamps, check summary, task slug, manifest paths, --unverified) | 🟡 | W1 R1.4 · W3 R3.1–R3.2 · W5 R5.3 |
+| standing regression (no wave silently regresses another; nothing marked done ahead of live evidence) | 🔵 | W7 R7.1–R7.5 (`scripts/regress-{all,lint,domains}.sh`) |
 
 Paper-principle closure: P3 ← W0+W1 · P6 ← W1+W2 · P8 ← W4 · P2/P5/P7 ← W3+W5.
 
