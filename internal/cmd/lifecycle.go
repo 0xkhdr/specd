@@ -75,14 +75,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return struct{}{}, err
 		}
-		findings := gates.CoreRegistry().Run(gates.CheckCtx{
-			Root:             root,
-			Slug:             slug,
-			Tasks:            spec.Tasks,
-			Status:           taskStatus(spec.Tasks),
-			Evidence:         spec.Evidence,
-			MaxContextTokens: contextBudget(root),
-		})
+		findings := gates.CoreRegistry().Run(buildCheckCtx(root, slug, spec, gate))
 		if gates.HasErrors(findings) {
 			for _, finding := range findings {
 				if finding.Severity == gates.Error {
@@ -106,6 +99,50 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "approved %s → %s\n", slug, gate)
+	return nil
+}
+
+// runTaskComplete marks a task complete: it requires a passing evidence record
+// pinned to a real commit (core.CompleteTask), then writes the ✅ marker to
+// tasks.md and the machine-truth status to state.json under one lock+CAS so the
+// two never drift (the Sync gate enforces that agreement).
+func runTaskComplete(root string, args []string, flags map[string]string) error {
+	if len(args) != 2 {
+		return errors.New("usage: specd task complete <spec> <id>")
+	}
+	slug, id := args[0], args[1]
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		statePath := core.StatePath(root, slug)
+		state, err := core.LoadState(statePath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		spec, err := loadSpec(root, slug)
+		if err != nil {
+			return struct{}{}, err
+		}
+		tasksPath := filepath.Join(core.SpecdDir(root), "specs", slug, "tasks.md")
+		raw, err := os.ReadFile(tasksPath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		updated, err := core.CompleteTask(raw, id, spec.Evidence)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if state.TaskStatus == nil {
+			state.TaskStatus = map[string]core.TaskRunStatus{}
+		}
+		state.TaskStatus[id] = core.TaskComplete
+		if err := core.SaveStateCAS(statePath, state.Revision, state); err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, core.AtomicWrite(tasksPath, string(updated))
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "completed %s %s\n", slug, id)
 	return nil
 }
 
@@ -181,8 +218,11 @@ func runHelp(root string, args []string, flags map[string]string) error {
 // runTask prints the parsed task row matching id across the project's specs
 // (R13.9).
 func runTask(root string, args []string, flags map[string]string) error {
+	if len(args) >= 1 && args[0] == "complete" {
+		return runTaskComplete(root, args[1:], flags)
+	}
 	if len(args) != 1 {
-		return errors.New("usage: specd task <id>")
+		return errors.New("usage: specd task <id> | specd task complete <spec> <id>")
 	}
 	id := args[0]
 	entries, err := os.ReadDir(filepath.Join(core.SpecdDir(root), "specs"))

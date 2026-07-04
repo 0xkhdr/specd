@@ -11,9 +11,22 @@ type CheckCtx struct {
 	Root             string
 	Slug             string
 	Tasks            []core.TaskRow
-	Status           map[string]core.TaskRunStatus
+	Status           map[string]core.TaskRunStatus // marker-derived (tasks.md truth)
 	Evidence         map[string]core.EvidenceRecord
 	MaxContextTokens int
+
+	// W4 gate inputs. Gate bodies stay pure over CheckCtx: the caller reads
+	// files and state, the gates never touch disk. Zero values disable the
+	// gate (parity: an empty CheckCtx yields no findings).
+	StateLoaded          bool                          // caller loaded state.json for this spec
+	StateTaskStatus      map[string]core.TaskRunStatus // machine truth from state.json
+	ApprovedRequirements bool
+	ApprovedDesign       bool
+	ApproveTarget        string // the gate being approved ("design" arms the design-stub gate)
+	RequirementsDoc      string // requirements.md bytes ("" = not provided)
+	RequirementsStub     string // the scaffold stub to compare against (ADR-10 single source)
+	DesignDoc            string
+	DesignStub           string
 }
 
 func CoreRegistry() Registry {
@@ -26,6 +39,10 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "verify", run: verifyCommands})
 	registry.Register(gateFunc{name: "evidence", run: evidence})
 	registry.Register(gateFunc{name: "context-budget", run: contextBudget})
+	registry.Register(gateFunc{name: "ears", run: earsGate})
+	registry.Register(gateFunc{name: "approval", run: approvalGate})
+	registry.Register(gateFunc{name: "sync", run: syncGate})
+	registry.Register(gateFunc{name: "design", run: designGate})
 	return registry
 }
 

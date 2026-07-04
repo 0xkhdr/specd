@@ -12,7 +12,7 @@ func contextBudget(ctx CheckCtx) []Finding {
 	}
 	var findings []Finding
 	for _, task := range ctx.Tasks {
-		manifest, err := speccontext.BuildManifest(ctx.Slug, ctx.Tasks, task.ID)
+		manifest, err := speccontext.BuildManifest(ctx.Root, ctx.Slug, ctx.Tasks, task.ID, ctx.MaxContextTokens)
 		if err != nil {
 			findings = append(findings, Finding{Severity: Error, Message: err.Error()})
 			continue

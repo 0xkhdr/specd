@@ -23,6 +23,7 @@ func newDemoSpec(t *testing.T) string {
 		t.Fatalf("new: %v", err)
 	}
 	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | - | true | ok |")
+	authorDemoSpec(t, root, "demo")
 	return root
 }
 

@@ -95,14 +95,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	if flagEnabled(flags, "security") {
 		registry.Register(security.New())
 	}
-	findings := registry.Run(gates.CheckCtx{
-		Root:             root,
-		Slug:             args[0],
-		Tasks:            spec.Tasks,
-		Status:           taskStatus(spec.Tasks),
-		Evidence:         spec.Evidence,
-		MaxContextTokens: contextBudget(root),
-	})
+	findings := registry.Run(buildCheckCtx(root, args[0], spec, ""))
 	if flagEnabled(flags, "json") {
 		return json.NewEncoder(os.Stdout).Encode(findings)
 	}
@@ -130,7 +123,7 @@ func runContext(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := speccontext.BuildManifest(args[0], spec.Tasks, args[1])
+	manifest, err := speccontext.BuildManifest(root, args[0], spec.Tasks, args[1], contextBudget(root))
 	if err != nil {
 		return err
 	}
@@ -183,7 +176,7 @@ func runNext(root string, args []string, flags map[string]string) error {
 		if len(frontier) == 0 {
 			return writeJSON(map[string]any{"items": nil})
 		}
-		manifest, err := speccontext.BuildManifest(args[0], spec.Tasks, frontier[0].ID)
+		manifest, err := speccontext.BuildManifest(root, args[0], spec.Tasks, frontier[0].ID, contextBudget(root))
 		if err != nil {
 			return err
 		}
@@ -403,6 +396,41 @@ func loadSpec(root, slug string) (specData, error) {
 		return specData{}, err
 	}
 	return specData{Tasks: tasks.Tasks, Evidence: evidence}, nil
+}
+
+// buildCheckCtx assembles the pure inputs the gate registry runs over: the
+// tasks and their marker status, the requirements/design bytes plus the stubs
+// to compare them against, and — when state.json exists — approval state and
+// the machine-truth task status. approveTarget is the gate under approval
+// ("design" arms the design-stub gate); "" for a plain check.
+func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates.CheckCtx {
+	ctx := gates.CheckCtx{
+		Root:             root,
+		Slug:             slug,
+		Tasks:            spec.Tasks,
+		Status:           taskStatus(spec.Tasks),
+		Evidence:         spec.Evidence,
+		MaxContextTokens: contextBudget(root),
+		ApproveTarget:    approveTarget,
+		RequirementsStub: requirementsStub(slug),
+	}
+	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
+	if b, err := os.ReadFile(filepath.Join(dir, "requirements.md")); err == nil {
+		ctx.RequirementsDoc = string(b)
+	}
+	if approveTarget == "design" {
+		if b, err := os.ReadFile(filepath.Join(dir, "design.md")); err == nil {
+			ctx.DesignDoc = string(b)
+		}
+		ctx.DesignStub = designStub(slug)
+	}
+	if state, err := core.LoadState(core.StatePath(root, slug)); err == nil {
+		ctx.StateLoaded = true
+		_, ctx.ApprovedRequirements = state.Records["approval:requirements"]
+		_, ctx.ApprovedDesign = state.Records["approval:design"]
+		ctx.StateTaskStatus = state.TaskStatus
+	}
+	return ctx
 }
 
 func taskStatus(tasks []core.TaskRow) map[string]core.TaskRunStatus {

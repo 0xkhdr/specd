@@ -71,7 +71,11 @@ type State struct {
 	Phase         Phase                      `json:"phase"`
 	Revision      int64                      `json:"revision"`
 	Records       map[string]json.RawMessage `json:"records,omitempty"`
-	Extra         map[string]json.RawMessage `json:"extra,omitempty"`
+	// TaskStatus is the machine truth for per-task run status (ADR-1: status
+	// lives in state.json, tasks.md stays clean Markdown). The Sync gate
+	// enforces that tasks.md markers agree with this map.
+	TaskStatus map[string]TaskRunStatus   `json:"task_status,omitempty"`
+	Extra      map[string]json.RawMessage `json:"extra,omitempty"`
 }
 
 func InitialState(slug string) State {

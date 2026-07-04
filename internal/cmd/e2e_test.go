@@ -64,6 +64,15 @@ func TestLifecycleE2E(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// Author real requirements + design: the EARS and design-stub gates (W4)
+	// refuse to check/approve an unedited scaffold stub.
+	writeReal := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(repo, ".specd/specs/demo", name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeReal("requirements.md", "# Requirements — demo\n\n- **R1** When a user runs check, the system shall validate the spec.\n")
+	writeReal("design.md", "# Design — demo\n\n## Modules\nThe check module runs gates.\n\n## On-disk contracts\nstate.json holds status.\n\n## Invariants\nOutput is deterministic.\n")
 
 	if _, code := run("check", "demo"); code != 0 {
 		t.Fatalf("check: code=%d", code)
@@ -119,6 +128,22 @@ func TestLifecycleE2E(t *testing.T) {
 	}
 	if strings.Contains(string(ledger), `"git_head":"unknown"`) {
 		t.Fatalf("evidence carries unresolved head:\n%s", ledger)
+	}
+
+	// P4.2 close-the-loop: task complete writes the ✅ marker and state.json
+	// status atomically, and the Sync gate stays green because they agree.
+	if out, code := run("task", "complete", "demo", "T1"); code != 0 || !strings.Contains(out, "completed") {
+		t.Fatalf("task complete: code=%d out=%q", code, out)
+	}
+	final, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))
+	if err != nil {
+		t.Fatalf("reload state: %v", err)
+	}
+	if final.TaskStatus["T1"] != core.TaskComplete {
+		t.Fatalf("state.json task status not recorded: %+v", final.TaskStatus)
+	}
+	if _, code := run("check", "demo"); code != 0 {
+		t.Fatalf("check after complete (sync gate red?): code=%d", code)
 	}
 
 	// Fail-closed dispatch: unknown verb must exit 2, never 0.

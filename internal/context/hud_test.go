@@ -10,7 +10,7 @@ import (
 )
 
 func TestHUDRender(t *testing.T) {
-	m, err := BuildManifest("demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1")
+	m, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 0)
 	if err != nil {
 		t.Fatalf("BuildManifest: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestHUDRender(t *testing.T) {
 // TestHUDMatchesJSON asserts the token total shown by the HUD equals the value
 // the --json surface serializes — one engine, two renders (RH.3).
 func TestHUDMatchesJSON(t *testing.T) {
-	m, err := BuildManifest("demo", []core.TaskRow{{ID: "T1", Role: "validator"}}, "T1")
+	m, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "validator"}}, "T1", 0)
 	if err != nil {
 		t.Fatalf("BuildManifest: %v", err)
 	}

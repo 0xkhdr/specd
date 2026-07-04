@@ -9,7 +9,7 @@ import (
 
 func TestBuildManifest(t *testing.T) {
 	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman"}}
-	got, err := BuildManifest("demo", tasks, "T1")
+	got, err := BuildManifest("", "demo", tasks, "T1", 0)
 	if err != nil {
 		t.Fatalf("BuildManifest: %v", err)
 	}
@@ -22,7 +22,7 @@ func TestBuildManifest(t *testing.T) {
 }
 
 func TestManifestValidate(t *testing.T) {
-	manifest, err := BuildManifest("demo", []core.TaskRow{{ID: "T1", Role: "validator"}}, "T1")
+	manifest, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "validator"}}, "T1", 0)
 	if err != nil {
 		t.Fatalf("BuildManifest: %v", err)
 	}
