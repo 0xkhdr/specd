@@ -97,7 +97,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		}
 		state.Status = target
 		state.Phase = phase
-		if err := appendRecord(&state, "approval:"+gate, map[string]string{"gate": gate}); err != nil {
+		if err := appendRecord(root, &state, "approval:"+gate, core.Record{Kind: "approval", Gate: gate, ApprovedRevision: state.Revision}); err != nil {
 			return struct{}{}, err
 		}
 		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
@@ -110,17 +110,22 @@ func runApprove(root string, args []string, flags map[string]string) error {
 }
 
 func runMidreq(root string, args []string, flags map[string]string) error {
-	return appendScoped(root, args, "midreq", "usage: specd midreq <spec>")
+	return appendScoped(root, args, flags, "midreq", "usage: specd midreq <spec> --text <text> [--scope <scope>]")
 }
 
 func runDecision(root string, args []string, flags map[string]string) error {
-	return appendScoped(root, args, "decision", "usage: specd decision <spec>")
+	return appendScoped(root, args, flags, "decision", "usage: specd decision <spec> --text <text> [--scope <scope>]")
 }
 
 // appendScoped appends a scoped record to state via CAS without touching
-// unrelated core fields (R13.5).
-func appendScoped(root string, args []string, kind, usage string) error {
+// unrelated core fields (R13.5). --text is required (R3.1): a decision or
+// midreq gate that records nothing observes nothing. --scope is optional.
+func appendScoped(root string, args []string, flags map[string]string, kind, usage string) error {
 	if len(args) != 1 {
+		return errors.New(usage)
+	}
+	text := strings.TrimSpace(flags["text"])
+	if text == "" {
 		return errors.New(usage)
 	}
 	slug := args[0]
@@ -131,7 +136,7 @@ func appendScoped(root string, args []string, kind, usage string) error {
 			return struct{}{}, err
 		}
 		key := fmt.Sprintf("%s:%d", kind, countPrefix(state.Records, kind+":"))
-		if err := appendRecord(&state, key, map[string]string{"kind": kind}); err != nil {
+		if err := appendRecord(root, &state, key, core.Record{Kind: kind, Text: text, Scope: flags["scope"]}); err != nil {
 			return struct{}{}, err
 		}
 		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
@@ -209,8 +214,11 @@ func runTask(root string, args []string, flags map[string]string) error {
 	return fmt.Errorf("task %s not found", id)
 }
 
-func appendRecord(state *core.State, key string, value any) error {
-	raw, err := json.Marshal(value)
+// appendRecord stamps rec with the provenance triple (timestamp/git_head/actor
+// via core.StampRecord) and stores it under key. Every record kind routes
+// through here, so no record reaches the ledger unstamped.
+func appendRecord(root string, state *core.State, key string, rec core.Record) error {
+	raw, err := json.Marshal(core.StampRecord(rec, gitHead(root)))
 	if err != nil {
 		return err
 	}

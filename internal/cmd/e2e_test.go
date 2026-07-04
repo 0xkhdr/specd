@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // TestLifecycleE2E drives init→new→check→approve→next→verify→report through a
@@ -82,6 +85,40 @@ func TestLifecycleE2E(t *testing.T) {
 	}
 	if out, code := run("report", "demo"); code != 0 || strings.TrimSpace(out) == "" {
 		t.Fatalf("report: code=%d out=%q", code, out)
+	}
+
+	// R3.1: the approval record names the gate approved and the artifact
+	// revision it approved, stamped with the provenance triple.
+	state, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+	var appr core.Record
+	if err := json.Unmarshal(state.Records["approval:requirements"], &appr); err != nil {
+		t.Fatalf("approval record: %v", err)
+	}
+	if appr.Gate != "requirements" {
+		t.Fatalf("approval record missing gate: %+v", appr)
+	}
+	if appr.Timestamp == "" || appr.Actor == "" || appr.GitHead == "" {
+		t.Fatalf("approval record not stamped: %+v", appr)
+	}
+
+	// R3.2/R3.3: the evidence ledger is append-only; a second verify appends a
+	// line rather than rewriting, and every line pins to a commit (this repo
+	// has a HEAD, so no record carries the "unknown" sentinel).
+	if _, code := run("verify", "demo", "T1"); code != 0 {
+		t.Fatalf("second verify failed")
+	}
+	ledger, err := os.ReadFile(filepath.Join(repo, ".specd/specs/demo/evidence.jsonl"))
+	if err != nil {
+		t.Fatalf("read ledger: %v", err)
+	}
+	if lines := strings.Count(strings.TrimSpace(string(ledger)), "\n") + 1; lines < 2 {
+		t.Fatalf("ledger not append-only: %d lines\n%s", lines, ledger)
+	}
+	if strings.Contains(string(ledger), `"git_head":"unknown"`) {
+		t.Fatalf("evidence carries unresolved head:\n%s", ledger)
 	}
 
 	// Fail-closed dispatch: unknown verb must exit 2, never 0.

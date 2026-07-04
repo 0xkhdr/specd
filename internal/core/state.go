@@ -5,10 +5,54 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
+	"time"
 )
 
 const StateSchemaVersion = 1
+
+// Clock is the injectable time source for record timestamps. Production uses
+// wall-clock UTC; tests swap it for determinism. All record timestamps flow
+// through here — never call time.Now directly in a record path.
+var Clock = func() time.Time { return time.Now().UTC() }
+
+// Record is a stamped ledger entry stored in State.Records. Content fields
+// (Text/Scope/Gate/ApprovedRevision) are per-kind; StampRecord fills the
+// provenance triple (Timestamp/GitHead/Actor) that ADR-6 observability and
+// PROJECT.md §3 evidence integrity require on every record.
+type Record struct {
+	Kind             string `json:"kind"`
+	Text             string `json:"text,omitempty"`
+	Scope            string `json:"scope,omitempty"`
+	Gate             string `json:"gate,omitempty"`
+	ApprovedRevision int64  `json:"approved_revision,omitempty"`
+	Timestamp        string `json:"timestamp"`
+	GitHead          string `json:"git_head"`
+	Actor            string `json:"actor"`
+}
+
+// StampRecord fills the provenance triple on rec: an RFC 3339 timestamp from
+// the injectable Clock, the caller-resolved git HEAD, and the host actor. The
+// actor is host-reported and stored verbatim — never trusted as proof.
+func StampRecord(rec Record, gitHead string) Record {
+	rec.Timestamp = Clock().Format(time.RFC3339)
+	rec.GitHead = gitHead
+	rec.Actor = recordActor()
+	return rec
+}
+
+// recordActor resolves the acting identity: $SPECD_ACTOR (already in the
+// scrubbed-env allowlist) if set, else the OS user, else "unknown".
+func recordActor() string {
+	if actor := os.Getenv("SPECD_ACTOR"); actor != "" {
+		return actor
+	}
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		return u.Username
+	}
+	return "unknown"
+}
 
 var ErrRevisionConflict = errors.New("state revision conflict")
 

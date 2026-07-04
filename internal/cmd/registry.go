@@ -230,7 +230,16 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		return err
 	}
 	if flagEnabled(flags, "json") {
-		return writeJSON(model)
+		// Records are projected verbatim (RawMessage), never re-synthesized, so
+		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
+		state, err := core.LoadState(core.StatePath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		return writeJSON(struct {
+			core.ReportModel
+			Records map[string]json.RawMessage `json:"records,omitempty"`
+		}{model, state.Records})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	return nil
@@ -332,6 +341,9 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		result, err = run()
 	}
 	head := gitHead(root)
+	if !core.HeadPinned(head) {
+		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this evidence cannot pin to a commit and will not count toward `task complete`\n", head)
+	}
 	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head}
 	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil && err == nil {
 		err = appendErr

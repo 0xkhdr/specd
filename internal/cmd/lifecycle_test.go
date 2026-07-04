@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,24 +92,52 @@ func TestMidreqDecisionAppend(t *testing.T) {
 	statePath := core.StatePath(root, "demo")
 	before, _ := core.LoadState(statePath)
 
-	if err := Run(root, "midreq", []string{"demo"}, nil); err != nil {
+	if err := Run(root, "midreq", []string{"demo"}, map[string]string{"text": "raise budget"}); err != nil {
 		t.Fatalf("midreq: %v", err)
 	}
-	if err := Run(root, "decision", []string{"demo"}, nil); err != nil {
+	if err := Run(root, "decision", []string{"demo"}, map[string]string{"text": "use CAS", "scope": "state"}); err != nil {
 		t.Fatalf("decision: %v", err)
 	}
 	state, _ := core.LoadState(statePath)
 	if _, ok := state.Records["midreq:0"]; !ok {
 		t.Fatal("midreq record missing")
 	}
-	if _, ok := state.Records["decision:0"]; !ok {
-		t.Fatal("decision record missing")
+	var rec core.Record
+	if err := json.Unmarshal(state.Records["decision:0"], &rec); err != nil {
+		t.Fatalf("decision record: %v", err)
+	}
+	if rec.Text != "use CAS" || rec.Scope != "state" {
+		t.Fatalf("decision content not round-tripped: %+v", rec)
+	}
+	if rec.Timestamp == "" || rec.Actor == "" || rec.GitHead == "" {
+		t.Fatalf("decision record not stamped: %+v", rec)
 	}
 	if state.Status != before.Status {
 		t.Fatalf("unrelated field mutated: status %q -> %q", before.Status, state.Status)
 	}
 	if state.Revision <= before.Revision {
 		t.Fatal("revision not advanced via CAS")
+	}
+}
+
+// TestDecisionRequiresText asserts decision/midreq without --text is a usage
+// error and writes nothing — a recorded decision that records no content
+// records nothing (R3.1).
+func TestDecisionRequiresText(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+
+	for _, verb := range []string{"decision", "midreq"} {
+		if err := Run(root, verb, []string{"demo"}, nil); err == nil {
+			t.Fatalf("%s without --text: want usage error, got nil", verb)
+		}
+		if err := Run(root, verb, []string{"demo"}, map[string]string{"text": "  "}); err == nil {
+			t.Fatalf("%s with blank --text: want usage error, got nil", verb)
+		}
+	}
+	state, _ := core.LoadState(statePath)
+	if len(state.Records) != 0 {
+		t.Fatalf("failed decision/midreq wrote records: %v", state.Records)
 	}
 }
 
