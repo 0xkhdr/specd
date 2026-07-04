@@ -28,6 +28,7 @@ var ErrUnknownCommand = errors.New("unknown command")
 
 var executable = map[string]Handler{
 	"approve":   runApprove,
+	"brain":     runBrain,
 	"check":     runCheck,
 	"context":   runContext,
 	"decision":  runDecision,

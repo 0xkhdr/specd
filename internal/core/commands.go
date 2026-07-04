@@ -118,9 +118,11 @@ var Commands = []Command{
 	},
 	{
 		Name:        "brain",
-		Usage:       "specd brain <start|step|run|status|approve|cancel|resume>",
+		Usage:       "specd brain <start|step|run|status> <spec> [--authority]",
 		Description: "Run the opt-in deterministic orchestration controller.",
-		Deferred:    true,
+		Flags: []Flag{
+			{Name: "authority", Description: "Grant dispatch authority (fail-closed by default)."},
+		},
 	},
 	{
 		Name:        "report",
