@@ -169,6 +169,12 @@ func runNext(root string, args []string, flags map[string]string) error {
 		}
 		return json.NewEncoder(os.Stdout).Encode(waves)
 	}
+	if err := requireTaskGate(root, args[0]); err != nil {
+		if flagEnabled(flags, "json") || flagEnabled(flags, "context") {
+			return writeJSON(map[string]any{"items": []any{}, "reason": err.Error()})
+		}
+		return err
+	}
 	frontier, err := core.Frontier(spec.Tasks, taskStatus(spec.Tasks))
 	if err != nil {
 		return err
@@ -294,6 +300,9 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		return errors.New("usage: specd verify <slug> <task>")
 	}
 	slug, taskID := args[0], args[1]
+	if err := requireTaskGate(root, slug); err != nil {
+		return err
+	}
 	spec, err := loadSpec(root, slug)
 	if err != nil {
 		return err
@@ -345,6 +354,26 @@ func runVerify(root string, args []string, flags map[string]string) error {
 type specData struct {
 	Tasks    []core.TaskRow
 	Evidence map[string]core.EvidenceRecord
+}
+
+func requireTaskGate(root, slug string) error {
+	state, err := core.LoadState(filepath.Join(root, ".specd", "specs", slug, "state.json"))
+	if err != nil {
+		return err
+	}
+	switch state.Status {
+	case core.StatusTasks, core.StatusComplete:
+		return nil
+	default:
+		if state.Records != nil {
+			if _, ok := state.Records["approval:requirements"]; ok {
+				if _, ok := state.Records["approval:design"]; ok {
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("missing approval: requirements and design gates must be approved before task execution")
+	}
 }
 
 func loadSpec(root, slug string) (specData, error) {

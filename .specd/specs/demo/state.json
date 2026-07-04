@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "slug": "demo",
+  "mode": "default",
+  "status": "design",
+  "phase": "analyze",
+  "revision": 2,
+  "records": {
+    "approval:requirements": {
+      "gate": "requirements"
+    },
+    "approval:design": {
+      "gate": "design"
+    }
+  }
+}

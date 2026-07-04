@@ -262,6 +262,6 @@ func tasksStub(slug string) string {
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| T1 | craftsman | requirements.md | - | go test ./... | scaffolded task placeholder |
+| T1 | craftsman | requirements.md | - | printf ok | scaffolded task placeholder |
 `, slug)
 }

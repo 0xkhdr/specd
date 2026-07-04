@@ -119,15 +119,26 @@ func TestStatusNextVerifyOnRealSpec(t *testing.T) {
 		args []string
 	}{
 		{"status", []string{"demo"}},
-		{"next", []string{"demo"}},
 		{"context", []string{"demo", "T1"}},
-		{"verify", []string{"demo", "T1"}},
 		{"report", []string{"demo"}},
 	} {
 		if _, err := captureStdout(t, func() error { return Run(root, verb.name, verb.args, nil) }); err != nil {
 			t.Fatalf("%s: %v", verb.name, err)
 		}
 	}
+	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+		t.Fatalf("approve requirements: %v", err)
+	}
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve design: %v", err)
+	}
+	if _, err := captureStdout(t, func() error { return Run(root, "next", []string{"demo"}, nil) }); err != nil {
+		t.Fatalf("next: %v", err)
+	}
+	if _, err := captureStdout(t, func() error { return Run(root, "verify", []string{"demo", "T1"}, nil) }); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
 	// verify wrote an evidence record for T1.
 	evidence, err := core.LoadEvidence(core.EvidencePath(root, "demo"))
 	if err != nil {
