@@ -1,2 +1,0 @@
-{"task_id":"T1","command":"go test ./...","exit_code":0,"git_head":"1ef443f0bc5927f6bcde797daad66fbf02f58a46"}
-{"task_id":"T1","command":"printf one","exit_code":0,"git_head":"1ef443f0bc5927f6bcde797daad66fbf02f58a46"}
