@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 type Args struct {
@@ -52,4 +54,7 @@ func ParseArgs(argv []string) (Args, error) {
 
 func Usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: specd <command> [args] [--flag value|--flag=value]")
+	for _, command := range core.Commands {
+		fmt.Fprintf(w, "  %-10s %s\n", command.Name, command.Description)
+	}
 }

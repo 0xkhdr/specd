@@ -1,0 +1,119 @@
+package gates
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/0xkhdr/specd/internal/core"
+)
+
+type CheckCtx struct {
+	Root             string
+	Slug             string
+	Tasks            []core.TaskRow
+	Status           map[string]core.TaskRunStatus
+	Evidence         map[string]core.EvidenceRecord
+	MaxContextTokens int
+}
+
+func CoreRegistry() Registry {
+	registry := NewRegistry()
+	registry.Register(gateFunc{name: "task-ids", run: taskIDs})
+	registry.Register(gateFunc{name: "dependencies", run: dependencies})
+	registry.Register(gateFunc{name: "dag", run: dag})
+	registry.Register(gateFunc{name: "roles", run: roles})
+	registry.Register(gateFunc{name: "files", run: files})
+	registry.Register(gateFunc{name: "verify", run: verifyCommands})
+	registry.Register(gateFunc{name: "evidence", run: evidence})
+	registry.Register(gateFunc{name: "context-budget", run: contextBudget})
+	return registry
+}
+
+type gateFunc struct {
+	name string
+	run  func(CheckCtx) []Finding
+}
+
+func (g gateFunc) Name() string { return g.name }
+func (g gateFunc) Run(ctx CheckCtx) []Finding {
+	return g.run(ctx)
+}
+
+func taskIDs(ctx CheckCtx) []Finding {
+	seen := map[string]bool{}
+	var findings []Finding
+	for _, task := range ctx.Tasks {
+		if task.ID == "" {
+			findings = append(findings, Finding{Severity: Error, Message: "task id is required"})
+			continue
+		}
+		if seen[task.ID] {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("duplicate task id %s", task.ID)})
+		}
+		seen[task.ID] = true
+	}
+	return findings
+}
+
+func dependencies(ctx CheckCtx) []Finding {
+	ids := map[string]bool{}
+	for _, task := range ctx.Tasks {
+		ids[task.ID] = true
+	}
+	var findings []Finding
+	for _, task := range ctx.Tasks {
+		for _, dep := range task.DependsOn {
+			if dep != "" && !ids[dep] {
+				findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s depends on missing task %s", task.ID, dep)})
+			}
+		}
+	}
+	return findings
+}
+
+func dag(ctx CheckCtx) []Finding {
+	if _, err := core.NewTaskDAG(ctx.Tasks); err != nil {
+		return []Finding{{Severity: Error, Message: err.Error()}}
+	}
+	return nil
+}
+
+func roles(ctx CheckCtx) []Finding {
+	var findings []Finding
+	for _, task := range ctx.Tasks {
+		if strings.TrimSpace(task.Role) == "" {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s role is required", task.ID)})
+		}
+	}
+	return findings
+}
+
+func files(ctx CheckCtx) []Finding {
+	var findings []Finding
+	for _, task := range ctx.Tasks {
+		if strings.TrimSpace(task.Files) == "" {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s files are required", task.ID)})
+		}
+	}
+	return findings
+}
+
+func verifyCommands(ctx CheckCtx) []Finding {
+	var findings []Finding
+	for _, task := range ctx.Tasks {
+		if strings.TrimSpace(task.Verify) == "" {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s verify command is required", task.ID)})
+		}
+	}
+	return findings
+}
+
+func evidence(ctx CheckCtx) []Finding {
+	var findings []Finding
+	for _, task := range ctx.Tasks {
+		if ctx.Status[task.ID] == core.TaskComplete && !core.HasPassingEvidence(ctx.Evidence, task.ID) {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s is complete without passing evidence", task.ID)})
+		}
+	}
+	return findings
+}

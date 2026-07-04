@@ -43,6 +43,31 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:        "approve",
+		Usage:       "specd approve <spec> <gate>",
+		Description: "Record human approval for a lifecycle gate.",
+	},
+	{
+		Name:        "midreq",
+		Usage:       "specd midreq <spec>",
+		Description: "Capture a scoped mid-stream requirement change.",
+	},
+	{
+		Name:        "decision",
+		Usage:       "specd decision <spec>",
+		Description: "Record an explicit human decision.",
+	},
+	{
+		Name:        "next",
+		Usage:       "specd next [--waves|--dispatch|--json]",
+		Description: "Select the next eligible task or wave.",
+		Flags: []Flag{
+			{Name: "waves", Description: "Show wave groups."},
+			{Name: "dispatch", Description: "Emit dispatch-ready task data."},
+			{Name: "json", Description: "Emit machine-readable output."},
+		},
+	},
+	{
 		Name:        "status",
 		Usage:       "specd status [spec] [--json]",
 		Description: "Report current spec and task state.",
@@ -59,6 +84,44 @@ var Commands = []Command{
 		Name:        "verify",
 		Usage:       "specd verify <task-id>",
 		Description: "Run and record task verification.",
+	},
+	{
+		Name:        "context",
+		Usage:       "specd context <task-id> [--json]",
+		Description: "Build the bounded context manifest for a task.",
+		Flags: []Flag{
+			{Name: "json", Description: "Emit machine-readable context."},
+		},
+	},
+	{
+		Name:        "mcp",
+		Usage:       "specd mcp",
+		Description: "Serve the MCP integration surface over stdio.",
+	},
+	{
+		Name:        "handshake",
+		Usage:       "specd handshake [bootstrap|policy]",
+		Description: "Emit bootstrap or policy handshake material.",
+	},
+	{
+		Name:        "brain",
+		Usage:       "specd brain <start|step|run|status|approve|cancel|resume>",
+		Description: "Run the opt-in deterministic orchestration controller.",
+	},
+	{
+		Name:        "report",
+		Usage:       "specd report <spec> [--pr|--metrics|--json]",
+		Description: "Render evidence-backed status and PR reports.",
+		Flags: []Flag{
+			{Name: "pr", Description: "Emit PR-oriented report."},
+			{Name: "metrics", Description: "Emit metrics summary."},
+			{Name: "json", Description: "Emit machine-readable report."},
+		},
+	},
+	{
+		Name:        "triage",
+		Usage:       "specd triage <spec>",
+		Description: "Run the opt-in extended-loop triage tier.",
 	},
 }
 

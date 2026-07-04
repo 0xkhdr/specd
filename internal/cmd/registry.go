@@ -1,29 +1,319 @@
 package cmd
 
-import "github.com/0xkhdr/specd/internal/core"
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
-// Handler is a deterministic command implementation boundary.
-type Handler func(args []string) error
+	speccontext "github.com/0xkhdr/specd/internal/context"
+	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates"
+	"github.com/0xkhdr/specd/internal/core/gates/security"
+	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
+)
 
-// Registry maps each supported top-level command to its handler.
-var Registry = map[string]Handler{
-	"help":   noOp,
-	"init":   noOp,
-	"new":    noOp,
-	"status": noOp,
-	"task":   noOp,
-	"verify": noOp,
+type Handler func(root string, args []string, flags map[string]string) error
+
+var Registry = buildRegistry()
+
+var executable = map[string]Handler{
+	"check":   runCheck,
+	"context": runContext,
+	"init":    runInit,
+	"next":    runNext,
+	"verify":  runVerify,
 }
 
-func noOp([]string) error { return nil }
+func buildRegistry() map[string]Handler {
+	registry := make(map[string]Handler, len(core.Commands))
+	for _, command := range core.Commands {
+		registry[command.Name] = executable[command.Name]
+	}
+	return registry
+}
 
-// RegisteredCommandNames returns registry keys in help order.
 func RegisteredCommandNames() []string {
 	names := make([]string, 0, len(core.Commands))
 	for _, command := range core.Commands {
-		if _, ok := Registry[command.Name]; ok {
-			names = append(names, command.Name)
-		}
+		names = append(names, command.Name)
 	}
 	return names
+}
+
+func Run(root, name string, args []string, flags map[string]string) error {
+	handler, ok := Registry[name]
+	if !ok || handler == nil {
+		return nil
+	}
+	return handler(root, args, flags)
+}
+
+func runCheck(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: specd check <slug>")
+	}
+	spec, err := loadSpec(root, args[0])
+	if err != nil {
+		return err
+	}
+	registry := gates.CoreRegistry()
+	if flagEnabled(flags, "security") {
+		registry.Register(security.New())
+	}
+	findings := registry.Run(gates.CheckCtx{
+		Root:             root,
+		Slug:             args[0],
+		Tasks:            spec.Tasks,
+		Status:           taskStatus(spec.Tasks),
+		Evidence:         spec.Evidence,
+		MaxContextTokens: contextBudget(root),
+	})
+	if flagEnabled(flags, "json") {
+		return json.NewEncoder(os.Stdout).Encode(findings)
+	}
+	for _, finding := range findings {
+		fmt.Fprintf(os.Stdout, "%s %s: %s\n", finding.Severity, finding.Gate, finding.Message)
+	}
+	if gates.HasErrors(findings) {
+		return errors.New("check failed")
+	}
+	return nil
+}
+
+func runInit(root string, args []string, flags map[string]string) error {
+	if len(args) != 0 {
+		return errors.New("usage: specd init [--agent=<name>]")
+	}
+	return core.WriteScaffold(root)
+}
+
+func runContext(root string, args []string, flags map[string]string) error {
+	if len(args) != 2 {
+		return errors.New("usage: specd context <slug> <task> [--json]")
+	}
+	spec, err := loadSpec(root, args[0])
+	if err != nil {
+		return err
+	}
+	manifest, err := speccontext.BuildManifest(args[0], spec.Tasks, args[1])
+	if err != nil {
+		return err
+	}
+	if flagEnabled(flags, "json") {
+		return writeJSON(manifest)
+	}
+	for _, item := range manifest.Items {
+		if item.Path != "" {
+			fmt.Fprintln(os.Stdout, item.Path)
+		}
+	}
+	return nil
+}
+
+func runNext(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: specd next <slug> [--json|--waves]")
+	}
+	spec, err := loadSpec(root, args[0])
+	if err != nil {
+		return err
+	}
+	if flagEnabled(flags, "waves") {
+		waves, err := core.ProjectWaves(spec.Tasks)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(waves)
+	}
+	frontier, err := core.Frontier(spec.Tasks, taskStatus(spec.Tasks))
+	if err != nil {
+		return err
+	}
+	if flagEnabled(flags, "dispatch") {
+		if len(frontier) == 0 {
+			return writeJSON(map[string]any{"items": nil})
+		}
+		manifest, err := speccontext.BuildManifest(args[0], spec.Tasks, frontier[0].ID)
+		if err != nil {
+			return err
+		}
+		return writeJSON(map[string]any{"items": manifest})
+	}
+	if flagEnabled(flags, "json") {
+		return writeJSON(frontier)
+	}
+	for _, task := range frontier {
+		fmt.Fprintln(os.Stdout, task.ID)
+	}
+	return nil
+}
+
+func writeJSON(value any) error {
+	raw, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(os.Stdout, string(raw))
+	return err
+}
+
+func contextBudget(root string) int {
+	paths := core.ConfigPaths{Project: filepath.Join(root, "project.yml")}
+	config, _ := core.LoadConfig(paths, getenv())
+	return config.Context.MaxTokens
+}
+
+func getenv() map[string]string {
+	env := make(map[string]string)
+	for _, kv := range os.Environ() {
+		key, value, ok := strings.Cut(kv, "=")
+		if ok {
+			env[key] = value
+		}
+	}
+	return env
+}
+
+func runVerify(root string, args []string, flags map[string]string) error {
+	if len(args) != 2 {
+		return errors.New("usage: specd verify <slug> <task>")
+	}
+	slug, taskID := args[0], args[1]
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return err
+	}
+	var task core.TaskRow
+	for _, candidate := range spec.Tasks {
+		if candidate.ID == taskID {
+			task = candidate
+			break
+		}
+	}
+	if task.ID == "" {
+		return fmt.Errorf("task %s not found", taskID)
+	}
+	run := func() (verifyexec.Result, error) {
+		return verifyexec.Run(context.Background(), verifyexec.Options{
+			Command:       task.Verify,
+			Dir:           root,
+			Sandbox:       flagEnabled(flags, "sandbox"),
+			SandboxBinary: flags["sandbox-binary"],
+		})
+	}
+	var result verifyexec.Result
+	if flagEnabled(flags, "revert-on-fail") {
+		result, err = withRevertOnFail(root, run)
+	} else {
+		result, err = run()
+	}
+	head := gitHead(root)
+	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head}
+	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil && err == nil {
+		err = appendErr
+	}
+	if result.Stdout != "" {
+		fmt.Fprint(os.Stdout, result.Stdout)
+	}
+	if result.Stderr != "" {
+		fmt.Fprint(os.Stderr, result.Stderr)
+	}
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("verify failed with exit code %d", result.ExitCode)
+	}
+	return nil
+}
+
+type specData struct {
+	Tasks    []core.TaskRow
+	Evidence map[string]core.EvidenceRecord
+}
+
+func loadSpec(root, slug string) (specData, error) {
+	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
+	raw, err := os.ReadFile(filepath.Join(dir, "tasks.md"))
+	if err != nil {
+		return specData{}, err
+	}
+	tasks, err := core.ParseTasksMd(raw)
+	if err != nil {
+		return specData{}, err
+	}
+	evidence, err := core.LoadEvidence(core.EvidencePath(root, slug))
+	if err != nil {
+		return specData{}, err
+	}
+	return specData{Tasks: tasks.Tasks, Evidence: evidence}, nil
+}
+
+func taskStatus(tasks []core.TaskRow) map[string]core.TaskRunStatus {
+	status := make(map[string]core.TaskRunStatus, len(tasks))
+	for _, task := range tasks {
+		switch task.Marker {
+		case "✅", "done", "complete":
+			status[task.ID] = core.TaskComplete
+		case "🚧", "running":
+			status[task.ID] = core.TaskRunning
+		case "⛔", "blocked":
+			status[task.ID] = core.TaskBlocked
+		default:
+			status[task.ID] = core.TaskPending
+		}
+	}
+	return status
+}
+
+func flagEnabled(flags map[string]string, name string) bool {
+	value, ok := flags[name]
+	return ok && (value == "" || value == "true" || value == "1")
+}
+
+func withRevertOnFail(root string, run func() (verifyexec.Result, error)) (verifyexec.Result, error) {
+	before := gitDiff(root)
+	result, err := run()
+	if err == nil && result.ExitCode == 0 {
+		return result, nil
+	}
+	after := gitDiff(root)
+	if after != "" {
+		_ = gitApply(root, after, true)
+	}
+	if before != "" {
+		_ = gitApply(root, before, false)
+	}
+	return result, err
+}
+
+func gitHead(root string) string {
+	out, err := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return "unknown"
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func gitDiff(root string) string {
+	out, err := exec.Command("git", "-C", root, "diff", "--binary").Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+func gitApply(root, patch string, reverse bool) error {
+	args := []string{"-C", root, "apply"}
+	if reverse {
+		args = append(args, "-R")
+	}
+	cmd := exec.Command("git", args...)
+	cmd.Stdin = strings.NewReader(patch)
+	return cmd.Run()
 }
