@@ -100,10 +100,11 @@ var Commands = []Command{
 	},
 	{
 		Name:        "context",
-		Usage:       "specd context <task-id> [--json]",
+		Usage:       "specd context <slug> <task-id> [--json|--hud]",
 		Description: "Build the bounded context manifest for a task.",
 		Flags: []Flag{
 			{Name: "json", Description: "Emit machine-readable context."},
+			{Name: "hud", Description: "Render the operator HUD (files, bytes, tokens, mode)."},
 		},
 	},
 	{

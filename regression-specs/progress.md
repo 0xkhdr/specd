@@ -74,16 +74,16 @@ opt-in-neutral additions; neither changes an existing byte-identical `state.json
 ### Wave R-B — Context HUD (R2)
 | task | files | verify | state |
 |---|---|---|---|
-| TR2.1 | `internal/context/hud.go` | `go test ./internal/context -run TestHUDRender` | ⬜ |
-| TR2.2 | `internal/core/commands.go`, `internal/cmd/registry.go` | `go run . context <task> --hud \| grep -qi total` | ⬜ |
-| TR2.3 | `internal/context/hud_test.go` | `go test ./internal/context -run TestHUDMatchesJSON` | ⬜ |
+| TR2.1 | `internal/context/hud.go` | `go test ./internal/context -run TestHUDRender` | ✅ |
+| TR2.2 | `internal/core/commands.go`, `internal/cmd/registry.go` | `go run . context <slug> <task> --hud \| grep -qi total` | ✅ |
+| TR2.3 | `internal/context/hud_test.go` | `go test ./internal/context -run TestHUDMatchesJSON` | ✅ |
 
 ## 5. Progress rollup
 | Wave | Tasks | Done | State |
 |---|---|---|---|
 | R-A | 6 | 6 | ✅ |
-| R-B | 3 | 0 | ⬜ |
-| **Total** | **9** | **6** | **67%** |
+| R-B | 3 | 3 | ✅ |
+| **Total** | **9** | **9** | **100%** |
 
 ## 6. Definition of done (per task — ADR-8)
 - [ ] Its `verify:` command passes with a written record (exit code + git HEAD).

@@ -1,0 +1,46 @@
+package context
+
+import (
+	"fmt"
+	"strings"
+	"text/tabwriter"
+)
+
+// RenderHUD formats an already-built Manifest as a human-readable operator view:
+// a table of load items with byte size and estimated token cost, a total row,
+// and the spec's mode/tier line. It is a pure projection of the Manifest — no
+// new estimation, no LLM, no I/O (ADR-8). The token total equals the value the
+// --json surface serializes (manifest.EstimatedTokens), so the two renders never
+// diverge numerically (RH.3).
+func RenderHUD(m Manifest) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "mode: %s  spec: %s  task: %s\n\n", m.Mode, m.Slug, m.TaskID)
+
+	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "LOAD\tBYTES\tTOKENS")
+	totalBytes := 0
+	for _, item := range m.Items {
+		bytes := itemBytes(item)
+		totalBytes += bytes
+		fmt.Fprintf(tw, "%s\t%d\t%d\n", itemLabel(item), bytes, item.EstimatedTokens)
+	}
+	fmt.Fprintf(tw, "TOTAL\t%d\t%d\n", totalBytes, m.EstimatedTokens)
+	tw.Flush()
+	return b.String()
+}
+
+// itemBytes is the byte length of the exact string the estimator consumed for
+// this item, so tokens == (bytes+3)/4 holds by construction.
+func itemBytes(item Item) int {
+	return len(item.Kind + item.Path + item.TaskID)
+}
+
+func itemLabel(item Item) string {
+	if item.Path != "" {
+		return item.Path
+	}
+	if item.TaskID != "" {
+		return item.Kind + ":" + item.TaskID
+	}
+	return item.Kind
+}

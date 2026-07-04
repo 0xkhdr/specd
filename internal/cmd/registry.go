@@ -134,8 +134,17 @@ func runContext(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	if flagEnabled(flags, "json") {
+	hud := flagEnabled(flags, "hud")
+	asJSON := flagEnabled(flags, "json")
+	if hud && asJSON {
+		return errors.New("usage: specd context <slug> <task> [--json|--hud]: choose one render")
+	}
+	if asJSON {
 		return writeJSON(manifest)
+	}
+	if hud {
+		fmt.Fprint(os.Stdout, speccontext.RenderHUD(manifest))
+		return nil
 	}
 	for _, item := range manifest.Items {
 		if item.Path != "" {
