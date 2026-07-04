@@ -34,6 +34,13 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 			cfg.Orchestration.Enabled = parsed
 		case "orchestration.model":
 			cfg.Orchestration.Model = value
+		case "promotion_threshold":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed < 1 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "promotion_threshold must be integer >= 1"})
+				continue
+			}
+			cfg.PromotionThreshold = parsed
 		default:
 			*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "unknown config key: " + key})
 		}
@@ -63,6 +70,13 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 			cfg.Orchestration.Enabled = parsed
 		case "SPECD_ORCHESTRATION_MODEL":
 			cfg.Orchestration.Model = value
+		case "SPECD_PROMOTION_THRESHOLD":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed < 1 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_PROMOTION_THRESHOLD must be integer >= 1"})
+				continue
+			}
+			cfg.PromotionThreshold = parsed
 		}
 	}
 }

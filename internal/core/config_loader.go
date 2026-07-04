@@ -9,11 +9,12 @@ import (
 
 // Config is the deterministic runtime configuration used by the harness.
 type Config struct {
-	Version       string
-	Agent         string
-	Gates         GatesConfig
-	Context       ContextConfig
-	Orchestration OrchestrationConfig
+	Version            string
+	Agent              string
+	Gates              GatesConfig
+	Context            ContextConfig
+	Orchestration      OrchestrationConfig
+	PromotionThreshold int
 }
 
 type GatesConfig struct {
@@ -53,6 +54,7 @@ var DefaultConfig = Config{
 		Enabled: false,
 		Model:   "",
 	},
+	PromotionThreshold: 3,
 }
 
 // LoadConfig applies global YAML, project YAML, then environment overrides.

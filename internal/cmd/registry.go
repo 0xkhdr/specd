@@ -36,6 +36,7 @@ var executable = map[string]Handler{
 	"help":      runHelp,
 	"init":      runInit,
 	"mcp":       runMCP,
+	"memory":    runMemory,
 	"midreq":    runMidreq,
 	"new":       runNew,
 	"next":      runNext,

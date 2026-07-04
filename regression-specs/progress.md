@@ -64,12 +64,12 @@ opt-in-neutral additions; neither changes an existing byte-identical `state.json
 ### Wave R-A — Steering Memory (R1)
 | task | files | verify | state |
 |---|---|---|---|
-| TR1.1 | `internal/core/memory.go` | `go test ./internal/core -run TestMemoryBlock` | ⬜ |
-| TR1.2 | `internal/core/config_loader.go`, `config_validate.go` | `go test ./internal/core -run TestPromotionThreshold` | ⬜ |
-| TR1.3 | `internal/core/paths.go` | `go test ./internal/core -run 'TestSpecMemoryPath\|TestListSpecs'` | ⬜ |
-| TR1.4 | `internal/cmd/memory.go`, `internal/core/commands.go`, `internal/cmd/registry.go` | `go run . memory demo add --key k --pattern p --body b --source s --criticality minor && grep -q '## k' .specd/specs/demo/memory.md` | ⬜ |
-| TR1.5 | `internal/cmd/lifecycle.go` | `go run . new demo && test -f .specd/specs/demo/memory.md` | ⬜ |
-| TR1.6 | `internal/cmd/memory_test.go` | `go test ./internal/cmd -run TestMemoryPromoteFlywheel` | ⬜ |
+| TR1.1 | `internal/core/memory.go` | `go test ./internal/core -run TestMemoryBlock` | ✅ |
+| TR1.2 | `internal/core/config_loader.go`, `config_validate.go` | `go test ./internal/core -run TestPromotionThreshold` | ✅ |
+| TR1.3 | `internal/core/paths.go` | `go test ./internal/core -run 'TestSpecMemoryPath\|TestListSpecs'` | ✅ |
+| TR1.4 | `internal/cmd/memory.go`, `internal/core/commands.go`, `internal/cmd/registry.go` | `go run . memory demo add --key k --pattern p --body b --source s --criticality minor && grep -q '## k' .specd/specs/demo/memory.md` | ✅ |
+| TR1.5 | `internal/cmd/lifecycle.go` | `go run . new demo && test -f .specd/specs/demo/memory.md` | ✅ |
+| TR1.6 | `internal/cmd/memory_test.go` | `go test ./internal/cmd -run TestMemoryPromoteFlywheel` | ✅ |
 
 ### Wave R-B — Context HUD (R2)
 | task | files | verify | state |
@@ -81,9 +81,9 @@ opt-in-neutral additions; neither changes an existing byte-identical `state.json
 ## 5. Progress rollup
 | Wave | Tasks | Done | State |
 |---|---|---|---|
-| R-A | 6 | 0 | ⬜ |
+| R-A | 6 | 6 | ✅ |
 | R-B | 3 | 0 | ⬜ |
-| **Total** | **9** | **0** | **0%** |
+| **Total** | **9** | **6** | **67%** |
 
 ## 6. Definition of done (per task — ADR-8)
 - [ ] Its `verify:` command passes with a written record (exit code + git HEAD).

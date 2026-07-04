@@ -107,6 +107,20 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:        "memory",
+		Usage:       "specd memory <slug> <add|promote> [flags]",
+		Description: "Append or promote steering-memory patterns (learning flywheel).",
+		Flags: []Flag{
+			{Name: "key", TakesValue: true, Description: "Pattern key (H2 heading)."},
+			{Name: "pattern", TakesValue: true, Description: "One-line pattern statement (add)."},
+			{Name: "body", TakesValue: true, Description: "Detail of the pattern (add)."},
+			{Name: "source", TakesValue: true, Description: "Where the pattern came from (add)."},
+			{Name: "criticality", TakesValue: true, Description: "minor|important|critical (add)."},
+			{Name: "related", TakesValue: true, Description: "Comma-separated related keys → wikilinks (add)."},
+			{Name: "force", Description: "Promote past the threshold (promote)."},
+		},
+	},
+	{
 		Name:        "mcp",
 		Usage:       "specd mcp",
 		Description: "Serve the MCP integration surface over stdio.",

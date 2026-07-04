@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 const specdDirName = ".specd"
@@ -22,6 +23,33 @@ func (e NotFoundError) ExitCode() int {
 
 func SpecdDir(root string) string {
 	return filepath.Join(root, specdDirName)
+}
+
+// SpecMemoryPath is the per-spec steering-memory store (RM.1).
+func SpecMemoryPath(root, slug string) string {
+	return filepath.Join(SpecdDir(root), "specs", slug, "memory.md")
+}
+
+// SteeringMemoryPath is the shared steering store promotions land in (RM.3).
+func SteeringMemoryPath(root string) string {
+	return filepath.Join(SpecdDir(root), "steering", "memory.md")
+}
+
+// ListSpecs enumerates spec slugs under .specd/specs/, sorted. Missing dir
+// yields an empty list, not an error.
+func ListSpecs(root string) []string {
+	entries, err := os.ReadDir(filepath.Join(SpecdDir(root), "specs"))
+	if err != nil {
+		return nil
+	}
+	var slugs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			slugs = append(slugs, entry.Name())
+		}
+	}
+	sort.Strings(slugs)
+	return slugs
 }
 
 func FindRoot(start string) (string, error) {

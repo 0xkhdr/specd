@@ -38,6 +38,9 @@ func runNew(root string, args []string, flags map[string]string) error {
 		if err := core.AtomicWrite(filepath.Join(specDir, "tasks.md"), tasksStub(slug)); err != nil {
 			return struct{}{}, err
 		}
+		if err := core.AtomicWrite(core.SpecMemoryPath(root, slug), memoryStub(slug)); err != nil {
+			return struct{}{}, err
+		}
 		return struct{}{}, core.SaveState(statePath, core.InitialState(slug))
 	})
 	if err != nil {
@@ -232,6 +235,10 @@ func findCommand(name string) (core.Command, bool) {
 		}
 	}
 	return core.Command{}, false
+}
+
+func memoryStub(slug string) string {
+	return fmt.Sprintf("# Memory — %s\n\n> Steering-memory patterns. Append with `specd memory %s add`.\n", slug, slug)
 }
 
 func specStub(slug string) string {
