@@ -1,6 +1,6 @@
 # specd Documentation Index & Navigational Guide
 
-Welcome to the design and architectural documentation for the rebuilt **`specd`** (v2) harness. This documentation is structured around the 12 system domains of the codebase, aligning with the principles of **Harness Engineering** outlined in [The New SDLC with Vibe Coding](file:///var/www/html/rai/up/specd/The_New_SDLC_With_Vibe_Coding.pdf) (pp.26–34).
+Welcome to the design and architectural documentation for the rebuilt **`specd`** (v2) harness. This documentation is structured around the 12 system domains of the codebase, aligning with the principles of **Harness Engineering** (the split between agent reasoning and harness enforcement).
 
 ---
 

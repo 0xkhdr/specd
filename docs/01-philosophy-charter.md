@@ -8,7 +8,7 @@ This document outlines the core product philosophy, guiding principles, and harn
 
 ## 1. The Foundational Split (P1)
 
-As outlined in [The New SDLC with Vibe Coding](file:///var/www/html/rai/up/specd/The_New_SDLC_With_Vibe_Coding.pdf) (Harness Engineering, pp.26–34), most agent failures are process or configuration failures rather than logic failures. The Foundational Split addresses this by drawing a strict line between the Agent and the Harness:
+As a fundamental design decision, most agent failures are process or configuration failures rather than logic failures. The Foundational Split addresses this by drawing a strict line between the Agent and the Harness:
 
 *   **The Agent** creates, reasons, design specs, and implements code. It operates in an untrusted execution environment.
 *   **The Harness (`specd`)** is a deterministic process-enforcement engine. It never uses a Large Language Model (LLM) or network call for routing, gate checks, or state updates. It treats all agent-created artifacts (`requirements.md`, `design.md`, `tasks.md`) as untrusted inputs and validates them using pure, deterministic functions.

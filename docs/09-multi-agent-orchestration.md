@@ -6,7 +6,7 @@ This document describes the design of the opt-in orchestration tier in `specd` (
 
 ## 1. Conductor vs. Orchestrator Modes
 
-`specd` supports two distinct modes of execution, matching the classification in [The New SDLC with Vibe Coding](file:///var/www/html/rai/up/specd/The_New_SDLC_With_Vibe_Coding.pdf) (p.31):
+`specd` supports two distinct modes of execution:
 
 *   **Conductor Mode (`mode: simple`):** Designed for single-agent IDE interactions (Claude Code, Cursor). The human approves phase gates, and the agent executes tasks sequentially.
 *   **Orchestrator Mode (`mode: orchestrated`):** Designed for multi-agent asynchronous workflows. A central **Brain** controller manages scheduling, and ephemeral **Pinky** workers execute tasks in parallel.

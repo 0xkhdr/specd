@@ -13,7 +13,7 @@ To focus the MVP on process enforcement, the vast majority of the post-build fee
 *   **`deploy` / `observe` / `ingest` / `harness`:** **DEFER**. Deployment checks, production error correlation, codebase coverage gates, and package bundle registries are deferred.
 *   **`submit` / `migrate`:** **CUT**. The shell execution wrapper `submit` is deleted; database schema migration `migrate` is removed until a new schema change arises.
 
-*Origin:* Triage decisions detailed in [00-scope-triage.md](file:///var/www/html/rai/up/specd/fresh-start/00-scope-triage.md).
+These triage decisions ensure that specd focuses exclusively on core verification and process enforcement.
 
 ---
 

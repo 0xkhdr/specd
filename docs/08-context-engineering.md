@@ -6,7 +6,7 @@ This document outlines the design and implementation of the context manifest eng
 
 ## 1. Principles of Lean Context
 
-As detailed in [The New SDLC with Vibe Coding](file:///var/www/html/rai/up/specd/The_New_SDLC_With_Vibe_Coding.pdf) (pp.15–18), stuffing a model's context window with irrelevant files leads to poor reasoning, high latency, and increased cost. 
+Stuffing a model's context window with irrelevant files leads to poor reasoning, high latency, and increased cost. 
 
 `specd` enforces **Context Discipline** by compiling a minimal, targeted context manifest for each task:
 *   **Static Context:** System rules, steering constitution, and role prompts.

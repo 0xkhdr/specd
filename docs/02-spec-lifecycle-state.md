@@ -41,7 +41,7 @@ The `state.json` file is the machine-readable spine of a spec. To prevent the co
 
 *   **`schemaVersion` (int):** Reset to `1` in v2.
 *   **`revision` (int):** Monotonically increasing revision number used for Compare-And-Swap (CAS) verification.
-*   **`mode` (string):** The execution mode. Aligned with the two states described in [The New SDLC with Vibe Coding](file:///var/www/html/rai/up/specd/The_New_SDLC_With_Vibe_Coding.pdf) (p.31):
+*   **`mode` (string):** The execution mode. The harness supports two distinct execution patterns:
     *   `simple` (Conductor): Human-in-the-loop, real-time developer environment, no asynchronous worker delegation.
     *   `orchestrated` (Orchestrator): Async multi-agent delegation via Brain/Pinky.
 *   **`status` (string):** The current phase status of the spec.
