@@ -17,7 +17,7 @@
 |---|---|---|
 | 1 — Domain analysis | ✅ complete | 12 `fresh-start/*.md` + roadmap/ADRs/triage |
 | 2 — Spec authoring | ✅ complete | 12 × `spec.md` + `tasks.md` (this directory) |
-| 3 — Implementation | ⬜ not started | Build waves A–H below |
+| 3 — Implementation | ✅ complete | Build waves A–H complete |
 
 ### Authoring completeness (Stage 2 DoD)
 All 12 meet the contract: (a) EARS-shaped testable requirements; (b) design names module
@@ -80,16 +80,16 @@ domains run in parallel.
 ### Wave C — lifecycle & parser (parallel) ✅
 | task | domain | files | verify |
 |---|---|---|---|
-| ⬜ T2.4 | 02 | `new.go` | `go run . new demo && test -f .specd/specs/demo/state.json` |
-| ⬜ T2.5 | 02 | `approve.go`, `task_complete.go` | `go test ./internal/cmd -run TestApproveGates` |
-| ⬜ T2.6 | 02 | `status.go` | `go run . status demo --json \| grep '"mode":"simple"'` |
-| ⬜ T2.7 | 02 | `state_lock_test.go` | `go test ./internal/core -run TestSaveStateRequiresLock` |
+| ✅ T2.4 | 02 | `new.go` | `go run . new demo && test -f .specd/specs/demo/state.json` |
+| ✅ T2.5 | 02 | `approve.go`, `task_complete.go` | `go test ./internal/cmd -run TestApproveGates` |
+| ✅ T2.6 | 02 | `status.go` | `go run . status demo --json \| grep '"mode":"simple"'` |
+| ✅ T2.7 | 02 | `state_lock_test.go` | `go test ./internal/core -run TestSaveStateRequiresLock` |
 | ✅ T4.1 | 04 | `tasksparser.go`, `md.go` | `go test ./internal/core -run TestTasksRoundTrip` |
 | ✅ T4.2 | 04 | `tasksparser.go` | `go test ./internal/core -run TestSingleLineRewrite` |
 | ✅ T4.3 | 04 | `dag.go` | `go test ./internal/core -run TestDAG` |
-| ⬜ T5.1 | 05 | `verify/exec.go`, `customgate.go` | `go test ./internal/core/verify -run TestScrubbedEnv` |
-| ⬜ T5.2 | 05 | `evidence/ledger.go` | `go test ./internal/core/evidence -run TestAppendOnly` |
-| ⬜ T5.3 | 05 | `verify/capture.go` | `go test ./internal/core/verify -run TestChangedFiles` |
+| ✅ T5.1 | 05 | `verify/exec.go`, `customgate.go` | `go test ./internal/core/verify -run TestScrubbedEnv` |
+| ✅ T5.2 | 05 | `evidence/ledger.go` | `go test ./internal/core/evidence -run TestAppendOnly` |
+| ✅ T5.3 | 05 | `verify/capture.go` | `go test ./internal/core/verify -run TestChangedFiles` |
 
 ### Wave D — gates, evidence integrity, dispatch ✅
 | task | domain | files | verify |
@@ -123,45 +123,45 @@ domains run in parallel.
 | ✅ T3.5 | 03 | `gates/contextbudget.go` | `go test ./internal/core/gates -run TestContextBudgetGate` |
 | ✅ T3.6 | 03 | `gates/parity_test.go` | `go test ./internal/core/gates -run TestByteIdenticalWhenOptInsOff` |
 
-### Wave F — surfaces ⬜
+### Wave F — surfaces ✅
 | task | domain | files | verify |
 |---|---|---|---|
-| ⬜ T7.1 | 07 | `mcp/server.go`, `cmd/mcp.go` | `echo '{...tools/list}' \| go run . mcp` |
-| ⬜ T7.2 | 07 | `mcp/tools_core.go` | `go test ./internal/mcp -run TestMCPParity` |
-| ⬜ T7.3 | 07 | `manifest_tools.go` | `go test ./internal/core -run TestForbiddenTool` |
-| ⬜ T7.4 | 07 | `handshake.go` (cmd+core) | `go run . handshake bootstrap --json \| grep version` |
-| ⬜ T7.5 | 07 | `mcp/tools_brain.go` | `go test ./internal/mcp -run TestBrainToolsGatedByConfig` |
-| ⬜ T7.6 | 07 | `mcp/parity_test.go` | `go test ./internal/mcp -run TestMCPParity` |
-| ⬜ T8.5 | 08 | `context/budget.go`, `gates/contextbudget.go` | `SPECD_MAX_CONTEXT_TOKENS=10 go run . check demo` |
-| ⬜ T8.6 | 08 | `docs/context.md` | `grep -q read-targeted docs/context.md` |
-| ⬜ T8.7 | 08 | `context/manifest_test.go` | `go test ./internal/context -run TestManifestValidate` |
-| ⬜ T11.1 | 11 | `core/report.go` | `go test ./internal/core -run TestReportModel` |
-| ⬜ T11.2 | 11 | `cmd/status.go` | `go run . status demo --json` |
-| ⬜ T11.3 | 11 | `prsummary.go`, `commitlink.go` | `go test ./internal/core -run TestPRSummaryGolden` |
-| ⬜ T11.4 | 11 | `report_metrics.go` | `go test ./internal/core -run TestMetricsGolden` |
-| ⬜ T11.5 | 11 | `report_purity_test.go` | `go test ./internal/core -run TestNoLLMInRender` |
+| ✅ T7.1 | 07 | `mcp/server.go`, `cmd/mcp.go` | `echo '{...tools/list}' \| go run . mcp` |
+| ✅ T7.2 | 07 | `mcp/tools_core.go` | `go test ./internal/mcp -run TestMCPParity` |
+| ✅ T7.3 | 07 | `manifest_tools.go` | `go test ./internal/core -run TestForbiddenTool` |
+| ✅ T7.4 | 07 | `handshake.go` (cmd+core) | `go run . handshake bootstrap --json \| grep version` |
+| ✅ T7.5 | 07 | `mcp/tools_brain.go` | `go test ./internal/mcp -run TestBrainToolsGatedByConfig` |
+| ✅ T7.6 | 07 | `mcp/parity_test.go` | `go test ./internal/mcp -run TestMCPParity` |
+| ✅ T8.5 | 08 | `context/budget.go`, `gates/contextbudget.go` | `SPECD_MAX_CONTEXT_TOKENS=10 go run . check demo` |
+| ✅ T8.6 | 08 | `docs/context.md` | `grep -q read-targeted docs/context.md` |
+| ✅ T8.7 | 08 | `context/manifest_test.go` | `go test ./internal/context -run TestManifestValidate` |
+| ✅ T11.1 | 11 | `core/report.go` | `go test ./internal/core -run TestReportModel` |
+| ✅ T11.2 | 11 | `cmd/status.go` | `go run . status demo --json` |
+| ✅ T11.3 | 11 | `prsummary.go`, `commitlink.go` | `go test ./internal/core -run TestPRSummaryGolden` |
+| ✅ T11.4 | 11 | `report_metrics.go` | `go test ./internal/core -run TestMetricsGolden` |
+| ✅ T11.5 | 11 | `report_purity_test.go` | `go test ./internal/core -run TestNoLLMInRender` |
 
-### Wave G — orchestration tier ⬜
+### Wave G — orchestration tier ✅
 | task | domain | files | verify |
 |---|---|---|---|
-| ⬜ T9.1 | 09 | `orchestration/decide.go` | `go test ./internal/orchestration -run TestDecidePure` |
-| ⬜ T9.2 | 09 | `orchestration/sense.go` | `go test ./internal/orchestration -run TestSense` |
-| ⬜ T9.3 | 09 | `orchestration/brakes.go` | `go test ./internal/orchestration -run TestBrakes` |
-| ⬜ T9.4 | 09 | `orchestration/acp.go` | `go test ./internal/orchestration -run TestACPRoundtrip` |
-| ⬜ T9.5 | 09 | `orchestration/lease.go` | `go test ./internal/orchestration -run TestLeaseReclaim` |
-| ⬜ T9.6 | 09 | `orchestration/session.go` | `go test ./internal/orchestration -run TestSessionCAS` |
-| ⬜ T9.7 | 09 | `cmd/brain.go`, `orchestration/driver.go` | `go test ./internal/orchestration -run TestBrainDriverDispatchesFrontier` |
-| ⬜ T9.8 | 09 | `cmd/pinky.go`, `brain_worker.go` | `go test ./internal/cmd -run TestReportRequiresVerify` |
-| ⬜ T9.9 | 09 | orchestration authority config | `go test ./internal/orchestration -run TestFailClosedAuthority` |
-| ⬜ T9.10 | 09 | `orchestration/decide_test.go` | `go test ./internal/orchestration -run TestNoLLM` |
+| ✅ T9.1 | 09 | `orchestration/decide.go` | `go test ./internal/orchestration -run TestDecidePure` |
+| ✅ T9.2 | 09 | `orchestration/sense.go` | `go test ./internal/orchestration -run TestSense` |
+| ✅ T9.3 | 09 | `orchestration/brakes.go` | `go test ./internal/orchestration -run TestBrakes` |
+| ✅ T9.4 | 09 | `orchestration/acp.go` | `go test ./internal/orchestration -run TestACPRoundtrip` |
+| ✅ T9.5 | 09 | `orchestration/lease.go` | `go test ./internal/orchestration -run TestLeaseReclaim` |
+| ✅ T9.6 | 09 | `orchestration/session.go` | `go test ./internal/orchestration -run TestSessionCAS` |
+| ✅ T9.7 | 09 | `cmd/brain.go`, `orchestration/driver.go` | `go test ./internal/orchestration -run TestBrainDriverDispatchesFrontier` |
+| ✅ T9.8 | 09 | `cmd/pinky.go`, `brain_worker.go` | `go test ./internal/cmd -run TestReportRequiresVerify` |
+| ✅ T9.9 | 09 | orchestration authority config | `go test ./internal/orchestration -run TestFailClosedAuthority` |
+| ✅ T9.10 | 09 | `orchestration/decide_test.go` | `go test ./internal/orchestration -run TestNoLLM` |
 
-### Wave H — flywheel (minimal) ⬜
+### Wave H — flywheel (minimal) ✅
 | task | domain | files | verify |
 |---|---|---|---|
-| ⬜ T12.1 | 12 | `gates/security/scanners.go` | `go test ./internal/core/gates/security -run TestScanners` |
-| ⬜ T12.2 | 12 | `gates/security/allow.go` | `go test ./... -run TestAllowlistReasonRequired` |
-| ⬜ T12.3 | 12 | `docs/deferred-flywheel.md` | `grep -q DeployApproval docs/deferred-flywheel.md` |
-| ⬜ T12.4 | 12 | `gates/security/off_test.go` | `go test -run TestSecurityOffByDefault` |
+| ✅ T12.1 | 12 | `gates/security/scanners.go` | `go test ./internal/core/gates/security -run TestScanners` |
+| ✅ T12.2 | 12 | `gates/security/allow.go` | `go test ./... -run TestAllowlistReasonRequired` |
+| ✅ T12.3 | 12 | `docs/deferred-flywheel.md` | `grep -q DeployApproval docs/deferred-flywheel.md` |
+| ✅ T12.4 | 12 | `gates/security/off_test.go` | `go test -run TestSecurityOffByDefault` |
 
 ---
 
@@ -169,15 +169,15 @@ domains run in parallel.
 
 | Wave | Tasks | Done | State |
 |---|---|---|---|
-| A | 6 | 0 | ⬜ |
-| B | 8 | 0 | ⬜ |
-| C | 10 | 0 | ⬜ |
-| D | 10 | 0 | ⬜ |
+| A | 6 | 6 | ✅ |
+| B | 8 | 8 | ✅ |
+| C | 10 | 10 | ✅ |
+| D | 10 | 10 | ✅ |
 | E | 14 | 14 | ✅ |
-| F | 14 | 0 | ⬜ |
-| G | 10 | 0 | ⬜ |
-| H | 4 | 0 | ⬜ |
-| **Total** | **76** | **14** | **18%** |
+| F | 14 | 14 | ✅ |
+| G | 10 | 10 | ✅ |
+| H | 4 | 4 | ✅ |
+| **Total** | **76** | **76** | **100%** |
 
 ---
 

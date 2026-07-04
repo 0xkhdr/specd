@@ -15,6 +15,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core/gates"
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
+	"github.com/0xkhdr/specd/internal/mcp"
 )
 
 type Handler func(root string, args []string, flags map[string]string) error
@@ -22,11 +23,15 @@ type Handler func(root string, args []string, flags map[string]string) error
 var Registry = buildRegistry()
 
 var executable = map[string]Handler{
-	"check":   runCheck,
-	"context": runContext,
-	"init":    runInit,
-	"next":    runNext,
-	"verify":  runVerify,
+	"check":     runCheck,
+	"context":   runContext,
+	"handshake": runHandshake,
+	"init":      runInit,
+	"mcp":       runMCP,
+	"next":      runNext,
+	"report":    runReport,
+	"status":    runStatus,
+	"verify":    runVerify,
 }
 
 func buildRegistry() map[string]Handler {
@@ -151,6 +156,77 @@ func runNext(root string, args []string, flags map[string]string) error {
 		fmt.Fprintln(os.Stdout, task.ID)
 	}
 	return nil
+}
+
+func runMCP(root string, args []string, flags map[string]string) error {
+	if len(args) != 0 {
+		return errors.New("usage: mcp")
+	}
+	return mcp.Serve(os.Stdin, os.Stdout, mcp.CoreTools())
+}
+
+func runHandshake(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 || args[0] != "bootstrap" {
+		return errors.New("usage: handshake bootstrap [--json]")
+	}
+	config, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	handshake := core.BootstrapHandshake(config)
+	if flagEnabled(flags, "json") {
+		return writeJSON(handshake)
+	}
+	fmt.Fprintf(os.Stdout, "version: %s\n", handshake.Version)
+	for _, tool := range handshake.Tools {
+		fmt.Fprintf(os.Stdout, "tool: %s\n", tool)
+	}
+	return nil
+}
+
+func runStatus(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: status slug [--json]")
+	}
+	model, err := reportModel(root, args[0])
+	if err != nil {
+		return err
+	}
+	if flagEnabled(flags, "json") {
+		return writeJSON(model)
+	}
+	fmt.Fprint(os.Stdout, core.RenderStatus(model))
+	return nil
+}
+
+func runReport(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: report slug [--pr|--metrics|--json]")
+	}
+	model, err := reportModel(root, args[0])
+	if err != nil {
+		return err
+	}
+	switch {
+	case flagEnabled(flags, "json"):
+		return writeJSON(model)
+	case flagEnabled(flags, "metrics"):
+		fmt.Fprint(os.Stdout, core.RenderMetrics(model))
+	case flagEnabled(flags, "pr"):
+		fmt.Fprint(os.Stdout, core.PRSummary(model))
+	default:
+		fmt.Fprint(os.Stdout, core.RenderStatus(model))
+	}
+	return nil
+}
+
+func reportModel(root, slug string) (core.ReportModel, error) {
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return core.ReportModel{}, err
+	}
+	evidence, err := core.LoadEvidence(core.EvidencePath(root, slug))
+	if err != nil {
+		return core.ReportModel{}, err
+	}
+	return core.BuildReportModel(slug, spec.Tasks, taskStatus(spec.Tasks), evidence), nil
 }
 
 func writeJSON(value any) error {
