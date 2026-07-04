@@ -53,22 +53,30 @@ var Commands = []Command{
 	},
 	{
 		Name:        "midreq",
-		Usage:       "specd midreq <spec>",
+		Usage:       "specd midreq <spec> --text <change> [--scope <scope>]",
 		Description: "Capture a scoped mid-stream requirement change.",
+		Flags: []Flag{
+			{Name: "text", TakesValue: true, Description: "Change description (required)."},
+			{Name: "scope", TakesValue: true, Description: "Optional scope label."},
+		},
 	},
 	{
 		Name:        "decision",
-		Usage:       "specd decision <spec>",
+		Usage:       "specd decision <spec> --text <rationale> [--scope <scope>]",
 		Description: "Record an explicit human decision.",
+		Flags: []Flag{
+			{Name: "text", TakesValue: true, Description: "Decision rationale (required)."},
+			{Name: "scope", TakesValue: true, Description: "Optional scope label."},
+		},
 	},
 	{
 		Name:        "next",
-		Usage:       "specd next [--waves|--dispatch|--json]",
+		Usage:       "specd next <slug> [--json | --waves | --dispatch]",
 		Description: "Select the next eligible task or wave.",
 		Flags: []Flag{
-			{Name: "waves", Description: "Show wave groups."},
-			{Name: "dispatch", Description: "Emit dispatch-ready task data."},
-			{Name: "json", Description: "Emit machine-readable output."},
+			{Name: "waves", Description: "Show all wave groups as JSON."},
+			{Name: "dispatch", Description: "Emit the context manifest for the first frontier task."},
+			{Name: "json", Description: "Emit machine-readable frontier list."},
 		},
 	},
 	{
@@ -81,8 +89,11 @@ var Commands = []Command{
 	},
 	{
 		Name:        "task",
-		Usage:       "specd task <id>",
-		Description: "Show task details.",
+		Usage:       "specd task <id> | specd task complete <spec> <id>",
+		Description: "Show task details or mark a task complete (requires passing evidence).",
+		Flags: []Flag{
+			{Name: "json", Description: "Emit machine-readable task row."},
+		},
 	},
 	{
 		Name:        "check",
@@ -95,8 +106,13 @@ var Commands = []Command{
 	},
 	{
 		Name:        "verify",
-		Usage:       "specd verify <task-id>",
-		Description: "Run and record task verification.",
+		Usage:       "specd verify <slug> <task-id> [--revert-on-fail] [--sandbox] [--sandbox-binary=<path>]",
+		Description: "Run and record task verification. Appends an evidence record regardless of outcome.",
+		Flags: []Flag{
+			{Name: "revert-on-fail", Description: "Restore working tree on verify failure."},
+			{Name: "sandbox", Description: "Run inside bwrap/container sandbox (config.verify.sandbox)."},
+			{Name: "sandbox-binary", TakesValue: true, Description: "Path to sandbox binary (overrides auto-detect)."},
+		},
 	},
 	{
 		Name:        "context",
