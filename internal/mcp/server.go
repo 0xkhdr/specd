@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"io"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 type Request struct {
@@ -23,6 +25,10 @@ type Response struct {
 type ResponseError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+type toolCallParams struct {
+	Name string `json:"name"`
 }
 
 func Serve(r io.Reader, w io.Writer, tools []Tool) error {
@@ -49,6 +55,17 @@ func Dispatch(req Request, tools []Tool) Response {
 	switch req.Method {
 	case "tools/list":
 		resp.Result = map[string]any{"tools": tools}
+	case "tools/call":
+		var params toolCallParams
+		if err := json.Unmarshal(req.Params, &params); err != nil || params.Name == "" {
+			resp.Error = &ResponseError{Code: -32602, Message: "invalid params"}
+			return resp
+		}
+		if core.ForbiddenTool(params.Name) {
+			resp.Error = &ResponseError{Code: -32001, Message: "tool denied by policy"}
+			return resp
+		}
+		resp.Error = &ResponseError{Code: -32601, Message: "tool not implemented"}
 	default:
 		resp.Error = &ResponseError{Code: -32601, Message: "method not found"}
 	}

@@ -44,6 +44,30 @@ func TestMCPParity(t *testing.T) {
 	}
 }
 
+// TestDenyList pins the MCP deny list itself (R2.1): the named human-gate and
+// host-only verbs must be absent from tools/list AND refused by tools/call.
+// Removing any entry from core.ForbiddenTool breaks CI here at both layers.
+func TestDenyList(t *testing.T) {
+	denied := []string{"approve", "init", "mcp", "brain"}
+
+	listed := map[string]bool{}
+	for _, tool := range CoreTools() {
+		listed[tool.Name] = true
+	}
+	for _, name := range denied {
+		if listed[name] {
+			t.Fatalf("tools/list must exclude %q", name)
+		}
+		resp := Dispatch(Request{
+			JSONRPC: "2.0", ID: 1, Method: "tools/call",
+			Params: []byte(`{"name":"` + name + `"}`),
+		}, CoreTools())
+		if resp.Error == nil || resp.Error.Code != -32001 {
+			t.Fatalf("tools/call %q: want policy error -32001, got %#v", name, resp.Error)
+		}
+	}
+}
+
 func TestBrainToolsGatedByConfig(t *testing.T) {
 	if got := BrainTools(core.Config{}); len(got) != 0 {
 		t.Fatalf("brain tools should be disabled: %#v", got)

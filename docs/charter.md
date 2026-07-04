@@ -53,5 +53,12 @@ component** and its governing principle.
 
 - `triage` is a registered **deferred** stub (`Deferred: true`). It is the 18th verb against the
   §5 target of 16; W5/R5.1 resolves the count by subtraction, not by wiring the stub.
-- `pinky` (orchestration worker) is **not** in the registry yet (F11); W2/R2.3 registers it. When
-  it lands it maps to **orchestration** / P4 and must be added to this table.
+- `pinky` (orchestration worker CLI) is **deferred and unshipped** (W2/R2.3, superseding the
+  earlier "register it" intent under ADR-5 subtractive bias). `internal/cmd/pinky.go` was deleted
+  rather than wired: the worker verbs `{claim,heartbeat,report,inbox,checkpoint}` were dead,
+  unreachable surface (never in `Commands`, never dispatched). ADR-3 keeps the orchestration
+  *tier* compiled-and-inert; a worker CLI is not required for that tier to be fail-closed-correct,
+  so shipping it now would be accreted mass. Re-entry seam: register the verbs in
+  `internal/core/commands.go` `Commands` (mapping to **orchestration** / P4, added to this table)
+  when a real driver consumes them — no re-architecture. `TestSurfaceMatchesADR` pins that the
+  registry carries no `pinky` surface until then.

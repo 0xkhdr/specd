@@ -32,6 +32,9 @@ func runBrain(root string, args []string, flags map[string]string) error {
 		}
 		return writeJSON(session)
 	case "start":
+		if err := requireBrainStartPreconditions(root, slug); err != nil {
+			return err
+		}
 		if err := orchestration.SaveSessionCAS(root, sessionPath, 0, orchestration.Session{}); err != nil {
 			return err
 		}
@@ -81,6 +84,26 @@ func runBrain(root string, args []string, flags map[string]string) error {
 
 // sessionDispatcher records a dispatch as ACP evidence and a session lease. It is
 // the only mutation surface for a controller step.
+func requireBrainStartPreconditions(root, slug string) error {
+	config, diagnostics := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == "error" {
+			return fmt.Errorf("load config: %s", diagnostic.Message)
+		}
+	}
+	if !config.Orchestration.Enabled {
+		return errors.New("missing precondition: orchestration.enabled must be true")
+	}
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return err
+	}
+	if state.Mode != "orchestrated" {
+		return fmt.Errorf("missing precondition: spec mode must be orchestrated (got %q)", state.Mode)
+	}
+	return nil
+}
+
 type sessionDispatcher struct {
 	acpPath string
 	now     time.Time
