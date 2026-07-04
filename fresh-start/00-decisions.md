@@ -117,3 +117,30 @@ Two items that might look like missing domains are deliberately *folded*, not om
 - **State backends** — covered inside domain 10 (foundations); decision = git-only,
   Postgres/Redis **CUT** to optional build tags.
 - **Program (multi-spec) tier** — covered inside domain 09; decision = **DEFER** wholesale.
+
+## ADR-10. Scaffold surface: recorded cuts and the auditor/scribe correction
+The `init`/`new` scaffold ships the *minimal accurate* surface. Recording the deltas from
+the reference embed tree so they are decisions, not silent drift (per §5 subtractive bias):
+
+**Emitted (fixed):**
+- `init` scaffolds `.specd/roles/{scout,craftsman,validator,auditor}.md`,
+  `.specd/steering/{reasoning,workflow,product,tech,structure,memory}.md`, and a
+  marker-merged `AGENTS.md` (Spec 06 R6.3/R6.4). `RolePrompt` reads the embedded role
+  files — one source of truth, no hardcoded prompt.
+- `new` writes `requirements.md` + `design.md` + `tasks.md` + `state.json` (Spec 02
+  on-disk surface); `design.md` is required so the design gate is reachable.
+
+**Deliberately CUT (do not restore without reversing the owning spec):**
+- `scribe` role — invented with no provenance; **removed**. `auditor` (read-only diff
+  audit, named by R6.8) **restored**. Final role set is exactly four.
+- `brain`/`pinky`/`reviewer` as *roles* — not roles; brain/pinky are opt-in orchestration
+  verbs (Tier 3), reviewer is out of surface.
+- `skills/` SKILL tree — reconceived as context-manifest item modes (Spec 08 R8.2).
+- `config.json` — cut (ADR-2); only `config.yml` survives.
+- Reference 7-key task schema (`why`/`contract`) — subtracted (Spec 04); skeleton is 6-key.
+- Full 6-file `new` set (`decisions.md`/`mid-requirements.md`) — created on demand by their
+  own commands, not front-loaded.
+
+**DEFERRED to owning waves:**
+- `config.yml` seeding → Spec 10 (config layering).
+- Pinky `agents/*` subagent prompts + `runtime.gitignore` → Spec 09 orchestration tier.

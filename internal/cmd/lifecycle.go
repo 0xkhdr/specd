@@ -12,7 +12,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core/gates"
 )
 
-// runNew creates a spec workspace: spec.md, tasks.md, and state.json at
+// runNew creates a spec workspace: requirements.md, design.md, tasks.md, and state.json at
 // revision 0 (R13.3). Creation is a fresh write under the per-spec lock, not a
 // compare-and-swap; SaveStateCAS with expected revision 0 would ratchet to 1.
 func runNew(root string, args []string, flags map[string]string) error {
@@ -32,7 +32,10 @@ func runNew(root string, args []string, flags map[string]string) error {
 		if err := os.MkdirAll(specDir, 0o755); err != nil {
 			return struct{}{}, err
 		}
-		if err := core.AtomicWrite(filepath.Join(specDir, "spec.md"), specStub(slug)); err != nil {
+		if err := core.AtomicWrite(filepath.Join(specDir, "requirements.md"), requirementsStub(slug)); err != nil {
+			return struct{}{}, err
+		}
+		if err := core.AtomicWrite(filepath.Join(specDir, "design.md"), designStub(slug)); err != nil {
 			return struct{}{}, err
 		}
 		if err := core.AtomicWrite(filepath.Join(specDir, "tasks.md"), tasksStub(slug)); err != nil {
@@ -241,8 +244,17 @@ func memoryStub(slug string) string {
 	return fmt.Sprintf("# Memory — %s\n\n> Steering-memory patterns. Append with `specd memory %s add`.\n", slug, slug)
 }
 
-func specStub(slug string) string {
-	return fmt.Sprintf("# Spec — %s\n\n> Scaffolded by `specd new`. Replace with requirements and design.\n", slug)
+func requirementsStub(slug string) string {
+	return fmt.Sprintf("# Requirements — %s\n\n"+
+		"> Author EARS-shaped requirements. Each is testable and unambiguous.\n\n"+
+		"- **R1** When <trigger>, the system shall <response>.\n", slug)
+}
+
+func designStub(slug string) string {
+	return fmt.Sprintf("# Design — %s\n\n"+
+		"> Name module boundaries, on-disk contracts, and preserved invariants.\n"+
+		"> The design gate reads this file before tasks execute.\n\n"+
+		"## Modules\n\n## On-disk contracts\n\n## Invariants\n", slug)
 }
 
 func tasksStub(slug string) string {
@@ -250,6 +262,6 @@ func tasksStub(slug string) string {
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| T1 | craftsman | spec.md | - | go test ./... | scaffolded task placeholder |
+| T1 | craftsman | requirements.md | - | go test ./... | scaffolded task placeholder |
 `, slug)
 }

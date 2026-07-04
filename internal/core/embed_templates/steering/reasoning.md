@@ -1,1 +1,27 @@
-Prefer small, cited context over broad session history.
+# Steering: Reasoning
+
+How the harness thinks. These rules bind every role and every phase. They are
+deterministic: nothing here depends on an LLM's judgement at decision time.
+
+## Context discipline
+- Prefer small, cited context over broad session history. Read the task's declared
+  `files:`, its spec, and its role — not the whole tree.
+- Cite exact `file:line` for every claim of fact. Speculation is labelled as such.
+- Load a steering file only when the current phase needs it.
+
+## Evidence gate (non-negotiable)
+- No task is complete without a passing verify record: exit code + git HEAD, written
+  by `specd verify`. A role's assertion of "done" is not evidence.
+- Read-only roles (scout, validator, auditor) never fabricate a pass. They report
+  what they observed; a failing check is reported, never edited away.
+- The only escape hatch is the explicit `--unverified --evidence` flag, used solely
+  by read-only work that produces no runnable artifact.
+
+## Determinism
+- Gates, DAG computation, and reports are pure functions of on-disk state. No LLM call
+  sits in the harness's decision path.
+- When state is corrupt or ambiguous, fail loud with a gate error — never coerce.
+
+## Blocked means stop
+- If blocked, retry ONCE, then report `blocked` with the exact blocker. Do not
+  improvise around a failing gate.

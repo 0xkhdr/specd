@@ -38,5 +38,21 @@ func WriteScaffold(root string) error {
 			}
 		}
 	}
-	return nil
+	return writeAgents(root)
+}
+
+// writeAgents materializes AGENTS.md at the project root, merging into any
+// existing file so user-authored content outside the managed markers survives
+// (Spec 06 R6.3/R6.4). Idempotent: re-running replaces only the marked block.
+func writeAgents(root string) error {
+	generated, err := embedtemplates.FS.ReadFile("AGENTS.md")
+	if err != nil {
+		return err
+	}
+	target := filepath.Join(root, "AGENTS.md")
+	existing, err := os.ReadFile(target)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return AtomicWrite(target, MergeAgents(string(existing), string(generated)))
 }

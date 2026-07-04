@@ -33,7 +33,7 @@ func BuildManifest(slug string, tasks []core.TaskRow, taskID string) (Manifest, 
 	}
 	mode := ModeForTask(task)
 	items := []Item{
-		{Kind: "spec", Path: fmt.Sprintf("specs/%s/spec.md", slug)},
+		{Kind: "spec", Path: fmt.Sprintf("specs/%s/requirements.md", slug)},
 		{Kind: "tasks", Path: fmt.Sprintf("specs/%s/tasks.md", slug)},
 		{Kind: "task", TaskID: task.ID},
 		{Kind: "role", Path: fmt.Sprintf(".specd/roles/%s.md", task.Role)},
