@@ -149,7 +149,6 @@ func TestStatusNextVerifyOnRealSpec(t *testing.T) {
 		args []string
 	}{
 		{"status", []string{"demo"}},
-		{"context", []string{"demo", "T1"}},
 		{"report", []string{"demo"}},
 	} {
 		if _, err := captureStdout(t, func() error { return Run(root, verb.name, verb.args, nil) }); err != nil {
@@ -161,6 +160,11 @@ func TestStatusNextVerifyOnRealSpec(t *testing.T) {
 	}
 	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
 		t.Fatalf("approve design: %v", err)
+	}
+	// context is an execution verb: gated out of the requirements (perceive)
+	// phase, allowed once requirements are approved (spec 03 R2).
+	if _, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, nil) }); err != nil {
+		t.Fatalf("context: %v", err)
 	}
 	if _, err := captureStdout(t, func() error { return Run(root, "next", []string{"demo"}, nil) }); err != nil {
 		t.Fatalf("next: %v", err)
@@ -196,6 +200,15 @@ func TestBrainDispatchesFrontierViaCLI(t *testing.T) {
 	root := newDemoSpec(t)
 	sessionPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "session.json")
 	acpPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "acp.jsonl")
+
+	// brain is an execution verb: advance past the requirements (perceive)
+	// phase before stepping the controller (spec 03 R2).
+	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+		t.Fatalf("approve requirements: %v", err)
+	}
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve design: %v", err)
+	}
 
 	// Fail-closed: no authority => wait, no lease, no evidence.
 	if _, err := captureStdout(t, func() error { return Run(root, "brain", []string{"step", "demo"}, nil) }); err != nil {

@@ -3,14 +3,15 @@
 `specd check <slug>` runs the validation gate registry against a spec. A gate
 failure exits `1` and blocks the relevant `specd approve` transition.
 
-**Twelve core gates always run.** One additional gate (`security`) is opt-in
-and a no-op by default.
+**Thirteen core gates are registered.** Most always run; a few (`design`,
+`criteria`) are caller-armed and inert unless a matching `approve` transition is
+in progress. One additional gate (`security`) is opt-in and a no-op by default.
 
 ---
 
 ## Core Gates
 
-All twelve core gates are registered in `CoreRegistry()` (`internal/core/gates/core.go`).
+All thirteen core gates are registered in `CoreRegistry()` (`internal/core/gates/core.go`).
 They run as pure functions of the `CheckCtx` — no disk access inside a gate;
 the caller reads files before building the context.
 
@@ -169,6 +170,29 @@ writes both atomically (under lock + CAS) to preserve agreement.
 
 This gate is **armed by the caller** (`approveTarget == "design"`) — it is a no-op
 during plain `specd check` unless the approve target is `design`.
+
+---
+
+### Gate: `criteria`
+
+| | |
+|---|---|
+| **Source** | `internal/core/gates/approval.go` |
+| **Checks** | (Active only when `criteria.required` is on **and** `approve complete` is in progress) — every acceptance criterion has a current passing record. |
+| **Fails on** | Any criterion with no passing record recorded after the last requirements approval. |
+
+This is the opt-in per-acceptance-criterion ratchet (spec 04). It is doubly
+armed: `config criteria.required = true` **and** the completion transition
+(`approveTarget == "complete"`). Default off, so existing flows are unbroken.
+
+**Evidence asymmetry.** A criterion record is *operator-supplied* — it carries
+evidence text or a path and runs **no command**, unlike a task verify record
+which executes the task's `verify:` line and pins the resulting exit code. The
+two are stored separately (`criteria.jsonl` vs `evidence.jsonl`) and a criterion
+record can **never** substitute for a task's passing verify. This gate therefore
+only *strengthens* the evidence story; it introduces no bypass. "Current" means
+recorded after the latest requirements approval — re-approving requirements
+invalidates stale attestations by construction, no mutation needed.
 
 ---
 

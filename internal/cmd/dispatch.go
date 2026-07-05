@@ -1,0 +1,98 @@
+package cmd
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/0xkhdr/specd/internal/core"
+)
+
+// ErrUsage is the sentinel for fail-closed rejections that must map to exit
+// code 2 (usage / out-of-phase / invalid-enum), as opposed to gate/verify
+// failures which exit 1. main.go inspects it. Wrap it, never return it bare,
+// so the message names the specific violation (spec 03 R2, R3).
+var ErrUsage = errors.New("usage")
+
+// Run is the single dispatch choke point. It resolves the verb, enforces
+// declared flag enums and lifecycle-phase compatibility *before* any handler
+// side effect, then invokes the handler. Fail-closed rejections wrap ErrUsage
+// (exit 2); unknown verbs wrap ErrUnknownCommand (exit 2). This is the one
+// place the harness turns command metadata into enforcement (spec 03).
+func Run(root, name string, args []string, flags map[string]string) error {
+	handler, ok := Registry[name]
+	if !ok || handler == nil {
+		return fmt.Errorf("%w: %q", ErrUnknownCommand, name)
+	}
+	meta, hasMeta := core.CommandByName(name)
+	if hasMeta {
+		if err := checkFlagEnums(meta, flags); err != nil {
+			return err
+		}
+		if err := checkPhase(root, meta, args); err != nil {
+			return err
+		}
+	}
+	return handler(root, args, flags)
+}
+
+// checkFlagEnums fails closed (exit 2) when a flag carrying a declared enum is
+// given a value outside that enum (spec 03 R3). Flags absent from metadata are
+// left to the handler; boolean flags (no Enum) are never enum-checked.
+func checkFlagEnums(meta core.Command, flags map[string]string) error {
+	for name, value := range flags {
+		flag := meta.FlagByName(name)
+		if flag == nil || len(flag.Enum) == 0 {
+			continue
+		}
+		if !contains(flag.Enum, value) {
+			return fmt.Errorf("%w: flag --%s=%q not allowed; expected one of %v", ErrUsage, name, value, flag.Enum)
+		}
+	}
+	return nil
+}
+
+// checkPhase fails closed (exit 2) when a verb is invoked against a spec whose
+// current lifecycle phase is not in the verb's allowed set (spec 03 R2). Only
+// verbs that resolve a spec by a fixed positional index are checked; every
+// other verb declares PhaseAny and is skipped by construction. A spec whose
+// state cannot be loaded (absent/new) is left to the handler — the phase gate
+// never invents a rejection from a missing file.
+func checkPhase(root string, meta core.Command, args []string) error {
+	if meta.SpecSlugArg == nil || meta.AllowsPhase(core.PhaseAny) {
+		return nil
+	}
+	idx := *meta.SpecSlugArg
+	if idx >= len(args) {
+		return nil // arity error surfaces in the handler's own usage message
+	}
+	slug := args[idx]
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return nil // no resolvable spec state ⇒ not our rejection to make
+	}
+	if meta.AllowsPhase(state.Phase) {
+		return nil
+	}
+	return fmt.Errorf("%w: verb %q not allowed in phase %q; allowed phases: %s",
+		ErrUsage, meta.Name, state.Phase, joinPhases(meta.AllowedPhases))
+}
+
+func contains(values []string, want string) bool {
+	for _, v := range values {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}
+
+func joinPhases(phases []core.Phase) string {
+	out := ""
+	for i, p := range phases {
+		if i > 0 {
+			out += ", "
+		}
+		out += string(p)
+	}
+	return out
+}

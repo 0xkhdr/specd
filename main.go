@@ -26,6 +26,9 @@ func main() {
 			cli.Usage(os.Stderr)
 			os.Exit(2)
 		}
+		if errors.Is(err, cmd.ErrUsage) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }

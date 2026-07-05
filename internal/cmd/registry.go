@@ -76,14 +76,6 @@ func RegisteredCommandNames() []string {
 	return names
 }
 
-func Run(root, name string, args []string, flags map[string]string) error {
-	handler, ok := Registry[name]
-	if !ok || handler == nil {
-		return fmt.Errorf("%w: %q", ErrUnknownCommand, name)
-	}
-	return handler(root, args, flags)
-}
-
 func runCheck(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
 		return errors.New("usage: specd check <slug> [--json] [--security] [--schema] [--schema-only]")
@@ -230,6 +222,10 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	coverage, err := criterionCoverage(root, args[0])
+	if err != nil {
+		return err
+	}
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
@@ -239,10 +235,12 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		}
 		return writeJSON(struct {
 			core.ReportModel
-			Records map[string]json.RawMessage `json:"records,omitempty"`
-		}{model, state.Records})
+			Records  map[string]json.RawMessage `json:"records,omitempty"`
+			Criteria []requirementCoverage      `json:"criteria,omitempty"`
+		}{model, state.Records, coverage})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
+	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
 	return nil
 }
 
@@ -254,15 +252,23 @@ func runReport(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	coverage, err := criterionCoverage(root, args[0])
+	if err != nil {
+		return err
+	}
 	switch {
 	case flagEnabled(flags, "json"):
-		return writeJSON(model)
+		return writeJSON(struct {
+			core.ReportModel
+			Criteria []requirementCoverage `json:"criteria,omitempty"`
+		}{model, coverage})
 	case flagEnabled(flags, "metrics"):
 		fmt.Fprint(os.Stdout, core.RenderMetrics(model))
 	case flagEnabled(flags, "pr"):
 		fmt.Fprint(os.Stdout, core.PRSummary(model))
 	default:
 		fmt.Fprint(os.Stdout, core.RenderStatus(model))
+		fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
 	}
 	return nil
 }
@@ -306,6 +312,9 @@ func getenv() map[string]string {
 }
 
 func runVerify(root string, args []string, flags map[string]string) error {
+	if _, ok := flags["criterion"]; ok {
+		return runVerifyCriterion(root, args, flags)
+	}
 	if len(args) != 2 {
 		return errors.New("usage: specd verify <slug> <task>")
 	}
@@ -438,6 +447,14 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 		_, ctx.ApprovedDesign = state.Records["approval:design"]
 		ctx.StateTaskStatus = state.TaskStatus
 	}
+	// Opt-in per-criterion ratchet: only the completion transition consults it,
+	// and only when config enabled it (spec 04 R6).
+	if approveTarget == string(core.StatusComplete) {
+		if cfg := loadSpecConfig(root); cfg.Criteria.Required {
+			ctx.CriteriaRequired = true
+			ctx.CriteriaUnmet = unmetCriteria(root, slug, ctx.RequirementsDoc)
+		}
+	}
 	return ctx
 }
 
@@ -477,6 +494,50 @@ func withRevertOnFail(root string, run func() (verifyexec.Result, error)) (verif
 		_ = gitApply(root, before, false)
 	}
 	return result, err
+}
+
+// runVerifyCriterion records a per-acceptance-criterion evidence record. It
+// never runs a command and never writes a task verify record — a criterion
+// record is operator-supplied and can never substitute for a task's passing
+// verify (spec 04 R1, R7). Unknown criterion ids fail closed (exit 2, R2).
+func runVerifyCriterion(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("%w: specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>", ErrUsage)
+	}
+	slug := args[0]
+	if err := requireTaskGate(root, slug); err != nil {
+		return err
+	}
+	id := flags["criterion"]
+	status := flags["status"]
+	if status != core.CriterionStatusPass && status != core.CriterionStatusFail {
+		return fmt.Errorf("%w: --status must be pass or fail", ErrUsage)
+	}
+	evidence := strings.TrimSpace(flags["evidence"])
+	if evidence == "" {
+		return fmt.Errorf("%w: --evidence <text-or-path> required", ErrUsage)
+	}
+	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
+	reqDoc, err := os.ReadFile(filepath.Join(dir, "requirements.md"))
+	if err != nil {
+		return fmt.Errorf("read requirements.md: %w", err)
+	}
+	if !gates.HasCriterion(string(reqDoc), id) {
+		return fmt.Errorf("%w: unknown criterion %q — not an acceptance criterion in approved requirements.md", ErrUsage, id)
+	}
+	head := gitHead(root)
+	if !core.HeadPinned(head) {
+		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this criterion record cannot pin to a commit\n", head)
+	}
+	rec := core.CriterionRecord{Criterion: id, Status: status, Evidence: evidence, GitHead: head}
+	path := core.CriteriaPath(root, slug)
+	if _, err := core.WithSpecLock(root, func() (struct{}, error) {
+		return struct{}{}, core.AppendCriterion(path, rec)
+	}); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "recorded criterion %s = %s for %s\n", id, status, slug)
+	return nil
 }
 
 func gitHead(root string) string {

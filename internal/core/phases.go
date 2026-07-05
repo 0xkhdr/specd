@@ -23,6 +23,12 @@ const (
 	PhaseExecute  Phase = "execute"
 	PhaseVerify   Phase = "verify"
 	PhaseReflect  Phase = "reflect"
+
+	// PhaseAny is the sentinel a command declares when it is valid in every
+	// lifecycle phase. It is never a real state phase (ValidPhase rejects it);
+	// it exists only so command metadata declares "unrestricted" explicitly
+	// rather than defaulting silently to it (spec 03 R6).
+	PhaseAny Phase = "any"
 )
 
 var statusOrder = []Status{

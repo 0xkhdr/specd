@@ -27,6 +27,12 @@ type CheckCtx struct {
 	RequirementsStub     string // the scaffold stub to compare against (ADR-10 single source)
 	DesignDoc            string
 	DesignStub           string
+
+	// Criteria gate inputs (spec 04 R6, opt-in). CriteriaRequired mirrors
+	// config criteria.required; CriteriaUnmet lists acceptance-criterion ids
+	// with no current passing record. Both zero ⇒ gate disabled.
+	CriteriaRequired bool
+	CriteriaUnmet    []string
 }
 
 func CoreRegistry() Registry {
@@ -43,6 +49,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "approval", run: approvalGate})
 	registry.Register(gateFunc{name: "sync", run: syncGate})
 	registry.Register(gateFunc{name: "design", run: designGate})
+	registry.Register(gateFunc{name: "criteria", run: criteriaGate})
 	return registry
 }
 

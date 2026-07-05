@@ -206,7 +206,7 @@ func runHelp(root string, args []string, flags map[string]string) error {
 		return nil
 	}
 	if flagEnabled(flags, "json") {
-		return writeJSON(core.Commands)
+		return writeJSON(core.BuildHelpPayload())
 	}
 	fmt.Fprintln(os.Stdout, "usage: specd <command> [args] [--flag value|--flag=value]")
 	for _, command := range core.Commands {

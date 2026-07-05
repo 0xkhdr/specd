@@ -34,6 +34,13 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 			cfg.Orchestration.Enabled = parsed
 		case "orchestration.model":
 			cfg.Orchestration.Model = value
+		case "criteria.required":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "criteria.required must be boolean"})
+				continue
+			}
+			cfg.Criteria.Required = parsed
 		case "promotion_threshold":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 1 {
@@ -70,6 +77,13 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 			cfg.Orchestration.Enabled = parsed
 		case "SPECD_ORCHESTRATION_MODEL":
 			cfg.Orchestration.Model = value
+		case "SPECD_CRITERIA_REQUIRED":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_CRITERIA_REQUIRED must be boolean"})
+				continue
+			}
+			cfg.Criteria.Required = parsed
 		case "SPECD_PROMOTION_THRESHOLD":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 1 {

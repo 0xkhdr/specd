@@ -212,10 +212,11 @@ specd next my-feature --dispatch     # JSON context manifest for T1
 
 ```
 specd verify <slug> <task-id> [--revert-on-fail] [--sandbox] [--sandbox-binary=<path>]
+specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text-or-path>
 ```
 
-Run a task's `verify:` shell command (via `sh -c`) and **always** append an evidence
-record regardless of whether it passes or fails. The record contains:
+**Task mode** runs a task's `verify:` shell command (via `sh -c`) and **always** appends
+an evidence record regardless of whether it passes or fails. The record contains:
 
 ```json
 {"task_id":"T1","command":"go test ./...","exit_code":0,"git_head":"abc1234..."}
@@ -224,13 +225,30 @@ record regardless of whether it passes or fails. The record contains:
 A warning is printed if git HEAD is unresolved — such evidence will not count toward
 `task complete`.
 
+**Criterion mode** (`--criterion`) records a per-acceptance-criterion evidence record
+instead of running a command. The `<r>.<n>` id addresses acceptance criterion `<n>` of
+requirement `R<r>` (sub-bullets under a requirement; a bare requirement is `<r>.1`).
+Records are append-only — a later pass never erases a prior fail — and pin the current
+git HEAD, same discipline as task verify. An unknown criterion id fails closed (exit 2).
+A criterion record is **operator-supplied evidence**: unlike a task verify it runs no
+command, and it can never substitute for a task's passing verify record. Coverage is
+surfaced per requirement by `specd status` and `specd report`.
+
+```json
+{"type":"criterion","criterion":"1.2","status":"pass","evidence":"covered by T3","git_head":"abc1234...","timestamp":"…","actor":"…"}
+```
+
 | Flag | Description |
 |---|---|
 | `--revert-on-fail` | Restore working tree on verify failure (git diff + apply). |
 | `--sandbox` | Run inside bwrap/container sandbox (fail-closed if binary absent). |
 | `--sandbox-binary=<path>` | Path to sandbox binary (overrides auto-detect). |
+| `--criterion <r>.<n>` | Record acceptance-criterion evidence instead of running a task verify. |
+| `--status pass\|fail` | Criterion verdict (with `--criterion`). |
+| `--evidence <text-or-path>` | Evidence backing the criterion verdict (with `--criterion`). |
 
-**Exit codes:** `0` verify passed, `1` verify command exited non-zero, `2` usage error.
+**Exit codes:** `0` verify passed / criterion recorded, `1` verify command exited
+non-zero, `2` usage error (unknown criterion id, missing evidence, bad status).
 
 ---
 
@@ -487,7 +505,53 @@ specd triage <spec>
 |---|---|
 | `0` | Success / validation passed |
 | `1` | Gate failure, verification failure, evidence missing, or config/policy error |
-| `2` | Usage error (wrong arguments, unknown flag) |
+| `2` | Usage error (wrong arguments, unknown flag, out-of-phase verb, out-of-enum flag) |
+
+Every command declares its full exit-code table in metadata; `specd help --json`
+emits them per command. Fail-closed rejections — unknown verb, a flag value
+outside its declared enum, or an execution verb run in a disallowed phase —
+exit `2` before any side effect, never `1`.
+
+---
+
+## Lifecycle Phase Compatibility
+
+Each spec advances through lifecycle phases derived from its status:
+
+| Status | Phase |
+|---|---|
+| `requirements` | `perceive` |
+| `design` | `analyze` |
+| `tasks` | `plan` |
+| `executing` | `execute` |
+| `verifying` | `verify` |
+| `complete` | `reflect` |
+
+Most verbs run in any phase. **Execution verbs** — `next`, `verify`, `context`,
+and `brain` — are gated: a spec still in the `perceive` (requirements) phase has
+no approved design or task DAG to act on, so these verbs fail closed (exit `2`)
+there, naming the current and allowed phases. The check is a single dispatch
+choke point that runs after spec resolution and before any handler side effect;
+a rejected verb leaves `state.json` untouched. Approve the `design` gate to
+advance a spec out of `perceive` and unlock execution verbs.
+
+---
+
+## Machine-Readable Help Contract
+
+`specd help --json` emits a versioned payload:
+
+```json
+{ "schema_version": 1, "commands": [ { "name": "verify", "usage": "…",
+  "flags": [ { "name": "sandbox", "type": "bool", … } ],
+  "allowed_phases": ["analyze", "plan", "execute", "verify", "reflect"],
+  "exit_codes": [ { "code": 0, "meaning": "success" }, … ], "examples": [ … ] } ] }
+```
+
+`schema_version` is the stable `HelpSchemaVersion` contract; consumers (the MCP
+server, role prompts, external tooling) pin against it and detect shape changes.
+Flag `enum`/`default` map directly into MCP JSON Schema — command metadata is the
+single source of truth, so no surface hand-restates command semantics.
 
 ---
 
@@ -512,4 +576,5 @@ absent). YAML only; two-space indentation; `.yml` extension required.
 | `gates.verify` | `"error"` | Verify gate severity (`error` or `warn`) |
 | `orchestration.enabled` | `false` | Enable Brain orchestration |
 | `orchestration.model` | `""` | Model identifier (informational) |
+| `criteria.required` | `false` | Opt-in: refuse the completion approval until every acceptance criterion has a current passing record |
 | `promotion_threshold` | `3` | Memory pattern promotion threshold |

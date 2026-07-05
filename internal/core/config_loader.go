@@ -14,11 +14,20 @@ type Config struct {
 	Gates              GatesConfig
 	Context            ContextConfig
 	Orchestration      OrchestrationConfig
+	Criteria           CriteriaConfig
 	PromotionThreshold int
 }
 
 type GatesConfig struct {
 	Verify string
+}
+
+// CriteriaConfig is the opt-in per-acceptance-criterion evidence ratchet. When
+// Required is true, the completion approval gate refuses while any acceptance
+// criterion lacks a current passing record (spec 04 R6). Default off so existing
+// flows are unbroken.
+type CriteriaConfig struct {
+	Required bool
 }
 
 type ContextConfig struct {

@@ -44,6 +44,26 @@ func designGate(ctx CheckCtx) []Finding {
 	return nil
 }
 
+// criteriaGate is the opt-in per-acceptance-criterion ratchet (spec 04 R6). It
+// arms only when config enabled it (CriteriaRequired) and the gate under
+// approval is the completion transition. It refuses while any acceptance
+// criterion lacks a current passing record — one recorded after the last
+// requirements approval. A criterion record never substitutes for a task verify
+// record, so this gate strengthens, never bypasses, the evidence story (R7).
+// Pure over CheckCtx; the caller derives CriteriaUnmet from disk.
+func criteriaGate(ctx CheckCtx) []Finding {
+	if !ctx.CriteriaRequired || ctx.ApproveTarget != string(core.StatusComplete) {
+		return nil
+	}
+	if len(ctx.CriteriaUnmet) == 0 {
+		return nil
+	}
+	return []Finding{{
+		Severity: Error,
+		Message:  fmt.Sprintf("criteria.required: %d acceptance criterion/criteria lack a current passing record: %s", len(ctx.CriteriaUnmet), strings.Join(ctx.CriteriaUnmet, ", ")),
+	}}
+}
+
 // firstEmptySection reports the first "## " heading with no non-blank content
 // before the next heading or EOF.
 func firstEmptySection(doc string) (string, bool) {

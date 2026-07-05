@@ -21,8 +21,8 @@ decision record (see `00-hygiene`).
 
 | spec | scope (FINDINGS refs) | status | notes |
 |---|---|---|---|
-| [03-command-metadata](03-command-metadata/spec.md) | Rich command metadata: exit codes, flag enums, phase/mode compatibility, fail-closed dispatch, `help --json`, MCP consumption (B.2, B.3, C.8, D.5) | pending | |
-| [04-criterion-evidence](04-criterion-evidence/spec.md) | Per-acceptance-criterion verify records, `verify --criterion` (B.1, D.6) | pending | |
+| [03-command-metadata](03-command-metadata/spec.md) | Rich command metadata: exit codes, flag enums, phase/mode compatibility, fail-closed dispatch, `help --json`, MCP consumption (B.2, B.3, C.8, D.5) | done | dispatch choke-point gating live; suite green |
+| [04-criterion-evidence](04-criterion-evidence/spec.md) | Per-acceptance-criterion verify records, `verify --criterion` (B.1, D.6) | done | criteria.jsonl store, coverage in status/report, opt-in completion gate; suite green |
 | [05-security-suite](05-security-suite/spec.md) | Real security gate: entropy secrets + reasoned allowlist, injection heuristics, slopsquat, per-scanner severity (B.4, C.4, D.7) | pending | |
 | [06-escalation-ratchet](06-escalation-ratchet/spec.md) | N failed verifies ⇒ block task until human `--override --reason` (B.6, D.8) | pending | |
 | [07-brain-safety](07-brain-safety/spec.md) | Brain `cancel`, crash-safe `resume`, per-step checkpoint (B.19, C.6, D.9) | pending | |
