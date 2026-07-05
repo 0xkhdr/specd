@@ -67,6 +67,13 @@ func postRequirementsPhases() []Phase {
 	return []Phase{PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect}
 }
 
+// postExecutionPhases is the set for terminal verbs (submit): only once a spec
+// is executing or past it. A spec still in analyze/plan has no completed work to
+// submit, so `submit` fails closed there (spec 08 R6).
+func postExecutionPhases() []Phase {
+	return []Phase{PhaseExecute, PhaseVerify, PhaseReflect}
+}
+
 // stdCodes is the conventional exit-code table; every verb declares at least
 // codes 0 and 2 (spec 03 design notes / test invariant).
 func stdCodes() []ExitCode {
@@ -104,13 +111,16 @@ var Commands = []Command{
 	},
 	{
 		Name:          "init",
-		Usage:         "specd init [--agent=<name>]",
-		Description:   "Initialize specd project state.",
+		Usage:         "specd init [--agent=<name>] [--repair|--refresh] [--dry-run]",
+		Description:   "Initialize or re-sync specd project state and managed assets.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd init", "specd init --agent=codex"},
+		Examples:      []string{"specd init", "specd init --repair --dry-run", "specd init --refresh"},
 		Flags: []Flag{
 			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
+			{Name: "repair", Type: "bool", Description: "Restore drifted managed regions from the current templates."},
+			{Name: "refresh", Type: "bool", Description: "Update managed regions to the current binary's template version."},
+			{Name: "dry-run", Type: "bool", Description: "Print the managed-region changes and write nothing."},
 		},
 	},
 	{
@@ -172,13 +182,14 @@ var Commands = []Command{
 	},
 	{
 		Name:          "status",
-		Usage:         "specd status [spec] [--json]",
-		Description:   "Report current spec and task state.",
+		Usage:         "specd status [spec] [--json] | specd status --program",
+		Description:   "Report current spec and task state, or the cross-spec program view.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd status payments", "specd status payments --json"},
+		Examples:      []string{"specd status payments", "specd status payments --json", "specd status --program"},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable status."},
+			{Name: "program", Type: "bool", Description: "Show the cross-spec program view: specs, links, phases, and frontier."},
 		},
 	},
 	{
@@ -190,6 +201,9 @@ var Commands = []Command{
 		Examples:      []string{"specd task T3 --json", "specd task complete payments T3"},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable task row."},
+			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim (task complete)."},
+			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim (task complete)."},
+			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim (task complete)."},
 		},
 	},
 	{
@@ -221,6 +235,9 @@ var Commands = []Command{
 			{Name: "criterion", TakesValue: true, Type: "string", Description: "Record evidence for acceptance criterion <r>.<n> instead of running a task verify."},
 			{Name: "status", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Description: "Criterion verdict (with --criterion): pass|fail."},
 			{Name: "evidence", TakesValue: true, Type: "string", Description: "Evidence text or path backing the criterion verdict (with --criterion)."},
+			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim."},
+			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim."},
+			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim."},
 		},
 	},
 	{
@@ -255,19 +272,29 @@ var Commands = []Command{
 	},
 	{
 		Name:          "mcp",
-		Usage:         "specd mcp",
-		Description:   "Serve the MCP integration surface over stdio.",
+		Usage:         "specd mcp | specd mcp --config <host> [--root <path>] [--spec <slug>]",
+		Description:   "Serve the MCP integration surface over stdio, or print a host config snippet.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd mcp"},
+		Examples:      []string{"specd mcp", "specd mcp --config claude-code --spec demo"},
+		Flags: []Flag{
+			{Name: "config", TakesValue: true, Type: "string", Description: "Print a paste-ready MCP config snippet for a host (e.g. claude-code)."},
+			{Name: "root", TakesValue: true, Type: "string", Description: "Pin the server working directory in the snippet."},
+			{Name: "spec", TakesValue: true, Type: "string", Description: "Pin the active spec in the snippet."},
+		},
 	},
 	{
 		Name:          "handshake",
-		Usage:         "specd handshake [bootstrap|policy]",
-		Description:   "Emit bootstrap or policy handshake material.",
+		Usage:         "specd handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]",
+		Description:   "Emit bootstrap handshake material, including palette and config digests.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd handshake bootstrap", "specd handshake bootstrap --json"},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Description: "Emit machine-readable handshake."},
+			{Name: "expect-palette-digest", TakesValue: true, Type: "string", Description: "Fail (exit 1) if the command-palette digest differs."},
+			{Name: "expect-config-digest", TakesValue: true, Type: "string", Description: "Fail (exit 1) if the effective-config digest differs."},
+		},
 	},
 	{
 		Name:          "brain",
@@ -283,15 +310,57 @@ var Commands = []Command{
 	},
 	{
 		Name:          "report",
-		Usage:         "specd report <spec> [--pr|--metrics|--json]",
-		Description:   "Render evidence-backed status and PR reports.",
+		Usage:         "specd report <spec> [--pr|--metrics|--json|--history|--format prometheus]",
+		Description:   "Render evidence-backed status, PR, history, and metrics reports.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd report payments --pr", "specd report payments --metrics"},
+		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --format prometheus"},
 		Flags: []Flag{
 			{Name: "pr", Type: "bool", Description: "Emit PR-oriented report."},
 			{Name: "metrics", Type: "bool", Description: "Emit metrics summary."},
-			{Name: "json", Type: "bool", Description: "Emit machine-readable report."},
+			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
+			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
+			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus"}, Description: "Alternate output format; prometheus emits textfile-collector metrics."},
+		},
+	},
+	{
+		Name:          "link",
+		Usage:         "specd link <from-slug> <to-slug>",
+		Description:   "Record that one spec depends on another (cross-spec ordering).",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd link api auth"},
+	},
+	{
+		Name:          "unlink",
+		Usage:         "specd unlink <from-slug> <to-slug>",
+		Description:   "Remove a cross-spec dependency link.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd unlink api auth"},
+	},
+	{
+		Name:          "review",
+		Usage:         "specd review <spec> [--force]",
+		Description:   "Scaffold the review report the auditor fills before completion.",
+		AllowedPhases: postExecutionPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd review payments", "specd review payments --force"},
+		Flags: []Flag{
+			{Name: "force", Type: "bool", Description: "Overwrite an existing report for the current git HEAD."},
+		},
+	},
+	{
+		Name:          "submit",
+		Usage:         "specd submit <spec> [--resubmit]",
+		Description:   "Run every gate, then stream the PR summary to the operator-configured submit command.",
+		AllowedPhases: postExecutionPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd submit payments", "specd submit payments --resubmit"},
+		Flags: []Flag{
+			{Name: "resubmit", Type: "bool", Description: "Allow resubmitting a spec already submitted at the current git HEAD."},
 		},
 	},
 	{

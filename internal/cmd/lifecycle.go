@@ -84,6 +84,19 @@ func runApprove(root string, args []string, flags map[string]string) error {
 			}
 			return struct{}{}, errors.New("approve refused: readiness gates failing")
 		}
+		// Cross-spec links are enforcement, not annotation (spec 12 R5): a spec
+		// may plan while a dependency is unfinished, but may not advance into the
+		// execution phase until every spec it depends on is complete. Planning
+		// phases stay unblocked; only the transition into StatusExecuting gates.
+		if target == core.StatusExecuting {
+			program, err := core.LoadProgram(core.ProgramPath(root))
+			if err != nil {
+				return struct{}{}, err
+			}
+			if blocking := program.IncompleteDeps(slug, func(dep string) bool { return specComplete(root, dep) }); len(blocking) > 0 {
+				return struct{}{}, fmt.Errorf("approve refused: %s blocked by incomplete dependencies: %s", slug, strings.Join(blocking, ", "))
+			}
+		}
 		phase, err := core.AdvanceStatus(state.Status, target)
 		if err != nil {
 			return struct{}{}, err
@@ -111,7 +124,11 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		return errors.New("usage: specd task complete <spec> <id>")
 	}
 	slug, id := args[0], args[1]
-	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+	annotations, err := parseAnnotations(flags)
+	if err != nil {
+		return err
+	}
+	_, err = core.WithSpecLock(root, func() (struct{}, error) {
 		statePath := core.StatePath(root, slug)
 		state, err := core.LoadState(statePath)
 		if err != nil {
@@ -137,7 +154,20 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if err := core.SaveStateCAS(statePath, state.Revision, state); err != nil {
 			return struct{}{}, err
 		}
-		return struct{}{}, core.AtomicWrite(tasksPath, string(updated))
+		if err := core.AtomicWrite(tasksPath, string(updated)); err != nil {
+			return struct{}{}, err
+		}
+		// Optional telemetry (spec 10 R1): completion carries the worker's
+		// verbatim cost as a supplementary evidence record. CompleteTask already
+		// required a passing verify record above, so this record only annotates —
+		// it never manufactures passing evidence.
+		if annotations != nil {
+			rec := core.EvidenceRecord{TaskID: id, Command: "task complete", ExitCode: 0, GitHead: gitHead(root), Telemetry: annotations}
+			if err := core.AppendEvidence(core.EvidencePath(root, slug), rec); err != nil {
+				return struct{}{}, err
+			}
+		}
+		return struct{}{}, nil
 	})
 	if err != nil {
 		return err

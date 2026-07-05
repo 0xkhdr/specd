@@ -29,6 +29,10 @@ All commands, flags, exit codes, and environment variables for `specd`.
 | [`specd brain`](#specd-brain) | Run the opt-in deterministic orchestration controller. |
 | [`specd mcp`](#specd-mcp) | Serve the MCP integration surface over stdio. |
 | [`specd handshake`](#specd-handshake) | Emit bootstrap or policy handshake material. |
+| [`specd review`](#specd-review) | Scaffold the review report the auditor fills before completion. |
+| [`specd submit`](#specd-submit) | Gate-check, then stream the PR summary to the operator submit command. |
+| [`specd link`](#specd-link) | Record that one spec depends on another (cross-spec ordering). |
+| [`specd unlink`](#specd-unlink) | Remove a cross-spec dependency link. |
 | [`specd triage`](#specd-triage) | *(Deferred)* Extended-loop triage tier. |
 
 ---
@@ -63,16 +67,29 @@ complete command palette as machine-readable JSON (same structure as `core.Comma
 ## specd init
 
 ```
-specd init [--agent=<name>]
+specd init [--agent=<name>] [--repair|--refresh] [--dry-run]
 ```
 
 Initialize `.specd/` scaffold: writes embedded role templates, steering constitution
 files, and merges `AGENTS.md` into the repo root. Safe to re-run — idempotent and
 atomic; a rerun on a healthy project changes zero bytes.
 
+Every managed asset is written inside stable marker comments
+(`<!-- specd:managed:<asset>:v<N> begin/end -->`), so re-init preserves any content
+you add **outside** the markers.
+
 | Flag | Description |
 |---|---|
 | `--agent=<name>` | Select agent harness (informational; configures the `agent` key in state). |
+| `--repair` | Restore managed regions that drifted from their template. |
+| `--refresh` | Update managed regions to the current binary's template version. |
+| `--dry-run` | Print the managed-region changes (diff-style) and write nothing. |
+
+> **Contract — repair overwrites inside the markers.** `--repair`/`--refresh`
+> regenerate the content **between** the managed markers from the embedded
+> template; anything you hand-edited there is **replaced**. Content outside the
+> markers is byte-for-byte preserved. Run with `--dry-run` first to see exactly
+> what would change before it is written.
 
 **What gets created:**
 - `.specd/roles/` — `scout.md`, `craftsman.md`, `validator.md`, `auditor.md`
@@ -246,9 +263,21 @@ surfaced per requirement by `specd status` and `specd report`.
 | `--criterion <r>.<n>` | Record acceptance-criterion evidence instead of running a task verify. |
 | `--status pass\|fail` | Criterion verdict (with `--criterion`). |
 | `--evidence <text-or-path>` | Evidence backing the criterion verdict (with `--criterion`). |
+| `--tokens <int>` | Optional worker-reported token count, stored verbatim. |
+| `--cost <decimal>` | Optional worker-reported cost (decimal string), stored verbatim. |
+| `--duration-ms <int>` | Optional worker-reported wall-clock milliseconds, stored verbatim. |
+
+**Cost telemetry (stored, never computed).** The `--tokens/--cost/--duration-ms`
+flags attach the host worker's usage to the evidence record verbatim. specd never
+counts tokens, estimates, or derives cost — it only records what the worker
+reports. Every field is optional; a worker that cannot report cost still produces
+valid records. Malformed values (non-integer tokens/duration, non-decimal or
+negative cost) fail closed (exit 2) without writing. `report --metrics` aggregates
+them with exact decimal math.
 
 **Exit codes:** `0` verify passed / criterion recorded, `1` verify command exited
-non-zero, `2` usage error (unknown criterion id, missing evidence, bad status).
+non-zero, `2` usage error (unknown criterion id, missing evidence, bad status,
+malformed telemetry).
 
 ---
 
@@ -286,15 +315,21 @@ Both writes are atomic and consistent — the Sync gate enforces agreement betwe
 | Flag | Description |
 |---|---|
 | `--json` | Emit machine-readable task row (for `specd task <id>` only). |
+| `--tokens <int>` | Optional worker-reported token count, stored verbatim (`complete`). |
+| `--cost <decimal>` | Optional worker-reported cost (decimal string), stored verbatim (`complete`). |
+| `--duration-ms <int>` | Optional worker-reported wall-clock milliseconds, stored verbatim (`complete`). |
 
-**Exit codes:** `0` success, `1` no passing evidence / deps not complete, `2` usage error.
+`task complete` accepts the same optional cost-telemetry flags as `verify`,
+recorded verbatim on a supplementary evidence record (stored, never computed).
+
+**Exit codes:** `0` success, `1` no passing evidence / deps not complete, `2` usage error / malformed telemetry.
 
 ---
 
 ## specd status
 
 ```
-specd status <slug> [--json]
+specd status <slug> [--json] | specd status --program
 ```
 
 Render the current spec status: phase, task table, approval records, and evidence
@@ -303,9 +338,14 @@ summary.
 With `--json`, emits the full report model plus all `state.json` records as
 `RawMessage` (round-trips exactly — no re-synthesis).
 
+With `--program` (no spec argument), emits the cross-spec program view: every
+spec with its phase and dependency links, and the **program frontier** — the
+specs whose dependencies are all complete and are therefore actionable now.
+
 | Flag | Description |
 |---|---|
 | `--json` | Emit machine-readable status + records. |
+| `--program` | Show the cross-spec program view: specs, links, phases, and frontier. |
 
 **Exit codes:** `0` success, `2` usage error.
 
@@ -334,7 +374,7 @@ Default output: one file path per line.
 ## specd report
 
 ```
-specd report <spec> [--pr | --metrics | --json]
+specd report <spec> [--pr | --metrics | --json | --history | --format prometheus]
 ```
 
 Render an evidence-backed report. Default (no flags) renders the same human-readable
@@ -343,8 +383,30 @@ output as `specd status`.
 | Flag | Description |
 |---|---|
 | `--pr` | Emit a PR-oriented summary (task table + evidence summary). |
-| `--metrics` | Emit a metrics summary (task counts by status). |
-| `--json` | Emit machine-readable report model. |
+| `--metrics` | Emit a metrics summary: task counts by status, plus aggregated cost telemetry (tokens, duration, exact-decimal cost) per spec and per task. Tasks with no telemetry are marked present=0 — absence is shown, never imputed. |
+| `--json` | Emit machine-readable report model (JSON Lines of events with `--history`). |
+| `--history` | Replay the spec's audit trail — approvals, decisions, verify attempts, completions, criteria, submissions, ACP claims — in timestamp order. Derived purely from existing records; writes nothing. Byte-identical across runs. |
+| `--format prometheus` | Emit Prometheus textfile-collector metrics (see the metric contract below). |
+
+`--history` output is one line per event: `timestamp | actor | event | reference`.
+Empty fields render as `-`. Ties (equal or absent timestamps) break by a fixed
+source-type order then record position, so repeated runs are byte-identical.
+
+### Prometheus metric contract
+
+Metric names are an API — renaming one breaks dashboards, so these names are
+stable. All carry the `specd_` prefix and a `spec="<slug>"` label.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `specd_tasks` | gauge | `spec`, `status` | Tasks in each status. |
+| `specd_verify_attempts_total` | counter | `spec` | Verify attempts recorded in the evidence ledger. |
+| `specd_verify_failures_total` | counter | `spec` | Verify attempts that exited non-zero. |
+| `specd_criteria` | gauge | `spec`, `verdict` | Acceptance criteria by verdict (`passing`, `total`). |
+| `specd_escalated_tasks` | gauge | `spec` | Tasks blocked awaiting human override (0 until escalation adopted). |
+| `specd_worker_tokens_total` | counter | `spec` | Worker-reported tokens, summed. |
+| `specd_worker_cost_total` | counter | `spec` | Worker-reported cost, exact-decimal sum. |
+| `specd_worker_duration_seconds_total` | counter | `spec` | Worker-reported wall-clock seconds, summed. |
 
 **Exit codes:** `0` success, `2` usage error.
 
@@ -453,38 +515,153 @@ in `session.json` and `acp.jsonl`.
 
 ```
 specd mcp
+specd mcp --config <host> [--root <path>] [--spec <slug>]
 ```
 
-Start the MCP JSON-RPC 2.0 server over stdio. Exposes all non-forbidden commands
-as MCP tools. Clients send JSON-RPC requests; the server routes them to command
-handlers.
+**Server mode** (no flags): start the MCP JSON-RPC 2.0 server over stdio. Exposes
+all non-forbidden commands as MCP tools. Clients send JSON-RPC requests; the
+server routes them to command handlers.
 
 All core commands except `handshake` and `mcp` itself are exposed as tools.
 Input schema is `{"type":"object","additionalProperties":true}` — tool arguments
 are forwarded as flags.
 
-**Exit codes:** `0` stream closed cleanly, `1` server error.
+**Config mode** (`--config <host>`): print a paste-ready MCP server config snippet
+wiring `specd mcp` for the named host, so you don't hand-write the JSON. Known
+hosts: `claude-code` (more can be added). An unknown host exits `2` listing the
+known hosts.
+
+| Flag | Description |
+|---|---|
+| `--config <host>` | Print a config snippet for the host instead of serving. |
+| `--root <path>` | Pin the server working directory (`cwd`) in the snippet. |
+| `--spec <slug>` | Pin the active spec (`SPECD_SPEC` env) in the snippet. |
+
+**Exit codes:** `0` stream closed cleanly / snippet printed, `1` server error,
+`2` unknown host.
 
 ---
 
 ## specd handshake
 
 ```
-specd handshake [bootstrap|policy] [--json]
+specd handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]
 ```
 
-Emit bootstrap or policy handshake material for host integration and diagnostics.
+Emit bootstrap handshake material for host integration and diagnostics: the
+version, the available tool list, and two **digests** — a SHA-256 of the canonical
+`help --json` command palette and a SHA-256 of the effective config. Digests are
+stable across runs and change when a verb/flag is added or config changes, so an
+agent can detect that its cached palette or config is stale.
 
 | Subcommand | Description |
 |---|---|
-| `bootstrap` | Emit version and available tool list. |
-| `policy` | *(reserved)* |
+| `bootstrap` | Emit version, tool list, and palette/config digests. |
 
 | Flag | Description |
 |---|---|
 | `--json` | Emit machine-readable handshake. |
+| `--expect-palette-digest <d>` | Exit `1` if the command-palette digest differs from `<d>`. |
+| `--expect-config-digest <d>` | Exit `1` if the effective-config digest differs from `<d>`. |
 
-**Exit codes:** `0` success, `2` usage error.
+**Drift detection.** An agent caches the digests from a prior handshake and passes
+them back with `--expect-*-digest`; a mismatch exits `1` naming which digest
+drifted, so the agent knows to re-fetch the palette before relying on it.
+
+**Exit codes:** `0` success, `1` digest drift, `2` usage error.
+
+---
+
+## specd review
+
+```
+specd review <spec> [--force]
+```
+
+Scaffold `.specd/specs/<spec>/review_report.md` from an embedded template: the
+spec slug, the **git HEAD under review**, a per-task section (id, files,
+acceptance), and the fields the reviewer fills — `Verdict`
+(`approve | reject | needs-changes`), `Reviewer`, and `Findings`.
+
+| Flag | Description |
+|---|---|
+| `--force` | Overwrite an existing report already scaffolded for the current git HEAD. |
+
+The report is the deterministic half of review: the **auditor** role fills it,
+and the opt-in `review.required` gate (below) reads it. A craftsman reviewing its
+own work is a documented anti-pattern — the harness cannot verify reviewer
+identity, so this is a discipline the operator enforces, not the binary.
+
+**Phases:** valid in `execute`, `verify`, or `reflect`. **Exit codes:** `0`
+success, `1` report already exists for the current HEAD (without `--force`),
+`2` usage or out-of-phase.
+
+---
+
+## specd submit
+
+```
+specd submit <spec> [--resubmit]
+```
+
+Terminal verb. Runs the full gate registry and refuses (exit `1`, listing every
+failing gate and incomplete task) unless every gate is green and every task is
+complete. When gates pass, it generates the deterministic PR summary — the same
+generator as `report --pr`, one implementation — and streams it on **stdin** to
+the command configured at `submit.command`, run through the sandboxed exec path
+with a timeout (`submit.timeout_seconds`, default 120s).
+
+The binary embeds no git/GitHub logic: the operator command owns transport
+(e.g. `gh pr create --fill -F -`, a `curl`, a mail pipe). `submit.command` is a
+**shell line** (run via `/bin/sh -c`), not an argv vector.
+
+| Flag | Description |
+|---|---|
+| `--resubmit` | Allow resubmitting a spec already submitted at the current git HEAD. |
+
+- **Dry-run by default:** with no `submit.command` configured, `submit` prints
+  the summary to stdout and exits `0` — nothing is recorded.
+- **Ledger:** a run against a configured command appends a submission record
+  `{git_head, summary_hash, command, exit, timestamp, actor}` to
+  `.specd/specs/<spec>/submissions.jsonl`.
+- **Idempotence:** a second submit at the same git HEAD is refused (exit `1`)
+  unless `--resubmit` is given — a guard against double-fires from orchestration.
+
+**Phases:** valid only in `execute`, `verify`, or `reflect` (a spec must be
+executing or past it). **Exit codes:** `0` success/dry-run, `1` gates or tasks
+not ready / command failed / duplicate submission, `2` usage or out-of-phase.
+
+---
+
+## specd link
+
+```
+specd link <from-slug> <to-slug>
+```
+
+Record a cross-spec dependency: `<from-slug>` depends on `<to-slug>`, so `<to>`
+must complete before `<from>` may execute. Links live at the program level in
+`.specd/program.json` (versioned, atomic), never inside a spec's `state.json`.
+
+Linking is idempotent and cycle-refused: a link that would create a cycle in the
+cross-spec graph is rejected with the offending path printed. Links are
+enforcement, not annotation — `approve <from> executing` is refused while any
+dependency is incomplete (see `status --program` for the frontier).
+
+**Exit codes:** `0` success, `1` would create a cycle, `2` unknown slug or usage.
+
+---
+
+## specd unlink
+
+```
+specd unlink <from-slug> <to-slug>
+```
+
+Remove a cross-spec dependency link. Removing a link that does not exist fails
+closed.
+
+**Exit codes:** `0` success, `2` no such link or usage error.
 
 ---
 
@@ -577,4 +754,7 @@ absent). YAML only; two-space indentation; `.yml` extension required.
 | `orchestration.enabled` | `false` | Enable Brain orchestration |
 | `orchestration.model` | `""` | Model identifier (informational) |
 | `criteria.required` | `false` | Opt-in: refuse the completion approval until every acceptance criterion has a current passing record |
+| `review.required` | `false` | Opt-in: refuse the completion approval unless `review_report.md` has an `approve` verdict recorded at the current git HEAD |
+| `submit.command` | `""` | Operator shell line `specd submit` streams the PR summary to on stdin; empty ⇒ dry-run (print summary, exit 0) |
+| `submit.timeout_seconds` | `120` | Timeout bounding the submit command |
 | `promotion_threshold` | `3` | Memory pattern promotion threshold |

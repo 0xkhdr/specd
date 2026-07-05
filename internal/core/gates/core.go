@@ -33,6 +33,24 @@ type CheckCtx struct {
 	// with no current passing record. Both zero ⇒ gate disabled.
 	CriteriaRequired bool
 	CriteriaUnmet    []string
+
+	// Review gate inputs (spec 09 R3/R4/R5, opt-in). ReviewRequired mirrors
+	// config review.required. The caller reads review_report.md, parses it, and
+	// fills these — the gate never touches disk. ReviewParseErr non-empty means
+	// the report is missing or malformed (fail closed). ReviewExpectedHead is the
+	// current git HEAD the approval must be fresh against. All zero ⇒ disabled.
+	ReviewRequired     bool
+	ReviewParseErr     string
+	ReviewVerdict      string
+	ReviewHead         string
+	ReviewFindings     string
+	ReviewExpectedHead string
+
+	// Program-link gate input (spec 12 R5). When the gate under approval is the
+	// execution transition, the caller fills ProgramDepsIncomplete with the
+	// cross-spec dependencies that are not yet complete; a non-empty list refuses
+	// the approval. Empty ⇒ disabled (planning phases are never program-gated).
+	ProgramDepsIncomplete []string
 }
 
 func CoreRegistry() Registry {
@@ -50,6 +68,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "sync", run: syncGate})
 	registry.Register(gateFunc{name: "design", run: designGate})
 	registry.Register(gateFunc{name: "criteria", run: criteriaGate})
+	registry.Register(gateFunc{name: "review", run: reviewGate})
 	return registry
 }
 

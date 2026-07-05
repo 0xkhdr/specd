@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type Options struct {
@@ -14,6 +15,11 @@ type Options struct {
 	Dir           string
 	Sandbox       bool
 	SandboxBinary string
+	// Stdin, when non-empty, is streamed to the command's standard input. The
+	// terminal `submit` verb uses it to pipe the PR summary to the
+	// operator-configured command through this one exec path (spec 08 R2) — no
+	// second exec implementation.
+	Stdin string
 }
 
 type Result struct {
@@ -38,6 +44,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", opts.Command)
 	cmd.Dir = opts.Dir
 	cmd.Env = scrubbedEnv(os.Environ())
+	if opts.Stdin != "" {
+		cmd.Stdin = strings.NewReader(opts.Stdin)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

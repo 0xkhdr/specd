@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type EvidenceRecord struct {
@@ -14,6 +15,16 @@ type EvidenceRecord struct {
 	ExitCode    int    `json:"exit_code"`
 	GitHead     string `json:"git_head"`
 	EvidenceRef string `json:"evidence_ref,omitempty"`
+	// Timestamp and Actor stamp the attempt so `report --history` (spec 13) can
+	// replay verify attempts in time order alongside approvals and submissions.
+	// Both are omitempty: records written before spec 13 carry neither and still
+	// decode as fully valid evidence — they simply sort by append order.
+	Timestamp string `json:"timestamp,omitempty"`
+	Actor     string `json:"actor,omitempty"`
+	// Telemetry is optional worker-reported cost, stored verbatim (spec 10). A
+	// nil pointer means the worker reported none — never imputed as zero. Old
+	// records predating telemetry decode to nil, so they stay fully valid (R5).
+	Telemetry *Annotations `json:"telemetry,omitempty"`
 }
 
 func EvidencePath(root, slug string) string {
@@ -23,6 +34,15 @@ func EvidencePath(root, slug string) string {
 func AppendEvidence(path string, record EvidenceRecord) error {
 	if record.TaskID == "" {
 		return errors.New("evidence task id is required")
+	}
+	// Stamp provenance centrally so every writer (verify and task complete) gets
+	// an ordering-safe timestamp/actor without threading it through call sites.
+	// A caller that already stamped (tests, replay fixtures) is left untouched.
+	if record.Timestamp == "" {
+		record.Timestamp = Clock().Format(time.RFC3339)
+	}
+	if record.Actor == "" {
+		record.Actor = recordActor()
 	}
 	data, err := json.Marshal(record)
 	if err != nil {
@@ -54,6 +74,35 @@ func LoadEvidence(path string) (map[string]EvidenceRecord, error) {
 		if record.TaskID != "" {
 			records[record.TaskID] = record
 		}
+	}
+	return records, scanner.Err()
+}
+
+// LoadEvidenceRecords reads the evidence log in append order, preserving every
+// attempt (unlike LoadEvidence, which keeps only the latest record per task).
+// Telemetry aggregation needs the full history for per-attempt breakdown.
+func LoadEvidenceRecords(path string) ([]EvidenceRecord, error) {
+	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var records []EvidenceRecord
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		if scanner.Text() == "" {
+			continue
+		}
+		var record EvidenceRecord
+		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
+			return nil, err
+		}
+		records = append(records, record)
 	}
 	return records, scanner.Err()
 }

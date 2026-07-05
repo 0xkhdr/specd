@@ -41,6 +41,22 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Criteria.Required = parsed
+		case "review.required":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "review.required must be boolean"})
+				continue
+			}
+			cfg.Review.Required = parsed
+		case "submit.command":
+			cfg.Submit.Command = value
+		case "submit.timeout_seconds":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed <= 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "submit.timeout_seconds must be positive integer"})
+				continue
+			}
+			cfg.Submit.TimeoutSecs = parsed
 		case "promotion_threshold":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 1 {
@@ -77,6 +93,22 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 			cfg.Orchestration.Enabled = parsed
 		case "SPECD_ORCHESTRATION_MODEL":
 			cfg.Orchestration.Model = value
+		case "SPECD_REVIEW_REQUIRED":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_REVIEW_REQUIRED must be boolean"})
+				continue
+			}
+			cfg.Review.Required = parsed
+		case "SPECD_SUBMIT_COMMAND":
+			cfg.Submit.Command = value
+		case "SPECD_SUBMIT_TIMEOUT_SECONDS":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed <= 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SUBMIT_TIMEOUT_SECONDS must be positive integer"})
+				continue
+			}
+			cfg.Submit.TimeoutSecs = parsed
 		case "SPECD_CRITERIA_REQUIRED":
 			parsed, err := strconv.ParseBool(value)
 			if err != nil {

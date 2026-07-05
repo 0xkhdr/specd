@@ -129,3 +129,28 @@ If a task is not verified and completed within the TTL, the lease expires, and t
 By default, the brain runs in read-only mode to prevent unintended system mutations. To allow task dispatching and write operations:
 - Use the **`--authority`** flag to grant dispatch authority.
 - Without it, `specd brain step` will log planned actions but execute no changes.
+
+### Config Snippets and Digest Drift
+- `specd mcp --config claude-code [--root <path>] [--spec <slug>]` prints a
+  paste-ready MCP server config — no hand-written JSON. Unknown hosts exit 2
+  listing the known ones.
+- `specd handshake bootstrap` reports a **palette digest** (SHA-256 of the
+  `help --json` command palette) and a **config digest**. Cache them; on the next
+  handshake pass them back with `--expect-palette-digest`/`--expect-config-digest`.
+  A mismatch exits 1 naming which drifted, so you know to re-fetch the palette
+  before relying on a stale cached copy.
+- `specd init --repair`/`--refresh` re-sync specd-managed regions (wrapped in
+  `<!-- specd:managed:<asset>:v<N> -->` markers) from the embedded templates.
+  Content **inside** the markers is regenerated; content **outside** is preserved.
+  Use `--dry-run` to preview before writing.
+
+### Cost Telemetry (Stored, Never Computed)
+Host workers report their own usage; specd only records it. Pass the optional
+`--tokens <int> --cost <decimal> --duration-ms <int>` flags to `specd verify` and
+`specd task complete` and the values are stored **verbatim** on the evidence
+record. specd never counts tokens, estimates, or does float math on money —
+aggregation in `report --metrics` uses exact decimal arithmetic. Every field is
+optional; malformed values fail closed (exit 2). ACP claim/report ledger records
+carry the same telemetry alongside a per-task attempt number (a countable fact,
+not a stored counter), the git HEAD, the changed-files list, and a verify-record
+reference.

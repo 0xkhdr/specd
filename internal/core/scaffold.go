@@ -13,29 +13,21 @@ func WriteScaffold(root string) error {
 			return err
 		}
 	}
-	for _, base := range []string{"roles", "steering"} {
-		entries, err := embedtemplates.FS.ReadDir(base)
-		if err != nil {
+	assets, err := ManagedAssets()
+	if err != nil {
+		return err
+	}
+	for _, asset := range assets {
+		target := filepath.Join(root, asset.RelPath)
+		if _, err := os.Stat(target); err == nil {
+			continue // preserve an existing file; `init --repair` re-syncs its region
+		} else if !os.IsNotExist(err) {
 			return err
 		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			name := filepath.Join(base, entry.Name())
-			raw, err := embedtemplates.FS.ReadFile(name)
-			if err != nil {
-				return err
-			}
-			target := filepath.Join(root, ".specd", name)
-			if _, err := os.Stat(target); err == nil {
-				continue
-			} else if !os.IsNotExist(err) {
-				return err
-			}
-			if err := os.WriteFile(target, raw, 0o644); err != nil {
-				return err
-			}
+		// Wrap the template in managed markers so drift repair can find the region
+		// while leaving any content the user later adds outside it untouched.
+		if err := os.WriteFile(target, []byte(asset.Block()+"\n"), 0o644); err != nil {
+			return err
 		}
 	}
 	return writeAgents(root)

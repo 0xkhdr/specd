@@ -196,6 +196,34 @@ invalidates stale attestations by construction, no mutation needed.
 
 ---
 
+### Gate: `review`
+
+| | |
+|---|---|
+| **Source** | `internal/core/gates/review.go` |
+| **Checks** | (Active only when `review.required` is on **and** `approve complete` is in progress) — `review_report.md` carries an `approve` verdict recorded at the current git HEAD. |
+| **Fails on** | Missing/malformed report, a `reject`/`needs-changes` verdict, or an `approve` verdict pinned to a stale HEAD. |
+
+This is the opt-in review ratchet (spec 09), doubly armed like `criteria`:
+`config review.required = true` **and** the completion transition. Default off.
+
+**HEAD freshness** is the load-bearing detail. An `approve` verdict counts only
+when the report's `Git HEAD` line matches the commit the code is at now, exactly
+as a verify record pins its exit code to a HEAD. A stale approval — carried over
+from an older commit — does **not** count; re-review at the current commit. A
+missing report, a missing/unknown verdict, or a missing HEAD line **fails closed**
+and is never read as approve. `reject`/`needs-changes` surfaces the report's
+findings section in the gate output.
+
+**Who fills it.** The **auditor** role fills `review_report.md` (scaffold it with
+`specd review <spec>`). A craftsman reviewing its own work is an anti-pattern —
+the harness cannot verify reviewer identity, so the gate checks *that a review
+exists and approves at this HEAD*, not *who* wrote it. That identity discipline
+is the operator's to enforce. No LLM runs in the gate: the host agent writes the
+report, the harness only checks it.
+
+---
+
 ## Opt-in Gate
 
 ### Gate: `security`

@@ -31,12 +31,12 @@ decision record (see `00-hygiene`).
 
 | spec | scope (FINDINGS refs) | status | notes |
 |---|---|---|---|
-| [08-submit](08-submit/spec.md) | Terminal `submit` verb: all-gates-green check + operator-configured command via sandboxed exec (B.7, D.10) | pending | |
-| [09-review-gate](09-review-gate/spec.md) | Scaffolded `review_report.md` + opt-in completion block (B.5, D.11) | pending | |
-| [10-telemetry](10-telemetry/spec.md) | Cost/duration annotations on task + ACP records, surfaced in `report --metrics` (B.15, B.20, D.12) | pending | |
-| [11-integration-polish](11-integration-polish/spec.md) | `mcp --config <host>`, `init --repair/--refresh/--dry-run`, handshake config digests (B.21, B.22, B.26, D.13) | pending | |
-| [12-program-links](12-program-links/spec.md) | Cross-spec `link/unlink` + program frontier view (B.18, D.14) | pending | |
-| [13-report-history](13-report-history/spec.md) | `report --history` audit replay + Prometheus textfile format (B.16, D.15) | pending | |
+| [08-submit](08-submit/spec.md) | Terminal `submit` verb: all-gates-green check + operator-configured command via sandboxed exec (B.7, D.10) | done | submissions.jsonl ledger, dry-run default, resubmit guard, stdin via shared exec; suite green |
+| [09-review-gate](09-review-gate/spec.md) | Scaffolded `review_report.md` + opt-in completion block (B.5, D.11) | done | embedded template scaffold, strict HEAD-fresh parse, opt-in `review.required` gate; suite green |
+| [10-telemetry](10-telemetry/spec.md) | Cost/duration annotations on task + ACP records, surfaced in `report --metrics` (B.15, B.20, D.12) | done | verbatim annotations on evidence + ACP claim rigor (attempt/HEAD/files), exact-decimal aggregation, absence shown; suite green |
+| [11-integration-polish](11-integration-polish/spec.md) | `mcp --config <host>`, `init --repair/--refresh/--dry-run`, handshake config digests (B.21, B.22, B.26, D.13) | done | managed-marker assets + repair/refresh/dry-run, claude-code snippet, palette/config SHA-256 digests + drift guards; suite green |
+| [12-program-links](12-program-links/spec.md) | Cross-spec `link/unlink` + program frontier view (B.18, D.14) | done | program.json link store, cycle-refused, `status --program` frontier, execution-approval gated on incomplete deps; schedule/tick skipped (ADR 0004); suite green |
+| [13-report-history](13-report-history/spec.md) | `report --history` audit replay + Prometheus textfile format (B.16, D.15) | done | pure merge-sort replay over existing ledgers (evidence stamped), deterministic tie-break, `--format prometheus` with pinned metric contract + internal lint, `--history --json`; ADR 0005; suite green |
 
 ## Wave 3 — Demand-gated (FINDINGS Tier 3: decision records only, no implementation)
 

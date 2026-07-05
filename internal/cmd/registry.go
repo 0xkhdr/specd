@@ -35,6 +35,7 @@ var executable = map[string]Handler{
 	"handshake": runHandshake,
 	"help":      runHelp,
 	"init":      runInit,
+	"link":      runLink,
 	"mcp":       runMCP,
 	"version":   runVersion,
 	"memory":    runMemory,
@@ -42,8 +43,11 @@ var executable = map[string]Handler{
 	"new":       runNew,
 	"next":      runNext,
 	"report":    runReport,
+	"review":    runReview,
 	"status":    runStatus,
+	"submit":    runSubmit,
 	"task":      runTask,
+	"unlink":    runUnlink,
 	"verify":    runVerify,
 }
 
@@ -110,9 +114,60 @@ func runCheck(root string, args []string, flags map[string]string) error {
 
 func runInit(root string, args []string, flags map[string]string) error {
 	if len(args) != 0 {
-		return errors.New("usage: specd init [--agent=<name>]")
+		return errors.New("usage: specd init [--agent=<name>] [--repair|--refresh] [--dry-run]")
 	}
-	return core.WriteScaffold(root)
+	repair := flagEnabled(flags, "repair")
+	refresh := flagEnabled(flags, "refresh")
+	dryRun := flagEnabled(flags, "dry-run")
+
+	// Plain init: scaffold missing assets (idempotent — existing files preserved).
+	if !repair && !refresh {
+		if dryRun {
+			// A dry-run init still reports what a repair would change on top of the
+			// scaffold, so a fresh run previews the managed regions it would write.
+			return previewManaged(root)
+		}
+		return core.WriteScaffold(root)
+	}
+
+	// Repair/refresh re-sync every managed region from the current templates,
+	// leaving content outside the markers untouched (R3/R4).
+	if dryRun {
+		return previewManaged(root)
+	}
+	changes, err := core.ApplyManagedRepair(root)
+	if err != nil {
+		return err
+	}
+	verb := "repaired"
+	if refresh {
+		verb = "refreshed"
+	}
+	if len(changes) == 0 {
+		fmt.Fprintln(os.Stdout, "all managed regions already in sync")
+		return nil
+	}
+	for _, change := range changes {
+		fmt.Fprintf(os.Stdout, "%s %s\n", verb, change.RelPath)
+	}
+	return nil
+}
+
+// previewManaged prints the unified-diff-style preview of every managed-region
+// change and writes nothing (spec 11 R5).
+func previewManaged(root string) error {
+	changes, err := core.PlanManagedRepair(root)
+	if err != nil {
+		return err
+	}
+	if len(changes) == 0 {
+		fmt.Fprintln(os.Stdout, "no managed-region changes")
+		return nil
+	}
+	for _, change := range changes {
+		fmt.Fprint(os.Stdout, core.Unifiedish(change))
+	}
+	return nil
 }
 
 func runContext(root string, args []string, flags map[string]string) error {
@@ -192,6 +247,19 @@ func runNext(root string, args []string, flags map[string]string) error {
 }
 
 func runMCP(root string, args []string, flags map[string]string) error {
+	// `--config <host>` prints a paste-ready MCP config snippet instead of serving
+	// (spec 11 R1). --root/--spec pin the server's cwd and active spec.
+	if host, ok := flags["config"]; ok {
+		if len(args) != 0 {
+			return errors.New("usage: specd mcp --config <host> [--root <path>] [--spec <slug>]")
+		}
+		snippet, err := core.MCPConfigSnippet(host, flags["root"], flags["spec"])
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUsage, err)
+		}
+		fmt.Fprint(os.Stdout, snippet)
+		return nil
+	}
 	if len(args) != 0 {
 		return errors.New("usage: mcp")
 	}
@@ -200,14 +268,25 @@ func runMCP(root string, args []string, flags map[string]string) error {
 
 func runHandshake(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 || args[0] != "bootstrap" {
-		return errors.New("usage: handshake bootstrap [--json]")
+		return errors.New("usage: handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]")
 	}
 	config, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
 	handshake := core.BootstrapHandshake(config)
+
+	// Digest-drift guards fail with exit 1 identifying which digest moved (R6).
+	if exp, ok := flags["expect-palette-digest"]; ok && exp != handshake.PaletteDigest {
+		return fmt.Errorf("palette digest drift: expected %s, current %s", exp, handshake.PaletteDigest)
+	}
+	if exp, ok := flags["expect-config-digest"]; ok && exp != handshake.ConfigDigest {
+		return fmt.Errorf("config digest drift: expected %s, current %s", exp, handshake.ConfigDigest)
+	}
+
 	if flagEnabled(flags, "json") {
 		return writeJSON(handshake)
 	}
 	fmt.Fprintf(os.Stdout, "version: %s\n", handshake.Version)
+	fmt.Fprintf(os.Stdout, "palette_digest: %s\n", handshake.PaletteDigest)
+	fmt.Fprintf(os.Stdout, "config_digest: %s\n", handshake.ConfigDigest)
 	for _, tool := range handshake.Tools {
 		fmt.Fprintf(os.Stdout, "tool: %s\n", tool)
 	}
@@ -215,6 +294,17 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 }
 
 func runStatus(root string, args []string, flags map[string]string) error {
+	if flagEnabled(flags, "program") {
+		if len(args) != 0 {
+			return errors.New("usage: specd status --program (takes no spec)")
+		}
+		view, err := renderProgram(root)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, view)
+		return nil
+	}
 	if len(args) != 1 {
 		return errors.New("usage: status slug [--json]")
 	}
@@ -246,11 +336,41 @@ func runStatus(root string, args []string, flags map[string]string) error {
 
 func runReport(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--json]")
+		return errors.New("usage: report slug [--pr|--metrics|--json|--history|--format prometheus]")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
 		return err
+	}
+	// --history replays the spec's audit trail from existing records (spec 13);
+	// it writes nothing and honours --json for machine-readable JSON Lines (R6).
+	if flagEnabled(flags, "history") {
+		events, err := gatherHistory(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		if flagEnabled(flags, "json") {
+			out, err := core.RenderHistoryJSON(events)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(os.Stdout, out)
+			return nil
+		}
+		fmt.Fprint(os.Stdout, core.RenderHistory(args[0], events))
+		return nil
+	}
+	// --format prometheus emits a textfile-collector exposition (spec 13 R4).
+	if flags["format"] == "prometheus" {
+		metrics, err := gatherPrometheus(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, core.RenderPrometheus(metrics))
+		return nil
+	}
+	if format, ok := flags["format"]; ok && format != "" {
+		return fmt.Errorf("%w: unsupported --format %q (only prometheus)", ErrUsage, format)
 	}
 	coverage, err := criterionCoverage(root, args[0])
 	if err != nil {
@@ -264,6 +384,11 @@ func runReport(root string, args []string, flags map[string]string) error {
 		}{model, coverage})
 	case flagEnabled(flags, "metrics"):
 		fmt.Fprint(os.Stdout, core.RenderMetrics(model))
+		telemetry, err := aggregateTelemetry(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, core.RenderTelemetry(args[0], telemetry))
 	case flagEnabled(flags, "pr"):
 		fmt.Fprint(os.Stdout, core.PRSummary(model))
 	default:
@@ -322,6 +447,10 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	if err := requireTaskGate(root, slug); err != nil {
 		return err
 	}
+	annotations, err := parseAnnotations(flags)
+	if err != nil {
+		return err
+	}
 	spec, err := loadSpec(root, slug)
 	if err != nil {
 		return err
@@ -354,7 +483,7 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	if !core.HeadPinned(head) {
 		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this evidence cannot pin to a commit and will not count toward `task complete`\n", head)
 	}
-	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head}
+	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head, Telemetry: annotations}
 	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil && err == nil {
 		err = appendErr
 	}
@@ -450,12 +579,38 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 	// Opt-in per-criterion ratchet: only the completion transition consults it,
 	// and only when config enabled it (spec 04 R6).
 	if approveTarget == string(core.StatusComplete) {
-		if cfg := loadSpecConfig(root); cfg.Criteria.Required {
+		cfg := loadSpecConfig(root)
+		if cfg.Criteria.Required {
 			ctx.CriteriaRequired = true
 			ctx.CriteriaUnmet = unmetCriteria(root, slug, ctx.RequirementsDoc)
 		}
+		if cfg.Review.Required {
+			applyReviewInputs(&ctx, root, slug)
+		}
 	}
 	return ctx
+}
+
+// applyReviewInputs reads and parses review_report.md into the gate context for
+// the completion transition (spec 09). The gate stays pure: all disk access and
+// parsing happen here, in the caller. A missing or malformed report sets
+// ReviewParseErr so the gate fails closed (R5).
+func applyReviewInputs(ctx *gates.CheckCtx, root, slug string) {
+	ctx.ReviewRequired = true
+	ctx.ReviewExpectedHead = gitHead(root)
+	raw, err := os.ReadFile(core.ReviewReportPath(root, slug))
+	if err != nil {
+		ctx.ReviewParseErr = fmt.Sprintf("no review report — run `specd review %s`", slug)
+		return
+	}
+	report, err := core.ParseReviewReport(string(raw))
+	if err != nil {
+		ctx.ReviewParseErr = err.Error()
+		return
+	}
+	ctx.ReviewVerdict = report.Verdict
+	ctx.ReviewHead = report.Head
+	ctx.ReviewFindings = report.Findings
 }
 
 func taskStatus(tasks []core.TaskRow) map[string]core.TaskRunStatus {

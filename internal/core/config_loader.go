@@ -15,6 +15,8 @@ type Config struct {
 	Context            ContextConfig
 	Orchestration      OrchestrationConfig
 	Criteria           CriteriaConfig
+	Review             ReviewConfig
+	Submit             SubmitConfig
 	PromotionThreshold int
 }
 
@@ -22,11 +24,33 @@ type GatesConfig struct {
 	Verify string
 }
 
+// SubmitConfig configures the terminal `submit` verb (spec 08). Command is an
+// operator-supplied shell line run through the sandboxed exec path with the PR
+// summary streamed on stdin; empty means dry-run (print summary, exit 0). The
+// binary embeds no git/GitHub logic — the operator owns transport. TimeoutSecs
+// bounds the command; zero applies SubmitDefaultTimeoutSecs.
+type SubmitConfig struct {
+	Command     string
+	TimeoutSecs int
+}
+
+// SubmitDefaultTimeoutSecs bounds an operator submit command when the config
+// leaves submit.timeout_seconds unset.
+const SubmitDefaultTimeoutSecs = 120
+
 // CriteriaConfig is the opt-in per-acceptance-criterion evidence ratchet. When
 // Required is true, the completion approval gate refuses while any acceptance
 // criterion lacks a current passing record (spec 04 R6). Default off so existing
 // flows are unbroken.
 type CriteriaConfig struct {
+	Required bool
+}
+
+// ReviewConfig is the opt-in review gate (spec 09). When Required is true, the
+// completion approval gate refuses unless review_report.md carries an approve
+// verdict recorded at the current git HEAD. Default off so existing flows are
+// unbroken.
+type ReviewConfig struct {
 	Required bool
 }
 
