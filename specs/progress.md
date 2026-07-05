@@ -13,9 +13,9 @@ decision record (see `00-hygiene`).
 
 | spec | scope (FINDINGS refs) | status | notes |
 |---|---|---|---|
-| [00-hygiene](00-hygiene/spec.md) | CLAUDE.md/reality drift, missing lint scripts + CHEATSHEET, skip-decision records, config key validation (C.1, C.2, C.7, D.1, D.4) | pending | |
-| [01-version-release](01-version-release/spec.md) | `specd version` verb, ldflags injection, goreleaser pipeline (C.3, B.13, D.2) | pending | |
-| [02-state-schema-version](02-state-schema-version/spec.md) | `schemaVersion` in state.json, forward-migration hook, `check --schema` (C.5, B.14, B.23, D.3) | pending | |
+| [00-hygiene](00-hygiene/spec.md) | CLAUDE.md/reality drift, missing lint scripts + CHEATSHEET, skip-decision records, config key validation (C.1, C.2, C.7, D.1, D.4) | done | test-lint.sh/docs-lint.sh + CHEATSHEET mirror live; config unknown-key fail-closed (`config_validate.go`); skip records in ADR 0007; suite green |
+| [01-version-release](01-version-release/spec.md) | `specd version` verb, ldflags injection, goreleaser pipeline (C.3, B.13, D.2) | done | `internal/version` + `specd version`, ldflags injection, `.goreleaser.yml` + release workflow; suite green |
+| [02-state-schema-version](02-state-schema-version/spec.md) | `schemaVersion` in state.json, forward-migration hook, `check --schema` (C.5, B.14, B.23, D.3) | done | `schema_check.go` + state.json migration hook, `check --schema`; suite green |
 
 ## Wave 1 — Enforcement completeness (FINDINGS Tier 1: core-promise gaps)
 
@@ -40,11 +40,12 @@ decision record (see `00-hygiene`).
 
 ## Wave 3 — Demand-gated (FINDINGS Tier 3: decision records only, no implementation)
 
-No specs. Wave 0's `00-hygiene` records the skip/defer decision for each:
-eval/prototype (B.10), deploy/observe (B.8, B.9), packs (B.24), harness
-sharing (B.25), ingest (B.11), conductor (B.12), dashboard (B.17),
-`triage` verb (C.2). Revisit only on demonstrated demand; a revisit means a
-new spec here, not an edit to a decision record.
+No specs. `docs/decisions/0007-demand-gated-skips.md` records the skip/defer
+decision — with an explicit revisit trigger — for each: eval/prototype (B.10),
+deploy/observe (B.8, B.9), packs (B.24), harness sharing (B.25), ingest (B.11),
+conductor (B.12), dashboard (B.17), `triage` verb (C.2). Revisit only on
+demonstrated demand; a revisit means a new spec here, not an edit to a decision
+record.
 
 ## Explicit non-goals (FINDINGS "What NOT to bring back")
 
@@ -54,3 +55,12 @@ new spec here, not an edit to a decision record.
 - v1 mega-`init` shape (27 KB) — port capabilities, never the shape.
 - Any repo perception inside the binary (`boot`/`enrich` class) —
   Foundational Split violation per v1's own changelog.
+
+## Status
+
+**All 14 specs `done`; Wave 3 skips recorded in ADR 0007; suite + all lints
+green (2026-07-05).** Wave-ordering invariant satisfied: every prior wave is
+`done` before the next starts.
+
+Ref-scheme note: `B.*`/`C.*` cite `FINDINGS.md`; `D.*` are progress-local
+doc-task labels with no FINDINGS counterpart.

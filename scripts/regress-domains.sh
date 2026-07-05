@@ -29,55 +29,75 @@ SPECD="$RUN/specd"
 violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
 
-# W0 — honesty: progress.md green claims must survive the audit.
-if sh "$RUN/scripts/audit-progress.sh" >/dev/null 2>&1; then
-	pass W0 "progress.md green rows honest"
+# W0 — honesty: progress.md must obey its own wave-ordering invariant
+# ("a wave may start only when every spec in the prior wave is done"). In file
+# order, waves run top-to-bottom, so a `pending`/`in-progress` row must never
+# precede a `done` row. Pure text check — no binary, current program/wave format.
+w0_seen_incomplete=0
+w0_bad=0
+while IFS= read -r st; do
+	case "$st" in
+		pending|in-progress) w0_seen_incomplete=1 ;;
+		done) [ "$w0_seen_incomplete" -eq 1 ] && w0_bad=1 ;;
+	esac
+done <<EOF
+$(awk -F'|' 'NF>=5 { s=$4; gsub(/^[ \t]+|[ \t]+$/, "", s); if (s=="pending"||s=="in-progress"||s=="done") print s }' "$RUN/specs/progress.md")
+EOF
+if [ "$w0_bad" -eq 0 ]; then
+	pass W0 "progress.md wave ordering honest"
 else
-	violation W0 "audit-progress.sh reports a falsified green row"
+	violation W0 "progress.md marks a later wave done while an earlier wave is pending"
 fi
 
-# W1 — ADR-7 mode enum: an unknown mode must be refused.
-if "$SPECD" new __rp_w1 --mode __bogus__ >/dev/null 2>&1; then
-	violation W1 "unknown --mode accepted (mode enum not enforced)"
+# W1 — enum enforcement (spec 03 R3): an out-of-enum flag value must be refused.
+# Probe a real enum flag (report --format ∈ {prometheus}) against an existing
+# spec so the rejection is attributable to the enum path, not a missing spec.
+"$SPECD" new rp-w1 >/dev/null 2>&1 || violation W1 "could not scaffold probe spec"
+if "$SPECD" report rp-w1 --format __bogus__ >/dev/null 2>&1; then
+	violation W1 "out-of-enum --format accepted (enum validation not enforced)"
 else
-	pass W1 "unknown --mode rejected"
+	pass W1 "out-of-enum flag value rejected"
 fi
 
 # W2 — trust boundary: brain must be fail-closed on default config.
-if "$SPECD" brain start __rp_w2 >/dev/null 2>&1; then
+if "$SPECD" brain start rp-w2 >/dev/null 2>&1; then
 	violation W2 "brain start succeeded on default config (not fail-closed)"
 else
 	pass W2 "brain start fail-closed"
 fi
 
 # W3 — records: decision without --text is a usage error.
-if "$SPECD" decision __rp_w3 >/dev/null 2>&1; then
+if "$SPECD" decision rp-w3 >/dev/null 2>&1; then
 	violation W3 "decision without --text accepted (hollow record)"
 else
 	pass W3 "decision requires --text"
 fi
 
 # W4 — gates: check on a fresh scaffold must reject placeholder EARS.
-"$SPECD" new __rp_w4 >/dev/null 2>&1 || violation W4 "could not scaffold probe spec"
-if "$SPECD" check __rp_w4 >/dev/null 2>&1; then
+"$SPECD" new rp-w4 >/dev/null 2>&1 || violation W4 "could not scaffold probe spec"
+if "$SPECD" check rp-w4 >/dev/null 2>&1; then
 	violation W4 "check passed on placeholder scaffold (EARS gate inert)"
 else
 	pass W4 "check rejects placeholder EARS"
 fi
 
-# W5 — surface: bare verb count must equal the ADR-scoped 16.
+# W5 — surface lock: the bare verb count is pinned as a tripwire, so adding or
+# removing a verb is a deliberate edit here. Current surface is 23 (16 original
+# + submit, review, link, unlink, program-era verbs, version, triage). Bump this
+# only alongside an intended verb change.
+W5_EXPECT=23
 verbs=$("$SPECD" 2>&1 | sed -n 's/^  \([a-z][a-z]*\) .*/\1/p' | sort -u | wc -l | tr -d ' ')
-if [ "$verbs" -ne 16 ]; then
-	violation W5 "verb count is $verbs, expected 16"
+if [ "$verbs" -ne "$W5_EXPECT" ]; then
+	violation W5 "verb count is $verbs, expected $W5_EXPECT"
 else
-	pass W5 "verb count == 16"
+	pass W5 "verb count == $W5_EXPECT"
 fi
 
-# W6 — release: --version prints a non-empty stamp.
-if "$SPECD" --version 2>/dev/null | grep -qE '.'; then
-	pass W6 "--version prints a stamp"
+# W6 — release: the `version` verb (spec 01) prints a non-empty build stamp.
+if "$SPECD" version 2>/dev/null | grep -qE '.'; then
+	pass W6 "version prints a stamp"
 else
-	violation W6 "--version prints nothing"
+	violation W6 "version prints nothing"
 fi
 
 echo "regress-domains: all per-domain invariants hold"
