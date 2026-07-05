@@ -41,11 +41,11 @@ context window to a strict, local, tool-gated pipeline.
 
 ### Building from Source
 
-`specd` is written in Go (1.26+) and has **zero runtime dependencies**. It compiles into a single static binary:
+`specd` is written in Go (1.22+) and has **zero runtime dependencies**. It compiles into a single static binary:
 
 ```bash
 # Clone the repository and build:
-go build -o specd main.go
+go build -o specd .
 
 # Or run directly:
 go run . help
@@ -65,11 +65,18 @@ This scaffolds the `.specd/` folder (default role prompts and steering files) an
 
 ## Documentation Map
 
-- 💡 [Concepts](docs/concepts.md) — The foundational split, eight principles, and spec lifecycle.
+Start at the **[docs index](docs/README.md)** for fast paths, or jump straight in:
+
+- 💡 [Concepts](docs/concepts.md) — The foundational split, the philosophy pillars, and spec lifecycle.
 - 📖 [User Guide](docs/user-guide.md) — Walkthrough of the lifecycle, stubs, verify, and complete flow.
 - 📑 [Command Reference](docs/command-reference.md) — Complete CLI syntax, flags, and exit codes.
-- ✅ [Validation Gates](docs/validation-gates.md) — Details on all 12 core validation checks.
-- 🤖 [Agent Integration](docs/agent-integration.md) — Roles, steering files, MCP setup, and brain controller.
+- 🗂️ [Cheatsheet](docs/CHEATSHEET.md) — Byte-identical mirror of the command reference.
+- ✅ [Validation Gates](docs/validation-gates.md) — Details on all 14 core validation gates plus security gates.
+- 🤖 [Agent Integration](docs/agent-integration.md) — Roles, steering files, dispatch, and the Brain/Pinky controller.
+- 🔌 [MCP Guide](docs/mcp-guide.md) — The `specd mcp` stdio server, host config snippets, and handshake digests.
+- 📦 [Open Spec Format](docs/open-spec-format.md) — The on-disk `.specd/` layout and `state.json` schema.
+- ⚙️ [GitHub Action](docs/github-action.md) — Gate pull requests in CI with the composite action.
+- 🩺 [Troubleshooting](docs/troubleshooting.md) — Blocked tasks, the escalation ratchet, lock and CAS errors.
 - 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, invariants, and CLI design decisions.
 
 ---
