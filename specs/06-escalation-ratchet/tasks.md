@@ -1,0 +1,12 @@
+# Tasks — 06-escalation-ratchet
+
+| id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
+| T1 | scout | internal/core/evidence.go, internal/core/frontier.go, internal/core/task_complete.go, internal/core/verify/exec.go | | `printf ok` | Confirms verify-fail records are queryable per task, frontier exclusion mechanism, and where override ledger fits existing append-only patterns |
+| T2 | craftsman | internal/core/escalation.go, internal/core/escalation_test.go | T1 | `go test ./internal/core -run TestEscalation -race -count=1` | Pure derivation: consecutive fails since last pass/override ≥ N ⇔ escalated; N from config `escalation.maxVerifyFails` default 3, 0 disables; table-driven tests over record sequences (R1, R5, R6) |
+| T3 | craftsman | internal/core/escalation.go, internal/core/escalation_test.go | T2 | `go test ./internal/core -run TestOverrideRecord -race -count=1` | Append-only override record {task, reason, actor, timestamp, priorFailCount}; atomic write under spec lock; empty reason rejected; override on non-escalated task rejected (R3, R4) |
+| T4 | craftsman | internal/core/verify/exec.go, internal/core/task_complete.go, internal/core/frontier.go + tests | T2 | `go test ./internal/core -run 'TestVerifyEscalated|TestFrontierEscalated' -race -count=1` | Escalated task: verify attempt exits 1 naming count + override path; completion refused; frontier excludes it; override does NOT bypass evidence — completion still needs passing verify (R2, no-bypass invariant) |
+| T5 | craftsman | internal/cmd/task.go, internal/cmd/task_test.go | T3 | `go test ./internal/cmd -run TestTaskOverride -race -count=1` | `task <id> --override --reason <text>` clears escalation, resets counter; `--override` without reason exits 2 (R3, R4) |
+| T6 | craftsman | internal/orchestration/decide.go, internal/cmd/status.go + tests | T4 | `go test ./internal/orchestration ./internal/cmd -run 'TestDecideEscalated|TestStatusEscalated' -race -count=1` | Brain never dispatches escalated task (halts or moves on, no spin); status shows escalated tasks prominently regardless of ratchet setting (R2, R6) |
+| T7 | craftsman | docs/validation-gates.md, docs/command-reference.md, docs/CHEATSHEET.md, docs/user-guide.md | T5 | `./scripts/docs-lint.sh` | Ratchet semantics, override-is-not-a-bypass, config knob + 0-disable escape hatch documented |
+| T8 | validator | (read-only) | T4,T5,T6 | `go test ./... -race -count=2` | Full suite green twice (iteration-order stability) including lifecycle e2e crossing an escalation + override |

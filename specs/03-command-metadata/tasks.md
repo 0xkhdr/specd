@@ -1,0 +1,12 @@
+# Tasks — 03-command-metadata
+
+| id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
+| T1 | scout | internal/core/commands.go, internal/cmd/registry.go, reference/ (read-only design input) | | `printf ok` | Proposed phase/status matrix for all 18 verbs re-derived from current pipeline (not copied from v1); exit-code inventory of current handlers; list of every flag with implicit enums |
+| T2 | craftsman | internal/core/commands.go, internal/core/commands_test.go | T1 | `go test ./internal/core -run TestCommandMeta -race -count=1` | Extended Command struct: AllowedPhases, ExitCodes, FlagMeta (type/enum/default/description), Examples; every verb populated; test asserts no verb missing phases or codes 0/2; phase-independent verbs declare `any` explicitly (R1, R6) |
+| T3 | craftsman | internal/cmd/dispatch.go (or registry.go), internal/cmd/dispatch_test.go | T2 | `go test ./internal/cmd -run TestDispatchPhase -race -count=1` | Single choke-point phase check after spec resolution, before handler, before any side effect; exit 2 names verb + current phase + allowed phases; test proves state.json untouched on rejection (R2) |
+| T4 | craftsman | internal/cli/, internal/cmd/, flag validation tests | T2 | `go test ./internal/cli ./internal/cmd -run TestFlagEnum -race -count=1` | Enum-declared flags validated centrally; out-of-enum value exits 2 naming flag + allowed values (R3) |
+| T5 | craftsman | internal/cmd/help.go, internal/cmd/help_test.go | T2 | `go test ./internal/cmd -run TestHelpJSON -race -count=1` | `help --json` emits full palette with payload schemaVersion; test unmarshals into versioned struct; output stable/deterministic ordering (R4) |
+| T6 | craftsman | internal/mcp/, internal/integration/ conformance tests | T2 | `go test ./internal/mcp ./internal/integration -race -count=1` | MCP tool descriptions + input schemas generated from Command metadata (enum→JSON Schema enum, default→default); conformance test asserts every registered verb present with derived description, zero hand-authored strings (R5) |
+| T7 | craftsman | docs/command-reference.md, docs/CHEATSHEET.md, docs/agent-integration.md | T3,T4,T5 | `./scripts/docs-lint.sh` | Phase matrix, exit-code tables, and help --json contract documented |
+| T8 | validator | (read-only) | T3,T4,T5,T6 | `go test ./... -race -count=1` | Full suite green; lifecycle e2e still passes with phase gating active |
