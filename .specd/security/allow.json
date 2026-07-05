@@ -1,6 +1,0 @@
-[
-  {
-    "fingerprint": "2981b9dc1bc9bfef225b3874a99c725b391b6869ed80b63a408373b79a70f423",
-    "reason": "Synthetic AWS key literal inside the 05-security-suite black-box verify command (specs/05-security-suite/tasks.md); not a real credential. Editing that literal changes the fingerprint and re-surfaces this finding."
-  }
-]
