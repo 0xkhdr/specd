@@ -14,8 +14,9 @@ deterministic: nothing here depends on an LLM's judgement at decision time.
   by `specd verify`. A role's assertion of "done" is not evidence.
 - Read-only roles (scout, validator, auditor) never fabricate a pass. They report
   what they observed; a failing check is reported, never edited away.
-- The only escape hatch is the explicit `--unverified --evidence` flag, used solely
-  by read-only work that produces no runnable artifact.
+- A read-only task still completes through evidence: give it a verify line it can pass
+  (e.g. `printf ok`) so `specd verify` records a real pass. There is no flag that
+  bypasses the evidence gate.
 
 ## Determinism
 - Gates, DAG computation, and reports are pure functions of on-disk state. No LLM call

@@ -23,8 +23,9 @@ A task's `role:` determines what it may do. Read-only roles never write and neve
 fabricate a passing check.
 
 ## Guardrails (non-negotiable)
-- **Evidence integrity.** No task completes without a passing verify record. The only
-  escape hatch is `--unverified --evidence`, for read-only work with no runnable artifact.
+- **Evidence integrity.** No task completes without a passing verify record (exit code 0
+  pinned to a real git HEAD). A read-only task carries a verify line it can pass
+  (e.g. `printf ok`); there is no flag that bypasses the evidence gate.
 - **Determinism.** Gates, DAG, and reports are pure functions of on-disk `.specd/` state.
 - **Scope.** Touch only a task's declared files. Record deviations via `specd decision`.
 - **Blocked means stop.** Retry once, then report `blocked` with the exact blocker.

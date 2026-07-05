@@ -10,12 +10,14 @@ No external dependencies are required. `specd` is built entirely using the Go st
 
 ### Common Commands
 
+There is no Makefile — drive the standard Go toolchain directly:
+
 ```bash
-make build          # Build the binary -> ./specd
-make install        # Install into $GOBIN
-make test           # Run all unit and integration tests
-make lint           # Check code styles and run go vet
-go run . <command>  # Run specd directly from source
+go build -o specd main.go            # Build the binary -> ./specd
+go install github.com/0xkhdr/specd   # Install into $(go env GOBIN)
+go test ./...                        # Run all unit and integration tests
+go vet ./...                         # Static checks
+go run . <command>                   # Run specd directly from source
 ```
 
 Tests are colocated with the implementation files as `*_test.go`.

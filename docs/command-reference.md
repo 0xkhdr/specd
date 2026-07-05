@@ -490,8 +490,8 @@ specd triage <spec>
 
 ## Config Keys
 
-Config lives in `.specd/config.yml` (project) or the global path. YAML only;
-two-space indentation; `.yml` extension required.
+Config lives in `project.yml` at the repository root (optional; defaults apply when
+absent). YAML only; two-space indentation; `.yml` extension required.
 
 | Key | Default | Description |
 |---|---|---|

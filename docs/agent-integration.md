@@ -109,8 +109,10 @@ specd brain <start|step|run|status> <spec> [--authority]
 ```
 
 ### Preconditions for Orchestration
-1. **Config capability**: `orchestration.enabled: true` must be set in `config.yml`.
-2. **Spec state**: The spec's `mode` must be `orchestrated` in `state.json` (initialized with `specd new <slug> --agent=...`).
+1. **Config capability**: `orchestration.enabled: true` must be set in `project.yml` at
+   the repository root.
+2. **Spec state**: The spec's `mode` must be `orchestrated` in `state.json`. Without
+   both preconditions, `specd brain` fails closed (exit 1) and writes nothing.
 
 ### How Brain Orchestration Works
 No LLM determines the execution state. Instead:

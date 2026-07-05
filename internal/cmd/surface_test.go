@@ -9,10 +9,10 @@ import (
 	"testing"
 )
 
-// TestSurfaceMatchesADR enforces W2/R2.3: the CLI surface matches the charter
-// (docs/charter.md) exactly, and the deferred `pinky` worker carries no
-// reachable surface. If someone reintroduces `internal/cmd/pinky.go` and wires a
-// verb without recording the superseding ADR row, this fails.
+// TestSurfaceMatchesADR guards doc/code drift: the CLI surface must match the
+// command palette in docs/command-reference.md exactly, and the deferred `pinky`
+// worker must carry no reachable surface. If someone wires a verb without
+// documenting it (or documents one that is not registered), this fails.
 func TestSurfaceMatchesADR(t *testing.T) {
 	// F11 regression guard: the deferred worker CLI is unregistered — dispatch
 	// must fail closed, never no-op.
@@ -20,48 +20,48 @@ func TestSurfaceMatchesADR(t *testing.T) {
 		t.Fatalf("pinky must be unregistered surface, got err=%v", err)
 	}
 
-	// The charter is the authoritative verb→component map and claims to match the
-	// registry exactly (docs/charter.md header). Pin both directions.
-	charter := charterVerbs(t)
+	// The command reference is the authoritative verb palette and claims to match
+	// the registry exactly. Pin both directions.
+	documented := paletteVerbs(t)
 	registry := map[string]bool{}
 	for _, name := range RegisteredCommandNames() {
 		registry[name] = true
-		if !charter[name] {
-			t.Fatalf("registered verb %q missing from docs/charter.md verb table", name)
+		if !documented[name] {
+			t.Fatalf("registered verb %q missing from docs/command-reference.md palette", name)
 		}
 	}
-	for name := range charter {
+	for name := range documented {
 		if !registry[name] {
-			t.Fatalf("charter lists verb %q not in the registry", name)
+			t.Fatalf("command-reference.md documents verb %q not in the registry", name)
 		}
 	}
 }
 
-// charterVerbs parses the backtick-quoted verbs from the charter's verb table.
-func charterVerbs(t *testing.T) map[string]bool {
+// paletteVerbs parses the `specd <verb>` entries from the command-reference palette.
+func paletteVerbs(t *testing.T) map[string]bool {
 	t.Helper()
-	raw, err := os.ReadFile(charterPath(t))
+	raw, err := os.ReadFile(commandReferencePath(t))
 	if err != nil {
-		t.Fatalf("read charter: %v", err)
+		t.Fatalf("read command reference: %v", err)
 	}
-	// Table rows look like: | `verb` | component | principle |
-	row := regexp.MustCompile("(?m)^\\| `([a-z]+)` \\|")
+	// Palette rows look like: | [`specd verb`](#specd-verb) | Description. |
+	row := regexp.MustCompile("(?m)^\\| \\[`specd ([a-z]+)`\\]")
 	verbs := map[string]bool{}
 	for _, m := range row.FindAllStringSubmatch(string(raw), -1) {
 		verbs[m[1]] = true
 	}
 	if len(verbs) == 0 {
-		t.Fatal("no verbs parsed from charter table")
+		t.Fatal("no verbs parsed from command-reference palette")
 	}
 	return verbs
 }
 
-func charterPath(t *testing.T) string {
+func commandReferencePath(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot resolve caller path")
 	}
-	// internal/cmd/surface_test.go -> repo root -> docs/charter.md
-	return filepath.Join(filepath.Dir(file), "..", "..", "docs", "charter.md")
+	// internal/cmd/surface_test.go -> repo root -> docs/command-reference.md
+	return filepath.Join(filepath.Dir(file), "..", "..", "docs", "command-reference.md")
 }

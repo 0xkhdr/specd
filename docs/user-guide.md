@@ -19,43 +19,35 @@ For the *why*, read [Concepts](./concepts.md); for command-level detail, the
 
 ## Installation
 
-### Quick install (Linux / macOS)
+`specd` builds from source with the Go toolchain — there is no package manager or
+install script. It compiles to a single static binary with zero runtime dependencies.
+
+### Build from source
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
+git clone https://github.com/0xkhdr/specd.git
+cd specd
+
+go build -o specd main.go      # produces ./specd in the current directory
 ```
 
-After install, restart your shell (`source ~/.bashrc` / `source ~/.zshrc`).
-
-### Install options
+### Install onto your PATH
 
 ```bash
-# Force reinstall / upgrade
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
-
-# Pin a specific version
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.1.0
+go install github.com/0xkhdr/specd@latest   # installs `specd` into $(go env GOBIN)
 ```
 
-### Uninstall
-
-There is no uninstall script. Remove the binary manually:
-
-```bash
-rm "$(command -v specd)"
-```
-
-If you no longer need `~/.local/bin` on your `PATH`, also remove the
-`# specd`-tagged `export PATH=...` line that `install.sh` added to your shell
-profile (`~/.bashrc`, `~/.zshrc`, or `~/.profile`).
+Ensure `$(go env GOPATH)/bin` (or `GOBIN`) is on your `PATH`. To uninstall, remove the
+binary: `rm "$(command -v specd)"`.
 
 ### Requirements
 
-- Linux, macOS, or Windows (amd64 / arm64)
-  - *Windows*: verification commands require `sh` or `bash` (e.g. Git for Windows) in `PATH`
-    since `verify:` is executed with `-c`.
-- Git (optional — tarball fallback available in the install script)
-- **Zero runtime dependencies** — single static binary
+- Go 1.26+ to build (no runtime deps once built).
+- Linux, macOS, or Windows (amd64 / arm64).
+  - *Windows*: verification commands require `sh` or `bash` (e.g. Git for Windows) in
+    `PATH`, since `verify:` is executed with `-c`.
+- Git — `specd verify` records the current `git HEAD` into evidence, so run inside a
+  git repository with at least one commit.
 
 ---
 
@@ -187,9 +179,10 @@ specd task complete my-feature T1
 `specd task complete` checks for a record with `exit_code: 0` pinned to a real git
 commit — a warning is emitted if HEAD is unresolved.
 
-> **Read-only roles** (scout, auditor) whose `verify` command is `N/A` can use the
-> manual escape hatch: `specd task complete my-feature T1 --unverified --evidence "<proof>"`.
-> This is not available for `craftsman` or `validator`.
+> **Read-only roles** (scout, validator, auditor) complete through the same evidence
+> gate — there is no bypass flag. Give a read-only task a `verify` line it can pass
+> (e.g. `printf ok`) so `specd verify` records a real passing evidence record, then
+> `specd task complete` as usual.
 
 ### 6. Verifying / Complete
 
@@ -329,16 +322,18 @@ or the OS user).
 
 ## Configuration
 
-Configuration lives in `.specd/config.yml` (project) or `$XDG_CONFIG_HOME/specd/config.yml`
-(global). Environment overrides are the final layer.
+Configuration lives in **`project.yml` at your repository root**. It is optional — with
+no file present, the embedded defaults apply. Environment overrides are the final layer.
 
 ### Config cascade
 
 ```
-Embedded defaults → global config.yml → project config.yml → SPECD_* env vars
+Embedded defaults → project.yml (repo root) → SPECD_* env vars
 ```
 
-### Example `config.yml`
+> The loader only reads a file with a `.yml` extension; `.yaml` and `.json` are ignored.
+
+### Example `project.yml`
 
 ```yaml
 version: "1"
@@ -424,8 +419,9 @@ Either use the existing spec or manually delete `.specd/specs/my-feature/`.
 
 ### Config not loading
 
-The config loader accepts **YAML only** (`.yml` extension with two-space indentation).
+The config loader accepts **YAML only** and reads `project.yml` at the repo root.
 Check that your file:
+- Is named `project.yml` at the repository root (not `.specd/config.yml`)
 - Has the `.yml` extension (not `.yaml` or `.json`)
 - Uses two-space indentation for nested keys
 - Has no trailing colons without values at the section level

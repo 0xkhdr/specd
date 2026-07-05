@@ -78,8 +78,9 @@ error task-ids: duplicate task id T1
 | **Checks** | Every task has a non-empty `verify` command. |
 | **Fails on** | A task with a blank `verify` field. |
 
-> **Note:** For read-only roles (scout, auditor), use `N/A` as the verify value
-> and complete via the `--unverified --evidence` escape hatch.
+> **Note:** Every task — including read-only roles — needs a non-empty `verify`
+> command. Give a read-only task a trivially passing line (e.g. `printf ok`) so it can
+> record real evidence; there is no bypass flag.
 
 ---
 
@@ -112,7 +113,7 @@ A task's evidence is looked up in `evidence.jsonl`. The *latest* passing record 
 
 | | |
 |---|---|
-| **Source** | `internal/core/gates/ears.go` + `internal/core/ears.go` |
+| **Source** | `internal/core/gates/ears.go` |
 | **Checks** | Requirements follow a recognized EARS pattern (case-insensitive). |
 | **Fails on** | A requirement that does not match any EARS form. |
 

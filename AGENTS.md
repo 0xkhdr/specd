@@ -1,25 +1,32 @@
-# AGENTS.md — Operating brief for specd
+# AGENTS.md — working on specd itself
 
-> **Read `PROJECT.md` first.** It is the single authoritative context document for this
-> repository: the product philosophy (Agent = Model + Harness, the eight principles),
-> the binding ADRs, the scope triage (29 → 16 verbs), per-domain decisions and
-> invariants, the roadmap, and the audited current position with the remaining
-> production waves (P0–P6).
+`specd` is a spec-driven coding harness CLI: Go, standard library only, zero runtime
+dependencies, single static binary. This section briefs agents contributing to specd's
+own codebase. For the product documentation, start at [README.md](README.md) and
+[docs/](docs/); the `<!-- specd:agents -->` block below is the runtime briefing that
+`specd init` writes into *user* projects.
 
-Quick orientation:
+Orientation:
 
-- `specs/` — the authored per-domain specs (`spec.md` + `tasks.md`) and `progress.md`.
-  **Do not trust `progress.md` until it is re-audited (PROJECT.md §8, finding F1).**
-- `internal/` + `main.go` — the rebuilt zero-dependency Go binary.
-- `reference/` — the frozen v1 implementation. Read-only museum: never import, build,
-  or copy from it.
-- `The_New_SDLC_With_Vibe_Coding.pdf` — the philosophical anchor.
+- `internal/` + `main.go` — the Go binary. One handler per command under
+  `internal/cmd/`; pure domain logic under `internal/core/` (gates, state, DAG, tasks
+  parser, config).
+- `docs/` — developer-facing docs: concepts, user guide, command reference, validation
+  gates, agent integration, contributor guide.
+- `specs/` — planning artifacts for in-flight work (e.g. `specs/docs-revamp/spec.md`).
+- `reference/` — frozen v1 implementation. Read-only museum: never import, build, or
+  copy from it.
 
-Non-negotiable guardrails (full detail in PROJECT.md §3): determinism first (no LLM in
-any decision/gate/render path), evidence integrity absolute (no completion without a
-passing verify record), the ADR-8 hard invariants (atomic writes, CAS on revision,
-reentrant lock, parser byte round-trip, embedded templates, zero runtime deps), and
-subtractive bias (unsure = CUT/DEFER, recorded).
+Non-negotiable guardrails (detail in `docs/contributor-guide.md` §3):
+
+- **Determinism first** — no LLM sits in any gate, DAG, or report path; they are pure
+  functions of on-disk `.specd/` state.
+- **Evidence integrity** — no task completes without a passing verify record (exit 0
+  pinned to a resolvable git HEAD). There is no bypass flag.
+- **ADR-8 invariants** — atomic writes (`core.AtomicWrite`), CAS on the `state.json`
+  revision, reentrant per-spec lock (`core.WithSpecLock`), byte-stable tasks parser,
+  `go:embed` templates, zero runtime deps.
+- **Subtractive bias** — when unsure, cut or defer, and record the decision.
 
 <!-- specd:agents begin -->
 # specd — host integration guide
@@ -47,8 +54,9 @@ A task's `role:` determines what it may do. Read-only roles never write and neve
 fabricate a passing check.
 
 ## Guardrails (non-negotiable)
-- **Evidence integrity.** No task completes without a passing verify record. The only
-  escape hatch is `--unverified --evidence`, for read-only work with no runnable artifact.
+- **Evidence integrity.** No task completes without a passing verify record (exit code 0
+  pinned to a real git HEAD). A read-only task carries a verify line it can pass
+  (e.g. `printf ok`); there is no flag that bypasses the evidence gate.
 - **Determinism.** Gates, DAG, and reports are pure functions of on-disk `.specd/` state.
 - **Scope.** Touch only a task's declared files. Record deviations via `specd decision`.
 - **Blocked means stop.** Retry once, then report `blocked` with the exact blocker.
