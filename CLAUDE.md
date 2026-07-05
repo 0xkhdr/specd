@@ -27,6 +27,6 @@ Non-negotiable guardrails (detail in `docs/contributor-guide.md` §3):
   functions of on-disk `.specd/` state.
 - **Evidence integrity** — no task completes without a passing verify record (exit 0
   pinned to a resolvable git HEAD). There is no bypass flag.
-- **ADR-8 invariants** — atomic writes, CAS on the `state.json` revision, reentrant
+- **Structural invariants** — atomic writes, CAS on the `state.json` revision, reentrant
   per-spec lock, byte-stable tasks parser, `go:embed` templates, zero runtime deps.
 - **Subtractive bias** — when unsure, cut or defer, and record the decision.
