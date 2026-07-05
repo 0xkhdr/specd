@@ -23,9 +23,9 @@ decision record (see `00-hygiene`).
 |---|---|---|---|
 | [03-command-metadata](03-command-metadata/spec.md) | Rich command metadata: exit codes, flag enums, phase/mode compatibility, fail-closed dispatch, `help --json`, MCP consumption (B.2, B.3, C.8, D.5) | done | dispatch choke-point gating live; suite green |
 | [04-criterion-evidence](04-criterion-evidence/spec.md) | Per-acceptance-criterion verify records, `verify --criterion` (B.1, D.6) | done | criteria.jsonl store, coverage in status/report, opt-in completion gate; suite green |
-| [05-security-suite](05-security-suite/spec.md) | Real security gate: entropy secrets + reasoned allowlist, injection heuristics, slopsquat, per-scanner severity (B.4, C.4, D.7) | pending | |
-| [06-escalation-ratchet](06-escalation-ratchet/spec.md) | N failed verifies ⇒ block task until human `--override --reason` (B.6, D.8) | pending | |
-| [07-brain-safety](07-brain-safety/spec.md) | Brain `cancel`, crash-safe `resume`, per-step checkpoint (B.19, C.6, D.9) | pending | |
+| [05-security-suite](05-security-suite/spec.md) | Real security gate: entropy secrets + reasoned allowlist, injection heuristics, slopsquat, per-scanner severity (B.4, C.4, D.7) | done | scanner framework + entropy secrets/allowlist/injection/slopsquat scanners, per-scanner severity config, tracked-files boundary, `check --security` black-box; suite green |
+| [06-escalation-ratchet](06-escalation-ratchet/spec.md) | N failed verifies ⇒ block task until human `--override --reason` (B.6, D.8) | done | pure consecutive-fail derivation (config `escalation.maxVerifyFails`, 0-disable), append-only override ledger, frontier/verify/brain exclusion, `task --override --reason`, override-is-not-a-bypass; suite green |
+| [07-brain-safety](07-brain-safety/spec.md) | Brain `cancel`, crash-safe `resume`, per-step checkpoint (B.19, C.6, D.9) | done | write-ahead checkpoint + deterministic mission ids, `resume` reconcile/re-issue (zero double-dispatch), `cancel` terminal, derived `crashed` status, session-CAS exclusivity, stress-brain.sh, ADR 0006; suite green ×2 |
 
 ## Wave 2 — Lifecycle completion & operability (FINDINGS Tier 2)
 

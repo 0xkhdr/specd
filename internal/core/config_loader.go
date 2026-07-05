@@ -17,8 +17,35 @@ type Config struct {
 	Criteria           CriteriaConfig
 	Review             ReviewConfig
 	Submit             SubmitConfig
+	Security           SecurityConfig
+	Escalation         EscalationConfig
 	PromotionThreshold int
 }
+
+// SecurityConfig sets per-scanner severity for the opt-in security gate (spec
+// 05 R5). Each field is off|warn|error: error findings fail the gate (exit 1),
+// warn findings print but pass, off skips the scanner. Defaults tuned so a real
+// secret blocks while noisier heuristics only warn.
+type SecurityConfig struct {
+	Secrets   string
+	Injection string
+	Slopsquat string
+}
+
+// SecuritySeverities enumerates the valid per-scanner severities.
+var SecuritySeverities = []string{"off", "warn", "error"}
+
+// EscalationConfig is the opt-in verify-failure ratchet (spec 06 R5). MaxVerifyFails
+// is the count of consecutive failing verify records (since the last pass or
+// override) that escalates a task and blocks its completion until a human clears
+// it with `task <id> --override --reason`. Default 3; 0 disables the ratchet.
+type EscalationConfig struct {
+	MaxVerifyFails int
+}
+
+// EscalationDefaultMaxVerifyFails is the ratchet threshold when config leaves
+// escalation.max_verify_fails unset.
+const EscalationDefaultMaxVerifyFails = 3
 
 type GatesConfig struct {
 	Verify string
@@ -86,6 +113,14 @@ var DefaultConfig = Config{
 	Orchestration: OrchestrationConfig{
 		Enabled: false,
 		Model:   "",
+	},
+	Security: SecurityConfig{
+		Secrets:   "error",
+		Injection: "warn",
+		Slopsquat: "warn",
+	},
+	Escalation: EscalationConfig{
+		MaxVerifyFails: EscalationDefaultMaxVerifyFails,
 	},
 	PromotionThreshold: 3,
 }

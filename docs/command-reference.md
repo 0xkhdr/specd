@@ -158,10 +158,12 @@ specd approve my-feature complete       # close the spec
 
 ```
 specd check <spec> [--security] [--json]
+specd check --security [--json]
 ```
 
 Run the validation gate registry against a spec. Prints findings and exits `1` if
-any gate emits an `error`-severity finding.
+any gate emits an `error`-severity finding. With `--security` and no spec, runs
+only the repo-wide security scanners (no spec required).
 
 **Core gates (always run):**
 
@@ -184,7 +186,15 @@ any gate emits an `error`-severity finding.
 
 | Flag | Gate | Description |
 |---|---|---|
-| `--security` | security | Opt-in security checks (policy-level, not content). |
+| `--security` | security | Three deterministic scanners over tracked files: secrets (format + entropy), injection (prompt-injection heuristics), slopsquat (typosquat dependencies). |
+
+Per-scanner severity is set in `project.yml` (`security.secrets`,
+`security.injection`, `security.slopsquat`, each `off|warn|error`; defaults
+secrets=error, injection=warn, slopsquat=warn). Findings judged benign are
+waived by exact fingerprint with a required reason in
+`.specd/security/allow.json`. Scanners read `git ls-files` only, excluding
+checksum manifests, `.specd/`, `testdata/`, `vendor/`, and `reference/`. See
+docs/validation-gates.md for the full scanner reference.
 
 | Flag | Description |
 |---|---|
@@ -285,6 +295,7 @@ malformed telemetry).
 
 ```
 specd task <id>
+specd task <id> --override --reason <text>
 specd task complete <spec> <id>
 ```
 
@@ -302,6 +313,25 @@ T1 [my-feature] craftsman
 
 Add `--json` for machine-readable output.
 
+### `specd task <id> --override --reason <text>`
+
+Clears an **escalated** task (the escalation ratchet). After
+`escalation.max_verify_fails` consecutive failing verifies (default 3; set to
+`0` to disable the ratchet entirely), a task is blocked: further `verify`
+attempts and `task complete` refuse, and neither `next` nor the Brain will pick
+it up, until a human clears it here. The override:
+
+- **is not a bypass** — it only resets the consecutive-failure counter. The task
+  still needs a genuine passing verify record to complete; the evidence
+  requirement is never waived.
+- **requires a non-empty `--reason`** — a reason-less override exits `2`.
+- **refuses a task that is not escalated** — exits `2`.
+
+Each override is appended to `.specd/specs/<slug>/overrides.jsonl` with the
+actor, timestamp, and the count of failures it cleared. After an override, run
+`specd verify <spec> <id>` again to re-attempt. `status` surfaces escalated
+tasks (blocked when the ratchet is active, advisory when disabled).
+
 ### `specd task complete <spec> <id>`
 
 Evidence-gated task completion. Under the per-spec advisory lock:
@@ -315,6 +345,8 @@ Both writes are atomic and consistent — the Sync gate enforces agreement betwe
 | Flag | Description |
 |---|---|
 | `--json` | Emit machine-readable task row (for `specd task <id>` only). |
+| `--override` | Clear an escalated task (resets the verify-failure ratchet; not a bypass). Requires `--reason`. |
+| `--reason <text>` | Human justification for `--override` (required, non-empty). |
 | `--tokens <int>` | Optional worker-reported token count, stored verbatim (`complete`). |
 | `--cost <decimal>` | Optional worker-reported cost (decimal string), stored verbatim (`complete`). |
 | `--duration-ms <int>` | Optional worker-reported wall-clock milliseconds, stored verbatim (`complete`). |
@@ -483,7 +515,7 @@ to steering files when they reach the promotion threshold.
 ## specd brain
 
 ```
-specd brain <start|step|run|status> <spec> [--authority]
+specd brain <start|step|run|status|cancel|resume> <spec> [--authority]
 ```
 
 Run the opt-in deterministic orchestration controller. **No LLM sits in this path** —
@@ -494,10 +526,18 @@ be in `mode: orchestrated`.
 
 | Subcommand | Description |
 |---|---|
-| `start` | Initialize a Brain session for the spec. |
-| `step` | Run one controller step (observe → decide → dispatch). |
+| `start` | Initialize a Brain session for the spec. Fails closed if a session already exists. |
+| `step` | Run one controller step (observe → decide → dispatch). Refused on a terminal session. |
 | `run` | Alias for `step`. |
-| `status` | Print the current session JSON. |
+| `status` | Print the derived session status (`running`/`cancelled`/`complete`/`crashed`), last checkpoint step/time, and live lease holders. |
+| `cancel` | Drive the session to the terminal `cancelled` state and release its lease. Task and evidence state are untouched; a second cancel is idempotent. |
+| `resume` | Reconstruct the controller from the last checkpoint reconciled against the ledger, re-issuing a dispatch only when its mission id never reached the ledger. Refused (exit 1) on an irreconcilable checkpoint/ledger conflict, or when the session is running with a live lease. |
+
+**Crash safety:** Each dispatch fsyncs a write-ahead checkpoint naming a
+deterministic mission id (`session/step/task`) *before* the dispatch becomes
+visible in the ledger, so `resume` re-issues a lost dispatch exactly once and never
+double-dispatches. `crashed` is derived by `status` from a checkpoint that outran
+the ledger — it is never a persisted state. See ADR 0006.
 
 **Fail-closed:** Without `--authority`, the controller observes and reports but
 writes nothing. With `--authority`, it can dispatch frontier tasks and record leases
@@ -507,7 +547,7 @@ in `session.json` and `acp.jsonl`.
 |---|---|
 | `--authority` | Grant dispatch authority (fail-closed by default). |
 
-**Exit codes:** `0` success, `1` precondition failure (orchestration not enabled, or spec not in orchestrated mode), `2` usage error.
+**Exit codes:** `0` success, `1` precondition failure (orchestration not enabled, spec not in orchestrated mode, terminal session, or irreconcilable resume conflict), `2` usage error.
 
 ---
 

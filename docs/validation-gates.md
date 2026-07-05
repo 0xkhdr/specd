@@ -231,11 +231,54 @@ report, the harness only checks it.
 | | |
 |---|---|
 | **Source** | `internal/core/gates/security/` |
-| **Enable** | `specd check <slug> --security` |
-| **Checks** | Policy-level security checks (not content analysis). |
-| **Fails on** | Security policy violations. |
+| **Enable** | `specd check <slug> --security`, or `specd check --security` (repo-wide, no slug) |
+| **Checks** | Three deterministic scanners over tracked files: **secrets**, **injection**, **slopsquat**. |
+| **Fails on** | Any non-allowlisted finding whose per-scanner severity is `error`. |
 
-Opt-in only; never runs by default. Add `--security` to `specd check` to include it.
+Opt-in only; never runs by default. Add `--security` to `specd check` to include
+it. With no slug (`specd check --security`) it runs the scanners repo-wide,
+independent of any spec.
+
+**Scanners** (each pure over tracked file contents + embedded rule data + the
+allowlist — no network, no LLM, stable finding order):
+
+- **secrets** — known-format credentials (`AKIA…`, `ghp_…`, PEM private-key
+  blocks) plus high-entropy string literals (Shannon entropy over base64/hex
+  tokens, length ≥ 24, thresholds base64 ≥ 4.6 / hex ≥ 3.6). Excerpts are
+  redacted to the first and last 4 characters — the scanner never prints a
+  candidate secret in full. Default severity **error**.
+- **injection** — prompt-injection heuristics in tracked text/markdown:
+  imperative override phrases, `you are now …` role overrides,
+  hidden-instruction HTML comments, tool-exfiltration phrasing, and
+  zero-width/bidi control-character smuggling. Versioned rule set. Default
+  severity **warn**.
+- **slopsquat** — parses `go.mod` and flags module paths within a small
+  Damerau-Levenshtein distance (≤ 1 short, ≤ 2 for names ≥ 8 chars) of an
+  embedded popular-package list; exact matches are never flagged. Default
+  severity **warn**.
+
+**Severity config** (`project.yml`): `security.secrets`, `security.injection`,
+`security.slopsquat`, each `off|warn|error`. `error` findings fail the gate
+(exit 1); `warn` findings print but pass; `off` skips the scanner entirely.
+
+**Allowlist workflow** — a finding you have judged benign is waived in
+`.specd/security/allow.json`, an array of `{ "fingerprint": "…", "reason": "…" }`
+entries. The fingerprint is the SHA-256 of (rule id + relative path + matched
+content), printed nowhere secret; every entry **must** carry a non-empty reason,
+and a reason-less or malformed entry invalidates the whole allowlist (fail
+closed). Because the fingerprint pins the matched content, moving the match to
+another line keeps the waiver valid, while editing the matched text invalidates
+it and re-surfaces the finding — the point of a *reasoned* allowlist.
+
+**Tracked-files boundary** — the gate scans `git ls-files` output only (untracked
+scratch never fails CI), and excludes dependency checksum manifests (`go.sum`,
+`package-lock.json`, …), the harness's own `.specd/` runtime state, and
+`testdata/`, `vendor/`, `reference/`, `.git/` trees — those hold fixtures,
+checksums, or vendored copies that yield only false positives. Working tree only;
+git history is not scanned.
+
+Findings (including allowlisted ones) are recorded under `state.security` so
+`report` and `report --history` can consume them.
 
 ---
 

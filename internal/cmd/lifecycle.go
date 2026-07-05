@@ -143,6 +143,15 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if err != nil {
 			return struct{}{}, err
 		}
+		// Escalation ratchet (spec 06 R2): a task blocked by N consecutive verify
+		// failures cannot complete until a human override resets the counter. The
+		// override is not a bypass — CompleteTask below still demands a passing
+		// verify record.
+		if count, err := taskFailCount(root, slug, id); err != nil {
+			return struct{}{}, err
+		} else if core.IsEscalated(count, escalationMaxFails(root)) {
+			return struct{}{}, fmt.Errorf("task %s is escalated after %d consecutive verify failures; clear it with `specd task %s --override --reason <text>` first", id, count, id)
+		}
 		updated, err := core.CompleteTask(raw, id, spec.Evidence)
 		if err != nil {
 			return struct{}{}, err
@@ -255,6 +264,9 @@ func runTask(root string, args []string, flags map[string]string) error {
 		return errors.New("usage: specd task <id> | specd task complete <spec> <id>")
 	}
 	id := args[0]
+	if flagEnabled(flags, "override") {
+		return runTaskOverride(root, id, flags)
+	}
 	entries, err := os.ReadDir(filepath.Join(core.SpecdDir(root), "specs"))
 	if err != nil {
 		return err

@@ -194,13 +194,15 @@ var Commands = []Command{
 	},
 	{
 		Name:          "task",
-		Usage:         "specd task <id> | specd task complete <spec> <id>",
-		Description:   "Show task details or mark a task complete (requires passing evidence).",
+		Usage:         "specd task <id> [--override --reason <text>] | specd task complete <spec> <id>",
+		Description:   "Show task details, clear an escalated task with a human override, or mark a task complete (requires passing evidence).",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd task T3 --json", "specd task complete payments T3"},
+		Examples:      []string{"specd task T3 --json", "specd task T3 --override --reason 'flaky infra, verified manually'", "specd task complete payments T3"},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable task row."},
+			{Name: "override", Type: "bool", Description: "Clear an escalated task (resets the verify-failure ratchet; does not complete it). Requires --reason."},
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Human justification for --override (required, non-empty)."},
 			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim (task complete)."},
 			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim (task complete)."},
 			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim (task complete)."},
@@ -298,12 +300,12 @@ var Commands = []Command{
 	},
 	{
 		Name:          "brain",
-		Usage:         "specd brain <start|step|run|status> <spec> [--authority]",
+		Usage:         "specd brain <start|step|run|status|cancel|resume> <spec> [--authority]",
 		Description:   "Run the opt-in deterministic orchestration controller.",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(1),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd brain start payments --authority", "specd brain status payments"},
+		Examples:      []string{"specd brain start payments --authority", "specd brain status payments", "specd brain resume payments", "specd brain cancel payments"},
 		Flags: []Flag{
 			{Name: "authority", Type: "bool", Description: "Grant dispatch authority (fail-closed by default)."},
 		},

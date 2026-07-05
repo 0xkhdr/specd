@@ -360,6 +360,10 @@ orchestration:
 | `gates.verify` | `"error"` | Verify gate severity |
 | `orchestration.enabled` | `false` | Enable Brain orchestration |
 | `orchestration.model` | `""` | Model for orchestration (empty = off) |
+| `escalation.max_verify_fails` | `3` | Consecutive verify failures that escalate (block) a task until a human `task <id> --override --reason`; `0` disables the ratchet. |
+| `security.secrets` | `"error"` | Secrets scanner severity (`off\|warn\|error`) for `check --security`. |
+| `security.injection` | `"warn"` | Injection scanner severity (`off\|warn\|error`). |
+| `security.slopsquat` | `"warn"` | Slopsquat scanner severity (`off\|warn\|error`). |
 
 ### Environment variables
 

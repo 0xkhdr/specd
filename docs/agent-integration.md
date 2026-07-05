@@ -105,7 +105,7 @@ All parameters passed by the MCP client are forwarded directly to the command ha
 For projects with automated execution capability, the harness includes a deterministic orchestration controller:
 
 ```bash
-specd brain <start|step|run|status> <spec> [--authority]
+specd brain <start|step|run|status|cancel|resume> <spec> [--authority]
 ```
 
 ### Preconditions for Orchestration
@@ -124,6 +124,21 @@ No LLM determines the execution state. Instead:
 When a task is dispatched, the brain writes a `dispatch` event to `acp.jsonl` (Activity Control Protocol) and registers a lease in `session.json` with a 15-minute Time-To-Live (TTL). 
 
 If a task is not verified and completed within the TTL, the lease expires, and the brain will re-dispatch the task on the next step.
+
+#### Crash Safety: Checkpoint, Resume, Cancel
+Each dispatch fsyncs a **write-ahead checkpoint** naming a deterministic mission id
+(`session/step/task`) *before* the dispatch becomes visible in `acp.jsonl`. If the
+process dies between the two, `specd brain resume <spec>` finds the mission id
+absent from the ledger and re-issues exactly that dispatch; if it died after the
+ledger append, resume finds it present and does not re-issue. Recovery converges
+with **zero double-dispatch**. Racing resumes are serialized by a session-revision
+CAS, so exactly one holder proceeds.
+
+`specd brain status` derives `crashed` from a checkpoint that outran the ledger — it
+is never a persisted state. `specd brain cancel` drives the session to a terminal
+`cancelled` state and releases its lease without touching task or evidence state;
+`step`/`run`/`resume` are refused on a terminal session. See ADR 0006 for the full
+recovery contract and the `pause`/`directive` deferral.
 
 ### Authority Gate (Fail-Closed)
 By default, the brain runs in read-only mode to prevent unintended system mutations. To allow task dispatching and write operations:

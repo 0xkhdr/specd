@@ -57,6 +57,31 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Submit.TimeoutSecs = parsed
+		case "security.secrets":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.secrets must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Secrets = value
+		case "security.injection":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.injection must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Injection = value
+		case "security.slopsquat":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.slopsquat must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Slopsquat = value
+		case "escalation.max_verify_fails":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed < 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "escalation.max_verify_fails must be integer >= 0"})
+				continue
+			}
+			cfg.Escalation.MaxVerifyFails = parsed
 		case "promotion_threshold":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 1 {
@@ -125,6 +150,15 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 			cfg.PromotionThreshold = parsed
 		}
 	}
+}
+
+func validSeverity(value string) bool {
+	for _, s := range SecuritySeverities {
+		if value == s {
+			return true
+		}
+	}
+	return false
 }
 
 func isSecretKey(key string) bool {

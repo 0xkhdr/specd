@@ -12,9 +12,45 @@ import (
 
 var ErrSessionRevisionConflict = errors.New("session revision conflict")
 
+// SessionState is the controller lifecycle (spec 07 R2). The persisted state
+// machine is running → {cancelled | complete}; both terminal states refuse
+// further step/run. An empty state decodes as running so pre-spec-07 sessions
+// stay valid. "crashed" is never persisted — it is derived by `brain status`
+// from a checkpoint that outran the ledger (see DeriveStatus).
+type SessionState string
+
+const (
+	SessionRunning   SessionState = "running"
+	SessionCancelled SessionState = "cancelled"
+	SessionComplete  SessionState = "complete"
+	SessionCrashed   SessionState = "crashed"
+)
+
 type Session struct {
-	Revision int64   `json:"revision"`
-	Leases   []Lease `json:"leases,omitempty"`
+	// ID is a stable identifier minted at `brain start`, used to derive
+	// deterministic mission ids (session/step/task) that survive a resume.
+	ID       string       `json:"id,omitempty"`
+	Revision int64        `json:"revision"`
+	State    SessionState `json:"state,omitempty"`
+	// Step is the controller tick counter, incremented per dispatch. It feeds the
+	// mission id so a re-issued dispatch after resume reuses the same id.
+	Step   int     `json:"step,omitempty"`
+	Leases []Lease `json:"leases,omitempty"`
+}
+
+// Status returns the effective lifecycle state, treating the empty zero value as
+// running (pre-spec-07 compatibility).
+func (s Session) Status() SessionState {
+	if s.State == "" {
+		return SessionRunning
+	}
+	return s.State
+}
+
+// IsTerminal reports whether the session refuses further step/run/resume.
+func (s Session) IsTerminal() bool {
+	st := s.Status()
+	return st == SessionCancelled || st == SessionComplete
 }
 
 func LoadSession(path string) (Session, error) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	speccontext "github.com/0xkhdr/specd/internal/context"
@@ -81,21 +82,37 @@ func RegisteredCommandNames() []string {
 }
 
 func runCheck(root string, args []string, flags map[string]string) error {
-	if len(args) != 1 {
+	// `check --security` with no slug runs a repo-wide security scan independent
+	// of any spec (the scanners read tracked files, not spec state). All other
+	// forms require a slug.
+	securityOnly := len(args) == 0 && flagEnabled(flags, "security") &&
+		!flagEnabled(flags, "schema") && !flagEnabled(flags, "schema-only")
+	if !securityOnly && len(args) != 1 {
 		return errors.New("usage: specd check <slug> [--json] [--security] [--schema] [--schema-only]")
 	}
-	slug := args[0]
+	slug := ""
+	if len(args) == 1 {
+		slug = args[0]
+	}
 	findings := []gates.Finding{}
-	if !flagEnabled(flags, "schema-only") {
+	if securityOnly {
+		cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+		findings = append(findings, security.GateFindings(security.Analyze(root, cfg.Security))...)
+	} else if !flagEnabled(flags, "schema-only") {
 		spec, err := loadSpec(root, slug)
 		if err != nil {
 			return err
 		}
 		registry := gates.CoreRegistry()
-		if flagEnabled(flags, "security") {
-			registry.Register(security.New())
-		}
 		findings = append(findings, registry.Run(buildCheckCtx(root, slug, spec, ""))...)
+		if flagEnabled(flags, "security") {
+			cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+			result := security.Analyze(root, cfg.Security)
+			findings = append(findings, security.GateFindings(result)...)
+			if err := recordSecurity(root, slug, result); err != nil {
+				return err
+			}
+		}
 	}
 	if flagEnabled(flags, "schema") || flagEnabled(flags, "schema-only") {
 		findings = append(findings, schemaFindings(root, slug)...)
@@ -110,6 +127,33 @@ func runCheck(root string, args []string, flags map[string]string) error {
 		return errors.New("check failed")
 	}
 	return nil
+}
+
+// recordSecurity persists the security analysis under state.security so reports
+// and history can consume it (spec 05 R6). A missing state.json (unscaffolded or
+// non-spec slug) is not fatal — the gate still reports; recording is best-effort
+// for consumers. Findings are stored verbatim, including allowlisted ones.
+func recordSecurity(root, slug string, result security.Result) error {
+	statePath := core.StatePath(root, slug)
+	if _, err := os.Stat(statePath); err != nil {
+		return nil // nothing to record against; gate output already emitted
+	}
+	raw, err := json.Marshal(result.Findings)
+	if err != nil {
+		return err
+	}
+	_, err = core.WithSpecLock(root, func() (struct{}, error) {
+		state, err := core.LoadState(statePath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if state.Records == nil {
+			state.Records = map[string]json.RawMessage{}
+		}
+		state.Records["security"] = raw
+		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
+	})
+	return err
 }
 
 func runInit(root string, args []string, flags map[string]string) error {
@@ -223,7 +267,11 @@ func runNext(root string, args []string, flags map[string]string) error {
 		}
 		return err
 	}
-	frontier, err := core.Frontier(spec.Tasks, taskStatus(spec.Tasks))
+	escalated, err := escalatedCounts(root, args[0], spec.Tasks)
+	if err != nil {
+		return err
+	}
+	frontier, err := core.FrontierExcluding(spec.Tasks, taskStatus(spec.Tasks), escalatedBoolSet(escalated))
 	if err != nil {
 		return err
 	}
@@ -316,6 +364,14 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	spec, err := loadSpec(root, args[0])
+	if err != nil {
+		return err
+	}
+	escalated, ratchetActive, err := escalatedAdvisory(root, args[0], spec.Tasks)
+	if err != nil {
+		return err
+	}
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
@@ -325,13 +381,43 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		}
 		return writeJSON(struct {
 			core.ReportModel
-			Records  map[string]json.RawMessage `json:"records,omitempty"`
-			Criteria []requirementCoverage      `json:"criteria,omitempty"`
-		}{model, state.Records, coverage})
+			Records   map[string]json.RawMessage `json:"records,omitempty"`
+			Criteria  []requirementCoverage      `json:"criteria,omitempty"`
+			Escalated map[string]int             `json:"escalated,omitempty"`
+		}{model, state.Records, coverage, escalated})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
+	fmt.Fprint(os.Stdout, renderEscalated(escalated, ratchetActive))
 	return nil
+}
+
+// renderEscalated formats the escalated-task section for `status` text output.
+// When the ratchet is active the tasks are genuinely blocked; when disabled the
+// section is advisory (repeated failures still surfaced, spec 06 R2/R6).
+func renderEscalated(escalated map[string]int, ratchetActive bool) string {
+	if len(escalated) == 0 {
+		return ""
+	}
+	header := "Escalated (advisory; ratchet disabled):"
+	if ratchetActive {
+		header = "Escalated (blocked — clear with `specd task <id> --override --reason <text>`):"
+	}
+	var b strings.Builder
+	b.WriteString("\n" + header + "\n")
+	for _, id := range sortedKeys(escalated) {
+		fmt.Fprintf(&b, "  %s — %d consecutive verify failures\n", id, escalated[id])
+	}
+	return b.String()
+}
+
+func sortedKeys(m map[string]int) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func runReport(root string, args []string, flags map[string]string) error {
@@ -464,6 +550,14 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	}
 	if task.ID == "" {
 		return fmt.Errorf("task %s not found", taskID)
+	}
+	// Escalation ratchet (spec 06 R2): once a task has failed verify N times in a
+	// row, block further attempts until a human clears it. This is not a bypass —
+	// the override only resets the counter; the task still needs a passing verify.
+	if count, err := taskFailCount(root, slug, taskID); err != nil {
+		return err
+	} else if core.IsEscalated(count, escalationMaxFails(root)) {
+		return fmt.Errorf("task %s is escalated after %d consecutive verify failures; clear it with `specd task %s --override --reason <text>` before re-attempting", taskID, count, taskID)
 	}
 	run := func() (verifyexec.Result, error) {
 		return verifyexec.Run(context.Background(), verifyexec.Options{

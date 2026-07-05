@@ -26,6 +26,10 @@ type ACPEvent struct {
 	Kind    string    `json:"kind"`
 	TaskID  string    `json:"task_id,omitempty"`
 	Payload string    `json:"payload,omitempty"`
+	// MissionID is the deterministic dispatch identifier (session/step/task, spec
+	// 07 R3). Optional so bare dispatch events and pre-spec-07 ledgers stay valid.
+	// It is the key the resume path and the duplicate guard match on.
+	MissionID string `json:"mission_id,omitempty"`
 
 	// Worker-rigor fields (spec 10 R3), all optional so a bare dispatch event and
 	// pre-telemetry ledgers stay valid. Attempt is monotonic per task (see
@@ -64,6 +68,51 @@ func AppendClaim(path string, event ACPEvent) error {
 			return err
 		}
 		event.Attempt = NextAttempt(events, event.TaskID)
+	}
+	return AppendACP(path, event)
+}
+
+// ErrDuplicateMission is returned when a dispatch with a mission id already in
+// the ledger is appended again. It is the invariant that makes crash-recovery
+// re-issue idempotent: the same deterministic mission id can appear at most once.
+var ErrDuplicateMission = errors.New("duplicate mission id")
+
+// HasMission reports whether the ledger already carries an event with missionID.
+func HasMission(events []ACPEvent, missionID string) bool {
+	if missionID == "" {
+		return false
+	}
+	for _, e := range events {
+		if e.MissionID == missionID {
+			return true
+		}
+	}
+	return false
+}
+
+// MissionEvent returns the first event carrying missionID, or false.
+func MissionEvent(events []ACPEvent, missionID string) (ACPEvent, bool) {
+	for _, e := range events {
+		if e.MissionID != "" && e.MissionID == missionID {
+			return e, true
+		}
+	}
+	return ACPEvent{}, false
+}
+
+// AppendDispatch appends a dispatch event, refusing a duplicate mission id
+// (spec 07 R3). The read-then-append runs under the caller's spec lock so the
+// duplicate check is race-free.
+func AppendDispatch(path string, event ACPEvent) error {
+	event.Kind = ACPKindDispatch
+	if event.MissionID != "" {
+		events, err := ReadACP(path)
+		if err != nil {
+			return err
+		}
+		if HasMission(events, event.MissionID) {
+			return fmt.Errorf("%w: %s", ErrDuplicateMission, event.MissionID)
+		}
 	}
 	return AppendACP(path, event)
 }
