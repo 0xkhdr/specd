@@ -33,17 +33,16 @@ gofmt -l .            # must be empty — CI fails on any unformatted file
 go vet ./...
 ./scripts/test-lint.sh   # test-suite structural lint (no banned suffixes, no space-separated subtest names, no dup helpers)
 ./scripts/docs-lint.sh   # asserts docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim
-# golangci-lint (v2.1.6, config .golangci.yml) + govulncheck also run in CI
+# CI also runs gofmt, go vet, go mod tidy check, and the scripts above.
 ```
 
-Regression / stress harnesses (`scripts/`) re-run every task's `verify:` line and re-assert
+Regression harnesses (`scripts/`) re-run every task's `verify:` line and re-assert
 each wave's invariant against a freshly built binary in a throwaway tree:
 
 ```bash
 ./scripts/regress-all.sh      # re-run every task verify, aggregate by exit code
 ./scripts/regress-domains.sh  # per-domain black-box invariant checks
 ./scripts/regress-lint.sh     # static smell audit of verify tables
-./scripts/stress*.sh          # cross-process contention (locks, ACP ledger, orchestration)
 ```
 
 ## Architecture
@@ -110,3 +109,45 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
 
 `reference/` is the frozen v1 implementation: a read-only museum. Never import, build, copy
 from, or edit it. Its `Makefile`, scripts, and docs describe the old system, not this one.
+
+<!-- specd:agents begin -->
+# specd — host integration guide
+
+**Agent = Model + Harness.** You (the model) supply reasoning. `specd` (the harness)
+makes the plan safely delegable: it owns state, gates, and evidence — deterministically,
+with no LLM in its decision path. Read this file before acting on a specd project.
+
+## The loop
+1. `specd status` — see the spec, phase, and current task frontier.
+2. `specd context <slug> <task>` — get the lean, cited context manifest for one task.
+3. Do the task under its **role** (below). Touch only the task's declared `files:`.
+4. `specd verify` — record evidence (exit code + git HEAD). This, not your say-so, is
+   what marks a task complete.
+5. `specd check` — run the readiness gates. `specd approve` advances the phase only if
+   they pass.
+
+## Roles (read `.specd/roles/<role>.md` before acting as one)
+- 🔍 **scout** — read-only explore & report. Never bound to a write task.
+- 🛠️ **craftsman** — write + verify. Exactly one atomic task per invocation.
+- 🧪 **validator** — read-only; runs the verify line and reports the record.
+- 🛡️ **auditor** — read-only; audits a diff/scope against acceptance.
+
+A task's `role:` determines what it may do. Read-only roles never write and never
+fabricate a passing check.
+
+## Guardrails (non-negotiable)
+- **Evidence integrity.** No task completes without a passing verify record (exit code 0
+  pinned to a real git HEAD). A read-only task carries a verify line it can pass
+  (e.g. `printf ok`); there is no flag that bypasses the evidence gate.
+- **Determinism.** Gates, DAG, and reports are pure functions of on-disk `.specd/` state.
+- **Scope.** Touch only a task's declared files. Record deviations via `specd decision`.
+- **Blocked means stop.** Retry once, then report `blocked` with the exact blocker.
+
+## On-disk surface
+- `.specd/specs/<slug>/{requirements.md,design.md,tasks.md,state.json,.lock}`
+- `.specd/roles/*.md`, `.specd/steering/*.md` — the role and steering constitutions.
+
+Steering files (`.specd/steering/`) carry the project's reasoning, workflow, product,
+tech, and structure rules. Load a steering file when its phase needs it.
+
+<!-- specd:agents end -->

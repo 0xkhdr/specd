@@ -40,6 +40,32 @@ func TestStateCAS(t *testing.T) {
 	}
 }
 
+func TestLoadStateMigratesV1ToCurrentSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	raw := `{"schema_version":1,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write state: %v", err)
+	}
+	state, err := LoadState(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.SchemaVersion != StateSchemaVersion {
+		t.Fatalf("schema version = %d, want %d", state.SchemaVersion, StateSchemaVersion)
+	}
+}
+
+func TestLoadStateRejectsUnknownFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	raw := `{"schema_version":2,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1,"unexpected":true}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write state: %v", err)
+	}
+	if _, err := LoadState(path); err == nil {
+		t.Fatal("LoadState accepted unknown field")
+	}
+}
+
 func TestStateRejectsInvalidSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	if err := os.WriteFile(path, []byte(`{"schema_version":99}`), 0o644); err != nil {

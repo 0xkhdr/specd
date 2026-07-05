@@ -36,6 +36,7 @@ var executable = map[string]Handler{
 	"help":      runHelp,
 	"init":      runInit,
 	"mcp":       runMCP,
+	"version":   runVersion,
 	"memory":    runMemory,
 	"midreq":    runMidreq,
 	"new":       runNew,
@@ -85,17 +86,24 @@ func Run(root, name string, args []string, flags map[string]string) error {
 
 func runCheck(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd check <slug>")
+		return errors.New("usage: specd check <slug> [--json] [--security] [--schema] [--schema-only]")
 	}
-	spec, err := loadSpec(root, args[0])
-	if err != nil {
-		return err
+	slug := args[0]
+	findings := []gates.Finding{}
+	if !flagEnabled(flags, "schema-only") {
+		spec, err := loadSpec(root, slug)
+		if err != nil {
+			return err
+		}
+		registry := gates.CoreRegistry()
+		if flagEnabled(flags, "security") {
+			registry.Register(security.New())
+		}
+		findings = append(findings, registry.Run(buildCheckCtx(root, slug, spec, ""))...)
 	}
-	registry := gates.CoreRegistry()
-	if flagEnabled(flags, "security") {
-		registry.Register(security.New())
+	if flagEnabled(flags, "schema") || flagEnabled(flags, "schema-only") {
+		findings = append(findings, schemaFindings(root, slug)...)
 	}
-	findings := registry.Run(buildCheckCtx(root, args[0], spec, ""))
 	if flagEnabled(flags, "json") {
 		return json.NewEncoder(os.Stdout).Encode(findings)
 	}

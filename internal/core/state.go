@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"time"
 )
 
-const StateSchemaVersion = 1
+const StateSchemaVersion = 2
 
 // Clock is the injectable time source for record timestamps. Production uses
 // wall-clock UTC; tests swap it for determinism. All record timestamps flow
@@ -95,19 +96,36 @@ func StatePath(root, slug string) string {
 }
 
 func LoadState(path string) (State, error) {
-	data, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return State{}, err
 	}
 	var state State
-	if err := json.Unmarshal(data, &state); err != nil {
-		return State{}, fmt.Errorf("decode state: %w", err)
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&state); err != nil {
+		return State{}, fmt.Errorf("decode %s: %w", path, err)
 	}
-	if err := state.Validate(); err != nil {
+	state, err = MigrateState(state)
+	if err != nil {
 		return State{}, err
 	}
 	if state.Records == nil {
 		state.Records = map[string]json.RawMessage{}
+	}
+	return state, state.Validate()
+}
+
+func MigrateState(state State) (State, error) {
+	switch state.SchemaVersion {
+	case 0:
+		state.SchemaVersion = 1
+		return MigrateState(state)
+	case 1:
+		state.SchemaVersion = StateSchemaVersion
+	case StateSchemaVersion:
+	default:
+		return State{}, fmt.Errorf("unsupported state schema %d", state.SchemaVersion)
 	}
 	return state, nil
 }

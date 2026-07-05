@@ -31,6 +31,12 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:        "version",
+		Usage:       "specd version [--json]",
+		Description: "Print build version metadata.",
+		Flags:       []Flag{{Name: "json", Description: "Emit machine-readable JSON."}},
+	},
+	{
 		Name:        "init",
 		Usage:       "specd init [--agent=<name>]",
 		Description: "Initialize specd project state.",
@@ -100,7 +106,9 @@ var Commands = []Command{
 		Usage:       "specd check <spec> [--security] [--json]",
 		Description: "Run the validation gate registry against a spec.",
 		Flags: []Flag{
-			{Name: "security", Description: "Include the opt-in security gate."},
+			{Name: "security", Description: "Run opt-in security gates."},
+			{Name: "schema", Description: "Validate state.json schema."},
+			{Name: "schema-only", Description: "Validate only state.json schema."},
 			{Name: "json", Description: "Emit machine-readable findings."},
 		},
 	},

@@ -48,7 +48,7 @@ jobs:
           scandir: scripts
 
       - name: docs-lint (cheat-sheet ↔ command-reference sync)
-        # Gate cheat-sheet drift on PRs, not only at release (make ci). Asserts
+        # Gate cheat-sheet drift on PRs. Asserts
         # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
         run: ./scripts/docs-lint.sh
 
@@ -68,7 +68,7 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
 
-      # staticcheck (and friends) via golangci-lint, governed by .golangci.yml.
+      # staticcheck (and friends) via golangci-lint.
       - name: staticcheck (golangci-lint)
         uses: golangci/golangci-lint-action@v6
         with:
@@ -232,7 +232,7 @@ jobs:
       # self-replacement is known-limited on Windows (see TESTING.md); the
       # binary still builds and all non-self-update commands work.
       - name: Build binary
-        run: go build -ldflags "-s -w -X main.version=ci" -o specd .
+        run: go build -ldflags "-s -w -X github.com/0xkhdr/specd/internal/version.Version=ci" -o specd .
 
       - name: Cross-compile linux/arm64
         if: matrix.os == 'ubuntu-latest'

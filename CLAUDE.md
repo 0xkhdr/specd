@@ -33,17 +33,16 @@ gofmt -l .            # must be empty — CI fails on any unformatted file
 go vet ./...
 ./scripts/test-lint.sh   # test-suite structural lint (no banned suffixes, no space-separated subtest names, no dup helpers)
 ./scripts/docs-lint.sh   # asserts docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim
-# golangci-lint (v2.1.6, config .golangci.yml) + govulncheck also run in CI
+# CI also runs gofmt, go vet, go mod tidy check, and the scripts above.
 ```
 
-Regression / stress harnesses (`scripts/`) re-run every task's `verify:` line and re-assert
+Regression harnesses (`scripts/`) re-run every task's `verify:` line and re-assert
 each wave's invariant against a freshly built binary in a throwaway tree:
 
 ```bash
 ./scripts/regress-all.sh      # re-run every task verify, aggregate by exit code
 ./scripts/regress-domains.sh  # per-domain black-box invariant checks
 ./scripts/regress-lint.sh     # static smell audit of verify tables
-./scripts/stress*.sh          # cross-process contention (locks, ACP ledger, orchestration)
 ```
 
 ## Architecture

@@ -8,7 +8,7 @@ Closes #… / relates to requirement R…
 
 ## Checklist
 
-- [ ] `make ci` passes locally (lint + race + `-count=2` + coverage floor + stress)
+- [ ] `go test ./... -race -count=1`, `go test ./... -count=2`, `scripts/test-lint.sh`, and `scripts/docs-lint.sh` pass locally
 - [ ] Tests added/updated for behavior changes
 - [ ] No coverage floor lowered without written justification
 - [ ] No new runtime dependency; invariants preserved (stdlib-only, zero LLM
