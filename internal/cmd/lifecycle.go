@@ -61,6 +61,9 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		return errors.New("usage: specd approve <spec> <gate>")
 	}
 	slug, gate := args[0], args[1]
+	if err := core.ValidateSlug(slug); err != nil {
+		return err
+	}
 	target := core.Status(gate)
 	if !core.ValidStatus(target) {
 		return fmt.Errorf("invalid gate %q", gate)
@@ -124,6 +127,9 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		return errors.New("usage: specd task complete <spec> <id>")
 	}
 	slug, id := args[0], args[1]
+	if err := core.ValidateSlug(slug); err != nil {
+		return err
+	}
 	annotations, err := parseAnnotations(flags)
 	if err != nil {
 		return err
@@ -205,6 +211,9 @@ func appendScoped(root string, args []string, flags map[string]string, kind, usa
 		return errors.New(usage)
 	}
 	slug := args[0]
+	if err := core.ValidateSlug(slug); err != nil {
+		return err
+	}
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {
 		statePath := core.StatePath(root, slug)
 		state, err := core.LoadState(statePath)

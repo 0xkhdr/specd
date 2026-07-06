@@ -21,7 +21,14 @@ import (
 
 type Handler func(root string, args []string, flags map[string]string) error
 
-var Registry = buildRegistry()
+// Registry is populated in init() rather than as a var initializer: the runMCP
+// handler now reaches Run (via the injected MCP executor), and Run reads
+// Registry — a static var-initializer graph would flag that as an initialization
+// cycle. init() assignment is exempt from that analysis and still runs before
+// any dispatch.
+var Registry map[string]Handler
+
+func init() { Registry = buildRegistry() }
 
 // ErrUnknownCommand is returned by Run for a verb that is not registered or
 // carries no handler. The dispatcher must fail closed on it (exit 2), never 0.
@@ -262,7 +269,10 @@ func runNext(root string, args []string, flags map[string]string) error {
 		return json.NewEncoder(os.Stdout).Encode(waves)
 	}
 	if err := requireTaskGate(root, args[0]); err != nil {
-		if flagEnabled(flags, "json") || flagEnabled(flags, "context") {
+		// Machine callers (--json / --dispatch) get an empty frontier plus the
+		// gate reason rather than a bare error, so a dispatch loop can read the
+		// blocker without parsing stderr.
+		if flagEnabled(flags, "json") || flagEnabled(flags, "dispatch") {
 			return writeJSON(map[string]any{"items": []any{}, "reason": err.Error()})
 		}
 		return err
@@ -311,7 +321,7 @@ func runMCP(root string, args []string, flags map[string]string) error {
 	if len(args) != 0 {
 		return errors.New("usage: mcp")
 	}
-	return mcp.Serve(os.Stdin, os.Stdout, mcp.CoreTools())
+	return mcp.Serve(os.Stdin, os.Stdout, mcp.CoreTools(), mcpExecutor(root))
 }
 
 func runHandshake(root string, args []string, flags map[string]string) error {
@@ -622,6 +632,12 @@ func requireTaskGate(root, slug string) error {
 }
 
 func loadSpec(root, slug string) (specData, error) {
+	// Reject traversal slugs before they build a filesystem path: an unchecked
+	// slug like "../../x" escapes .specd/specs/ on both reads and writes. This
+	// is the central chokepoint every spec-resolving verb funnels through.
+	if err := core.ValidateSlug(slug); err != nil {
+		return specData{}, err
+	}
 	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	raw, err := os.ReadFile(filepath.Join(dir, "tasks.md"))
 	if err != nil {

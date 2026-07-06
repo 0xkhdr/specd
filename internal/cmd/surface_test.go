@@ -44,8 +44,8 @@ func paletteVerbs(t *testing.T) map[string]bool {
 	if err != nil {
 		t.Fatalf("read command reference: %v", err)
 	}
-	// Palette rows look like: | [`specd verb`](#specd-verb) | Description. |
-	row := regexp.MustCompile("(?m)^\\| \\[`specd ([a-z]+)`\\]")
+	// Verb entries are H3 headings: ### `verb`
+	row := regexp.MustCompile("(?m)^### `([a-z]+)`\\s*$")
 	verbs := map[string]bool{}
 	for _, m := range row.FindAllStringSubmatch(string(raw), -1) {
 		verbs[m[1]] = true

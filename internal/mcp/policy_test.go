@@ -11,7 +11,7 @@ func TestForbiddenToolsDeniedOnCall(t *testing.T) {
 			ID:      1,
 			Method:  "tools/call",
 			Params:  []byte(`{"name":"` + name + `"}`),
-		}, CoreTools())
+		}, CoreTools(), nil)
 		if resp.Error == nil {
 			t.Fatalf("%s: expected policy error", name)
 		}

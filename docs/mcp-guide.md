@@ -1,10 +1,33 @@
 # specd — MCP Guide
 
-`specd mcp` serves the whole command palette as a stdio [Model Context
+`specd mcp` serves the command palette as a stdio [Model Context
 Protocol](https://modelcontextprotocol.io) server, so an MCP-native client (Claude Code,
-Cursor, custom) can call specd verbs as tools. The tool surface is **derived** from the same
-`internal/core/commands.go` palette that drives `help` and dispatch — there is no separate
-tool list to drift.
+Cursor, custom) can **discover and call** specd verbs as tools. The server answers the
+`initialize` handshake, `tools/list`, and `tools/call`; the tool surface is **derived** from
+the same `internal/core/commands.go` palette that drives `help` and dispatch — there is no
+separate tool list to drift.
+
+## Calling a verb
+
+`tools/call` runs the verb and returns its stdout as MCP text content. The tool's `arguments`
+object maps onto the CLI shape: positional operands (spec slug, task id) travel as an ordered
+array under the reserved key **`args`**, and every other key is a flag.
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "status",
+    "arguments": { "args": ["payments"], "json": true }
+  }
+}
+```
+
+This is equivalent to `specd status payments --json`. A verb that exits non-zero comes back as
+a tool-level error (`isError: true`) with the message and any partial output in `content`, not
+as a JSON-RPC protocol error. State-changing or session verbs (`init`, `approve`, `brain`,
+`task`, `mcp`) are **refused by policy** (`-32001`) — drive those from the CLI, where phase and
+evidence gates apply with a human in the loop.
 
 ## Run the server
 

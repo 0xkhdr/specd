@@ -52,7 +52,7 @@ type GatesConfig struct {
 }
 
 // SubmitConfig configures the terminal `submit` verb (spec 08). Command is an
-// operator-supplied shell line run through the sandboxed exec path with the PR
+// operator-supplied shell line run through the shared exec path with the PR
 // summary streamed on stdin; empty means dry-run (print summary, exit 0). The
 // binary embeds no git/GitHub logic — the operator owns transport. TimeoutSecs
 // bounds the command; zero applies SubmitDefaultTimeoutSecs.

@@ -32,16 +32,19 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if opts.Command == "" {
 		return Result{ExitCode: 2}, errors.New("verify command is required")
 	}
+	name, argv := wrapArgv("", opts.Dir, opts.Command)
 	if opts.Sandbox {
 		binary := opts.SandboxBinary
 		if binary == "" {
 			binary = "bwrap"
 		}
-		if _, err := exec.LookPath(binary); err != nil {
+		resolved, err := exec.LookPath(binary)
+		if err != nil {
 			return Result{ExitCode: 127}, fmt.Errorf("sandbox binary %q unavailable: %w", binary, err)
 		}
+		name, argv = wrapArgv(resolved, opts.Dir, opts.Command)
 	}
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", opts.Command)
+	cmd := exec.CommandContext(ctx, name, argv...)
 	cmd.Dir = opts.Dir
 	cmd.Env = scrubbedEnv(os.Environ())
 	if opts.Stdin != "" {
@@ -62,6 +65,29 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	result.ExitCode = 1
 	return result, err
+}
+
+// wrapArgv builds the (name, argv) to execute command. With binary empty the
+// command runs directly under /bin/sh. With binary set the command is wrapped in
+// a bwrap-style sandbox: read-only root, private /tmp, no network
+// (--unshare-all), and dir bind-mounted writable as the working directory. The
+// sandbox binary must accept bwrap-compatible arguments (bwrap by default, or a
+// bwrap-compatible wrapper via --sandbox-binary). Kept pure and side-effect free
+// so the isolation contract is unit-tested without spawning a process.
+func wrapArgv(binary, dir, command string) (string, []string) {
+	if binary == "" {
+		return "/bin/sh", []string{"-c", command}
+	}
+	args := []string{
+		"--die-with-parent", "--unshare-all",
+		"--ro-bind", "/", "/",
+		"--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+	}
+	if dir != "" {
+		args = append(args, "--bind", dir, dir, "--chdir", dir)
+	}
+	args = append(args, "/bin/sh", "-c", command)
+	return binary, args
 }
 
 func scrubbedEnv(env []string) []string {

@@ -1,7 +1,7 @@
 package orchestration
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -117,12 +117,14 @@ func AppendDispatch(path string, event ACPEvent) error {
 	return AppendACP(path, event)
 }
 
+// AppendACP appends one event to the ledger. It is O(1): Seq is a read-time
+// projection (ReadACP numbers events by position), so a write never re-reads the
+// whole file — open, append, fsync. ponytail: the semantic appends
+// (AppendClaim's attempt count, AppendDispatch's duplicate-mission guard) still
+// scan the ledger, but that read is their actual job and the per-spec ledger is
+// bounded by task count × attempts. Maintain an on-disk index only if a ledger
+// ever grows past a few thousand events.
 func AppendACP(path string, event ACPEvent) error {
-	events, err := ReadACP(path)
-	if err != nil {
-		return err
-	}
-	event.Seq = len(events) + 1
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("encode acp event: %w", err)
@@ -141,24 +143,29 @@ func AppendACP(path string, event ACPEvent) error {
 	return file.Sync()
 }
 
+// ReadACP loads the ledger and numbers each event by position (Seq = 1-based
+// index). It reads the whole file at once — no per-line size cap, so a large
+// event (ChangedFiles/Payload/Telemetry) never trips the old 64KB bufio.Scanner
+// limit.
 func ReadACP(path string) ([]ACPEvent, error) {
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open acp: %w", err)
 	}
-	defer file.Close()
-
 	var events []ACPEvent
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
+	for _, line := range bytes.Split(data, []byte{'\n'}) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
 		var event ACPEvent
-		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+		if err := json.Unmarshal(line, &event); err != nil {
 			return nil, fmt.Errorf("decode acp: %w", err)
 		}
+		event.Seq = len(events) + 1
 		events = append(events, event)
 	}
-	return events, scanner.Err()
+	return events, nil
 }

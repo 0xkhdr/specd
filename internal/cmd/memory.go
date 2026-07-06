@@ -24,6 +24,9 @@ func runMemory(root string, args []string, flags map[string]string) error {
 		return errors.New("usage: specd memory <slug> <add|promote> [flags]")
 	}
 	slug, sub := args[0], args[1]
+	if err := core.ValidateSlug(slug); err != nil {
+		return err
+	}
 	specDir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	if info, err := os.Stat(specDir); err != nil || !info.IsDir() {
 		return fmt.Errorf("spec %q not found", slug)

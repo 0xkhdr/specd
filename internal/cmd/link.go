@@ -43,6 +43,14 @@ func runLink(root string, args []string, flags map[string]string) error {
 	if from == to {
 		return fmt.Errorf("%w: a spec cannot depend on itself", ErrUsage)
 	}
+	// Validate both slugs before any existence check: a valid-but-nonexistent
+	// slug must not short-circuit before an unsafe traversal slug is rejected
+	// (the traversal guard has to fire regardless of argument order).
+	for _, slug := range []string{from, to} {
+		if err := core.ValidateSlug(slug); err != nil {
+			return fmt.Errorf("%w: %v", ErrUsage, err)
+		}
+	}
 	for _, slug := range []string{from, to} {
 		if !specExists(root, slug) {
 			return fmt.Errorf("%w: no such spec %q", ErrUsage, slug)

@@ -66,6 +66,12 @@ func checkPhase(root string, meta core.Command, args []string) error {
 		return nil // arity error surfaces in the handler's own usage message
 	}
 	slug := args[idx]
+	// Reject a traversal slug at the boundary, before any handler resolves it
+	// into a filesystem path (a phase-enforced verb reads/writes state.json for
+	// its slug; "../../x" would escape .specd/specs/). Fail closed (exit 2).
+	if err := core.ValidateSlug(slug); err != nil {
+		return fmt.Errorf("%w: %v", ErrUsage, err)
+	}
 	state, err := core.LoadState(core.StatePath(root, slug))
 	if err != nil {
 		return nil // no resolvable spec state ⇒ not our rejection to make

@@ -78,10 +78,11 @@ you have confirmed no specd process is running against that spec.
 
 ## Verify sandbox unavailable
 
-`specd verify --sandbox` runs the verify line inside a bwrap/container sandbox
-(`config.verify.sandbox`). If the sandbox binary is missing it **fails closed** (exit 127,
-"sandbox binary … unavailable") rather than silently running unsandboxed. Install `bwrap`, or
-point `--sandbox-binary=<path>` at your sandbox, or drop `--sandbox` to run directly.
+`specd verify --sandbox` runs the verify line inside a bwrap sandbox: read-only root, a
+private `/tmp`, no network (`--unshare-all`), with the repo bound writable as the working
+directory. If the sandbox binary is missing it **fails closed** (exit 127, "sandbox binary …
+unavailable") rather than silently running unsandboxed. Install `bwrap`, or point
+`--sandbox-binary=<path>` at a bwrap-compatible wrapper, or drop `--sandbox` to run directly.
 
 ## Schema errors on load
 

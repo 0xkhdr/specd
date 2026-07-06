@@ -182,7 +182,7 @@ record (`--criterion` mode). A task completes **only** against a passing verify 
 | Flag | Value | Description |
 |---|---|---|
 | `--revert-on-fail` | bool | Restore working tree on verify failure. |
-| `--sandbox` | bool | Run inside bwrap/container sandbox (`config.verify.sandbox`). |
+| `--sandbox` | bool | Run the verify line inside a bwrap sandbox (fail-closed if the binary is absent). |
 | `--sandbox-binary` | string | Path to sandbox binary (overrides auto-detect). |
 | `--criterion` | string | Record evidence for acceptance criterion `<r>.<n>` instead of running a task verify. |
 | `--status` | `pass`\|`fail` | Criterion verdict (with `--criterion`). |

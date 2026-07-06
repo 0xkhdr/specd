@@ -232,7 +232,7 @@ var Commands = []Command{
 		Examples:      []string{"specd verify payments T3", "specd verify payments T3 --revert-on-fail", "specd verify payments --criterion 1.2 --status pass --evidence 'covered by T3 integration test'"},
 		Flags: []Flag{
 			{Name: "revert-on-fail", Type: "bool", Description: "Restore working tree on verify failure."},
-			{Name: "sandbox", Type: "bool", Description: "Run inside bwrap/container sandbox (config.verify.sandbox)."},
+			{Name: "sandbox", Type: "bool", Description: "Run the verify line inside a bwrap sandbox (fail-closed if the binary is absent)."},
 			{Name: "sandbox-binary", TakesValue: true, Type: "string", Description: "Path to sandbox binary (overrides auto-detect)."},
 			{Name: "criterion", TakesValue: true, Type: "string", Description: "Record evidence for acceptance criterion <r>.<n> instead of running a task verify."},
 			{Name: "status", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Description: "Criterion verdict (with --criterion): pass|fail."},

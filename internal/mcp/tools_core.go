@@ -30,7 +30,15 @@ func CoreTools() []Tool {
 // inputSchema builds a JSON Schema object for a command's flags. Each flag is a
 // property; enums and defaults flow through from the command metadata.
 func inputSchema(command core.Command) map[string]any {
-	properties := make(map[string]any, len(command.Flags))
+	properties := make(map[string]any, len(command.Flags)+1)
+	// Positional operands (spec slug, task id, …) travel under the reserved
+	// "args" key as an ordered array; splitArguments maps it back to the
+	// dispatcher's positional slice.
+	properties["args"] = map[string]any{
+		"type":        "array",
+		"items":       map[string]any{"type": "string"},
+		"description": "Positional arguments (e.g. spec slug, task id), in order.",
+	}
 	for _, flag := range command.Flags {
 		property := map[string]any{
 			"type":        jsonType(flag),

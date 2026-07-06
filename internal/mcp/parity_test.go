@@ -31,7 +31,7 @@ func TestMCPParity(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := Serve(strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`+"\n"), &out, tools)
+	err := Serve(strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`+"\n"), &out, tools, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestDenyList(t *testing.T) {
 		resp := Dispatch(Request{
 			JSONRPC: "2.0", ID: 1, Method: "tools/call",
 			Params: []byte(`{"name":"` + name + `"}`),
-		}, CoreTools())
+		}, CoreTools(), nil)
 		if resp.Error == nil || resp.Error.Code != -32001 {
 			t.Fatalf("tools/call %q: want policy error -32001, got %#v", name, resp.Error)
 		}
