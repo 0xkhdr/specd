@@ -7,8 +7,11 @@ All notable changes to `specd` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-09
+
 Production-readiness hardening initiative (no behaviour change to the harness contract:
 determinism, evidence integrity, and zero runtime dependencies are preserved throughout).
+Verified end-to-end by an all-green hosted CI run (PR #38, 16/16 checks).
 
 ### Added
 - CI/CD pipeline: `gofmt`/`vet`/`go mod tidy` gates, `-race` + `-count=2` test legs across
@@ -41,6 +44,7 @@ determinism, evidence integrity, and zero runtime dependencies are preserved thr
 - Initial public release: the spec-driven pipeline (requirements → design → tasks →
   evidence-gated execution), the validation gates, and the base + orchestrated execution models.
 
-[Unreleased]: https://github.com/0xkhdr/specd/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/0xkhdr/specd/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/0xkhdr/specd/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/0xkhdr/specd/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/0xkhdr/specd/releases/tag/v0.1.0
