@@ -77,7 +77,11 @@ Start at the **[docs index](docs/README.md)** for fast paths, or jump straight i
 - 📦 [Open Spec Format](docs/open-spec-format.md) — The on-disk `.specd/` layout and `state.json` schema.
 - ⚙️ [GitHub Action](docs/github-action.md) — Gate pull requests in CI with the composite action.
 - 🩺 [Troubleshooting](docs/troubleshooting.md) — Blocked tasks, the escalation ratchet, lock and CAS errors.
+- 🧑‍💻 [Contributing](CONTRIBUTING.md) — First-change quick-start: setup, the gate loop, house rules.
 - 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, invariants, and CLI design decisions.
+- 🧪 [Testing](TESTING.md) — Suite commands, the coverage floor, regression harnesses, and stress jobs.
+- 📈 [Observability](docs/observability.md) — The deterministic reporting surface and where worker metrics surface.
+- 🏷️ [Versioning Policy](docs/versioning-policy.md) · [Changelog](CHANGELOG.md) — SemVer, the Go floor, release cuts.
 - 🔐 [Security Policy](SECURITY.md) — Threat model (hostile spec/verify/dependency content), the verify isolation contract, and vulnerability disclosure.
 
 ---

@@ -9,8 +9,7 @@ dependencies, single static binary). It moves process enforcement out of the LLM
 window into a deterministic, local, tool-gated pipeline: requirements → design → tasks →
 evidence-gated execution. **The agent reasons; the harness enforces.**
 
-Module: `github.com/0xkhdr/specd`. Requires Go 1.22+ (declared min in `go.mod`; toolchain
-line pins 1.26).
+Module: `github.com/0xkhdr/specd`. Requires Go 1.26+ (the `go` directive in `go.mod`).
 
 ## Build, test, lint
 

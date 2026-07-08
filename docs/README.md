@@ -17,6 +17,7 @@ evidence-gated execution**.
 | Know what a gate checks / why it failed | [validation-gates.md](validation-gates.md) |
 | Wire up an agent, roles, or orchestration | [agent-integration.md](agent-integration.md) |
 | Connect an MCP client | [mcp-guide.md](mcp-guide.md) |
+| See what specd reports & how metrics surface | [observability.md](observability.md) |
 | Read the on-disk `.specd/` format | [open-spec-format.md](open-spec-format.md) |
 | Gate pull requests in CI | [github-action.md](github-action.md) |
 | Fix a blocked task / gate / lock error | [troubleshooting.md](troubleshooting.md) |
@@ -43,12 +44,20 @@ evidence-gated execution**.
   `state.json` schema.
 - ⚙️ **[github-action.md](github-action.md)** — the composite PR-check action and the
   `report --pr` summary in CI.
+- 📈 **[observability.md](observability.md)** — the deterministic reporting surface, logging /
+  telemetry strategy, and where worker `--tokens`/`--cost`/`--duration-ms` surface in reports.
 - 🩺 **[troubleshooting.md](troubleshooting.md)** — blocked tasks, the escalation ratchet, lock
   contention, CAS conflicts, verify/sandbox failures.
 - 🛠️ **[contributor-guide.md](contributor-guide.md)** — codebase walkthrough by domain, the
   non-negotiable invariants, the concurrency/durability model, and extension recipes.
 - 📐 **[scale-envelope.md](scale-envelope.md)** — intended limits (tasks/spec, specs/program) with
   the measured benchmark numbers backing them.
+- 🧪 **[../TESTING.md](../TESTING.md)** — how to run the suite, the coverage floor, the regression
+  harnesses + their cadence, and the stress/crash-safety jobs.
+- 🧑‍💻 **[../CONTRIBUTING.md](../CONTRIBUTING.md)** — first-change quick-start (setup, the gate
+  loop, house rules).
+- 🏷️ **[versioning-policy.md](versioning-policy.md)** — SemVer, the Go floor, and how releases are
+  cut. Changes are logged in **[../CHANGELOG.md](../CHANGELOG.md)**.
 - 🔐 **[../SECURITY.md](../SECURITY.md)** — threat model, verify isolation contract, and
   vulnerability-disclosure policy.
 

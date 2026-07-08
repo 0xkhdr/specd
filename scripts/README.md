@@ -27,6 +27,16 @@ them would force SPEC-06 to recreate them.
 - **`govulncheck` pin:** `v1.5.0` at `ci.yml` (was `@latest`). SPEC-04 owns the
   version rationale.
 
+## Dead-script sweep (SPEC-07 T-07-02)
+
+Audit of scripts no workflow references. Decision per script:
+
+| Script | Decision | Rationale |
+|--------|----------|-----------|
+| `stress-brain.sh` | **removed** | Duplicated the wired `stress-brain-recovery.sh` invariant (racing `brain resume` → exactly one dispatch); now also pinned deterministically by the Go test `TestBrainResumeRaceDispatchesExactlyOnce` (SPEC-06 T-06-04). Redundant. |
+| `verify-progress.sh` | **removed** | Ran a hand-picked subset of `internal/cmd` integration tests; the CI `go test ./... -race` leg already runs all of them (`TestLifecycleE2E` et al.). Redundant. |
+| `regress-all.sh` / `regress-domains.sh` / `regress-lint.sh` | **kept, cadence-run** | Not wired to CI by design — they exercise the planning `specs/` verify tables, not product behavior. Run before closing a wave / cutting a release; owner = maintainer. See [TESTING.md](../TESTING.md). |
+
 ## Known blocker (see SPEC-01 spec.md → "Blockers Discovered")
 
 The five orchestration stress scripts (`stress-acp`, `stress-orchestration`,

@@ -12,10 +12,11 @@
 - **Deterministic reporting:** `specd report` (`--pr|--metrics|--json|--history|--format
   prometheus`), `specd status --program`, `handshake` digests, and `context --hud` operator HUD are
   all generated from `state.json` + task artifacts with no LLM in the path.
-- **Crash-safety unproven in CI:** the ACP ledger (`internal/orchestration/acp.go`) append/replay
-  is meant to be crash-safe, and the `stress-acp.sh` / `stress-checkpoint-fault.sh` jobs (both
-  **missing** — B2) were meant to prove it. Until SPEC-01 restores/decides those scripts, crash
-  safety is asserted only by design, not test.
+- **Crash-safety now proven in CI (updated Wave 2):** the ACP ledger
+  (`internal/orchestration/acp.go`) append/replay is crash-safe, proven by the `stress-acp.sh` /
+  `stress-checkpoint-fault.sh` jobs — SPEC-01 restored and wired both (commit `a5e3935`; the
+  earlier "both missing — B2" note is stale). T-06-04 fixed the double-dispatch race those jobs
+  exposed; they now pass 30/30.
 - **Worker metrics stored verbatim:** worker-reported `--tokens` / `--cost` / `--duration-ms` are
   stored as-is, but where they surface in reports is undocumented.
 - **Doc gaps:** no documented logging levels / telemetry strategy for the CLI itself; CAS/lock

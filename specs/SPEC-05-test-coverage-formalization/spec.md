@@ -11,16 +11,16 @@
 
 - Test suite is ~5,819 LOC. `go test ./... -race` and `-count=2` (flaky/iteration-order catch)
   pass locally.
-- **Coverage floor is broken (B2):** the `coverage-floor` CI job invokes
-  `scripts/coverage-check.sh`, which **does not exist** — so the floor is unenforced today.
-  SPEC-01 authors a `coverage-check.sh` with a *provisional* floor (current measured coverage) so
-  CI goes green; **SPEC-05 owns the real policy** (target floor + per-package gaps).
+- **Coverage floor (resolved Wave 2):** the `coverage-floor` CI job invokes
+  `scripts/coverage-check.sh`. SPEC-01 authored it with a *provisional* 74.0% floor (the earlier
+  "does not exist" note is stale); **SPEC-05 set the real policy floor at 75.0%** (measured 75.7%)
+  and documented it. See this spec's Status Notes.
 - Existing parity/conformance tests: `internal/core/gates/parity_test.go` (handler/verb parity),
   `conformance_test.go`, `integration_polish_test.go`. Regression harnesses
   `scripts/regress-*.sh` re-run every task verify + each wave invariant but are **not wired into
   CI** (documented cadence unknown).
-- **Doc gap:** no stated coverage target. `TESTING.md` is referenced by `ci.yml:232` but **does
-  not exist** in the repo (confirmed this session) — the assumed file is missing.
+- **Doc gap (resolved Wave 2):** `TESTING.md` — referenced by `ci.yml` (line 242) but formerly
+  missing — is now authored with the coverage target and per-package table; the reference resolves.
 
 ## Target State
 

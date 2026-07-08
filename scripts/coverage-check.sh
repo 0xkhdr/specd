@@ -1,18 +1,17 @@
 #!/usr/bin/env sh
-# coverage-check.sh (SPEC-01 T-01-03) — produce coverage.out and enforce a floor.
+# coverage-check.sh (SPEC-01 T-01-03; policy floor set by SPEC-05 T-05-02) —
+# produce coverage.out and enforce the total-coverage floor.
 #
-# SPEC-01 sets a PROVISIONAL floor at (just below) the current measured total
-# coverage so the job is green today. SPEC-05 owns the coverage policy and
-# ratchets FLOOR up to a real target.
-#
-#   Measured total coverage on the SPEC-01 HEAD: 74.8%
-#   Provisional floor: 74.0% (small margin absorbs run-to-run jitter; not a
-#   policy target — SPEC-05 raises it).
+# SPEC-05 owns the policy. The floor is a RATCHET: raise it as coverage climbs,
+# never lower it. Measured total on the SPEC-05 HEAD: 75.7%. Policy floor 75.0%
+# — a deliberate target above SPEC-01's provisional 74.0%, with ~0.7% headroom
+# absorbing run-to-run jitter (atomic-mode counters vary slightly). See
+# TESTING.md for the per-package table and the ratchet rule.
 #
 # Exits non-zero if total coverage drops below FLOOR.
 set -eu
 
-FLOOR=74.0
+FLOOR=75.0
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
