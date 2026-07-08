@@ -77,6 +77,12 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.6
+          # Build golangci-lint from source with the runner's Go (1.26 via
+          # go.mod). The prebuilt v2.1.6 release binary is built with go1.24,
+          # which refuses to load a module targeting go 1.26 ("the Go language
+          # version used to build golangci-lint is lower than the targeted Go
+          # version"). goinstall matches the toolchain to go.mod.
+          install-mode: goinstall
 
       # Fail the build on known vulnerabilities in our deps/stdlib usage.
       - name: govulncheck
