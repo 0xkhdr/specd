@@ -52,12 +52,27 @@ func TestScannerFramework(t *testing.T) {
 	})
 
 	t.Run("scan_boundary_excludes_fixtures_and_checksums", func(t *testing.T) {
-		for _, rel := range []string{"go.sum", "testdata/secrets/leak.txt", "vendor/x/y.go", ".specd/security/allow.json", "reference/foo.go"} {
+		// Every documented exclusion: all lockfiles, all excluded dirs (as the
+		// dir root, nested under it, and deeper), plus .git. The boundary is the
+		// security gate's trust edge — a regression that starts scanning any of
+		// these floods the operator with false positives (T-04-01).
+		excluded := []string{
+			// lockfiles (basename match, at root and nested)
+			"go.sum", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock",
+			"sub/dir/go.sum", "web/package-lock.json",
+			// excluded dirs
+			"testdata/secrets/leak.txt", "internal/x/testdata/f.go",
+			".specd/security/allow.json", ".specd/specs/s/tasks.md",
+			"reference/foo.go", "reference/nested/bar.go",
+			"vendor/x/y.go",
+			".git/config", "sub/.git/HEAD",
+		}
+		for _, rel := range excluded {
 			if !excludedFromScan(rel) {
 				t.Errorf("expected %s excluded from scan", rel)
 			}
 		}
-		for _, rel := range []string{"main.go", "internal/core/state.go", "docs/CHEATSHEET.md"} {
+		for _, rel := range []string{"main.go", "internal/core/state.go", "docs/CHEATSHEET.md", "go.mod", "testdataish/x.go"} {
 			if excludedFromScan(rel) {
 				t.Errorf("expected %s scanned", rel)
 			}

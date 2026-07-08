@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+// TestScrubbedEnvDropsSecrets pins the log/leak boundary (T-04-04): verify lines
+// run with a minimal allowlisted environment (HOME/PATH/TMPDIR only). A secret
+// exported into specd's own process must never cross into the shelled-out verify
+// command, where it could be echoed into evidence logs or CI output.
+func TestScrubbedEnvDropsSecrets(t *testing.T) {
+	in := []string{
+		"HOME=/home/u", "PATH=/usr/bin", "TMPDIR=/tmp",
+		"AWS_SECRET_ACCESS_KEY=AKIAABCDEFGHIJKLMNOP",
+		"GITHUB_TOKEN=ghp_deadbeef", "MY_API_KEY=hunter2",
+		"HOMEBREW=x", // must not match on HOME prefix
+	}
+	out := scrubbedEnv(in)
+	got := strings.Join(out, "\n")
+	for _, secret := range []string{"AWS_SECRET_ACCESS_KEY", "GITHUB_TOKEN", "MY_API_KEY", "HOMEBREW", "AKIAABCDEFGHIJKLMNOP", "ghp_deadbeef", "hunter2"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("scrubbed env leaked %q: %v", secret, out)
+		}
+	}
+	for _, keep := range []string{"HOME=/home/u", "PATH=/usr/bin", "TMPDIR=/tmp"} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("scrubbed env dropped required var %q: %v", keep, out)
+		}
+	}
+}
+
 func TestSandboxFailClosed(t *testing.T) {
 	_, err := Run(context.Background(), Options{
 		Command:       "true",

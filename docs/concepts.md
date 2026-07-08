@@ -3,7 +3,7 @@
 > **The agent reasons. The harness enforces.**
 
 `specd` is a **spec-driven coding harness CLI** — Go, standard library only, zero runtime
-dependencies, single static binary (`github.com/0xkhdr/specd`, Go 1.22+). It moves process
+dependencies, single static binary (`github.com/0xkhdr/specd`, Go 1.26+). It moves process
 enforcement out of the LLM's non-deterministic context window into a **deterministic, local,
 tool-gated pipeline**.
 

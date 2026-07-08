@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -51,6 +52,28 @@ func TestSeverity(t *testing.T) {
 	t.Run("off_severity_skips_scanner", func(t *testing.T) {
 		if f := GateFindings(Analyze(root, core.SecurityConfig{Secrets: "off"})); len(f) != 0 {
 			t.Fatalf("off scanner should produce nothing: %+v", f)
+		}
+	})
+
+	t.Run("corrupt_allowlist_fails_gate_closed", func(t *testing.T) {
+		// End-to-end trust-boundary proof (T-04-02): a corrupt allowlist must not
+		// silently pass. loadAllowlist fails closed; Analyze must surface that as
+		// an error-severity gate finding so `check --security` exits non-zero,
+		// never suppressing the real leak that lives in the same tree.
+		root := gitRepoWithLeak(t)
+		writeAllow(t, root, `not json`)
+		findings := GateFindings(Analyze(root, core.SecurityConfig{Secrets: "error"}))
+		if !gates.HasErrors(findings) {
+			t.Fatalf("corrupt allowlist must fail the gate closed, got %+v", findings)
+		}
+		var sawLoadError bool
+		for _, f := range findings {
+			if f.Severity == gates.Error && strings.Contains(f.Message, "allowlist") {
+				sawLoadError = true
+			}
+		}
+		if !sawLoadError {
+			t.Fatalf("expected an allowlist load error finding, got %+v", findings)
 		}
 	})
 

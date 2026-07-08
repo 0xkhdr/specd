@@ -21,6 +21,11 @@ builds:
     ignore:
       - goos: darwin
         goarch: amd64
+    flags:
+      - -trimpath
+    # Pin embedded timestamps to the commit time => byte-reproducible archives
+    # (SPEC-03 T-03-05).
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -s -w
       - -X github.com/0xkhdr/specd/internal/version.Version={{.Version}}
@@ -38,3 +43,9 @@ archives:
 
 checksum:
   name_template: checksums.txt
+  algorithm: sha256
+
+# Supply-chain transparency: emit a Syft SBOM per archive. release.yml installs
+# Syft for this (SPEC-03 T-03-05).
+sboms:
+  - artifacts: archive

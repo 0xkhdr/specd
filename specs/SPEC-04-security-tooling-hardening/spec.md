@@ -19,8 +19,10 @@
   surface by design); the sandbox story is `--sandbox` / bwrap plus `--revert-on-fail`.
 - **Evidence integrity:** a task completes only against a passing verify record pinned to a real
   git HEAD — the trust anchor.
-- **Supply chain:** zero runtime deps (strong). The only external fetch is `govulncheck@latest`
-  (`ci.yml:80`) — **unpinned**, itself a supply-chain hole.
+- **Supply chain:** zero runtime deps (strong). The only external fetch, `govulncheck`, is
+  **pinned** to `@v1.5.0` (`ci.yml:86`, applied by SPEC-01 T-01-06 in commit `a5e3935`) — the
+  former `@latest` supply-chain hole is closed. Both supply-chain checks run: `govulncheck` in CI
+  and the `slopsquat` typosquat scanner in the security gate.
 - **Doc gap:** no consolidated threat model / `SECURITY.md`; no vulnerability-disclosure policy.
 
 ## Target State
@@ -51,9 +53,9 @@ disclosure policy exists.
 4. **Verify-command isolation:** document and test the sandbox story — `--sandbox`/bwrap isolation
    for shell-executed verify lines, and that `--revert-on-fail` restores state and leaks no temp
    files. Confirm no secrets are written to logs.
-5. **Pin `govulncheck`:** replace `@latest` at ci.yml:80 with an explicit released version (SPEC-04
-   owns the version choice; SPEC-01 applies it via T-01-06). Confirm both `govulncheck` and the
-   `slopsquat` scanner run.
+5. **Pin `govulncheck`:** DONE — pinned to `@v1.5.0` at `ci.yml:86` (SPEC-04 chose the version;
+   SPEC-01 applied it via T-01-06, commit `a5e3935`). Both `govulncheck` and the `slopsquat`
+   scanner confirmed running.
 6. **`SECURITY.md`:** author a threat model (attacker model: hostile spec/tasks content, hostile
    verify lines, hostile dependency names) and a vulnerability-disclosure policy.
 

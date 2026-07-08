@@ -8,13 +8,21 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 |---------|--------|----------|--------|------------|------------------------|
 | SPEC-01 | CI/CD & Build Tooling | P0 | completed | — | 7/7 |
 | SPEC-02 | Feature ↔ Doc Regression | P1 | completed | SPEC-01 | 6/6 |
-| SPEC-03 | Packaging & Release Readiness | P1 | pending | SPEC-01 | 0/5 |
-| SPEC-04 | Security Tooling Hardening | P1 | pending | SPEC-01 | 0/6 |
+| SPEC-03 | Packaging & Release Readiness | P1 | completed | SPEC-01 | 5/5 |
+| SPEC-04 | Security Tooling Hardening | P1 | completed | SPEC-01 | 6/6 |
 | SPEC-05 | Test Coverage Formalization | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
 | SPEC-06 | Observability & Crash-Safety | P2 | in-progress | SPEC-01 | 1/5 |
 | SPEC-07 | DX & Doc Accuracy | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
 
-Total: 14/41 tasks.
+Total: 25/41 tasks.
+
+Wave 1 fully closed 2026-07-09: SPEC-03 (5/5) and SPEC-04 (6/6) landed alongside the earlier
+SPEC-02. SPEC-04 regression-hardened the opt-in security gate (scan-boundary, fail-closed
+allowlist, slug traversal, verify env-scrub) and shipped `SECURITY.md`; the `govulncheck@v1.5.0`
+pin was already applied by SPEC-01 T-01-06. SPEC-03 added perf benchmarks + a sub-quadratic
+frontier assertion + O(0) disabled-mode proof, published `docs/scale-envelope.md`, and hardened
+release packaging with a new `.goreleaser.yaml` (static/reproducible build, checksums, SBOM).
+No evidence-bypass flag added; `reference/` untouched; zero runtime deps preserved.
 
 SPEC-02 completed 2026-07-09: verified verb → handler → doc map (23 verbs, zero unmatched),
 gate count normalized to 14 everywhere, deferred/fail-closed/slug-position invariants pinned by

@@ -41,7 +41,7 @@ context window to a strict, local, tool-gated pipeline.
 
 ### Building from Source
 
-`specd` is written in Go (1.22+) and has **zero runtime dependencies**. It compiles into a single static binary:
+`specd` is written in Go (1.26+) and has **zero runtime dependencies**. It compiles into a single static binary:
 
 ```bash
 # Clone the repository and build:
@@ -78,6 +78,7 @@ Start at the **[docs index](docs/README.md)** for fast paths, or jump straight i
 - ⚙️ [GitHub Action](docs/github-action.md) — Gate pull requests in CI with the composite action.
 - 🩺 [Troubleshooting](docs/troubleshooting.md) — Blocked tasks, the escalation ratchet, lock and CAS errors.
 - 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, invariants, and CLI design decisions.
+- 🔐 [Security Policy](SECURITY.md) — Threat model (hostile spec/verify/dependency content), the verify isolation contract, and vulnerability disclosure.
 
 ---
 

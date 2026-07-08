@@ -5,7 +5,7 @@ A walkthrough of running a spec from empty workspace to submitted PR. For the *w
 
 ## Install
 
-`specd` is Go (1.22+), stdlib only, zero runtime dependencies — one static binary.
+`specd` is Go (1.26+), stdlib only, zero runtime dependencies — one static binary.
 
 ```bash
 go build -o specd .        # single static binary

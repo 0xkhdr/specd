@@ -37,7 +37,15 @@ func TestSlug(t *testing.T) {
 		}
 	}
 	invalid := []string{"", "-", "-a", "a-", "a--b", "A", "a_b", "a.b"}
-	for _, slug := range invalid {
+	// Path-traversal escapes must be rejected: a slug is a path component under
+	// .specd/specs/<slug>/, so any `..`, absolute path, or separator that could
+	// escape that directory is invalid (T-04-03, security trust boundary).
+	traversal := []string{
+		"..", "../x", "../../etc", "a/../b", "..\\x",
+		"/etc/passwd", "/abs", "a/b", "spec/../..",
+		".specd", "spec..d",
+	}
+	for _, slug := range append(invalid, traversal...) {
 		if ValidSlug(slug) || ValidateSlug(slug) == nil {
 			t.Fatalf("invalid slug accepted: %q", slug)
 		}

@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: '1.22' }
+        with: { go-version: '1.26' }
       - run: go build -o /usr/local/bin/specd .
       - uses: ./.github/actions/specd-pr
         with:

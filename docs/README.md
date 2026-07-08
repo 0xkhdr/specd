@@ -47,6 +47,10 @@ evidence-gated execution**.
   contention, CAS conflicts, verify/sandbox failures.
 - 🛠️ **[contributor-guide.md](contributor-guide.md)** — codebase walkthrough by domain, the
   non-negotiable invariants, the concurrency/durability model, and extension recipes.
+- 📐 **[scale-envelope.md](scale-envelope.md)** — intended limits (tasks/spec, specs/program) with
+  the measured benchmark numbers backing them.
+- 🔐 **[../SECURITY.md](../SECURITY.md)** — threat model, verify isolation contract, and
+  vulnerability-disclosure policy.
 
 ## The non-negotiables
 
