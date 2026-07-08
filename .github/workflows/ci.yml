@@ -74,7 +74,7 @@ jobs:
 
       # staticcheck (and friends) via golangci-lint.
       - name: staticcheck (golangci-lint)
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.6
 
