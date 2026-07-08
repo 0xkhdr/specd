@@ -6,7 +6,7 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 
 | Spec ID | Domain | Priority | Status | Blocked By | Completed Tasks / Total |
 |---------|--------|----------|--------|------------|------------------------|
-| SPEC-01 | CI/CD & Build Tooling | P0 | pending | — | 0/7 |
+| SPEC-01 | CI/CD & Build Tooling | P0 | blocked | BD-01 (→ SPEC-06) | 5/7 |
 | SPEC-02 | Feature ↔ Doc Regression | P1 | pending | SPEC-01 | 0/6 |
 | SPEC-03 | Packaging & Release Readiness | P1 | pending | SPEC-01 | 0/5 |
 | SPEC-04 | Security Tooling Hardening | P1 | pending | SPEC-01 | 0/6 |
@@ -14,7 +14,15 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 | SPEC-06 | Observability & Crash-Safety | P2 | pending | SPEC-01 | 0/5 |
 | SPEC-07 | DX & Doc Accuracy | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
 
-Total: 0/41 tasks.
+Total: 5/41 tasks.
+
+**SPEC-01 blocker (BD-01):** 5/7 tasks done (perf-gate, coverage floor, go-version floor,
+govulncheck pin, keep/delete decision + all scripts authored). T-01-04 and T-01-07 are blocked
+by a genuine double-dispatch race in `brain resume` (crash-safety — SPEC-06's domain), which the
+newly-wired stress scripts exposed. See `SPEC-01…/spec.md` → "Blockers Discovered". **Ordering
+wrinkle:** the fix belongs to SPEC-06, but SPEC-06 sits in Wave 2 behind SPEC-01 — so either
+pull the `brain resume` fix forward into SPEC-01, or fast-track that slice of SPEC-06. Needs a
+direction call before Wave 1 can rely on green CI.
 
 ## Wave Plan
 

@@ -95,6 +95,36 @@ The Go version floor is internally consistent across `go.mod`, the CI matrix, an
   compile failure on the version-floor leg).
 - No LLM introduced into any gate/DAG/report path; no evidence-bypass flag; `reference/` untouched.
 
+## Blockers Discovered
+
+### BD-01: double-dispatch race in `brain resume` (blocks T-01-04, T-01-07)
+
+Authoring the stress scripts (T-01-04) surfaced a genuine crash-safety concurrency defect. The
+five brain-resume-based scripts flake ~7% (measured 1/15 runs each) with a **double dispatch** —
+two concurrent `brain resume` processes both re-issue the same crashed mission, writing two
+`dispatch` lines to `acp.jsonl` for one mission.
+
+- **Root cause:** `internal/cmd/brain_run.go:brainResume` calls
+  `orchestration.AppendDispatch` (line ~242) **outside** any spec lock. `AppendDispatch`'s own
+  docstring requires "the read-then-append runs under the caller's spec lock so the duplicate
+  check is race-free" — that precondition is violated at the resume call site. The session
+  CAS (`SaveSessionCAS`) is correctly locked, but the ledger read (`ReadACP`, line ~218),
+  the `PlanResume` decision, and the `AppendDispatch` are not one atomic transaction. In the
+  window between one resume's winning session CAS and its ledger append, a second resume can
+  read a stale-empty ledger, win its own CAS (revision already advanced), and dispatch again.
+  `AppendDispatch`'s `HasMission` guard also reads the ledger unlocked, so it TOCTOU-races too.
+- **Pre-existing:** the orphan `scripts/stress-brain.sh` (never wired into CI — ci.yml
+  referenced a *different*, nonexistent `stress-brain-recovery.sh`) flakes identically. The
+  master CI-drift defect (Cross-Cutting Concern 1) is exactly what let this go uncaught.
+- **Proposed fix (SPEC-06 scope):** hold `core.WithSpecLock` across the resume critical
+  section — re-read the ledger, re-run `PlanResume`, and `AppendDispatch` inside one lock so the
+  "already dispatched?" check and the append are atomic w.r.t. other resumes.
+- **Scope:** SPEC-01 explicitly delegates ACP/checkpoint crash-safety semantics to SPEC-06 and
+  its own remit is only that the scripts "exist and pass deterministically." The fix touches
+  `internal/orchestration` + `internal/cmd/brain_run.go` — SPEC-06's domain. **Paused for
+  direction:** fix now within SPEC-01, or defer to SPEC-06 (and quarantine the 5 flaky stress
+  jobs meanwhile).
+
 ## References
 - Analysis Plan: Domain 1; Cross-Cutting Concern 1 ("CI/tooling drift is the master defect");
   Blockers B1–B4; Recommended Spec Breakdown row SPEC-01.
