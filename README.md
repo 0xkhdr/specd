@@ -12,7 +12,7 @@ context window to a strict, local, tool-gated pipeline.
 ## Key Features
 
 - 🔄 **Strict Planning Ratchet**: Enforces human-approved phase transitions (Perceive → Analyze → Plan → Execute → Verify → Reflect).
-- 🛡️ **Validation Gates**: Programmatic checks (`specd check`) — 12 core gates (EARS syntax, design sections, task schema, acyclic DAG, evidence, sync, context budget, and more) plus an opt-in security gate.
+- 🛡️ **Validation Gates**: Programmatic checks (`specd check`) — 14 core gates (EARS syntax, design sections, task schema, acyclic DAG, evidence, sync, context budget, and more — 12 always-on plus opt-in `criteria` and `review`) plus a separate opt-in security gate.
 - 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are resolved.
 - 💾 **Evidence-Gated Completion**: Tasks complete only against a passing `verify` record (exit code 0 + git HEAD) — never on free-text claims.
 - 🔒 **Verify Sandboxing & Rollback**: Run verification commands inside `bwrap`/container isolation and optionally stash the working tree on failure (`--revert-on-fail`).

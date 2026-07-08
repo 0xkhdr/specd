@@ -7,14 +7,20 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 | Spec ID | Domain | Priority | Status | Blocked By | Completed Tasks / Total |
 |---------|--------|----------|--------|------------|------------------------|
 | SPEC-01 | CI/CD & Build Tooling | P0 | completed | — | 7/7 |
-| SPEC-02 | Feature ↔ Doc Regression | P1 | pending | SPEC-01 | 0/6 |
+| SPEC-02 | Feature ↔ Doc Regression | P1 | completed | SPEC-01 | 6/6 |
 | SPEC-03 | Packaging & Release Readiness | P1 | pending | SPEC-01 | 0/5 |
 | SPEC-04 | Security Tooling Hardening | P1 | pending | SPEC-01 | 0/6 |
 | SPEC-05 | Test Coverage Formalization | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
 | SPEC-06 | Observability & Crash-Safety | P2 | in-progress | SPEC-01 | 1/5 |
 | SPEC-07 | DX & Doc Accuracy | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
 
-Total: 8/41 tasks.
+Total: 14/41 tasks.
+
+SPEC-02 completed 2026-07-09: verified verb → handler → doc map (23 verbs, zero unmatched),
+gate count normalized to 14 everywhere, deferred/fail-closed/slug-position invariants pinned by
+tests. This satisfies SPEC-05 and SPEC-07's dependency on a verified verb/feature map. SPEC-07
+still owns the durable "12 core" drift-guard lint (SPEC-02 fixed the number; SPEC-07 builds the
+guard) and the dead-script sweep incl. `scripts/stress-brain.sh`.
 
 **SPEC-01 complete; BD-01 resolved.** All 7 SPEC-01 tasks are done. The double-dispatch race in
 `brain resume` that blocked T-01-04/T-01-07 was fixed by fast-tracking SPEC-06 T-06-04 out of

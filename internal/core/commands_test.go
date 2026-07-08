@@ -40,6 +40,28 @@ func TestRegistryMatchesHelp(t *testing.T) {
 	}
 }
 
+// TestSpecSlugArgPositions is the slug-position regression (SPEC-02 T-02-04):
+// dispatch resolves the spec slug from a fixed argv index, and every verb that
+// resolves one must read it from the right place. `brain` takes a subcommand
+// first (`specd brain start <spec>`), so its slug is argAt(1); every other
+// slug-bearing verb reads argAt(0). A verb resolving no fixed-position slug
+// leaves SpecSlugArg nil and is skipped by the phase gate. This pins that
+// contract so a future edit can't silently shift an index and mis-phase-check.
+func TestSpecSlugArgPositions(t *testing.T) {
+	for _, meta := range core.Commands {
+		if meta.SpecSlugArg == nil {
+			continue
+		}
+		want := 0
+		if meta.Name == "brain" {
+			want = 1
+		}
+		if got := *meta.SpecSlugArg; got != want {
+			t.Errorf("%s: SpecSlugArg = argAt(%d), want argAt(%d)", meta.Name, got, want)
+		}
+	}
+}
+
 func sameSet(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
