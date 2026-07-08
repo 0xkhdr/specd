@@ -85,7 +85,7 @@ func memoryPromote(root, slug string, flags map[string]string) error {
 		threshold := promotionThreshold(root)
 		count := core.CountSpecsWithBlock(root, key)
 		if count < threshold && !force {
-			return struct{}{}, fmt.Errorf("memory: pattern '%s' seen in %d spec(s); promotion threshold is %d. Re-run with --force to promote anyway.", key, count, threshold)
+			return struct{}{}, fmt.Errorf("memory: pattern '%s' seen in %d spec(s); promotion threshold is %d. Re-run with --force to promote anyway", key, count, threshold)
 		}
 		date := memoryNow().Format("2006-01-02")
 		promoted := core.RenderPromotion(block, slug, count, date)

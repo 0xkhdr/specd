@@ -46,6 +46,10 @@ jobs:
         uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: scripts
+          # Gate on error-severity only. Remaining findings are warning/info
+          # false positives on safe idioms: SC1007 (CDPATH= cd guard),
+          # SC2015 (best-effort `... || true`), SC2016 (sed single-quote scripts).
+          severity: error
 
       - name: docs-lint (cheat-sheet ↔ command-reference sync)
         # Gate cheat-sheet drift on PRs. Asserts

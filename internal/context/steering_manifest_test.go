@@ -34,10 +34,10 @@ func TestSteeringInManifest(t *testing.T) {
 	}
 	var steering, memory Item
 	for _, it := range m.Items {
-		switch {
-		case it.Kind == "steering":
+		switch it.Kind {
+		case "steering":
 			steering = it
-		case it.Kind == "memory":
+		case "memory":
 			memory = it
 		}
 	}

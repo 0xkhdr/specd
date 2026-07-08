@@ -22,7 +22,7 @@ func TestInjection(t *testing.T) {
 	})
 
 	t.Run("zero_width_smuggling_flagged", func(t *testing.T) {
-		content := "benign text​with a zero-width space\n"
+		content := "benign text\u200bwith a zero-width space\n"
 		f := injectionScanner{}.Scan([]TrackedFile{{Path: "note.md", Content: []byte(content)}})
 		found := false
 		for _, fn := range f {

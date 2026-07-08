@@ -127,13 +127,32 @@ func lockIsStale(path string, now int64) (bool, error) {
 	}
 	fields := strings.Fields(string(data))
 	if len(fields) < 2 {
-		return true, nil
+		// A lock file with no timestamp yet is a holder mid-write (acquireFileLock
+		// creates the file O_EXCL, then writes pid+timestamp in a second syscall):
+		// an observer in that window must NOT treat it as stale and remove a live
+		// lock. Withhold the stale verdict until the file is old enough on its own
+		// mtime to be a genuine orphan.
+		return lockMtimeStale(path, now)
 	}
 	then, err := strconv.ParseInt(fields[1], 10, 64)
 	if err != nil {
-		return true, nil
+		return lockMtimeStale(path, now)
 	}
 	return time.Duration(now-then)*time.Millisecond > lockStale(), nil
+}
+
+// lockMtimeStale falls back to the file's modification time when the lock body
+// carries no usable timestamp (a holder mid-write, or a corrupt file). Only a
+// file untouched for longer than the stale window is a genuine orphan.
+func lockMtimeStale(path string, now int64) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return time.Duration(now-info.ModTime().UnixMilli())*time.Millisecond > lockStale(), nil
 }
 
 func lockPath(root string) string {

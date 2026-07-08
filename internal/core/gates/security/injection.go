@@ -6,15 +6,10 @@ import (
 )
 
 // injectionScanner flags prompt-injection heuristics in tracked text/markdown
-// (R3). Rules are versioned and documented: bumping injectionRulesVersion when
-// the rule set changes lets consumers reason about drift.
+// (R3).
 type injectionScanner struct{}
 
 func (injectionScanner) Name() string { return "injection" }
-
-// injectionRulesVersion is the documented version of the rule set below. Bump on
-// any add/remove/semantic change.
-const injectionRulesVersion = 1
 
 // Scannable text extensions. Injection payloads hide in prose, not binaries.
 var textExtensions = map[string]struct{}{

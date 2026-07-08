@@ -6,23 +6,25 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 
 | Spec ID | Domain | Priority | Status | Blocked By | Completed Tasks / Total |
 |---------|--------|----------|--------|------------|------------------------|
-| SPEC-01 | CI/CD & Build Tooling | P0 | blocked | BD-01 (→ SPEC-06) | 5/7 |
+| SPEC-01 | CI/CD & Build Tooling | P0 | completed | — | 7/7 |
 | SPEC-02 | Feature ↔ Doc Regression | P1 | pending | SPEC-01 | 0/6 |
 | SPEC-03 | Packaging & Release Readiness | P1 | pending | SPEC-01 | 0/5 |
 | SPEC-04 | Security Tooling Hardening | P1 | pending | SPEC-01 | 0/6 |
 | SPEC-05 | Test Coverage Formalization | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
-| SPEC-06 | Observability & Crash-Safety | P2 | pending | SPEC-01 | 0/5 |
+| SPEC-06 | Observability & Crash-Safety | P2 | in-progress | SPEC-01 | 1/5 |
 | SPEC-07 | DX & Doc Accuracy | P2 | pending | SPEC-01, SPEC-02 | 0/6 |
 
-Total: 5/41 tasks.
+Total: 8/41 tasks.
 
-**SPEC-01 blocker (BD-01):** 5/7 tasks done (perf-gate, coverage floor, go-version floor,
-govulncheck pin, keep/delete decision + all scripts authored). T-01-04 and T-01-07 are blocked
-by a genuine double-dispatch race in `brain resume` (crash-safety — SPEC-06's domain), which the
-newly-wired stress scripts exposed. See `SPEC-01…/spec.md` → "Blockers Discovered". **Ordering
-wrinkle:** the fix belongs to SPEC-06, but SPEC-06 sits in Wave 2 behind SPEC-01 — so either
-pull the `brain resume` fix forward into SPEC-01, or fast-track that slice of SPEC-06. Needs a
-direction call before Wave 1 can rely on green CI.
+**SPEC-01 complete; BD-01 resolved.** All 7 SPEC-01 tasks are done. The double-dispatch race in
+`brain resume` that blocked T-01-04/T-01-07 was fixed by fast-tracking SPEC-06 T-06-04 out of
+wave order (the fix lives in SPEC-06's domain: `internal/cmd/brain_run.go` +
+`internal/core/lock.go`). Two root causes — a non-atomic resume critical section and a
+false-stale removal of a mid-write lock file — both closed; the five brain-resume stress scripts
+now pass 30/30 and a new race test asserts exactly-one dispatch under `-race`. Details in
+`SPEC-06…/tasks.md` → T-06-04 and `SPEC-01…/spec.md` → "Blockers Discovered" (resolved).
+**One item remains for T-01-07:** the definitive all-green **real push/PR** CI run is not yet
+recorded (all local gates are green); see `SPEC-01…/tasks.md` T-01-07 note.
 
 ## Wave Plan
 

@@ -1,0 +1,13 @@
+# golangci-lint config. CI runs golangci-lint v2.x (see .github/workflows/ci.yml).
+#
+# The std-error-handling exclusion preset restores golangci-lint v1's default
+# EXC0001 set, which v2 made opt-in: it stops errcheck from flagging the
+# universally-ignored returns — writes to os.Stdout/os.Stderr (fmt.Fprint*),
+# (de)fer'd Close/Flush, os.Remove, os.Setenv. errcheck still gates every real
+# fallible operation (file writes, parsing, encoding).
+version: "2"
+
+linters:
+  exclusions:
+    presets:
+      - std-error-handling

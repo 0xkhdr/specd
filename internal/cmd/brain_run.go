@@ -203,7 +203,25 @@ func brainCancel(root, sessionPath, slug string) error {
 // crash-orphaned leases are recoverable (R5). An irreconcilable checkpoint/ledger
 // conflict refuses (exit 1) rather than guessing. The resume is claimed by a
 // session-revision CAS, so two racing resumes conflict and exactly one proceeds.
+//
+// The entire critical section runs under one core.WithSpecLock: loading the
+// session, reading the ledger, planning the reissue, the session CAS, and the
+// ledger append are one atomic transaction w.r.t. other resumes. Without it,
+// two resumes could interleave their (separately locked) CAS and (unlocked)
+// ledger read/append — one winning its CAS while reading a stale-empty ledger
+// mid-window of the other's not-yet-appended dispatch, double-dispatching the
+// same mission. The lock is reentrant per goroutine, so the nested WithSpecLock
+// inside SaveSessionCAS does not deadlock; across processes the file lock
+// serializes, so the losing resume sees the winner's dispatch already in the
+// ledger and PlanResume declines to re-issue.
 func brainResume(root, sessionPath, checkpointPath, acpPath, slug string) error {
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		return struct{}{}, brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug)
+	})
+	return err
+}
+
+func brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug string) error {
 	session, err := orchestration.LoadSession(sessionPath)
 	if err != nil {
 		return err

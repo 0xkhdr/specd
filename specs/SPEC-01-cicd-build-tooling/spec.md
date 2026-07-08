@@ -97,7 +97,18 @@ The Go version floor is internally consistent across `go.mod`, the CI matrix, an
 
 ## Blockers Discovered
 
-### BD-01: double-dispatch race in `brain resume` (blocks T-01-04, T-01-07)
+### BD-01: double-dispatch race in `brain resume` — **RESOLVED** (was blocking T-01-04, T-01-07)
+
+**Resolution (SPEC-06 T-06-04, fast-tracked out of wave order):** fixed at two layers —
+(1) `internal/cmd/brain_run.go` now runs the whole resume critical section (load session,
+read ledger, `PlanResume`, session CAS, `AppendDispatch`) inside **one** `core.WithSpecLock`, so
+the "already dispatched?" check and the append are atomic w.r.t. other resumes; and
+(2) `internal/core/lock.go` no longer treats a lock file that is empty because its holder is
+mid-write as stale — an unparseable lock body falls back to mtime, so a live cross-process lock is
+never falsely removed. The five brain-resume stress scripts now pass 30/30 (was ~7% flake) and a
+new `TestBrainResumeRaceDispatchesExactlyOnce` races N resumes deterministically under `-race`.
+Guardrails preserved (no LLM, no evidence-bypass, atomic writes, CAS, reentrant lock, zero deps,
+`reference/` untouched). Details in `specs/SPEC-06…/tasks.md` → T-06-04. Original analysis below.
 
 Authoring the stress scripts (T-01-04) surfaced a genuine crash-safety concurrency defect. The
 five brain-resume-based scripts flake ~7% (measured 1/15 runs each) with a **double dispatch** —
