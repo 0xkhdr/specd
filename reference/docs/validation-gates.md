@@ -1,0 +1,246 @@
+# Validation Gates
+
+`specd check <slug>` runs the validation gates on a spec. A gate failure exits
+`1` and blocks the relevant `specd approve` transition. **Seven core gates always
+run**; three further gates (`acceptance`, `scope`, custom) are opt-in and no-ops
+by default, so the baseline behaviour is unchanged.
+
+## The 7 core gates
+
+### Gate 1 — EARS
+- **Source:** `internal/core/ears.go`
+- **Checks:** Every requirement has a user story; every acceptance criterion matches one of the five EARS patterns.
+- **Fails on:** Invalid grammar, missing user story, malformed criteria.
+
+**Recognized EARS forms** (`MatchEars`, case-insensitive, checked in order):
+
+| Form | Pattern | Shape |
+|---|---|---|
+| Unwanted behaviour | `unwanted` | `IF <condition> THEN THE SYSTEM SHALL <response>` |
+| Event-driven | `event-driven` | `WHEN <trigger> THE SYSTEM SHALL <response>` |
+| State-driven | `state-driven` | `WHILE <state> THE SYSTEM SHALL <response>` |
+| Optional feature | `optional-feature` | `WHERE <feature> THE SYSTEM SHALL <response>` |
+| Ubiquitous | `ubiquitous` | `THE SYSTEM SHALL <response>` |
+
+Notes:
+- Matching is case-insensitive, so `when …`/`When …` are accepted.
+- A criterion is the text after `N.` inside the **Acceptance criteria:** block;
+  leading whitespace before the number is allowed (`criterionRe`).
+- Complex/combined clauses (e.g. `When X, while Y, the system shall Z`) satisfy
+  the event-driven form because the leading keyword and `THE SYSTEM SHALL`
+  anchor the match; the embedded `while` is part of the trigger text.
+- Ubiquitous is matched last so a conditional form is never mis-tagged as
+  ubiquitous.
+
+### Gate 2 — Design
+- **Source:** `internal/core/phases.go`
+- **Checks:** All 7 mandatory H2 headers present, non-empty, no `TODO` markers.
+- **Fails on:** Missing header, empty section, placeholder text.
+
+### Gate 3 — Task schema
+- **Source:** `internal/core/tasksparser.go`
+- **Checks:** Every task has the 7 mandatory keys (`why`, `role`, `files`, `contract`, `acceptance`, `verify`, `depends`).
+- **Fails on:** Missing key; a `craftsman`/`validator` task with `verify: N/A`.
+
+### Gate 4 — DAG
+- **Source:** `internal/core/dag.go`
+- **Checks:** Acyclic dependencies, no orphan deps, valid wave numbering.
+- **Fails on:** Circular dependency, missing task ID, wave violation.
+
+### Gate 5 — Evidence
+- **Source:** `internal/cmd/check.go`, `internal/core/state.go`
+- **Checks:** No task is complete without evidence; non-read-only tasks require a passing verify record.
+- **Fails on:** A complete task with no verify record.
+
+### Gate 6 — Sync
+- **Source:** `internal/core/specfiles.go`
+- **Checks:** Markdown checkbox statuses match `state.json` task statuses.
+- **Fails on:** Mismatch between `tasks.md` and `state.json`.
+
+### Gate 7 — Traceability
+- **Source:** `internal/core/specfiles.go`
+- **Checks:** Every requirement ID referenced in tasks exists in `requirements.md`.
+- **Severity:** Controlled by `config.gates.traceability` (`warn` or `error`).
+
+## Opt-in gates (no-op by default)
+
+These run after the seven core gates only when enabled. With their defaults,
+`specd check` output is byte-identical to a build without them.
+
+### Gate 8 — Acceptance
+- **Source:** `internal/core/gates.go` (`GateAcceptance`)
+- **Config:** `config.gates.acceptance` — `off` (default), `warn`, or `error`.
+- **Checks:** For tasks that declare an `acceptance:` mapping (e.g.
+  `acceptance: 1.1, 1.2`), every referenced criterion exists in
+  `requirements.md`, and a complete task has a recorded **pass** for each mapped
+  criterion (via `specd verify <slug> --criterion <r>.<n> --status pass`).
+- **Fails on:** A mapping to an undefined criterion, or a complete task with a
+  mapped criterion that has no recorded pass. Enforcement only — no LLM judgment.
+
+### Gate 9 — Scope (diff-scope evidence)
+- **Source:** `internal/core/gates.go` (`GateScope`)
+- **Config:** `config.gates.scope` — `off`/`*`/unset = no-op, else `warn`/`error`.
+- **Checks:** Files changed during `specd verify` (captured into the verify
+  record) fall within the task's declared `files:` contract.
+- **Fails on:** A task that touched a file outside its declared `files:` glob set.
+  Coverage is recorded as **evidence**, not enforced as a numeric floor.
+
+### Gate 10 — Eval (completion requires a passing rubric run)
+- **Source:** `internal/cmd/approve.go` (`hasPassingEval`); rubric engine in
+  `internal/core/eval.go`.
+- **Config:** `config.gates.eval` — `off`/unset = no-op (default, including
+  migrated repos), `required` blocks `specd approve` from marking a spec
+  complete until at least one recorded eval run passed its `minScore`.
+- **Checks:** `state.json.evals` holds a passing suite summary (from
+  `specd eval <slug>`).
+- **Fails on:** `approve` of a `verifying` spec with no passing eval recorded.
+  Off by default to avoid gate fatigue; new inits may default it on.
+
+### Gate 11 — Review (completion requires a fresh, approving review report)
+- **Source:** `internal/cmd/approve.go`; parser/gate in `internal/core/review.go`.
+- **Config:** `config.review.required` — `false` (default, including migrated
+  repos) = no-op; `true` blocks `specd approve` verifying→complete until a review
+  report passes.
+- **Checks:** `review_report.md` exists (scaffold via `specd review <slug>`), is
+  structurally valid (mandatory sections: Summary, Bugs, Security, Hallucinated
+  Dependencies, Style, Verdict), carries a verdict, is **fresh** (newer than the
+  latest task completion — staleness prevents rubber-stamping an old report), and
+  the verdict is `approve`. The outcome is recorded in `state.review`.
+- **Human approval stays final** — the report is evidence, not the decision.
+
+### Gate 12 — Security suite (`specd check --security`)
+- **Source:** `internal/core/security/` (pure, stdlib-only scanners);
+  `internal/cmd/security.go` wiring.
+- **Config:** `config.security.{secrets,injection,slopsquat}` — each `off` (default),
+  `warn` (advisory), or `error` (blocking). `config.security.deps` names an
+  external CVE-scan command (no CVE database is embedded).
+- **Checks over working-tree changed files:** `secrets` (entropy + known formats:
+  cloud keys, PEM, JWT), `injection` (SQL-concat / exec-interpolation heuristics),
+  `slopsquat` (manifest dep names edit-distance-checked against an embedded
+  popular-package list). Findings are recorded in `state.security` and rendered in
+  the PR summary. **Only blocking (`error`) findings fail the command** — advisory
+  scanners are reported but never fail (a noisy gate that gets disabled is worse
+  than a modest one).
+- **False-positive workflow:** allowlist a value at `.specd/security/allow.json`
+  (`{"allow":[{"value":"...","reason":"..."}]}`) — a **reason is mandatory**; a
+  reasonless entry is a hard error. Prefer lowering a noisy scanner to `warn` over
+  disabling it.
+
+### Gate 13 — Ingest coverage (`gates.ingest`)
+- **Source:** `internal/core/ingest.go` (`GateIngest`), run in the `specd check`
+  pipeline.
+- **Config:** `config.gates.ingest` — `off`/`""` (default, including migrated
+  repos), `warn`, or `error`.
+- **Checks:** For an ingestion spec with an `inventory.json`, every inventoried
+  file must be **mapped** (its path appears in `requirements.md`) or **waived**
+  (an `inventory.json` `waivers` entry with a non-empty reason). Any file that is
+  neither is flagged. Coverage is a countable fact, not a judgment — the binary
+  inventories, the agent understands (via `specd-ingest`), the gate enforces.
+- **Waivers:** `inventory.json` `"waivers": {"<path>": "<reason>"}`; a
+  reasonless waiver does not count (same discipline as the security allowlist).
+
+### Deploy preconditions (`specd deploy`)
+- **Source:** `internal/core/deploy.go` (`DeployPreconditions`),
+  `internal/cmd/deploy.go`.
+- **Not a `check` gate** — enforced at deploy time. `specd deploy <slug> --env
+  <env>` refuses unless: the spec is **complete**; every gate named in the
+  env's `.specd/deploy/<env>.json` `requiresGates` (`eval`/`security`/`review`)
+  is recorded green in `state.json`; and — for a **production** env or an
+  `approvalRequired` plan — a human deploy approval exists (`specd approve
+  <slug> --deploy --env <env>`). Preconditions read recorded evidence only; they
+  never re-run a gate. A production deploy is impossible without the human
+  approval record.
+
+### Harness import quarantine (`specd harness`)
+- **Source:** `internal/core/harness.go` (`PullHarness`, `EnableHarnessItem`,
+  `SecureGitClone`), `internal/cmd/harness.go`.
+- **Not a `check` gate** — enforced at import time. `specd harness pull`
+  installs declarative policy directly but **quarantines every executable
+  `command` artifact** until an operator runs `specd harness enable <path>`,
+  which records the decision in the harness log. This is the constitution's
+  evidence-gate rule (#5) applied to shared policy: a pulled bundle can never
+  silently introduce code that runs on your machine. Locally modified files are
+  **refused** (exit `1`) unless `--force` is passed, and every bundle is SHA256
+  pinned — a checksum mismatch or version downgrade fails closed.
+
+### Custom gates
+- **Source:** `internal/core/customgate.go`
+- **Config:** `config.gates.custom` — a list of `{name, command, severity}`.
+- **Checks:** Each is an external program run after the core pipeline via the
+  verify shell with a scrubbed env and bounded timeout (no Go plugins, no
+  network). Findings map to violations (`error`) or warnings (`warn`).
+- See [Custom Gates](./custom-gates.md) for the stdin/stdout JSON contract.
+
+## Steering is agent-authored, not gated
+
+There are no repo-global freshness gates. Bootstrapping the steering constitution
+(`product.md`, `structure.md`, `tech.md`, and `config.defaultVerify`) is agent work,
+driven by the `specd-steering` skill — the agent inspects the repo and authors these
+files itself. The harness scaffolds (`init`) and enforces specs (`check`); it does
+not perceive the stack or police steering freshness.
+
+## Orchestration gates and authority
+
+Brain/Pinky automation does not bypass validation. Brain reads the same
+`state.json`, `tasks.md`, verification records, locks, CAS revisions, runnable
+frontier, and mid-requirement gates used by the CLI. Pinky completion flows
+through the same `CompleteTask` integrity path as `specd task --status complete`.
+
+Authority is configured under `orchestration` in `.specd/config.yml` (or legacy `.specd/config.json`) and is
+fail-closed:
+- Default is `enabled:false`, `approvalPolicy:"manual"`, `workerMode:"host"`,
+  `transport.kind:"file"`.
+- `manual` keeps all approval gates human-only.
+- `planning` may advance normal requirements/design/tasks planning gates only
+  after gates pass.
+- `session` may act inside an active orchestration session, still subject to all
+  gates, locks, retries, and evidence checks.
+- No policy can clear high/critical mid-requirement gates; those remain
+  human-only approval gates.
+
+Host telemetry (`host-tokens`, `host-cost`, `duration-ms`) is stored verbatim as
+reported evidence. It is never treated as trusted proof of completion and specd
+never prices or validates model-provider usage. Cooperative cancellation records
+intent and emits directives; the external host remains responsible for stopping
+worker processes.
+
+## Security model
+
+`tasks.md` is **agent-authored input**, not trusted config. The harness treats
+every `verify:` line and every env var as hostile until validated.
+
+- **Shell execution.** `specd verify` runs each task's `verify:` line via
+  `sh -c` (override with `SPECD_VERIFY_SHELL`) as the invoking user. Pipelines
+  are intentional, so this is real code execution — **only run `specd verify`
+  on a `tasks.md` you trust.** Mitigations: the child environment is scrubbed
+  to an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`, and `SPECD_*`),
+  dropping inherited secrets; commands containing a NUL byte are rejected; the
+  exact command and cwd are printed before execution for audit.
+  *Note on Custom Gates*: Custom gates configured in `.specd/config.yml` (or legacy `.specd/config.json`) also run as external commands under the verify shell, but **do not run within the verify sandbox (bubblewrap or containers) by default** unless sandboxing is explicitly set. Ensure custom gate commands are trusted before running `specd check`.
+- **Path inputs.** Spec slugs are validated against `^[a-z0-9][a-z0-9-]*$`
+  (`internal/core/slug.go`), so `..`, `/`, `\`, and leading `-` are rejected —
+  no path traversal.
+- **Self-update / install.** `scripts/install.sh --force` and `install.sh` download
+  `SHA256SUMS` from the same release and verify the archive digest before
+  replacing any binary. Both **fail closed** on a missing or mismatched
+  checksum. `install.sh --no-verify` skips the check with a loud warning.
+- **Harness git transport.** `specd harness push/pull` shells out to git through
+  a single hardened `SecureGitClone` path with a scrubbed environment and a
+  transport allowlist; local-arbitrary-command URL schemes (`ext::`, `file::`)
+  are rejected. Pulled bundles are SHA256 pinned and imported executables are
+  quarantined until `harness enable` (see
+  [Harness import quarantine](#harness-import-quarantine-specd-harness)).
+- **Migration.** `specd migrate` only rewrites spec state at the current schema
+  and reports available config blocks; it **never writes policy content**, so
+  upgrading a project cannot enable a gate or change behavior on its own.
+- **Lock file.** A spec's `.lock` holds `PID epochMillis` only — it is
+  **non-secret** and created `0644`. Written artifacts (`state.json`,
+  `tasks.md`) land as `0644` minus umask.
+- **Env vars.** All `SPECD_*` integer vars are parsed through
+  `core.EnvInt(name, def, min, max)`, which clamps to range and emits one
+  warning on malformed input instead of silently falling back.
+- **Orchestration config.** Missing fields load backward-compatible defaults.
+  Unsupported worker/transport modes, unsupported approval policies,
+  secret-shaped fields, invalid cost values, and unsafe timing relationships are
+  rejected and orchestration falls back to disabled/manual defaults. Bounds are
+  documented in [Command Reference](./command-reference.md#config-file-specdconfigyml).

@@ -1,34 +1,76 @@
-# specd Documentation
+# specd — Documentation
 
-> **Agent-agnostic, spec-driven coding harness CLI.**
-> *The agent reasons. The harness enforces.*
+`specd` is a **spec-driven coding harness CLI** — Go, standard library only, zero runtime
+dependencies, one static binary. It moves process enforcement out of the LLM's context window
+into a deterministic, local, tool-gated pipeline: **requirements → design → tasks →
+evidence-gated execution**.
 
-Pick the guide that matches what you are doing.
-
-| Guide | Read it when you want to… |
-|---|---|
-| 💡 [Concepts](./concepts.md) | Understand *why* specd exists — the foundational split, the eight principles, and the architecture at a glance. |
-| 📖 [User Guide](./user-guide.md) | Use `specd` inside a target repo — install, the spec lifecycle, writing EARS/design/tasks artifacts, the `verify → complete` flow, and troubleshooting. |
-| 📑 [Command Reference](./command-reference.md) | Look up a command, its flags, exit codes, environment variables, or `config.yml` keys. |
-| ✅ [Validation Gates](./validation-gates.md) | Learn what each spec gate checks and why it fails — the 7 core gates plus the opt-in acceptance, scope, and custom gates. |
-| 🤖 [Agent Integration](./agent-integration.md) | Wire a coding agent to `specd` — steering constitution, role personas, `inline`/`delegate` dispatch, context engineering, Brain/Pinky orchestration, and cross-spec programs. |
-| 🧩 [Custom Gates](./custom-gates.md) | Add project-specific checks as external subprocesses with a JSON stdin/stdout contract. |
-| 📦 [Spec Packs](./spec-packs.md) | Share a steering/role baseline as a declarative, file-only scaffold bundle (`specd init --pack`). |
-| 📐 [Open Spec Format](./open-spec-format.md) | The versioned JSON Schema for specd's on-disk artifacts (`specd check --schema` / `specd check --schema-only`). |
-| 🔌 [MCP Integration](./mcp-guide.md) | Guide for driving specd via Model Context Protocol clients (Cursor, Claude Desktop). |
-| 📊 [Dashboard](./dashboard.md) | Browser-native read-only dashboard served by the binary (`specd report --serve`) — routes, live SSE updates, network safety, VS Code migration. |
-| 🐙 [GitHub Action](./github-action.md) | Run the gates on a PR and upsert a deterministic summary comment (`specd report --pr-summary`). |
-| ⚠️ [Troubleshooting](./troubleshooting.md) | Resolve blocks, lock contention, CAS conflicts, and verify sandbox failures. |
-| 🛠️ [Contributor Guide](./contributor-guide.md) | Hack on `specd` itself — codebase walkthrough, the concurrency/durability model, parser internals, and extension recipes. |
+> **The agent reasons. The harness enforces.**
 
 ## Fast paths
 
-- **First time?** → [User Guide → Installation](./user-guide.md#installation--setup)
-- **"How do I complete a task?"** → [User Guide → The Verify → Complete Flow](./user-guide.md#the-verify--complete-flow) (`specd verify` then `specd task --status complete`)
-- **"What does this command do?"** → [Command Reference](./command-reference.md)
-- **"Why is my spec gated?"** → [Validation Gates](./validation-gates.md) and [Troubleshooting](./troubleshooting.md)
-- **Running parallel subagents?** → [Agent Integration → Subagent Coordination](./agent-integration.md#subagent-coordination-modes)
-- **Orchestrating autonomous agents (Brain/Pinky)?** → [Agent Integration → Brain/Pinky Orchestration](./agent-integration.md#brainpinky-orchestration)
-- **Live dashboard / event stream?** → `specd report --serve` and `specd report --watch` ([Command Reference](./command-reference.md#inspection-commands))
-- **Driving specd from an MCP client?** → [MCP Integration Guide](./mcp-guide.md)
-- **Adding a command or gate?** → [Contributor Guide → Extending the CLI](./contributor-guide.md#extending-the-cli)
+| I want to… | Start here |
+|---|---|
+| Understand *why* specd exists | [concepts.md](concepts.md) |
+| Run a spec end to end | [user-guide.md](user-guide.md) |
+| Look up a verb, flag, or exit code | [command-reference.md](command-reference.md) · [CHEATSHEET.md](CHEATSHEET.md) |
+| Know what a gate checks / why it failed | [validation-gates.md](validation-gates.md) |
+| Wire up an agent, roles, or orchestration | [agent-integration.md](agent-integration.md) |
+| Connect an MCP client | [mcp-guide.md](mcp-guide.md) |
+| See what specd reports & how metrics surface | [observability.md](observability.md) |
+| Read the on-disk `.specd/` format | [open-spec-format.md](open-spec-format.md) |
+| Gate pull requests in CI | [github-action.md](github-action.md) |
+| Fix a blocked task / gate / lock error | [troubleshooting.md](troubleshooting.md) |
+| Hack on the codebase | [contributor-guide.md](contributor-guide.md) |
+
+## All documents
+
+- 💡 **[concepts.md](concepts.md)** — the foundational split, the philosophy pillars, the phase
+  lifecycle, and base vs. orchestrated execution.
+- 📖 **[user-guide.md](user-guide.md)** — install → `init`/`new` → the phase lifecycle →
+  the verify→complete loop → mid-stream changes → review & submit.
+- 📑 **[command-reference.md](command-reference.md)** — the **source-of-truth** doc: every verb,
+  flag, exit code, and allowed phase, generated to match `internal/core/commands.go`.
+- 🗂️ **[CHEATSHEET.md](CHEATSHEET.md)** — a byte-identical mirror of the command reference
+  (`scripts/docs-lint.sh` enforces the match).
+- ✅ **[validation-gates.md](validation-gates.md)** — the 14 core gates plus the opt-in security
+  gates: what each checks, when it fires, how to fix a failure.
+- 🤖 **[agent-integration.md](agent-integration.md)** — the `AGENTS.md` loop, the four roles,
+  steering, the context manifest, dispatch packets, Brain/Pinky orchestration, cross-spec
+  programs.
+- 🔌 **[mcp-guide.md](mcp-guide.md)** — `specd mcp` stdio server, host config snippets, and the
+  handshake digests.
+- 📦 **[open-spec-format.md](open-spec-format.md)** — the on-disk `.specd/` layout and the
+  `state.json` schema.
+- ⚙️ **[github-action.md](github-action.md)** — the composite PR-check action and the
+  `report --pr` summary in CI.
+- 📈 **[observability.md](observability.md)** — the deterministic reporting surface, logging /
+  telemetry strategy, and where worker `--tokens`/`--cost`/`--duration-ms` surface in reports.
+- 🩺 **[troubleshooting.md](troubleshooting.md)** — blocked tasks, the escalation ratchet, lock
+  contention, CAS conflicts, verify/sandbox failures.
+- 🛠️ **[contributor-guide.md](contributor-guide.md)** — codebase walkthrough by domain, the
+  non-negotiable invariants, the concurrency/durability model, and extension recipes.
+- 📐 **[scale-envelope.md](scale-envelope.md)** — intended limits (tasks/spec, specs/program) with
+  the measured benchmark numbers backing them.
+- 🧪 **[../TESTING.md](../TESTING.md)** — how to run the suite, the coverage floor, the regression
+  harnesses + their cadence, and the stress/crash-safety jobs.
+- 🧑‍💻 **[../CONTRIBUTING.md](../CONTRIBUTING.md)** — first-change quick-start (setup, the gate
+  loop, house rules).
+- 🏷️ **[versioning-policy.md](versioning-policy.md)** — SemVer, the Go floor, and how releases are
+  cut. Changes are logged in **[../CHANGELOG.md](../CHANGELOG.md)**.
+- 🔐 **[../SECURITY.md](../SECURITY.md)** — threat model, verify isolation contract, and
+  vulnerability-disclosure policy.
+
+## The non-negotiables
+
+Every doc here is written to preserve these; they are the whole point of the tool:
+
+1. **Determinism first** — no LLM in any gate, DAG, or report path.
+2. **Evidence integrity** — a task completes *only* against a passing verify record (exit 0
+   pinned to a real git HEAD). **No bypass flag exists.**
+3. **Structural invariants** — atomic writes, CAS on `state.json` revision, reentrant per-spec
+   lock, byte-stable tasks parser, `go:embed` templates, zero runtime dependencies.
+
+---
+
+← back to the [project README](../README.md)

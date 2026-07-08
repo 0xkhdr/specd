@@ -3,81 +3,66 @@ package core
 import (
 	"strings"
 	"testing"
-	"time"
 )
 
-func TestParseReviewReportTableDriven(t *testing.T) {
-	full := ScaffoldReviewReport("auth")
-	approve := strings.Replace(full, "Verdict: revise", "Verdict: approve", 1)
-	cases := []struct {
-		name    string
-		body    string
-		wantErr bool
-		verdict ReviewVerdict
-	}{
-		{"scaffold parses (revise)", full, false, ReviewRevise},
-		{"approve verdict", approve, false, ReviewApprove},
-		{"missing section", "## Summary\n## Verdict\nVerdict: approve\n", true, ""},
-		{"no verdict", "## Summary\n## Bugs\n## Security\n## Hallucinated Dependencies\n## Style\n## Verdict\nTBD\n", true, ""},
-		{"invalid verdict value", strings.Replace(full, "Verdict: revise", "Verdict: maybe", 1), true, ""},
+func TestReviewScaffold(t *testing.T) {
+	tasks := []TaskRow{
+		{ID: "T1", Files: "a.go", Acceptance: "does the thing"},
+		{ID: "T2", Files: "b.go", Acceptance: "does the other thing"},
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			r, err := ParseReviewReport(tc.body)
-			if tc.wantErr != (err != nil) {
-				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
-			}
-			if !tc.wantErr && r.Verdict != tc.verdict {
-				t.Fatalf("verdict = %q, want %q", r.Verdict, tc.verdict)
-			}
-		})
+	out := RenderReviewScaffold("payments", "abc123def456", tasks)
+
+	for _, want := range []string{
+		"Review Report — payments",
+		"**Git HEAD:** abc123def456",
+		"### T1", "a.go", "does the thing",
+		"### T2", "b.go", "does the other thing",
+		"**Verdict:**",
+		"## Findings",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("scaffold missing %q:\n%s", want, out)
+		}
+	}
+
+	// The scaffold as-written is not an approval: its placeholder verdict fails
+	// the strict parse (never a silent approve).
+	if _, err := ParseReviewReport(out); err == nil {
+		t.Fatal("unedited scaffold must not parse as a valid verdict")
 	}
 }
 
-func TestEvaluateReviewGate(t *testing.T) {
-	approve := strings.Replace(ScaffoldReviewReport("auth"), "Verdict: revise", "Verdict: approve", 1)
-	fin := "2026-07-02T12:00:00Z"
-	state := &State{Tasks: map[string]TaskState{"T1": {FinishedAt: &fin}}}
-	completion, _ := time.Parse(time.RFC3339Nano, fin)
-
-	t.Run("absent_report_blocks", func(t *testing.T) {
-		if r := EvaluateReviewGate(state, nil, time.Time{}); r.OK {
-			t.Fatal("expected block on absent report")
-		}
-	})
-	t.Run("stale_report_blocks", func(t *testing.T) {
-		stale := completion.Add(-time.Hour)
-		r := EvaluateReviewGate(state, &approve, stale)
-		if r.OK || !strings.Contains(r.Problem, "stale") {
-			t.Fatalf("expected stale block, got %+v", r)
-		}
-	})
-	t.Run("revise_verdict_blocks", func(t *testing.T) {
-		revise := ScaffoldReviewReport("auth")
-		r := EvaluateReviewGate(state, &revise, completion.Add(time.Hour))
-		if r.OK || !strings.Contains(r.Problem, "verdict") {
-			t.Fatalf("expected verdict block, got %+v", r)
-		}
-	})
-	t.Run("fresh_approve_passes", func(t *testing.T) {
-		r := EvaluateReviewGate(state, &approve, completion.Add(time.Hour))
-		if !r.OK || !r.Fresh || r.Verdict != ReviewApprove {
-			t.Fatalf("expected pass, got %+v", r)
-		}
-	})
-}
-
-func TestReviewChecklistExtraction(t *testing.T) {
-	design := "# Design\n## Data model\ntext\n## Error handling\ntext\n"
-	doc, err := ParseTasks("# Tasks — Auth\n\n## Wave 1\n\n- [ ] T1 — Impl\n  - why: build it\n  - role: engineer\n  - files: internal/x.go\n  - contract: does x\n  - acceptance: 1.1\n  - verify: go test\n  - depends: none\n")
+func TestReviewParse(t *testing.T) {
+	approve := "# Review Report — demo\n\n- **Git HEAD:** deadbeef\n- **Reviewer:** alice\n- **Verdict:** approve\n\n## Findings\n\nChecked evidence and diff.\n"
+	report, err := ParseReviewReport(approve)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("approve parse: %v", err)
 	}
-	items := ReviewChecklist(design, &doc)
-	joined := strings.Join(items, "\n")
-	for _, want := range []string{"Data model", "Error handling", "task T1", "internal/x.go", "go test"} {
-		if !strings.Contains(joined, want) {
-			t.Errorf("checklist missing %q:\n%s", want, joined)
+	if report.Verdict != ReviewApprove || report.Head != "deadbeef" {
+		t.Fatalf("approve fields wrong: %+v", report)
+	}
+	if !strings.Contains(report.Findings, "Checked evidence") {
+		t.Fatalf("findings not extracted: %q", report.Findings)
+	}
+
+	reject := "- **Git HEAD:** cafe\n- **Verdict:** reject\n\n## Findings\n\nMissing tests for T2.\n"
+	report, err = ParseReviewReport(reject)
+	if err != nil {
+		t.Fatalf("reject parse: %v", err)
+	}
+	if report.Verdict != ReviewReject || !strings.Contains(report.Findings, "Missing tests") {
+		t.Fatalf("reject fields wrong: %+v", report)
+	}
+
+	// Fail-closed cases (R5): each must error, never approve.
+	for name, body := range map[string]string{
+		"missing_verdict": "- **Git HEAD:** abc\n\n## Findings\n\nx\n",
+		"unknown_verdict": "- **Git HEAD:** abc\n- **Verdict:** lgtm\n",
+		"missing_head":    "- **Verdict:** approve\n",
+		"empty":           "",
+	} {
+		if _, err := ParseReviewReport(body); err == nil {
+			t.Fatalf("%s: expected parse error, got none", name)
 		}
 	}
 }

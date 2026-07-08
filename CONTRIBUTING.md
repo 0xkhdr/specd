@@ -1,41 +1,51 @@
 # Contributing to specd
 
-Thanks for your interest in improving specd!
+A fast path for your first change. For the architecture, the domain map, and the concurrency /
+durability model, read [docs/contributor-guide.md](docs/contributor-guide.md).
 
-The full contributor guide — architecture, repo layout, invariants, and the
-review bar — lives in **[`docs/contributor-guide.md`](docs/contributor-guide.md)**.
-Testing conventions and the coverage policy are in
-**[`TESTING.md`](TESTING.md)**. Please read those before opening a PR.
+## Setup
 
-## Quick start
+Requires **Go 1.26+** (the `go` directive in `go.mod`). No other tooling is needed to build or
+test — specd is standard-library-only with zero runtime dependencies.
 
-```sh
-git clone https://github.com/0xkhdr/specd.git
-cd specd
-make ci        # lint + race tests + order-dependence + coverage floor + stress
+```bash
+git clone https://github.com/0xkhdr/specd && cd specd
+go build -o specd .      # single static binary
+go run . help            # try it
 ```
 
-`make ci` is exactly what CI runs; a green `make ci` locally is the bar for a PR.
+## The loop
 
-## Hard invariants (do not break)
+1. Branch off `main`.
+2. Make the change. Keep the diff small; prefer cutting over adding.
+3. Run the gates locally (all of these run in CI):
 
-- **stdlib-only** at runtime — no third-party runtime dependencies.
-- **Zero LLM calls** and **deterministic output** — the binary reasons about
-  nothing; it enforces.
-- **The Foundational Split** — the agent reasons; the harness enforces.
-- **The evidence gate** — no task completes without evidence; non-read-only
-  tasks require a passing verify record.
+   ```bash
+   go test ./... -race -count=1
+   go test ./... -count=2        # order-dependence catch
+   gofmt -l .                    # must be empty
+   go vet ./...
+   go mod tidy                   # must produce no diff
+   ./scripts/test-lint.sh
+   ./scripts/docs-lint.sh
+   golangci-lint run
+   ```
 
-Linters and scanners (golangci-lint/staticcheck, govulncheck) are CI-only dev
-tooling and must never become runtime dependencies.
+   The full testing reference — coverage floor, regression harnesses, stress jobs — is in
+   [TESTING.md](TESTING.md).
+4. Open a PR. CI must be green.
 
-## Pull requests
+## House rules (non-negotiable)
 
-- Keep changes focused; reference the relevant requirement/issue.
-- Add or update tests for behavior changes; never lower a coverage floor to make
-  a build pass (see [`TESTING.md`](TESTING.md#coverage-policy)).
-- Run `make ci` and ensure it passes before requesting review.
+These are the whole point of the tool — a change that breaks one will be rejected:
 
-## Security
+- **No LLM** in any gate, DAG, or report path — they are pure functions of on-disk state.
+- **Evidence integrity** — a task completes only against a passing verify record. **Never add a
+  bypass flag.**
+- **Zero runtime dependencies** — keep `go.mod`/`go.sum` tidy.
+- **Docs sync** — if you touch a verb or flag, update **both** `docs/command-reference.md` and
+  `docs/CHEATSHEET.md` (they must stay byte-identical; `docs-lint.sh` enforces it).
+- **Never touch `reference/`** — it is a frozen v1 museum.
 
-Do not file security issues publicly — see [`SECURITY.md`](SECURITY.md).
+New behaviour needs a test. Follow the structural test conventions in
+[docs/contributor-guide.md](docs/contributor-guide.md); `./scripts/test-lint.sh` enforces them.

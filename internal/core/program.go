@@ -2,238 +2,175 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
+	"os"
 	"path/filepath"
 	"sort"
 )
 
-// ProgramVersion is the current schema version for program.json.
-const ProgramVersion = 1
+// ProgramSchemaVersion versions the program.json shape, following the same
+// forward-migration discipline as state.json (spec 02). Bump it when the shape
+// changes and add a migration in LoadProgram.
+const ProgramSchemaVersion = 1
 
-// ProgramManifest is the persisted program.json document: the schema version,
-// the declared cross-spec dependency edges (keyed by spec slug), and any
-// registered maintenance schedules (P3.5).
-type ProgramManifest struct {
-	Version   int                   `json:"version"`
-	DependsOn map[string][]string   `json:"dependsOn"`
-	Schedules []MaintenanceSchedule `json:"schedules,omitempty"`
+// ProgramLink records that From depends on To — To must reach completion before
+// From may execute. Links live at the program level, never inside a spec's
+// state.json, so each file keeps a single writer (spec 12 R6).
+type ProgramLink struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
-// ProgramPath returns the path to program.json under the spec root's .specd
-// directory.
+// Program is the cross-spec dependency graph. It is stored at
+// `.specd/program.json`, written atomically under the root lock (which already
+// serializes all harness work for the root, so program state needs no second
+// lock and cannot deadlock against a spec lock).
+type Program struct {
+	SchemaVersion int           `json:"schema_version"`
+	Links         []ProgramLink `json:"links"`
+}
+
+// ProgramPath is the program-level link store.
 func ProgramPath(root string) string {
 	return filepath.Join(SpecdDir(root), "program.json")
 }
 
-// LoadProgram reads and parses program.json, returning a default manifest
-// with an empty dependency map when the file does not exist. Each spec's
-// dependency list is deduplicated before it is returned.
-func LoadProgram(root string) (ProgramManifest, error) {
-	raw := ReadOrNull(ProgramPath(root))
-	if raw == nil {
-		return ProgramManifest{Version: ProgramVersion, DependsOn: map[string][]string{}}, nil
+// LoadProgram reads program.json. A missing file is an empty program at the
+// current schema version. An unknown (future) schema is an error — fail closed
+// rather than silently misread newer state.
+func LoadProgram(path string) (Program, error) {
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Program{SchemaVersion: ProgramSchemaVersion}, nil
 	}
-	var parsed ProgramManifest
-	if err := json.Unmarshal([]byte(*raw), &parsed); err != nil {
-		return ProgramManifest{}, GateError(fmt.Sprintf("corrupt program.json: %v", err))
+	if err != nil {
+		return Program{}, err
 	}
-	// Deduplicate edge lists.
-	for slug, deps := range parsed.DependsOn {
-		seen := make(map[string]bool)
-		var uniq []string
-		for _, d := range deps {
-			if !seen[d] {
-				seen[d] = true
-				uniq = append(uniq, d)
-			}
-		}
-		parsed.DependsOn[slug] = uniq
+	var program Program
+	if err := json.Unmarshal(raw, &program); err != nil {
+		return Program{}, err
 	}
-	if parsed.DependsOn == nil {
-		parsed.DependsOn = map[string][]string{}
+	if program.SchemaVersion == 0 {
+		program.SchemaVersion = ProgramSchemaVersion // pre-versioned files migrate forward
 	}
-	return parsed, nil
+	if program.SchemaVersion > ProgramSchemaVersion {
+		return Program{}, errors.New("program.json schema is newer than this binary supports")
+	}
+	return program, nil
 }
 
-// SaveProgram writes manifest to program.json, sorting spec slugs and
-// deduplicating/sorting each spec's dependency list so the file is
-// deterministic and diff-stable across saves.
-func SaveProgram(root string, manifest ProgramManifest) error {
-	dependsOn := make(map[string][]string)
-	slugs := make([]string, 0, len(manifest.DependsOn))
-	for slug := range manifest.DependsOn {
-		slugs = append(slugs, slug)
-	}
-	sort.Strings(slugs)
-	for _, slug := range slugs {
-		deps := manifest.DependsOn[slug]
-		seen := make(map[string]bool)
-		var uniq []string
-		for _, d := range deps {
-			if !seen[d] {
-				seen[d] = true
-				uniq = append(uniq, d)
-			}
-		}
-		sort.Strings(uniq)
-		if len(uniq) > 0 {
-			dependsOn[slug] = uniq
-		}
-	}
-	out := map[string]interface{}{"version": manifest.Version, "dependsOn": dependsOn}
-	if len(manifest.Schedules) > 0 {
-		schedules := append([]MaintenanceSchedule(nil), manifest.Schedules...)
-		sort.Slice(schedules, func(i, j int) bool { return schedules[i].Name < schedules[j].Name })
-		out["schedules"] = schedules
-	}
-	b, err := json.MarshalIndent(out, "", "  ")
+// SaveProgram writes the program atomically at the current schema version.
+func SaveProgram(path string, program Program) error {
+	program.SchemaVersion = ProgramSchemaVersion
+	raw, err := json.MarshalIndent(program, "", "  ")
 	if err != nil {
 		return err
 	}
-	return AtomicWrite(ProgramPath(root), string(b)+"\n")
+	return AtomicWrite(path, string(raw)+"\n")
 }
 
-// SpecNode is one spec's resolved position in the program graph: its current
-// status, its filtered (known-only) dependencies, its computed wave, and
-// whether it has reached completion.
-type SpecNode struct {
-	Slug      string     `json:"slug"`
-	Status    SpecStatus `json:"status"`
-	DependsOn []string   `json:"dependsOn"`
-	Wave      int        `json:"wave"`
-	Complete  bool       `json:"complete"`
+// HasLink reports whether from→to is already recorded.
+func (p Program) HasLink(from, to string) bool {
+	for _, link := range p.Links {
+		if link.From == from && link.To == to {
+			return true
+		}
+	}
+	return false
 }
 
-// ProgramGraph is the resolved cross-spec dependency graph for a program: its
-// specs ordered by wave then slug, the equivalent DAG task list, any
-// dependency edges pointing at unknown specs (orphans), and any dependency
-// cycle that was detected.
-type ProgramGraph struct {
-	Specs   []SpecNode
-	Dag     []DagTask
-	Orphans []struct{ Spec, Dep string }
-	Cycle   []string
-}
-
-func specStatusToTask(s SpecStatus) TaskStatus {
-	switch s {
-	case StatusComplete:
-		return TaskComplete
-	case StatusBlocked:
-		return TaskBlocked
-	default:
-		return TaskPending
+// AddLink records from→to. It is idempotent: a duplicate link is a no-op.
+func (p *Program) AddLink(from, to string) {
+	if !p.HasLink(from, to) {
+		p.Links = append(p.Links, ProgramLink{From: from, To: to})
 	}
 }
 
-func deriveWaves(edges map[string][]string, slugs []string) map[string]int {
-	wave := make(map[string]int, len(slugs))
-	visiting := make(map[string]bool)
-	var compute func(slug string) int
-	compute = func(slug string) int {
-		if v, ok := wave[slug]; ok {
-			return v
+// RemoveLink deletes from→to and reports whether it existed.
+func (p *Program) RemoveLink(from, to string) bool {
+	for i, link := range p.Links {
+		if link.From == from && link.To == to {
+			p.Links = append(p.Links[:i], p.Links[i+1:]...)
+			return true
 		}
-		if visiting[slug] {
-			return 1
+	}
+	return false
+}
+
+// Deps returns the slugs that slug directly depends on (its To edges), sorted.
+func (p Program) Deps(slug string) []string {
+	var deps []string
+	for _, link := range p.Links {
+		if link.From == slug {
+			deps = append(deps, link.To)
 		}
-		visiting[slug] = true
-		w := 1
-		for _, dep := range edges[slug] {
-			dw := compute(dep) + 1
-			if dw > w {
-				w = dw
+	}
+	sort.Strings(deps)
+	return deps
+}
+
+// WouldCycle reports the cycle path that adding from→to would create, or nil if
+// the link is safe. A cycle exists when To already depends (transitively) on
+// From: following dependency edges from To reaches From. The returned path reads
+// from→to→…→from for printing (spec 12 R2).
+func (p Program) WouldCycle(from, to string) []string {
+	if from == to {
+		return []string{from, to}
+	}
+	// DFS along dependency edges starting at `to`, looking for `from`.
+	visited := map[string]bool{}
+	var path []string
+	var dfs func(node string) bool
+	dfs = func(node string) bool {
+		if node == from {
+			path = append(path, node)
+			return true
+		}
+		if visited[node] {
+			return false
+		}
+		visited[node] = true
+		path = append(path, node)
+		for _, dep := range p.Deps(node) {
+			if dfs(dep) {
+				return true
 			}
 		}
-		delete(visiting, slug)
-		wave[slug] = w
-		return w
+		path = path[:len(path)-1]
+		return false
 	}
-	for _, s := range slugs {
-		compute(s)
+	if dfs(to) {
+		return append([]string{from}, path...)
 	}
-	return wave
+	return nil
 }
 
-// BuildProgram loads (or reuses the given) program manifest and combines it
-// with each spec's on-disk state to produce a ProgramGraph: it computes
-// dependency waves, filters out edges to unknown specs as orphans, detects
-// cycles, and returns specs sorted by wave then slug.
-func BuildProgram(root string, manifest *ProgramManifest) (ProgramGraph, error) {
-	if manifest == nil {
-		m, err := LoadProgram(root)
-		if err != nil {
-			return ProgramGraph{}, err
+// Frontier returns the specs that are actionable now: not yet complete and with
+// every dependency complete. complete is injected by the caller (the same
+// all-gates-green + all-tasks-complete predicate `submit` uses), keeping this
+// pure over the graph with no gate logic in core (spec 12 R4).
+func (p Program) Frontier(specs []string, complete func(string) bool) []string {
+	var frontier []string
+	for _, slug := range specs {
+		if complete(slug) {
+			continue
 		}
-		manifest = &m
+		if len(p.IncompleteDeps(slug, complete)) == 0 {
+			frontier = append(frontier, slug)
+		}
 	}
-	slugs := ListSpecs(root)
-	known := make(map[string]bool, len(slugs))
-	for _, s := range slugs {
-		known[s] = true
-	}
+	sort.Strings(frontier)
+	return frontier
+}
 
-	var orphans []struct{ Spec, Dep string }
-	edges := make(map[string][]string, len(slugs))
-	for _, slug := range slugs {
-		declared := manifest.DependsOn[slug]
-		for _, dep := range declared {
-			if !known[dep] {
-				orphans = append(orphans, struct{ Spec, Dep string }{slug, dep})
-			}
-		}
-		var filtered []string
-		for _, dep := range declared {
-			if known[dep] {
-				filtered = append(filtered, dep)
-			}
-		}
-		edges[slug] = filtered
-	}
-
-	waves := deriveWaves(edges, slugs)
-	statuses := make(map[string]SpecStatus, len(slugs))
-	for _, slug := range slugs {
-		state, err := LoadState(root, slug)
-		if err != nil {
-			return ProgramGraph{}, err
-		}
-		if state == nil {
-			// TOCTOU: ListSpecs saw the spec dir, but its state.json has since
-			// vanished (concurrent delete). Fail closed with a gate error rather
-			// than dereferencing a nil state.
-			return ProgramGraph{}, GateError(fmt.Sprintf("state.json for spec '%s' is missing — concurrent delete detected, reload and retry", slug))
-		}
-		statuses[slug] = state.Status
-	}
-
-	dag := make([]DagTask, len(slugs))
-	for i, slug := range slugs {
-		dag[i] = DagTask{
-			ID:      slug,
-			Wave:    waves[slug],
-			Depends: edges[slug],
-			Status:  specStatusToTask(statuses[slug]),
+// IncompleteDeps returns slug's direct dependencies that are not yet complete —
+// the specs blocking it from executing (spec 12 R5).
+func (p Program) IncompleteDeps(slug string, complete func(string) bool) []string {
+	var blocking []string
+	for _, dep := range p.Deps(slug) {
+		if !complete(dep) {
+			blocking = append(blocking, dep)
 		}
 	}
-	cycle := DetectCycle(dag)
-
-	specs := make([]SpecNode, len(slugs))
-	for i, slug := range slugs {
-		specs[i] = SpecNode{
-			Slug:      slug,
-			Status:    statuses[slug],
-			DependsOn: edges[slug],
-			Wave:      waves[slug],
-			Complete:  statuses[slug] == StatusComplete,
-		}
-	}
-	sort.Slice(specs, func(i, j int) bool {
-		if specs[i].Wave != specs[j].Wave {
-			return specs[i].Wave < specs[j].Wave
-		}
-		return specs[i].Slug < specs[j].Slug
-	})
-
-	return ProgramGraph{Specs: specs, Dag: dag, Orphans: orphans, Cycle: cycle}, nil
+	return blocking
 }

@@ -1,753 +1,216 @@
 package core
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-// ConfigLoadResult reports how config was loaded: the diagnostics collected
-// along the way, the global/project file paths that were used (if any), a
-// digest of the effective config contents, and whether any config file was
-// present at all.
-type ConfigLoadResult struct {
-	Diagnostics []ConfigDiagnostic `json:"diagnostics"`
-	ProjectPath string             `json:"projectPath,omitempty"`
-	GlobalPath  string             `json:"globalPath,omitempty"`
-	Digest      string             `json:"digest"`
-	Present     bool               `json:"present"`
+// Config is the deterministic runtime configuration used by the harness.
+type Config struct {
+	Version            string
+	Agent              string
+	Gates              GatesConfig
+	Context            ContextConfig
+	Orchestration      OrchestrationConfig
+	Criteria           CriteriaConfig
+	Review             ReviewConfig
+	Submit             SubmitConfig
+	Security           SecurityConfig
+	Escalation         EscalationConfig
+	PromotionThreshold int
 }
 
-type loadedConfigFile struct {
-	Path string
-	Doc  map[string]any
+// SecurityConfig sets per-scanner severity for the opt-in security gate (spec
+// 05 R5). Each field is off|warn|error: error findings fail the gate (exit 1),
+// warn findings print but pass, off skips the scanner. Defaults tuned so a real
+// secret blocks while noisier heuristics only warn.
+type SecurityConfig struct {
+	Secrets   string
+	Injection string
+	Slopsquat string
 }
 
-// LoadConfig loads the effective config for root, discarding diagnostics.
-func LoadConfig(root string) Config {
-	cfg, _ := LoadConfigWithDiagnostics(root)
-	return cfg
+// SecuritySeverities enumerates the valid per-scanner severities.
+var SecuritySeverities = []string{"off", "warn", "error"}
+
+// EscalationConfig is the opt-in verify-failure ratchet (spec 06 R5). MaxVerifyFails
+// is the count of consecutive failing verify records (since the last pass or
+// override) that escalates a task and blocks its completion until a human clears
+// it with `task <id> --override --reason`. Default 3; 0 disables the ratchet.
+type EscalationConfig struct {
+	MaxVerifyFails int
 }
 
-// LoadConfigWithDiagnostics builds the effective Config by layering the
-// global config file, the project config file, and environment variable
-// overrides (in that order) onto DefaultConfig, validating any orchestration
-// section before applying it, and collecting a diagnostic for every issue
-// encountered along the way.
-func LoadConfigWithDiagnostics(root string) (Config, ConfigLoadResult) {
+// EscalationDefaultMaxVerifyFails is the ratchet threshold when config leaves
+// escalation.max_verify_fails unset.
+const EscalationDefaultMaxVerifyFails = 3
+
+type GatesConfig struct {
+	Verify string
+}
+
+// SubmitConfig configures the terminal `submit` verb (spec 08). Command is an
+// operator-supplied shell line run through the shared exec path with the PR
+// summary streamed on stdin; empty means dry-run (print summary, exit 0). The
+// binary embeds no git/GitHub logic — the operator owns transport. TimeoutSecs
+// bounds the command; zero applies SubmitDefaultTimeoutSecs.
+type SubmitConfig struct {
+	Command     string
+	TimeoutSecs int
+}
+
+// SubmitDefaultTimeoutSecs bounds an operator submit command when the config
+// leaves submit.timeout_seconds unset.
+const SubmitDefaultTimeoutSecs = 120
+
+// CriteriaConfig is the opt-in per-acceptance-criterion evidence ratchet. When
+// Required is true, the completion approval gate refuses while any acceptance
+// criterion lacks a current passing record (spec 04 R6). Default off so existing
+// flows are unbroken.
+type CriteriaConfig struct {
+	Required bool
+}
+
+// ReviewConfig is the opt-in review gate (spec 09). When Required is true, the
+// completion approval gate refuses unless review_report.md carries an approve
+// verdict recorded at the current git HEAD. Default off so existing flows are
+// unbroken.
+type ReviewConfig struct {
+	Required bool
+}
+
+type ContextConfig struct {
+	MaxTokens int
+}
+
+type OrchestrationConfig struct {
+	Enabled bool
+	Model   string
+}
+
+type Diagnostic struct {
+	Severity string
+	Path     string
+	Message  string
+}
+
+type ConfigPaths struct {
+	Global  string
+	Project string
+}
+
+var DefaultConfig = Config{
+	Version: "1",
+	Agent:   "codex",
+	Gates: GatesConfig{
+		Verify: "error",
+	},
+	Context: ContextConfig{
+		MaxTokens: 12000,
+	},
+	Orchestration: OrchestrationConfig{
+		Enabled: false,
+		Model:   "",
+	},
+	Security: SecurityConfig{
+		Secrets:   "error",
+		Injection: "warn",
+		Slopsquat: "warn",
+	},
+	Escalation: EscalationConfig{
+		MaxVerifyFails: EscalationDefaultMaxVerifyFails,
+	},
+	PromotionThreshold: 3,
+}
+
+// LoadConfig applies global YAML, project YAML, then environment overrides.
+// The function is deterministic for explicit paths and env input.
+func LoadConfig(paths ConfigPaths, env map[string]string) (Config, []Diagnostic) {
 	cfg := DefaultConfig
-	res := ConfigLoadResult{}
-	formatPref := configFormatPreference(&res.Diagnostics)
-	global := selectConfigCandidate("global", GlobalConfigPaths(), formatPref, &res.Diagnostics)
-	project := selectConfigCandidate("project", ConfigPaths(root), formatPref, &res.Diagnostics)
-	for _, item := range []struct{ layer, path string }{{"global", global}, {"project", project}} {
-		if item.path == "" {
-			res.Diagnostics = append(res.Diagnostics, ConfigDiagnostic{Path: item.layer, Layer: item.layer, Severity: "info", Message: "missing; defaults in effect"})
+	var diagnostics []Diagnostic
+	for _, path := range []string{paths.Global, paths.Project} {
+		if path == "" || filepath.Ext(path) != ".yml" {
 			continue
 		}
-		loaded, diags := loadConfigFromPathLayer(item.path, item.layer)
-		res.Diagnostics = append(res.Diagnostics, diags...)
-		if hasDiagError(diags) {
-			continue
-		}
-		beforeOrchestration := cfg.Orchestration
-		applyConfigDoc(&cfg, loaded.Doc)
-		if _, hasOrchestration := loaded.Doc["orchestration"]; hasOrchestration {
-			raw, _ := json.Marshal(loaded.Doc)
-			if err := rejectSecretBearingOrchestration(raw); err != nil {
-				Warn("orchestration config rejected: " + err.Error() + " — using previous/default orchestration")
-				cfg.Orchestration = beforeOrchestration
-			} else if err := ValidateOrchestrationConfig(&cfg.Orchestration); err != nil {
-				Warn("orchestration config rejected: " + err.Error() + " — using previous/default orchestration")
-				cfg.Orchestration = beforeOrchestration
-			}
-		}
-		if item.layer == "global" {
-			res.GlobalPath = item.path
-		} else {
-			res.ProjectPath = item.path
-		}
-	}
-	applyConfigEnv(&cfg, &res.Diagnostics)
-	if res.ProjectPath != "" || res.GlobalPath != "" {
-		res.Present = true
-		res.Digest = effectiveConfigDigest(res.GlobalPath, res.ProjectPath)
-	}
-	return cfg, res
-}
-
-// LoadConfigFromPath parses the config file at path (JSON or YAML, by
-// extension) as a project-layer config and returns the parsed document along
-// with any diagnostics produced while reading or parsing it.
-func LoadConfigFromPath(path string) (loadedConfigFile, []ConfigDiagnostic) {
-	return loadConfigFromPathLayer(path, "project")
-}
-
-func loadConfigFromPathLayer(path, layer string) (loadedConfigFile, []ConfigDiagnostic) {
-	ext := strings.ToLower(filepath.Ext(path))
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		sev := "error"
-		if os.IsNotExist(err) {
-			sev = "info"
-		}
-		return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: sev, Message: err.Error()}}
-	}
-	var doc map[string]any
-	switch ext {
-	case ".yml", ".yaml":
-		parsed, err := parseSimpleYAML(string(raw))
+		raw, err := os.ReadFile(path)
 		if err != nil {
-			return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: "error", Message: "invalid YAML: " + err.Error()}}
-		}
-		doc = parsed
-	default:
-		// Config is YAML-only as of v0.2.0. Legacy JSON (`config.json`,
-		// `SPECD_CONFIG_FORMAT=json`) is no longer parsed — a present `.json`
-		// config surfaces here as a clear unsupported-extension error rather
-		// than a silent skip.
-		return loadedConfigFile{Path: path}, []ConfigDiagnostic{{Path: path, Source: path, Layer: layer, Severity: "error", Message: "unsupported config extension " + ext}}
-	}
-	return loadedConfigFile{Path: path, Doc: doc}, []ConfigDiagnostic{}
-}
-
-func selectConfigCandidate(layer string, paths []string, formatPref string, diags *[]ConfigDiagnostic) string {
-	selected := ""
-	for _, p := range paths {
-		if formatPref != "" && configPathFormat(p) != formatPref {
-			continue
-		}
-		if _, err := os.Stat(p); err == nil {
-			if selected == "" {
-				selected = p
+			if os.IsNotExist(err) {
 				continue
 			}
-			*diags = append(*diags, ConfigDiagnostic{Path: p, Source: p, Layer: layer, Severity: "warning", Message: "ignored lower-priority config; using " + selected})
-		}
-	}
-	return selected
-}
-
-func configFormatPreference(diags *[]ConfigDiagnostic) string {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("SPECD_CONFIG_FORMAT")))
-	if v == "" {
-		return ""
-	}
-	// Config is YAML-only as of v0.2.0; `yaml` is the sole accepted preference.
-	if v == "yaml" {
-		*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "info", Message: "config candidate format preference active"})
-		return v
-	}
-	*diags = append(*diags, ConfigDiagnostic{Path: "SPECD_CONFIG_FORMAT", Source: "SPECD_CONFIG_FORMAT", Layer: "env", Field: "config.format", Severity: "warning", Message: "unsupported config format preference; expected yaml"})
-	return ""
-}
-
-// configPathFormat classifies a candidate path by format. Only YAML is a
-// supported config format; anything else (including legacy `.json`) returns ""
-// so it is never matched by a `yaml` format preference.
-func configPathFormat(path string) string {
-	if ext := strings.ToLower(filepath.Ext(path)); ext == ".yml" || ext == ".yaml" {
-		return "yaml"
-	}
-	return ""
-}
-
-func applyConfigEnv(cfg *Config, diags *[]ConfigDiagnostic) {
-	stringEnv(diags, "SPECD_DEFAULT_VERIFY", "defaultVerify", func(v string) { cfg.DefaultVerify = v })
-	stringEnv(diags, "SPECD_REPORT_FORMAT", "report.format", func(v string) { cfg.Report.Format = v })
-	stringEnv(diags, "SPECD_ROLES_SUBAGENT_MODE", "roles.subagentMode", func(v string) { cfg.Roles.SubagentMode = v })
-	stringEnv(diags, "SPECD_GATES_TRACEABILITY", "gates.traceability", func(v string) { cfg.Gates.Traceability = v })
-	stringEnv(diags, "SPECD_GATES_ACCEPTANCE", "gates.acceptance", func(v string) { cfg.Gates.Acceptance = v })
-	stringEnv(diags, "SPECD_GATES_SCOPE", "gates.scope", func(v string) { cfg.Gates.Scope = v })
-	stringEnv(diags, "SPECD_GATES_EVAL", "gates.eval", func(v string) { cfg.Gates.Eval = v })
-	stringEnv(diags, "SPECD_GATES_INGEST", "gates.ingest", func(v string) { cfg.Gates.Ingest = v })
-	stringEnv(diags, "SPECD_GATES_CONTEXT_BUDGET", "gates.contextBudget", func(v string) { cfg.Gates.ContextBudget = v })
-	intEnv(diags, "SPECD_MAX_CONTEXT_TOKENS", "gates.maxContextTokens", cfg.Gates.MaxContextTokens, 0, MaxSoftContextTokens(), func(v int) { cfg.Gates.MaxContextTokens = v })
-	stringEnv(diags, "SPECD_VERIFY_SANDBOX", "verify.sandbox", func(v string) { cfg.Verify.Sandbox = v })
-	boolEnv(diags, "SPECD_ESCALATION_ENABLED", "escalation.enabled", func(v bool) { cfg.Escalation.Enabled = v })
-	intEnv(diags, "SPECD_ESCALATION_VERIFY_FAIL_THRESHOLD", "escalation.verifyFailThreshold", cfg.Escalation.VerifyFailThreshold, 0, 1000, func(v int) { cfg.Escalation.VerifyFailThreshold = v })
-	boolEnv(diags, "SPECD_REVIEW_REQUIRED", "review.required", func(v bool) { cfg.Review.Required = v })
-	stringEnv(diags, "SPECD_SECURITY_SECRETS", "security.secrets", func(v string) { cfg.Security.Secrets = v })
-	stringEnv(diags, "SPECD_SECURITY_INJECTION", "security.injection", func(v string) { cfg.Security.Injection = v })
-	stringEnv(diags, "SPECD_SECURITY_SLOPSQUAT", "security.slopsquat", func(v string) { cfg.Security.Slopsquat = v })
-	stringEnv(diags, "SPECD_SUBMIT_COMMAND", "submit.command", func(v string) { cfg.Submit.Command = v })
-	stringEnv(diags, "SPECD_SUBMIT_SANDBOX", "submit.sandbox", func(v string) { cfg.Submit.Sandbox = v })
-	boolEnv(diags, "SPECD_ORCHESTRATION_ENABLED", "orchestration.enabled", func(v bool) { cfg.Orchestration.Enabled = v })
-	stringEnv(diags, "SPECD_ORCHESTRATION_APPROVAL_POLICY", "orchestration.approvalPolicy", func(v string) { cfg.Orchestration.ApprovalPolicy = v })
-	intEnv(diags, "SPECD_ORCHESTRATION_MAX_WORKERS", "orchestration.maxWorkers", cfg.Orchestration.MaxWorkers, minMaxWorkers, maxMaxWorkers, func(v int) { cfg.Orchestration.MaxWorkers = v })
-	intEnv(diags, "SPECD_ORCHESTRATION_MAX_RETRIES", "orchestration.maxRetries", cfg.Orchestration.MaxRetries, minMaxRetries, maxMaxRetries, func(v int) { cfg.Orchestration.MaxRetries = v })
-	intEnv(diags, "SPECD_ORCHESTRATION_SESSION_TIMEOUT_MINUTES", "orchestration.sessionTimeoutMinutes", cfg.Orchestration.SessionTimeoutMinutes, minSessionTimeoutMinutes, maxSessionTimeoutMinutes, func(v int) { cfg.Orchestration.SessionTimeoutMinutes = v })
-	stringEnv(diags, "SPECD_ORCHESTRATION_COMPACTION_POLICY", "orchestration.compactionPolicy", func(v string) { cfg.Orchestration.CompactionPolicy = v })
-	floatEnv(diags, "SPECD_ORCHESTRATION_COMPACTION_BUDGET_THRESHOLD", "orchestration.compactionBudgetThreshold", func(v float64) { cfg.Orchestration.CompactionBudgetThreshold = v })
-	boolEnv(diags, "SPECD_ORCHESTRATION_RESILIENCE_CHECKPOINT_ENABLED", "orchestration.resilience.checkpointEnabled", func(v bool) {
-		ensureResilience(cfg).CheckpointEnabled = v
-	})
-	boolEnv(diags, "SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_ENABLED", "orchestration.resilience.autoResume.enabled", func(v bool) {
-		ensureResilience(cfg).AutoResume.Enabled = v
-	})
-	intEnv(diags, "SPECD_ORCHESTRATION_RESILIENCE_AUTO_RESUME_MAX_AGE_MINUTES", "orchestration.resilience.autoResume.maxAgeMinutes", 0, 0, 0, func(v int) {
-		ensureResilience(cfg).AutoResume.MaxAgeMinutes = v
-	})
-}
-
-func ensureResilience(cfg *Config) *ResilienceCfg {
-	if cfg.Orchestration.Resilience == nil {
-		cfg.Orchestration.Resilience = &ResilienceCfg{}
-	}
-	return cfg.Orchestration.Resilience
-}
-
-func stringEnv(diags *[]ConfigDiagnostic, name, field string, apply func(string)) {
-	v, ok := os.LookupEnv(name)
-	if !ok {
-		return
-	}
-	apply(v)
-	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
-}
-
-func boolEnv(diags *[]ConfigDiagnostic, name, field string, apply func(bool)) {
-	v, ok := os.LookupEnv(name)
-	if !ok || strings.TrimSpace(v) == "" {
-		return
-	}
-	b, err := strconv.ParseBool(strings.TrimSpace(v))
-	if err != nil {
-		*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "error", Message: "must be boolean"})
-		return
-	}
-	apply(b)
-	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
-}
-
-func intEnv(diags *[]ConfigDiagnostic, name, field string, def, min, max int, apply func(int)) {
-	v, ok := os.LookupEnv(name)
-	if !ok || strings.TrimSpace(v) == "" {
-		return
-	}
-	if _, err := strconv.Atoi(strings.TrimSpace(v)); err != nil {
-		_ = EnvInt(name, def, min, max)
-		*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "error", Message: "must be integer"})
-		return
-	}
-	apply(EnvInt(name, def, min, max))
-	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
-}
-
-func floatEnv(diags *[]ConfigDiagnostic, name, field string, apply func(float64)) {
-	v, ok := os.LookupEnv(name)
-	if !ok || strings.TrimSpace(v) == "" {
-		return
-	}
-	f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
-	if err != nil {
-		*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "error", Message: "must be number"})
-		return
-	}
-	apply(f)
-	*diags = append(*diags, ConfigDiagnostic{Path: name, Source: name, Layer: "env", Field: field, Severity: "info", Message: "environment override applied"})
-}
-
-func effectiveConfigDigest(paths ...string) string {
-	h := sha256.New()
-	for _, p := range paths {
-		if p == "" {
+			diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
 			continue
 		}
-		b, err := os.ReadFile(p)
+		values, err := parseSimpleYAML(string(raw))
 		if err != nil {
+			diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
 			continue
 		}
-		h.Write([]byte(p))
-		h.Write([]byte{0})
-		h.Write(b)
-		h.Write([]byte{0})
+		applyConfigMap(&cfg, values, path, &diagnostics)
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	applyEnv(&cfg, env, &diagnostics)
+	return cfg, diagnostics
 }
 
-func hasDiagError(diags []ConfigDiagnostic) bool {
-	for _, d := range diags {
-		if d.Severity == "error" {
-			return true
-		}
-	}
-	return false
-}
-
-func applyConfigDoc(cfg *Config, doc map[string]any) {
-	if v, ok := intAt(doc, "version"); ok {
-		cfg.Version = v
-	}
-	if defs, ok := mapAt(doc, "defaults"); ok {
-		if v, ok := stringAt(defs, "verify_command"); ok {
-			cfg.DefaultVerify = v
-		}
-		if v, ok := stringAt(defs, "report_format"); ok {
-			cfg.Report.Format = v
-		}
-		if v, ok := stringAt(defs, "subagent_mode"); ok {
-			cfg.Roles.SubagentMode = v
-		}
-		if v, ok := intAt(defs, "promotion_threshold"); ok {
-			cfg.PromotionThreshold = v
-		}
-	}
-	if v, ok := stringAt(doc, "defaultVerify", "default_verify"); ok {
-		cfg.DefaultVerify = v
-	}
-	if v, ok := intAt(doc, "promotionThreshold", "promotion_threshold"); ok {
-		cfg.PromotionThreshold = v
-	}
-	if m, ok := mapAt(doc, "report"); ok {
-		if v, ok := stringAt(m, "format"); ok {
-			cfg.Report.Format = v
-		}
-		if v, ok := intAt(m, "autoRefreshSeconds", "auto_refresh_seconds"); ok {
-			cfg.Report.AutoRefreshSeconds = v
-		}
-	}
-	if m, ok := mapAt(doc, "roles"); ok {
-		if v, ok := stringAt(m, "subagentMode", "subagent_mode"); ok {
-			cfg.Roles.SubagentMode = v
-		}
-	}
-	if m, ok := mapAt(doc, "gates"); ok {
-		applyGates(&cfg.Gates, m)
-	}
-	if m, ok := mapAt(doc, "verify"); ok {
-		if v, ok := stringAt(m, "sandbox"); ok {
-			cfg.Verify.Sandbox = v
-		}
-	}
-	if m, ok := mapAt(doc, "orchestration"); ok {
-		applyOrchestration(&cfg.Orchestration, m)
-	}
-	if m, ok := mapAt(doc, "mcp"); ok {
-		applyMCP(&cfg.MCP, m)
-	}
-	if m, ok := mapAt(doc, "escalation"); ok {
-		applyEscalation(&cfg.Escalation, m)
-	}
-	if m, ok := mapAt(doc, "review"); ok {
-		if v, ok := boolAt(m, "required"); ok {
-			cfg.Review.Required = v
-		}
-	}
-	if m, ok := mapAt(doc, "security"); ok {
-		applySecurity(&cfg.Security, m)
-	}
-	if m, ok := mapAt(doc, "submit"); ok {
-		if v, ok := stringAt(m, "command"); ok {
-			cfg.Submit.Command = v
-		}
-		if v, ok := stringAt(m, "sandbox"); ok {
-			cfg.Submit.Sandbox = v
-		}
-	}
-	if m, ok := mapAt(doc, "deploy"); ok {
-		if v, ok := stringAt(m, "sandbox"); ok {
-			cfg.Deploy.Sandbox = v
-		}
-	}
-	if m, ok := mapAt(doc, "observe"); ok {
-		if v, ok := stringAt(m, "token"); ok {
-			cfg.Observe.Token = v
-		}
-		if v, ok := stringAt(m, "addr"); ok {
-			cfg.Observe.Addr = v
-		}
-		if v, ok := intAt(m, "maxPayloadBytes", "max_payload_bytes"); ok {
-			cfg.Observe.MaxPayloadBytes = v
-		}
-	}
-}
-
-func applyEscalation(e *EscalationConfig, m map[string]any) {
-	if v, ok := boolAt(m, "enabled"); ok {
-		e.Enabled = v
-	}
-	if v, ok := intAt(m, "verifyFailThreshold", "verify_fail_threshold"); ok {
-		e.VerifyFailThreshold = v
-	}
-	if v, ok := intAt(m, "blockerThreshold", "blocker_threshold"); ok {
-		e.BlockerThreshold = v
-	}
-	if v, ok := intAt(m, "complexityThreshold", "complexity_threshold"); ok {
-		e.ComplexityThreshold = v
-	}
-}
-
-func applySecurity(s *SecurityCfg, m map[string]any) {
-	if v, ok := stringAt(m, "secrets"); ok {
-		s.Secrets = v
-	}
-	if v, ok := stringAt(m, "injection"); ok {
-		s.Injection = v
-	}
-	if v, ok := stringAt(m, "slopsquat"); ok {
-		s.Slopsquat = v
-	}
-	if v, ok := stringAt(m, "deps"); ok {
-		s.Deps = v
-	}
-}
-
-func applyGates(g *GatesCfg, m map[string]any) {
-	if v, ok := stringAt(m, "traceability"); ok {
-		g.Traceability = v
-	}
-	if v, ok := stringAt(m, "acceptance"); ok {
-		g.Acceptance = v
-	}
-	if v, ok := stringAt(m, "scope"); ok {
-		g.Scope = v
-	}
-	if v, ok := stringAt(m, "contextBudget", "context_budget"); ok {
-		g.ContextBudget = v
-	}
-	if v, ok := intAt(m, "maxContextTokens", "max_context_tokens"); ok {
-		g.MaxContextTokens = v
-	}
-	if v, ok := stringAt(m, "modeCapability", "mode_capability"); ok {
-		g.ModeCapability = v
-	}
-	if v, ok := stringAt(m, "eval"); ok {
-		g.Eval = v
-	}
-	if v, ok := stringAt(m, "ingest"); ok {
-		g.Ingest = v
-	}
-	if custom, ok := customGatesAt(m, "custom"); ok {
-		g.Custom = custom
-	}
-}
-func applyOrchestration(o *OrchestrationCfg, m map[string]any) {
-	if v, ok := boolAt(m, "enabled"); ok {
-		o.Enabled = v
-	}
-	if v, ok := stringAt(m, "approvalPolicy", "approval_policy"); ok {
-		o.ApprovalPolicy = v
-	}
-	if v, ok := stringAt(m, "workerMode", "worker_mode"); ok {
-		o.WorkerMode = v
-	}
-	if v, ok := intAt(m, "maxWorkers", "max_workers"); ok {
-		o.MaxWorkers = v
-	}
-	if v, ok := intAt(m, "maxRetries", "max_retries"); ok {
-		o.MaxRetries = v
-	}
-	if v, ok := intAt(m, "sessionTimeoutMinutes", "session_timeout_minutes"); ok {
-		o.SessionTimeoutMinutes = v
-	}
-	if v, ok := floatAt(m, "hostReportedCostLimitUSD", "host_reported_cost_limit_usd"); ok {
-		o.HostReportedCostLimitUSD = v
-	}
-	if v, ok := stringAt(m, "compactionPolicy", "compaction_policy"); ok {
-		o.CompactionPolicy = v
-	}
-	if v, ok := floatAt(m, "compactionBudgetThreshold", "compaction_budget_threshold"); ok {
-		o.CompactionBudgetThreshold = v
-	}
-	if t, ok := mapAt(m, "transport"); ok {
-		applyTransport(&o.Transport, t)
-	}
-	if p, ok := mapAt(m, "program"); ok {
-		if v, ok := intAt(p, "maxConcurrentSpecs", "max_concurrent_specs"); ok {
-			o.Program.MaxConcurrentSpecs = v
-		}
-	}
-	if r, ok := mapAt(m, "resilience"); ok {
-		applyResilience(o, r)
-	}
-}
-func applyResilience(o *OrchestrationCfg, m map[string]any) {
-	if o.Resilience == nil {
-		o.Resilience = &ResilienceCfg{}
-	}
-	if v, ok := boolAt(m, "checkpointEnabled", "checkpoint_enabled"); ok {
-		o.Resilience.CheckpointEnabled = v
-	}
-	if v, ok := intAt(m, "maxSuspendSeconds", "max_suspend_seconds"); ok {
-		o.Resilience.MaxSuspendSeconds = v
-	}
-	if v, ok := boolAt(m, "contextSnapshotEnabled", "context_snapshot_enabled"); ok {
-		o.Resilience.ContextSnapshotEnabled = v
-	}
-	if v, ok := intAt(m, "progressTimeoutSeconds", "progress_timeout_seconds"); ok {
-		o.Resilience.ProgressTimeoutSeconds = v
-	}
-	if a, ok := mapAt(m, "autoResume", "auto_resume"); ok {
-		if v, ok := boolAt(a, "enabled"); ok {
-			o.Resilience.AutoResume.Enabled = v
-		}
-		if v, ok := boolAt(a, "onHostStart", "on_host_start"); ok {
-			o.Resilience.AutoResume.OnHostStart = v
-		}
-		if v, ok := intAt(a, "maxAgeMinutes", "max_age_minutes"); ok {
-			o.Resilience.AutoResume.MaxAgeMinutes = v
-		}
-	}
-}
-
-func applyTransport(t *TransportCfg, m map[string]any) {
-	if v, ok := stringAt(m, "kind"); ok {
-		t.Kind = v
-	}
-	if v, ok := intAt(m, "pollIntervalMillis", "poll_interval_millis"); ok {
-		t.PollIntervalMillis = v
-	}
-	if v, ok := intAt(m, "messageTTLSeconds", "message_ttl_seconds"); ok {
-		t.MessageTTLSeconds = v
-	}
-	if v, ok := intAt(m, "leaseSeconds", "lease_seconds"); ok {
-		t.LeaseSeconds = v
-	}
-	if v, ok := intAt(m, "heartbeatSeconds", "heartbeat_seconds"); ok {
-		t.HeartbeatSeconds = v
-	}
-}
-func applyMCP(mcp *MCPConfig, m map[string]any) {
-	if v, ok := stringAt(m, "expose"); ok {
-		mcp.Expose = v
-	}
-	if v, ok := boolAt(m, "includeMeta", "include_meta"); ok {
-		mcp.IncludeMeta = v
-	}
-	if v, ok := boolAt(m, "includeOrchestration", "include_orchestration"); ok {
-		mcp.IncludeOrchestration = &v
-	}
-	if a, ok := stringSliceAt(m, "essentialTools", "essential_tools"); ok {
-		mcp.EssentialTools = a
-	}
-}
-
-func mapAt(m map[string]any, keys ...string) (map[string]any, bool) {
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			if mm, ok := v.(map[string]any); ok {
-				return mm, true
-			}
-		}
-	}
-	return nil, false
-}
-func stringAt(m map[string]any, keys ...string) (string, bool) {
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			if s, ok := v.(string); ok {
-				return s, true
-			}
-		}
-	}
-	return "", false
-}
-func boolAt(m map[string]any, keys ...string) (bool, bool) {
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			if b, ok := v.(bool); ok {
-				return b, true
-			}
-		}
-	}
-	return false, false
-}
-func intAt(m map[string]any, keys ...string) (int, bool) {
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			switch n := v.(type) {
-			case int:
-				return n, true
-			case float64:
-				return int(n), true
-			case json.Number:
-				i, _ := n.Int64()
-				return int(i), true
-			}
-		}
-	}
-	return 0, false
-}
-func floatAt(m map[string]any, keys ...string) (float64, bool) {
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			switch n := v.(type) {
-			case int:
-				return float64(n), true
-			case float64:
-				return n, true
-			}
-		}
-	}
-	return 0, false
-}
-func customGatesAt(m map[string]any, keys ...string) ([]CustomGateCfg, bool) {
-	for _, k := range keys {
-		v, ok := m[k]
-		if !ok {
-			continue
-		}
-		arr, ok := v.([]any)
-		if !ok {
-			return nil, false
-		}
-		out := make([]CustomGateCfg, 0, len(arr))
-		for _, item := range arr {
-			mm, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			gate := CustomGateCfg{}
-			if v, ok := stringAt(mm, "name"); ok {
-				gate.Name = v
-			}
-			if v, ok := stringAt(mm, "command"); ok {
-				gate.Command = v
-			}
-			if v, ok := stringAt(mm, "severity"); ok {
-				gate.Severity = v
-			}
-			out = append(out, gate)
-		}
-		return out, true
-	}
-	return nil, false
-}
-
-func stringSliceAt(m map[string]any, keys ...string) ([]string, bool) {
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			arr, ok := v.([]any)
-			if !ok {
-				return nil, false
-			}
-			out := []string{}
-			for _, it := range arr {
-				if s, ok := it.(string); ok {
-					out = append(out, s)
-				}
-			}
-			return out, true
-		}
-	}
-	return nil, false
-}
-
-func parseSimpleYAML(raw string) (map[string]any, error) {
-	root := map[string]any{}
-	stack := []map[string]any{root}
-	indents := []int{0}
+func parseSimpleYAML(raw string) (map[string]string, error) {
+	out := make(map[string]string)
+	var section string
 	for lineNo, line := range strings.Split(raw, "\n") {
-		line = stripYAMLComment(line)
-		if strings.TrimSpace(line) == "" || strings.TrimSpace(line) == "---" {
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			continue
 		}
-		indent := len(line) - len(strings.TrimLeft(line, " "))
-		if indent%2 != 0 {
-			return nil, fmt.Errorf("line %d: indentation must use two-space levels", lineNo+1)
+		if strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "  ") {
+			return nil, configError(lineNo+1, "indent must be two spaces")
 		}
-		for len(indents) > 1 && indent < indents[len(indents)-1] {
-			indents = indents[:len(indents)-1]
-			stack = stack[:len(stack)-1]
+		trimmed := strings.TrimSpace(line)
+		if !strings.Contains(trimmed, ":") {
+			return nil, configError(lineNo+1, "missing ':'")
 		}
-		if indent > indents[len(indents)-1] {
-			return nil, fmt.Errorf("line %d: unexpected indentation", lineNo+1)
-		}
-		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
-		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
-			return nil, fmt.Errorf("line %d: expected key: value", lineNo+1)
-		}
+		parts := strings.SplitN(trimmed, ":", 2)
 		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		cur := stack[len(stack)-1]
-		if val == "" {
-			child := map[string]any{}
-			cur[key] = child
-			stack = append(stack, child)
-			indents = append(indents, indent+2)
+		value := strings.TrimSpace(parts[1])
+		if key == "" {
+			return nil, configError(lineNo+1, "empty key")
+		}
+		if strings.HasPrefix(line, "  ") {
+			if section == "" {
+				return nil, configError(lineNo+1, "nested key without section")
+			}
+			if value == "" {
+				return nil, configError(lineNo+1, "empty scalar")
+			}
+			out[section+"."+key] = unquote(value)
 			continue
 		}
-		// Fail loud on a value that was cut off mid-token (a document truncated
-		// mid-write, spec A6): an unterminated quote or flow-sequence would
-		// otherwise be silently kept verbatim and partial-applied. Reject it so
-		// the whole file is skipped rather than half-parsed.
-		if err := checkUnterminatedScalar(val); err != nil {
-			return nil, fmt.Errorf("line %d: %w", lineNo+1, err)
+		if value == "" {
+			section = key
+			continue
 		}
-		cur[key] = parseYAMLScalar(val)
+		section = ""
+		out[key] = unquote(value)
 	}
-	return root, nil
+	return out, nil
 }
 
-// checkUnterminatedScalar reports a truncated scalar value: a quote opened but
-// never closed, or a flow sequence opened with '[' but never closed with ']'.
-// Both are signs the document was cut off mid-write; the simple parser would
-// otherwise keep the raw text verbatim and silently apply a corrupt value.
-func checkUnterminatedScalar(val string) error {
-	if q := val[0]; q == '"' || q == '\'' {
-		if len(val) < 2 || val[len(val)-1] != q {
-			return fmt.Errorf("unterminated quoted string")
+func unquote(value string) string {
+	if len(value) >= 2 {
+		if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+			return value[1 : len(value)-1]
 		}
-		return nil
 	}
-	if strings.HasPrefix(val, "[") && !strings.HasSuffix(val, "]") {
-		return fmt.Errorf("unterminated flow sequence")
-	}
-	return nil
+	return value
 }
 
-func stripYAMLComment(s string) string {
-	inQ := byte(0)
-	for i := 0; i < len(s); i++ {
-		if (s[i] == '"' || s[i] == '\'') && (i == 0 || s[i-1] != '\\') {
-			if inQ == 0 {
-				inQ = s[i]
-			} else if inQ == s[i] {
-				inQ = 0
-			}
-		}
-		if s[i] == '#' && inQ == 0 {
-			return s[:i]
-		}
-	}
-	return s
+func configError(line int, message string) error {
+	return ConfigParseError{Line: line, Message: message}
 }
-func parseYAMLScalar(s string) any {
-	s = strings.TrimSpace(s)
-	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
-		return s[1 : len(s)-1]
-	}
-	switch strings.ToLower(s) {
-	case "true":
-		return true
-	case "false":
-		return false
-	case "null", "~":
-		return nil
-	}
-	if strings.HasPrefix(s, "[") && strings.HasSuffix(s, "]") {
-		body := strings.TrimSpace(s[1 : len(s)-1])
-		if body == "" {
-			return []any{}
-		}
-		parts := strings.Split(body, ",")
-		out := make([]any, 0, len(parts))
-		for _, p := range parts {
-			out = append(out, parseYAMLScalar(strings.TrimSpace(p)))
-		}
-		return out
-	}
-	if i, err := strconv.Atoi(s); err == nil {
-		return i
-	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil {
-		return f
-	}
-	return s
+
+type ConfigParseError struct {
+	Line    int
+	Message string
+}
+
+func (e ConfigParseError) Error() string {
+	return "config line " + strconv.Itoa(e.Line) + ": " + e.Message
 }

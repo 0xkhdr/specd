@@ -2,45 +2,41 @@ package core
 
 import (
 	"encoding/json"
-	"path/filepath"
+	"os"
 )
 
-// ContextManifestTools is the per-spec MCP tool policy declared in a spec's
-// manifest.json (context-manifest spec C1). It is the most precise exposure
-// layer, composed after the config/phase filter: required/optional define an
-// allowlist, forbidden a hard exclude. Tool names use the MCP specd_*/brain_*
-// namespace (post-composite), matching the names emitted on tools/list.
-type ContextManifestTools struct {
-	RequiredTools  []string `json:"requiredTools"`
-	OptionalTools  []string `json:"optionalTools"`
-	ForbiddenTools []string `json:"forbiddenTools"`
+type ToolPolicy struct {
+	Optional map[string]bool
 }
 
-// Present reports whether the manifest declared any tool policy. An absent or
-// empty manifest leaves MCP exposure to the config/phase plan unchanged (R5).
-func (m ContextManifestTools) Present() bool {
-	return len(m.RequiredTools) > 0 || len(m.OptionalTools) > 0 || len(m.ForbiddenTools) > 0
+type toolPolicyFile struct {
+	Optional []string `json:"optional"`
 }
 
-func contextManifestPath(root, slug string) string {
-	return filepath.Join(SpecDir(root, slug), "manifest.json")
+func ForbiddenTool(name string) bool {
+	switch name {
+	case "approve", "brain", "decision", "init", "mcp", "memory", "report", "task":
+		return true
+	default:
+		return false
+	}
 }
 
-// LoadContextManifest reads a spec's manifest.json tool policy. It is read-only
-// and deterministic (R6): a missing or malformed file yields an empty policy so
-// the MCP server degrades to the config/phase plan rather than erroring. The
-// policy lives under the optional top-level "contextManifest" key (spec §5.1),
-// keeping manifest.json open to other future sections.
-func LoadContextManifest(root, slug string) ContextManifestTools {
-	raw := ReadOrNull(contextManifestPath(root, slug))
-	if raw == nil {
-		return ContextManifestTools{}
+func LoadToolPolicy(path string) ToolPolicy {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ToolPolicy{Optional: map[string]bool{}}
 	}
-	var wrapper struct {
-		ContextManifest ContextManifestTools `json:"contextManifest"`
+	var file toolPolicyFile
+	if err := json.Unmarshal(raw, &file); err != nil {
+		return ToolPolicy{Optional: map[string]bool{}}
 	}
-	if err := json.Unmarshal([]byte(*raw), &wrapper); err != nil {
-		return ContextManifestTools{}
+	policy := ToolPolicy{Optional: map[string]bool{}}
+	for _, name := range file.Optional {
+		if name == "" || ForbiddenTool(name) {
+			continue
+		}
+		policy.Optional[name] = true
 	}
-	return wrapper.ContextManifest
+	return policy
 }

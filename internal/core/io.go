@@ -1,94 +1,94 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
-// FileExists reports whether a file or directory exists at path.
-func FileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-// ReadOrDefault returns the file contents at path, or fallback if it cannot be
-// read (missing or unreadable).
-func ReadOrDefault(path, fallback string) string {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return fallback
-	}
-	return string(b)
-}
-
-// ReadOrNull returns a pointer to the file contents at path, or nil if it
-// cannot be read. The nil result lets callers distinguish a missing file from
-// an empty one.
+// ReadOrNull returns the file contents, or nil when path does not exist.
 func ReadOrNull(path string) *string {
-	b, err := os.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 		return nil
 	}
-	s := string(b)
-	return &s
+	text := string(data)
+	return &text
 }
 
-// AtomicWrite writes data to path atomically: it creates any missing parent
-// dirs, writes to a temp file in the same directory, fsyncs, sets 0644 (honoring
-// umask), and renames over path. A partial write never replaces the target, and
-// any failure is propagated to the caller.
+// AtomicWrite writes data via a temp file in the target directory, fsyncs it,
+// chmods to the non-secret artifact mode, then renames over the target.
 func AtomicWrite(path, data string) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // .specd holds non-secret project artifacts; group/other-readable for shared CI checkouts (see SECURITY.md)
-		return err
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create parent dir: %w", err)
 	}
-	f, err := os.CreateTemp(dir, fmt.Sprintf(".%d.*.tmp", os.Getpid()))
+
+	file, err := os.CreateTemp(dir, fmt.Sprintf(".%d.*.tmp", os.Getpid()))
 	if err != nil {
-		return err
+		return fmt.Errorf("create temp file: %w", err)
 	}
-	name := f.Name()
+	tempName := file.Name()
+	cleanup := true
 	defer func() {
-		_ = f.Close()
-		os.Remove(name)
+		_ = file.Close()
+		if cleanup {
+			_ = os.Remove(tempName)
+		}
 	}()
-	if _, err := f.WriteString(data); err != nil {
-		return err
+
+	if _, err := file.WriteString(data); err != nil {
+		return fmt.Errorf("write temp file: %w", err)
 	}
-	if err := f.Sync(); err != nil {
-		return err
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("sync temp file: %w", err)
 	}
-	// CreateTemp makes 0600 files; restore the documented 0644 (honoring umask)
-	// so the renamed artifact is group/other readable for shared CI checkouts.
-	if err := f.Chmod(0o644); err != nil {
-		return err
+	if err := file.Chmod(0o644); err != nil {
+		return fmt.Errorf("chmod temp file: %w", err)
 	}
-	if err := f.Close(); err != nil {
-		return err
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
 	}
-	return os.Rename(name, path)
+	if err := os.Rename(tempName, path); err != nil {
+		return fmt.Errorf("rename temp file: %w", err)
+	}
+	cleanup = false
+	if err := syncDir(dir); err != nil {
+		return fmt.Errorf("sync parent dir: %w", err)
+	}
+	return nil
 }
 
-// AppendFile appends data to the file at path (creating it and any missing
-// parent dirs), fsyncs, and propagates any write or close failure so a partial
-// append is never reported as success.
+// AppendFile appends data to a non-secret artifact and fsyncs before returning.
 func AppendFile(path, data string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // .specd holds non-secret project artifacts; group/other-readable for shared CI checkouts (see SECURITY.md)
-		return err
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create parent dir: %w", err)
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) //nolint:gosec // non-secret project artifact; group/other-readable for shared CI checkouts (see SECURITY.md)
+
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open append file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(data); err != nil {
+		return fmt.Errorf("append file: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("sync append file: %w", err)
+	}
+	return nil
+}
+
+func syncDir(dir string) error {
+	file, err := os.Open(dir)
 	if err != nil {
 		return err
 	}
-	if _, err := f.WriteString(data); err != nil {
-		_ = f.Close()
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		return err
-	}
-	// Return the Close error: a deferred Close would swallow a flush failure and
-	// let a partial append be reported as success.
-	return f.Close()
+	defer file.Close()
+	return file.Sync()
 }

@@ -1,59 +1,77 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestSaveLoadState(t *testing.T) {
-	dir := t.TempDir()
-	slug := "test-spec"
-	specPath := filepath.Join(dir, ".specd", "specs", slug)
-	os.MkdirAll(specPath, 0o755)
+func TestStateCAS(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	state := InitialState("demo")
 
-	state := InitialState(slug, "Test Spec")
-	if err := SaveState(dir, slug, &state); err != nil {
-		t.Fatalf("SaveState: %v", err)
+	if err := SaveStateCAS(path, 0, state); err != nil {
+		t.Fatalf("initial CAS save: %v", err)
 	}
-	if state.Revision != 1 {
-		t.Errorf("expected revision 1 after save, got %d", state.Revision)
-	}
-
-	loaded, err := LoadState(dir, slug)
+	loaded, err := LoadState(path)
 	if err != nil {
-		t.Fatalf("LoadState: %v", err)
+		t.Fatalf("load state: %v", err)
 	}
-	if loaded.Spec != slug {
-		t.Errorf("expected spec %q, got %q", slug, loaded.Spec)
+	if loaded.Revision != 1 {
+		t.Fatalf("revision = %d, want 1", loaded.Revision)
 	}
-	if loaded.Status != StatusRequirements {
-		t.Errorf("expected status requirements, got %s", loaded.Status)
+
+	loaded.Status = StatusDesign
+	loaded.Phase = PhaseForStatus(StatusDesign)
+	if err := SaveStateCAS(path, 1, loaded); err != nil {
+		t.Fatalf("second CAS save: %v", err)
+	}
+	loaded, err = LoadState(path)
+	if err != nil {
+		t.Fatalf("reload state: %v", err)
+	}
+	if loaded.Revision != 2 {
+		t.Fatalf("revision = %d, want 2", loaded.Revision)
+	}
+
+	if err := SaveStateCAS(path, 1, loaded); !errors.Is(err, ErrRevisionConflict) {
+		t.Fatalf("stale CAS error = %v, want ErrRevisionConflict", err)
 	}
 }
 
-func TestCASConflict(t *testing.T) {
-	dir := t.TempDir()
-	slug := "test-spec"
-	specPath := filepath.Join(dir, ".specd", "specs", slug)
-	os.MkdirAll(specPath, 0o755)
-
-	s1 := InitialState(slug, "Test")
-	if err := SaveState(dir, slug, &s1); err != nil {
-		t.Fatalf("first save: %v", err)
+func TestLoadStateMigratesV1ToCurrentSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	raw := `{"schema_version":1,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write state: %v", err)
 	}
-
-	// Simulate a second writer that saves before us.
-	s2 := InitialState(slug, "Test")
-	s2.Revision = 1 // matches on-disk
-	if err := SaveState(dir, slug, &s2); err != nil {
-		t.Fatalf("second save: %v", err)
+	state, err := LoadState(path)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if state.SchemaVersion != StateSchemaVersion {
+		t.Fatalf("schema version = %d, want %d", state.SchemaVersion, StateSchemaVersion)
+	}
+}
 
-	// Now try to save s1 again at revision 1 — should conflict (disk is now at revision 2).
-	s1.Revision = 1
-	err := SaveState(dir, slug, &s1)
-	if err == nil {
-		t.Error("expected CAS conflict error, got nil")
+func TestLoadStateRejectsUnknownFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	raw := `{"schema_version":2,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1,"unexpected":true}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write state: %v", err)
+	}
+	if _, err := LoadState(path); err == nil {
+		t.Fatal("LoadState accepted unknown field")
+	}
+}
+
+func TestStateRejectsInvalidSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	if err := os.WriteFile(path, []byte(`{"schema_version":99}`), 0o644); err != nil {
+		t.Fatalf("write invalid state: %v", err)
+	}
+	if _, err := LoadState(path); err == nil {
+		t.Fatal("LoadState accepted unsupported schema")
 	}
 }

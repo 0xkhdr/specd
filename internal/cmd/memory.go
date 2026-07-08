@@ -1,141 +1,104 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"regexp"
-	"strings"
+	"os"
+	"path/filepath"
+	"time"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
 var validCriticalities = map[string]bool{"minor": true, "important": true, "critical": true}
 
-var memBlockRE = regexp.MustCompile(`(?m)^##\s+`)
+// memoryNow is the injectable clock for promotion provenance (RM.7). Tests
+// override it so promotion output is byte-deterministic.
+var memoryNow = func() time.Time { return time.Now().UTC() }
 
-func extractMemBlock(text, key string) string {
-	lines := strings.Split(core.StripHTMLComments(text), "\n")
-	start := -1
-	for i, l := range lines {
-		if strings.TrimSpace(l) == "## "+key {
-			start = i
-			break
-		}
+// runMemory implements `specd memory <slug> <add|promote>`. add appends a
+// pattern block to the spec's memory.md; promote lifts an existing block into
+// the shared steering store once it clears the promotion threshold (RM.1–RM.9).
+func runMemory(root string, args []string, flags map[string]string) error {
+	if len(args) < 2 {
+		return errors.New("usage: specd memory <slug> <add|promote> [flags]")
 	}
-	if start == -1 {
-		return ""
+	slug, sub := args[0], args[1]
+	if err := core.ValidateSlug(slug); err != nil {
+		return err
 	}
-	var body []string
-	body = append(body, lines[start])
-	for i := start + 1; i < len(lines); i++ {
-		if memBlockRE.MatchString(lines[i]) {
-			break
-		}
-		body = append(body, lines[i])
+	specDir := filepath.Join(core.SpecdDir(root), "specs", slug)
+	if info, err := os.Stat(specDir); err != nil || !info.IsDir() {
+		return fmt.Errorf("spec %q not found", slug)
 	}
-	return strings.TrimRight(strings.Join(body, "\n"), " \t\n")
+	switch sub {
+	case "add":
+		return memoryAdd(root, slug, flags)
+	case "promote":
+		return memoryPromote(root, slug, flags)
+	default:
+		return fmt.Errorf("unknown memory subcommand %q (expected add|promote)", sub)
+	}
 }
 
-// RunMemory implements `specd memory <slug> <add|promote>`. The "add"
-// subcommand appends a new pattern entry to the spec's memory.md; "promote"
-// lifts an existing entry into the shared steering/memory.md once it has been
-// observed in at least the configured threshold of specs (or with --force).
-//
-//nolint:gocyclo // pre-existing complexity debt, out of scope for spec S3 — tracked for a future cleanup pass
-func RunMemory(args cli.Args) int {
-	root, err := core.RequireSpecdRoot()
+func memoryAdd(root, slug string, flags map[string]string) error {
+	f := core.MemFields{
+		Key:         flags["key"],
+		Pattern:     flags["pattern"],
+		Detail:      flags["body"],
+		Source:      flags["source"],
+		Criticality: flags["criticality"],
+		Related:     flags["related"],
+	}
+	if f.Key == "" || f.Pattern == "" || f.Detail == "" || f.Source == "" {
+		return errors.New(`memory add requires --key --pattern "..." --body "..." --source "..." --criticality <c>`)
+	}
+	if !validCriticalities[f.Criticality] {
+		return errors.New("--criticality must be one of: minor, important, critical")
+	}
+	memPath := core.SpecMemoryPath(root, slug)
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		return struct{}{}, core.AppendFile(memPath, "\n"+core.RenderMemBlock(f))
+	})
 	if err != nil {
-		return specdExit(err)
+		return err
 	}
-	slug := ""
-	sub := ""
-	if len(args.Pos) > 0 {
-		slug = args.Pos[0]
-	}
-	if len(args.Pos) > 1 {
-		sub = args.Pos[1]
-	}
-	if slug == "" || sub == "" {
-		return usageExit("usage: specd memory <slug> <add|promote> [flags]")
-	}
-	if err := core.RequireSpec(root, slug); err != nil {
-		return specdExit(err)
-	}
-	memPath := core.ArtifactPath(root, slug, "memory.md")
+	fmt.Fprintf(os.Stdout, "memory: added '%s' to %s/memory.md\n", f.Key, slug)
+	return nil
+}
 
-	if sub == "add" {
-		key := args.Str("key")
-		pattern := args.Str("pattern")
-		body := args.Str("body")
-		source := args.Str("source")
-		crit := args.Str("criticality")
-		if key == "" || pattern == "" || body == "" || source == "" {
-			return usageExit("memory add requires --key --pattern \"..\" --body \"..\" --source \"..\" --criticality <c>")
-		}
-		if !validCriticalities[crit] {
-			return usageExit("--criticality must be one of: minor, important, critical")
-		}
-		related := "—"
-		if r := args.Str("related"); r != "" {
-			parts := strings.Split(r, ",")
-			var linked []string
-			for _, p := range parts {
-				linked = append(linked, "[["+strings.TrimSpace(p)+"]]")
-			}
-			related = strings.Join(linked, ", ")
-		}
-		entry := fmt.Sprintf("\n## %s\n**Pattern:** %s\n**Detail:** %s\n**Source:** %s\n**Criticality:** %s\n**Related:** %s\n",
-			key, pattern, body, source, crit, related)
-		rc, err := core.WithSpecLock[int](root, slug, func() (int, error) {
-			if err := core.AppendFile(memPath, entry); err != nil {
-				return specdExit(err), err
-			}
-			fmt.Printf("memory: added '%s' to %s/memory.md\n", key, slug)
-			return core.ExitOK, nil
-		})
-		if err != nil {
-			return specdExit(err)
-		}
-		return rc
+func memoryPromote(root, slug string, flags map[string]string) error {
+	key := flags["key"]
+	if key == "" {
+		return errors.New("memory promote requires --key <key>")
 	}
-
-	if sub == "promote" {
-		key := args.Str("key")
-		if key == "" {
-			return usageExit("memory promote requires --key <slug>")
+	force := flagEnabled(flags, "force")
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		raw := ""
+		if p := core.ReadOrNull(core.SpecMemoryPath(root, slug)); p != nil {
+			raw = *p
 		}
-		rc, err := core.WithSpecLock[int](root, slug, func() (int, error) {
-			block := extractMemBlock(core.ReadOrDefault(memPath, ""), key)
-			if block == "" {
-				return specdExit(core.GateError(fmt.Sprintf("memory: key '%s' not found in %s/memory.md", key, slug))), nil
-			}
-			cfg := core.LoadConfig(root)
-			threshold := cfg.PromotionThreshold
-			specs := core.ListSpecs(root)
-			occurrences := 0
-			for _, s := range specs {
-				raw := core.ReadArtifact(root, s, "memory.md")
-				if raw != nil && extractMemBlock(*raw, key) != "" {
-					occurrences++
-				}
-			}
-			if occurrences < threshold && !args.Bool("force") {
-				return specdExit(core.GateError(fmt.Sprintf("memory: pattern '%s' seen in %d spec(s); promotion threshold is %d. Re-run with --force to promote anyway.", key, occurrences, threshold))), nil
-			}
-			date := core.Clock().UTC().Format("2006-01-02")
-			promoted := fmt.Sprintf("\n%s\n**Promoted:** from spec '%s' on %s (seen in %d spec(s))\n", block, slug, date, occurrences)
-			globalPath := core.SteeringDir(root) + "/memory.md"
-			if err := core.AppendFile(globalPath, promoted); err != nil {
-				return specdExit(err), err
-			}
-			fmt.Printf("memory: promoted '%s' from %s to steering/memory.md (seen in %d spec(s), threshold %d)\n", key, slug, occurrences, threshold)
-			return core.ExitOK, nil
-		})
-		if err != nil {
-			return specdExit(err)
+		block := core.ExtractMemBlock(raw, key)
+		if block == "" {
+			return struct{}{}, fmt.Errorf("memory: key '%s' not found in %s/memory.md", key, slug)
 		}
-		return rc
-	}
+		threshold := promotionThreshold(root)
+		count := core.CountSpecsWithBlock(root, key)
+		if count < threshold && !force {
+			return struct{}{}, fmt.Errorf("memory: pattern '%s' seen in %d spec(s); promotion threshold is %d. Re-run with --force to promote anyway", key, count, threshold)
+		}
+		date := memoryNow().Format("2006-01-02")
+		promoted := core.RenderPromotion(block, slug, count, date)
+		if err := core.AppendFile(core.SteeringMemoryPath(root), promoted); err != nil {
+			return struct{}{}, err
+		}
+		fmt.Fprintf(os.Stdout, "memory: promoted '%s' from %s to steering/memory.md (seen in %d spec(s), threshold %d)\n", key, slug, count, threshold)
+		return struct{}{}, nil
+	})
+	return err
+}
 
-	return usageExit(fmt.Sprintf("unknown memory subcommand '%s' (expected add|promote)", sub))
+func promotionThreshold(root string) int {
+	cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	return cfg.PromotionThreshold
 }

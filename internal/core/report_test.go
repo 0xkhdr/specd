@@ -1,155 +1,68 @@
 package core
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
 
-// TestReportScope confirms the report surfaces per-task verify evidence —
-// changed-file count and coverage — as data, never as a pass/fail floor.
-func TestReportScope(t *testing.T) {
-	st := &State{
-		Spec: "demo", Tasks: map[string]TaskState{
-			"T1": {ID: "T1", Status: TaskComplete, Verification: &VerificationRecord{
-				Command: "go test", Verified: true, Coverage: "84%",
-				ChangedFiles: []string{"a.go", "b.go"},
-			}},
-		},
+func TestReportModel(t *testing.T) {
+	tasks := []TaskRow{
+		{ID: "T1", Marker: "✅", Verify: "go test ./..."},
+		{ID: "T2", Marker: "⬜"},
 	}
-	md := RenderMarkdown(ReportData{State: st})
-	if !strings.Contains(md, "Verification Evidence") {
-		t.Error("missing Verification Evidence section")
+	model := BuildReportModel("demo", tasks, nil, map[string]EvidenceRecord{
+		"T1": {TaskID: "T1", EvidenceRef: "ledger:1"},
+	})
+	if model.Total != 2 || model.Complete != 1 || model.Pending != 1 {
+		t.Fatalf("unexpected counts: %#v", model)
 	}
-	if !strings.Contains(md, "84%") || !strings.Contains(md, "Changed files") {
-		t.Errorf("coverage/changed-files not rendered:\n%s", md)
+	if model.Tasks[0].EvidenceRef != "ledger:1" {
+		t.Fatalf("missing evidence ref: %#v", model.Tasks[0])
 	}
 }
 
-// TestReportAcceptance confirms recorded acceptance criteria render in the report.
-func TestReportAcceptance(t *testing.T) {
-	st := &State{
-		Spec:  "demo",
-		Tasks: map[string]TaskState{},
-		Acceptance: map[string]CriterionRecord{
-			"1.1": {Requirement: 1, Criterion: 1, Status: "pass", Evidence: "manual proof", RanAt: "2026-01-01T00:00:00Z"},
-		},
-	}
-	md := RenderMarkdown(ReportData{State: st})
-	if !strings.Contains(md, "Acceptance Criteria") || !strings.Contains(md, "1.1") {
-		t.Errorf("acceptance criteria not rendered:\n%s", md)
-	}
-}
-
-// TestReportTelemetryRollup confirms the per-wave/per-spec telemetry roll-up
-// renders when telemetry is present (and stays absent otherwise).
-func TestReportTelemetryRollup(t *testing.T) {
-	st := &State{
-		Spec: "demo", Tasks: map[string]TaskState{
-			"T1": {ID: "T1", Wave: 1, Status: TaskComplete, Telemetry: &Telemetry{DurationMs: 1000, Retries: 2}},
-		},
-	}
-	md := RenderMarkdown(ReportData{State: st})
-	if !strings.Contains(md, "Telemetry") {
-		t.Errorf("telemetry roll-up not rendered:\n%s", md)
-	}
-
-	// No telemetry → no section.
-	bare := RenderMarkdown(ReportData{State: &State{Spec: "x", Tasks: map[string]TaskState{"T1": {ID: "T1"}}}})
-	if strings.Contains(bare, "⏱️") {
-		t.Error("telemetry section should be absent when no task carries telemetry")
-	}
-}
-
-// TestRenderHTMLLiveResponsive pins the browser-native dashboard contract: the
-// rendered report carries a responsive viewport meta and a live-update
-// EventSource client, and stays self-contained with no external asset fetches.
-func TestReportRenderGoldenDeterministic(t *testing.T) {
-	d := reportGoldenData()
-	cases := map[string]string{
-		"markdown":  RenderMarkdown(d),
-		"html":      RenderHTML(d, 5),
-		"prsummary": BuildPRSummary(d.State, []Violation{{Gate: "design", Location: "design.md", Message: "missing detail"}}, []Violation{{Gate: "tasks", Location: "tasks.md", Message: "low confidence"}}, []CommitLink{{SHA: "abcdef0123456789", Subject: "finish T1", Tasks: []string{"T1"}}}).Markdown(),
-	}
-	files := map[string]string{
-		"markdown":  "testdata/report_markdown.golden",
-		"html":      "testdata/report_html.golden",
-		"prsummary": "testdata/prsummary.golden",
-	}
-	second := map[string]string{
-		"markdown":  RenderMarkdown(d),
-		"html":      RenderHTML(d, 5),
-		"prsummary": BuildPRSummary(d.State, []Violation{{Gate: "design", Location: "design.md", Message: "missing detail"}}, []Violation{{Gate: "tasks", Location: "tasks.md", Message: "low confidence"}}, []CommitLink{{SHA: "abcdef0123456789", Subject: "finish T1", Tasks: []string{"T1"}}}).Markdown(),
-	}
-	for name, got := range cases {
-		if got != second[name] {
-			t.Fatalf("%s output not deterministic across identical renders", name)
-		}
-		wantBytes, err := os.ReadFile(files[name])
-		if err != nil {
-			t.Fatalf("read %s golden: %v", name, err)
-		}
-		want := strings.ReplaceAll(string(wantBytes), "\r\n", "\n")
-		if got != want {
-			t.Fatalf("%s golden mismatch\nwant:\n%s\ngot:\n%s", name, want, got)
+func TestPRSummaryGolden(t *testing.T) {
+	model := BuildReportModel("demo", []TaskRow{{ID: "T1", Marker: "✅", Verify: "go test ./..."}, {ID: "T2"}}, nil, nil)
+	got := PRSummary(model)
+	for _, want := range []string{"## specd report: demo", "- complete: 1/2", "| T1 | complete | go test ./... |"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("summary missing %q:\n%s", want, got)
 		}
 	}
 }
 
-func TestReportHTMLGoldenEscapesUserContent(t *testing.T) {
-	html := RenderHTML(reportGoldenData(), 5)
-	for _, want := range []string{`<!doctype html>`, `Report &lt;Demo&gt;`, `&lt;script&gt;alert(1)&lt;/script&gt;`} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("html missing escaped content %q:\n%s", want, html)
-		}
-	}
-	for _, bad := range []string{`<title>Report <Demo>`, `<script>alert(1)</script>`} {
-		if strings.Contains(html, bad) {
-			t.Fatalf("html contains unescaped user content %q:\n%s", bad, html)
-		}
-	}
-}
-
-func reportGoldenData() ReportData {
-	ptr := func(s string) *string { return &s }
-	return ReportData{
-		State: &State{
-			Spec: "report-demo", Title: "Report <Demo>", Status: StatusExecuting,
-			Phase: PhaseExecute, Turn: 7, ExecutionMode: ModeOrchestrated, ModeOrigin: OriginUser,
-			Tasks: map[string]TaskState{
-				"T2": {ID: "T2", Title: "second", Role: "validator", Wave: 2, Status: TaskPending, Telemetry: &Telemetry{DurationMs: 500, Tokens: 25}},
-				"T1": {ID: "T1", Title: "first", Role: "craftsman", Wave: 1, Status: TaskComplete, Verification: &VerificationRecord{Command: "go test", Verified: true, Coverage: "90.0%", ChangedFiles: []string{"internal/core/report.go"}, Sandbox: "bwrap"}, Telemetry: &Telemetry{DurationMs: 1500, VerifyDurationMs: 250, Retries: 1, Tokens: 100, Cost: "0.50"}},
-			},
-			Acceptance: map[string]CriterionRecord{"1.1": {Requirement: 1, Criterion: 1, Status: "pass", Evidence: "golden evidence", RanAt: "2026-01-01T00:00:00Z"}},
-			Blockers:   []Blocker{{Task: "T2", Reason: "needs fixture", Since: "2026-01-01T00:00:00Z"}},
-		},
-		Requirements: ptr("# Requirements\n\n## Introduction\nStable report summary.\n\n## Acceptance Criteria\n- THE SYSTEM SHALL report."),
-		Design:       ptr("# Design\n\n## Overview\nRender stable documents."),
-		Tasks:        ptr("- [x] T1 first\n- [ ] T2 second"),
-		Decisions:    ptr("# Decisions\n\n- ADR-1 keep deterministic order"),
-		Memory:       ptr("# Memory\n\nEscaping sample: <script>alert(1)</script>"),
-		MidReqs:      ptr("# Mid\n\nNo mid-requirements."),
-	}
-}
-
-func TestRenderHTMLLiveResponsive(t *testing.T) {
-	st := &State{Spec: "demo", Title: "Demo", Status: StatusExecuting, Tasks: map[string]TaskState{"T1": {ID: "T1"}}}
-	html := RenderHTML(ReportData{State: st}, 0)
-
+func TestMetricsGolden(t *testing.T) {
+	model := BuildReportModel("demo", []TaskRow{{ID: "T1", Marker: "✅"}, {ID: "T2"}}, nil, nil)
+	got := RenderMetrics(model)
 	for _, want := range []string{
-		`<meta name="viewport"`,
-		`new EventSource("/events")`,
-		`/api/report?spec=`,
-		`@media`,
+		`specd_tasks_total{spec="demo"} 2`,
+		`specd_tasks_complete{spec="demo"} 1`,
+		`specd_tasks_pending{spec="demo"} 1`,
 	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("RenderHTML output missing %q", want)
+		if !strings.Contains(got, want) {
+			t.Fatalf("metrics missing %q:\n%s", want, got)
 		}
 	}
-	// Self-contained: no external asset fetches.
-	for _, bad := range []string{"http://", "https://", "//cdn", "src=\"//"} {
-		if strings.Contains(html, bad) {
-			t.Errorf("RenderHTML output has external reference %q", bad)
+}
+
+func TestNoLLMInRender(t *testing.T) {
+	model := BuildReportModel("demo", []TaskRow{{ID: "T1"}}, nil, nil)
+	renderers := []string{RenderStatus(model), PRSummary(model), RenderMetrics(model)}
+	for _, rendered := range renderers {
+		lower := strings.ToLower(rendered)
+		if strings.Contains(lower, "llm") || strings.Contains(lower, "network") {
+			t.Fatalf("renderer leaked non-deterministic path wording: %s", rendered)
 		}
+	}
+}
+
+func TestForbiddenTool(t *testing.T) {
+	for _, name := range []string{"report", "decision", "memory"} {
+		if !ForbiddenTool(name) {
+			t.Fatalf("%s should be forbidden", name)
+		}
+	}
+	if ForbiddenTool("check") {
+		t.Fatal("check should be allowed")
 	}
 }

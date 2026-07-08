@@ -2,114 +2,113 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
-	"github.com/0xkhdr/specd/internal/runner"
+	"github.com/0xkhdr/specd/internal/core/gates"
+	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 )
 
-const submitUsage = "usage: specd submit <slug> [--waves w1,w2] [--dry-run] [--json]"
-
-// submitTimeout bounds the configured submit command's wall clock.
-const submitTimeout = 120 * time.Second
-
-// RunSubmit implements `specd submit` (V7/P3.4): it validates that every gate is
-// green for the spec (optionally scoped to a wave bundle), generates the
-// deterministic PR summary, and streams it on stdin to the operator-configured
-// `submit.command` run through the shared sandboxed exec path with a scrubbed
-// env. No git/GitHub logic is embedded. A non-zero command exit is exit 1 with no
-// partial state — the summary is regenerated from state, never persisted mid-run.
-func RunSubmit(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, submitUsage)
-	if !ok {
-		return code
+// runSubmit is the terminal verb (spec 08). It refuses unless every gate is
+// green and every task is complete (R1), then generates the deterministic PR
+// summary — the same generator as `report --pr`, one implementation (R2) — and
+// streams it on stdin to the operator-configured submit.command through the
+// existing sandboxed exec path. With no command configured it prints the summary
+// and exits 0 (dry-run, R3). A successful run appends a submission record to the
+// spec ledger (R4); a same-HEAD resubmission is refused without --resubmit (R5).
+func runSubmit(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: specd submit <spec> [--resubmit]")
 	}
-	if err := core.RequireSpec(root, slug); err != nil {
-		return specdExit(err)
-	}
+	slug := args[0]
 
-	// Bundle gate validation: all configured gates must be green.
-	ctx, pre, err := buildCheckCtx(root, slug, false)
+	spec, err := loadSpec(root, slug)
 	if err != nil {
-		return specdExit(err)
+		return err
 	}
-	violations, warnings := core.RunGates(ctx)
-	violations = append(append([]core.Violation{}, pre...), violations...)
-	if len(violations) > 0 {
-		errLine("✗ submit blocked — %d gate violation(s); resolve them before submitting:", len(violations))
-		for _, v := range violations {
-			errLine("  %s: %s (%s)", v.Location, v.Message, v.Gate)
-		}
-		return core.ExitGate
-	}
-
-	summary := core.BuildPRSummary(ctx.State, violations, warnings, core.LinkCommits(gitRecentCommits(root)))
-	body := summary.Markdown()
-
-	if args.Bool("dry-run") {
-		fmt.Print(body)
-		return core.ExitOK
-	}
-
-	cfg := core.LoadConfig(root)
-	command := strings.TrimSpace(cfg.Submit.Command)
-	if command == "" {
-		return specdExit(core.GateError("submit: no submit.command configured — set config.submit.command (e.g. `gh pr create --body-file -`) to enable submission"))
-	}
-
-	res := execSubmitCommand(root, command, cfg.Submit.Sandbox, body)
-	if args.Bool("json") {
-		out := map[string]interface{}{"ok": res.ExitCode == 0, "exitCode": res.ExitCode, "timedOut": res.TimedOut}
-		if err := core.PrintJSON(out); err != nil {
-			return specdExit(err)
-		}
-	} else if res.ExitCode == 0 {
-		fmt.Printf("✓ submit: %s exited 0 for '%s'\n", firstWord(command), slug)
-	} else {
-		errLine("✗ submit: command exited %d%s\n%s", res.ExitCode, timedOutNote(res.TimedOut), strings.TrimSpace(res.Stderr))
-	}
-	if res.ExitCode != 0 {
-		return core.ExitGate
-	}
-	return core.ExitOK
-}
-
-// execSubmitCommand runs the configured command through the shared sandboxed
-// runner with a scrubbed env and the PR summary on stdin. An unavailable sandbox
-// backend fails closed (consistent with verify/custom gates).
-func execSubmitCommand(root, command, sandbox, stdin string) runner.RunResult {
-	r, err := runner.SelectRunner(sandbox)
+	gateFailures := gateFailureMessages(gates.CoreRegistry().Run(buildCheckCtx(root, slug, spec, "")))
+	model, err := reportModel(root, slug)
 	if err != nil {
-		return runner.RunResult{ExitCode: 1, Stderr: err.Error()}
+		return err
 	}
-	shell := strings.TrimSpace(os.Getenv("SPECD_VERIFY_SHELL"))
-	if shell == "" {
-		shell = "sh"
+	if blockers := core.SubmitBlockers(model, gateFailures); len(blockers) > 0 {
+		fmt.Fprintf(os.Stderr, "submit refused: %d blocker(s)\n", len(blockers))
+		for _, b := range blockers {
+			fmt.Fprintf(os.Stderr, "  - %s\n", b)
+		}
+		return errors.New("submit blocked by unmet gates or incomplete tasks")
 	}
-	return r.Run(context.Background(), runner.RunSpec{
-		Root:    root,
-		Shell:   shell,
-		Command: command,
-		Env:     core.ScrubbedEnv(),
-		Timeout: submitTimeout,
-		Stdin:   []byte(stdin),
+
+	summary := core.PRSummary(model)
+	hash := core.SummaryHash(summary)
+	head := gitHead(root)
+
+	submissions, err := core.LoadSubmissions(core.SubmissionsPath(root, slug))
+	if err != nil {
+		return err
+	}
+	if core.AlreadySubmittedAt(submissions, head) && !flagEnabled(flags, "resubmit") {
+		return fmt.Errorf("already submitted at HEAD %s; pass --resubmit to submit again", head)
+	}
+
+	cfg := loadSpecConfig(root)
+	if cfg.Submit.Command == "" {
+		// Dry-run default: no operator command configured (R3). Print the summary
+		// to stdout and exit 0; nothing is recorded because nothing was submitted.
+		fmt.Fprint(os.Stdout, summary)
+		return nil
+	}
+
+	if !core.HeadPinned(head) {
+		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this submission cannot pin to a commit\n", head)
+	}
+
+	timeout := cfg.Submit.TimeoutSecs
+	if timeout <= 0 {
+		timeout = core.SubmitDefaultTimeoutSecs
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
+	result, runErr := verifyexec.Run(ctx, verifyexec.Options{
+		Command: cfg.Submit.Command,
+		Dir:     root,
+		Stdin:   summary,
 	})
+	if result.Stdout != "" {
+		fmt.Fprint(os.Stdout, result.Stdout)
+	}
+	if result.Stderr != "" {
+		fmt.Fprint(os.Stderr, result.Stderr)
+	}
+
+	rec := core.SubmissionRecord{GitHead: head, SummaryHash: hash, Command: cfg.Submit.Command, Exit: result.ExitCode}
+	if _, appendErr := core.WithSpecLock(root, func() (struct{}, error) {
+		return struct{}{}, core.AppendSubmission(core.SubmissionsPath(root, slug), rec)
+	}); appendErr != nil && runErr == nil {
+		runErr = appendErr
+	}
+	if runErr != nil {
+		return runErr
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("submit command failed with exit code %d", result.ExitCode)
+	}
+	fmt.Fprintf(os.Stdout, "submitted %s at %s (summary %s)\n", slug, head, hash[:12])
+	return nil
 }
 
-func firstWord(s string) string {
-	if i := strings.IndexAny(s, " \t"); i >= 0 {
-		return s[:i]
+// gateFailureMessages renders the error-severity findings of a gate run as
+// stable "<gate>: <message>" strings for the submit precondition (spec 08 R1).
+func gateFailureMessages(findings []gates.Finding) []string {
+	var msgs []string
+	for _, f := range findings {
+		if f.Severity == gates.Error {
+			msgs = append(msgs, fmt.Sprintf("gate %s: %s", f.Gate, f.Message))
+		}
 	}
-	return s
-}
-
-func timedOutNote(t bool) string {
-	if t {
-		return " (timed out)"
-	}
-	return ""
+	return msgs
 }

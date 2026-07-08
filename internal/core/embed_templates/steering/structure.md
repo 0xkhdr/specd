@@ -1,15 +1,12 @@
-# Structure — Repo layout & module boundaries
+# Steering: Structure
 
-> TODO: Fill this in. Always-loaded steering.
+> Fill this in for your project. Map the code so a task can find its files without
+> scanning the whole tree. Replace the prompts below.
 
 ## Layout
+- **<dir>/** — <what lives here>
+- **<dir>/** — <what lives here>
 
-TODO: Top-level directories and what each owns.
-
-## Module boundaries
-
-TODO: What may depend on what. Where new code goes.
-
-## Naming
-
-TODO: File/symbol naming conventions a craftsman must follow.
+## Naming & patterns
+- <naming convention a change must follow>
+- <where tests live relative to source>

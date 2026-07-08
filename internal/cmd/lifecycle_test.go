@@ -1,268 +1,238 @@
-package cmd_test
-
-// Concern (cross-cutting): end-to-end CLI lifecycle. Drives a spec through every
-// phase gate via the real CLI, proving the phase machine, frontier, verification
-// and state persistence compose (spec 2.3).
+package cmd
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
-	th "github.com/0xkhdr/specd/internal/testharness"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
-// TestFullLifecycle walks a spec from requirements through to complete, driving
-// every phase gate via the real CLI: approve ratchet → execute → verify →
-// evidence-gated completion → verifying → accept. This is the end-to-end proof
-// that the phase machine, DAG frontier, verification and state persistence all
-// compose correctly.
-func TestFullLifecycle(t *testing.T) {
-	h := th.New(t)
-	slug := h.Spec("auth").
-		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
-		FullDesign().
-		AddTask(th.TaskSpec{ID: "T1", Title: "Implement login", Verify: "true", Requirements: []int{1}}).
-		AddTask(th.TaskSpec{ID: "T2", Title: "Wire session", Wave: 2, Depends: []string{"T1"}, Verify: "true", Requirements: []int{1}}).
-		Status(core.StatusRequirements).
-		Build()
-
-	// Planning ratchet: requirements → design → tasks → executing.
-	h.RunExpect(core.ExitOK, "approve", slug)
-	h.State(slug).Status(core.StatusDesign)
-	h.RunExpect(core.ExitOK, "approve", slug)
-	h.State(slug).Status(core.StatusTasks)
-	h.RunExpect(core.ExitOK, "approve", slug)
-	h.State(slug).Status(core.StatusExecuting)
-
-	// Frontier is just T1 (T2 depends on it).
-	res := h.RunExpect(core.ExitOK, "next", slug)
-	if !strings.Contains(res.Stdout, "NEXT TASK: T1") {
-		t.Fatalf("expected T1 as frontier, got %q", res.Stdout)
+// newDemoSpec initializes a project and a "demo" spec whose single task has a
+// trivially-passing verify command, then returns the root.
+func newDemoSpec(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := Run(root, "init", nil, nil); err != nil {
+		t.Fatalf("init: %v", err)
 	}
-
-	// Cannot complete T2 before T1 (dependency gate).
-	h.RunExpect(core.ExitGate, "task", slug, "T2", "--status", "complete", "--unverified", "--evidence", "x")
-
-	// Verify + complete T1.
-	h.RunExpect(core.ExitOK, "verify", slug, "T1")
-	h.State(slug).Raw() // ensure loadable
-	h.RunExpect(core.ExitOK, "task", slug, "T1", "--status", "complete")
-	h.State(slug).TaskStatus("T1", core.TaskComplete)
-
-	// Now T2 is runnable; verify + complete it.
-	h.RunExpect(core.ExitOK, "verify", slug, "T2")
-	h.RunExpect(core.ExitOK, "task", slug, "T2", "--status", "complete")
-
-	// All tasks done → spec auto-derives to verifying.
-	h.State(slug).TaskStatus("T2", core.TaskComplete).Status(core.StatusVerifying)
-
-	// check is still green after completion (evidence + sync gates).
-	h.RunExpect(core.ExitOK, "check", slug)
-
-	// Accept verification → complete.
-	h.RunExpect(core.ExitOK, "approve", slug)
-	h.State(slug).Status(core.StatusComplete).Phase(core.PhaseReflect)
-
-	// tasks.md checkboxes were rewritten to reflect completion.
-	h.AssertFileContains(".specd/specs/auth/tasks.md", "[x] T1")
-	h.AssertFileContains(".specd/specs/auth/tasks.md", "[x] T2")
+	if err := Run(root, "new", []string{"demo"}, nil); err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | - | true | ok |")
+	authorDemoSpec(t, root, "demo")
+	return root
 }
 
-// TestLifecycleReportReflectsFinalState drives the spec all the way to complete
-// and then runs `report`, proving R3.3: the report renders the final state. It
-// also exercises the tail of the new→…→report walk via the real CLI.
-func TestLifecycleReportReflectsFinalState(t *testing.T) {
-	h := th.New(t)
-	slug := h.Spec("auth").
-		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
-		FullDesign().
-		AddTask(th.TaskSpec{ID: "T1", Title: "Implement login", Verify: "true", Requirements: []int{1}}).
-		Status(core.StatusExecuting).
-		Build()
+func writeTasks(t *testing.T, root, slug, row string) {
+	t.Helper()
+	path := filepath.Join(core.SpecdDir(root), "specs", slug, "tasks.md")
+	body := "# Tasks\n\n| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n" + row + "\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("write tasks: %v", err)
+	}
+}
 
-	h.RunExpect(core.ExitOK, "verify", slug, "T1")
-	h.RunExpect(core.ExitOK, "task", slug, "T1", "--status", "complete")
-	h.State(slug).Status(core.StatusVerifying)
-	h.RunExpect(core.ExitOK, "approve", slug)
-	h.State(slug).Status(core.StatusComplete)
-
-	// report (markdown to stdout) must reflect the completed spec.
-	res := h.RunExpect(core.ExitOK, "report", slug)
-	for _, want := range []string{"auth", "T1"} {
-		if !strings.Contains(res.Stdout, want) {
-			t.Errorf("report stdout missing %q:\n%s", want, res.Stdout)
+func captureStdout(t *testing.T, fn func() error) (string, error) {
+	t.Helper()
+	orig := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := fn()
+	w.Close()
+	os.Stdout = orig
+	buf := make([]byte, 0, 4096)
+	tmp := make([]byte, 1024)
+	for {
+		n, readErr := r.Read(tmp)
+		buf = append(buf, tmp[:n]...)
+		if readErr != nil {
+			break
 		}
 	}
+	return string(buf), err
 }
 
-// TestLifecycleOutOfOrderBlocked drives R3.2: a lifecycle step attempted out of
-// order is refused (non-zero), not silently performed. Flipping a task to
-// complete while the spec is still in requirements (no executing phase, no
-// verification) must be blocked.
-func TestLifecycleOutOfOrderBlocked(t *testing.T) {
-	h := th.New(t)
-	slug := h.Spec("auth").
-		Req("Login", "As a user, I want to authenticate", "THE SYSTEM SHALL authenticate users.").
-		FullDesign().
-		AddTask(th.TaskSpec{ID: "T1", Title: "Implement login", Verify: "true", Requirements: []int{1}}).
-		Status(core.StatusRequirements).
-		Build()
+func TestApproveGatesE2E(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
 
-	if res := h.Run("task", slug, "T1", "--status", "complete"); res.OK() {
-		t.Errorf("task complete in requirements phase should be blocked, got exit 0:\n%s", res.Out())
+	// Green readiness: approve ratchets to design and records approval.
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve (green): %v", err)
 	}
-	// State must be untouched by the rejected step.
-	h.State(slug).Status(core.StatusRequirements)
+	state, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != core.StatusDesign {
+		t.Fatalf("status = %q, want design", state.Status)
+	}
+	if _, ok := state.Records["approval:design"]; !ok {
+		t.Fatal("approval record not written")
+	}
+
+	// Red readiness: a dangling dependency makes the dag gate error; approve
+	// must refuse and leave state unchanged.
+	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | T9 | true | ok |")
+	before, _ := core.LoadState(statePath)
+	if err := Run(root, "approve", []string{"demo", "tasks"}, nil); err == nil {
+		t.Fatal("approve should refuse on red readiness gates")
+	}
+	after, _ := core.LoadState(statePath)
+	if after.Status != before.Status || after.Revision != before.Revision {
+		t.Fatalf("state mutated on refused approve: %+v -> %+v", before, after)
+	}
 }
 
-// TestExitCodeTaxonomyCLI is the R4 golden table at the dispatch level: each
-// scenario maps to a stable, distinct exit code. This freezes the script-facing
-// contract end to end (R4.1 distinct codes, R4.2 success → 0).
-func TestExitCodeTaxonomyCLI(t *testing.T) {
-	cases := []struct {
+func TestMidreqDecisionAppend(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	before, _ := core.LoadState(statePath)
+
+	if err := Run(root, "midreq", []string{"demo"}, map[string]string{"text": "raise budget"}); err != nil {
+		t.Fatalf("midreq: %v", err)
+	}
+	if err := Run(root, "decision", []string{"demo"}, map[string]string{"text": "use CAS", "scope": "state"}); err != nil {
+		t.Fatalf("decision: %v", err)
+	}
+	state, _ := core.LoadState(statePath)
+	if _, ok := state.Records["midreq:0"]; !ok {
+		t.Fatal("midreq record missing")
+	}
+	var rec core.Record
+	if err := json.Unmarshal(state.Records["decision:0"], &rec); err != nil {
+		t.Fatalf("decision record: %v", err)
+	}
+	if rec.Text != "use CAS" || rec.Scope != "state" {
+		t.Fatalf("decision content not round-tripped: %+v", rec)
+	}
+	if rec.Timestamp == "" || rec.Actor == "" || rec.GitHead == "" {
+		t.Fatalf("decision record not stamped: %+v", rec)
+	}
+	if state.Status != before.Status {
+		t.Fatalf("unrelated field mutated: status %q -> %q", before.Status, state.Status)
+	}
+	if state.Revision <= before.Revision {
+		t.Fatal("revision not advanced via CAS")
+	}
+}
+
+// TestDecisionRequiresText asserts decision/midreq without --text is a usage
+// error and writes nothing — a recorded decision that records no content
+// records nothing (R3.1).
+func TestDecisionRequiresText(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+
+	for _, verb := range []string{"decision", "midreq"} {
+		if err := Run(root, verb, []string{"demo"}, nil); err == nil {
+			t.Fatalf("%s without --text: want usage error, got nil", verb)
+		}
+		if err := Run(root, verb, []string{"demo"}, map[string]string{"text": "  "}); err == nil {
+			t.Fatalf("%s with blank --text: want usage error, got nil", verb)
+		}
+	}
+	state, _ := core.LoadState(statePath)
+	if len(state.Records) != 0 {
+		t.Fatalf("failed decision/midreq wrote records: %v", state.Records)
+	}
+}
+
+func TestStatusNextVerifyOnRealSpec(t *testing.T) {
+	root := newDemoSpec(t)
+	for _, verb := range []struct {
 		name string
-		args []string                   // command + args
-		set  func(h *th.Harness) string // builds spec, returns slug to substitute for "" placeholder
-		want int
+		args []string
 	}{
-		{
-			name: "success: check clean spec",
-			args: []string{"check", ""},
-			set: func(h *th.Harness) string {
-				return h.Spec("ok").
-					Req("R", "story", "THE SYSTEM SHALL work.").
-					FullDesign().
-					AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
-					Status(core.StatusExecuting).
-					Build()
-			},
-			want: core.ExitOK,
-		},
-		{
-			name: "validation failure: check non-EARS spec",
-			args: []string{"check", ""},
-			set: func(h *th.Harness) string {
-				return h.Spec("bad").Req("R", "story", "this is not ears").Status(core.StatusRequirements).Build()
-			},
-			want: core.ExitGate,
-		},
-		{
-			name: "gate block: out-of-order task complete",
-			args: []string{"task", "", "T1", "--status", "complete"},
-			set: func(h *th.Harness) string {
-				return h.Spec("gated").
-					Req("R", "story", "THE SYSTEM SHALL work.").
-					FullDesign().
-					AddTask(th.TaskSpec{ID: "T1", Verify: "true", Requirements: []int{1}}).
-					Status(core.StatusRequirements).
-					Build()
-			},
-			want: core.ExitGate,
-		},
-		{
-			name: "not found: report missing spec",
-			args: []string{"report", "does-not-exist"},
-			set:  func(h *th.Harness) string { return "" },
-			want: core.ExitNotFound,
-		},
-		{
-			name: "usage: report with no slug",
-			args: []string{"report"},
-			set:  func(h *th.Harness) string { return "" },
-			want: core.ExitUsage,
-		},
+		{"status", []string{"demo"}},
+		{"report", []string{"demo"}},
+	} {
+		if _, err := captureStdout(t, func() error { return Run(root, verb.name, verb.args, nil) }); err != nil {
+			t.Fatalf("%s: %v", verb.name, err)
+		}
+	}
+	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+		t.Fatalf("approve requirements: %v", err)
+	}
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve design: %v", err)
+	}
+	// context is an execution verb: gated out of the requirements (perceive)
+	// phase, allowed once requirements are approved (spec 03 R2).
+	if _, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, nil) }); err != nil {
+		t.Fatalf("context: %v", err)
+	}
+	if _, err := captureStdout(t, func() error { return Run(root, "next", []string{"demo"}, nil) }); err != nil {
+		t.Fatalf("next: %v", err)
+	}
+	if _, err := captureStdout(t, func() error { return Run(root, "verify", []string{"demo", "T1"}, nil) }); err != nil {
+		t.Fatalf("verify: %v", err)
 	}
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			h := th.New(t)
-			slug := c.set(h)
-			args := append([]string(nil), c.args...)
-			for i := range args {
-				if args[i] == "" {
-					args[i] = slug
-				}
-			}
-			h.RunExpect(c.want, args[0], args[1:]...)
-		})
+	// verify wrote an evidence record for T1.
+	evidence, err := core.LoadEvidence(core.EvidencePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := evidence["T1"]; !ok {
+		t.Fatal("verify did not record evidence for T1")
 	}
 }
 
-// TestVerifyExecution exercises the real shell execution path of `verify`,
-// including pass, fail, and the verified-record gate on completion.
-func TestVerifyExecution(t *testing.T) {
-	t.Run("passing_command_records_verified", func(t *testing.T) {
-		h := th.New(t)
-		h.Spec("auth").
-			Req("R", "story", "THE SYSTEM SHALL work.").
-			AddTask(th.TaskSpec{ID: "T1", Verify: "exit 0"}).
-			Status(core.StatusExecuting).
-			Build()
-		res := h.RunExpect(core.ExitOK, "verify", "auth", "T1")
-		if !strings.Contains(res.Stdout, "verified") {
-			t.Errorf("expected verified mark, got %q", res.Stdout)
+func TestTaskShowsDetails(t *testing.T) {
+	root := newDemoSpec(t)
+	out, err := captureStdout(t, func() error { return Run(root, "task", []string{"T1"}, nil) })
+	if err != nil {
+		t.Fatalf("task: %v", err)
+	}
+	for _, want := range []string{"T1", "craftsman", "true"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("task output missing %q:\n%s", want, out)
 		}
-		rec := h.State("auth").Raw().Tasks["T1"].Verification
-		if rec == nil || !rec.Verified || rec.ExitCode != 0 {
-			t.Errorf("verification record not recorded as passing: %+v", rec)
-		}
-	})
-
-	t.Run("failing_command_is_a_gate_exit_and_blocks_completion", func(t *testing.T) {
-		h := th.New(t)
-		h.Spec("auth").
-			Req("R", "story", "THE SYSTEM SHALL work.").
-			AddTask(th.TaskSpec{ID: "T1", Verify: "exit 7"}).
-			Status(core.StatusExecuting).
-			Build()
-		res := h.RunExpect(core.ExitGate, "verify", "auth", "T1")
-		if !strings.Contains(res.Stdout, "FAILED") {
-			t.Errorf("expected FAILED mark, got %q", res.Stdout)
-		}
-		if rec := h.State("auth").Raw().Tasks["T1"].Verification; rec == nil || rec.ExitCode != 7 {
-			t.Errorf("expected recorded exit 7, got %+v", rec)
-		}
-		// Completion is refused because the record is not verified.
-		h.RunExpect(core.ExitGate, "task", "auth", "T1", "--status", "complete")
-	})
-
-	t.Run("captures_git_head_when_in_a_repo", func(t *testing.T) {
-		h := th.New(t)
-		h.InitGit() // skips if git absent
-		h.Spec("auth").
-			Req("R", "story", "THE SYSTEM SHALL work.").
-			AddTask(th.TaskSpec{ID: "T1", Verify: "true"}).
-			Status(core.StatusExecuting).
-			Build()
-		head := h.GitCommitAll("seed spec")
-		h.RunExpect(core.ExitOK, "verify", "auth", "T1")
-		rec := h.State("auth").Raw().Tasks["T1"].Verification
-		if rec.GitHead == nil || *rec.GitHead != head {
-			t.Errorf("gitHead = %v, want %q", rec.GitHead, head)
-		}
-	})
+	}
 }
 
-// TestVerifyCriterion covers the per-criterion acceptance proof path.
-func TestVerifyCriterion(t *testing.T) {
-	h := th.New(t)
-	h.Spec("auth").
-		Req("Login", "story", "THE SYSTEM SHALL authenticate users.").
-		Status(core.StatusVerifying).
-		Build()
+func TestBrainDispatchesFrontierViaCLI(t *testing.T) {
+	root := newDemoSpec(t)
+	sessionPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "session.json")
+	acpPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "acp.jsonl")
 
-	h.RunExpect(core.ExitOK, "verify", "auth", "--criterion", "1.1", "--status", "pass", "--evidence", "manual test ok")
-	h.State("auth").AcceptanceStatus("1.1", "pass")
+	// brain is an execution verb: advance past the requirements (perceive)
+	// phase before stepping the controller (spec 03 R2).
+	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+		t.Fatalf("approve requirements: %v", err)
+	}
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve design: %v", err)
+	}
 
-	// A failing criterion exits gate(1) but is still recorded.
-	h.RunExpect(core.ExitGate, "verify", "auth", "--criterion", "1.2", "--status", "fail", "--evidence", "broke")
-	h.State("auth").AcceptanceStatus("1.2", "fail")
+	// Fail-closed: no authority => wait, no lease, no evidence.
+	if _, err := captureStdout(t, func() error { return Run(root, "brain", []string{"step", "demo"}, nil) }); err != nil {
+		t.Fatalf("brain step (no authority): %v", err)
+	}
+	session, _ := orchestration.LoadSession(sessionPath)
+	if len(session.Leases) != 0 {
+		t.Fatal("dispatched without authority (should fail closed)")
+	}
+	if events, _ := orchestration.ReadACP(acpPath); len(events) != 0 {
+		t.Fatal("wrote evidence without authority")
+	}
 
-	// Undefined requirement number is rejected.
-	h.RunExpect(core.ExitGate, "verify", "auth", "--criterion", "9.1", "--status", "pass", "--evidence", "x")
-
-	// Bad criterion format / missing evidence are usage errors.
-	h.RunExpect(core.ExitUsage, "verify", "auth", "--criterion", "abc", "--status", "pass", "--evidence", "x")
-	h.RunExpect(core.ExitUsage, "verify", "auth", "--criterion", "1.1", "--status", "pass")
+	// With authority: dispatch frontier, write session lease + ACP evidence.
+	flags := map[string]string{"authority": "true"}
+	if _, err := captureStdout(t, func() error { return Run(root, "brain", []string{"step", "demo"}, flags) }); err != nil {
+		t.Fatalf("brain step (authority): %v", err)
+	}
+	session, _ = orchestration.LoadSession(sessionPath)
+	if len(session.Leases) != 1 || session.Leases[0].TaskID != "T1" {
+		t.Fatalf("expected one lease on T1, got %+v", session.Leases)
+	}
+	events, _ := orchestration.ReadACP(acpPath)
+	if len(events) != 1 || events[0].Kind != "dispatch" || events[0].TaskID != "T1" {
+		t.Fatalf("expected one dispatch event for T1, got %+v", events)
+	}
 }

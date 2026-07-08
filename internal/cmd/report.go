@@ -1,158 +1,220 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
+	"sort"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
-// gitRecentCommits returns recent commit subjects from the local repository for
-// the commit↔task link map. It is best-effort and read-only: outside a git repo
-// (or on any git error) it returns nil so the PR summary degrades gracefully
-// without the commit section. It shells out to local git only — no network.
-func gitRecentCommits(root string) []core.Commit {
-	out, err := exec.Command("git", "-C", root, "log", "--max-count=50", "--no-color", "--pretty=format:%H\x1f%s").Output()
+// gatherHistory projects a spec's audit trail from every on-disk record source
+// into a single ordered slice (spec 13 R1/R2). It opens files read-only and
+// writes nothing; the caller sorts and renders. Sources that a spec has not
+// exercised (no submissions, no ACP ledger) simply contribute no events —
+// graceful degradation, no placeholder lines.
+func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEvent, error) {
+	var events []core.HistoryEvent
+
+	// 1. Stamped state.json records: approvals, decisions, mid-requirement notes.
+	state, err := core.LoadState(core.StatePath(root, slug))
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	var commits []core.Commit
-	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
-		if line == "" {
+	for seq, key := range sortedRecordKeys(state.Records) {
+		var rec core.Record
+		if err := json.Unmarshal(state.Records[key], &rec); err != nil {
+			return nil, err
+		}
+		event := core.HistoryEvent{
+			Timestamp: rec.Timestamp,
+			Actor:     rec.Actor,
+			Event:     rec.Kind,
+			GitHead:   rec.GitHead,
+			Seq:       seq,
+		}
+		switch rec.Kind {
+		case "approval":
+			event.SourceRank = core.HistorySourceApproval
+			event.Reference = "gate=" + rec.Gate
+		case "decision":
+			event.SourceRank = core.HistorySourceDecision
+			event.Reference = recordSummary(rec)
+		case "midreq":
+			event.SourceRank = core.HistorySourceMidReq
+			event.Reference = recordSummary(rec)
+		default:
+			event.SourceRank = core.HistorySourceDecision
+			event.Reference = recordSummary(rec)
+		}
+		events = append(events, event)
+	}
+
+	// 2. Verify evidence (every attempt, in append order) and completions.
+	attempts, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+	if err != nil {
+		return nil, err
+	}
+	for seq, rec := range attempts {
+		verdict := "pass"
+		if rec.ExitCode != 0 {
+			verdict = "fail"
+		}
+		events = append(events, core.HistoryEvent{
+			Timestamp:  rec.Timestamp,
+			Actor:      rec.Actor,
+			Event:      "verify:" + verdict,
+			Reference:  "task=" + rec.TaskID,
+			GitHead:    rec.GitHead,
+			SourceRank: core.HistorySourceVerify,
+			Seq:        seq,
+		})
+	}
+	// A completion is a task now marked complete; its provenance is the passing
+	// verify record (last-write-wins per task), so no separate store is needed.
+	latest, err := core.LoadEvidence(core.EvidencePath(root, slug))
+	if err != nil {
+		return nil, err
+	}
+	for seq, task := range model.Tasks {
+		if task.Status != core.TaskComplete {
 			continue
 		}
-		parts := strings.SplitN(line, "\x1f", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		commits = append(commits, core.Commit{SHA: parts[0], Subject: parts[1]})
+		rec := latest[task.ID]
+		events = append(events, core.HistoryEvent{
+			Timestamp:  rec.Timestamp,
+			Actor:      rec.Actor,
+			Event:      "completion",
+			Reference:  "task=" + task.ID,
+			GitHead:    rec.GitHead,
+			SourceRank: core.HistorySourceCompletion,
+			Seq:        seq,
+		})
 	}
-	return commits
-}
 
-// runPRSummary renders a deterministic, network-free PR summary (Markdown, or
-// JSON under SPECD_JSON): wave/task progress + gate status, plus the commit↔task
-// link map when a local git history is available. It runs the same gate pipeline
-// as `specd check` and makes no network calls.
-func runPRSummary(root, slug string, state *core.State) int {
-	ctx, pre, err := buildCheckCtx(root, slug, false)
+	// 3. Acceptance-criterion evidence ledger (spec 04).
+	criteria, err := core.LoadCriteria(core.CriteriaPath(root, slug))
 	if err != nil {
-		return specdExit(err)
+		return nil, err
 	}
-	v, warnings := core.RunGates(ctx)
-	violations := append([]core.Violation{}, pre...)
-	violations = append(violations, v...)
+	for seq, rec := range criteria {
+		events = append(events, core.HistoryEvent{
+			Timestamp:  rec.Timestamp,
+			Actor:      rec.Actor,
+			Event:      "criterion:" + rec.Status,
+			Reference:  "criterion=" + rec.Criterion,
+			GitHead:    rec.GitHead,
+			SourceRank: core.HistorySourceCriterion,
+			Seq:        seq,
+		})
+	}
 
-	commits := core.LinkCommits(gitRecentCommits(root))
-	summary := core.BuildPRSummary(state, violations, warnings, commits)
-
-	if core.IsJSONMode() {
-		if err := core.PrintJSON(summary); err != nil {
-			return specdExit(err)
-		}
-	} else {
-		fmt.Print(summary.Markdown())
-	}
-	if !summary.GatesOK {
-		return core.ExitGate
-	}
-	return core.ExitOK
-}
-
-// loadReportData assembles the ReportData a report/serve render consumes: the
-// already-loaded state plus the six on-disk artifacts. It is the single source
-// of report-data construction shared by `specd report` and `specd serve`, so the
-// served view stays byte-identical to the static report.
-func loadReportData(root, slug string, state *core.State) core.ReportData {
-	return core.ReportData{
-		State:        state,
-		Requirements: core.ReadArtifact(root, slug, "requirements.md"),
-		Design:       core.ReadArtifact(root, slug, "design.md"),
-		Tasks:        core.ReadArtifact(root, slug, "tasks.md"),
-		Decisions:    core.ReadArtifact(root, slug, "decisions.md"),
-		Memory:       core.ReadArtifact(root, slug, "memory.md"),
-		MidReqs:      core.ReadArtifact(root, slug, "mid-requirements.md"),
-	}
-}
-
-// RunReport implements `specd report`. It dispatches to the --history, --diff,
-// --serve, --watch, and --pr-summary modes; with none of those flags it loads
-// the spec and renders the static report (Markdown, HTML, or Prometheus
-// metrics) to stdout or, with --out, to a file.
-func RunReport(args cli.Args) int {
-	if args.Bool("history") {
-		return runReplay(args)
-	}
-	if args.Bool("diff") {
-		return runDiff(args)
-	}
-	if args.Bool("serve") {
-		return runServe(args)
-	}
-	if args.Bool("watch") {
-		watchArgs := args
-		watchArgs.Pos = nil
-		watchArgs.Flags = cloneFlags(args.Flags)
-		if len(args.Pos) > 0 && watchArgs.Str("spec") == "" {
-			watchArgs.Flags["spec"] = args.Pos[0]
-		}
-		return runWatch(watchArgs)
-	}
-	root, slug, code, ok := requireRootAndSlug(args, "usage: specd report <slug> [--format md|html|prometheus] [--out <path>]")
-	if !ok {
-		return code
-	}
-	loaded, err := core.LoadSpec(root, slug)
+	// 4. Submission ledger (spec 08).
+	submissions, err := core.LoadSubmissions(core.SubmissionsPath(root, slug))
 	if err != nil {
-		return specdExit(err)
+		return nil, err
 	}
-	state := loaded.State
-	cfg := core.LoadConfig(root)
-
-	if args.Bool("pr-summary") {
-		return runPRSummary(root, slug, state)
-	}
-	if args.Bool("conductor") {
-		return runConductorReport(root, slug, args.Bool("json"))
-	}
-
-	format := args.Str("format")
-	if format == "" {
-		format = cfg.Report.Format
-	}
-	if format != "md" && format != "html" && format != "prometheus" {
-		return usageExit("--format must be md, html, or prometheus")
+	for seq, rec := range submissions {
+		events = append(events, core.HistoryEvent{
+			Timestamp:  rec.Timestamp,
+			Actor:      rec.Actor,
+			Event:      "submission",
+			Reference:  fmt.Sprintf("exit=%d command=%q", rec.Exit, rec.Command),
+			GitHead:    rec.GitHead,
+			SourceRank: core.HistorySourceSubmission,
+			Seq:        seq,
+		})
 	}
 
-	data := loadReportData(root, slug, state)
-
-	var out string
-	switch format {
-	case "html":
-		out = core.RenderHTML(data, cfg.Report.AutoRefreshSeconds)
-	case "prometheus":
-		out = core.RenderPrometheusMetrics(data)
-	default:
-		out = core.RenderMarkdown(data)
+	// 5. ACP ledger (opt-in brain): claims, reports, dispatches.
+	acp, err := orchestration.ReadACP(filepath.Join(core.SpecdDir(root), "specs", slug, "acp.jsonl"))
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range acp {
+		events = append(events, core.HistoryEvent{
+			Timestamp:  e.Time.UTC().Format("2006-01-02T15:04:05Z07:00"),
+			Event:      "acp:" + e.Kind,
+			Reference:  acpReference(e),
+			SourceRank: core.HistorySourceACP,
+			Seq:        e.Seq,
+		})
 	}
 
-	outPath := args.Str("out")
-	if outPath != "" {
-		abs := outPath
-		if !filepath.IsAbs(outPath) {
-			cwd, _ := os.Getwd()
-			abs = filepath.Join(cwd, outPath)
+	return events, nil
+}
+
+// gatherPrometheus assembles the metric snapshot from the same sources report
+// already reads: task statuses, verify evidence, criterion coverage, telemetry.
+func gatherPrometheus(root, slug string, model core.ReportModel) (core.PrometheusMetrics, error) {
+	metrics := core.PrometheusMetrics{
+		Slug:          slug,
+		TasksByStatus: map[string]int{},
+	}
+	for _, task := range model.Tasks {
+		metrics.TasksByStatus[string(task.Status)]++
+	}
+
+	attempts, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+	if err != nil {
+		return core.PrometheusMetrics{}, err
+	}
+	metrics.VerifyAttempts = len(attempts)
+	for _, rec := range attempts {
+		if rec.ExitCode != 0 {
+			metrics.VerifyFailures++
 		}
-		if err := core.AtomicWrite(abs, out); err != nil {
-			return specdExit(err)
-		}
-		fmt.Printf("report: wrote %s → %s\n", format, outPath)
-	} else {
-		fmt.Print(out)
 	}
-	return core.ExitOK
+
+	coverage, err := criterionCoverage(root, slug)
+	if err != nil {
+		return core.PrometheusMetrics{}, err
+	}
+	for _, req := range coverage {
+		metrics.CriteriaTotal += req.Total
+		metrics.CriteriaPassing += req.Passing
+	}
+
+	telemetry, err := aggregateTelemetry(root, slug, model)
+	if err != nil {
+		return core.PrometheusMetrics{}, err
+	}
+	metrics.Tokens = telemetry.Tokens
+	metrics.Cost = telemetry.Cost
+	metrics.DurationMs = telemetry.DurationMs
+
+	return metrics, nil
+}
+
+// recordSummary renders a decision/midreq reference: its scope (when set) and a
+// bounded slice of its text, kept short so the history stays one line per event.
+func recordSummary(rec core.Record) string {
+	text := rec.Text
+	if len(text) > 60 {
+		text = text[:57] + "..."
+	}
+	if rec.Scope != "" {
+		return fmt.Sprintf("scope=%s %s", rec.Scope, text)
+	}
+	return text
+}
+
+func acpReference(e orchestration.ACPEvent) string {
+	if e.TaskID == "" {
+		return ""
+	}
+	return "task=" + e.TaskID
+}
+
+// sortedRecordKeys returns the state.json record keys in a stable order so the
+// per-key Seq assigned to each event is deterministic across runs (spec 13 R3).
+func sortedRecordKeys(records map[string]json.RawMessage) []string {
+	keys := make([]string, 0, len(records))
+	for key := range records {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

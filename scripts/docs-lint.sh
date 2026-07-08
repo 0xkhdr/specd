@@ -1,60 +1,37 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+
+if ! cmp -s "$root/docs/command-reference.md" "$root/docs/CHEATSHEET.md"; then
+	echo "docs-lint: docs/CHEATSHEET.md must mirror docs/command-reference.md" >&2
+	exit 1
+fi
+
+# --- Drift guard (SPEC-07 T-07-05): gate count + Go version from one source ---
+# Two facts drift because they live in prose in many docs. Pin each to its single
+# authoritative on-disk source and fail the lint when a doc disagrees.
 cd "$root"
+docs="README.md CLAUDE.md CONTRIBUTING.md TESTING.md CHANGELOG.md SECURITY.md \
+	docs/README.md docs/validation-gates.md docs/concepts.md docs/user-guide.md \
+	docs/command-reference.md docs/CHEATSHEET.md docs/contributor-guide.md docs/github-action.md \
+	docs/agent-integration.md docs/mcp-guide.md docs/open-spec-format.md docs/troubleshooting.md \
+	docs/scale-envelope.md docs/observability.md docs/versioning-policy.md"
 
-# Post-v0.1.0-cleanup, there is no more grace-period deprecation model in the
-# codebase (commands are either present or fully deleted), so the only check
-# left here is that the cheat sheet and its canonical spec copy agree.
-#
-# `docs/command-reference.md`'s "## Cheat sheet" table is the single source of
-# truth; `docs/CHEATSHEET.md` is a verbatim mirror. This lint asserts
-# *content equality* between the two tables (not just a row count) so the mirror
-# cannot silently drift — a wrong command, reordering, or edited description in
-# either file fails the check. The survivor list is derived from the source
-# table, not hardcoded here, so adding/removing a command only requires editing
-# the two doc tables (which this check then keeps in lockstep).
-python3 - <<'PY'
-import re, sys
-from pathlib import Path
+# 1. Gate count — authoritative source: the registrations in the core registry.
+gate_count=$(grep -c 'registry.Register(' internal/core/gates/core.go)
+if grep -rhoE '[0-9]+ core gates' $docs | grep -qvx "${gate_count} core gates"; then
+	echo "docs-lint: a doc claims a gate count other than the ${gate_count} registered in internal/core/gates/core.go" >&2
+	grep -rnoE '[0-9]+ core gates' $docs | grep -v "${gate_count} core gates" >&2
+	exit 1
+fi
 
-ROW = re.compile(r'^\| (`[^`]+`) \| (.+?) \|\s*$', re.M)
+# 2. Go floor — authoritative source: the `go` directive in go.mod.
+go_floor=$(awk '$1 == "go" { print $2; exit }' go.mod)
+if grep -rhoE 'Go 1\.[0-9]+\+' $docs | grep -qvx "Go ${go_floor}+"; then
+	echo "docs-lint: a doc claims a Go floor other than go.mod's ${go_floor}" >&2
+	grep -rnoE 'Go 1\.[0-9]+\+' $docs | grep -v "Go ${go_floor}+" >&2
+	exit 1
+fi
 
-def cheat_rows(text, *, section=None):
-    """Return [(command, description)] for the first markdown table.
-
-    If `section` is given, scope to the block under that "## <section>" heading
-    up to the next "## " heading; otherwise scan the whole document (used for
-    CHEATSHEET.md, which is a single table)."""
-    if section is not None:
-        m = re.search(rf'^##\s+{re.escape(section)}\s*$(.*?)(?=^##\s|\Z)',
-                      text, re.M | re.S)
-        if not m:
-            sys.exit(f'section "{section}" not found')
-        text = m.group(1)
-    rows = ROW.findall(text)
-    # Drop a leading header row like "| Command | ... |" if present.
-    return [(c, d.strip()) for c, d in rows if c not in ('Command', '`Command`')]
-
-ref = cheat_rows(Path('docs/command-reference.md').read_text(), section='Cheat sheet')
-mirror = cheat_rows(Path('docs/CHEATSHEET.md').read_text())
-
-if not ref:
-    sys.exit('command-reference cheat sheet is empty')
-
-if ref != mirror:
-    # Report the first divergence for a fast fix.
-    for i, (a, b) in enumerate(zip(ref, mirror)):
-        if a != b:
-            print(f'cheat-sheet drift at row {i + 1}:', file=sys.stderr)
-            print(f'  command-reference: {a}', file=sys.stderr)
-            print(f'  CHEATSHEET.md:     {b}', file=sys.stderr)
-            break
-    else:
-        print(f'cheat-sheet row-count drift: command-reference has {len(ref)}, '
-              f'CHEATSHEET.md has {len(mirror)}', file=sys.stderr)
-    sys.exit(1)
-
-print(f'docs-lint ok: cheat sheet mirrors match ({len(ref)} commands)')
-PY
+echo "docs-lint: ok"

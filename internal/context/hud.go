@@ -1,57 +1,46 @@
-package contextpkg
+package context
 
 import (
-	"os"
-	"path/filepath"
-	"sort"
+	"fmt"
+	"strings"
+	"text/tabwriter"
 )
 
-// ContextHUD is the deterministic context heads-up display for a spec: the
-// steering/skill files a host would load, their on-disk byte and approximate
-// token cost, and the active mode/tier. Every field is derived from files on
-// disk and recorded state only — no interpretation, no LLM call — so the same
-// inputs always render the same HUD (invariant 6/7). It is shared by the
-// `specd context --hud` CLI, the SSE `hud` event, and the MCP resource.
-type ContextHUD struct {
-	Spec         string    `json:"spec"`
-	Mode         string    `json:"mode"`
-	Tier         string    `json:"tier,omitempty"`
-	Files        []HUDFile `json:"files"`
-	Skills       []string  `json:"skills"`
-	TotalBytes   int       `json:"totalBytes"`
-	ApproxTokens int       `json:"approxTokens"`
-}
+// RenderHUD formats an already-built Manifest as a human-readable operator view:
+// a table of load items with byte size and estimated token cost, a total row,
+// and the spec's mode/tier line. It is a pure projection of the Manifest — no
+// new estimation, no LLM, no I/O (ADR-8). The token total equals the value the
+// --json surface serializes (manifest.EstimatedTokens), so the two renders never
+// diverge numerically (RH.3).
+func RenderHUD(m Manifest) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "mode: %s  spec: %s  task: %s\n\n", m.Mode, m.Slug, m.TaskID)
 
-// HUDFile is one load-list entry with its measured cost. Missing files are
-// reported with Exists=false and zero cost rather than omitted, so a host can
-// tell an absent steering file from an empty one.
-type HUDFile struct {
-	Path         string `json:"path"`
-	Exists       bool   `json:"exists"`
-	Bytes        int    `json:"bytes"`
-	ApproxTokens int    `json:"approxTokens"`
-}
-
-// BuildContextHUD measures each load file from disk and totals the byte/token
-// cost. loadFiles are root-relative paths (steering + artifacts + skills); the
-// order is preserved so the HUD reads top-to-bottom like the load list. skills
-// is the deduplicated set of active skill files (a subset of loadFiles),
-// surfaced separately for a host that wants just the skills.
-func BuildContextHUD(root, spec, mode, tier string, loadFiles, skills []string) ContextHUD {
-	hud := ContextHUD{Spec: spec, Mode: mode, Tier: tier}
-	for _, rel := range loadFiles {
-		f := HUDFile{Path: rel}
-		if b, err := os.ReadFile(filepath.Join(root, rel)); err == nil {
-			f.Exists = true
-			f.Bytes = len(b)
-			f.ApproxTokens = EstimateTokens(b)
-		}
-		hud.TotalBytes += f.Bytes
-		hud.ApproxTokens += f.ApproxTokens
-		hud.Files = append(hud.Files, f)
+	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "LOAD\tBYTES\tTOKENS")
+	totalBytes := 0
+	for _, item := range m.Items {
+		bytes := itemBytes(item)
+		totalBytes += bytes
+		fmt.Fprintf(tw, "%s\t%d\t%d\n", itemLabel(item), bytes, item.EstimatedTokens)
 	}
-	sk := append([]string{}, skills...)
-	sort.Strings(sk)
-	hud.Skills = sk
-	return hud
+	fmt.Fprintf(tw, "TOTAL\t%d\t%d\n", totalBytes, m.EstimatedTokens)
+	tw.Flush()
+	return b.String()
+}
+
+// itemBytes is the byte length of the exact string the estimator consumed for
+// this item, so tokens == (bytes+3)/4 holds by construction.
+func itemBytes(item Item) int {
+	return len(item.Kind + item.Path + item.TaskID)
+}
+
+func itemLabel(item Item) string {
+	if item.Path != "" {
+		return item.Path
+	}
+	if item.TaskID != "" {
+		return item.Kind + ":" + item.TaskID
+	}
+	return item.Kind
 }

@@ -1,19 +1,15 @@
-# Product — WHAT we're building & why
+# Steering: Product
 
-> TODO: Fill this in. Always-loaded steering. Keep it current.
+> Fill this in for your project. The harness reads it to keep work aligned with
+> intent. Replace the prompts below.
 
-## Product
+## Thesis
+- **What this product is:** <one sentence>
+- **Who it is for:** <primary user + the job they hire it for>
 
-TODO: One paragraph — what this product is.
+## Principles
+- <a principle a change must not violate>
+- <a boundary — what this product deliberately does NOT do>
 
-## Users
-
-TODO: Who uses it and what they need.
-
-## Value / why it exists
-
-TODO: The problem it solves; the outcome that matters.
-
-## Out of scope
-
-TODO: What we deliberately do not build.
+specd's own thesis, for reference: **Agent = Model + Harness.** The harness makes the
+plan safely delegable; every harness decision is deterministic and evidence-backed.

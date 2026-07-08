@@ -1,138 +1,50 @@
 package core
 
 import (
-	"fmt"
+	"os"
 	"path/filepath"
-	"sort"
+
+	embedtemplates "github.com/0xkhdr/specd/internal/core/embed_templates"
 )
 
-// ScaffoldPolicy controls how a scaffold asset is written to the project root.
-type ScaffoldPolicy string
-
-const (
-	// ScaffoldCreate writes the target file only if it does not already exist.
-	ScaffoldCreate ScaffoldPolicy = "create"
-	// ScaffoldMarkerMerge merges template content into an existing file between markers.
-	ScaffoldMarkerMerge ScaffoldPolicy = "marker-merge"
-)
-
-// ScaffoldAsset is one embedded asset managed by the default init flow.
-// Target is project-root relative and always uses slash separators.
-type ScaffoldAsset struct {
-	Template string         `json:"template"`
-	Target   string         `json:"target"`
-	Policy   ScaffoldPolicy `json:"policy"`
-	Required bool           `json:"required"`
-	Refresh  bool           `json:"refresh"`
-}
-
-// DefaultScaffoldManifest is the single source of truth for files installed by
-// the default init flow. Its order is the deterministic execution order.
-func DefaultScaffoldManifest() []ScaffoldAsset {
-	assets := make([]ScaffoldAsset, 0, 22)
-	for _, name := range []string{
-		"reasoning.md", "workflow.md", "product.md",
-		"tech.md", "structure.md", "memory.md",
-	} {
-		assets = append(assets, ScaffoldAsset{
-			Template: "steering/" + name,
-			Target:   ".specd/steering/" + name,
-			Policy:   ScaffoldCreate,
-			Required: true,
-			Refresh:  name == "reasoning.md" || name == "workflow.md",
-		})
-	}
-	for _, name := range []string{"scout.md", "craftsman.md", "auditor.md", "validator.md", "reviewer.md", "brain.md", "pinky.md"} {
-		assets = append(assets, ScaffoldAsset{
-			Template: "roles/" + name,
-			Target:   ".specd/roles/" + name,
-			Policy:   ScaffoldCreate,
-			Required: true,
-			Refresh:  true,
-		})
-	}
-	for _, name := range []string{
-		"specd-foundations", "specd-steering", "specd-requirements",
-		"specd-design", "specd-tasks", "specd-execute",
-		"specd-eval-author", "specd-brain", "specd-pinky",
-		"specd-review", "specd-maintenance", "specd-ingest",
-	} {
-		assets = append(assets, ScaffoldAsset{
-			Template: "skills/" + name + "/SKILL.md",
-			Target:   ".specd/skills/" + name + "/SKILL.md",
-			Policy:   ScaffoldCreate,
-			Required: true,
-			Refresh:  true,
-		})
-	}
-	// Worker-agent definitions (GAP-3): Claude Code sub-agents that turn a Brain
-	// dispatch into a running Pinky worker with zero ad-hoc prompt writing.
-	for _, role := range []string{"craftsman", "scout", "auditor", "validator"} {
-		assets = append(assets, ScaffoldAsset{
-			Template: "agents/pinky-" + role + ".md",
-			Target:   ".claude/agents/pinky-" + role + ".md",
-			Policy:   ScaffoldCreate,
-			Required: true,
-		})
-	}
-	assets = append(assets,
-		ScaffoldAsset{
-			Template: "runtime.gitignore",
-			Target:   ".specd/runtime/.gitignore",
-			Policy:   ScaffoldCreate,
-			Required: true,
-			Refresh:  true,
-		},
-		ScaffoldAsset{
-			Template: "config.yml",
-			Target:   ".specd/config.yml",
-			Policy:   ScaffoldCreate,
-			Required: true,
-		},
-		ScaffoldAsset{
-			Template: "AGENTS.md",
-			Target:   "AGENTS.md",
-			Policy:   ScaffoldMarkerMerge,
-			Required: true,
-		},
-	)
-	return assets
-}
-
-// ValidateScaffoldManifest verifies all templates before init writes anything.
-func ValidateScaffoldManifest(assets []ScaffoldAsset, readTemplate func(string) (string, error)) error {
-	seen := make(map[string]struct{}, len(assets))
-	for i, asset := range assets {
-		if asset.Template == "" || asset.Target == "" {
-			return fmt.Errorf("scaffold asset %d has empty template or target", i)
-		}
-		clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(asset.Target)))
-		if clean == "." || clean == ".." || filepath.IsAbs(filepath.FromSlash(asset.Target)) ||
-			len(clean) >= 3 && clean[:3] == "../" {
-			return fmt.Errorf("scaffold target %q escapes project root", asset.Target)
-		}
-		if _, ok := seen[clean]; ok {
-			return fmt.Errorf("duplicate scaffold target %q", asset.Target)
-		}
-		seen[clean] = struct{}{}
-		switch asset.Policy {
-		case ScaffoldCreate, ScaffoldMarkerMerge:
-		default:
-			return fmt.Errorf("scaffold target %q has unknown policy %q", asset.Target, asset.Policy)
-		}
-		if _, err := readTemplate(asset.Template); err != nil {
-			return fmt.Errorf("missing template %s: %w", asset.Template, err)
+func WriteScaffold(root string) error {
+	for _, dir := range []string{".specd/roles", ".specd/steering"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			return err
 		}
 	}
-	return nil
-}
-
-// SortedScaffoldTargets returns a stable target set for parity checks.
-func SortedScaffoldTargets(assets []ScaffoldAsset) []string {
-	targets := make([]string, 0, len(assets))
+	assets, err := ManagedAssets()
+	if err != nil {
+		return err
+	}
 	for _, asset := range assets {
-		targets = append(targets, asset.Target)
+		target := filepath.Join(root, asset.RelPath)
+		if _, err := os.Stat(target); err == nil {
+			continue // preserve an existing file; `init --repair` re-syncs its region
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		// Wrap the template in managed markers so drift repair can find the region
+		// while leaving any content the user later adds outside it untouched.
+		if err := os.WriteFile(target, []byte(asset.Block()+"\n"), 0o644); err != nil {
+			return err
+		}
 	}
-	sort.Strings(targets)
-	return targets
+	return writeAgents(root)
+}
+
+// writeAgents materializes AGENTS.md at the project root, merging into any
+// existing file so user-authored content outside the managed markers survives
+// (Spec 06 R6.3/R6.4). Idempotent: re-running replaces only the marked block.
+func writeAgents(root string) error {
+	generated, err := embedtemplates.FS.ReadFile("AGENTS.md")
+	if err != nil {
+		return err
+	}
+	target := filepath.Join(root, "AGENTS.md")
+	existing, err := os.ReadFile(target)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return AtomicWrite(target, MergeAgents(string(existing), string(generated)))
 }

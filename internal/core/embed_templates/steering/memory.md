@@ -1,6 +1,14 @@
-# Project Memory — promoted patterns
+# Steering: Memory
 
-Cross-spec patterns promoted here via `specd memory <spec> promote --key <k>` after appearing in
-3+ specs. Always-loaded steering. Spec-local learnings live in each spec's `memory.md`.
+Durable, promoted project facts learned from verified changes. This is the steering
+flywheel: patterns proven in real work graduate here so future tasks inherit them.
 
-<!-- promoted entries are appended below -->
+## Rules
+- Append only after a change is verified. One fact per entry.
+- Promote a pattern here once it has held across repeated tasks — not on first sight.
+- Record durable facts (a convention, a gotcha, a decision's consequence), not
+  conversation-local detail.
+- Append with `specd memory add`.
+
+## Promoted patterns
+<!-- specd appends verified, promoted facts below this line -->

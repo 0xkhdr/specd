@@ -1,146 +1,47 @@
 package integration
 
-import (
-	"context"
-	"fmt"
-	"sort"
-	"strings"
-)
+type Adapter interface {
+	Name() string
+	Install() InstallRecord
+	Snippet(slug, taskID string) string
+}
 
-// Registry stores adapters by stable CLI name.
+type InstallRecord struct {
+	Host  string `json:"host"`
+	Owner string `json:"owner"`
+}
+
 type Registry struct {
-	adapters map[string]HostAdapter
+	adapters map[string]Adapter
 }
 
-func NewRegistry(adapters ...HostAdapter) (*Registry, error) {
-	registry := &Registry{adapters: make(map[string]HostAdapter, len(adapters))}
+func NewRegistry(adapters ...Adapter) Registry {
+	registry := Registry{adapters: map[string]Adapter{}}
 	for _, adapter := range adapters {
-		if adapter == nil {
-			return nil, fmt.Errorf("host adapter is nil")
-		}
-		name := adapter.Name()
-		if name == "" {
-			return nil, fmt.Errorf("host adapter name is empty")
-		}
-		if name != strings.ToLower(name) || strings.TrimSpace(name) != name {
-			return nil, fmt.Errorf("host adapter name %q must be lowercase and trimmed", name)
-		}
-		if _, exists := registry.adapters[name]; exists {
-			return nil, fmt.Errorf("duplicate host adapter %q", name)
-		}
-		scopes := adapter.Scopes()
-		if len(scopes) == 0 {
-			return nil, fmt.Errorf("host adapter %q has no supported scopes", name)
-		}
-		seen := map[Scope]bool{}
-		for _, scope := range scopes {
-			if scope != ScopeProject && scope != ScopeGlobal {
-				return nil, fmt.Errorf("host adapter %q has invalid scope %q", name, scope)
-			}
-			if seen[scope] {
-				return nil, fmt.Errorf("host adapter %q repeats scope %q", name, scope)
-			}
-			seen[scope] = true
-		}
-		registry.adapters[name] = adapter
-	}
-	return registry, nil
-}
-
-func MustRegistry(adapters ...HostAdapter) *Registry {
-	registry, err := NewRegistry(adapters...)
-	if err != nil {
-		panic(err)
+		registry.adapters[adapter.Name()] = adapter
 	}
 	return registry
 }
 
-// DefaultRegistry contains the supported project-scoped coding-agent adapters.
-func DefaultRegistry() *Registry {
-	return MustRegistry(
-		NewClaudeCodeAdapter(),
-		NewCodexAdapter(),
-		NewCursorAdapter(),
-		NewAntigravityAdapter(),
-		NewVSCodeAdapter(),
-	)
+func (r Registry) Snippet(host, slug, taskID string) string {
+	if adapter, ok := r.adapters[host]; ok {
+		return adapter.Snippet(slug, taskID)
+	}
+	return Snippet(host, slug, taskID)
 }
 
-func (r *Registry) Names() []string {
-	names := make([]string, 0, len(r.adapters))
-	for name := range r.adapters {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+type StaticAdapter struct {
+	Host string
 }
 
-func (r *Registry) Get(name string) (HostAdapter, bool) {
-	adapter, ok := r.adapters[name]
-	return adapter, ok
+func (a StaticAdapter) Name() string {
+	return a.Host
 }
 
-func (r *Registry) Adapters() []HostAdapter {
-	names := r.Names()
-	adapters := make([]HostAdapter, 0, len(names))
-	for _, name := range names {
-		adapters = append(adapters, r.adapters[name])
-	}
-	return adapters
+func (a StaticAdapter) Install() InstallRecord {
+	return InstallRecord{Host: a.Host, Owner: "specd"}
 }
 
-func (r *Registry) Detect(root string) []Detection {
-	return DetectAll(r, root)
-}
-
-func (r *Registry) Plan(name, root string, scope Scope) (HostPlan, error) {
-	adapter, ok := r.Get(name)
-	if !ok {
-		return HostPlan{}, fmt.Errorf("unsupported host %q", name)
-	}
-	supported := false
-	for _, candidate := range adapter.Scopes() {
-		if candidate == scope {
-			supported = true
-			break
-		}
-	}
-	if !supported {
-		return HostPlan{}, fmt.Errorf("host %q does not support %s scope", name, scope)
-	}
-	plan, err := adapter.Plan(root, scope)
-	if err != nil {
-		return HostPlan{}, err
-	}
-	if err := validatePlan(adapter, root, scope, plan); err != nil {
-		return HostPlan{}, err
-	}
-	return normalizePlan(plan), nil
-}
-
-func (r *Registry) Install(ctx context.Context, plan HostPlan) (HostResult, error) {
-	adapter, ok := r.Get(plan.Host)
-	if !ok {
-		return HostResult{}, fmt.Errorf("unsupported host %q", plan.Host)
-	}
-	if err := validatePlan(adapter, plan.Root, plan.Scope, plan); err != nil {
-		return HostResult{}, err
-	}
-	result, err := adapter.Install(ctx, normalizePlan(plan))
-	if err != nil {
-		return HostResult{}, err
-	}
-	if result.Targets == nil {
-		result.Targets = []string{}
-	}
-	if result.Backups == nil {
-		result.Backups = []string{}
-	}
-	if result.Warnings == nil {
-		result.Warnings = []string{}
-	}
-	sort.Strings(result.Targets)
-	sort.Strings(result.Backups)
-	sort.Strings(result.Warnings)
-	return result, nil
+func (a StaticAdapter) Snippet(slug, taskID string) string {
+	return Snippet(a.Host, slug, taskID)
 }

@@ -1,88 +1,81 @@
-# Open Spec Format — v1
+# specd — On-Disk Spec Format
 
-A versioned, machine-readable description of the on-disk artifacts specd
-produces and consumes. This document is the **prose standard**; the normative
-contract is the JSON Schema embedded in the binary, emitted by `specd check --schema`.
+Every artifact specd reads and writes lives under `.specd/` in the managed project. The layout
+is stable, greppable, and human-editable — the harness owns the writes, but nothing is opaque.
+This page documents the on-disk surface so integrators can read it directly.
 
-```sh
-specd check --schema                 # current version to stdout
-specd check --schema --version 1     # an explicit version
-specd check <slug> --schema-only   # check a spec's state.json against it
+## Layout
+
+```
+.specd/
+├── specs/
+│   └── <slug>/
+│       ├── requirements.md   # EARS requirements (author)
+│       ├── design.md         # design (author)
+│       ├── tasks.md          # the task DAG (author)
+│       ├── state.json        # machine truth (harness-owned)
+│       └── .lock             # per-spec reentrant lock
+├── roles/*.md                # scout / craftsman / validator / auditor
+└── steering/*.md             # durable project constitution + memory
+AGENTS.md                     # host integration guide (written by init)
 ```
 
-## Versioning
+**The `.specd/specs/` vs. top-level `specs/` split:** a *managed project's* runtime state lives
+in `.specd/specs/`. This repository's own in-flight planning artifacts live in a top-level
+`specs/` — different tree, different purpose. (`regress-lint.sh` smell "A" catches verify lines
+that target the wrong one.)
 
-- **`specdSchemaVersion`** (`"1"`) versions *this format standard* — the
-  published JSON Schema contract.
-- **`stateSchemaVersion`** (`6`) versions the *on-disk migration shape* of
-  `state.json` (see `internal/core/state.go`). The two are independent: the
-  format standard can gain a new published version without changing the
-  migration number, and vice versa.
+## Authoring artifacts
 
-v1 is **non-breaking**: every field the binary writes today is described, and
-optional fields are marked optional so older documents continue to validate.
+| File | Phase | Gate(s) | Notes |
+|---|---|---|---|
+| `requirements.md` | perceive | `ears` | Author in EARS syntax. |
+| `design.md` | analyze | `design` | Fails closed while still the scaffold stub. |
+| `tasks.md` | plan | `task-ids`, `dependencies`, `dag`, `roles`, `files`, `verify` | The acyclic task DAG. |
 
-## Source of truth
+`tasks.md` is parsed by a **byte-stable** parser (`tasksparser.go`): parse+write round-trips
+without reformatting, so hand edits and tool edits coexist without diff noise. Each task
+declares an id, a role, the files it may touch, its dependencies, and a **verify command**.
+Read-only tasks still carry a trivially-passing verify line (e.g. `printf ok`).
 
-The Go types in `internal/core` are the single source of truth. `schema/v1.json`
-mirrors them, and `TestSchemaConformance` (`internal/core/schema_test.go`) is a
-drift trip-wire: adding or removing a struct field without updating the schema
-(or vice versa) fails CI. The schema is therefore never hand-maintained out of
-sync with the code.
+## `state.json` — the machine truth
 
-## Artifacts
+`state.json` is harness-owned: agents never edit it directly (they drive the CLI; the harness
+writes). It carries the per-spec status, phase, and the append-only record ledger. Top-level
+shape (`internal/core/state.go`, `type State`):
 
-A spec lives under `.specd/specs/<slug>/`:
+| Field | Type | Meaning |
+|---|---|---|
+| `schema_version` | int | On-disk schema (currently **2**; older versions migrate forward on load). |
+| `slug` | string | Spec slug. |
+| `mode` | `default` \| `agent` | Execution mode. |
+| `status` | string | `requirements → design → tasks → executing → verifying → complete` (+ `blocked`). |
+| `phase` | string | Derived phase: `perceive → analyze → plan → execute → verify → reflect`. |
+| `revision` | int64 | Monotonic counter; mutations **compare-and-swap** on it. |
+| `records` | object | Append-only ledger of stamped records (approvals, decisions, verify records, …). |
+| `task_status` | object | Per-task run status — the machine truth the `sync` gate reconciles against `tasks.md` markers. |
+| `extra` | object | Forward-compatible escape hatch. |
 
-| File | Purpose |
-|------|---------|
-| `requirements.md` | EARS-numbered acceptance criteria |
-| `design.md` | Design sections (the design gate's required headers) |
-| `tasks.md` | The 7-key task records + wave DAG |
-| `decisions.md` | Architectural decision records (ADRs) |
-| `memory.md` | Durable project learnings |
-| `mid-requirements.md` | Mid-flight requirement-change log |
-| `state.json` | The durable execution ledger — **the schema's subject** |
+Every ledger `record` carries a provenance triple — `timestamp` (RFC 3339 UTC), `git_head`,
+and `actor` (`$SPECD_ACTOR`, else OS user, else `unknown`). The actor is host-reported and
+stored verbatim; it is a label, never trusted as proof. Evidence integrity rests on the
+`git_head` + verify exit code, not the actor string.
 
-`requirements.md`, `design.md`, and `tasks.md` are Markdown with conventions
-enforced by the validation gates (`docs/validation-gates.md`). `state.json` is
-the structured ledger validated by `specd check --schema-only`.
+## Validating the schema
 
-## `state.json` — the validated document
+`state.json` is loaded with `DisallowUnknownFields` and validated on every read. To check it
+explicitly:
 
-The root is a `State` object. The schema defines five `$defs`:
+```bash
+specd check payments --schema        # run all gates plus schema validation
+specd check payments --schema-only   # validate only the state.json schema
+```
 
-- **`State`** — `schemaVersion`, `revision`, `spec`, `title`, `status`, `phase`,
-  `gate`, `turn`, `createdAt`, `updatedAt`, `tasks` (map of `TaskState`),
-  `blockers` (array of `Blocker`); optional `acceptance` (map of
-  `CriterionRecord`), `prompt`, and the execution-mode pair `executionMode`
-  (`simple` | `orchestrated`) and `modeOrigin` (`default` | `user` |
-  `recommended-accepted`). All optional fields are `omitempty`, so a Simple spec
-  that never opted into orchestration keeps a byte-identical `state.json`.
-- **`TaskState`** — `id`, `title`, `role`, `wave`, `depends`, `requirements`,
-  `status`; optional `startedAt`, `finishedAt`, `evidence`, `verification`,
-  `blocker`, `telemetry`.
-- **`VerificationRecord`** — the evidence of a verify run: `command`, `exitCode`,
-  `verified`, `timedOut`, `stdoutTail`, `stderrTail`, `durationMs`, `ranAt`;
-  optional `gitHead`, `changedFiles`, `coverage`, `sandbox`, `reverted`,
-  `stashRef`.
-- **`CriterionRecord`** — a per-acceptance-criterion proof: `requirement`,
-  `criterion`, `status`, `evidence`, `ranAt`.
-- **`Blocker`** — `task`, `reason`, `since`.
+A malformed or unknown-field `state.json` surfaces as a `schema` gate finding (exit 1) rather
+than a silent load. Because the whole surface is plain Markdown + one validated JSON file,
+integrators can read spec state without linking against specd.
 
-Every object is **closed** (`additionalProperties: false`): an unknown key is a
-conformance violation. Enumerated fields (`status`, `phase`, `gate`, `role`) are
-constrained to their allowed values.
+---
 
-## Conformance modes
-
-`specd check --schema-only` performs **structural** conformance: object/array
-shape, required keys, closed property sets, and enum membership. It is
-intentionally independent of the seven semantic gates (`specd check`) and ships
-no third-party JSON Schema validator — the binary stays stdlib-only. Numeric
-bounds and string `format` keywords (`date-time`) are documented in the schema
-for external tooling but are policy left to the semantic layer, not the format
-check.
-
-Exit codes: `0` conformant, `1` violations found, `2` usage error, `3` spec not
-found. Add `SPECD_JSON=1` for a machine-readable report.
+**See also:** [validation-gates.md](validation-gates.md) · [user-guide.md](user-guide.md) ·
+[contributor-guide.md](contributor-guide.md)

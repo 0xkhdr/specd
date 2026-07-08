@@ -1,589 +1,430 @@
 package core
 
-// PositionalMeta describes one positional argument of a CLI command for help
-// text and schema generation.
-type PositionalMeta struct {
-	Name        string `json:"name"`
-	Required    bool   `json:"required"`
-	Repeatable  bool   `json:"repeatable,omitempty"`
-	Description string `json:"description,omitempty"`
-}
+// HelpSchemaVersion versions the machine-readable help palette (`help --json`).
+// Consumers (MCP, role prompts, external tools) pin against it and can detect a
+// shape change; bump it whenever the Command/Flag JSON contract changes (spec
+// 03 R4, pairs with the state-schema discipline of spec 02).
+const HelpSchemaVersion = 1
 
-// FlagMeta describes one flag of a CLI command: its name, type, allowed
-// values, default, and whether it is required, for help text and schema
-// generation.
-type FlagMeta struct {
+// Flag describes one command-line flag surfaced by help metadata. Enum and
+// Default make the flag a machine-readable contract: dispatch validates values
+// against Enum (spec 03 R3) and MCP maps Enum/Default into JSON Schema.
+type Flag struct {
 	Name        string   `json:"name"`
-	Type        string   `json:"type"`
+	TakesValue  bool     `json:"takes_value,omitempty"`
 	Description string   `json:"description,omitempty"`
-	Enum        []string `json:"enum,omitempty"`
-	Required    bool     `json:"required,omitempty"`
-	Default     string   `json:"default,omitempty"`
+	Type        string   `json:"type,omitempty"`    // "bool" | "string"; empty ⇒ bool
+	Enum        []string `json:"enum,omitempty"`    // allowed values (value flags only)
+	Default     string   `json:"default,omitempty"` // documented default
 }
 
-// PhaseCompatibilityMeta lists the spec statuses and phases under which a
-// command is valid to run.
-type PhaseCompatibilityMeta struct {
-	Statuses []string `json:"statuses,omitempty"`
-	Phases   []string `json:"phases,omitempty"`
-}
-
-// ModeCompatibilityMeta lists the execution modes a command supports and
-// whether it requires project orchestration capability.
-type ModeCompatibilityMeta struct {
-	Modes                           []string `json:"modes,omitempty"`
-	RequiresOrchestrationCapability bool     `json:"requiresOrchestrationCapability,omitempty"`
-}
-
-// ExitCodeMeta documents one possible process exit code for a command and
-// what it means.
-type ExitCodeMeta struct {
+// ExitCode documents one exit status a command can return. The convention is
+// 0 success, 1 gate/verify failure, 2 usage / fail-closed rejection; per-verb
+// deviations are declared explicitly (spec 03 design notes).
+type ExitCode struct {
 	Code    int    `json:"code"`
 	Meaning string `json:"meaning"`
 }
 
-// CommandMeta is the full metadata record for one CLI command: its usage,
-// description, flags, positionals, compatibility constraints, exit codes, and
-// examples. Commands is the registry of every CommandMeta.
-type CommandMeta struct {
-	Command            string                  `json:"command"`
-	Category           string                  `json:"category"`
-	Description        string                  `json:"description"`
-	Usage              string                  `json:"usage"`
-	Synopsis           string                  `json:"synopsis"`
-	LongDescription    string                  `json:"longDescription"`
-	Flags              []FlagMeta              `json:"flags"`
-	Positionals        []PositionalMeta        `json:"positionals,omitempty"`
-	PhaseCompatibility *PhaseCompatibilityMeta `json:"phaseCompatibility,omitempty"`
-	ModeCompatibility  *ModeCompatibilityMeta  `json:"modeCompatibility,omitempty"`
-	ExitCodes          []ExitCodeMeta          `json:"exitCodes"`
-	Examples           []string                `json:"examples"`
-	Hidden             bool                    `json:"hidden,omitempty"`
-	RemovedIn          string                  `json:"removedIn,omitempty"`
+// Command describes one supported top-level command. This metadata is the
+// single source of truth for help, dispatch enforcement, MCP tool schemas, and
+// role prompts — no surface hand-restates command semantics (spec 03 C.8).
+type Command struct {
+	Name        string `json:"name"`
+	Usage       string `json:"usage"`
+	Description string `json:"description"`
+	Flags       []Flag `json:"flags,omitempty"`
+	// AllowedPhases is the set of lifecycle phases the verb may run in. A verb
+	// valid everywhere declares []Phase{PhaseAny} explicitly — nothing defaults
+	// silently to unrestricted (spec 03 R1, R6).
+	AllowedPhases []Phase `json:"allowed_phases,omitempty"`
+	// ExitCodes documents every status the verb can return (spec 03 R1/B.3).
+	ExitCodes []ExitCode `json:"exit_codes,omitempty"`
+	// Examples is at least one runnable invocation (spec 03 R1).
+	Examples []string `json:"examples,omitempty"`
+	// SpecSlugArg is the positional-argument index (0-based) that carries the
+	// spec slug for phase enforcement, or nil when the verb resolves no spec by
+	// a fixed position. Dispatch only phase-checks verbs with a non-nil index
+	// (spec 03 R2: "verbs that take no spec slug skip the check"). Not exported
+	// to JSON — it is an internal dispatch hint, not part of the help contract.
+	SpecSlugArg *int `json:"-"`
+	// Deferred marks a registered verb whose implementation is intentionally
+	// not wired yet. The dispatcher reports the deferral and exits 0; the
+	// handler-parity test treats a deferred verb as satisfied.
+	Deferred bool `json:"deferred,omitempty"`
 }
 
-// Commands is the complete registry of specd CLI commands, used to drive help
-// text, JSON schema generation, and `specd help`. Positionals, phase/mode
-// compatibility, and flag enums are filled in by the init function below.
-var Commands = []CommandMeta{
-	{
-		Command: "init", Category: "lifecycle",
-		Description: "Scaffold project assets and configure coding agents",
-		Usage:       "specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--guardrails] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]", Synopsis: "specd init [--agent <name>] [--yes] [--dry-run]",
-		LongDescription: "Scaffolds .specd/ and AGENTS.md, passively detects supported coding-agent hosts, optionally installs project-scoped MCP registration, verifies the in-process MCP server, and returns one next action. Non-interactive auto-detection never mutates host configuration unless --yes is supplied. Global scope requires explicit consent.",
-		Flags:           []FlagMeta{{Name: "agent", Type: "string", Description: "Coding-agent selection: auto, all, none, codex, claude-code, cursor, antigravity, or vscode"}, {Name: "scope", Type: "string", Description: "Integration scope (default project)"}, {Name: "yes", Type: "boolean", Description: "Accept non-destructive project-scoped integration changes"}, {Name: "non-interactive", Type: "boolean", Description: "Disable prompts"}, {Name: "verbose", Type: "boolean", Description: "Include detailed path results"}, {Name: "json", Type: "boolean", Description: "Output one versioned InitResult document"}, {Name: "dry-run", Type: "boolean", Description: "Preview exact actions without writing"}, {Name: "repair", Type: "boolean", Description: "Restore missing managed assets only"}, {Name: "refresh", Type: "boolean", Description: "Refresh frozen managed assets and AGENTS.md markers"}, {Name: "force", Type: "boolean", Description: "Destructively overwrite all scaffold files and AGENTS.md"}, {Name: "list-packs", Type: "boolean", Description: "List the embedded spec packs and exit"}, {Name: "pack", Type: "string", Description: "Apply a spec pack by built-in name, registry name, or http(s) URL"}, {Name: "sha256", Type: "string", Description: "Pinned SHA256 digest required for a remote --pack URL"}, {Name: "registry", Type: "string", Description: "Git URL of a pack registry index; resolves a named --pack and pins it in .specd/pack.lock"}, {Name: "orchestration", Type: "string", Description: "Enable Brain/Pinky and set approval policy (manual, planning, session)"}, {Name: "orchestration-workers", Type: "string", Description: "Max concurrent Pinky workers (1..64, default 4)"}, {Name: "orchestration-retries", Type: "string", Description: "Retry budget for failed/reclaimed work (0..10, default 2)"}, {Name: "orchestration-timeout", Type: "string", Description: "Session wall-clock timeout in minutes (1..1440, default 120)"}, {Name: "orchestration-cost-limit", Type: "string", Description: "Host-reported cost brake in USD (default 0)"}, {Name: "orchestration-mode", Type: "string", Description: "Subagent coordination mode: inline or delegate (default delegate)"}, {Name: "orchestration-sandbox", Type: "string", Description: "Default verify sandbox: none, bwrap, or container (default none)"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Initialization or pack operation failed"}, {2, "Usage error"}},
-		Examples:        []string{"specd init --agent auto --yes", "specd init --agent none --non-interactive", "specd init --agent all --dry-run --json", "specd init --repair"},
-	},
+// anyPhase is the explicit unrestricted declaration.
+func anyPhase() []Phase { return []Phase{PhaseAny} }
 
-	{
-		Command: "handshake", Category: "inspection", Hidden: true,
-		Description: "Emit startup bootstrap and binding policy oracles",
-		Usage:       "specd handshake bootstrap [--include-schema] [--json] | specd handshake policy [<slug>] [--expect-config-digest <sha256>] [--json]", Synopsis: "specd handshake <bootstrap|policy> [slug] [--json]",
-		LongDescription: "Read-only agent integration surface. bootstrap returns the first-turn load list, command schema digest, config digest, health, and active modes. policy summarizes binding config, optional spec execution mode, allowed loop family, diagnostics, and config digest drift.",
-		Flags:           []FlagMeta{{Name: "include-schema", Type: "boolean", Description: "Inline full command schema in bootstrap output"}, {Name: "expect-config-digest", Type: "string", Description: "Fail if current config digest differs from this sha256"}, {Name: "json", Type: "boolean", Description: "Output JSON"}},
-		Positionals:     []PositionalMeta{{Name: "subcommand", Required: true, Description: "bootstrap or policy"}, {Name: "slug", Required: false, Description: "Spec slug for policy mode"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Policy violation or digest mismatch"}, {2, "Usage error"}, {3, ".specd/ or spec not found"}},
-		Examples:        []string{"specd handshake bootstrap --json", "specd handshake policy my-feature --json", "specd handshake policy --expect-config-digest <sha256> --json"},
-	},
-
-	{
-		Command: "new", Category: "lifecycle",
-		Description: "Create a spec with six artifacts",
-		Usage:       "specd new <slug> [--title \"...\"] [--orchestrated] [--prototype]", Synopsis: "specd new <slug> [--title \"...\"] [--orchestrated] [--prototype]",
-		LongDescription: "Creates a new spec directory under .specd/specs/<slug>/ with six artifact stubs. Specs default to Base execution mode; --orchestrated records executionMode=orchestrated (origin user) and requires project orchestration capability. --prototype creates a prototype spec that skips the design/tasks planning gates but can never reach complete — run `specd promote` to convert it to a full spec.",
-		Flags:           []FlagMeta{{Name: "title", Type: "string", Description: "The title of the spec"}, {Name: "orchestrated", Type: "boolean", Description: "Create the spec in orchestrated (Brain/Pinky) mode; requires project orchestration capability"}, {Name: "prototype", Type: "boolean", Description: "Create a prototype spec (planning gates relaxed; cannot complete until promoted)"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Orchestration requested without project capability"}, {2, "Usage error"}, {3, ".specd/ not found or spec already exists"}},
-		Examples:        []string{"specd new my-feature", "specd new my-feature --title \"My Feature\"", "specd new payments --title \"Billing\" --orchestrated", "specd new spike-idea --prototype"},
-	},
-
-	{
-		Command: "approve", Category: "lifecycle",
-		Description: "Clear approval gate / advance phase",
-		Usage:       "specd approve <slug> [--json]", Synopsis: "specd approve <slug> [--json]",
-		LongDescription: "Clears an awaiting-approval gate or advances the planning phase of the specified spec.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean", Description: "Output in JSON format"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate validation failed"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd approve my-feature", "specd approve my-feature --json"},
-	},
-
-	{
-		Command: "decision", Category: "lifecycle",
-		Description: "Record an architectural decision (ADR)",
-		Usage:       "specd decision <slug> \"<text>\" [--supersedes <id>]", Synopsis: "specd decision <slug> \"<text>\" [--supersedes <id>]",
-		LongDescription: "Appends an architectural decision record (ADR) to decisions.md.",
-		Flags:           []FlagMeta{{Name: "supersedes", Type: "string", Description: "ID of the decision being superseded"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd decision my-feature \"Use SQLite instead of PostgreSQL\""},
-	},
-
-	{
-		Command: "midreq", Category: "lifecycle",
-		Description: "Log feedback mid-requirement",
-		Usage:       "specd midreq <slug> \"<input>\" --impact <low|medium|high|critical>", Synopsis: "specd midreq <slug> \"<input>\" --impact <low|medium|high|critical>",
-		LongDescription: "Logs user feedback or mid-requirement changes and triggers appropriate gates.",
-		Flags:           []FlagMeta{{Name: "impact", Type: "string", Description: "Impact level (low/medium/high/critical)"}, {Name: "interpretation", Type: "string"}, {Name: "changes", Type: "string"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd midreq my-feature \"Add search bar\" --impact medium"},
-	},
-
-	{
-		Command: "memory", Category: "lifecycle",
-		Description: "Add or promote learning items",
-		Usage:       "specd memory <slug> add|promote [flags]", Synopsis: "specd memory <slug> <add|promote> [flags]",
-		LongDescription: "Manages persistent project learnings.",
-		Flags:           []FlagMeta{{Name: "key", Type: "string"}, {Name: "pattern", Type: "string"}, {Name: "body", Type: "string"}, {Name: "source", Type: "string"}, {Name: "criticality", Type: "string"}, {Name: "related", Type: "string"}, {Name: "force", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd memory my-feature add --key db-lock --pattern \"parallel writes\" --body \"SQLite locks on concurrent write\" --source log --criticality important"},
-	},
-
-	{
-		Command: "next", Category: "execution",
-		Description: "Next runnable task",
-		Usage:       "specd next <slug> [--all] [--dispatch] [--json]", Synopsis: "specd next <slug> [--all] [--dispatch] [--json]",
-		LongDescription: "Finds and prints the next runnable task in the spec's task DAG.",
-		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "Print all runnable tasks"}, {Name: "dispatch", Type: "boolean", Description: "Emit ready-to-run dispatch packets for the runnable frontier"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd next my-feature", "specd next my-feature --all --json"},
-	},
-
-	{
-		Command: "verify", Category: "execution",
-		Description:     "Run task verify command / record proof",
-		Usage:           "specd verify <slug> <id>  |  specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence \"...\"",
-		Synopsis:        "specd verify <slug> [id] [flags]",
-		LongDescription: "Runs a task's verification command and records the result, or records a per-criterion acceptance proof.",
-		Flags:           []FlagMeta{{Name: "criterion", Type: "string"}, {Name: "status", Type: "string"}, {Name: "evidence", Type: "string"}, {Name: "revert-on-fail", Type: "boolean", Description: "On a failed verify, stash the working tree (recoverable) instead of leaving it dirty"}, {Name: "sandbox", Type: "string", Description: "Isolation backend for this run (none|bwrap|container); overrides verify.sandbox config"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Verification failed"}, {2, "Usage error"}, {3, "Spec or task not found"}},
-		Examples:        []string{"specd verify my-feature T1", "specd verify my-feature --criterion 1.1 --status pass --evidence \"Tested manually\""},
-	},
-
-	{
-		Command: "task", Category: "execution",
-		Description:     "Evidence-gated status flip",
-		Usage:           "specd task <slug> <id> --status <s> [--evidence \"...\"] [--reason \"...\"] [--force]",
-		Synopsis:        "specd task <slug> <id> --status <status> [flags]",
-		LongDescription: "Updates the status of a specific task. Completing requires a passing verify record.",
-		Flags:           []FlagMeta{{Name: "status", Type: "string"}, {Name: "evidence", Type: "string"}, {Name: "reason", Type: "string"}, {Name: "force", Type: "boolean"}, {Name: "unverified", Type: "boolean"}, {Name: "tokens", Type: "string", Description: "Annotate task telemetry with a token count (stored, not computed)"}, {Name: "cost", Type: "string", Description: "Annotate task telemetry with a cost (stored, not computed)"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate verification failed"}, {2, "Usage error"}, {3, "Spec or task not found"}},
-		Examples:        []string{"specd task my-feature T1 --status running", "specd task my-feature T1 --status complete --evidence \"Ran tests\"", "specd task my-feature T1 --status complete --evidence \"…\" --tokens 12000 --cost 0.42"},
-	},
-
-	{
-		Command: "status", Category: "inspection",
-		Description: "Render durable ledger / board",
-		Usage:       "specd status [<slug>] [--all] [--program [<link|unlink|schedule|tick>] ...] [--set-mode simple|orchestrated] [--recommend] [--json]", Synopsis: "specd status [<slug>] [--all] [--program] [--json]",
-		LongDescription: "Renders the durable status board of a specific spec, lists all specs, or displays the cross-spec program frontier. With a slug, --set-mode records a new per-spec execution mode (orchestrated requires project capability; switching to simple is refused while a Brain session is active) and --recommend emits a deterministic, advisory mode recommendation — the survivor home for the merged `mode` command's set/recommend paths. --program is also the home for the program frontier's mutating sub-verbs (the survivors of the removed top-level `program` command): `--program link <spec> --on <dep>` and `--program unlink <spec> --on <dep>` author cross-spec dependencies (cycles are refused); `--program schedule <name> --interval <seconds> --command \"<cmd>\" [--sandbox <backend>]` registers a host-triggered maintenance schedule (bare `--program schedule` lists them, `--program schedule <name> --remove` deletes one); and `--program tick [--now <unix>]` runs every schedule due now exactly once through the sandboxed exec path (specd never daemonizes — a host scheduler drives ticks).",
-		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "List all specs (default when no slug is supplied)"}, {Name: "program", Type: "boolean", Description: "Show the cross-spec program frontier, or run a program sub-verb (link|unlink|schedule|tick)"}, {Name: "on", Type: "string", Description: "With --program link|unlink: the dependency spec slug"}, {Name: "interval", Type: "string", Description: "With --program schedule: rerun interval in seconds"}, {Name: "command", Type: "string", Description: "With --program schedule: the sandboxed shell command to run"}, {Name: "sandbox", Type: "string", Description: "With --program schedule: isolation backend for the scheduled command (none|bwrap|container)"}, {Name: "remove", Type: "boolean", Description: "With --program schedule <name>: delete the named schedule"}, {Name: "now", Type: "string", Description: "With --program tick: deterministic unix clock for host scheduling / tests"}, {Name: "set-mode", Type: "string", Description: "Set the spec's execution mode: simple or orchestrated"}, {Name: "recommend", Type: "boolean", Description: "Emit an advisory mode recommendation from countable spec facts"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Capability missing, session-active refusal, dependency cycle, or scheduled command failure"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd status", "specd status my-feature --json", "specd status my-feature --set-mode orchestrated", "specd status my-feature --recommend --json", "specd status --program", "specd status --program link checkout --on auth", "specd status --program schedule dep-audit --interval 86400 --command \"specd check --security\"", "specd status --program tick --now 1720000000"},
-	},
-
-	{
-		Command: "check", Category: "inspection",
-		Description: "Run all validation gates",
-		Usage:       "specd check <slug> [--schema-only] [--security] [--json] | specd check --schema", Synopsis: "specd check <slug> [--schema-only] [--security] [--json] | specd check --schema",
-		LongDescription: "Runs all seven validation gates on the specified spec. --schema-only validates state.json against the embedded open spec schema; --schema emits that schema. --security runs the deterministic security suite (secrets, injection, slopsquatting) over the working-tree changed files and records a summary in state; advisory scanners never fail the command, only blocking (error-severity) findings do.",
-		Flags:           []FlagMeta{{Name: "schema-only", Type: "boolean", Description: "Validate state.json against the embedded open spec schema only"}, {Name: "schema", Type: "boolean", Description: "Emit the embedded open spec format JSON Schema"}, {Name: "security", Type: "boolean", Description: "Run the deterministic security suite over changed files"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Validation failed"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd check my-feature", "specd check my-feature --json"},
-	},
-
-	{
-		Command: "context", Category: "inspection",
-		Description: "Phase-scoped briefing",
-		Usage:       "specd context <slug> [--hud] [--json]", Synopsis: "specd context <slug> [--hud] [--json]",
-		LongDescription: "Provides a minimal phase-scoped briefing for the current spec phase. --hud renders the deterministic context heads-up display instead: the steering/skill load files with their on-disk byte and approximate token cost, plus the active mode and routing tier (all measured from disk and recorded state — no interpretation).",
-		Flags:           []FlagMeta{{Name: "hud", Type: "boolean", Description: "Render the context HUD (load files, byte/token cost, mode/tier) instead of the phase briefing"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd context my-feature", "specd context my-feature --hud", "specd context my-feature --json"},
-	},
-
-	{
-		Command: "eval", Category: "inspection",
-		Description: "Score a spec against its eval rubric",
-		Usage:       "specd eval <slug> [init|trend] [--suite <name>] [--force] [--json]", Synopsis: "specd eval <slug> [init|trend] [--suite <name>] [--json]",
-		LongDescription: "Runs a spec's eval rubric and records the score to state.json and a result file. `eval init` compiles approved requirements into a rubric skeleton (one stub per acceptance criterion); `eval trend` reports score deltas and failure clustering over the result history. Scoring is deterministic; command checks run through the shared sandboxed exec path.",
-		Flags:           []FlagMeta{{Name: "suite", Type: "string", Description: "Rubric suite name (default reads eval-rubric.json)"}, {Name: "force", Type: "boolean", Description: "Overwrite an existing rubric on eval init"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Score below minScore"}, {2, "Usage error"}, {3, "Spec or rubric not found"}},
-		Examples:        []string{"specd eval my-feature", "specd eval my-feature init", "specd eval my-feature trend --json"},
-	},
-
-	{
-		Command: "promote", Category: "lifecycle", Hidden: true,
-		Description: "Promote a prototype spec after a passing eval",
-		Usage:       "specd promote <slug> --evidence \"...\" [--suite <name>] [--json]", Synopsis: "specd promote <slug> --evidence \"...\"",
-		LongDescription: "Converts a prototype spec into a full spec once its eval rubric passes. The evidence string is mandatory — promotion never bypasses the evidence discipline. The normal approve ratchet applies to the promoted spec.",
-		Flags:           []FlagMeta{{Name: "evidence", Type: "string", Description: "Required promotion evidence", Required: true}, {Name: "suite", Type: "string", Description: "Rubric suite name (default reads eval-rubric.json)"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Not a prototype, eval failed, or missing evidence"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd promote my-feature --evidence \"eval green, owner sign-off\""},
-	},
-
-	{
-		Command: "conductor", Category: "execution",
-		Description: "Drive the interactive micro-task conductor session",
-		Usage:       "specd conductor <slug> <start|step|accept|reject|stop|replay|switch|status> [micro] [--reason \"...\"] [--json]", Synopsis: "specd conductor <slug> <start|step|accept|reject|stop|status>",
-		LongDescription: "Runs the hands-on conductor mode over a task's micro-tasks with an append-only ledger (conductor.jsonl). start opens a session under a spec lock; step briefs the next micro-task; accept/reject record the outcome (reject requires --reason — it is the training signal); stop closes the session. Acceptance never substitutes for verify evidence.",
-		Flags:           []FlagMeta{{Name: "reason", Type: "string", Description: "Mandatory rejection reason (reject) or transition note (switch/stop)"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (no session, missing reason, lock contention)"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd conductor my-feature start", "specd conductor my-feature reject --reason \"wrong file touched\"", "specd conductor my-feature status --json"},
-	},
-
-	{
-		Command: "review", Category: "inspection",
-		Description: "Scaffold a review report or extract a review checklist",
-		Usage:       "specd review <slug> [checklist] [--force] [--json]", Synopsis: "specd review <slug> [checklist]",
-		LongDescription: "Scaffolds review_report.md with the mandatory sections (Summary, Bugs, Security, Hallucinated Dependencies, Style, Verdict) and prints the read-only adversarial reviewer brief. `review checklist` deterministically extracts a human checklist from design.md sections and tasks.md contracts (extraction only). When config.review.required is on, `approve` blocks verifying→complete until a fresh, valid report with an `approve` verdict exists — human approval stays final.",
-		Flags:           []FlagMeta{{Name: "force", Type: "boolean", Description: "Overwrite an existing review_report.md scaffold"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd review my-feature", "specd review my-feature checklist --json"},
-	},
-
-	{
-		Command: "orchestrate", Category: "execution",
-		Description: "Inspect and resolve auto-escalations",
-		Usage:       "specd orchestrate <slug> <status|resume> [--override] [--json]", Synopsis: "specd orchestrate <slug> <status|resume --override>",
-		LongDescription: "Surfaces and resolves deterministic auto-escalations (V7). `status` prints the active escalation record (task, rule, facts) and the advisory conductor-handoff recommendation; `resume --override` is the human override that clears the escalation so orchestration may proceed. The binary never auto-clears an escalation and never auto-switches mode — resolution is always an explicit human action.",
-		Flags:           []FlagMeta{{Name: "override", Type: "boolean", Description: "Clear the active escalation (required by resume)"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (no escalation, missing --override)"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd orchestrate my-feature status", "specd orchestrate my-feature resume --override"},
-	},
-
-	{
-		Command: "submit", Category: "execution",
-		Description: "Validate all gates and run the configured PR submit command",
-		Usage:       "specd submit <slug> [--waves w1,w2] [--dry-run] [--json]", Synopsis: "specd submit <slug> [--dry-run]",
-		LongDescription: "Batch PR submission (V7). Validates that every configured gate is green for the spec, generates the deterministic, network-free PR summary, and streams it on stdin to the operator-configured config.submit.command (e.g. `gh pr create --body-file -`) run through the shared sandboxed exec path with a scrubbed env. No git/GitHub logic is embedded. A gate violation or a non-zero command exit is a failure with no partial state; --dry-run prints the summary without executing.",
-		Flags:           []FlagMeta{{Name: "waves", Type: "string", Description: "Restrict the summary to a comma-separated wave bundle"}, {Name: "dry-run", Type: "boolean", Description: "Print the PR summary without running the submit command"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Gate violation or submit command failure"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd submit my-feature --dry-run", "specd submit my-feature"},
-	},
-
-	{
-		Command: "deploy", Category: "execution",
-		Description: "Run the evidence-gated deploy driver or its rollback",
-		Usage:       "specd deploy <slug> --env <env> [--dry-run] [--json]  |  specd deploy rollback <slug> --env <env> [--json]", Synopsis: "specd deploy <slug> --env <env> [--dry-run]",
-		LongDescription: "Evidence-gated deploy driver runner (V9). Refuses unless the spec is complete, every gate named in the env's `.specd/deploy/<env>.json` requiresGates is recorded green, and — for a production env or an approval-required plan — a human deploy approval exists (`specd approve <slug> --deploy --env <env>`). Runs the plan's steps sequenced through the shared sandboxed exec path with a scrubbed env, appending every result to deploy.jsonl. `deploy rollback` replays the recorded inverse chain (successful steps, reverse order); a failing rollback step halts and exits 3. No CD logic is embedded — steps are operator-authored commands.",
-		Flags:           []FlagMeta{{Name: "env", Type: "string", Description: "Target environment (matches .specd/deploy/<env>.json)"}, {Name: "dry-run", Type: "boolean", Description: "Show the plan and precondition status without executing"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Precondition/gate failure or step failure"}, {2, "Usage error"}, {3, "Spec/config not found or rollback halted"}},
-		Examples:        []string{"specd deploy my-feature --env staging --dry-run", "specd approve my-feature --deploy --env production", "specd deploy my-feature --env production", "specd deploy rollback my-feature --env staging"},
-	},
-
-	{
-		Command: "observe", Category: "inspection",
-		Description: "Correlate a production error into a mid-requirement",
-		Usage:       "specd observe correlate <payload.json> [--spec <slug>] [--json]  |  specd observe --listen [--spec <slug>]", Synopsis: "specd observe correlate <payload.json> [--spec <slug>]",
-		LongDescription: "Inbound production-error correlation (V9). `correlate` reads a schema-validated, size-capped error payload (a CI-piped Sentry export), deterministically attributes it to a spec by matching stack-frame files against task `files:` contracts (falling back to the recent deploy ledger), and appends an evidenced entry to that spec's mid-requirements.md — gating high/critical impact for human approval, exactly like `specd midreq`. `--listen` starts an optional loopback-only, token-authed HTTP receiver that applies the same transform per payload. The transform is the feature; the listener is optional.",
-		Flags:           []FlagMeta{{Name: "listen", Type: "boolean", Description: "Start the loopback token-authed HTTP receiver"}, {Name: "spec", Type: "string", Description: "Force attribution to this spec"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Invalid payload or no correlation"}, {2, "Usage error"}, {3, "Payload/root not found"}},
-		Examples:        []string{"specd observe correlate error.json", "specd observe correlate error.json --spec my-feature", "specd observe --listen"},
-	},
-
-	{
-		Command: "ingest", Category: "lifecycle",
-		Description: "Inventory a legacy codebase into an ingestion spec",
-		Usage:       "specd ingest new <slug> --path <dir> [--include-ignored] [--json]", Synopsis: "specd ingest new <slug> --path <dir>",
-		LongDescription: "Legacy ingestion (V10). `ingest new` validates the path (no traversal outside the repo), writes a deterministic inventory.json (sorted file list, sizes, and manifest-derived module names via stdlib — countable facts only, the binary never reads legacy semantics), and scaffolds an ingestion-flavored spec. File scoping respects `.gitignore` via `git ls-files` when in a git repo (`--include-ignored` forces a bounded walk with default excludes). The `specd-ingest` skill teaches the agent to reverse-engineer requirements/design/tasks; the opt-in `ingest` gate then enforces that every inventoried file is referenced by ≥1 requirement or waived with a reason.",
-		Flags:           []FlagMeta{{Name: "path", Type: "string", Description: "Directory to inventory (inside the repo)"}, {Name: "include-ignored", Type: "boolean", Description: "Walk all files instead of git-tracked only"}, {Name: "title", Type: "string", Description: "Spec title (default derived from slug)"}, {Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {1, "Invalid path or existing spec"}, {2, "Usage error"}, {3, "Path/root not found"}},
-		Examples:        []string{"specd ingest new legacy-billing --path ./billing", "specd ingest new legacy-billing --path ./billing --include-ignored"},
-	},
-
-	{
-		Command: "report", Category: "inspection",
-		Description: "Generate markdown, HTML, or metrics report",
-		Usage:       "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]", Synopsis: "specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor]",
-		LongDescription: "Compiles a comprehensive HTML or Markdown progress report, or an opt-in Prometheus textfile metrics view. With --pr-summary, emits a deterministic, network-free pull-request summary (Markdown, or JSON under SPECD_JSON): wave/task progress, gate status, and the commit↔task link map. With --conductor, clusters the conductor ledger's rejection reasons (exact string + count) — the deterministic rejection-analytics view.",
-		Flags:           []FlagMeta{{Name: "format", Type: "string", Description: "Output format: md, html, or prometheus"}, {Name: "out", Type: "string"}, {Name: "pr-summary", Type: "boolean", Description: "Emit a deterministic PR summary instead of the full report"}, {Name: "conductor", Type: "boolean", Description: "Cluster conductor rejection reasons (exact string + count)"}, {Name: "serve", Type: "boolean", Description: "Serve the live dashboard"}, {Name: "watch", Type: "boolean", Description: "Stream runnable-frontier changes"}, {Name: "history", Type: "boolean", Description: "Replay the spec audit timeline"}, {Name: "diff", Type: "boolean", Description: "Diff spec artifacts between git refs"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd report my-feature --format html --out ./report.html", "specd report my-feature --format prometheus", "specd report my-feature --conductor"},
-	},
-
-	{
-		Command: "waves", Category: "inspection",
-		Description: "Show task wave DAG",
-		Usage:       "specd waves <slug> [--json]", Synopsis: "specd waves <slug> [--json]",
-		LongDescription: "Renders the task wave dependency graph in ASCII or JSON.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error"}, {3, "Spec not found"}},
-		Examples:        []string{"specd waves my-feature"},
-	},
-
-	{
-		Command:     "brain",
-		Category:    "orchestration",
-		Description: "Drive deterministic Brain orchestration sessions.",
-		Usage:       "specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program] [--auto-step|--verbose|--ledger|--directive|--compact]",
-		Synopsis:    "specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program]",
-		Flags: []FlagMeta{
-			{Name: "program", Type: "boolean", Description: "operate on the cross-spec program session instead of one spec"},
-			{Name: "auto-step", Type: "boolean", Description: "Start then drive the Brain loop (merged from brain run)"},
-			{Name: "verbose", Type: "boolean", Description: "Explain scheduling state (merged from brain why)"},
-			{Name: "ledger", Type: "boolean", Description: "Show the session context ledger"},
-			{Name: "compact", Type: "boolean", Description: "Compact/checkpoint context before host clear"},
-			{Name: "directive", Type: "boolean", Description: "Record a host directive on brain step"},
-			{Name: "session", Type: "string", Description: "explicit orchestration session id"},
-			{Name: "approval-policy", Type: "string", Description: "required approval policy for start/step"},
-			{Name: "max-workers", Type: "string", Description: "required worker concurrency limit for start/step"},
-			{Name: "max-retries", Type: "string", Description: "required retry limit for start/step"},
-			{Name: "timeout-seconds", Type: "string", Description: "required session timeout for start/step"},
-			{Name: "cost-limit", Type: "string", Description: "optional host-reported cost limit"},
-			{Name: "worker-cmd", Type: "string", Description: "host shell command to spawn Pinky workers"},
-			{Name: "bootstrap", Type: "boolean", Description: "automatically bootstrap missing specs during run"},
-			{Name: "max-steps", Type: "string", Description: "max driver loop steps (default 100 for single, 200 for program)"},
-			{Name: "title", Type: "string", Description: "title to use when bootstrapping a missing spec"},
-			{Name: "worker", Type: "string", Description: "worker id for directive"},
-			{Name: "spec", Type: "string", Description: "spec slug for directive"},
-			{Name: "task", Type: "string", Description: "task id for directive"},
-			{Name: "attempt", Type: "string", Description: "positive attempt number for directive"},
-			{Name: "action", Type: "string", Description: "directive action: continue, retry, cancel, reassign, or escalate"},
-			{Name: "reason", Type: "string", Description: "directive reason"},
-			{Name: "in-reply-to", Type: "string", Description: "query message id this directive answers"},
-			{Name: "json", Type: "boolean", Description: "emit JSON"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate or validation failure"}, {2, "Usage error"}, {3, "Workspace or session not found"}},
-		Examples:  []string{"specd brain run my-spec --worker-cmd './worker.sh'", "specd brain resume --session 11111111111111111111111111111111", "specd brain start my-spec --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200 --json", "specd brain directive --session 11111111111111111111111111111111 --worker t1-a1 --spec my-spec --task T1 --attempt 1 --action continue --reason 'docs not required'", "specd brain step my-spec --session 11111111111111111111111111111111 --approval-policy manual --max-workers 4 --max-retries 2 --timeout-seconds 7200"},
-	},
-
-	{
-		Command:     "pinky",
-		Category:    "orchestration",
-		Description: "Record deterministic Pinky worker claims, reports, and queries.",
-		Usage:       "specd pinky <claim|status|update|report|block|release> ...",
-		Synopsis:    "specd pinky <claim|status|update|report|block|release> ...",
-		Flags: []FlagMeta{
-			{Name: "mission", Type: "string", Description: "mission JSON path or - for claim"},
-			{Name: "session", Type: "string", Description: "session id"},
-			{Name: "worker", Type: "string", Description: "worker id"},
-			{Name: "spec", Type: "string", Description: "spec slug"},
-			{Name: "task", Type: "string", Description: "task id"},
-			{Name: "attempt", Type: "string", Description: "positive attempt number"},
-			{Name: "artifact", Type: "string", Description: "the artifact template name for brief (e.g. requirements.md)"},
-			{Name: "percent", Type: "string", Description: "progress percent"},
-			{Name: "message", Type: "string", Description: "progress message"},
-			{Name: "reason", Type: "string", Description: "blocker reason"},
-			{Name: "text", Type: "string", Description: "bounded Pinky query text"},
-			{Name: "verification-ref", Type: "string", Description: "terminal verification reference"},
-			{Name: "summary", Type: "string", Description: "terminal summary"},
-			{Name: "changed-files", Type: "string", Description: "comma-separated changed files"},
-			{Name: "git-head", Type: "string", Description: "git commit observed by the host worker"},
-			{Name: "duration-ms", Type: "string", Description: "host-reported task duration in milliseconds"},
-			{Name: "host-tokens", Type: "string", Description: "host-reported token count (stored, not computed)"},
-			{Name: "host-cost", Type: "string", Description: "host-reported cost (stored, not computed)"},
-			{Name: "json", Type: "boolean", Description: "emit JSON"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate or validation failure"}, {2, "Usage error"}, {3, "Workspace or session not found"}},
-		Examples:  []string{"specd pinky claim --mission mission.json --json", "specd pinky update --session s --worker w --spec my-spec --task T1 --attempt 1 --message 'working' --percent 50", "specd pinky status --session s --worker w --json"},
-	},
-
-	{
-		Command:         "harness",
-		Category:        "platform",
-		Hidden:          true,
-		Description:     "Share the configured harness (guardrails, deploy, roles, routing) as a versioned team asset.",
-		Usage:           "specd harness <push|pull|list|enable> ... [--name <n>] [--force] [--json]",
-		Synopsis:        "specd harness <push|pull|list|enable> ... [--force]",
-		LongDescription: "Bundles the project's declarative policy — guardrails, deploy templates, roles, routing — under .specd/harness/ with a SHA256-pinned harness.json manifest, and shares it over stdlib-exec git (scrubbed env, transport allowlist, remote-URL validation).\n\npush builds the current bundle (version advances monotonically) and pushes it to a git URL. pull clones a remote bundle, verifies every pinned checksum, refuses a version downgrade or a locally-modified overwrite without --force, and quarantines every imported executable `command` artifact — copied to .specd/harness/quarantine/, listed, never installed — until an operator runs enable, which is recorded in the harness decision log. list shows the bundle and the quarantine; enable installs one quarantined artifact.",
-		Flags: []FlagMeta{
-			{Name: "name", Type: "string", Description: "Bundle name on push (defaults to the prior name or project dir)"},
-			{Name: "force", Type: "boolean", Description: "Override a version downgrade or a locally-modified overwrite"},
-			{Name: "json", Type: "boolean", Description: "Emit JSON"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Gate failure (refused overwrite, checksum mismatch, downgrade)"}, {2, "Usage error"}, {3, "No bundle or quarantined item not found"}},
-		Examples:  []string{"specd harness push git@example.com:team/harness.git --name platform", "specd harness pull https://example.com/team/harness.git", "specd harness list --json", "specd harness enable .specd/deploy/prod.json"},
-	},
-
-	{
-		Command:         "migrate",
-		Category:        "lifecycle",
-		Hidden:          true,
-		Description:     "Migrate a v0.1.x project onto v0.2.0 state schema and report available config blocks.",
-		Usage:           "specd migrate [--json]",
-		Synopsis:        "specd migrate [--json]",
-		LongDescription: "Idempotent one-shot upgrade. Rewrites every spec's state.json at the current schema version (the v5→v6 migration is otherwise silent on first load) and reports which additive v0.2.0 policy blocks — guardrails, routing, eval/review gates — are available to adopt. It never writes policy content, so a migrated repo keeps the new gates default-off (backward-compat invariant). Running it a second time is a no-op.",
-		Flags: []FlagMeta{
-			{Name: "json", Type: "boolean", Description: "Emit the migration report as JSON"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Migration failed (concurrent write or corrupt state)"}, {2, "Usage error"}, {3, ".specd/ not found"}},
-		Examples:  []string{"specd migrate", "specd migrate --json"},
-	},
-
-	{
-		Command:         "dashboard",
-		Category:        "inspection",
-		Hidden:          true,
-		Description:     "Serve the unified, read-only project dashboard (waves, cost, escalations, evals, harness).",
-		Usage:           "specd dashboard [<slug>] [--addr 127.0.0.1:8765] [--mode <all|conductor|orchestrator|cost|eval>]",
-		Synopsis:        "specd dashboard [<slug>] [--addr 127.0.0.1:8765] [--mode all]",
-		LongDescription: "Starts the read-only, browser-native unified dashboard bound to loopback. Renders project-wide state from local state and ledgers only — conductor sessions, orchestrator waves, eval trends, cost attribution, escalations, and the shared harness bundle — with zero outbound network. Reuses the existing SSE stream for live updates. --mode filters the rendered panels; the default lists every panel. A read-only alias over `specd report --serve` with a project-wide home page.",
-		Flags: []FlagMeta{
-			{Name: "addr", Type: "string", Description: "Loopback bind address (default 127.0.0.1:8765)"},
-			{Name: "mode", Type: "string", Description: "Panel filter: all, conductor, orchestrator, cost, or eval (default all)"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success"}, {1, "Server error"}, {2, "Usage error"}},
-		Examples:  []string{"specd dashboard", "specd dashboard --mode cost", "specd dashboard my-feature --addr 127.0.0.1:9000"},
-	},
-
-	{
-		Command: "version", Category: "meta", Hidden: true,
-		Description: "Show version information",
-		Usage:       "specd version [--json]", Synopsis: "specd version [--json]",
-		LongDescription: "Prints the version of the installed specd binary. With --json, emits a machine-readable object for CI and release automation.",
-		Flags:           []FlagMeta{{Name: "json", Type: "boolean", Description: "Emit machine-readable version JSON"}}, ExitCodes: []ExitCodeMeta{{0, "Success"}},
-		Examples: []string{"specd version", "specd version --json"},
-	},
-
-	{
-		Command: "mcp", Category: "meta", Hidden: true,
-		Description:     "Run the MCP stdio server (or print a host config snippet)",
-		Usage:           "specd mcp [--root <path>] [--spec <slug>] [--config <host>]",
-		Synopsis:        "specd mcp [--root <path>] [--spec <slug>] [--config <host>]",
-		LongDescription: "Starts a Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio, exposing every read-safe and state-mutating specd command as an MCP tool. A thin transport over the existing handlers — stdlib-only, no network, no LLM calls.\n\n--spec <slug> pins active-spec resolution to one spec for the lifetime of the MCP process. --config <host> prints a ready-to-paste config snippet for the named MCP host and exits without starting the server. Supported hosts: antigravity, claude-code, claude-desktop, codex, cursor, vscode. Combine with --root to substitute your project path into the snippet.",
-		Flags: []FlagMeta{
-			{Name: "root", Type: "string", Description: "Resolve specs against this project root (also substituted into --config output)"},
-			{Name: "spec", Type: "string", Description: "Pin MCP phase/status resolution to one spec slug"},
-			{Name: "config", Type: "string", Description: "Print ready-to-paste MCP config for a host (antigravity | claude-code | claude-desktop | codex | cursor | vscode) and exit"},
-		},
-		ExitCodes: []ExitCodeMeta{{0, "Success (stream closed or config printed)"}, {1, "Server error"}, {2, "Usage error"}},
-		Examples:  []string{"specd mcp", "specd mcp --root /path/to/project", "specd mcp --spec auth", "specd mcp --config cursor", "specd mcp --config codex --root /path/to/project"},
-	},
-
-	{
-		Command: "help", Category: "meta", Hidden: true,
-		Description: "Show detailed help for a command",
-		Usage:       "specd help [command]", Synopsis: "specd help [command]",
-		LongDescription: "Prints summary documentation for all commands, or detailed reference for a single command.",
-		Flags:           []FlagMeta{{Name: "all", Type: "boolean", Description: "Include meta-hidden commands"}, {Name: "json", Type: "boolean", Description: "Output the command registry as JSON"}},
-		ExitCodes:       []ExitCodeMeta{{0, "Success"}, {2, "Usage error (unknown command)"}},
-		Examples:        []string{"specd help", "specd help init", "specd help --json"},
-	},
+// postRequirementsPhases is the set for execution verbs (verify, next): every
+// phase except perceive. A spec still in the requirements (perceive) phase has
+// no approved design or task DAG to act on, so these verbs fail closed there
+// (spec 03 R2 acceptance: "execution verb on a spec still in requirements phase
+// exits 2"). The finer approval check (requireTaskGate) still applies inside
+// the handler; this is the coarse metadata-driven guard.
+func postRequirementsPhases() []Phase {
+	return []Phase{PhaseAnalyze, PhasePlan, PhaseExecute, PhaseVerify, PhaseReflect}
 }
 
-func init() {
-	positionals := map[string][]PositionalMeta{
-		"new":      {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"approve":  {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"decision": {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "text", Required: true, Description: "Decision text"}},
-		"midreq":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "input", Required: true, Description: "Feedback text"}},
-		"memory":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "action", Required: true, Description: "add or promote"}},
-		"next":     {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"verify":   {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "id", Required: false, Description: "Task id when running task verify"}},
-		"task":     {{Name: "slug", Required: true, Description: "Spec slug"}, {Name: "id", Required: true, Description: "Task id"}},
-		"status":   {{Name: "slug", Required: false, Description: "Optional spec slug"}},
-		"check":    {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"context":  {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"report":   {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"waves":    {{Name: "slug", Required: true, Description: "Spec slug"}},
-		"brain":    {{Name: "action", Required: true, Description: "start, run, status, step, why, directive, pause, resume, or cancel"}, {Name: "slug", Required: false, Description: "Spec slug for spec-scoped actions"}},
-		"pinky":    {{Name: "action", Required: true, Description: "claim, brief, heartbeat, progress, query, report, block, release, or inbox"}},
-		"mcp":      {{Name: "action", Required: false, Description: "Run server by default; config mode via --config"}},
-		"help":     {{Name: "command", Required: false, Description: "Command name"}},
-	}
-	phaseCompat := map[string]*PhaseCompatibilityMeta{
-		"approve":  planningAndVerificationCompat(),
-		"decision": planningCompat(),
-		"midreq":   anySpecCompat(),
-		"memory":   executionReflectCompat(),
-		"next":     executionCompat(),
-		"verify":   executionVerificationCompat(),
-		"task":     executionCompat(),
-		"check":    anySpecCompat(),
-		"context":  anySpecCompat(),
-		"report":   completeReflectCompat(),
-		"waves":    anySpecCompat(),
-		"brain":    executionCompat(),
-		"pinky":    executionCompat(),
-	}
-	modeCompat := map[string]*ModeCompatibilityMeta{
-		"new":   {Modes: []string{"simple", "orchestrated"}},
-		"brain": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
-		"pinky": {Modes: []string{"orchestrated"}, RequiresOrchestrationCapability: true},
-	}
-	for i := range Commands {
-		cmd := &Commands[i]
-		cmd.Positionals = positionals[cmd.Command]
-		if compat, ok := phaseCompat[cmd.Command]; ok {
-			cmd.PhaseCompatibility = compat
-		}
-		if compat, ok := modeCompat[cmd.Command]; ok {
-			cmd.ModeCompatibility = compat
-		} else if cmd.Category != "orchestration" {
-			cmd.ModeCompatibility = &ModeCompatibilityMeta{Modes: []string{"any"}}
-		}
-		annotateFlagEnums(cmd)
+// postExecutionPhases is the set for terminal verbs (submit): only once a spec
+// is executing or past it. A spec still in analyze/plan has no completed work to
+// submit, so `submit` fails closed there (spec 08 R6).
+func postExecutionPhases() []Phase {
+	return []Phase{PhaseExecute, PhaseVerify, PhaseReflect}
+}
+
+// stdCodes is the conventional exit-code table; every verb declares at least
+// codes 0 and 2 (spec 03 design notes / test invariant).
+func stdCodes() []ExitCode {
+	return []ExitCode{
+		{Code: 0, Meaning: "success"},
+		{Code: 1, Meaning: "gate or verify failure"},
+		{Code: 2, Meaning: "usage error or fail-closed rejection"},
 	}
 }
 
-func planningCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusRequirements), string(StatusDesign), string(StatusTasks)}, Phases: []string{string(PhaseAnalyze), string(PhasePlan)}}
+// argAt returns a pointer to i for the SpecSlugArg field.
+func argAt(i int) *int { return &i }
+
+// Commands is the stable top-level command palette.
+var Commands = []Command{
+	{
+		Name:          "help",
+		Usage:         "specd help [command] [--json]",
+		Description:   "Show command help.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd help", "specd help --json"},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Description: "Emit machine-readable help."},
+		},
+	},
+	{
+		Name:          "version",
+		Usage:         "specd version [--json]",
+		Description:   "Print build version metadata.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd version", "specd version --json"},
+		Flags:         []Flag{{Name: "json", Type: "bool", Description: "Emit machine-readable JSON."}},
+	},
+	{
+		Name:          "init",
+		Usage:         "specd init [--agent=<name>] [--repair|--refresh] [--dry-run]",
+		Description:   "Initialize or re-sync specd project state and managed assets.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd init", "specd init --repair --dry-run", "specd init --refresh"},
+		Flags: []Flag{
+			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
+			{Name: "repair", Type: "bool", Description: "Restore drifted managed regions from the current templates."},
+			{Name: "refresh", Type: "bool", Description: "Update managed regions to the current binary's template version."},
+			{Name: "dry-run", Type: "bool", Description: "Print the managed-region changes and write nothing."},
+		},
+	},
+	{
+		Name:          "new",
+		Usage:         "specd new <name> [--agent=<name>]",
+		Description:   "Create a new spec workspace.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd new payments", "specd new payments --agent=codex"},
+		Flags: []Flag{
+			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
+		},
+	},
+	{
+		Name:          "approve",
+		Usage:         "specd approve <spec> <gate>",
+		Description:   "Record human approval for a lifecycle gate.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd approve payments requirements", "specd approve payments design"},
+	},
+	{
+		Name:          "midreq",
+		Usage:         "specd midreq <spec> --text <change> [--scope <scope>]",
+		Description:   "Capture a scoped mid-stream requirement change.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd midreq payments --text 'add refund path' --scope requirements"},
+		Flags: []Flag{
+			{Name: "text", TakesValue: true, Type: "string", Description: "Change description (required)."},
+			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
+		},
+	},
+	{
+		Name:          "decision",
+		Usage:         "specd decision <spec> --text <rationale> [--scope <scope>]",
+		Description:   "Record an explicit human decision.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd decision payments --text 'defer webhooks' --scope design"},
+		Flags: []Flag{
+			{Name: "text", TakesValue: true, Type: "string", Description: "Decision rationale (required)."},
+			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
+		},
+	},
+	{
+		Name:          "next",
+		Usage:         "specd next <slug> [--json | --waves | --dispatch]",
+		Description:   "Select the next eligible task or wave.",
+		AllowedPhases: postRequirementsPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd next payments", "specd next payments --json"},
+		Flags: []Flag{
+			{Name: "waves", Type: "bool", Description: "Show all wave groups as JSON."},
+			{Name: "dispatch", Type: "bool", Description: "Emit the context manifest for the first frontier task."},
+			{Name: "json", Type: "bool", Description: "Emit machine-readable frontier list."},
+		},
+	},
+	{
+		Name:          "status",
+		Usage:         "specd status [spec] [--json] | specd status --program",
+		Description:   "Report current spec and task state, or the cross-spec program view.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd status payments", "specd status payments --json", "specd status --program"},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Description: "Emit machine-readable status."},
+			{Name: "program", Type: "bool", Description: "Show the cross-spec program view: specs, links, phases, and frontier."},
+		},
+	},
+	{
+		Name:          "task",
+		Usage:         "specd task <id> [--override --reason <text>] | specd task complete <spec> <id>",
+		Description:   "Show task details, clear an escalated task with a human override, or mark a task complete (requires passing evidence).",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd task T3 --json", "specd task T3 --override --reason 'flaky infra, verified manually'", "specd task complete payments T3"},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Description: "Emit machine-readable task row."},
+			{Name: "override", Type: "bool", Description: "Clear an escalated task (resets the verify-failure ratchet; does not complete it). Requires --reason."},
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Human justification for --override (required, non-empty)."},
+			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim (task complete)."},
+			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim (task complete)."},
+			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim (task complete)."},
+		},
+	},
+	{
+		Name:          "check",
+		Usage:         "specd check <spec> [--security] [--json]",
+		Description:   "Run the validation gate registry against a spec.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd check payments", "specd check payments --security --json"},
+		Flags: []Flag{
+			{Name: "security", Type: "bool", Description: "Run opt-in security gates."},
+			{Name: "schema", Type: "bool", Description: "Validate state.json schema."},
+			{Name: "schema-only", Type: "bool", Description: "Validate only state.json schema."},
+			{Name: "json", Type: "bool", Description: "Emit machine-readable findings."},
+		},
+	},
+	{
+		Name:          "verify",
+		Usage:         "specd verify <slug> <task-id> [--revert-on-fail] [--sandbox] [--sandbox-binary=<path>] | specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>",
+		Description:   "Run and record task verification (task mode), or record a per-acceptance-criterion evidence record (--criterion mode).",
+		AllowedPhases: postRequirementsPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd verify payments T3", "specd verify payments T3 --revert-on-fail", "specd verify payments --criterion 1.2 --status pass --evidence 'covered by T3 integration test'"},
+		Flags: []Flag{
+			{Name: "revert-on-fail", Type: "bool", Description: "Restore working tree on verify failure."},
+			{Name: "sandbox", Type: "bool", Description: "Run the verify line inside a bwrap sandbox (fail-closed if the binary is absent)."},
+			{Name: "sandbox-binary", TakesValue: true, Type: "string", Description: "Path to sandbox binary (overrides auto-detect)."},
+			{Name: "criterion", TakesValue: true, Type: "string", Description: "Record evidence for acceptance criterion <r>.<n> instead of running a task verify."},
+			{Name: "status", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Description: "Criterion verdict (with --criterion): pass|fail."},
+			{Name: "evidence", TakesValue: true, Type: "string", Description: "Evidence text or path backing the criterion verdict (with --criterion)."},
+			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim."},
+			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim."},
+			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim."},
+		},
+	},
+	{
+		Name:          "context",
+		Usage:         "specd context <slug> <task-id> [--json|--hud]",
+		Description:   "Build the bounded context manifest for a task.",
+		AllowedPhases: postRequirementsPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd context payments T3", "specd context payments T3 --hud"},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Description: "Emit machine-readable context."},
+			{Name: "hud", Type: "bool", Description: "Render the operator HUD (files, bytes, tokens, mode)."},
+		},
+	},
+	{
+		Name:          "memory",
+		Usage:         "specd memory <slug> <add|promote> [flags]",
+		Description:   "Append or promote steering-memory patterns (learning flywheel).",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd memory payments add --key 'atomic writes' --pattern 'use AtomicWrite'"},
+		Flags: []Flag{
+			{Name: "key", TakesValue: true, Type: "string", Description: "Pattern key (H2 heading)."},
+			{Name: "pattern", TakesValue: true, Type: "string", Description: "One-line pattern statement (add)."},
+			{Name: "body", TakesValue: true, Type: "string", Description: "Detail of the pattern (add)."},
+			{Name: "source", TakesValue: true, Type: "string", Description: "Where the pattern came from (add)."},
+			{Name: "criticality", TakesValue: true, Type: "string", Enum: []string{"minor", "important", "critical"}, Description: "minor|important|critical (add)."},
+			{Name: "related", TakesValue: true, Type: "string", Description: "Comma-separated related keys → wikilinks (add)."},
+			{Name: "force", Type: "bool", Description: "Promote past the threshold (promote)."},
+		},
+	},
+	{
+		Name:          "mcp",
+		Usage:         "specd mcp | specd mcp --config <host> [--root <path>] [--spec <slug>]",
+		Description:   "Serve the MCP integration surface over stdio, or print a host config snippet.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd mcp", "specd mcp --config claude-code --spec demo"},
+		Flags: []Flag{
+			{Name: "config", TakesValue: true, Type: "string", Description: "Print a paste-ready MCP config snippet for a host (e.g. claude-code)."},
+			{Name: "root", TakesValue: true, Type: "string", Description: "Pin the server working directory in the snippet."},
+			{Name: "spec", TakesValue: true, Type: "string", Description: "Pin the active spec in the snippet."},
+		},
+	},
+	{
+		Name:          "handshake",
+		Usage:         "specd handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]",
+		Description:   "Emit bootstrap handshake material, including palette and config digests.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd handshake bootstrap", "specd handshake bootstrap --json"},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Description: "Emit machine-readable handshake."},
+			{Name: "expect-palette-digest", TakesValue: true, Type: "string", Description: "Fail (exit 1) if the command-palette digest differs."},
+			{Name: "expect-config-digest", TakesValue: true, Type: "string", Description: "Fail (exit 1) if the effective-config digest differs."},
+		},
+	},
+	{
+		Name:          "brain",
+		Usage:         "specd brain <start|step|run|status|cancel|resume> <spec> [--authority]",
+		Description:   "Run the opt-in deterministic orchestration controller.",
+		AllowedPhases: postRequirementsPhases(),
+		SpecSlugArg:   argAt(1),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd brain start payments --authority", "specd brain status payments", "specd brain resume payments", "specd brain cancel payments"},
+		Flags: []Flag{
+			{Name: "authority", Type: "bool", Description: "Grant dispatch authority (fail-closed by default)."},
+		},
+	},
+	{
+		Name:          "report",
+		Usage:         "specd report <spec> [--pr|--metrics|--json|--history|--format prometheus]",
+		Description:   "Render evidence-backed status, PR, history, and metrics reports.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --format prometheus"},
+		Flags: []Flag{
+			{Name: "pr", Type: "bool", Description: "Emit PR-oriented report."},
+			{Name: "metrics", Type: "bool", Description: "Emit metrics summary."},
+			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
+			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
+			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus"}, Description: "Alternate output format; prometheus emits textfile-collector metrics."},
+		},
+	},
+	{
+		Name:          "link",
+		Usage:         "specd link <from-slug> <to-slug>",
+		Description:   "Record that one spec depends on another (cross-spec ordering).",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd link api auth"},
+	},
+	{
+		Name:          "unlink",
+		Usage:         "specd unlink <from-slug> <to-slug>",
+		Description:   "Remove a cross-spec dependency link.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd unlink api auth"},
+	},
+	{
+		Name:          "review",
+		Usage:         "specd review <spec> [--force]",
+		Description:   "Scaffold the review report the auditor fills before completion.",
+		AllowedPhases: postExecutionPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd review payments", "specd review payments --force"},
+		Flags: []Flag{
+			{Name: "force", Type: "bool", Description: "Overwrite an existing report for the current git HEAD."},
+		},
+	},
+	{
+		Name:          "submit",
+		Usage:         "specd submit <spec> [--resubmit]",
+		Description:   "Run every gate, then stream the PR summary to the operator-configured submit command.",
+		AllowedPhases: postExecutionPhases(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd submit payments", "specd submit payments --resubmit"},
+		Flags: []Flag{
+			{Name: "resubmit", Type: "bool", Description: "Allow resubmitting a spec already submitted at the current git HEAD."},
+		},
+	},
+	{
+		Name:          "triage",
+		Usage:         "specd triage <spec>",
+		Description:   "Run the opt-in extended-loop triage tier.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd triage payments"},
+		Deferred:      true,
+	},
 }
 
-func planningAndVerificationCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusRequirements), string(StatusDesign), string(StatusTasks), string(StatusVerifying)}, Phases: []string{string(PhaseAnalyze), string(PhasePlan), string(PhaseVerify)}}
+// CommandNames returns command names in help order.
+func CommandNames() []string {
+	names := make([]string, len(Commands))
+	for i, command := range Commands {
+		names[i] = command.Name
+	}
+	return names
 }
 
-func executionCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusExecuting), string(StatusBlocked)}, Phases: []string{string(PhaseExecute)}}
-}
-
-func executionVerificationCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusExecuting), string(StatusVerifying)}, Phases: []string{string(PhaseExecute), string(PhaseVerify)}}
-}
-
-func executionReflectCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusExecuting), string(StatusVerifying), string(StatusComplete)}, Phases: []string{string(PhaseExecute), string(PhaseVerify), string(PhaseReflect)}}
-}
-
-func completeReflectCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusVerifying), string(StatusComplete)}, Phases: []string{string(PhaseVerify), string(PhaseReflect)}}
-}
-
-func anySpecCompat() *PhaseCompatibilityMeta {
-	return &PhaseCompatibilityMeta{Statuses: []string{string(StatusRequirements), string(StatusDesign), string(StatusTasks), string(StatusExecuting), string(StatusVerifying), string(StatusComplete), string(StatusBlocked)}, Phases: []string{string(PhaseAnalyze), string(PhasePlan), string(PhaseExecute), string(PhaseVerify), string(PhaseReflect)}}
-}
-
-func annotateFlagEnums(cmd *CommandMeta) {
-	for i := range cmd.Flags {
-		flag := &cmd.Flags[i]
-		switch flag.Name {
-		case "agent":
-			flag.Enum = []string{"auto", "all", "none", "codex", "claude-code", "cursor", "antigravity", "vscode"}
-		case "scope":
-			flag.Enum = []string{"project", "global"}
-			flag.Default = "project"
-		case "orchestration", "approval-policy":
-			flag.Enum = []string{"manual", "planning", "session"}
-		case "orchestration-mode":
-			flag.Enum = []string{"inline", "delegate"}
-		case "orchestration-sandbox", "sandbox":
-			flag.Enum = []string{"none", "bwrap", "container"}
-		case "impact":
-			flag.Enum = []string{"low", "medium", "high", "critical"}
-			flag.Required = true
-		case "criticality":
-			flag.Enum = []string{"note", "important", "critical"}
-		case "status":
-			if cmd.Command == "verify" {
-				flag.Enum = []string{"pass", "fail"}
-			} else if cmd.Command == "task" {
-				flag.Enum = []string{string(TaskPending), string(TaskRunning), string(TaskComplete), string(TaskBlocked)}
-				flag.Required = true
-			}
-		case "set":
-			flag.Enum = []string{ModeSimple, ModeOrchestrated, ModeConductor}
-		case "format":
-			flag.Enum = []string{"md", "html", "prometheus"}
-		case "action":
-			flag.Enum = []string{"continue", "retry", "cancel", "reassign", "escalate"}
-		case "config":
-			flag.Enum = []string{"antigravity", "claude-code", "claude-desktop", "codex", "cursor", "vscode"}
-		case "from", "schema":
-			flag.Required = true
-		case "mode":
-			if cmd.Command == "dashboard" {
-				flag.Enum = []string{"all", "conductor", "orchestrator", "cost", "eval"}
-				flag.Default = "all"
-			}
+// CommandByName returns the command metadata for name, and whether it exists.
+func CommandByName(name string) (Command, bool) {
+	for _, command := range Commands {
+		if command.Name == name {
+			return command, true
 		}
 	}
+	return Command{}, false
+}
+
+// AllowsPhase reports whether the command may run in phase. A command that
+// declares PhaseAny is unrestricted.
+func (c Command) AllowsPhase(phase Phase) bool {
+	for _, allowed := range c.AllowedPhases {
+		if allowed == PhaseAny || allowed == phase {
+			return true
+		}
+	}
+	return false
+}
+
+// FlagByName returns the flag metadata for name, or nil if the command has no
+// such flag.
+func (c Command) FlagByName(name string) *Flag {
+	for i := range c.Flags {
+		if c.Flags[i].Name == name {
+			return &c.Flags[i]
+		}
+	}
+	return nil
+}
+
+// HelpPayload is the stable machine-readable help contract emitted by
+// `help --json`. SchemaVersion lets consumers detect shape changes.
+type HelpPayload struct {
+	SchemaVersion int       `json:"schema_version"`
+	Commands      []Command `json:"commands"`
+}
+
+// BuildHelpPayload assembles the full palette for `help --json`.
+func BuildHelpPayload() HelpPayload {
+	return HelpPayload{SchemaVersion: HelpSchemaVersion, Commands: Commands}
 }

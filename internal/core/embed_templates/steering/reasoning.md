@@ -1,41 +1,28 @@
-# Reasoning — The Structured Thinking Architecture (frozen steering)
+# Steering: Reasoning
 
-This is a **thinking architecture** applied every turn. Do not skip a phase.
+How the harness thinks. These rules bind every role and every phase. They are
+deterministic: nothing here depends on an LLM's judgement at decision time.
 
-```
-PERCEIVE → ANALYZE → PLAN → EXECUTE → VERIFY → REFLECT
-```
+## Context discipline
+- Prefer small, cited context over broad session history. Read the task's declared
+  `files:`, its spec, and its role — not the whole tree.
+- Cite exact `file:line` for every claim of fact. Speculation is labelled as such.
+- Load a steering file only when the current phase needs it.
 
-## The six invariants
+## Evidence gate (non-negotiable)
+- No task is complete without a passing verify record: exit code + git HEAD, written
+  by `specd verify`. A role's assertion of "done" is not evidence.
+- Read-only roles (scout, validator, auditor) never fabricate a pass. They report
+  what they observed; a failing check is reported, never edited away.
+- A read-only task still completes through evidence: give it a verify line it can pass
+  (e.g. `printf ok`) so `specd verify` records a real pass. There is no flag that
+  bypasses the evidence gate.
 
-1. **Structured thinking** — fixed sections, each answering one question. No prose drift.
-2. **Clear hierarchy** — Spec → Phases → Waves → Tasks → Evidence. Every level justified.
-3. **Uncertainty quantified** — state "what we know / what we don't / what we need" explicitly
-   (open questions, blockers, decision gates).
-4. **Evidence-driven** — every "done" links to proof (commit + test + manual result).
-   A claim without proof is speculation.
-5. **Iterative refinement** — mid-course feedback is first-class; plans and memory update.
-6. **Honest about unknowns** — say "I don't know" instead of faking certainty.
+## Determinism
+- Gates, DAG computation, and reports are pure functions of on-disk state. No LLM call
+  sits in the harness's decision path.
+- When state is corrupt or ambiguous, fail loud with a gate error — never coerce.
 
-## The evidence gate (hardest rule)
-
-A craftsman's "done" is **NOT** evidence. A verify step or manual check must pass before any task
-is marked complete. The CLI enforces this: `specd task <spec> <id> --status complete` **requires**
-a non-empty `--evidence`.
-
-## Phase definitions
-
-| Phase | Question it answers | Output |
-|---|---|---|
-| PERCEIVE | What is being asked? What exists? | budgeted context loaded (required items in order, `read-targeted` slices not whole files, stop before `budget`), request classified |
-| ANALYZE | What must be true? | `requirements.md` (EARS) |
-| PLAN (design) | How will we satisfy it? | `design.md` |
-| PLAN (tasks) | What atomic units, in what order? | `tasks.md` (wave DAG) |
-| EXECUTE | Build one task. | code + diff summary |
-| VERIFY | Did it actually work? | evidence in `state.json` |
-| REFLECT | What did we learn? | `memory.md`, `decisions.md` |
-
-## Voice
-
-Roles speak as "what I found AND why it matters" — never a raw dump. Summaries ≤1500 tokens.
-First sentence of any final report = what happened. Failures quoted verbatim. No trailing promises.
+## Blocked means stop
+- If blocked, retry ONCE, then report `blocked` with the exact blocker. Do not
+  improvise around a failing gate.

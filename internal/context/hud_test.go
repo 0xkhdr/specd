@@ -1,54 +1,65 @@
-package contextpkg
+package context
 
 import (
-	"os"
-	"path/filepath"
-	"reflect"
+	"encoding/json"
+	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
-// TestBuildContextHUD asserts the HUD measures each load file from disk, marks
-// missing files without inventing cost, totals bytes/tokens, and is byte-stable
-// across runs (invariant 6/7).
-func TestBuildContextHUD(t *testing.T) {
-	root := t.TempDir()
-	write := func(rel, body string) {
-		p := filepath.Join(root, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
-			t.Fatal(err)
+func TestHUDRender(t *testing.T) {
+	m, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 0)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	out := RenderHUD(m)
+	for _, want := range []string{"mode: craftsman", "demo", "T1", "LOAD", "BYTES", "TOKENS", "TOTAL"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("HUD missing %q:\n%s", want, out)
 		}
 	}
-	write("steering/a.md", "hello world")             // 11 bytes
-	write("skills/s/SKILL.md", "skill body here yes") // 19 bytes
-	load := []string{"steering/a.md", "skills/s/SKILL.md", "steering/missing.md"}
-	skills := []string{"skills/s/SKILL.md"}
+	// Every load item's label appears.
+	for _, item := range m.Items {
+		if !strings.Contains(out, itemLabel(item)) {
+			t.Fatalf("HUD missing item %q:\n%s", itemLabel(item), out)
+		}
+	}
+}
 
-	hud := BuildContextHUD(root, "demo", "conductor", "tier-2", load, skills)
-
-	if hud.Spec != "demo" || hud.Mode != "conductor" || hud.Tier != "tier-2" {
-		t.Fatalf("header wrong: %+v", hud)
+// TestHUDMatchesJSON asserts the token total shown by the HUD equals the value
+// the --json surface serializes — one engine, two renders (RH.3).
+func TestHUDMatchesJSON(t *testing.T) {
+	m, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "validator"}}, "T1", 0)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
 	}
-	if len(hud.Files) != 3 {
-		t.Fatalf("want 3 files, got %d", len(hud.Files))
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
 	}
-	if !hud.Files[0].Exists || hud.Files[0].Bytes != 11 {
-		t.Fatalf("file0 = %+v, want exists 11 bytes", hud.Files[0])
-	}
-	if hud.Files[2].Exists || hud.Files[2].Bytes != 0 || hud.Files[2].ApproxTokens != 0 {
-		t.Fatalf("missing file must be marked absent with zero cost: %+v", hud.Files[2])
-	}
-	if hud.TotalBytes != 30 {
-		t.Fatalf("total bytes = %d, want 30", hud.TotalBytes)
-	}
-	if hud.ApproxTokens != EstimateTokens([]byte("hello world"))+EstimateTokens([]byte("skill body here yes")) {
-		t.Fatalf("token total not the sum of per-file estimates: %d", hud.ApproxTokens)
+	var jsonView Manifest
+	if err := json.Unmarshal(raw, &jsonView); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
 	}
 
-	// Determinism: identical inputs produce an identical HUD.
-	if !reflect.DeepEqual(BuildContextHUD(root, "demo", "conductor", "tier-2", load, skills), hud) {
-		t.Fatalf("HUD is not stable across runs")
+	hud := RenderHUD(m)
+	totalLine := ""
+	for _, line := range strings.Split(hud, "\n") {
+		if strings.HasPrefix(line, "TOTAL") {
+			totalLine = line
+		}
+	}
+	if totalLine == "" {
+		t.Fatalf("no TOTAL line:\n%s", hud)
+	}
+	fields := strings.Fields(totalLine) // TOTAL <bytes> <tokens>
+	hudTokens, err := strconv.Atoi(fields[len(fields)-1])
+	if err != nil {
+		t.Fatalf("parse HUD token total %q: %v", totalLine, err)
+	}
+	if hudTokens != jsonView.EstimatedTokens {
+		t.Fatalf("HUD token total %d != --json %d", hudTokens, jsonView.EstimatedTokens)
 	}
 }

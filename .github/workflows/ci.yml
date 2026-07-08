@@ -46,9 +46,13 @@ jobs:
         uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: scripts
+          # Gate on error-severity only. Remaining findings are warning/info
+          # false positives on safe idioms: SC1007 (CDPATH= cd guard),
+          # SC2015 (best-effort `... || true`), SC2016 (sed single-quote scripts).
+          severity: error
 
       - name: docs-lint (cheat-sheet ↔ command-reference sync)
-        # Gate cheat-sheet drift on PRs, not only at release (make ci). Asserts
+        # Gate cheat-sheet drift on PRs. Asserts
         # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
         run: ./scripts/docs-lint.sh
 
@@ -68,16 +72,24 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
 
-      # staticcheck (and friends) via golangci-lint, governed by .golangci.yml.
+      # staticcheck (and friends) via golangci-lint.
       - name: staticcheck (golangci-lint)
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.6
+          # Build golangci-lint from source with the runner's Go (1.26 via
+          # go.mod). The prebuilt v2.1.6 release binary is built with go1.24,
+          # which refuses to load a module targeting go 1.26 ("the Go language
+          # version used to build golangci-lint is lower than the targeted Go
+          # version"). goinstall matches the toolchain to go.mod.
+          install-mode: goinstall
 
       # Fail the build on known vulnerabilities in our deps/stdlib usage.
       - name: govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          # Pinned (SPEC-01 T-01-06 / SPEC-04): no floating @latest on a
+          # security scanner — an unpinned scanner is itself a supply-chain hole.
+          go install golang.org/x/vuln/cmd/govulncheck@v1.5.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
   test:
@@ -86,8 +98,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        # Declared minimum (go.mod) + the current stable toolchain.
-        go: ["1.22", "stable"]
+        # Declared minimum (go.mod = go 1.26) + the current stable toolchain.
+        # SPEC-01 T-01-05: the old "1.22" leg could not compile a `go 1.26`
+        # module directive, so every 1.22 job failed before any test ran.
+        go: ["1.26.x", "stable"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -105,8 +119,10 @@ jobs:
         run: go test ./... -count=2
 
       # A4: measured perf gate — disabled-mode context manifest does no work.
+      # SPEC-01 T-01-02: replaced `make perf-gate` (no root Makefile exists) with
+      # a single-mechanism script. See scripts/README.md for the keep/delete log.
       - name: perf-gate
-        run: make perf-gate
+        run: ./scripts/perf-gate.sh
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
@@ -232,7 +248,7 @@ jobs:
       # self-replacement is known-limited on Windows (see TESTING.md); the
       # binary still builds and all non-self-update commands work.
       - name: Build binary
-        run: go build -ldflags "-s -w -X main.version=ci" -o specd .
+        run: go build -ldflags "-s -w -X github.com/0xkhdr/specd/internal/version.Version=ci" -o specd .
 
       - name: Cross-compile linux/arm64
         if: matrix.os == 'ubuntu-latest'

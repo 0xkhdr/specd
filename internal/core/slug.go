@@ -1,22 +1,31 @@
 package core
 
-import "regexp"
+import "fmt"
 
-// SlugRE is the canonical spec-slug grammar. A slug is a path segment under
-// .specd/specs/, so it must never contain path separators, "..", or other
-// shell/filesystem metacharacters. Lowercase alnum plus internal hyphens only.
-var SlugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
-
-// ValidateSlug rejects any slug that could escape the specs directory (path
-// traversal) or otherwise resolve to an unintended path. Every command that
-// accepts a user-supplied slug must call this before touching the filesystem —
-// defense in depth, independent of whether the spec already exists.
-func ValidateSlug(slug string) error {
+func ValidSlug(slug string) bool {
 	if slug == "" {
-		return UsageError("spec slug is required")
+		return false
 	}
-	if !SlugRE.MatchString(slug) {
-		return UsageError("invalid slug '" + slug + "' (must match ^[a-z0-9][a-z0-9-]*$)")
+	lastHyphen := false
+	for i, r := range slug {
+		ok := r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-'
+		if !ok {
+			return false
+		}
+		if i == 0 && r == '-' {
+			return false
+		}
+		if r == '-' && lastHyphen {
+			return false
+		}
+		lastHyphen = r == '-'
 	}
-	return nil
+	return !lastHyphen
+}
+
+func ValidateSlug(slug string) error {
+	if ValidSlug(slug) {
+		return nil
+	}
+	return fmt.Errorf("invalid slug %q: want ^[a-z0-9][a-z0-9-]*$", slug)
 }

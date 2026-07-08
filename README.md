@@ -1,8 +1,9 @@
 # specd — Spec-Driven Coding Harness
 
-`specd` is an **agent-agnostic, spec-driven coding harness CLI**. It fuses a structured spec workflow (requirements → design → tasks → evidence-gated execution) with a rigid thinking discipline for AI coding agents. 
-
-By defining clear phase transitions and validating structural correctness with deterministic gates, `specd` shifts the burden of process enforcement from the LLM's non-deterministic context to a strict, local, tool-gated pipeline.
+`specd` is a **spec-driven coding harness CLI** that fuses structured spec workflows
+(requirements → design → tasks → evidence-gated execution) with rigid thinking discipline
+for AI coding agents. It shifts process enforcement from the LLM's non-deterministic
+context window to a strict, local, tool-gated pipeline.
 
 > **The agent reasons. The harness enforces.**
 
@@ -10,15 +11,14 @@ By defining clear phase transitions and validating structural correctness with d
 
 ## Key Features
 
-- 🔄 **Strict Planning Ratchet**: Enforces human-approved phase gates (Analyze → Plan → Execute → Verify → Reflect).
-- 🛡️ **Validation Gates**: Programmatic checks (`specd check`) — 7 core gates (EARS syntax, design completeness, task schema, acyclic DAG, evidence, sync, traceability) plus opt-in **acceptance**, **scope**, and external **custom** gates.
-- 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are fully resolved.
-- 💾 **Evidence-Gated Completion**: `specd verify` runs the task's own `verify:` command and records the exit code + git HEAD. A task completes only against a passing record — never on a free-text claim alone.
-- 🔒 **Sandboxed Verify & Rollback**: Run `verify:` under `bwrap`/container isolation (fail-closed if absent) and optionally stash the working tree on failure (`--revert-on-fail`).
-- 🚦 **Frontier Dispatch & Cross-Spec DAG**: `specd next --dispatch` emits ready-to-run packets (role prompt + contract + verify) for parallel subagents; `specd status --program` resolves which whole specs are runnable across a multi-spec program.
-- 🔌 **Agent-Agnostic + MCP auto-setup**: Teaches any command-running agent via a localized prompt pack, or drives the workflow from any MCP client via stdio (`specd mcp`) or HTTP/SSE (`specd mcp --http`). `specd init --agent auto` detects supported coding agents and installs **project-scoped** MCP registration for you — managed adapters for **claude-code, codex, cursor, antigravity, and vscode** (host-native CLI or a safe JSON merge), plus deterministic `--config` snippets for **claude-desktop**. `.agents/` is intentionally VCS-tracked so Antigravity config stays in repo. `specd init --repair` verifies the integration end to end.
-- 📊 **Deterministic Reporting & Live Views**: Markdown / self-contained HTML reports, a read-only dashboard (`specd report --serve`), a frontier event stream (`specd report --watch` over NDJSON/SSE/webhook), and a network-free PR summary (`specd report --pr-summary`) — no LLM dependency.
-- 🧰 **Format, Packs & History**: A versioned JSON Schema (`specd check --schema` / `specd check --schema-only`), shareable scaffold bundles (`specd init --pack`), and read-only report history / spec comparison views.
+- 🔄 **Strict Planning Ratchet**: Enforces human-approved phase transitions (Perceive → Analyze → Plan → Execute → Verify → Reflect).
+- 🛡️ **Validation Gates**: Programmatic checks (`specd check`) — 14 core gates (EARS syntax, design sections, task schema, acyclic DAG, evidence, sync, context budget, and more — 12 always-on plus opt-in `criteria` and `review`) plus a separate opt-in security gate.
+- 📉 **DAG-Based Task Execution**: Computes the concurrent runnable frontier of waves so agents only work on tasks whose dependencies are resolved.
+- 💾 **Evidence-Gated Completion**: Tasks complete only against a passing `verify` record (exit code 0 + git HEAD) — never on free-text claims.
+- 🔒 **Verify Sandboxing & Rollback**: Run verification commands inside `bwrap`/container isolation and optionally stash the working tree on failure (`--revert-on-fail`).
+- 🔌 **Agent-Agnostic & MCP Support**: Serve the command palette as a stdio MCP server (`specd mcp`) compatible with Claude Code, Cursor, Antigravity, or custom LLM clients.
+- 🧠 **Orchestration Brain**: Opt-in deterministic controller (`specd brain`) to drive wave-based execution loops safely using leases.
+- 🔄 **Learning Flywheel**: Append and promote durable steering-memory patterns from spec learnings.
 
 ---
 
@@ -29,187 +29,60 @@ By defining clear phase transitions and validating structural correctness with d
 1. **The Foundational Split**: The agent does the creative thinking; the harness enforces process integrity.
 2. **Specs as the Source of Truth**: The active plan lives as versioned Markdown on disk, not floating in the LLM's context window.
 3. **Evidence Gates Every State Change**: *Trust is recorded, not assumed.* Status changes require verifiable proof.
-4. **Waves, Not Lines**: Work is structured as a Directed Acyclic Graph (DAG) of concurrent batches (waves) rather than flat todo lists.
+4. **Waves, Not Lines**: Work is structured as a Directed Acyclic Graph (DAG) of concurrent waves rather than flat todo lists.
 5. **Agent-Agnostic by Design**: Standardized command interface integrated via role prompt injection.
 6. **Human Gates at Phase Boundaries**: Semantic transitions require explicit human approval (`specd approve`).
-7. **Deterministic Reporting**: Reports are generated programmatically from `state.json` and artifact files.
+7. **Deterministic Reporting**: Reports are generated programmatically from `state.json` and task artifacts.
 8. **Steering as Constitution**: Durable steering files outlive individual chat sessions.
 
 ---
 
-## Installation
+## Installation & Setup
 
-### Quick Install (Linux / macOS)
+### Building from Source
+
+`specd` is written in Go (1.26+) and has **zero runtime dependencies**. It compiles into a single static binary:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash
+# Clone the repository and build:
+go build -o specd .
+
+# Or run directly:
+go run . help
 ```
 
-### With Options
+### Initializing a Project
+
+From your target project's root:
+
 ```bash
-# Force reinstall
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
-
-# Install specific version
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --version 0.1.0
+specd init
 ```
 
-### Uninstall
-`install.sh` places a single binary with no separate install directory, so removal is
-manual:
-```bash
-rm -f ~/.local/bin/specd
-```
-If you no longer need `~/.local/bin` on your `PATH`, also remove the `# specd`-tagged
-`export PATH=...` line `install.sh` added to `~/.bashrc`, `~/.zshrc`, or `~/.profile`
-(whichever your shell uses).
-
-### Update
-```bash
-curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | bash -s -- --force
-```
-
-### Requirements
-- Linux, macOS, or Windows (amd64 / arm64)
-  - *Windows note*: Windows users should reinstall with the installer command above instead of relying on in-place binary replacement. Task execution verification requires a bash-like environment (like `sh` or `bash` from Git for Windows) in the `PATH` since execution commands are invoked with `-c`. Brain/Pinky worker orchestration is POSIX-only on Windows and fails fast with: `orchestration requires a POSIX shell (sh); not supported on Windows — run under WSL`.
-- Git (optional — tarball fallback available)
-
-## For Agents
-
-`specd` is designed to be fully drivable by AI agents:
-
-- Set `SPECD_JSON=1` to receive structured JSON output for all commands.
-- Use `specd help --json` to discover the full command schema programmatically.
-- All state mutations are atomic and versioned — safe for concurrent agent access.
-- Exit codes are deterministic: `0`=ok, `1`=validation, `2`=usage, `3`=not found.
-
-## Quick Start
-
-### Golden path: install → init → ask your agent
-
-After installing, the fastest path from a fresh repo to an agent driving `specd` is
-**one command**:
-
-```sh
-cd <your-project>
-specd init --agent auto
-```
-
-`specd init --agent auto` does four things in order:
-
-1. **Scaffolds** `.specd/` (roles, steering, skills, `config.json`) and merges
-   `AGENTS.md` — idempotent and atomic; a rerun on a healthy project changes no bytes.
-2. **Detects** supported coding agents on your machine (executable + project config).
-3. **Configures project-scoped MCP** for the detected agent — preferring the host's
-   own CLI (`claude mcp add --scope project`) or a safe JSON merge that preserves your other
-   servers. Antigravity writes directly to `.agents/mcp_config.json`, and `.agents/` is
-   intentionally tracked in VCS so host config stays with the repo. Project scope is the default;
-   global config is never touched without `--scope global` and explicit consent.
-4. **Verifies** the integration with an in-process MCP handshake + `tools/list`, then
-   prints one next action.
-
-> [!NOTE]
-> Restart or reload your coding agent / IDE to pick up MCP configuration.
-
-Then just ask your agent:
-
-> "Read specd context and help me create a spec for &lt;feature&gt;."
-
-**Explicit / scripted** (works non-interactively, no prompts):
-
-```sh
-specd init --agent claude-code --yes      # configure one named host
-specd init --agent all --yes              # configure every detected host
-specd init --agent codex --dry-run --json # preview exact mutations, write nothing
-specd init --agent none                   # scaffold only, no host config
-specd init --agent auto --orchestration session --yes # bootstrap full autonomy from day one
-```
-
-`--agent auto` configures a host automatically only when exactly one is detected in an
-interactive terminal. In CI / non-TTY, or when several hosts are detected, `auto`
-scaffolds and reports suggested host actions instead of mutating anything.
-
-**Check / repair** an existing setup:
-
-```sh
-specd init --repair                  # scaffold + MCP server + host registration health
-specd init --repair            # safe, project-scoped, specd-owned repairs only
-specd init --repair           # restore missing managed files (keeps your edits)
-```
-
-**Air-gapped / manual** (no host CLI, or you prefer to paste config yourself):
-
-```sh
-specd init --agent none
-specd mcp --config claude-code   # print a ready-to-merge snippet for the host
-```
-
-See [docs/user-guide.md](docs/user-guide.md) for the full onboarding guide,
-[docs/mcp-guide.md](docs/mcp-guide.md) for host details and trust boundaries, and
-[docs/troubleshooting.md](docs/troubleshooting.md) for scaffold and MCP remediation.
-
-### Creating and Running a Spec
-
-1. **Start a new spec**:
-   ```sh
-   specd new my-feature --title "Implement Feature X"
-   ```
-2. **Author Requirements**: Open `.specd/specs/my-feature/requirements.md` and document requirements in EARS format. Validate and approve:
-   ```sh
-   specd check my-feature
-   specd approve my-feature # Advances spec status from 'requirements' to 'design'
-   ```
-3. **Create Design**: Fill out `.specd/specs/my-feature/design.md` covering all mandatory sections. Approve:
-   ```sh
-   specd approve my-feature # Advances spec status from 'design' to 'tasks'
-   ```
-4. **Decompose into Tasks**: Author the task list under `.specd/specs/my-feature/tasks.md` defining dependency waves. Approve:
-   ```sh
-   specd approve my-feature # Advances spec status from 'tasks' to 'executing'
-   ```
-5. **Execute Tasks**: Get the next runnable task from the frontier, implement it, then let `specd` run the task's `verify:` command itself and record the result. A task can only complete on a **passing verify record** — not a free-text claim:
-   ```sh
-   specd next my-feature
-   # [Implement the changes...]
-   specd verify my-feature T1                  # specd runs the task's verify: command, records exit code + git HEAD
-   specd task my-feature T1 --status complete   # allowed only because the verify record passed (exit 0)
-   ```
-   Read-only roles (scout/auditor) whose `verify` is `N/A` complete with the manual escape hatch: `specd task my-feature T1 --status complete --unverified --evidence "<proof>"`.
-6. **Final Verification**: Once all tasks are complete, run final checks and sign off:
-   ```sh
-   specd approve my-feature # Closes the spec, promoting learnings and generating final reports
-   ```
+This scaffolds the `.specd/` folder (default role prompts and steering files) and writes `AGENTS.md` to the project root.
 
 ---
 
-## Repository & Documentation Map
+## Documentation Map
 
-```
-.
-├── README.md               # This overview guide
-├── AGENTS.md               # Workflow guide for AI agents working on the specd repo itself
-├── TESTING.md              # Deterministic test-harness guide
-└── docs/                   # Detailed documentation
-    ├── README.md              # Documentation index / navigation
-    ├── concepts.md            # Philosophy, the eight principles, architecture
-    ├── user-guide.md          # Install, lifecycle, artifacts, execution, troubleshooting
-    ├── command-reference.md   # Every command, flag, exit code, env var, config key
-    ├── validation-gates.md    # What each gate checks (7 core + acceptance/scope/custom)
-    ├── agent-integration.md   # Steering, roles, subagent modes, context, programs
-    ├── custom-gates.md        # External custom-gate subprocess contract
-    ├── spec-packs.md          # Declarative scaffold bundles (specd init --pack)
-    ├── open-spec-format.md    # The versioned open spec format JSON Schema
-    ├── github-action.md       # PR gates + deterministic summary comment
-    └── contributor-guide.md   # CLI architecture, concurrency model, extension recipes
-```
+Start at the **[docs index](docs/README.md)** for fast paths, or jump straight in:
 
-### Quick Links:
-- 💡 [Concepts](docs/concepts.md) — The foundational split, eight principles, architecture overview.
-- 📖 [User Guide](docs/user-guide.md) — Getting started, EARS requirements, design headers, task DAG, the verify → complete flow.
-- 📑 [Command Reference](docs/command-reference.md) — Commands, flags, exit codes, environment variables, and `config.json`.
-- ✅ [Validation Gates](docs/validation-gates.md) — The 7 core gates plus the opt-in acceptance, scope, and custom gates.
-- 🤖 [Agent Integration Guide](docs/agent-integration.md) — Roles, steering files, subagent modes, context engineering, cross-spec programs.
-- 🧩 [Custom Gates](docs/custom-gates.md) · 📦 [Spec Packs](docs/spec-packs.md) · 📐 [Open Spec Format](docs/open-spec-format.md) · 🐙 [GitHub Action](docs/github-action.md)
-- 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, the concurrency model (advisory lock + CAS), parser internals, adding commands/gates.
+- 💡 [Concepts](docs/concepts.md) — The foundational split, the philosophy pillars, and spec lifecycle.
+- 📖 [User Guide](docs/user-guide.md) — Walkthrough of the lifecycle, stubs, verify, and complete flow.
+- 📑 [Command Reference](docs/command-reference.md) — Complete CLI syntax, flags, and exit codes.
+- 🗂️ [Cheatsheet](docs/CHEATSHEET.md) — Byte-identical mirror of the command reference.
+- ✅ [Validation Gates](docs/validation-gates.md) — Details on all 14 core validation gates plus security gates.
+- 🤖 [Agent Integration](docs/agent-integration.md) — Roles, steering files, dispatch, and the Brain/Pinky controller.
+- 🔌 [MCP Guide](docs/mcp-guide.md) — The `specd mcp` stdio server, host config snippets, and handshake digests.
+- 📦 [Open Spec Format](docs/open-spec-format.md) — The on-disk `.specd/` layout and `state.json` schema.
+- ⚙️ [GitHub Action](docs/github-action.md) — Gate pull requests in CI with the composite action.
+- 🩺 [Troubleshooting](docs/troubleshooting.md) — Blocked tasks, the escalation ratchet, lock and CAS errors.
+- 🧑‍💻 [Contributing](CONTRIBUTING.md) — First-change quick-start: setup, the gate loop, house rules.
+- 🛠️ [Contributor Guide](docs/contributor-guide.md) — Codebase architecture, invariants, and CLI design decisions.
+- 🧪 [Testing](TESTING.md) — Suite commands, the coverage floor, regression harnesses, and stress jobs.
+- 📈 [Observability](docs/observability.md) — The deterministic reporting surface and where worker metrics surface.
+- 🏷️ [Versioning Policy](docs/versioning-policy.md) · [Changelog](CHANGELOG.md) — SemVer, the Go floor, release cuts.
+- 🔐 [Security Policy](SECURITY.md) — Threat model (hostile spec/verify/dependency content), the verify isolation contract, and vulnerability disclosure.
 
 ---
 

@@ -1,82 +1,49 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-const reviewUsage = "usage: specd review <slug> [checklist] [--force] [--json]"
+// runReview scaffolds review_report.md for a spec (spec 09 R1): the spec slug,
+// the git HEAD under review, a per-task section (id/files/acceptance), and the
+// verdict/reviewer/findings fields the auditor fills. It refuses to overwrite a
+// report already written for the current HEAD unless --force (R2) — an auditor's
+// in-progress notes are not clobbered by a re-scaffold.
+func runReview(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: specd review <spec> [--force]")
+	}
+	slug := args[0]
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return err
+	}
+	head := gitHead(root)
+	if !core.HeadPinned(head) {
+		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); the review cannot pin to a commit and the review gate will treat it as stale\n", head)
+	}
+	path := core.ReviewReportPath(root, slug)
 
-// RunReview implements `specd review`. The bare form scaffolds review_report.md
-// (mandatory sections + verdict skeleton) and prints the read-only reviewer
-// brief; `review checklist` deterministically extracts a human review checklist
-// from design.md + tasks.md (extraction only, zero interpretation).
-func RunReview(args cli.Args) int {
-	if len(args.Pos) >= 2 && args.Pos[1] == "checklist" {
-		return runReviewChecklist(args)
-	}
-	root, slug, code, ok := requireRootAndSlug(args, reviewUsage)
-	if !ok {
-		return code
-	}
-	if err := core.RequireSpec(root, slug); err != nil {
-		return specdExit(err)
-	}
-	path := core.ArtifactPath(root, slug, "review_report.md")
-	if _, err := os.Stat(path); err == nil && !args.Bool("force") {
-		return specdExit(core.GateError(fmt.Sprintf("%s already exists (pass --force to overwrite the scaffold)", path)))
-	}
-	if err := core.AtomicWrite(path, core.ScaffoldReviewReport(slug)); err != nil {
-		return specdExit(err)
-	}
-	fmt.Printf("wrote review scaffold to %s\n", path)
-	fmt.Println(reviewBrief)
-	return core.ExitOK
-}
-
-// reviewBrief is the read-only, adversarial reviewer role brief printed after the
-// scaffold. It never authorizes edits — a reviewer demands the artifact.
-const reviewBrief = `
-reviewer role — read-only, adversarial:
-  - Demand the artifact: cite file:line for every claim; do not trust prose.
-  - Bugs: correctness, edge cases, error handling, concurrency.
-  - Security: injected input, secrets, unsafe exec, path handling.
-  - Hallucinated Dependencies: verify every imported/declared package exists.
-  - Verdict must be 'approve' or 'revise'. Approve only when Bugs/Security/
-    Hallucinated Dependencies are clear. Human approval stays final.`
-
-func runReviewChecklist(args cli.Args) int {
-	root, slug, code, ok := requireRootAndSlug(args, reviewUsage)
-	if !ok {
-		return code
-	}
-	if err := core.RequireSpec(root, slug); err != nil {
-		return specdExit(err)
-	}
-	designMd := ""
-	if d := core.ReadArtifact(root, slug, "design.md"); d != nil {
-		designMd = *d
-	}
-	var doc *core.ParsedTasks
-	if raw := core.ReadArtifact(root, slug, "tasks.md"); raw != nil && strings.TrimSpace(*raw) != "" {
-		if parsed, err := core.ParseTasks(*raw); err == nil {
-			doc = &parsed
+	if existing, readErr := os.ReadFile(path); readErr == nil && !flagEnabled(flags, "force") {
+		// Only a report already written for the current HEAD blocks a re-scaffold;
+		// a stale report from an older commit is safe to replace. The guard keys on
+		// the HEAD line alone so it protects an in-progress report whose verdict is
+		// not yet filled (R2).
+		if core.HeadPinned(head) && core.ReviewReportHead(string(existing)) == head {
+			return fmt.Errorf("review report already exists for HEAD %s; pass --force to overwrite", head)
 		}
 	}
-	items := core.ReviewChecklist(designMd, doc)
-	if args.Bool("json") {
-		if err := core.PrintJSON(map[string]interface{}{"spec": slug, "checklist": items}); err != nil {
-			return specdExit(err)
-		}
-		return core.ExitOK
+
+	content := core.RenderReviewScaffold(slug, head, spec.Tasks)
+	if _, err := core.WithSpecLock(root, func() (struct{}, error) {
+		return struct{}{}, core.AtomicWrite(path, content)
+	}); err != nil {
+		return err
 	}
-	fmt.Printf("=== REVIEW CHECKLIST: %s ===\n", slug)
-	for _, it := range items {
-		fmt.Println(it)
-	}
-	return core.ExitOK
+	fmt.Fprintf(os.Stdout, "scaffolded %s\n", path)
+	return nil
 }

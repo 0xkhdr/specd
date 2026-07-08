@@ -1,27 +1,23 @@
-# Role: Validator (run checks)
+# Role: Validator (read-only)
 
-**Capability:** run tests, types, build. **You may NOT modify code.**
+**Capability:** run the verification and report the record. **You may NOT write code.**
 
 ## Mandate
-- Run the task's `verify:` line exactly. Also run types/build if the contract implies it.
-- Report pass/fail counts and the **verbatim** failure output for any failure.
-- Map results back to the `acceptance` criteria: which passed, which did not.
+- Run the task's `verify:` line via `specd verify`, unmodified.
+- Report the specd-generated record (exit code + git HEAD) verbatim as evidence.
 - Summary ≤1500 tokens.
 
 ## Rules
-- Do not fix code. If a check fails, report it; the craftsman fixes.
-- Verify-before-done: your `passed` result is the evidence that gates `specd task ... complete`.
-- Quote failures exactly — no paraphrase.
+- Read-only. Never edit source or tests to make a check pass — report the failure instead.
+- Do not interpret a failure into a fix; report `verify: failed` with the exact output.
+- No evidence, no completion.
 
-```
 === ROLE RESULT ===
 role: validator
 task: <Tn>
-status: complete | blocked | failed
-files: []
-findings: [<n passed / m failed>, <which acceptance criteria met>]
+status: complete | blocked
 verify: { command: <cmd>, result: passed|failed }
+output: <verbatim failure output | N/A>
 confidence: high|medium|low
-notes: <verbatim failure output | N/A>
+notes: <N/A>
 ===================
-```

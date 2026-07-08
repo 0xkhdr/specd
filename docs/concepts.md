@@ -1,167 +1,110 @@
-# Concepts
+# specd — Concepts
 
-> *The agent reasons. The harness enforces.*
+> **The agent reasons. The harness enforces.**
 
-## What is specd?
+`specd` is a **spec-driven coding harness CLI** — Go, standard library only, zero runtime
+dependencies, single static binary (`github.com/0xkhdr/specd`, Go 1.26+). It moves process
+enforcement out of the LLM's non-deterministic context window into a **deterministic, local,
+tool-gated pipeline**.
 
-`specd` is a **spec-driven coding harness CLI** that fuses structured spec
-workflows with rigid thinking discipline for AI coding agents. It shifts the
-burden of process enforcement off the LLM's non-deterministic context and onto a
-strict, local, tool-gated pipeline.
+An AI agent is excellent at reasoning and terrible at reliably following a multi-step process
+across a long context. So specd stops asking it to. The plan lives on disk as versioned
+Markdown; state changes are gated by a local binary that an LLM cannot talk its way past.
 
-### Key capabilities
+## The foundational split
 
-| Capability | Description |
-|---|---|
-| **Planning Ratchet** | Enforces human-approved phase gates (Analyze → Plan → Execute → Verify → Reflect). |
-| **Validation Gates** | Programmatic `specd check` — 7 core gates (EARS, design, task schema, DAG, evidence, sync, traceability) plus opt-in acceptance, scope, and [custom](./custom-gates.md) gates. |
-| **DAG-Based Execution** | Computes the concurrent runnable frontier of waves for parallel task execution. |
-| **Evidence-Gated Completion** | Tasks complete only against a passing `verify` record — never on a free-text claim. |
-| **Frontier Dispatch** | Emits ready-to-run packets for parallel subagents with role prompts and contracts. |
-| **Verify Sandboxing & Rollback** | Run `verify:` under `bwrap`/container isolation (fail-closed) and optionally stash the tree on failure (`--revert-on-fail`). |
-| **Agent-Agnostic** | Works with Claude Code, Cursor, Aider, any command-running agent, or any [MCP](https://modelcontextprotocol.io) client (`specd mcp`). |
-| **Deterministic Reporting** | Markdown / self-contained HTML reports, a read-only live dashboard (`specd report --serve`), and a network-free PR summary — no LLM dependency. |
-| **Live Frontier Stream** | `specd report --watch` emits a `FrontierEvent` on every runnable-set change over NDJSON / SSE / webhook. |
-| **Replay & Diff** | Reconstruct a deterministic audit timeline (`specd report --history`) or diff a spec's artifacts across git refs (`specd report --diff`). |
-| **Open Spec Format** | A versioned, embedded JSON Schema for all on-disk artifacts (`specd check --schema` / `specd check --schema-only`). |
-| **Spec Packs** | Share a steering/role baseline as a declarative, file-only scaffold (`specd init --pack`). |
-| **Cost & Telemetry Ledger** | Per-task duration/retries plus annotated token/cost rolled up per wave/spec (stored, never computed). |
-| **Pluggable State Backend** | File backend by default; git-native, or Redis/Postgres behind build tags — the default binary links no DB driver. |
+Two jobs, cleanly separated:
 
-### Execution mode — Base vs Orchestrated
+- **The agent reasons** — writes requirements, designs a solution, decomposes work into tasks,
+  edits code, explains itself.
+- **The harness enforces** — validates structure, computes the runnable task frontier, demands
+  evidence before any status change, and requires a human to approve each phase boundary.
 
-Every spec records a per-spec **execution mode** in its `state.json`, the single
-source of truth (never the chat context, never global config):
+Nothing in specd's gates, DAG, or reports calls an LLM. They are pure functions of on-disk
+state, which is what makes them trustworthy.
 
-- **`simple`** (default) — the plain spec-driven lifecycle; the host agent drives
-  every step itself (`specd next` → implement → `specd verify`). Broadest
-  compatibility; works with any command-running agent.
-- **`orchestrated`** — the optional Brain/Pinky multi-agent layer may drive the
-  spec. Opt in with `specd new <slug> --orchestrated` (or
-  `specd new <slug> --orchestrated`).
+## The lifecycle
 
-Two ideas are kept strictly separate:
-
-- **Capability** — project `orchestration.enabled` (set at `specd init
-  --orchestration …`) only *permits* orchestration to run in the project.
-- **Selection** — a spec's `executionMode` *selects* it. A capable project may
-  still have specs running Base.
-
-Base is always the default; orchestration is an explicit, per-spec opt-in — no
-heuristic ever flips the mode. After `tasks.md` is approved, `specd status <slug>
---recommend` emits a **deterministic, advisory** verdict computed from countable
-facts (task count, wave width, distinct roles, cross-spec edges, token estimate);
-the verdict is marked `userDecides: true` — the host surfaces it as a suggestion
-and the user decides. Brain/Pinky commands refuse a Base spec with a remediation
-message, and a spec cannot be switched back to Base while a Brain session is live.
-
-### The foundational split
+Work flows through six phases, each mapping to a spec status:
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│  AGENT (LLM)    │     │  HARNESS (specd)│
-│  ─────────────  │     │  ─────────────  │
-│  • Reasons      │     │  • Enforces     │
-│  • Creates      │◄───►│  • Validates    │
-│  • Designs      │     │  • Gates        │
-│  • Implements   │     │  • Records      │
-└─────────────────┘     └─────────────────┘
+perceive → analyze → plan → execute → verify → reflect
+requirements   design   tasks   executing   verifying   complete
 ```
 
-The agent does the creative thinking. The harness enforces process integrity.
+(Plus `blocked` for a spec that has hit a gate it cannot pass.) The lifecycle is a
+**ratchet**: `CanAdvanceStatus` permits forward moves only — you cannot walk a spec backward
+to relax a gate it already passed. Each boundary requires an explicit human `specd approve`,
+and approval only succeeds once the [validation gates](validation-gates.md) for that
+transition pass.
+
+```
+requirements.md ──approve requirements──▶ design.md ──approve design──▶ tasks.md
+      │                                                                     │
+      └──────────── EARS gate, human approval ─────────────────────────────┘
+                                                                            ▼
+                                          evidence-gated execution (waves) ──▶ complete
+```
+
+## The six principles
+
+1. **Determinism first.** No LLM in any gate, DAG, or report path. All are pure functions of
+   on-disk `.specd/` state; reports are generated from `state.json` + task artifacts.
+2. **Evidence integrity.** A task completes *only* against a passing verify record (exit 0
+   pinned to a real git HEAD). **No bypass flag exists** — and none will be added.
+3. **Planning ratchet.** Phases advance only on human `approve` once gates pass; status never
+   moves backward.
+4. **Structural invariants.** Atomic writes, compare-and-swap on the `state.json` revision, a
+   reentrant per-spec lock, a byte-stable tasks parser, `go:embed` templates, zero runtime deps.
+5. **Subtractive bias.** When unsure, cut or defer and record the decision (`specd decision`).
+6. **Agent-agnostic.** Any command-running agent or MCP client drives specd; roles constrain
+   *capability*, not identity.
+
+## Evidence, not claims
+
+The central rule: **trust is recorded, not assumed.** A task does not become "done" because
+an agent says so. It becomes done when `specd verify` runs the task's verify command, the
+command exits `0`, and that result is pinned to a resolvable git HEAD. That record is the only
+thing the `evidence` gate accepts. Free-text "I completed this" claims are worthless to the
+harness.
+
+Read-only tasks (scouting, auditing) still carry a verify line — a trivially-passing one like
+`printf ok` — so the same rule applies uniformly with no special case to exploit.
+
+## Waves, not lines
+
+Tasks form an acyclic **DAG**, not a flat checklist. The **frontier** is the set of tasks
+whose dependencies are all resolved — a *wave* of concurrently runnable work. `specd next`
+computes it. Agents work a wave, verify, and the next wave unlocks. This is what lets multiple
+workers act in parallel without stepping on ordering constraints.
+
+## Execution modes
+
+- **Base mode.** A human (or a single agent) drives the loop by hand: `new → approve →
+  next → verify → task complete → approve → submit`. The harness gates every step.
+- **Orchestrated mode (opt-in).** The deterministic `specd brain` controller drives the
+  wave loop itself using leases and an append-only decision ledger — still with **no LLM in
+  the decision path**. It dispatches missions to role-scoped workers ("Pinky") and collects
+  their evidence. See [agent-integration.md](agent-integration.md).
+
+## Where things live
+
+```
+.specd/specs/<slug>/
+├── requirements.md   # EARS requirements (perceive)
+├── design.md         # design sections (analyze)
+├── tasks.md          # the task DAG, byte-stable (plan)
+├── state.json        # machine truth: phase, task status, records, evidence
+└── .lock             # reentrant per-spec lock
+.specd/roles/*.md     # role prompts (scout, craftsman, validator, auditor)
+.specd/steering/*.md  # durable steering constitution
+AGENTS.md             # host integration guide, written by `specd init`
+```
+
+`tasks.md` markers and `state.json` are two views of task status; the `sync` gate fails closed
+if they disagree, so a hand-edited marker can never fake completion.
 
 ---
 
-## The eight principles
-
-1. **The Foundational Split** — The agent does the creative thinking; the harness enforces process integrity.
-2. **Specs as the Source of Truth** — The active plan lives as versioned Markdown on disk, not floating in the LLM's context window.
-3. **Evidence Gates Every State Change** — *Trust is recorded, not assumed.* Status changes require verifiable proof.
-4. **Waves, Not Lines** — Work is a Directed Acyclic Graph (DAG) of concurrent batches (waves), not a flat todo list.
-5. **Agent-Agnostic by Design** — A standardized command interface integrated via role prompt injection.
-6. **Human Gates at Phase Boundaries** — Semantic transitions require explicit human approval (`specd approve`).
-7. **Deterministic Reporting** — Reports are generated programmatically from `state.json` and artifact files.
-8. **Steering as Constitution** — Durable steering files outlive individual chat sessions.
-
-### Design philosophy in practice
-
-```
-Traditional AI Coding          specd-Driven Coding
-─────────────────────          ───────────────────
-❌ Free-form prompts           ✅ Structured spec artifacts
-❌ Context window as source    ✅ Markdown files as source of truth
-❌ "Trust me, it works"        ✅ Evidence-gated completion
-❌ Linear todo lists           ✅ DAG-based wave execution
-❌ Agent-specific workflows    ✅ Agent-agnostic CLI interface
-```
-
----
-
-## Architecture overview
-
-> **Implementation language:** Go (1.22+), standard library only — zero external
-> dependencies. Ships as a single static binary with all templates embedded via
-> `go:embed`.
-
-### Repository structure
-
-```
-specd/
-├── main.go                       # Entry point, arg router, dispatch switch
-├── internal/
-│   ├── cli/                      # Flag/positional parser (Args)
-│   ├── cmd/                      # One file per CLI command (Run<Command>)
-│   ├── core/                     # Domain logic (gates, state, runners, schema, backends)
-│   │   ├── schema/               # Embedded open-spec-format JSON Schema (go:embed)
-│   │   ├── embed_packs/          # Built-in spec packs (go:embed)
-│   │   └── embed_templates/      # Shipped templates (embedded in binary)
-│   │       ├── AGENTS.md         # Agent prompt pack for user repos
-│   │       ├── config.yml        # Default config scaffold (or config.json)
-│   │       ├── steering/         # Constitution files
-│   │       ├── roles/            # Role persona prompts
-│   │       ├── specStubs/        # Spec artifact stubs
-│   │       └── skills/           # Companion skills (e.g. specd-execute)
-│   ├── mcp/                      # MCP JSON-RPC 2.0 stdio server (specd mcp)
-│   └── testharness/              # Deterministic test infrastructure
-│                                 # (sandbox repo, in-process runner, FakeClock)
-├── .github/actions/specd-pr/     # Composite GitHub Action (PR gates + summary)
-├── scripts/                      # install.sh / stress.sh
-├── docs/                         # This documentation
-├── README.md / AGENTS.md / TESTING.md / SECURITY.md
-├── Makefile / go.mod / LICENSE / .goreleaser.yml
-```
-
-> The default binary is stdlib-only with no DB driver. The git-native state
-> backend needs no Go dependency; the Redis/Postgres adapters compile in only
-> under the `specd_redis` / `specd_postgres` build tags.
-
-See the [Contributor Guide](./contributor-guide.md) for a file-by-file map and
-the key code contracts.
-
-### Target repository structure (after `specd init`)
-
-```
-your-project/
-├── .specd/
-│   ├── config.yml                # Project configuration (or legacy config.json)
-│   ├── program.json              # Cross-spec dependencies
-│   ├── state.json                # Machine state (auto-managed)
-│   ├── skills/                   # The skill pack (foundations, steering, stages, specd-brain, specd-pinky)
-│   ├── steering/                 # Constitution (durable rules)
-│   │   ├── reasoning.md  workflow.md  product.md
-│   │   ├── tech.md       structure.md memory.md
-│   ├── roles/                    # Role prompts
-│   │   ├── scout.md      craftsman.md  auditor.md
-│   │   └── validator.md  brain.md      pinky.md
-│   ├── subagents/                # Orchestration runtime sessions, logs, and leases (auto-created)
-│   └── specs/
-│       └── my-feature/
-│           ├── state.json            # Spec-specific state
-│           ├── requirements.md       # EARS requirements
-│           ├── design.md             # Design document
-│           ├── tasks.md              # Task DAG
-│           ├── decisions.md          # ADRs
-│           ├── mid-requirements.md   # Requirement updates
-│           └── memory.md             # Local learnings
-└── AGENTS.md                     # Agent workflow guide
-```
+**Next:** [user-guide.md](user-guide.md) to run the lifecycle · [command-reference.md](command-reference.md)
+for the full CLI · [validation-gates.md](validation-gates.md) for the enforcement details.

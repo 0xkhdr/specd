@@ -1,143 +1,126 @@
-# Contributor Guide
+# specd — Contributor Guide
 
-Hacking on `specd` itself — building, the codebase map, key contracts, extension
-recipes, and the invariants CI enforces.
+Codebase walkthrough, non-negotiable invariants, and extension recipes. Read
+[concepts.md](concepts.md) first for the *why*.
 
-## Contents
+## Build, test, lint
 
-1. [Building from source](#building-from-source)
-2. [Codebase map](#codebase-map)
-3. [Key code contracts](#key-code-contracts)
-4. [Extending the CLI](#extending-the-cli)
-5. [Code-style invariants](#code-style-invariants)
-
----
-
-## Building from source
-
-No dependencies to install — Go stdlib only; templates are embedded via
-`go:embed`.
+There is **no root Makefile** (the one under `reference/` belongs to the frozen v1 museum).
+Build and test directly:
 
 ```bash
-make build          # → ./specd  (go build -ldflags "-s -w -X main.version=...")
-make install        # install into $GOBIN / $GOPATH/bin
-make test           # go test -race ./...
-make lint           # go vet ./...
-go run . <command>  # run from source without building, e.g. go run . status
+go build -o specd .                                    # single static binary
+go run . help                                          # run without building
+
+go test ./... -race -count=1                           # full suite (as CI runs it)
+go test ./... -count=2                                 # catch iteration-order flakiness
+go test ./internal/cmd -run TestLifecycleE2E -count=1  # one test by name
 ```
 
-See [TESTING.md](../TESTING.md) for the deterministic test harness
-(`internal/testharness`: sandbox repo, in-process runner, `FakeClock`, fluent
-spec builder, assertions).
+Lint gates (CI runs each — run before pushing):
 
-## Codebase map
-
-```
-specd/
-├── main.go                       # Entry point, arg router, dispatch via cmd.Registry
-├── internal/
-│   ├── cli/args.go               # Flag/positional parser (Args)
-│   ├── cmd/                      # One file per CLI command (Run<Command>)
-│   │   ├── init.go new.go check.go approve.go
-│   │   ├── next.go dispatch.go verify.go task.go
-│   │   ├── decision.go midreq.go memory.go
-│   │   ├── report.go waves.go program.go status.go context.go update.go
-│   │   ├── registry.go           # Command → handler dispatch table (cmd.Registry)
-│   │   └── helpers.go            # Shared command helpers (specdExit, usageExit, errLine)
-│   ├── core/                     # Domain logic
-│   │   ├── paths.go              # .specd root locator (FindSpecdRoot)
-│   │   ├── io.go                 # Atomic writes (AtomicWrite), O_APPEND ledger
-│   │   ├── lock.go               # Per-spec advisory lock (WithSpecLock)
-│   │   ├── state.go              # state.json load/save + CAS
-│   │   ├── phases.go             # Phase ↔ status mapping, design gate
-│   │   ├── tasksparser.go        # Line-based tasks.md parser (ParseTasksMd)
-│   │   ├── dag.go                # Wave DAG, frontier, critical path
-│   │   ├── ears.go               # EARS requirements linter
-│   │   ├── specfiles.go          # Artifact accessors, sync + traceability gates, Config
-│   │   ├── agents.go             # AGENTS.md marker-based merge
-│   │   ├── commands.go           # CommandMeta registry (help/JSON schema)
-│   │   ├── help.go program.go slug.go md.go render.go report.go
-│   │   ├── ui.go exit.go         # Output/JSON-mode, exit codes + SpecdError
-│   │   ├── embed.go              # go:embed of embed_templates/
-│   │   └── embed_templates/      # Shipped templates (AGENTS.md, steering, roles, stubs, skills)
-│   └── testharness/              # Deterministic test infrastructure
-# Unit tests are co-located as *_test.go beside each source file.
+```bash
+gofmt -l .              # must be empty — CI fails on any unformatted file
+go vet ./...
+go mod tidy             # must produce no diff (zero runtime deps)
+./scripts/test-lint.sh  # test-suite structural lint
+./scripts/docs-lint.sh  # asserts docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim
 ```
 
-## Key code contracts
+Regression harnesses re-run every task's `verify:` line and re-assert each wave's invariant
+against a freshly built binary in a throwaway tree:
 
-| File | Contract |
-|---|---|
-| `internal/core/paths.go` | `FindSpecdRoot` walks up from cwd looking for `.specd/`. Callers return `NotFoundError` (exit `3`) if absent. |
-| `internal/core/state.go` | `state.json` is machine truth. Load with `LoadState`, write with `SaveState` (atomic + CAS on `revision`). Never hand-edit. |
-| `internal/core/io.go` | `AtomicWrite` (temp + fsync + rename) for every file write; ledgers append with `O_APPEND`. |
-| `internal/core/lock.go` | `WithSpecLock[T]` wraps every mutating command in a reentrant per-spec advisory lock. |
-| `internal/cmd/task.go` | Evidence gate. `--status complete` requires a passing verify record (or `--unverified --evidence` for read-only roles) AND all deps complete. Dual-writes `tasks.md` + `state.json` atomically. |
-| `internal/core/tasksparser.go` | Bespoke line parser (`ParseTasksMd`). No external libs. Round-trip byte-stability tested. Returns `SpecdError(1)` with a line number on errors. |
-| `internal/core/config_loader.go` | Config discovery/cascade: embedded defaults → global YAML → project YAML → env overlay. YAML-only as of v0.2.0 — a legacy `.json` config is not parsed. `LoadConfig` is the convenience wrapper; use `LoadConfigWithDiagnostics`/`LoadConfigStrict` for source metadata or validation. |
-| `internal/core/config_migrate.go` | Deterministic legacy JSON → YAML v2 renderer, used by `specd migrate` to ingest a v0.1.x `config.json` into `config.yml` (with parse round-trip validation). This is a one-shot conversion path, not a runtime loader. |
+```bash
+./scripts/regress-all.sh      # re-run every task verify, aggregate by exit code
+./scripts/regress-domains.sh  # per-domain black-box invariant checks
+./scripts/regress-lint.sh     # static smell audit of verify tables
+```
 
-### Config loader architecture
+## Architecture
 
-Human-authored config is YAML v2 only (`.specd/config.yml` and `$XDG_CONFIG_HOME/specd/config.yml`); as of v0.2.0 the runtime loader no longer reads legacy v1 JSON — convert it once with `specd migrate` (see `config_migrate.go`). The loader deliberately avoids external dependencies: `parseSimpleYAML` accepts the subset emitted by `RenderConfigYAML` and documented examples. New fields must be added in four places: the `Config` struct/defaults, `applyConfigDoc` camelCase + snake_case translation, validation (`ValidateConfigDoc` and/or `ValidateEffectiveConfig`), and migration rendering/tests.
+Entry: `main.go` → `internal/cli` (arg parsing) → `internal/cmd` (dispatch). One handler per
+verb lives in `internal/cmd/`; `internal/cmd/registry.go` maps verb → `Handler`. Verbs are
+declared once in `internal/core/commands.go`; unknown verbs **fail closed (exit 2)**, deferred
+verbs print a deferral notice and exit 0.
 
-Merge semantics are field-presence based: absent fields leave the lower layer intact, explicit `false`/`0` values apply, and slices replace lower-layer slices. After file merge, `applyConfigEnv` applies supported `SPECD_*` overrides as a final layer and emits diagnostics with only env var name + target field. Never dump raw environment blocks into JSON output.
+### Domain map
 
-Security boundaries: config is untrusted policy input. Validate authority-bearing orchestration values after all layers, keep secret-shaped orchestration keys rejected, and do not add env vars that smuggle shell commands, tokens, provider names, models, or credentials into orchestration policy. Machine state files stay JSON; YAML migration must not rename `state.json`, `.specd/program.json`, runtime `session.json`, or integration JSON.
+| Domain | Packages / key files | Owns |
+|---|---|---|
+| **CLI & dispatch** | `main.go`, `internal/cli`, `internal/cmd` (`registry.go`, `dispatch.go`, `lifecycle.go`) | Arg parsing, verb→`Handler` map, phase enforcement, fail-closed on unknown verbs, deferral notices. |
+| **Command palette (SOT)** | `internal/core/commands.go` | `var Commands` — every verb, flag, exit code, allowed phase, examples. Feeds help/dispatch/MCP/roles. `HelpSchemaVersion`. |
+| **State & storage** | `state.go`, `io.go`, `lock.go`, `paths.go` | `core.AtomicWrite`, CAS on `state.json` revision, reentrant `core.WithSpecLock`, path resolution. |
+| **Lifecycle / phases** | `phases.go` | Statuses → phases (`perceive→…→reflect`), forward-only advance. |
+| **DAG & execution** | `dag.go`, `frontier.go` | Acyclic task DAG; the concurrent runnable frontier (waves). |
+| **Tasks parser** | `tasksparser.go` (+ fuzz) | Byte-stable round-trip parse of `tasks.md`. |
+| **Evidence & verify** | `evidence.go`, `task_complete.go`, `verify/exec.go`, `criteria.go` | Verify records (exit code + git HEAD); task completion; per-criterion evidence. |
+| **Gates** | `internal/core/gates/` + `gates/security/` | The 14 core gates + opt-in security gate. |
+| **Templates & scaffold** | `internal/core/embed_templates/`, `roles.go`, `scaffold.go`, `managed.go` | `init`/`new` scaffolding; managed-region repair/refresh; `AGENTS.md` emission. |
+| **Config** | `config_loader.go`, `config_validate.go` | Effective config, digests (handshake). |
+| **Memory** | `memory.go` | Append/promote steering-memory patterns. |
+| **Program / cross-spec** | `program.go`, `commitlink.go` | `link`/`unlink`, cross-spec dep ordering, program view. |
+| **Reporting** | `report.go`, `report_metrics.go`, `prometheus.go`, `prsummary.go`, `history.go`, `telemetry.go` | Deterministic status/PR/metrics/history reports; Prometheus textfile; token/cost ledger. |
+| **Handshake** | `handshake.go`, `manifest_tools.go`, `mcpconfig.go` | Bootstrap material, palette/config digests. |
+| **Orchestration** | `internal/orchestration/` (`lease.go`, `decide.go`, `acp.go`, `driver.go`, `session.go`, `brakes.go`, `checkpoint.go`, `recover.go`, `authority.go`, `sense.go`) | Opt-in deterministic controller — no LLM in the decision path. |
+| **MCP server** | `internal/mcp/` | Serves the palette as a stdio MCP server. |
+| **Context manifest** | `internal/context/` | Bounded, cited per-task context. |
+| **Integration** | `internal/integration/` | Role/steering snippet registry + conformance tests. |
 
-## Extending the CLI
+### The two `specs/` directories
 
-### Adding a command
+- **Runtime** reads `.specd/specs/` inside a managed project.
+- **This repo's own** in-flight planning artifacts live in top-level `specs/`.
 
-1. Create `internal/cmd/mycommand.go` with a handler:
-   ```go
-   func RunMyCommand(args cli.Args) int {
-       // Implementation
-       return core.ExitOK
-   }
-   ```
-2. Add it to `cmd.Registry` in `internal/cmd/registry.go` (the dispatch table).
-3. Add a `CommandMeta` entry in `internal/core/commands.go` (drives help + `--json` schema).
-4. Add a co-located `mycommand_test.go` (or extend `internal/cmd/lifecycle_test.go`).
+`regress-lint.sh` smell "A" catches verify lines that target the wrong one.
 
-`TestRegistryMatchesHelp` fails if steps 2 and 3 disagree, so dispatch and help
-can never drift. Emit machine output via `core.PrintJSON` (lists non-nil → `[]`),
-return a `core.Exit*` constant, and send diagnostics to stderr (`core.Error` /
-`errLine`). See [command reference](./command-reference.md#output-streams).
+## Non-negotiable invariants
 
-### Adding a validation gate
+Preserve these when changing the codebase:
 
-1. Write the validation logic in the appropriate `internal/core/*.go` file.
-2. Wire it into `internal/cmd/check.go`.
-3. Add the gate transition in `internal/cmd/approve.go` if it blocks a phase.
-4. Add a test (`internal/cmd/commands_test.go` / `lifecycle_test.go`, or a core `*_test.go`).
+1. **Determinism first.** No LLM in any gate, DAG, or report path. They are pure functions of
+   on-disk `.specd/` state.
+2. **Evidence integrity.** No task completes without a passing verify record (exit 0 pinned to
+   a real git HEAD). **No bypass flag exists — do not add one.**
+3. **Structural invariants.** Atomic writes, CAS on the `state.json` revision, reentrant
+   per-spec lock, byte-stable tasks parser, `go:embed` templates, **zero runtime dependencies**
+   (keep `go.mod`/`go.sum` tidy — CI runs `go mod tidy` and fails on a diff).
+4. **Subtractive bias.** When unsure, cut or defer and record the decision.
+5. **Docs sync.** If you touch CLI verbs or flags, update `docs/command-reference.md` **and**
+   `docs/CHEATSHEET.md` together (`docs-lint.sh` enforces byte-identical match).
 
-## Code-style invariants
+## Concurrency & durability model
 
-1. **Zero runtime dependencies** — `go.mod` lists no `require` deps; stdlib only.
-2. **Atomic writes** — use `core.AtomicWrite` (temp + fsync + rename), never raw `os.WriteFile`.
-3. **Optimistic concurrency** — load `revision`, verify match, increment on write (CAS).
-4. **Reentrant locks** — wrap mutating commands in `core.WithSpecLock`.
-5. **Round-trip stability** — `ParseTasksMd` must maintain 100% byte equivalence.
-6. **Embedded templates** — ship assets via `go:embed`, never read from disk relative to the binary.
+- **Atomic writes.** All state writes go through `core.AtomicWrite` (write temp + rename), so
+  a crash never leaves a half-written `state.json`.
+- **CAS on revision.** `state.json` carries a revision counter; mutations compare-and-swap on
+  it, so a concurrent writer that raced loses cleanly instead of clobbering.
+- **Reentrant per-spec lock.** `core.WithSpecLock` serializes all per-spec work; reentrant so
+  nested calls within one goroutine don't deadlock.
+- **Byte-stable parser.** `tasksparser.go` round-trips `tasks.md` without reformatting, so a
+  parse+write is a no-op diff — hand edits and tool edits coexist.
 
-## Decision: custom CLI parser, not Cobra/urfave
+## Extension recipes
 
-specd keeps its own ~40-line argument parser (`internal/cli/args.go`) and a flat
-dispatch table (`cmd.Registry`) instead of adopting Cobra, urfave/cli, or Viper.
-This is a conscious, recorded choice — not drift:
+### Add a verb
 
-- **Zero runtime dependencies is a product value.** `go.mod` lists no `require`
-  entries; Cobra pulls in a transitive tree (pflag, etc.) that contradicts the
-  "stdlib only" invariant.
-- **Determinism.** The harness enforces; the parser must be predictable. Cobra's
-  flag/help magic and global state fight the reproducibility the gates depend on.
-- **Small, stable surface.** ~19 commands, a fixed flag grammar. The custom
-  parser is fully covered by `args_test.go`, including a registration guard.
-- **Help cannot drift** without a framework: `cmd.Registry` (dispatch) and
-  `core.Commands` (help metadata) are tied by `TestRegistryMatchesHelp`, giving
-  the single-source-of-truth benefit a framework would provide, at no dependency
-  cost.
+1. Append a `Command` entry to `var Commands` in `internal/core/commands.go` (name, usage,
+   description, flags, `AllowedPhases`, `ExitCodes: stdCodes()`, at least one example,
+   `SpecSlugArg` if it phase-checks a spec).
+2. Add the handler in `internal/cmd/` and register it in `registry.go`.
+3. Update `docs/command-reference.md` **and** copy it to `docs/CHEATSHEET.md`; run
+   `./scripts/docs-lint.sh`.
+4. Add tests; the handler-parity test asserts every non-deferred verb has a handler.
 
-Revisit only if the command set grows large/dynamic enough that hand-maintaining
-metadata becomes the bottleneck — not before.
+### Add a gate
+
+1. Write a `func(CheckCtx) []Finding` in `internal/core/gates/`.
+2. `registry.Register(gateFunc{name: "...", run: ...})` in `CoreRegistry()`.
+3. Keep it **pure** — read nothing from disk; take everything through `CheckCtx`. Zero-valued
+   inputs must disable it (parity: an empty `CheckCtx` yields no findings).
+4. Document it in `docs/validation-gates.md`.
+
+## `reference/` — do not touch
+
+`reference/` is the frozen v1 implementation: a read-only museum. **Never import, build, copy
+from, or edit it.** Its `Makefile`, scripts, and docs describe the old system, not this one —
+they document features that do not exist in the current binary.

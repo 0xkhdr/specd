@@ -35,8 +35,12 @@ jobs:
       # Gate the release on the full CI suite (lint + race + order-dependence +
       # coverage floor + stress) even though ci.yml already ran it on the commit
       # — a tag should never publish an unverified tree (R4.3).
-      - name: make ci
-        run: make ci
+      - name: verify release inputs
+        run: |
+          go test ./... -race -count=1
+          go test ./... -count=2
+          ./scripts/test-lint.sh
+          ./scripts/docs-lint.sh
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0

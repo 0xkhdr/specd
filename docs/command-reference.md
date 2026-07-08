@@ -1,117 +1,433 @@
-# Command Reference
+# specd — Command Reference
 
-This reference lists the optimized command palette only: 28 daily workflow commands and 4 meta-hidden integration commands (32 rows in the cheat sheet). It is generated from `specd help --all --json`. specd v0.2.0 has no deprecated commands or aliases.
+> **Source of truth.** Every verb, flag, exit code, and allowed phase on this page is
+> generated to match `internal/core/commands.go` (`var Commands`, `HelpSchemaVersion 1`).
+> `docs/CHEATSHEET.md` is a byte-identical copy of this file; `scripts/docs-lint.sh`
+> fails CI if they drift. Edit this file, then copy it over the cheatsheet.
 
-## Cheat sheet
+`specd <verb> [args] [flags]`. Run `specd help` for the live palette or
+`specd help <verb>` for one command. `specd help --json` emits the machine-readable
+palette (`schema_version` + `commands[]`) that dispatch, MCP, and role prompts pin against.
 
-| Command | One-sentence description |
-|---|---|
-| `specd init` | Scaffold `.specd/`, managed agent integration, repair, packs, and orchestration defaults. |
-| `specd new` | Create a spec and optionally select orchestrated execution with `--orchestrated`. |
-| `specd migrate` | Migrate a v0.1.x project onto the v0.2.0 state schema and report available config blocks. |
-| `specd status` | Show one-spec/all-spec progress, recorded mode, and the cross-spec frontier with `--program`. |
-| `specd context` | Print the phase-scoped briefing and budgeted LOAD-NOW manifest. |
-| `specd check` | Run validation gates or emit/validate the embedded schema with `--schema`/`--schema-only`. |
-| `specd review` | Scaffold a structured review report, or extract a deterministic review checklist. |
-| `specd approve` | Clear a human approval gate and ratchet the spec to the next phase. |
-| `specd next` | Show the next runnable task, all frontier tasks, or dispatch packets with `--dispatch`. |
-| `specd verify` | Run a task verification command or record per-criterion proof. |
-| `specd task` | Perform the evidence-gated task status transition and telemetry annotation. |
-| `specd eval` | Score a spec against its rubric, compile a rubric skeleton with `init`, or report trends. |
-| `specd promote` | Promote a prototype spec to a full spec after a passing eval. |
-| `specd conductor` | Drive the interactive micro-task conductor session over an append-only ledger. |
-| `specd orchestrate` | Inspect and resolve deterministic auto-escalations (status, or resume with an override). |
-| `specd submit` | Validate all gates, build the PR summary, and run the configured submit command. |
-| `specd deploy` | Run the evidence-gated deploy driver or replay the recorded rollback chain. |
-| `specd observe` | Correlate a production error payload into an evidenced mid-requirement. |
-| `specd ingest` | Inventory a legacy codebase into an ingestion-flavored spec. |
-| `specd report` | Generate snapshots, HTML, metrics, history, diff, live dashboard, or frontier stream views. |
-| `specd decision` | Append an architectural decision record to `decisions.md`. |
-| `specd midreq` | Log mid-flight requirement feedback with impact and analyzed changes. |
-| `specd memory` | Add or promote a durable learning from a spec. |
-| `specd waves` | Render the task wave DAG, critical paths, and blockers. |
-| `specd harness` | Share the configured harness (guardrails, deploy, roles, routing) as a versioned team asset with quarantine. |
-| `specd dashboard` | Serve the unified, read-only project dashboard (waves, cost, escalations, evals, harness). |
-| `specd brain` | Drive deterministic orchestration sessions and context checkpoints. |
-| `specd pinky` | Record worker claims, briefs, heartbeats, progress, queries, reports, blockers, and releases. |
-| `specd version` | Print the binary version. |
-| `specd help` | Show human help or dump the command registry JSON. |
-| `specd mcp` | Run the MCP server or print host configuration snippets. |
-| `specd handshake` | Emit hidden host bootstrap and binding-policy diagnostics. |
+## Conventions
 
-## Daily workflow commands
-
-| Command | Usage | Flags | Exit codes |
-|---|---|---|---|
-| `specd init` | `specd init [--agent <auto|all|none|codex|claude-code|cursor|antigravity|vscode>] [--scope project|global] [--yes] [--non-interactive] [--verbose] [--dry-run] [--repair|--refresh|--force] [--orchestration [<policy>]] [--orchestration-workers <n>] [--orchestration-retries <n>] [--orchestration-timeout <minutes>] [--orchestration-cost-limit <usd>] [--orchestration-mode <inline|delegate>] [--orchestration-sandbox <none|bwrap|container>]` | --agent, --scope, --yes, --non-interactive, --verbose, --json, --dry-run, --repair, --refresh, --force, --list-packs, --pack, --sha256, --orchestration, --orchestration-workers, --orchestration-retries, --orchestration-timeout, --orchestration-cost-limit, --orchestration-mode, --orchestration-sandbox, --registry | 0 Success, 1 Initialization or pack operation failed, 2 Usage error |
-| `specd new` | `specd new <slug> [--title "..."] [--orchestrated] [--prototype]` | --title, --orchestrated, --prototype | 0 Success, 1 Orchestration requested without project capability, 2 Usage error, 3 .specd/ not found or spec already exists |
-| `specd migrate` | `specd migrate [--json]` | --json | 0 Success, 1 Migration failed (concurrent write or corrupt state), 2 Usage error, 3 .specd/ not found |
-| `specd status` | `specd status [<slug>] [--all] [--program [<link\|unlink\|schedule\|tick>] ...] [--set-mode <simple\|orchestrated>] [--recommend] [--json]` | --all, --program, --on, --interval, --command, --sandbox, --remove, --now, --set-mode, --recommend, --json | 0 Success, 1 Capability missing, session-active refusal, dependency cycle, or scheduled command failure, 2 Usage error, 3 Spec not found |
-| `specd context` | `specd context <slug> [--hud] [--json]` | --hud, --json | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd check` | `specd check <slug> [--schema-only] [--security] [--json] | specd check --schema` | --schema-only, --schema, --security, --json | 0 Success, 1 Validation failed, 2 Usage error, 3 Spec not found |
-| `specd review` | `specd review <slug> [checklist] [--force] [--json]` | --force, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
-| `specd approve` | `specd approve <slug> [--json]` | --json | 0 Success, 1 Gate validation failed, 2 Usage error, 3 Spec not found |
-| `specd next` | `specd next <slug> [--all] [--dispatch] [--json]` | --all, --dispatch, --json | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd verify` | `specd verify <slug> <id>  |  specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence "..."` | --criterion, --status, --evidence, --revert-on-fail, --sandbox | 0 Success, 1 Verification failed, 2 Usage error, 3 Spec or task not found |
-| `specd task` | `specd task <slug> <id> --status <s> [--evidence "..."] [--reason "..."] [--force]` | --status, --evidence, --reason, --force, --unverified, --tokens, --cost | 0 Success, 1 Gate verification failed, 2 Usage error, 3 Spec or task not found |
-| `specd eval` | `specd eval <slug> [init|trend] [--suite <name>] [--force] [--json]` | --suite, --force, --json | 0 Success, 1 Score below minScore, 2 Usage error, 3 Spec or rubric not found |
-| `specd promote` | `specd promote <slug> --evidence "..." [--suite <name>] [--json]` | --evidence, --suite, --json | 0 Success, 1 Not a prototype, eval failed, or missing evidence, 2 Usage error, 3 Spec not found |
-| `specd conductor` | `specd conductor <slug> <start|step|accept|reject|stop|replay|switch|status> [micro] [--reason "..."] [--json]` | --reason, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
-| `specd orchestrate` | `specd orchestrate <slug> <status\|resume> [--override] [--json]` | --override, --json | 0 Success, 1 Gate failure, 2 Usage error, 3 Spec not found |
-| `specd submit` | `specd submit <slug> [--waves w1,w2] [--dry-run] [--json]` | --waves, --dry-run, --json | 0 Success, 1 Gate violation or submit failure, 2 Usage error, 3 Spec not found |
-| `specd deploy` | `specd deploy <slug> --env <env> [--dry-run] [--json]  \|  specd deploy rollback <slug> --env <env> [--json]` | --env, --dry-run, --json | 0 Success, 1 Precondition/gate/step failure, 2 Usage error, 3 Spec/config not found or rollback halted |
-| `specd observe` | `specd observe correlate <payload.json> [--spec <slug>] [--json]  \|  specd observe --listen [--spec <slug>]` | --listen, --spec, --json | 0 Success, 1 Invalid payload or no correlation, 2 Usage error, 3 Payload/root not found |
-| `specd ingest` | `specd ingest new <slug> --path <dir> [--include-ignored] [--json]` | --path, --include-ignored, --title, --json | 0 Success, 1 Invalid path or existing spec, 2 Usage error, 3 Path/root not found |
-| `specd report` | `specd report <slug> [--format md|html|prometheus] [--out <path>] [--pr-summary] [--conductor] [--serve|--watch|--history|--diff]` | --format, --out, --pr-summary, --conductor, --serve, --watch, --history, --diff | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd decision` | `specd decision <slug> "<text>" [--supersedes <id>]` | --supersedes | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd midreq` | `specd midreq <slug> "<input>" --impact <low|medium|high|critical>` | --impact, --interpretation, --changes | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd memory` | `specd memory <slug> add|promote [flags]` | --key, --pattern, --body, --source, --criticality, --related, --force | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd waves` | `specd waves <slug> [--json]` | --json | 0 Success, 2 Usage error, 3 Spec not found |
-| `specd brain` | `specd brain <start|status|step|pause|resume|cancel|checkpoint> ... [--program] [--auto-step|--verbose|--ledger|--directive|--compact]` | --program, --auto-step, --verbose, --ledger, --compact, --directive, --session, --approval-policy, --max-workers, --max-retries, --timeout-seconds, --cost-limit, --worker-cmd, --bootstrap, --max-steps, --title, --worker, --spec, --task, --attempt, --action, --reason, --in-reply-to, --json | 0 Success, 1 Gate or validation failure, 2 Usage error, 3 Workspace or session not found |
-| `specd pinky` | `specd pinky <claim|status|update|report|block|release> ...` | --mission, --session, --worker, --spec, --task, --attempt, --artifact, --percent, --message, --reason, --text, --verification-ref, --summary, --changed-files, --git-head, --duration-ms, --host-tokens, --host-cost, --json | 0 Success, 1 Gate or validation failure, 2 Usage error, 3 Workspace or session not found |
-| `specd harness` | `specd harness <push|pull|list|enable> ... [--name <n>] [--force] [--json]` | --name, --force, --json | 0 Success, 1 Gate failure (refused overwrite, checksum mismatch, downgrade), 2 Usage error, 3 No bundle or quarantined item not found |
-| `specd dashboard` | `specd dashboard [<slug>] [--addr 127.0.0.1:8765] [--mode <all|conductor|orchestrator|cost|eval>]` | --addr, --mode | 0 Success, 1 Server error, 2 Usage error |
-
-## Meta-hidden commands
-
-Meta-hidden commands exist for hosts, integrations, and diagnostics; they are excluded from the default daily palette and from default MCP tool discovery unless explicitly requested.
-
-| Command | Usage | Flags | Exit codes |
-|---|---|---|---|
-| `specd version` | `specd version [--json]` | --json | 0 Success |
-| `specd help` | `specd help [command]` | --all, --json | 0 Success, 2 Usage error (unknown command) |
-| `specd mcp` | `specd mcp [--root <path>] [--spec <slug>] [--config <host>]` | --root, --spec, --config | 0 Success (stream closed or config printed), 1 Server error, 2 Usage error |
-| `specd handshake` | `specd handshake bootstrap [--include-schema] [--json] | specd handshake policy [<slug>] [--expect-config-digest <sha256>] [--json]` | --include-schema, --expect-config-digest, --json | 0 Success, 1 Policy violation or digest mismatch, 2 Usage error, 3 .specd/ or spec not found |
-
-## Merged behavior homes
-
-- Diagnostics and safe repair live under `specd init --repair`.
-- Execution mode is selected by `specd new --orchestrated` and observed through `specd status`.
-- Dispatch packets live under `specd next --dispatch`.
-- Schema emission and validation live under `specd check --schema` and `specd check --schema-only`.
-- HTML serving, frontier streaming, history replay, and spec diffs live under `specd report` flags.
-- Program frontier & scheduling live under `specd status --program`: bare `--program` inspects the cross-spec frontier, `--program link|unlink <spec> --on <dep>` authors cross-spec dependencies (cycles refused), and `--program schedule`/`--program tick` register and run host-triggered maintenance schedules. There is no top-level `program` command — it was removed in v0.2.0 and these sub-verbs are its survivors.
-- Binary install/reinstall uses `scripts/install.sh`; removal is manual (delete the installed binary — there is no uninstall script).
-
-## Exit code semantics
+**Exit codes** (every verb, unless noted):
 
 | Code | Meaning |
 |---|---|
-| `0` | Success / validation passed |
-| `1` | Gate, validation, verify, config, or policy failure |
-| `2` | Usage error |
-| `3` | `.specd/` root, spec, task, workspace, or session not found |
+| `0` | success |
+| `1` | gate or verify failure |
+| `2` | usage error or fail-closed rejection |
 
-## Environment variables and config
+Unknown verbs and disallowed flag values **fail closed (exit 2)**. A verb run outside its
+allowed lifecycle phase is rejected (exit 2). Deferred verbs print a deferral notice and
+exit 0 — they never silently no-op.
 
-Machine-readable command, flag, and exit metadata is available from `specd help --all --json`. Config precedence remains embedded defaults → global YAML → project YAML → `SPECD_*` overrides. Human-authored config is YAML v2 only (`config.yml`); as of v0.2.0 the runtime loader no longer reads legacy JSON config — a present `.json` config is ignored. Convert an existing `.specd/config.json` with `specd migrate`, which renders it to YAML v2.
+**Phase enforcement.** A verb that resolves a spec is checked against that spec's current
+phase. `any` = valid in every phase. `post-requirements` = `analyze · plan · execute ·
+verify · reflect` (fails closed while a spec is still in the `perceive`/requirements phase).
+`post-execution` = `execute · verify · reflect` (terminal verbs need completed work to act on).
 
-Observability env vars:
+---
 
-| Variable | Effect |
-|---|---|
-| `SPECD_LOG=info|debug` | Emits structured duration metrics to stderr; stdout/`SPECD_JSON=1` stay unchanged. |
-| `SPECD_METRICS_ENDPOINT=<addr>` | Opt-in Prometheus text endpoint for duration samples, e.g. `127.0.0.1:9099`; unset starts no listener. |
-| `SPECD_TRACE_FILE=<path>` | With `go build -tags specd_trace`, writes Chrome trace JSON spans to this path. |
+## Lifecycle
 
-specd v0.2.0 has no deprecated commands or aliases — the command surface above is complete.
+### `init`
+```
+specd init [--agent=<name>] [--repair|--refresh] [--dry-run]
+```
+Initialize or re-sync specd project state and managed assets. Scaffolds `.specd/` and
+writes `AGENTS.md` into the project root. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--agent` | string | Select agent harness. |
+| `--repair` | bool | Restore drifted managed regions from the current templates. |
+| `--refresh` | bool | Update managed regions to the current binary's template version. |
+| `--dry-run` | bool | Print the managed-region changes and write nothing. |
+
+```bash
+specd init
+specd init --repair --dry-run
+specd init --refresh
+```
+
+### `new`
+```
+specd new <name> [--agent=<name>]
+```
+Create a new spec workspace. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--agent` | string | Select agent harness. |
+
+```bash
+specd new payments
+specd new payments --agent=codex
+```
+
+### `approve`
+```
+specd approve <spec> <gate>
+```
+Record human approval for a lifecycle gate. Advances a phase only when the gate registry
+passes. **Phases:** any.
+
+```bash
+specd approve payments requirements
+specd approve payments design
+```
+
+### `midreq`
+```
+specd midreq <spec> --text <change> [--scope <scope>]
+```
+Capture a scoped mid-stream requirement change. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--text` | string | Change description (required). |
+| `--scope` | string | Optional scope label. |
+
+```bash
+specd midreq payments --text 'add refund path' --scope requirements
+```
+
+### `decision`
+```
+specd decision <spec> --text <rationale> [--scope <scope>]
+```
+Record an explicit human decision. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--text` | string | Decision rationale (required). |
+| `--scope` | string | Optional scope label. |
+
+```bash
+specd decision payments --text 'defer webhooks' --scope design
+```
+
+---
+
+## Execution
+
+### `next`
+```
+specd next <slug> [--json | --waves | --dispatch]
+```
+Select the next eligible task or wave. **Phases:** post-requirements.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--waves` | bool | Show all wave groups as JSON. |
+| `--dispatch` | bool | Emit the context manifest for the first frontier task. |
+| `--json` | bool | Emit machine-readable frontier list. |
+
+```bash
+specd next payments
+specd next payments --json
+```
+
+### `task`
+```
+specd task <id> [--override --reason <text>] | specd task complete <spec> <id>
+```
+Show task details, clear an escalated task with a human override, or mark a task complete
+(requires passing evidence). **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable task row. |
+| `--override` | bool | Clear an escalated task (resets the verify-failure ratchet; does not complete it). Requires `--reason`. |
+| `--reason` | string | Human justification for `--override` (required, non-empty). |
+| `--tokens` | string | Optional worker-reported token count, stored verbatim (`task complete`). |
+| `--cost` | string | Optional worker-reported cost as a decimal string, stored verbatim (`task complete`). |
+| `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim (`task complete`). |
+
+```bash
+specd task T3 --json
+specd task T3 --override --reason 'flaky infra, verified manually'
+specd task complete payments T3
+```
+
+### `check`
+```
+specd check <spec> [--security] [--json]
+```
+Run the validation gate registry against a spec. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--security` | bool | Run opt-in security gates. |
+| `--schema` | bool | Validate `state.json` schema. |
+| `--schema-only` | bool | Validate only `state.json` schema. |
+| `--json` | bool | Emit machine-readable findings. |
+
+```bash
+specd check payments
+specd check payments --security --json
+```
+
+### `verify`
+```
+specd verify <slug> <task-id> [--revert-on-fail] [--sandbox] [--sandbox-binary=<path>]
+specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>
+```
+Run and record task verification (task mode), or record a per-acceptance-criterion evidence
+record (`--criterion` mode). A task completes **only** against a passing verify record
+(exit 0 pinned to a resolvable git HEAD). **Phases:** post-requirements.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--revert-on-fail` | bool | Restore working tree on verify failure. |
+| `--sandbox` | bool | Run the verify line inside a bwrap sandbox (fail-closed if the binary is absent). |
+| `--sandbox-binary` | string | Path to sandbox binary (overrides auto-detect). |
+| `--criterion` | string | Record evidence for acceptance criterion `<r>.<n>` instead of running a task verify. |
+| `--status` | `pass`\|`fail` | Criterion verdict (with `--criterion`). |
+| `--evidence` | string | Evidence text or path backing the criterion verdict (with `--criterion`). |
+| `--tokens` | string | Optional worker-reported token count, stored verbatim. |
+| `--cost` | string | Optional worker-reported cost as a decimal string, stored verbatim. |
+| `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim. |
+
+```bash
+specd verify payments T3
+specd verify payments T3 --revert-on-fail
+specd verify payments --criterion 1.2 --status pass --evidence 'covered by T3 integration test'
+```
+
+### `context`
+```
+specd context <slug> <task-id> [--json|--hud]
+```
+Build the bounded context manifest for a task. **Phases:** post-requirements.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable context. |
+| `--hud` | bool | Render the operator HUD (files, bytes, tokens, mode). |
+
+```bash
+specd context payments T3
+specd context payments T3 --hud
+```
+
+### `review`
+```
+specd review <spec> [--force]
+```
+Scaffold the review report the auditor fills before completion. **Phases:** post-execution.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--force` | bool | Overwrite an existing report for the current git HEAD. |
+
+```bash
+specd review payments
+specd review payments --force
+```
+
+### `submit`
+```
+specd submit <spec> [--resubmit]
+```
+Run every gate, then stream the PR summary to the operator-configured submit command.
+**Phases:** post-execution.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--resubmit` | bool | Allow resubmitting a spec already submitted at the current git HEAD. |
+
+```bash
+specd submit payments
+specd submit payments --resubmit
+```
+
+---
+
+## Inspection
+
+### `help`
+```
+specd help [command] [--json]
+```
+Show command help. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable help. |
+
+```bash
+specd help
+specd help --json
+```
+
+### `version`
+```
+specd version [--json]
+```
+Print build version metadata. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable JSON. |
+
+```bash
+specd version
+specd version --json
+```
+
+### `status`
+```
+specd status [spec] [--json] | specd status --program
+```
+Report current spec and task state, or the cross-spec program view. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable status. |
+| `--program` | bool | Show the cross-spec program view: specs, links, phases, and frontier. |
+
+```bash
+specd status payments
+specd status payments --json
+specd status --program
+```
+
+### `report`
+```
+specd report <spec> [--pr|--metrics|--json|--history|--format prometheus]
+```
+Render evidence-backed status, PR, history, and metrics reports. Deterministic — generated
+from `state.json` + task artifacts, never from an LLM. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--pr` | bool | Emit PR-oriented report. |
+| `--metrics` | bool | Emit metrics summary. |
+| `--json` | bool | Emit machine-readable report (JSON Lines with `--history`). |
+| `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
+| `--format` | `prometheus` | Alternate output format; prometheus emits textfile-collector metrics. |
+
+```bash
+specd report payments --pr
+specd report payments --metrics
+specd report payments --history
+specd report payments --format prometheus
+```
+
+---
+
+## Integration
+
+### `memory`
+```
+specd memory <slug> <add|promote> [flags]
+```
+Append or promote steering-memory patterns (learning flywheel). **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--key` | string | Pattern key (H2 heading). |
+| `--pattern` | string | One-line pattern statement (`add`). |
+| `--body` | string | Detail of the pattern (`add`). |
+| `--source` | string | Where the pattern came from (`add`). |
+| `--criticality` | `minor`\|`important`\|`critical` | Criticality (`add`). |
+| `--related` | string | Comma-separated related keys → wikilinks (`add`). |
+| `--force` | bool | Promote past the threshold (`promote`). |
+
+```bash
+specd memory payments add --key 'atomic writes' --pattern 'use AtomicWrite'
+```
+
+### `mcp`
+```
+specd mcp | specd mcp --config <host> [--root <path>] [--spec <slug>]
+```
+Serve the MCP integration surface over stdio, or print a host config snippet. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--config` | string | Print a paste-ready MCP config snippet for a host (e.g. `claude-code`). |
+| `--root` | string | Pin the server working directory in the snippet. |
+| `--spec` | string | Pin the active spec in the snippet. |
+
+```bash
+specd mcp
+specd mcp --config claude-code --spec demo
+```
+
+### `handshake`
+```
+specd handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]
+```
+Emit bootstrap handshake material, including palette and config digests. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable handshake. |
+| `--expect-palette-digest` | string | Fail (exit 1) if the command-palette digest differs. |
+| `--expect-config-digest` | string | Fail (exit 1) if the effective-config digest differs. |
+
+```bash
+specd handshake bootstrap
+specd handshake bootstrap --json
+```
+
+### `link`
+```
+specd link <from-slug> <to-slug>
+```
+Record that one spec depends on another (cross-spec ordering). **Phases:** any.
+
+```bash
+specd link api auth
+```
+
+### `unlink`
+```
+specd unlink <from-slug> <to-slug>
+```
+Remove a cross-spec dependency link. **Phases:** any.
+
+```bash
+specd unlink api auth
+```
+
+---
+
+## Orchestration
+
+### `brain`
+```
+specd brain <start|step|run|status|cancel|resume> <spec> [--authority]
+```
+Run the opt-in deterministic orchestration controller. No LLM sits in its decision path.
+**Phases:** post-requirements.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--authority` | bool | Grant dispatch authority (fail-closed by default). |
+
+```bash
+specd brain start payments --authority
+specd brain status payments
+specd brain resume payments
+specd brain cancel payments
+```
+
+---
+
+## Deferred
+
+### `triage`
+```
+specd triage <spec>
+```
+Run the opt-in extended-loop triage tier. **Deferred:** registered but not wired — prints a
+deferral notice and exits 0. **Phases:** any.
+
+```bash
+specd triage payments
+```

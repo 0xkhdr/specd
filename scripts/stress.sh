@@ -1,89 +1,46 @@
-#!/usr/bin/env bash
-# stress.sh — hammer ONE spec from many concurrent specd *processes* to prove
-# the advisory-lock + revision-CAS path serializes writes with no lost updates
-# and no torn state.json (Stage 07 F6 / Stage 02).
+#!/usr/bin/env sh
+# stress.sh (SPEC-01 T-01-04) — general cross-process contention on one spec.
 #
-# Each `specd midreq` call does exactly one locked SaveState (revision++ and
-# state.Turn++). With a correct lock every successful call commits, so the final
-# state.Turn MUST equal the number of successful invocations. A lost update
-# (broken lock) shows up as Turn < successes; a corrupt write shows up as
-# state.json failing to load.
+# Races N concurrent `specd decision` writers at a single spec's state.json.
+# The state layer serialises every mutation through the reentrant per-spec lock
+# and a compare-and-swap on the revision counter, writing atomically. Under a
+# race a writer either lands cleanly (bumps revision, appends its record) or
+# fails without clobbering — never a torn write, never a lost update.
 #
-# Usage: ./scripts/stress.sh [WORKERS] [ITERS]
-set -euo pipefail
+# Invariant: on a fresh spec the revision starts at 0 and every recorded
+# decision bumps it by exactly one, so the count of landed decision records
+# must equal the final revision. A lost update or double-count breaks the
+# equality. Each writer stamps a unique "stressmark-<i>" so records are counted
+# without a JSON parser. Runs in a throwaway tree; exits non-zero on violation.
+set -eu
 
-repo="$(cd "$(dirname "$0")/.." && pwd)"
-# Normal run: 16 workers x 20 short CLI calls. Limits are intentionally broad
-# for shared CI hosts while still bounding process/fd runaway; override with SPECD_STRESS_*.
-# Leak guard uses process/fd counts because this is a cross-process shell stress,
-# not an in-process goroutine harness.
-. "$repo/scripts/stress-lib.sh"
-stress_set_limits "stress"
-stress_guard_begin "stress"
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+bin=$(mktemp -d)/specd
+go build -o "$bin" "$root"
 
-WORKERS="${1:-16}"
-ITERS="${2:-20}"
+tree=$(mktemp -d)
+trap 'rm -rf "$tree"' EXIT
+cd "$tree"
 
-bin="$repo/specd"
-if [[ ! -x "$bin" ]]; then
-  echo "building specd..."
-  (cd "$repo" && go build -o "$bin" .)
-fi
+"$bin" init >/dev/null 2>&1
+"$bin" new demo >/dev/null 2>&1
 
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
-cd "$work"
-
-"$bin" init >/dev/null
-"$bin" new stress --title "Stress" >/dev/null
-
-echo "launching $WORKERS workers x $ITERS iterations against spec 'stress'..."
-# Each worker fires ITERS contending writes and records how many committed
-# (exit 0). midreq --impact low never gates, so every call should commit; we
-# count exit codes rather than assume to stay honest if the lock ever regresses.
-for w in $(seq 1 "$WORKERS"); do
-  (
-    ok=0
-    for i in $(seq 1 "$ITERS"); do
-      if "$bin" midreq stress "w${w}-i${i}" --impact low >/dev/null 2>&1; then
-        ok=$((ok + 1))
-      fi
-    done
-    echo "$ok" >"$work/ok.$w"
-  ) &
+writers=12
+i=0
+while [ "$i" -lt "$writers" ]; do
+	( "$bin" decision demo --text "stressmark-$i" >/dev/null 2>&1 || true ) &
+	i=$((i + 1))
 done
 wait
 
-successes=0
-for f in "$work"/ok.*; do
-  successes=$((successes + $(cat "$f")))
-done
+state="$tree/.specd/specs/demo/state.json"
+[ -s "$state" ] || { echo "stress: state.json missing/empty after contention" >&2; exit 1; }
 
-state="$work/.specd/specs/stress/state.json"
-
-# 1. state.json must still be valid JSON (no torn write under contention).
-if command -v python3 >/dev/null 2>&1; then
-  python3 -c "import json; json.load(open('$state'))" \
-    || { echo "FAIL: state.json is not valid JSON — torn write detected"; exit 1; }
-else
-  echo "WARN: python3 not found — skipping the JSON torn-write check (the turn==successes lost-update check below still runs)." >&2
+records=$(grep -o 'stressmark-' "$state" | wc -l | tr -d ' ')
+revision=$(sed -n 's/.*"revision"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p' "$state" | head -n1)
+if [ "$records" != "$revision" ]; then
+	echo "stress: landed records=$records != revision=$revision (lost update or double-count)" >&2
+	exit 1
 fi
 
-# 2. Final Turn must equal the number of committed writes — no lost updates.
-read_field() {
-  python3 -c "import json; print(json.load(open('$state'))['$1'])" 2>/dev/null \
-    || grep -o "\"$1\"[[:space:]]*:[[:space:]]*[0-9]*" "$state" | grep -o '[0-9]*$'
-}
-turn="$(read_field turn)"
-revision="$(read_field revision)"
-
-echo "committed writes: $successes   final turn: $turn   final revision: $revision"
-
-if [[ "$turn" != "$successes" ]]; then
-  echo "FAIL: lost update — final turn ($turn) != committed writes ($successes)"
-  exit 1
-fi
-
-stress_guard_end
-
-echo "PASS: $WORKERS x $ITERS concurrent processes, $successes committed writes, turn==successes, state.json intact."
+echo "stress: ok ($writers racing writers, records==revision==$records, no lost update)"

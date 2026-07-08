@@ -1,93 +1,78 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
-	"os"
-	"reflect"
-	"sort"
 	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// TestCLIMCPParity asserts the command-mirror MCP surface is generated from the
-// optimized CLI survivor set: every non-hidden, non-server/meta command has one
-// specd_<command> tool, and no hidden/retired command is advertised. Extra
-// semantic/composite MCP helpers are ignored here because they are not 1:1 CLI
-// mirrors.
-func TestCLIMCPParity(t *testing.T) {
-	want := map[string]bool{}
-	knownCommands := map[string]bool{}
-	for _, c := range core.Commands {
-		knownCommands[c.Command] = true
-		if c.Hidden || metaCommands[c.Command] {
+func TestMCPParity(t *testing.T) {
+	tools := CoreTools()
+	if len(tools) == 0 {
+		t.Fatal("expected tools")
+	}
+	seen := map[string]bool{}
+	for _, tool := range tools {
+		seen[tool.Name] = true
+		if core.ForbiddenTool(tool.Name) {
+			t.Fatalf("forbidden tool exposed: %s", tool.Name)
+		}
+	}
+	for _, command := range core.CommandNames() {
+		if core.ForbiddenTool(command) {
 			continue
 		}
-		want[toolPrefix+c.Command] = true
-	}
-
-	got := map[string]bool{}
-	for _, tl := range buildTools(nil) {
-		if !strings.HasPrefix(tl.Name, toolPrefix) {
-			continue
+		if !seen[command] {
+			t.Fatalf("command missing from MCP tools: %s", command)
 		}
-		cmd := strings.TrimPrefix(tl.Name, toolPrefix)
-		if !knownCommands[cmd] {
-			continue
-		}
-		got[tl.Name] = true
 	}
 
-	if diff := symmetricDiff(want, got); len(diff) > 0 {
-		t.Fatalf("CLI↔MCP command parity mismatch: %s", strings.Join(diff, ", "))
-	}
-}
-
-func TestToolListGoldenParity(t *testing.T) {
-	type snapshot struct {
-		Name        string     `json:"name"`
-		InputSchema jsonSchema `json:"inputSchema"`
-	}
-	got := make([]snapshot, 0, len(buildTools(nil)))
-	for _, tl := range buildTools(nil) {
-		got = append(got, snapshot{Name: tl.Name, InputSchema: tl.InputSchema})
-	}
-
-	if os.Getenv("UPDATE_GOLDEN") != "" {
-		gb, _ := json.MarshalIndent(got, "", "  ")
-		if err := os.WriteFile("testdata/tools_golden.json", append(gb, '\n'), 0o644); err != nil {
-			t.Fatalf("write golden tool fixture: %v", err)
-		}
-		return
-	}
-
-	body, err := os.ReadFile("testdata/tools_golden.json")
+	var out bytes.Buffer
+	err := Serve(strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`+"\n"), &out, tools, nil)
 	if err != nil {
-		t.Fatalf("read golden tool fixture: %v", err)
+		t.Fatalf("serve: %v", err)
 	}
-	var want []snapshot
-	if err := json.Unmarshal(body, &want); err != nil {
-		t.Fatalf("parse golden tool fixture: %v", err)
+	var response Response
+	if err := json.Unmarshal(out.Bytes(), &response); err != nil {
+		t.Fatalf("response json: %v", err)
 	}
-	if !reflect.DeepEqual(got, want) {
-		gb, _ := json.MarshalIndent(got, "", "  ")
-		t.Fatalf("MCP tool list changed; update testdata/tools_golden.json only for intentional API changes\n%s", gb)
+	if response.Error != nil || response.Result == nil {
+		t.Fatalf("bad response: %#v", response)
 	}
 }
 
-func symmetricDiff(a, b map[string]bool) []string {
-	var out []string
-	for k := range a {
-		if !b[k] {
-			out = append(out, "missing in MCP: "+k)
+// TestDenyList pins the MCP deny list itself (R2.1): the named human-gate and
+// host-only verbs must be absent from tools/list AND refused by tools/call.
+// Removing any entry from core.ForbiddenTool breaks CI here at both layers.
+func TestDenyList(t *testing.T) {
+	denied := []string{"approve", "init", "mcp", "brain"}
+
+	listed := map[string]bool{}
+	for _, tool := range CoreTools() {
+		listed[tool.Name] = true
+	}
+	for _, name := range denied {
+		if listed[name] {
+			t.Fatalf("tools/list must exclude %q", name)
+		}
+		resp := Dispatch(Request{
+			JSONRPC: "2.0", ID: 1, Method: "tools/call",
+			Params: []byte(`{"name":"` + name + `"}`),
+		}, CoreTools(), nil)
+		if resp.Error == nil || resp.Error.Code != -32001 {
+			t.Fatalf("tools/call %q: want policy error -32001, got %#v", name, resp.Error)
 		}
 	}
-	for k := range b {
-		if !a[k] {
-			out = append(out, "extra in MCP: "+k)
-		}
+}
+
+func TestBrainToolsGatedByConfig(t *testing.T) {
+	if got := BrainTools(core.Config{}); len(got) != 0 {
+		t.Fatalf("brain tools should be disabled: %#v", got)
 	}
-	sort.Strings(out)
-	return out
+	if got := BrainTools(core.Config{Orchestration: core.OrchestrationConfig{Enabled: true}}); len(got) != 1 {
+		t.Fatalf("brain tools should be enabled: %#v", got)
+	}
 }

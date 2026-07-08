@@ -1,59 +1,51 @@
 version: 2
 
+project_name: specd
+
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - main: .
+  - id: specd
+    main: .
     binary: specd
-    # Reproducible builds: pin embedded file timestamps to the commit time so
-    # the same source produces byte-identical binaries.
-    mod_timestamp: "{{ .CommitTimestamp }}"
     env:
       - CGO_ENABLED=0
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+    flags:
+      - -trimpath
+    # Pin embedded timestamps to the commit time => byte-reproducible archives
+    # (SPEC-03 T-03-05).
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w
+      - -X github.com/0xkhdr/specd/internal/version.Version={{.Version}}
+      - -X github.com/0xkhdr/specd/internal/version.Commit={{.Commit}}
+      - -X github.com/0xkhdr/specd/internal/version.Date={{.Date}}
 
 archives:
-  - formats:
-      - tar.gz
-    name_template: "specd_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
+  - id: specd
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
 
 checksum:
-  # Must match the filename install.sh expects.
-  name_template: SHA256SUMS
+  name_template: checksums.txt
   algorithm: sha256
 
-# Generate a CycloneDX SBOM per archive (requires `syft` on the release runner).
-# Artifact signing remains a documented deferral until signing-key management is
-# in place.
-# Provenance attestation rides GitHub release permissions (`attestations` +
-# `id-token`) in the release workflow.
+# Supply-chain transparency: emit a Syft SBOM per archive. release.yml installs
+# Syft for this (SPEC-03 T-03-05).
 sboms:
   - artifacts: archive
-
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^chore:"
-      - "^ci:"
-
-release:
-  github:
-    owner: 0xkhdr
-    name: specd
-  name_template: "{{.Tag}}"

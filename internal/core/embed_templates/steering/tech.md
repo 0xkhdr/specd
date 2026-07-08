@@ -1,21 +1,13 @@
-# Tech — Stack, conventions, verify commands
+# Steering: Tech
 
-> TODO: Fill this in. Always-loaded steering.
+> Fill this in for your project. Replace the prompts below with your real stack and
+> constraints. The harness reads these before proposing changes.
 
 ## Stack
+- **Language / runtime:** <e.g. Go 1.22, stdlib only>
+- **Build / test:** <e.g. `go build ./...`, `go test ./...`>
+- **Dependencies:** <policy — e.g. zero runtime deps>
 
-TODO: Languages, runtimes, frameworks, key libraries + versions.
-
-## Conventions
-
-TODO: Style, naming, module boundaries, error-handling norms.
-
-## Verify commands
-
-TODO: The exact commands a task's `verify:` line should use, e.g.:
-- unit: `TODO`
-- types: `TODO`
-- build: `TODO`
-- lint: `TODO`
-
-(These feed `config.json.defaultVerify` and per-task `verify:` lines.)
+## Invariants (do not break without a recorded decision)
+- <atomic writes / CAS / single static binary / …>
+- <the check that must always pass>

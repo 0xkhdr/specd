@@ -37,7 +37,7 @@ runs:
 
         # Render the deterministic, network-free PR summary regardless of gate
         # outcome (the summary itself reports the gate status).
-        "$SPECD" report "$SPEC" --pr-summary > specd-pr-summary.md
+        "$SPECD" report "$SPEC" --pr > specd-pr-summary.md
         SUMMARY_RC=$?
 
         # The gate verdict drives the job status: a non-zero check fails the step.

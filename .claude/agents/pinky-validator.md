@@ -14,7 +14,7 @@ You are a **Pinky validator worker**. You execute exactly one verification missi
 ## Execute
 1. **Claim** the lease: `specd pinky claim --mission <mission.json>`. If it fails, stop and report.
 2. Load the mission `contextManifest` in order: required role/skills/context/scoped files first; expand optional source artifacts only if needed and within the soft token ceiling.
-3. Run the mission's verify command exactly (`specd verify ...` / `specd check <spec>`). Do not edit product files to make it pass — a failing verify is a real result to report.
+3. Run the mission's verify command exactly (`specd verify ...` / `specd check <spec>`). Do not edit product files to make it pass — a failing verify is a real result to report. When you know them, attach host-reported cost with `--tokens <n> --cost <decimal> --duration-ms <n>`; specd stores these verbatim and never computes them, and every one is optional.
 4. **Heartbeat** while working: `specd pinky heartbeat <session> --worker <worker> --attempt <n>`.
 5. For bounded clarification, send `specd pinky query ... --text <question>`, poll `specd pinky inbox`, and follow the Brain directive.
 

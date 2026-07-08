@@ -1,329 +1,206 @@
-package contextpkg
+package context
 
 import (
-	"github.com/0xkhdr/specd/internal/spec"
+	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
-// ContextMode selects which delivery surface a manifest is built for. The engine
-// emits the same item shape for every mode; the mode only widens the inputs a
-// surface is expected to supply (e.g. a host budget on a mission).
-type ContextMode string
+const ManifestVersion = "1"
 
-const (
-	ContextModeBriefing ContextMode = "briefing" // specd context (single agent / human)
-	ContextModeDispatch ContextMode = "dispatch" // specd dispatch (parallel fan-out)
-	ContextModeMission  ContextMode = "mission"  // Brain -> Pinky orchestrated mission
-)
-
-// ContextRequest is the single input to the shared context engine. It is the
-// superset of what the three context-delivery surfaces need so that "what to
-// load" is derived exactly once. All IO is injected via ReadArtifact, keeping
-// the engine pure and deterministic.
-type ContextRequest struct {
-	Slug           string
-	Status         spec.SpecStatus // empty => phase inferred from TaskID prefix
-	TaskID         string
-	Role           string
-	Files          []string
-	Mode           ContextMode
-	HostBudget     int      // MCP-negotiated cap; <=0 means "unset"
-	ContextCommand string   // the "specd context <slug>" briefing command, if any
-	Requirements   []int    // requirement ids the task covers (for targeted slicing)
-	DesignHeadings []string // design sections the task names (for targeted slicing)
-	// ReadArtifact injects the only IO the engine performs: it returns the raw
-	// markdown for a spec artifact ("requirements.md", "design.md", "tasks.md",
-	// "memory.md") and ok=false when absent. A nil reader is valid: the engine
-	// then falls back to conservative default token hints and whole-file modes,
-	// reproducing the pre-measurement output byte-for-byte.
-	ReadArtifact func(name string) (content string, ok bool)
+type Item struct {
+	Kind            string `json:"kind"`
+	Path            string `json:"path,omitempty"`
+	TaskID          string `json:"task_id,omitempty"`
+	Mode            string `json:"mode,omitempty"`
+	EstimatedTokens int    `json:"estimated_tokens"`
 }
 
-// Default token hints used when no measurable artifact content is available.
-// These mirror the historical hardcoded values so a reader-less request is
-// byte-identical to the pre-measurement manifest.
-const (
-	ctxHintRole       = 800
-	ctxHintSkill      = 1200
-	ctxHintPhaseSkill = 1600
-	ctxHintContext    = 1800
-	ctxHintScopeFile  = 1200
-	ctxHintArtifact   = 1200
-)
-
-const missionContextStrategy = "Load required items in order. Keep optional/reference items collapsed unless needed. Stop expanding optional items before the soft ceiling; never skip required role, skill, context, or scoped files."
-
-// BuildContextManifest is the single source of truth for "what to load" across
-// every surface. Order: role -> skill -> phase-skill -> spec-context -> scoped
-// files -> phase-filtered source artifacts. Source artifacts are measured (and,
-// where a selector matches, delivered as read-targeted slices) via the injected
-// reader; everything else uses default hints. The engine performs no IO of its
-// own and is total.
-func BuildContextManifest(req ContextRequest) MissionContextManifest {
-	items := make([]MissionContextItem, 0, 8+len(req.Files))
-	add := func(kind, path, command, mode string, required bool, hint int, rationale string, selector *ContextSelector) {
-		items = append(items, MissionContextItem{
-			Order:     len(items) + 1,
-			Kind:      kind,
-			Path:      filepath.ToSlash(path),
-			Command:   command,
-			Mode:      mode,
-			Required:  required,
-			TokenHint: hint,
-			Rationale: rationale,
-			Selector:  selector,
-		})
-	}
-
-	role := req.Role
-	if role == "" || !spec.RoleAllowsPhase(role, effectivePhase(req)) {
-		role = defaultContextRole(req)
-	}
-	req.Role = role
-	add("role", filepath.Join(".specd", "roles", role+".md"), "", "read-full", true, ctxHintRole, "role authority and constraints", nil)
-	if req.Mode == ContextModeMission || role == "pinky" || req.ContextCommand != "" {
-		add("skill", filepath.Join(".specd", "skills", "specd-pinky", "SKILL.md"), "", "read-full", true, ctxHintSkill, "Pinky lease/report lifecycle", nil)
-	}
-	if req.Mode == ContextModeBriefing && req.ContextCommand == "" {
-		addSteeringItems(req, add)
-	}
-	if skill := contextPhaseSkillPath(req.TaskID, req.Files); skill != "" {
-		add("phase-skill", skill, "", "read-full", true, ctxHintPhaseSkill, "phase-scoped workflow; do not load unrelated stage guidance", nil)
-	}
-	if req.Mode == ContextModeBriefing && req.ContextCommand == "" {
-		if req.Slug != "" {
-			add("handshake-policy", "", "specd handshake policy "+req.Slug+" --json", "run-command", true, 120, "binding config and mode policy; do not inline help schema", nil)
-		}
-		add("command-schema", "", "specd help --json", "run-command", false, 120, "cache command schema digest when host has no cached schema", nil)
-	}
-	if req.ContextCommand != "" {
-		add("spec-context", "", req.ContextCommand, "run-command", true, ctxHintContext, "phase briefing, load list, blockers, approvals", nil)
-	}
-	for _, file := range req.Files {
-		add("scope-file", file, "", "read-targeted", true, ctxHintScopeFile, "mission-declared file in scope", nil)
-	}
-	addSourceArtifacts(req, add)
-
-	est := sumRequiredHints(items)
-	budget := deriveContextBudget(req)
-	return MissionContextManifest{
-		Version:          ManifestVersion,
-		SoftTokenCeiling: missionContextSoftCeiling,
-		Strategy:         missionContextStrategy,
-		Role:             role,
-		Items:            items,
-		EstimatedTokens:  est,
-		Budget:           budget,
-		OverBudget:       est > budget,
-		BudgetActions:    budgetActions(req, est, budget),
-	}
+type Manifest struct {
+	Version         string   `json:"version"`
+	Mode            string   `json:"mode"`
+	Slug            string   `json:"slug"`
+	TaskID          string   `json:"task_id"`
+	Items           []Item   `json:"items"`
+	Notes           []string `json:"notes,omitempty"`
+	EstimatedTokens int      `json:"estimated_tokens"`
 }
 
-// addSourceArtifacts appends the phase-relevant source-of-truth artifacts. Each
-// is measured against its real content; when the task names a slice selector for
-// it (requirement ids, design headings, the task row) and the selector matches,
-// the artifact is delivered as a read-targeted slice and its hint measures the
-// slice instead of the whole file.
-func addSourceArtifacts(req ContextRequest, add func(kind, path, command, mode string, required bool, hint int, rationale string, selector *ContextSelector)) {
-	const wholeRationale = "source of truth; expand only if required by contract or context command"
-	for _, name := range statusSourceArtifacts(req.Status) {
-		path := filepath.Join(".specd", "specs", req.Slug, name)
-		mode := "reference-if-needed"
-		hint := ctxHintArtifact
-		rationale := wholeRationale
-		var selector *ContextSelector
-		if content, ok := readArtifactContent(req, name); ok {
-			if slice, sliced, srat, sel := sliceArtifact(name, content, req); sliced {
-				mode = "read-targeted"
-				rationale = srat
-				hint = EstimateTokensString(slice)
-				selector = sel
-			} else {
-				hint = EstimateTokensString(content)
+// BuildManifest assembles the context references for one task. The steering
+// constitution and memory (R4.3) enter as references + modes, never inlined
+// content, bounded against maxTokens: when over budget, memory drops before
+// steering (constitution wins), deterministically, with a note. maxTokens <= 0
+// disables budget enforcement.
+func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTokens int) (Manifest, error) {
+	task, ok := findTask(tasks, taskID)
+	if !ok {
+		return Manifest{}, fmt.Errorf("task %s not found", taskID)
+	}
+	mode := ModeForTask(task)
+	items := []Item{
+		{Kind: "spec", Path: fmt.Sprintf("specs/%s/requirements.md", slug)},
+		{Kind: "tasks", Path: fmt.Sprintf("specs/%s/tasks.md", slug)},
+		{Kind: "task", TaskID: task.ID},
+		{Kind: "role", Path: fmt.Sprintf(".specd/roles/%s.md", task.Role)},
+	}
+	for i := range items {
+		items[i].EstimatedTokens = EstimateText(items[i].Kind + items[i].Path + items[i].TaskID)
+	}
+	items = append(items, steeringItems(root, slug)...)
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].Kind == items[j].Kind {
+			if items[i].Path == items[j].Path {
+				return items[i].TaskID < items[j].TaskID
 			}
+			return items[i].Path < items[j].Path
 		}
-		add("source-artifact", path, "", mode, false, hint, rationale, selector)
-	}
-}
-
-// sliceArtifact attempts to reduce an artifact to the minimal block the task
-// needs, using the T2 slicers. It returns (slice, true, rationale) only when a
-// selector matches; otherwise the caller delivers the whole artifact.
-func sliceArtifact(name, content string, req ContextRequest) (slice string, ok bool, rationale string, selector *ContextSelector) {
-	switch name {
-	case "tasks.md":
-		if req.TaskID == "" {
-			return "", false, "", nil
-		}
-		if s, found := TaskSlice(content, req.TaskID); found {
-			return s, true, "the task's row only, not the whole task list", &ContextSelector{Artifact: name, TaskID: req.TaskID}
-		}
-	case "requirements.md":
-		if len(req.Requirements) == 0 {
-			return "", false, "", nil
-		}
-		if s, found := CoveredRequirements(content, req.Requirements); found {
-			return s, true, "only the requirements this task covers", &ContextSelector{Artifact: name, Requirements: append([]int(nil), req.Requirements...)}
-		}
-	case "design.md":
-		if len(req.DesignHeadings) == 0 {
-			return "", false, "", nil
-		}
-		if s, found := DesignSection(content, req.DesignHeadings); found {
-			return s, true, "only the design sections this task names", &ContextSelector{Artifact: name, DesignHeadings: append([]string(nil), req.DesignHeadings...)}
-		}
-	}
-	return "", false, "", nil
-}
-
-func addSteeringItems(req ContextRequest, add func(kind, path, command, mode string, required bool, hint int, rationale string, selector *ContextSelector)) {
-	steering := []string{"reasoning", "workflow", "product", "tech", "structure"}
-	for _, name := range steering {
-		mode := "reference-if-needed"
-		required := false
-		if req.Mode == ContextModeBriefing || name == "reasoning" || name == "workflow" {
-			mode = "read-full"
-			required = true
-		}
-		add("steering", filepath.Join(".specd", "steering", name+".md"), "", mode, required, 500, "always-on steering constitution", nil)
-	}
-}
-
-func readArtifactContent(req ContextRequest, name string) (string, bool) {
-	if req.ReadArtifact == nil {
-		return "", false
-	}
-	return req.ReadArtifact(name)
-}
-
-// statusSourceArtifacts returns the phase-relevant source artifacts in load
-// order. An empty/unknown status keeps the historical full set so callers that
-// do not carry a status (e.g. a mission) stay equivalent to the pre-filter path.
-func statusSourceArtifacts(status spec.SpecStatus) []string {
-	switch status {
-	case spec.StatusRequirements:
-		return []string{"requirements.md"}
-	case spec.StatusDesign:
-		return []string{"requirements.md", "design.md"}
-	case spec.StatusTasks:
-		return []string{"requirements.md", "design.md", "tasks.md"}
-	case spec.StatusExecuting, spec.StatusBlocked:
-		return []string{"requirements.md", "design.md", "tasks.md"}
-	case spec.StatusVerifying:
-		return []string{"requirements.md", "tasks.md"}
-	case spec.StatusComplete:
-		return []string{"tasks.md"}
-	default:
-		return []string{"requirements.md", "design.md", "tasks.md"}
-	}
-}
-
-// contextPhaseSkillPath picks the one stage skill to load. Authoring tasks
-// ("A…") map to the skill for the artifact they touch; every other task is an
-// execution task. Mirrors the historical mission behaviour.
-func contextPhaseSkillPath(taskID string, files []string) string {
-	if strings.HasPrefix(taskID, "A") {
-		for _, file := range files {
-			switch filepath.Base(file) {
-			case "requirements.md":
-				return filepath.ToSlash(filepath.Join(".specd", "skills", "specd-requirements", "SKILL.md"))
-			case "design.md":
-				return filepath.ToSlash(filepath.Join(".specd", "skills", "specd-design", "SKILL.md"))
-			case "tasks.md":
-				return filepath.ToSlash(filepath.Join(".specd", "skills", "specd-tasks", "SKILL.md"))
-			}
-		}
-		return ""
-	}
-	return filepath.ToSlash(filepath.Join(".specd", "skills", "specd-execute", "SKILL.md"))
-}
-
-// sumRequiredHints totals the token hints of required items — the floor a host
-// must spend before it can do anything, and the figure the budget gate checks.
-func sumRequiredHints(items []MissionContextItem) int {
-	sum := 0
+		return items[i].Kind < items[j].Kind
+	})
+	items, notes := enforceBudget(items, maxTokens)
+	manifest := Manifest{Version: ManifestVersion, Mode: mode, Slug: slug, TaskID: taskID, Items: items, Notes: notes}
 	for _, item := range items {
-		if item.Required {
-			sum += item.TokenHint
-		}
+		manifest.EstimatedTokens += item.EstimatedTokens
 	}
-	return sum
+	return manifest, nil
 }
 
-// defaultContextRole picks a stable role when caller did not supply one.
-func defaultContextRole(req ContextRequest) string {
-	switch effectivePhase(req) {
-	case spec.PhaseAnalyze, spec.PhasePlan:
-		return "architect"
-	case spec.PhaseVerify:
+// steeringItems references the constitution (.specd/steering/*.md) and memory
+// files as manifest items. Steering carries static-instructions mode; memory
+// (steering/memory.md and the spec's own memory.md) carries reference-if-needed.
+// Token estimates come from on-disk size so the budget reflects what an agent
+// would load. Missing files are skipped, never referenced.
+func steeringItems(root, slug string) []Item {
+	var items []Item
+	steeringDir := filepath.Join(root, ".specd", "steering")
+	entries, _ := os.ReadDir(steeringDir)
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		rel := ".specd/steering/" + entry.Name()
+		kind, mode := "steering", "static-instructions"
+		if entry.Name() == "memory.md" {
+			kind, mode = "memory", "reference-if-needed"
+		}
+		items = append(items, Item{Kind: kind, Path: rel, Mode: mode, EstimatedTokens: estimateFile(filepath.Join(root, rel))})
+	}
+	specMem := filepath.Join(".specd", "specs", slug, "memory.md")
+	if fi, err := os.Stat(filepath.Join(root, specMem)); err == nil && !fi.IsDir() {
+		items = append(items, Item{Kind: "memory", Path: filepath.ToSlash(specMem), Mode: "reference-if-needed", EstimatedTokens: tokensFromBytes(fi.Size())})
+	}
+	return items
+}
+
+func estimateFile(path string) int {
+	fi, err := os.Stat(path)
+	if err != nil || fi.IsDir() {
+		return 0
+	}
+	return tokensFromBytes(fi.Size())
+}
+
+func tokensFromBytes(n int64) int { return int((n + 3) / 4) }
+
+// enforceBudget drops items until the total fits maxTokens, memory before
+// steering (constitution wins). Core items (spec/tasks/task/role) are never
+// dropped. Deterministic: items arrive sorted, droppable ones removed from the
+// end. Returns the surviving items and one note per drop.
+func enforceBudget(items []Item, maxTokens int) ([]Item, []string) {
+	if maxTokens <= 0 {
+		return items, nil
+	}
+	total := 0
+	for _, item := range items {
+		total += item.EstimatedTokens
+	}
+	var notes []string
+	for total > maxTokens {
+		idx := lastDroppable(items)
+		if idx < 0 {
+			break
+		}
+		total -= items[idx].EstimatedTokens
+		notes = append(notes, fmt.Sprintf("dropped %s (%s) over context budget", items[idx].Path, items[idx].Kind))
+		items = append(items[:idx], items[idx+1:]...)
+	}
+	return items, notes
+}
+
+// lastDroppable returns the index of the last memory item, else the last
+// steering item, else -1. Memory always sheds before steering.
+func lastDroppable(items []Item) int {
+	steer := -1
+	for i, item := range items {
+		switch item.Kind {
+		case "memory":
+			memoryIdx := i
+			// keep scanning for the last memory item
+			for j := i + 1; j < len(items); j++ {
+				if items[j].Kind == "memory" {
+					memoryIdx = j
+				}
+			}
+			return memoryIdx
+		case "steering":
+			steer = i
+		}
+	}
+	return steer
+}
+
+func ModeForTask(task core.TaskRow) string {
+	switch task.Role {
+	case "validator":
 		return "validator"
-	case spec.PhaseReflect:
-		return "documenter"
+	case "scout":
+		return "scout"
+	case "scribe":
+		return "scribe"
 	default:
 		return "craftsman"
 	}
 }
 
-// deriveContextBudget computes the effective soft ceiling from phase, role, and
-// declared file count, then caps it to a host-negotiated budget when present.
-// The result is clamped to the manifest's hard bounds. Planning phases default
-// higher; low-budget roles default lower; multi-file work scales with file count.
-func budgetActions(req ContextRequest, est, budget int) []string {
-	if est <= budget {
-		return nil
+func EstimateText(text string) int {
+	if text == "" {
+		return 0
 	}
-	if req.Mode == ContextModeMission {
-		return []string{"run `specd brain compact` for the active session when available", "prefer targeted manifest selectors before broad loading"}
-	}
-	return []string{"load only read-full and read-targeted items first", "use targeted selectors", "ask the user before broad loading optional references"}
+	return (len(text) + 3) / 4
 }
 
-func deriveContextBudget(req ContextRequest) int {
-	base := missionContextSoftCeiling
-	switch effectivePhase(req) {
-	case spec.PhaseAnalyze, spec.PhasePlan:
-		base = 16000
-	case spec.PhaseExecute:
-		base = missionContextSoftCeiling
-	case spec.PhaseVerify, spec.PhaseReflect:
-		base = 9000
+func ValidateManifest(raw []byte) error {
+	var manifest Manifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return err
 	}
-	switch spec.RoleBudgetTier(req.Role) {
-	case "minimal":
-		base = base * 3 / 5
-	case "focused":
-		// keep
-	case "medium":
-		base = base * 6 / 5
-	case "large":
-		base = base * 4 / 3
+	if manifest.Version != ManifestVersion {
+		return fmt.Errorf("unsupported manifest version %q", manifest.Version)
 	}
-	base += len(req.Files) * 1500
-	if req.HostBudget > 0 && req.HostBudget < base {
-		base = req.HostBudget
+	if manifest.Mode == "" || manifest.Slug == "" || manifest.TaskID == "" {
+		return fmt.Errorf("manifest mode, slug, and task_id are required")
 	}
-	return clampContextBudget(base)
+	if len(manifest.Items) < 4 {
+		return fmt.Errorf("manifest must contain the four core items")
+	}
+	for _, item := range manifest.Items {
+		if item.Kind == "" {
+			return fmt.Errorf("manifest item kind is required")
+		}
+	}
+	return nil
 }
 
-// effectivePhase resolves the phase from an explicit status, falling back to the
-// task-id convention (authoring tasks plan; everything else executes).
-func effectivePhase(req ContextRequest) spec.Phase {
-	if req.Status != "" {
-		return spec.PhaseForStatus(req.Status)
+func findTask(tasks []core.TaskRow, taskID string) (core.TaskRow, bool) {
+	for _, task := range tasks {
+		if task.ID == taskID {
+			return task, true
+		}
 	}
-	if strings.HasPrefix(req.TaskID, "A") {
-		return spec.PhasePlan
-	}
-	return spec.PhaseExecute
-}
-
-func clampContextBudget(v int) int {
-	if v < MinSoftCeiling {
-		return MinSoftCeiling
-	}
-	if v > MaxSoftCeiling {
-		return MaxSoftCeiling
-	}
-	return v
+	return core.TaskRow{}, false
 }

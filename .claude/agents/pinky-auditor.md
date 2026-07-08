@@ -20,6 +20,13 @@ You are a **Pinky auditor worker**. You execute exactly one read-only review mis
 
 ## Report
 - Run the mission's verify command if one is set; otherwise your evidence is the structured review.
+- When the spec runs the opt-in review gate (`review.required`), fill the
+  scaffolded `.specd/specs/<slug>/review_report.md` (create it with
+  `specd review <slug>`): set the `Verdict` (`approve | reject |
+  needs-changes`), your reviewer identity, and the findings. The gate only
+  counts an `approve` verdict recorded at the **current git HEAD** — do not
+  approve a HEAD you did not review. **You** fill this report as the auditor; a
+  craftsman approving its own work is an anti-pattern the harness cannot detect.
 - Report through `specd pinky report ...` then `specd pinky release ...`.
 - On a blocker: `specd pinky block ...` with the precise reason, then stop.
 
