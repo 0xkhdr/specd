@@ -6,7 +6,7 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 
 | Spec ID | Domain | Priority | Status | Blocked By | Completed Tasks / Total |
 |---------|--------|----------|--------|------------|------------------------|
-| SPEC-01 | CI/CD & Build Tooling | P0 | completed | — | 7/7 |
+| SPEC-01 | CI/CD & Build Tooling | P0 | verified | — | 7/7 |
 | SPEC-02 | Feature ↔ Doc Regression | P1 | completed | SPEC-01 | 6/6 |
 | SPEC-03 | Packaging & Release Readiness | P1 | completed | SPEC-01 | 5/5 |
 | SPEC-04 | Security Tooling Hardening | P1 | completed | SPEC-01 | 6/6 |
@@ -14,7 +14,15 @@ Breakdown" (Domains 3+release fold into SPEC-03; Domains 4+7 fold into SPEC-07).
 | SPEC-06 | Observability & Crash-Safety | P2 | completed | SPEC-01 | 5/5 |
 | SPEC-07 | DX & Doc Accuracy | P2 | completed | SPEC-01, SPEC-02 | 6/6 |
 
-Total: 41/41 tasks. **Initiative fully closed.**
+Total: 41/41 tasks. **Initiative fully closed and verified end-to-end.**
+
+SPEC-01 verified 2026-07-09: the definitive all-green **real push/PR** hosted CI run is recorded —
+PR #38 (`fresh-start → main`), run 28982515514 against commit
+`d4d69a9e7e0821467cf8566419fe8ed761024149`, **16/16 checks green** (all matrix legs
+ubuntu/macos/windows + every job). Two runner-only golangci-lint failures were fixed in-flight
+(`golangci-lint-action@v6→v7`; `install-mode: goinstall` so the linter builds with the runner's
+Go 1.26 instead of the go1.24-built release binary) — CI-toolchain fixes only, no code/invariant
+change. SPEC-01 `completed → verified`; the initiative is now fully verified end-to-end (41/41).
 
 Wave 2 fully closed 2026-07-09: SPEC-06 (5/5), SPEC-05 (6/6), SPEC-07 (6/6) landed. Observability
 regression-tested (Prometheus validity, history ordering, HUD, exit-code/error-doc drift guard) and
@@ -22,9 +30,10 @@ documented (`docs/observability.md`); coverage floor set to a real policy target
 75.7%) with `TESTING.md` authored and the `ci.yml` reference resolved; the doc-drift class closed
 permanently — the gate count and Go floor are now lint-enforced from single sources, orphan scripts
 swept, and `CHANGELOG.md`/`CONTRIBUTING.md`/`docs/versioning-policy.md` shipped. This closes the
-production-readiness initiative (41/41). The only open item is the user-gated SPEC-01 real push/PR
-CI run to flip SPEC-01 `completed → verified`. No LLM in any gate/report path, no evidence-bypass,
-zero runtime deps, `reference/` untouched.
+production-readiness initiative (41/41). The final user-gated SPEC-01 real push/PR CI run is now
+recorded (PR #38, run 28982515514, 16/16 green) and SPEC-01 is `verified` — the initiative is
+closed end-to-end. No LLM in any gate/report path, no evidence-bypass, zero runtime deps,
+`reference/` untouched.
 
 Wave 1 fully closed 2026-07-09: SPEC-03 (5/5) and SPEC-04 (6/6) landed alongside the earlier
 SPEC-02. SPEC-04 regression-hardened the opt-in security gate (scan-boundary, fail-closed

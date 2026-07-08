@@ -8,7 +8,7 @@
 | T-01-04 | Author/prune stress scripts | For each of stress.sh, stress-acp.sh, stress-orchestration.sh, stress-program.sh, stress-brain-recovery.sh, stress-checkpoint-fault.sh: author a deterministic script exercising the named subsystem, or delete its job from ci.yml with a recorded reason. | Every stress job in ci.yml resolves to an existing `+x` script that passes locally and under `shellcheck`; deleted jobs are gone from ci.yml with rationale noted. | Large | completed |
 | T-01-05 | Fix Go version floor | Reconcile `go.mod` (`go 1.26`) with the CI matrix (`["1.22","stable"]`) so every leg compiles. Recommended: matrix `["1.26","stable"]`. | No matrix leg fails to compile due to the version directive; `go.mod` floor and ci.yml matrix agree; `go build`/`go test` pass on all legs. | Small | completed |
 | T-01-06 | Pin govulncheck | Change ci.yml:80 `govulncheck@latest` to a specific released version (pin coordinated with SPEC-04). | ci.yml pins govulncheck to an explicit version tag; the govulncheck CI step still passes. | Small | completed |
-| T-01-07 | Prove green CI end-to-end | Run the full workflow on a real push/PR against a clean checkout. | An all-green CI run recorded (every matrix leg + every job); local `gofmt -l` empty, `go vet`, `go mod tidy` no-diff, `shellcheck scripts/*.sh` clean; no LLM added to any gate/DAG/report path; `reference/` untouched. | Medium | completed |
+| T-01-07 | Prove green CI end-to-end | Run the full workflow on a real push/PR against a clean checkout. | An all-green CI run recorded (every matrix leg + every job); local `gofmt -l` empty, `go vet`, `go mod tidy` no-diff, `shellcheck scripts/*.sh` clean; no LLM added to any gate/DAG/report path; `reference/` untouched. | Medium | verified |
 
 ## Task Dependency Graph
 
@@ -38,14 +38,22 @@ T-01-06 are independent and run in parallel. T-01-07 is the final integration pr
 - **T-01-05 completed:** CI matrix `["1.22","stable"]` → `["1.26.x","stable"]`; `go.mod` floor
   unchanged (`go 1.26`) — now internally consistent.
 - **T-01-06 completed:** `govulncheck@latest` → `@v1.5.0` (SPEC-04 owns version rationale).
-- **T-01-07 completed (local proof; real push pending):** the T-01-04 race is fixed, so all
-  local gates are green: `go build -o specd .`; `go test ./... -race -count=1` (255) and
-  `-count=2` (510); `gofmt -l .` empty; `go vet ./...`; `go mod tidy` no-diff; `test-lint.sh`;
-  all stress scripts 30/30. `reference/` untouched; no LLM added to any gate/DAG/report path.
-  **Remaining:** (a) the definitive all-green **real push/PR** run is not yet recorded — needs a
-  push to trigger the workflow. (b) `shellcheck scripts/*.sh` emits warning-level findings
-  (SC1007 on the `CDPATH= cd` idiom across *every* script incl. the already-accepted
-  `docs-lint.sh`/`test-lint.sh`; SC2015 on the stress scripts) — **no error-severity findings**;
-  pre-existing from the script-authoring commit, not introduced here. Confirm the pinned
-  `ludeeus/action-shellcheck@2.0.0` severity gate tolerates them (or clean them up) when proving
-  the real run — tracked as script-lint polish, not a BD-01 regression.
+- **T-01-07 verified (real push/PR CI recorded):** definitive all-green hosted CI run recorded on
+  PR **#38** (`fresh-start → main`): run **28982515514** against commit
+  **`d4d69a9e7e0821467cf8566419fe8ed761024149`** — **16/16 checks green** (every matrix leg on
+  ubuntu/macos/windows + every job: build, race tests, static analysis, coverage floor, and all
+  five brain-resume stress jobs). URLs: https://github.com/0xkhdr/specd/pull/38 ·
+  https://github.com/0xkhdr/specd/actions/runs/28982515514. Local gate green at the same tree.
+  `reference/` untouched; no LLM added to any gate/DAG/report path.
+  - **Two runner-only failures surfaced and fixed during the real run** (neither reproduced
+    locally because golangci-lint wasn't installed; both are CI-toolchain issues, not code
+    defects): (1) commit `941ce2d` bumped `golangci-lint-action@v6 → v7` — v6 rejects
+    golangci-lint v2 (`v2.1.6 is not supported by golangci-lint-action v6`). (2) commit `d4d69a9`
+    set `install-mode: goinstall` — the prebuilt v2.1.6 release binary is built with go1.24 and
+    refuses a module targeting `go 1.26` (exit 3: "the Go language version used to build
+    golangci-lint is lower than the targeted Go version"); goinstall builds it with the runner's
+    Go 1.26 (matching how `go install ...@v2.1.6` builds it locally). Version pin unchanged.
+  - **shellcheck (item b):** the pinned `ludeeus/action-shellcheck@2.0.0` **error**-severity gate
+    ran green — the residual SC1007/SC2015/SC2016/SC2086 findings are warning-level only and do
+    not fail CI. `shellcheck -S error scripts/*.sh` exits 0 locally. Left as-is (subtractive bias;
+    no user request to chase warnings); the accepted-warnings rationale stands.
