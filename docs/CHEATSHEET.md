@@ -48,8 +48,24 @@ writes `AGENTS.md` into the project root. **Phases:** any.
 
 ```bash
 specd init
+specd init --agent=pinky
 specd init --repair --dry-run
 specd init --refresh
+```
+
+### `agents`
+```
+specd agents [--json]
+```
+Inspect installed agent artifacts without writing. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit JSON. |
+
+```bash
+specd agents
+specd agents --json
 ```
 
 ### `new`
@@ -65,6 +81,7 @@ Create a new spec workspace. **Phases:** any.
 ```bash
 specd new payments
 specd new payments --agent=codex
+specd new payments --agent=pinky
 ```
 
 ### `approve`

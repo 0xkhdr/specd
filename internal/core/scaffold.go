@@ -3,39 +3,41 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	embedtemplates "github.com/0xkhdr/specd/internal/core/embed_templates"
 )
 
-func WriteScaffold(root string) error {
-	for _, dir := range []string{".specd/roles", ".specd/steering"} {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
-			return err
+func WriteScaffold(root string, agents ...string) error {
+	if err := writeManagedAssets(root); err != nil {
+		return err
+	}
+	if err := writeAgents(root); err != nil {
+		return err
+	}
+	for _, agent := range agents {
+		if strings.EqualFold(agent, "pinky") {
+			return writePinkyArtifacts(root)
 		}
 	}
+	return nil
+}
+
+func writeManagedAssets(root string) error {
 	assets, err := ManagedAssets()
 	if err != nil {
 		return err
 	}
 	for _, asset := range assets {
-		target := filepath.Join(root, asset.RelPath)
-		if _, err := os.Stat(target); err == nil {
-			continue // preserve an existing file; `init --repair` re-syncs its region
-		} else if !os.IsNotExist(err) {
-			return err
-		}
-		// Wrap the template in managed markers so drift repair can find the region
-		// while leaving any content the user later adds outside it untouched.
-		if err := os.WriteFile(target, []byte(asset.Block()+"\n"), 0o644); err != nil {
+		if err := AtomicWrite(filepath.Join(root, asset.RelPath), asset.Block()+"\n"); err != nil {
 			return err
 		}
 	}
-	return writeAgents(root)
+	return nil
 }
 
 // writeAgents materializes AGENTS.md at the project root, merging into any
-// existing file so user-authored content outside the managed markers survives
-// (Spec 06 R6.3/R6.4). Idempotent: re-running replaces only the marked block.
+// existing file through the managed specd block.
 func writeAgents(root string) error {
 	generated, err := embedtemplates.FS.ReadFile("AGENTS.md")
 	if err != nil {
@@ -47,4 +49,52 @@ func writeAgents(root string) error {
 		return err
 	}
 	return AtomicWrite(target, MergeAgents(string(existing), string(generated)))
+}
+
+func writePinkyArtifacts(root string) error {
+	claudeDir := filepath.Join(root, ".claude", "agents")
+	codexDir := filepath.Join(root, ".codex", "agents")
+	for _, dir := range []string{claudeDir, codexDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	for _, role := range []string{"scout", "craftsman", "validator", "auditor"} {
+		if err := AtomicWrite(filepath.Join(claudeDir, "pinky-"+role+".md"), pinkyClaudeAgent(role)); err != nil {
+			return err
+		}
+		if err := AtomicWrite(filepath.Join(codexDir, "pinky-"+role+".toml"), pinkyCodexAgent(role)); err != nil {
+			return err
+		}
+	}
+	configPath := filepath.Join(root, ".codex", "config.toml")
+	existing, err := os.ReadFile(configPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return AtomicWrite(configPath, MergePinkyCodexConfig(string(existing)))
+}
+
+func pinkyClaudeAgent(role string) string {
+	return strings.TrimSpace(`# Pinky `+role+`
+
+You are the specd Pinky `+role+` worker. Follow AGENTS.md and .specd/roles/`+role+`.md before acting.
+
+Rules:
+- Run specd status before choosing work.
+- Run specd context <slug> <task> before task work.
+- Stay inside declared files for the task role.
+- Record evidence through specd verify; do not mark work complete by prose.
+- Stop and report blocked when specd gates or verify fail twice.
+`) + "\n"
+}
+
+func pinkyCodexAgent(role string) string {
+	return strings.TrimSpace(`name = "pinky-`+role+`"
+instructions = """
+You are the specd Pinky `+role+` worker. Follow AGENTS.md and .specd/roles/`+role+`.md before acting.
+
+Run specd status, load specd context for the assigned task, stay inside the task files, and record evidence with specd verify.
+"""
+`) + "\n"
 }

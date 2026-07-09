@@ -36,6 +36,7 @@ var ErrUnknownCommand = errors.New("unknown command")
 
 var executable = map[string]Handler{
 	"approve":   runApprove,
+	"agents":    runAgents,
 	"brain":     runBrain,
 	"check":     runCheck,
 	"context":   runContext,
@@ -163,6 +164,26 @@ func recordSecurity(root, slug string, result security.Result) error {
 	return err
 }
 
+func runAgents(root string, args []string, flags map[string]string) error {
+	if len(args) != 0 {
+		return errors.New("usage: specd agents [--json]")
+	}
+	discovery := core.DiscoverAgents(root)
+	if flags["json"] == "true" {
+		return writeJSON(discovery)
+	}
+	for _, agent := range discovery {
+		fmt.Fprintf(os.Stdout, "%s\t%s\n", agent.Name, agent.Status)
+		for _, rel := range agent.Missing {
+			fmt.Fprintf(os.Stdout, "  missing\t%s\n", rel)
+		}
+		for _, rel := range agent.Invalid {
+			fmt.Fprintf(os.Stdout, "  invalid\t%s\n", rel)
+		}
+	}
+	return nil
+}
+
 func runInit(root string, args []string, flags map[string]string) error {
 	if len(args) != 0 {
 		return errors.New("usage: specd init [--agent=<name>] [--repair|--refresh] [--dry-run]")
@@ -178,7 +199,7 @@ func runInit(root string, args []string, flags map[string]string) error {
 			// scaffold, so a fresh run previews the managed regions it would write.
 			return previewManaged(root)
 		}
-		return core.WriteScaffold(root)
+		return core.WriteScaffold(root, flags["agent"])
 	}
 
 	// Repair/refresh re-sync every managed region from the current templates,

@@ -115,7 +115,7 @@ var Commands = []Command{
 		Description:   "Initialize or re-sync specd project state and managed assets.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd init", "specd init --repair --dry-run", "specd init --refresh"},
+		Examples:      []string{"specd init", "specd init --agent=pinky", "specd init --repair --dry-run", "specd init --refresh"},
 		Flags: []Flag{
 			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
 			{Name: "repair", Type: "bool", Description: "Restore drifted managed regions from the current templates."},
@@ -124,12 +124,21 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "agents",
+		Usage:         "specd agents [--json]",
+		Description:   "Inspect installed agent artifacts without writing.",
+		AllowedPhases: anyPhase(),
+		Examples:      []string{"specd agents", "specd agents --json"},
+		Flags:         []Flag{{Name: "json", TakesValue: false, Type: "bool", Description: "Emit JSON."}},
+		ExitCodes:     stdCodes(),
+	},
+	{
 		Name:          "new",
 		Usage:         "specd new <name> [--agent=<name>]",
 		Description:   "Create a new spec workspace.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd new payments", "specd new payments --agent=codex"},
+		Examples:      []string{"specd new payments", "specd new payments --agent=codex", "specd new payments --agent=pinky"},
 		Flags: []Flag{
 			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
 		},

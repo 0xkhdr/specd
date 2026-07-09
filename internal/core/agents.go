@@ -1,20 +1,24 @@
 package core
 
-import "strings"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 type AgentHost struct {
 	Name    string
 	Detect  string
 	Plan    string
 	Install string
-	Inspect string
 	Verify  string
 }
 
 func AgentHosts() []AgentHost {
 	return []AgentHost{
-		{Name: "codex", Detect: "codex", Plan: "read tasks.md frontier", Install: "none", Inspect: "specd status", Verify: "specd verify"},
-		{Name: "claude", Detect: "claude", Plan: "read tasks.md frontier", Install: "none", Inspect: "specd status", Verify: "specd verify"},
+		{Name: "codex", Detect: "codex", Plan: "read tasks.md frontier", Install: "none", Verify: "specd verify"},
+		{Name: "claude", Detect: "claude", Plan: "read tasks.md frontier", Install: "none", Verify: "specd verify"},
+		{Name: "pinky", Detect: "pinky", Plan: "role-scoped worker artifacts", Install: "claude+codex", Verify: "specd verify"},
 	}
 }
 
@@ -24,15 +28,120 @@ const (
 )
 
 func MergeAgents(existing, generated string) string {
-	block := agentsBegin + "\n" + generated + "\n" + agentsEnd
+	block := agentsBegin + "\n" + strings.TrimSpace(generated) + "\n" + agentsEnd
 	start := strings.Index(existing, agentsBegin)
-	end := strings.Index(existing, agentsEnd)
-	if start >= 0 && end >= start {
-		end += len(agentsEnd)
-		return existing[:start] + block + existing[end:]
+	if start < 0 {
+		if strings.TrimSpace(existing) == "" {
+			return block + "\n"
+		}
+		return strings.TrimRight(existing, "\n") + "\n\n" + block + "\n"
 	}
-	if existing == "" {
-		return block + "\n"
+	end := strings.Index(existing[start:], agentsEnd)
+	if end < 0 {
+		return strings.TrimRight(existing, "\n") + "\n\n" + block + "\n"
 	}
-	return strings.TrimRight(existing, "\n") + "\n\n" + block + "\n"
+	end += start + len(agentsEnd)
+	return existing[:start] + block + existing[end:]
+}
+
+const (
+	pinkyCodexBegin = "# specd:pinky begin"
+	pinkyCodexEnd   = "# specd:pinky end"
+)
+
+func MergePinkyCodexConfig(existing string) string {
+	block := strings.Join([]string{
+		pinkyCodexBegin,
+		`[agents.pinky-scout]`,
+		`config = ".codex/agents/pinky-scout.toml"`,
+		``,
+		`[agents.pinky-craftsman]`,
+		`config = ".codex/agents/pinky-craftsman.toml"`,
+		``,
+		`[agents.pinky-validator]`,
+		`config = ".codex/agents/pinky-validator.toml"`,
+		``,
+		`[agents.pinky-auditor]`,
+		`config = ".codex/agents/pinky-auditor.toml"`,
+		pinkyCodexEnd,
+	}, "\n")
+	start := strings.Index(existing, pinkyCodexBegin)
+	if start < 0 {
+		if strings.TrimSpace(existing) == "" {
+			return block + "\n"
+		}
+		return strings.TrimRight(existing, "\n") + "\n\n" + block + "\n"
+	}
+	end := strings.Index(existing[start:], pinkyCodexEnd)
+	if end < 0 {
+		return strings.TrimRight(existing, "\n") + "\n\n" + block + "\n"
+	}
+	end += start + len(pinkyCodexEnd)
+	return existing[:start] + block + existing[end:]
+}
+
+type AgentDiscovery struct {
+	Name    string   `json:"name"`
+	Status  string   `json:"status"`
+	Files   []string `json:"files,omitempty"`
+	Missing []string `json:"missing,omitempty"`
+	Invalid []string `json:"invalid,omitempty"`
+}
+
+func DiscoverAgents(root string) []AgentDiscovery {
+	pinky := AgentDiscovery{Name: "pinky", Files: pinkyFiles()}
+	for _, rel := range pinky.Files {
+		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+			if os.IsNotExist(err) {
+				pinky.Missing = append(pinky.Missing, rel)
+				continue
+			}
+			pinky.Invalid = append(pinky.Invalid, rel+": "+err.Error())
+		}
+	}
+	configPath := filepath.Join(root, ".codex", "config.toml")
+	config, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			pinky.Missing = append(pinky.Missing, ".codex/config.toml")
+		} else {
+			pinky.Invalid = append(pinky.Invalid, ".codex/config.toml: "+err.Error())
+		}
+	} else if !validPinkyCodexConfig(string(config)) {
+		pinky.Invalid = append(pinky.Invalid, ".codex/config.toml: missing pinky managed block")
+	}
+	switch {
+	case len(pinky.Invalid) > 0:
+		pinky.Status = "invalid"
+	case len(pinky.Missing) > 0:
+		pinky.Status = "missing"
+	default:
+		pinky.Status = "installed"
+	}
+	return []AgentDiscovery{pinky}
+}
+
+func pinkyFiles() []string {
+	return []string{
+		".claude/agents/pinky-scout.md",
+		".claude/agents/pinky-craftsman.md",
+		".claude/agents/pinky-validator.md",
+		".claude/agents/pinky-auditor.md",
+		".codex/agents/pinky-scout.toml",
+		".codex/agents/pinky-craftsman.toml",
+		".codex/agents/pinky-validator.toml",
+		".codex/agents/pinky-auditor.toml",
+	}
+}
+
+func validPinkyCodexConfig(config string) bool {
+	if !strings.Contains(config, pinkyCodexBegin) || !strings.Contains(config, pinkyCodexEnd) {
+		return false
+	}
+	for _, role := range []string{"scout", "craftsman", "validator", "auditor"} {
+		if !strings.Contains(config, "[agents.pinky-"+role+"]") {
+			return false
+		}
+	}
+	return true
 }
