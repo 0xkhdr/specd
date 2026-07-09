@@ -39,6 +39,44 @@ context window to a strict, local, tool-gated pipeline.
 
 ## Installation & Setup
 
+Install latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | sh
+```
+
+Update an existing install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | sh -s -- --update
+```
+
+Uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | sh
+```
+
+Installer flags:
+
+```text
+--version <tag>
+--install-dir <dir>
+--update
+--force
+--dry-run
+```
+
+Environment variables:
+
+```text
+SPECD_VERSION
+SPECD_INSTALL_DIR
+```
+
+The installer supports Linux/macOS on amd64/arm64, verifies `checksums.txt`, and uses `sudo`
+only when the install directory is not writable. Default install dir is `/usr/local/bin`.
+
 ### Building from Source
 
 `specd` is written in Go (1.26+) and has **zero runtime dependencies**. It compiles into a single static binary:

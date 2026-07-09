@@ -56,6 +56,9 @@ jobs:
         # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
         run: ./scripts/docs-lint.sh
 
+      - name: install script tests
+        run: ./scripts/install-scripts-test.sh
+
   analyze:
     name: Static analysis & vulnerabilities
     runs-on: ubuntu-latest

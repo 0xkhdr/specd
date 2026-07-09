@@ -5,6 +5,45 @@ A walkthrough of running a spec from empty workspace to submitted PR. For the *w
 
 ## Install
 
+Install latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | sh
+```
+
+Update:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/install.sh | sh -s -- --update
+```
+
+Uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0xkhdr/specd/main/scripts/uninstall.sh | sh
+```
+
+Useful installer flags:
+
+```text
+--version <tag>
+--install-dir <dir>
+--update
+--force
+--dry-run
+```
+
+Environment variables:
+
+```text
+SPECD_VERSION
+SPECD_INSTALL_DIR
+```
+
+Installer downloads the release archive for Linux/macOS amd64/arm64, verifies
+`checksums.txt`, and installs `specd` into `/usr/local/bin` unless overridden.
+Unsupported platforms fail before download.
+
 `specd` is Go (1.26+), stdlib only, zero runtime dependencies — one static binary.
 
 ```bash
