@@ -109,5 +109,5 @@ func LoadEvidenceRecords(path string) ([]EvidenceRecord, error) {
 
 func HasPassingEvidence(records map[string]EvidenceRecord, taskID string) bool {
 	record, ok := records[taskID]
-	return ok && record.ExitCode == 0 && record.GitHead != ""
+	return ok && record.ExitCode == 0 && HeadPinned(record.GitHead)
 }
