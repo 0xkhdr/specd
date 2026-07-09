@@ -89,3 +89,42 @@ func TestSeverity(t *testing.T) {
 		}
 	})
 }
+
+func TestPolicyFindingsAreConfigDriven(t *testing.T) {
+	root := t.TempDir()
+	if err := exec.Command("git", "-C", root, "init").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dirty.txt"), []byte("dirty"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result := Analyze(root, core.SecurityConfig{
+		CleanWorktree: "warn",
+		Sandbox:       "error",
+	})
+	if !hasFinding(result.Findings, "policy", "clean-worktree") {
+		t.Fatalf("missing clean-worktree policy finding: %#v", result.Findings)
+	}
+	if !hasFinding(result.Findings, "policy", "sandbox") {
+		t.Fatalf("missing sandbox policy finding: %#v", result.Findings)
+	}
+
+	t.Setenv("SPECD_SANDBOX_ACTIVE", "1")
+	result = Analyze(root, core.SecurityConfig{
+		CleanWorktree: "off",
+		Sandbox:       "error",
+	})
+	if hasFinding(result.Findings, "policy", "sandbox") {
+		t.Fatalf("sandbox marker should satisfy policy: %#v", result.Findings)
+	}
+}
+
+func hasFinding(findings []Finding, scanner, rule string) bool {
+	for _, finding := range findings {
+		if finding.Scanner == scanner && finding.Rule == rule {
+			return true
+		}
+	}
+	return false
+}

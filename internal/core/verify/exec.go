@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type Options struct {
@@ -20,7 +21,15 @@ type Options struct {
 	// operator-configured command through this one exec path (spec 08 R2) — no
 	// second exec implementation.
 	Stdin string
+	// TimeoutSecs, when > 0, caps wall-clock for this one exec. A timeout is
+	// reported as a failing Result (exit 124) with no error, so the caller records
+	// it as failing evidence rather than crashing the pipeline. Zero is unbounded.
+	TimeoutSecs int
 }
+
+// TimeoutExitCode is the exit code stamped on a verify record when the command
+// exceeds its configured deadline. 124 matches coreutils `timeout(1)`.
+const TimeoutExitCode = 124
 
 type Result struct {
 	ExitCode int
@@ -31,6 +40,11 @@ type Result struct {
 func Run(ctx context.Context, opts Options) (Result, error) {
 	if opts.Command == "" {
 		return Result{ExitCode: 2}, errors.New("verify command is required")
+	}
+	if opts.TimeoutSecs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(opts.TimeoutSecs)*time.Second)
+		defer cancel()
 	}
 	name, argv := wrapArgv("", opts.Dir, opts.Command)
 	if opts.Sandbox {
@@ -56,6 +70,13 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	err := cmd.Run()
 	result := Result{Stdout: stdout.String(), Stderr: stderr.String()}
 	if err == nil {
+		return result, nil
+	}
+	// A deadline is a failing verify, not a crash: stamp exit 124 and return no
+	// error so the caller records failing evidence and the pipeline stays intact.
+	if ctx.Err() == context.DeadlineExceeded {
+		result.ExitCode = TimeoutExitCode
+		result.Stderr += fmt.Sprintf("\n[specd: verify timed out after %ds]\n", opts.TimeoutSecs)
 		return result, nil
 	}
 	var exitErr *exec.ExitError

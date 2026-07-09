@@ -18,6 +18,13 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 			cfg.Agent = value
 		case "gates.verify":
 			cfg.Gates.Verify = value
+		case "verify.timeout_seconds":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed < 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "verify.timeout_seconds must be integer >= 0"})
+				continue
+			}
+			cfg.Verify.TimeoutSecs = parsed
 		case "context.max_tokens":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed <= 0 {
@@ -75,6 +82,18 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Security.Slopsquat = value
+		case "security.clean_worktree":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.clean_worktree must be off|warn|error"})
+				continue
+			}
+			cfg.Security.CleanWorktree = value
+		case "security.sandbox":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.sandbox must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Sandbox = value
 		case "escalation.max_verify_fails":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 0 {
@@ -102,6 +121,13 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 			cfg.Agent = value
 		case "SPECD_GATES_VERIFY":
 			cfg.Gates.Verify = value
+		case "SPECD_VERIFY_TIMEOUT_SECONDS":
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed < 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_VERIFY_TIMEOUT_SECONDS must be integer >= 0"})
+				continue
+			}
+			cfg.Verify.TimeoutSecs = parsed
 		case "SPECD_CONTEXT_MAX_TOKENS":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed <= 0 {
@@ -148,6 +174,18 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 				continue
 			}
 			cfg.PromotionThreshold = parsed
+		case "SPECD_SECURITY_CLEAN_WORKTREE":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SECURITY_CLEAN_WORKTREE must be off|warn|error"})
+				continue
+			}
+			cfg.Security.CleanWorktree = value
+		case "SPECD_SECURITY_SANDBOX":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SECURITY_SANDBOX must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Sandbox = value
 		}
 	}
 }

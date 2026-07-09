@@ -36,8 +36,9 @@ verify · reflect` (fails closed while a spec is still in the `perceive`/require
 ```
 specd init [--agent=<name>] [--repair|--refresh] [--dry-run]
 ```
-Initialize or re-sync specd project state and managed assets. Scaffolds `.specd/` and
-writes `AGENTS.md` into the project root. **Phases:** any.
+Initialize or re-sync specd project state and managed assets. Scaffolds `.specd/`, writes
+`AGENTS.md`, and a commented `project.yml` (with an active `verify.timeout_seconds: 600`
+bound) into the project root; an existing `project.yml` is never overwritten. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -421,6 +422,8 @@ specd unlink api auth
 specd brain <start|step|run|status|cancel|resume> <spec> [--authority]
 ```
 Run the opt-in deterministic orchestration controller. No LLM sits in its decision path.
+`run` dispatches every currently-ready, unleased task (one wave) and returns — it does **not**
+run to completion; re-invoke it after external workers report so newly-unblocked tasks dispatch.
 **Phases:** post-requirements.
 
 | Flag | Value | Description |

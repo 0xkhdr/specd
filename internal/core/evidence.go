@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 )
+
+const EvidenceOutputLimit = 64 * 1024
 
 type EvidenceRecord struct {
 	TaskID      string `json:"task_id"`
@@ -109,5 +112,12 @@ func LoadEvidenceRecords(path string) ([]EvidenceRecord, error) {
 
 func HasPassingEvidence(records map[string]EvidenceRecord, taskID string) bool {
 	record, ok := records[taskID]
-	return ok && record.ExitCode == 0 && record.GitHead != ""
+	return ok && record.ExitCode == 0 && HeadPinned(record.GitHead)
+}
+
+func TruncateEvidenceOutput(output string) string {
+	if len(output) <= EvidenceOutputLimit {
+		return output
+	}
+	return output[:EvidenceOutputLimit] + fmt.Sprintf("\n[specd: output truncated to %d of %d bytes]\n", EvidenceOutputLimit, len(output))
 }

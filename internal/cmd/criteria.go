@@ -87,7 +87,7 @@ func renderCriterionCoverage(cov []requirementCoverage) string {
 // loadSpecConfig loads project config, discarding diagnostics — callers only
 // need the resolved values (invalid config surfaces elsewhere via `check`).
 func loadSpecConfig(root string) core.Config {
-	cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	cfg, _ := core.LoadConfig(configPaths(root), getenv())
 	return cfg
 }
 

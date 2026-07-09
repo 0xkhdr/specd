@@ -12,6 +12,7 @@ type Config struct {
 	Version            string
 	Agent              string
 	Gates              GatesConfig
+	Verify             VerifyConfig
 	Context            ContextConfig
 	Orchestration      OrchestrationConfig
 	Criteria           CriteriaConfig
@@ -27,9 +28,11 @@ type Config struct {
 // warn findings print but pass, off skips the scanner. Defaults tuned so a real
 // secret blocks while noisier heuristics only warn.
 type SecurityConfig struct {
-	Secrets   string
-	Injection string
-	Slopsquat string
+	Secrets       string
+	Injection     string
+	Slopsquat     string
+	CleanWorktree string
+	Sandbox       string
 }
 
 // SecuritySeverities enumerates the valid per-scanner severities.
@@ -49,6 +52,14 @@ const EscalationDefaultMaxVerifyFails = 3
 
 type GatesConfig struct {
 	Verify string
+}
+
+// VerifyConfig bounds a single task verify command (gap 4.2 / W6-T4). TimeoutSecs
+// caps wall-clock for one verify exec; a timeout is recorded as a FAILING evidence
+// record (exit 124), never a crash or a silent hang. Zero means unbounded, which
+// preserves prior behavior — operators opt into a bound.
+type VerifyConfig struct {
+	TimeoutSecs int
 }
 
 // SubmitConfig configures the terminal `submit` verb (spec 08). Command is an
@@ -97,7 +108,6 @@ type Diagnostic struct {
 }
 
 type ConfigPaths struct {
-	Global  string
 	Project string
 }
 
@@ -115,9 +125,11 @@ var DefaultConfig = Config{
 		Model:   "",
 	},
 	Security: SecurityConfig{
-		Secrets:   "error",
-		Injection: "warn",
-		Slopsquat: "warn",
+		Secrets:       "error",
+		Injection:     "warn",
+		Slopsquat:     "warn",
+		CleanWorktree: "off",
+		Sandbox:       "off",
 	},
 	Escalation: EscalationConfig{
 		MaxVerifyFails: EscalationDefaultMaxVerifyFails,
@@ -125,29 +137,21 @@ var DefaultConfig = Config{
 	PromotionThreshold: 3,
 }
 
-// LoadConfig applies global YAML, project YAML, then environment overrides.
-// The function is deterministic for explicit paths and env input.
+// LoadConfig applies project YAML, then environment overrides. The function is
+// deterministic for the explicit path and env input.
 func LoadConfig(paths ConfigPaths, env map[string]string) (Config, []Diagnostic) {
 	cfg := DefaultConfig
 	var diagnostics []Diagnostic
-	for _, path := range []string{paths.Global, paths.Project} {
-		if path == "" || filepath.Ext(path) != ".yml" {
-			continue
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
+	if path := paths.Project; path != "" && filepath.Ext(path) == ".yml" {
+		if raw, err := os.ReadFile(path); err != nil {
+			if !os.IsNotExist(err) {
+				diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
 			}
+		} else if values, err := parseSimpleYAML(string(raw)); err != nil {
 			diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
-			continue
+		} else {
+			applyConfigMap(&cfg, values, path, &diagnostics)
 		}
-		values, err := parseSimpleYAML(string(raw))
-		if err != nil {
-			diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
-			continue
-		}
-		applyConfigMap(&cfg, values, path, &diagnostics)
 	}
 	applyEnv(&cfg, env, &diagnostics)
 	return cfg, diagnostics
