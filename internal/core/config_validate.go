@@ -75,6 +75,18 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Security.Slopsquat = value
+		case "security.clean_worktree":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.clean_worktree must be off|warn|error"})
+				continue
+			}
+			cfg.Security.CleanWorktree = value
+		case "security.sandbox":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.sandbox must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Sandbox = value
 		case "escalation.max_verify_fails":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 0 {
@@ -148,6 +160,18 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 				continue
 			}
 			cfg.PromotionThreshold = parsed
+		case "SPECD_SECURITY_CLEAN_WORKTREE":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SECURITY_CLEAN_WORKTREE must be off|warn|error"})
+				continue
+			}
+			cfg.Security.CleanWorktree = value
+		case "SPECD_SECURITY_SANDBOX":
+			if !validSeverity(value) {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SECURITY_SANDBOX must be off|warn|error"})
+				continue
+			}
+			cfg.Security.Sandbox = value
 		}
 	}
 }

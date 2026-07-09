@@ -79,10 +79,10 @@ func runSubmit(root string, args []string, flags map[string]string) error {
 		Stdin:   summary,
 	})
 	if result.Stdout != "" {
-		fmt.Fprint(os.Stdout, result.Stdout)
+		fmt.Fprint(os.Stdout, core.TruncateEvidenceOutput(result.Stdout))
 	}
 	if result.Stderr != "" {
-		fmt.Fprint(os.Stderr, result.Stderr)
+		fmt.Fprint(os.Stderr, core.TruncateEvidenceOutput(result.Stderr))
 	}
 
 	rec := core.SubmissionRecord{GitHead: head, SummaryHash: hash, Command: cfg.Submit.Command, Exit: result.ExitCode}

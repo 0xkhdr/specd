@@ -27,9 +27,11 @@ type Config struct {
 // warn findings print but pass, off skips the scanner. Defaults tuned so a real
 // secret blocks while noisier heuristics only warn.
 type SecurityConfig struct {
-	Secrets   string
-	Injection string
-	Slopsquat string
+	Secrets       string
+	Injection     string
+	Slopsquat     string
+	CleanWorktree string
+	Sandbox       string
 }
 
 // SecuritySeverities enumerates the valid per-scanner severities.
@@ -115,9 +117,11 @@ var DefaultConfig = Config{
 		Model:   "",
 	},
 	Security: SecurityConfig{
-		Secrets:   "error",
-		Injection: "warn",
-		Slopsquat: "warn",
+		Secrets:       "error",
+		Injection:     "warn",
+		Slopsquat:     "warn",
+		CleanWorktree: "off",
+		Sandbox:       "off",
 	},
 	Escalation: EscalationConfig{
 		MaxVerifyFails: EscalationDefaultMaxVerifyFails,

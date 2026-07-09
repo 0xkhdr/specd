@@ -613,10 +613,10 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		err = appendErr
 	}
 	if result.Stdout != "" {
-		fmt.Fprint(os.Stdout, result.Stdout)
+		fmt.Fprint(os.Stdout, core.TruncateEvidenceOutput(result.Stdout))
 	}
 	if result.Stderr != "" {
-		fmt.Fprint(os.Stderr, result.Stderr)
+		fmt.Fprint(os.Stderr, core.TruncateEvidenceOutput(result.Stderr))
 	}
 	if err != nil {
 		return err

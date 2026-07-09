@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 func TestBrainFailClosedRequiresOrchestrationConfig(t *testing.T) {
@@ -41,6 +45,41 @@ func TestBrainStartCreatesSessionWhenPreconditionsPass(t *testing.T) {
 	}
 	if _, err := os.Stat(brainSessionPath(root)); err != nil {
 		t.Fatalf("expected session: %v", err)
+	}
+}
+
+func TestBrainStatusReportsPreciseWorkerStates(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\n")
+	now := time.Now()
+	session := orchestration.Session{
+		ID:       "demo",
+		Revision: 1,
+		State:    orchestration.SessionRunning,
+		Step:     2,
+		Leases: []orchestration.Lease{
+			{TaskID: "T1", WorkerID: "worker-active", ExpiresAt: now.Add(time.Hour)},
+			{TaskID: "T2", WorkerID: "worker-expired", ExpiresAt: now.Add(-time.Hour)},
+		},
+	}
+	if err := orchestration.SaveSessionCAS(root, brainSessionPath(root), 0, session); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := captureStdout(t, func() error {
+		return brainStatus(brainSessionPath(root), filepath.Join(root, ".specd", "specs", "demo", "checkpoint.json"), filepath.Join(root, ".specd", "specs", "demo", "acp.jsonl"), "demo")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var view brainStatusView
+	if err := json.Unmarshal([]byte(out), &view); err != nil {
+		t.Fatal(err)
+	}
+	if view.WorkerStates["active"] != 1 || view.WorkerStates["expired"] != 1 {
+		t.Fatalf("worker states=%v", view.WorkerStates)
+	}
+	if view.Leases[0].State == "" || view.Leases[1].State == "" {
+		t.Fatalf("leases missing states: %#v", view.Leases)
 	}
 }
 

@@ -283,12 +283,14 @@ type brainStatusView struct {
 	CheckpointStep int                    `json:"checkpoint_step,omitempty"`
 	CheckpointTime string                 `json:"checkpoint_time,omitempty"`
 	Leases         []brainStatusLeaseView `json:"leases,omitempty"`
+	WorkerStates   map[string]int         `json:"worker_states,omitempty"`
 }
 
 type brainStatusLeaseView struct {
 	Holder    string `json:"holder"`
 	TaskID    string `json:"task_id"`
 	ExpiresAt string `json:"expires_at"`
+	State     string `json:"state"`
 	Live      bool   `json:"live"`
 }
 
@@ -317,11 +319,17 @@ func brainStatus(sessionPath, checkpointPath, acpPath, slug string) error {
 		view.CheckpointTime = cp.Time.UTC().Format(time.RFC3339)
 	}
 	for _, lease := range session.Leases {
+		state := orchestration.LeaseWorkerState(lease, now)
+		if view.WorkerStates == nil {
+			view.WorkerStates = map[string]int{}
+		}
+		view.WorkerStates[string(state)]++
 		view.Leases = append(view.Leases, brainStatusLeaseView{
 			Holder:    lease.WorkerID,
 			TaskID:    lease.TaskID,
 			ExpiresAt: lease.ExpiresAt.UTC().Format(time.RFC3339),
-			Live:      now.Before(lease.ExpiresAt),
+			State:     string(state),
+			Live:      state == orchestration.WorkerStateActive,
 		})
 	}
 	return writeJSON(view)

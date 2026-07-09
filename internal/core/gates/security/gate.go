@@ -91,6 +91,7 @@ func Analyze(root string, cfg core.SecurityConfig) Result {
 	allow, allowFindings := loadAllowlist(root)
 
 	var raw []Finding
+	raw = append(raw, policyFindings(root, cfg)...)
 	scanners := []Scanner{secretsScanner{}, injectionScanner{}, slopsquatScanner{}}
 	for _, sc := range scanners {
 		if !enabled[sc.Name()] {
@@ -113,6 +114,41 @@ func Analyze(root string, cfg core.SecurityConfig) Result {
 
 	sortFindings(raw)
 	return Result{Findings: raw}
+}
+
+func policyFindings(root string, cfg core.SecurityConfig) []Finding {
+	var findings []Finding
+	if cfg.CleanWorktree != "" && cfg.CleanWorktree != "off" && !cleanWorktree(root) {
+		findings = append(findings, Finding{
+			Scanner:  "policy",
+			Rule:     "clean-worktree",
+			Severity: cfg.CleanWorktree,
+			Excerpt:  "git worktree has uncommitted changes",
+		})
+	}
+	if cfg.Sandbox != "" && cfg.Sandbox != "off" && !sandboxActive() {
+		findings = append(findings, Finding{
+			Scanner:  "policy",
+			Rule:     "sandbox",
+			Severity: cfg.Sandbox,
+			Excerpt:  "sandbox policy enabled but no sandbox marker detected",
+		})
+	}
+	return findings
+}
+
+func cleanWorktree(root string) bool {
+	out, err := exec.Command("git", "-C", root, "status", "--porcelain").Output()
+	return err == nil && strings.TrimSpace(string(out)) == ""
+}
+
+func sandboxActive() bool {
+	for _, key := range []string{"SPECD_SANDBOX_ACTIVE", "CODEX_SANDBOX", "SANDBOX"} {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func sortFindings(f []Finding) {

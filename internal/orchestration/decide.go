@@ -17,6 +17,20 @@ const (
 	ActionEscalate Action = "escalate"
 )
 
+type WorkerState string
+
+const (
+	WorkerStateActive  WorkerState = "active"
+	WorkerStateExpired WorkerState = "expired"
+)
+
+func LeaseWorkerState(lease Lease, now time.Time) WorkerState {
+	if now.Before(lease.ExpiresAt) {
+		return WorkerStateActive
+	}
+	return WorkerStateExpired
+}
+
 type Decision struct {
 	Action Action
 	TaskID string
