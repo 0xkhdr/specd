@@ -15,6 +15,9 @@ func WriteScaffold(root string, agents ...string) error {
 	if err := writeAgents(root); err != nil {
 		return err
 	}
+	if err := writeProjectConfig(root); err != nil {
+		return err
+	}
 	for _, agent := range agents {
 		if strings.EqualFold(agent, "pinky") {
 			return writePinkyArtifacts(root)
@@ -49,6 +52,23 @@ func writeAgents(root string) error {
 		return err
 	}
 	return AtomicWrite(target, MergeAgents(string(existing), string(generated)))
+}
+
+// writeProjectConfig materializes a commented project.yml at the project root so
+// a fresh project ships with the verify timeout bound visible and active. It is
+// operator-owned (not a managed region): an existing file is never clobbered.
+func writeProjectConfig(root string) error {
+	target := filepath.Join(root, "project.yml")
+	if _, err := os.Stat(target); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	body, err := embedtemplates.FS.ReadFile("project.yml")
+	if err != nil {
+		return err
+	}
+	return AtomicWrite(target, string(body))
 }
 
 func writePinkyArtifacts(root string) error {

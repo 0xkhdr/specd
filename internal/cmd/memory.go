@@ -99,6 +99,6 @@ func memoryPromote(root, slug string, flags map[string]string) error {
 }
 
 func promotionThreshold(root string) int {
-	cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	cfg, _ := core.LoadConfig(configPaths(root), getenv())
 	return cfg.PromotionThreshold
 }

@@ -9,27 +9,15 @@ import (
 
 func TestConfigCascade(t *testing.T) {
 	dir := t.TempDir()
-	global := filepath.Join(dir, "global.yml")
 	project := filepath.Join(dir, "project.yml")
-	if err := os.WriteFile(global, []byte(strings.Join([]string{
-		"version: 1",
-		"agent: claude",
+	if err := os.WriteFile(project, []byte(strings.Join([]string{
+		"agent: codex",
 		"gates:",
 		"  verify: warn",
 		"context:",
-		"  max_tokens: 1000",
-		"orchestration:",
-		"  enabled: true",
-		"  model: global-model",
-		"",
-	}, "\n")), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(project, []byte(strings.Join([]string{
-		"agent: codex",
-		"context:",
 		"  max_tokens: 2000",
 		"orchestration:",
+		"  enabled: true",
 		"  api_key: should-not-apply",
 		"  model: project-model",
 		"",
@@ -37,13 +25,13 @@ func TestConfigCascade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, diagnostics := LoadConfig(ConfigPaths{Global: global, Project: project}, map[string]string{
+	cfg, diagnostics := LoadConfig(ConfigPaths{Project: project}, map[string]string{
 		"SPECD_GATES_VERIFY":       "error",
 		"SPECD_CONTEXT_MAX_TOKENS": "3000",
 	})
 
 	if cfg.Agent != "codex" {
-		t.Fatalf("agent = %q, want project override codex", cfg.Agent)
+		t.Fatalf("agent = %q, want project codex", cfg.Agent)
 	}
 	if cfg.Gates.Verify != "error" {
 		t.Fatalf("gates.verify = %q, want env override error", cfg.Gates.Verify)
@@ -52,7 +40,7 @@ func TestConfigCascade(t *testing.T) {
 		t.Fatalf("context.max_tokens = %d, want env override 3000", cfg.Context.MaxTokens)
 	}
 	if !cfg.Orchestration.Enabled {
-		t.Fatal("orchestration.enabled = false, want global true")
+		t.Fatal("orchestration.enabled = false, want project true")
 	}
 	if cfg.Orchestration.Model != "project-model" {
 		t.Fatalf("orchestration.model = %q, want project-model", cfg.Orchestration.Model)

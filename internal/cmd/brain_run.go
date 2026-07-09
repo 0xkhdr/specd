@@ -164,7 +164,7 @@ func runBrainRun(root, sessionPath, acpPath, checkpointPath, slug string, flags 
 // sessionDispatcher records a dispatch as ACP evidence and a session lease. It is
 // the only mutation surface for a controller step.
 func requireBrainStartPreconditions(root, slug string) error {
-	config, diagnostics := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	config, diagnostics := core.LoadConfig(configPaths(root), getenv())
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Severity == "error" {
 			return fmt.Errorf("load config: %s", diagnostic.Message)

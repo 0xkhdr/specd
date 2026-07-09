@@ -26,7 +26,7 @@ Make project configuration loading, diagnostics, and drift reporting fail-safe a
 - Docs: `docs/command-reference.md`, `docs/agent-integration.md`.
 
 ## Functional Contract
-- Config precedence is deterministic: defaults, global, project, environment/flags where supported.
+- Config precedence is deterministic: defaults, project, environment/flags where supported.
 - Diagnostics report source path, parse result, warnings, errors, and digest.
 - Invalid config that affects safety, gates, security, orchestration, or evidence fails closed.
 - Optional missing config reports warning only when behavior falls back to default.
@@ -56,8 +56,9 @@ Make project configuration loading, diagnostics, and drift reporting fail-safe a
   would be a speculative surface. W6-T6 is superseded by this exposure.
 - **Config location (GAP 7.3).** Settled: project configuration lives at top-level
   `project.yml` (the path every loader already reads via
-  `core.LoadConfig(ConfigPaths{Project: <root>/project.yml})`), with an optional global YAML
-  layered under it and `SPECD_*` environment overrides on top. `.specd/config.yml` is **not**
+  `core.LoadConfig(ConfigPaths{Project: <root>/project.yml})`), with `SPECD_*` environment
+  overrides on top. (A machine-wide global layer was dropped — no CLI path populated it.)
+  `.specd/config.yml` is **not**
   used — `.specd/` holds per-spec runtime state, not project config — so there is one
   unambiguous config path.
 

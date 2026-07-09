@@ -104,7 +104,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	}
 	findings := []gates.Finding{}
 	if securityOnly {
-		cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+		cfg, _ := core.LoadConfig(configPaths(root), getenv())
 		findings = append(findings, security.GateFindings(security.Analyze(root, cfg.Security))...)
 	} else if !flagEnabled(flags, "schema-only") {
 		spec, err := loadSpec(root, slug)
@@ -114,7 +114,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 		registry := gates.CoreRegistry()
 		findings = append(findings, registry.Run(buildCheckCtx(root, slug, spec, ""))...)
 		if flagEnabled(flags, "security") {
-			cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+			cfg, _ := core.LoadConfig(configPaths(root), getenv())
 			result := security.Analyze(root, cfg.Security)
 			findings = append(findings, security.GateFindings(result)...)
 			if err := recordSecurity(root, slug, result); err != nil {
@@ -230,6 +230,11 @@ func runInit(root string, args []string, flags map[string]string) error {
 func previewManaged(root string) error {
 	changes, err := core.PlanManagedRepair(root)
 	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(filepath.Join(root, "project.yml")); os.IsNotExist(err) {
+		fmt.Fprintln(os.Stdout, "+ project.yml (new operator config)")
+	} else if err != nil {
 		return err
 	}
 	if len(changes) == 0 {
@@ -349,7 +354,7 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 || args[0] != "bootstrap" {
 		return errors.New("usage: handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]")
 	}
-	config, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	config, _ := core.LoadConfig(configPaths(root), getenv())
 	handshake := core.BootstrapHandshake(config)
 
 	// Digest-drift guards fail with exit 1 identifying which digest moved (R6).
@@ -536,9 +541,14 @@ func writeJSON(value any) error {
 	return err
 }
 
+// configPaths is the single source of truth for where the CLI looks for config:
+// the project.yml at the spec root. Config layers as project YAML then env.
+func configPaths(root string) core.ConfigPaths {
+	return core.ConfigPaths{Project: filepath.Join(root, "project.yml")}
+}
+
 func contextBudget(root string) int {
-	paths := core.ConfigPaths{Project: filepath.Join(root, "project.yml")}
-	config, _ := core.LoadConfig(paths, getenv())
+	config, _ := core.LoadConfig(configPaths(root), getenv())
 	return config.Context.MaxTokens
 }
 

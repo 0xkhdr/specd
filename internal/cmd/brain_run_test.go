@@ -83,6 +83,46 @@ func TestBrainStatusReportsPreciseWorkerStates(t *testing.T) {
 	}
 }
 
+// TestBrainStepReleasesCompletedLease pins gap 5.4 / R5: one runBrainStep releases
+// the lease of a task that has reached TaskComplete, so it stops showing as a
+// phantom live worker. Covers the in-step completion branch directly, not the
+// transitive `brain resume` clearing the stress script exercises.
+func TestBrainStepReleasesCompletedLease(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\n")
+	specDir := filepath.Join(root, ".specd", "specs", "demo")
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n" +
+		"|---|---|---|---|---|---|\n" +
+		"| ✅ T1 | builder | a.txt | - | printf ok | done |\n"
+	if err := os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	session := orchestration.Session{
+		ID:     "demo",
+		State:  orchestration.SessionRunning,
+		Leases: []orchestration.Lease{{TaskID: "T1", WorkerID: "w1", ExpiresAt: time.Now().Add(time.Hour)}},
+	}
+	if err := orchestration.SaveSessionCAS(root, brainSessionPath(root), 0, session); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := captureStdout(t, func() error {
+		_, err := runBrainStep(root, brainSessionPath(root), filepath.Join(specDir, "acp.jsonl"), orchestration.CheckpointPath(root, "demo"), "demo", map[string]string{}, "step")
+		return err
+	}); err != nil {
+		t.Fatalf("brain step: %v", err)
+	}
+
+	got, err := orchestration.LoadSession(brainSessionPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lease := range got.Leases {
+		if lease.TaskID == "T1" {
+			t.Fatalf("lease on completed T1 not released: %#v", got.Leases)
+		}
+	}
+}
+
 func newBrainTestRoot(t *testing.T, mode, projectConfig string) string {
 	t.Helper()
 	root := t.TempDir()

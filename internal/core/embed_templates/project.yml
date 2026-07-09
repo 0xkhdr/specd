@@ -1,0 +1,34 @@
+# specd project configuration — operator-owned, not a managed region.
+# `specd init` writes this once and never clobbers your edits. Every knob below
+# is documented; only verify.timeout_seconds is active by default. Syntax is a
+# strict subset of YAML: two-space indent, `key: value`, `#` comments.
+
+# Bound each task verify command in wall-clock seconds. A timeout is recorded as
+# a FAILING evidence record (exit 124), never a silent hang. 0 means unbounded.
+verify:
+  timeout_seconds: 600
+
+# Opt-in gates — uncomment to enable.
+
+# gates:
+#   verify: error          # error|warn|off — severity when a verify record fails.
+
+# escalation:
+#   max_verify_fails: 3    # consecutive verify failures that block a task (0 disables).
+
+# orchestration:
+#   enabled: false         # required true before `specd brain` will start.
+#   model: ""
+
+# security:
+#   secrets: error         # off|warn|error per scanner.
+#   injection: warn
+#   slopsquat: warn
+#   clean_worktree: off
+#   sandbox: off
+
+# criteria:
+#   required: false        # block completion until each acceptance criterion has evidence.
+
+# review:
+#   required: false        # block completion until review_report.md approves at HEAD.

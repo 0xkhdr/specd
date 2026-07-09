@@ -108,7 +108,6 @@ type Diagnostic struct {
 }
 
 type ConfigPaths struct {
-	Global  string
 	Project string
 }
 
@@ -138,29 +137,21 @@ var DefaultConfig = Config{
 	PromotionThreshold: 3,
 }
 
-// LoadConfig applies global YAML, project YAML, then environment overrides.
-// The function is deterministic for explicit paths and env input.
+// LoadConfig applies project YAML, then environment overrides. The function is
+// deterministic for the explicit path and env input.
 func LoadConfig(paths ConfigPaths, env map[string]string) (Config, []Diagnostic) {
 	cfg := DefaultConfig
 	var diagnostics []Diagnostic
-	for _, path := range []string{paths.Global, paths.Project} {
-		if path == "" || filepath.Ext(path) != ".yml" {
-			continue
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
+	if path := paths.Project; path != "" && filepath.Ext(path) == ".yml" {
+		if raw, err := os.ReadFile(path); err != nil {
+			if !os.IsNotExist(err) {
+				diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
 			}
+		} else if values, err := parseSimpleYAML(string(raw)); err != nil {
 			diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
-			continue
+		} else {
+			applyConfigMap(&cfg, values, path, &diagnostics)
 		}
-		values, err := parseSimpleYAML(string(raw))
-		if err != nil {
-			diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
-			continue
-		}
-		applyConfigMap(&cfg, values, path, &diagnostics)
 	}
 	applyEnv(&cfg, env, &diagnostics)
 	return cfg, diagnostics
