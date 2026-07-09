@@ -48,7 +48,9 @@ Registered by `CoreRegistry()` in the order they run:
 
 - **`evidence` (7)** is the non-negotiable core: there is **no bypass flag**. A task completes
   only against a verify record whose exit code is 0 and whose git HEAD still resolves. See
-  [concepts.md](concepts.md).
+  [concepts.md](concepts.md). Set `verify.timeout_seconds` (or `SPECD_VERIFY_TIMEOUT_SECONDS`)
+  to bound a single verify command; a timeout is recorded as a **failing** evidence record
+  (exit 124), never a hang. Default `0` is unbounded.
 - **`sync` (11)** catches the two-source drift: `tasks.md` markers say one thing, `state.json`
   says another. It fails closed so a hand-edited marker can't fake completion.
 - **`design` (12)** only fires when the gate under approval is `design`; it compares

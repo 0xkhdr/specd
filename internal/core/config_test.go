@@ -86,3 +86,34 @@ func TestConfigNoLegacyJSON(t *testing.T) {
 		t.Fatalf("legacy config changed cfg = %#v, want default %#v", cfg, DefaultConfig)
 	}
 }
+
+// TestVerifyTimeoutConfig pins the verify.timeout_seconds key (gap 4.2): a valid
+// value parses onto Verify.TimeoutSecs, a negative value is a loud error, and env
+// overrides project.
+func TestVerifyTimeoutConfig(t *testing.T) {
+	dir := t.TempDir()
+	project := filepath.Join(dir, "project.yml")
+	if err := os.WriteFile(project, []byte("verify:\n  timeout_seconds: 30\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, diags := LoadConfig(ConfigPaths{Project: project}, nil)
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", diags)
+	}
+	if cfg.Verify.TimeoutSecs != 30 {
+		t.Fatalf("verify.timeout_seconds = %d, want 30", cfg.Verify.TimeoutSecs)
+	}
+	cfg, _ = LoadConfig(ConfigPaths{Project: project}, map[string]string{"SPECD_VERIFY_TIMEOUT_SECONDS": "5"})
+	if cfg.Verify.TimeoutSecs != 5 {
+		t.Fatalf("env override verify.timeout_seconds = %d, want 5", cfg.Verify.TimeoutSecs)
+	}
+
+	bad := filepath.Join(dir, "bad.yml")
+	if err := os.WriteFile(bad, []byte("verify:\n  timeout_seconds: -1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, diags = LoadConfig(ConfigPaths{Project: bad}, nil)
+	if len(diags) != 1 || !strings.Contains(diags[0].Message, "verify.timeout_seconds") {
+		t.Fatalf("negative timeout diagnostics = %#v, want one verify.timeout_seconds error", diags)
+	}
+}

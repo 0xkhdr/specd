@@ -596,6 +596,7 @@ func runVerify(root string, args []string, flags map[string]string) error {
 			Dir:           root,
 			Sandbox:       flagEnabled(flags, "sandbox"),
 			SandboxBinary: flags["sandbox-binary"],
+			TimeoutSecs:   verifyTimeoutSecs(root),
 		})
 	}
 	var result verifyexec.Result

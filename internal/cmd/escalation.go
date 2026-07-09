@@ -14,6 +14,13 @@ func escalationMaxFails(root string) int {
 	return cfg.Escalation.MaxVerifyFails
 }
 
+// verifyTimeoutSecs resolves the per-verify wall-clock bound from config (0 =
+// unbounded). Config errors fall back to unbounded rather than blocking verify.
+func verifyTimeoutSecs(root string) int {
+	cfg, _ := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, getenv())
+	return cfg.Verify.TimeoutSecs
+}
+
 // escalatedCounts returns the escalated task ids (→ consecutive fail count) for
 // a spec, reading the evidence and override ledgers.
 func escalatedCounts(root, slug string, tasks []core.TaskRow) (map[string]int, error) {

@@ -1,17 +1,33 @@
 # Install Scripts Tasks
 
+## Status & Schema Decision (2026-07-09)
+
+All tasks are `done`: `scripts/install.sh`, `scripts/uninstall.sh`, and
+`scripts/install-scripts-test.sh` exist, pass `shellcheck` (error-severity gate) and
+`sh -n`, and CI runs `install-scripts-test.sh` on every push (`.github/workflows/ci.yml`,
+`release.yml`).
+
+This spec keeps a **linear installer-track schema** (`status`/`dependencies`, `T1..T8`)
+rather than the wave schema (`wave`/`deps`, `<PREFIX>-T#`) used by the eight gap-closure
+specs. The installer track is inherently sequential (audit → release contract → install →
+uninstall → tests → docs → CI → final audit), so parallel waves add no value; the wave
+dispatch board does not orchestrate it. This divergence is intentional and recorded here.
+
+The earlier T5 reference to `scripts/install-test.sh` was a name error — the real, CI-wired
+file is `scripts/install-scripts-test.sh`, now corrected below.
+
 ## Task Graph
 
 | id | status | role | domain | dependencies | files | verify |
 | --- | --- | --- | --- | --- | --- | --- |
-| T1 | pending | scout | script-audit | - | `scripts/README.md`, `.github/workflows/ci.yml`, `TESTING.md`, `AGENTS.md`, `CLAUDE.md` | `rg -n "scripts/|coverage-check|docs-lint|regress-|stress-|perf-gate|test-lint" --glob '!reference/**' .` |
-| T2 | pending | craftsman | release-contract | T1 | `.goreleaser.yml`, `scripts/README.md`, `specs/install-scripts/spec.md` | `goreleaser check || test $? -eq 127` |
-| T3 | pending | craftsman | installer | T2 | `scripts/install.sh`, `scripts/README.md` | `sh -n scripts/install.sh && shellcheck scripts/install.sh` |
-| T4 | pending | craftsman | uninstaller | T3 | `scripts/uninstall.sh`, `scripts/README.md` | `sh -n scripts/uninstall.sh && shellcheck scripts/uninstall.sh` |
-| T5 | pending | craftsman | installer-tests | T3,T4 | `scripts/install-test.sh`, `scripts/install.sh`, `scripts/uninstall.sh` | `./scripts/install-test.sh` |
-| T6 | pending | craftsman | docs | T5 | `README.md`, `docs/user-guide.md`, `docs/README.md`, `TESTING.md`, `scripts/README.md` | `./scripts/docs-lint.sh && rg -n "curl .*specd|uninstall|SPECD_INSTALL_DIR" README.md docs scripts/README.md` |
-| T7 | pending | validator | ci-verification | T6 | `scripts/*.sh`, `.github/workflows/ci.yml`, `go.mod` | `go test ./... -race -count=1 && go test ./... -count=2 && ./scripts/test-lint.sh && ./scripts/docs-lint.sh` |
-| T8 | pending | auditor | final-audit | T7 | `.` | `git diff --name-only -- . ':!reference/**' && ! git diff --name-only -- reference` |
+| T1 | done | scout | script-audit | - | `scripts/README.md`, `.github/workflows/ci.yml`, `TESTING.md`, `AGENTS.md`, `CLAUDE.md` | `rg -n "scripts/|coverage-check|docs-lint|regress-|stress-|perf-gate|test-lint" --glob '!reference/**' .` |
+| T2 | done | craftsman | release-contract | T1 | `.goreleaser.yml`, `scripts/README.md`, `specs/install-scripts/spec.md` | `goreleaser check || test $? -eq 127` |
+| T3 | done | craftsman | installer | T2 | `scripts/install.sh`, `scripts/README.md` | `sh -n scripts/install.sh && shellcheck scripts/install.sh` |
+| T4 | done | craftsman | uninstaller | T3 | `scripts/uninstall.sh`, `scripts/README.md` | `sh -n scripts/uninstall.sh && shellcheck scripts/uninstall.sh` |
+| T5 | done | craftsman | installer-tests | T3,T4 | `scripts/install-scripts-test.sh`, `scripts/install.sh`, `scripts/uninstall.sh` | `./scripts/install-scripts-test.sh` |
+| T6 | done | craftsman | docs | T5 | `README.md`, `docs/user-guide.md`, `docs/README.md`, `TESTING.md`, `scripts/README.md` | `./scripts/docs-lint.sh && rg -n "curl .*specd|uninstall|SPECD_INSTALL_DIR" README.md docs scripts/README.md` |
+| T7 | done | validator | ci-verification | T6 | `scripts/*.sh`, `.github/workflows/ci.yml`, `go.mod` | `go test ./... -race -count=1 && go test ./... -count=2 && ./scripts/test-lint.sh && ./scripts/docs-lint.sh` |
+| T8 | done | auditor | final-audit | T7 | `.` | `git diff --name-only -- . ':!reference/**' && ! git diff --name-only -- reference` |
 
 ## T1 - Script Audit
 

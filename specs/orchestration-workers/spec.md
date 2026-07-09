@@ -46,3 +46,21 @@ Make brain orchestration claims match implemented worker behavior and prevent fa
 - `go test ./internal/orchestration ./internal/cmd -run 'Test.*Brain|Test.*Worker|Test.*ACP|Test.*Lease' -count=1`
 - `go test ./... -race -count=1`
 
+## Decisions
+
+- **Worker round-trip verbs (GAP 5.2, was W5-T2).** GAP-ANALYSIS prescribed `mission claim` /
+  `mission report` verbs. Those verbs were **not** built. The worker round-trip instead runs
+  through `internal/cmd/brain_worker.go` plus the `pinky-*` subagents, which claim a dispatched
+  mission, do the work under the same locks/DAG/evidence path, and report evidence — no verb
+  can bypass locks, frontier, or evidence integrity. This is a deliberate divergence: the
+  capability exists under different names, so the named verbs were dropped rather than added as
+  thin aliases.
+- **`brain run` (GAP 5.3, was W5-T3).** Resolved: `brain run` now loops `brain step`
+  until the controller brakes (dispatching every ready, unleased frontier task, then stopping),
+  with each step persisting its own session CAS and checkpoint so a crash mid-run recovers as a
+  sequence of steps would. It is no longer a silent alias of a single `step`.
+- **Lease release on completion (GAP 5.4, was W5-T5).** A step now releases the lease of any
+  task that has reached a terminal status, so no completed task lingers as a phantom live
+  worker in `brain status`. `scripts/stress-orchestration.sh` asserts no stale live lease
+  survives contention.
+

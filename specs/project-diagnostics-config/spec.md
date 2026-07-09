@@ -46,3 +46,18 @@ Make project configuration loading, diagnostics, and drift reporting fail-safe a
 - `go test ./internal/core ./internal/core/gates ./internal/cmd -run 'Test.*Config|Test.*Diagnostic|Test.*Status|Test.*Check' -count=1`
 - `go test ./... -count=1`
 
+## Decisions
+
+- **`specd config` verb (GAP 7.2, was W6-T6).** GAP-ANALYSIS proposed a dedicated
+  `specd config [--json]` verb. Not built. Effective-config diagnostics are exposed through
+  `specd status` and `specd check` (and the `handshake bootstrap` config digest), which cover
+  the operator need to see resolved configuration and catch bad keys. A standalone verb is
+  deferred until a consumer needs machine-readable effective config on its own; adding it now
+  would be a speculative surface. W6-T6 is superseded by this exposure.
+- **Config location (GAP 7.3).** Settled: project configuration lives at top-level
+  `project.yml` (the path every loader already reads via
+  `core.LoadConfig(ConfigPaths{Project: <root>/project.yml})`), with an optional global YAML
+  layered under it and `SPECD_*` environment overrides on top. `.specd/config.yml` is **not**
+  used — `.specd/` holds per-spec runtime state, not project config — so there is one
+  unambiguous config path.
+

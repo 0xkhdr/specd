@@ -12,6 +12,7 @@ type Config struct {
 	Version            string
 	Agent              string
 	Gates              GatesConfig
+	Verify             VerifyConfig
 	Context            ContextConfig
 	Orchestration      OrchestrationConfig
 	Criteria           CriteriaConfig
@@ -51,6 +52,14 @@ const EscalationDefaultMaxVerifyFails = 3
 
 type GatesConfig struct {
 	Verify string
+}
+
+// VerifyConfig bounds a single task verify command (gap 4.2 / W6-T4). TimeoutSecs
+// caps wall-clock for one verify exec; a timeout is recorded as a FAILING evidence
+// record (exit 124), never a crash or a silent hang. Zero means unbounded, which
+// preserves prior behavior — operators opt into a bound.
+type VerifyConfig struct {
+	TimeoutSecs int
 }
 
 // SubmitConfig configures the terminal `submit` verb (spec 08). Command is an

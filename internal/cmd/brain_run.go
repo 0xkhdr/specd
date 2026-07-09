@@ -46,43 +46,79 @@ func runBrain(root string, args []string, flags map[string]string) error {
 		return brainCancel(root, sessionPath, slug)
 	case "resume":
 		return brainResume(root, sessionPath, checkpointPath, acpPath, slug)
-	case "step", "run":
-		// handled below
+	case "step":
+		_, err := runBrainStep(root, sessionPath, acpPath, checkpointPath, slug, flags, "step")
+		return err
+	case "run":
+		return runBrainRun(root, sessionPath, acpPath, checkpointPath, slug, flags)
 	default:
 		return fmt.Errorf("unsupported brain subcommand %q", sub)
 	}
+}
 
+// runBrainStep performs exactly one controller step: release leases for finished
+// tasks, sense the frontier, dispatch at most one ready task, and persist the
+// session. Tasks that already hold a live lease are withheld from the frontier so
+// a repeated step never double-dispatches the same task. Returns the decision
+// action so `run` can loop until the controller brakes.
+func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags map[string]string, sub string) (orchestration.Action, error) {
 	session, err := orchestration.LoadSession(sessionPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	// A cancelled or complete session refuses further stepping (spec 07 R2). Fail
-	// closed (exit 1) rather than silently no-op — checked before any spec load so
-	// the refusal is cheap and unconditional.
+	// closed (exit 1) rather than silently no-op.
 	if session.IsTerminal() {
-		return fmt.Errorf("brain %s refused: session is %s", sub, session.Status())
+		return "", fmt.Errorf("brain %s refused: session is %s", sub, session.Status())
 	}
 
 	state, err := core.LoadState(core.StatePath(root, slug))
 	if err != nil {
-		return err
+		return "", err
 	}
 	spec, err := loadSpec(root, slug)
 	if err != nil {
-		return err
+		return "", err
 	}
-	// Escalated tasks are withheld from the Brain's frontier so it never spins on
-	// a task a human must clear first (spec 06 R2).
 	escalated, err := escalatedCounts(root, slug, spec.Tasks)
 	if err != nil {
-		return err
+		return "", err
 	}
-	frontier, err := core.FrontierExcluding(spec.Tasks, taskStatus(spec.Tasks), escalatedBoolSet(escalated))
-	if err != nil {
-		return err
+	status := taskStatus(spec.Tasks)
+
+	// Release leases whose task has reached a terminal status: the mission is done,
+	// so the lease must not linger as a phantom live worker in status/stress output
+	// (gap 5.4). Persisted below alongside any new dispatch.
+	kept := session.Leases[:0:0]
+	released := false
+	for _, lease := range session.Leases {
+		if status[lease.TaskID] == core.TaskComplete {
+			released = true
+			continue
+		}
+		kept = append(kept, lease)
 	}
+	session.Leases = kept
 
 	now := time.Now()
+	// Escalated tasks are withheld so the Brain never spins on a task a human must
+	// clear first (spec 06 R2); live-leased tasks are withheld so a repeated step
+	// (and each `run` iteration) advances to the next task instead of re-issuing an
+	// in-flight one.
+	withheld := escalatedBoolSet(escalated)
+	for _, lease := range session.Leases {
+		if orchestration.LeaseWorkerState(lease, now) == orchestration.WorkerStateActive {
+			if withheld == nil {
+				withheld = map[string]bool{}
+			}
+			withheld[lease.TaskID] = true
+		}
+	}
+	frontier, err := core.FrontierExcluding(spec.Tasks, status, withheld)
+	if err != nil {
+		return "", err
+	}
+
 	snapshot := orchestration.Sense(state, frontier, session.Leases, now)
 	authority := orchestration.Authority{Enabled: flagEnabled(flags, "authority")}
 	limits := orchestration.DecisionLimitsForAuthority(authority, orchestration.DecisionLimits{MaxRetries: 1})
@@ -90,14 +126,38 @@ func runBrain(root string, args []string, flags map[string]string) error {
 	dispatcher := &sessionDispatcher{root: root, acpPath: acpPath, checkpointPath: checkpointPath, now: now, session: &session}
 	decision, err := orchestration.DispatchFrontier(snapshot, limits, dispatcher)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if decision.Action == orchestration.ActionDispatch {
+	if decision.Action == orchestration.ActionDispatch || released {
 		if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, session); err != nil {
-			return err
+			return "", err
 		}
 	}
 	fmt.Fprintf(os.Stdout, "brain %s: %s %s (%s)\n", sub, decision.Action, decision.TaskID, decision.Reason)
+	return decision.Action, nil
+}
+
+// runBrainRun steps the controller until it brakes: it dispatches every currently
+// ready, unleased frontier task, then stops (waiting for workers to report before
+// more tasks become ready). Each step persists its own session CAS and checkpoint,
+// so a crash mid-run recovers exactly as a sequence of `brain step` calls would
+// (spec 07 write-ahead recovery). Each dispatch withholds one more task from the
+// frontier, so the loop shrinks monotonically and the task count is a hard ceiling
+// on iterations.
+func runBrainRun(root, sessionPath, acpPath, checkpointPath, slug string, flags map[string]string) error {
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return err
+	}
+	for range spec.Tasks {
+		action, err := runBrainStep(root, sessionPath, acpPath, checkpointPath, slug, flags, "run")
+		if err != nil {
+			return err
+		}
+		if action != orchestration.ActionDispatch {
+			return nil
+		}
+	}
 	return nil
 }
 

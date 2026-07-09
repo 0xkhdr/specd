@@ -56,4 +56,12 @@ if [ "$dispatches" != "1" ]; then
 	exit 1
 fi
 
-echo "stress-orchestration: ok ($racers racers, session revision advanced 1->$rev once, one dispatch)"
+# No stale live leases (gap 5.4): the winning resume reclaims orphaned leases and
+# clears them from session.json, so after contention settles no lease object may
+# linger. A retained lease would show as a phantom live worker in `brain status`.
+if grep -q '"worker_id"' "$session"; then
+	echo "stress-orchestration: session.json retains a stale lease after resume" >&2
+	exit 1
+fi
+
+echo "stress-orchestration: ok ($racers racers, session revision advanced 1->$rev once, one dispatch, no stale leases)"

@@ -50,3 +50,18 @@ Strengthen evidence integrity, sandbox signaling, and security gate consistency 
 - `go test ./internal/core ./internal/core/gates ./internal/core/verify ./internal/cmd -count=1`
 - `go test ./... -race -count=1`
 
+## Decisions
+
+- **Dirty-worktree handling (GAP 4.3, was W6-T5).** GAP-ANALYSIS prescribed a `git_dirty`
+  field on the evidence record plus a `verify.require_clean` flag surfaced in `report`. The
+  accepted design is instead a config-driven **clean-worktree gate** (`security.clean_worktree`
+  = off|warn|error, default off). The gate fails closed when the worktree is dirty under an
+  `error` policy, which is a stronger and more uniform contract than a per-record annotation:
+  cleanliness is enforced at the gate, not merely recorded after the fact. GAP 4.3 is closed by
+  this gate; `git_dirty`/`require_clean` were deliberately not added, to avoid two half-built
+  mechanisms for one concern.
+- **Verify timeout (GAP 4.2, was W6-T4).** Closed: `verify.timeout_seconds`
+  (`SPECD_VERIFY_TIMEOUT_SECONDS`, default `0` = unbounded) bounds a single verify command. A
+  timeout is recorded as a **failing** evidence record (exit 124) through the normal evidence
+  path — never a crash or a silent hang.
+
