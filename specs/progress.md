@@ -36,7 +36,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 06 W2 — declared scope from harness diff (needs 06 W1, 05 report)
 - [x] 06 W3 — role authority packets and tool policy (needs 06 W2, 05 mission)
 - [x] 07 W0 — inventory, wording, contract baseline
-- [ ] 08 W0 — `08a-delivery-assurance-baseline`
+- [x] 08 W0 — `08a-delivery-assurance-baseline`
 - [ ] 09 W0 — `09a-maintenance-baseline`
 - [ ] 10 W0 — baseline and boundary invariant
 - [ ] 10 W1 — envelope, identity, classification (10c freezes only after 04/05/07/08
