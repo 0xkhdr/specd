@@ -1,0 +1,11 @@
+{
+  "schema": "DecisionV1",
+  "id": "dec-01H8X9",
+  "status": "accepted",
+  "owner": "a.okafor",
+  "created_at": "2026-07-11T09:10:00Z",
+  "review_at": "2026-10-11T09:10:00Z",
+  "expires_at": "2027-01-11T09:10:00Z",
+  "supersedes": "",
+  "affected_invariants": ["checkout-idempotency"]
+}

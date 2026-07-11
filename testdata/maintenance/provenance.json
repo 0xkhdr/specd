@@ -1,0 +1,21 @@
+{
+  "schema": "ProvenanceV1",
+  "schema_version": 1,
+  "source_type": "incident",
+  "source_ref": "INC-2026-0714",
+  "systems": ["checkout", "payments"],
+  "affected_specs": ["payments-checkout"],
+  "severity": "high",
+  "risk": "customer-facing",
+  "owner": "a.okafor",
+  "prior_links": [
+    {
+      "schema": "ProgramLinkV2",
+      "from": "payments-hotfix",
+      "to": "payments-checkout",
+      "kind": "regresses",
+      "reason": "incident traced to checkout retry regression",
+      "created_at": "2026-07-11T09:00:00Z"
+    }
+  ]
+}

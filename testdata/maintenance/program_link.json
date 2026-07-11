@@ -1,0 +1,8 @@
+{
+  "schema": "ProgramLinkV2",
+  "from": "payments-hotfix",
+  "to": "payments-checkout",
+  "kind": "supersedes",
+  "reason": "checkout retry path superseded by idempotent hotfix; original stays immutable",
+  "created_at": "2026-07-11T09:00:00Z"
+}

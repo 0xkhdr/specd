@@ -3,8 +3,28 @@ package core
 import (
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+// TestReopenRejected reproduces the R1.1 gap (09a/T04) and pins the guard that
+// 09b/T09 lands: reopening, rewinding, or editing a `complete` spec must fail
+// closed with a message directing the user to create a linked successor. Today
+// AdvanceStatus rejects a backward move, but with a generic "cannot move status
+// backward" message and no dedicated guard covering the edit / add-status paths
+// — so the successor-directing assertion is RED. It is skipped (not left RED)
+// per specs/prompt.md §5; 09b/T09 removes the skip and makes it GREEN.
+func TestReopenRejected(t *testing.T) {
+	t.Skip("R1.1 reopen guard + successor-directing message lands in 09b/T09")
+
+	_, err := AdvanceStatus(StatusComplete, StatusExecuting)
+	if err == nil {
+		t.Fatal("reopening a complete spec must fail closed")
+	}
+	if !strings.Contains(err.Error(), "successor") {
+		t.Errorf("reopen error must direct to a linked successor, got %q", err.Error())
+	}
+}
 
 func TestProgramWouldCycle(t *testing.T) {
 	var p Program

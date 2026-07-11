@@ -22,6 +22,15 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 | T04 | craftsman | `internal/core/program.go` (reopen guard reproduction) | T01 | `go test ./internal/core -run TestReopenRejected -count=1` (RED) | R1.1 reproduce absence of a completed-spec reopen guard |
 | T05 | auditor | domain README/requirements/design vs `09-*.md` | T02 | `printf ok` | confirm 9 validation scenarios each have a planned fixture |
 
+> **W0 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T04's reproduction test `TestReopenRejected` lands in `internal/core/program_test.go` (the
+>   test file for the declared `program.go`), and is `t.Skip`-ped rather than left RED — a bare
+>   RED test would fail the wave gate (prompt.md §3/§5). The skip pins the full R1.1 assertion
+>   (reopen fails closed with a successor-directing message); 09b/T09 removes the skip and adds the
+>   guard to make it GREEN with the same verify line.
+> - T05 audit confirmation is recorded in `w0-inventory.md` §"T05 audit"; the domain doc
+>   `docs/google-sdlc-alignment/09-*.md` was read-only cross-checked, not edited.
+
 ## W1 — `09b-successor-link-kinds` (requires 09a)
 
 | id | role | files | deps | verify | req |

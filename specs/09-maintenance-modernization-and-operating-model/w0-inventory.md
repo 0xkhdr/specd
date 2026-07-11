@@ -55,3 +55,25 @@ offline fixture; none exist in-tree today. All must fail closed when inputs are 
   and the `Record` unmarshal in `gatherHistory` (`report.go:26-51`).
 - No LLM in any gate/projection/drift/recurring/report; no daemon/scheduler/network in core;
   no reopening a completed spec; no `reference/` edits.
+
+## T05 audit — 9-scenario fixture-plan confirmation
+
+Auditor (read-only) confirms every S1–S9 validation scenario above maps to a planned fixture and
+a landing wave, cross-checked against README/requirements/design and
+`docs/operating-model-contract.md` §"Fixture plan — 9 validation scenarios":
+
+| scenario | planned fixture (contract) | landing wave | req |
+|---|---|---|---|
+| S1 Incident caused by completed change | `program_link.json` (`caused_by`/`regresses`) | 09i (T36/T38) | R8.1/R8.3 |
+| S2 Recurring invariant fails at later HEAD | recurring result fixture | 09g/09h (T33/T50) | R7.2/R6 |
+| S3 Critical memory expires | `memory_entry.json` | 09e (T21) | R4.2 |
+| S4 Decision superseded | `decision.json` | 09d (T15/T18) | R3.1/R3.3 |
+| S5 Forced promotion | `memory_entry.json` (forced variant) | 09e (T23) | R4.3 |
+| S6 Cross-spec modernization | portfolio status fixture | 09j (T40/T41) | R9.1/R9.3 |
+| S7 Security exception reaches expiry | `decision.json` (exception variant) | 09d (T17) | R3.2 |
+| S8 External tracker unavailable | export fixture | 09k (T46) | R10.1 |
+| S9 Large portfolio | portfolio scale fixture | 09j (T42) | R9.2 |
+
+The four canonical record fixtures landed by 09a (`program_link.json`, `provenance.json`,
+`decision.json`, `memory_entry.json`) pin the field/enum definitions the later scenario fixtures
+extend. **Confirmed: no scenario lacks a planned fixture and landing wave.**

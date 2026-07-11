@@ -1,0 +1,13 @@
+{
+  "schema": "MemoryEntryV1",
+  "key": "checkout-idempotency",
+  "pattern": "always key retries by idempotency_key, never by timestamp",
+  "detail": "checkout retries must dedupe on idempotency_key to avoid double charges",
+  "owner": "a.okafor",
+  "last_validated_at": "2026-07-11T09:15:00Z",
+  "provenance": "INC-2026-0714 postmortem",
+  "source_ref": "payments-hotfix",
+  "confidence": 4,
+  "expires_at": "2027-01-11T09:15:00Z",
+  "supersedes": ""
+}
