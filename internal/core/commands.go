@@ -52,6 +52,16 @@ type Command struct {
 	// not wired yet. The dispatcher reports the deferral and exits 0; the
 	// handler-parity test treats a deferred verb as satisfied.
 	Deferred bool `json:"deferred,omitempty"`
+	// HumanOnly marks a verb that records human intent (approval, mid-course
+	// decisions). Driving guidance lists these separately from machine-legal
+	// commands so an agent never self-approves or fabricates a human decision
+	// (spec 01 R6.1, R6.2 "not agent self-approval").
+	HumanOnly bool `json:"human_only,omitempty"`
+	// RequiresTask marks a verb that operates on an executable task (task
+	// verify/context). Driving guidance suppresses these when a spec has no
+	// executable task, so an agent is never told to verify or fetch context for
+	// a task that does not exist (spec 01 R6.2).
+	RequiresTask bool `json:"requires_task,omitempty"`
 }
 
 // anyPhase is the explicit unrestricted declaration.
@@ -150,6 +160,7 @@ var Commands = []Command{
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd approve payments requirements", "specd approve payments design"},
+		HumanOnly:     true,
 	},
 	{
 		Name:          "midreq",
@@ -158,6 +169,7 @@ var Commands = []Command{
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd midreq payments --text 'add refund path' --scope requirements"},
+		HumanOnly:     true,
 		Flags: []Flag{
 			{Name: "text", TakesValue: true, Type: "string", Description: "Change description (required)."},
 			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
@@ -170,6 +182,7 @@ var Commands = []Command{
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd decision payments --text 'defer webhooks' --scope design"},
+		HumanOnly:     true,
 		Flags: []Flag{
 			{Name: "text", TakesValue: true, Type: "string", Description: "Decision rationale (required)."},
 			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
@@ -191,13 +204,14 @@ var Commands = []Command{
 	},
 	{
 		Name:          "status",
-		Usage:         "specd status [spec] [--json] | specd status --program",
-		Description:   "Report current spec and task state, or the cross-spec program view.",
+		Usage:         "specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program",
+		Description:   "Report current spec and task state, machine driving guidance, or the cross-spec program view.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd status payments", "specd status payments --json", "specd status --program"},
+		Examples:      []string{"specd status payments", "specd status payments --json", "specd status payments --guide --json", "specd status --program"},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable status."},
+			{Name: "guide", Type: "bool", Description: "Emit machine driving guidance: phase, required artifact, legal commands, human-only actions, and blockers."},
 			{Name: "program", Type: "bool", Description: "Show the cross-spec program view: specs, links, phases, and frontier."},
 		},
 	},
@@ -237,6 +251,7 @@ var Commands = []Command{
 		Description:   "Run and record task verification (task mode), or record a per-acceptance-criterion evidence record (--criterion mode).",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(0),
+		RequiresTask:  true,
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd verify payments T3", "specd verify payments T3 --revert-on-fail", "specd verify payments --criterion 1.2 --status pass --evidence 'covered by T3 integration test'"},
 		Flags: []Flag{
@@ -402,6 +417,76 @@ func CommandByName(name string) (Command, bool) {
 		}
 	}
 	return Command{}, false
+}
+
+// Guidance is the machine-readable driving guidance for one lifecycle phase
+// (spec 01 R6.1). It separates what a machine actor may legally do
+// (LegalCommands) from what only a human may do (HumanOnly, e.g. approval), so
+// an agent never treats approval as a self-serve action; it also names the
+// artifact the phase must produce (RequiredArtifact) and any Blockers the caller
+// resolved from state. NextGate is the gate a human must clear to advance.
+type Guidance struct {
+	Status           Status   `json:"status"`
+	Phase            Phase    `json:"phase"`
+	RequiredArtifact string   `json:"required_artifact,omitempty"`
+	NextGate         Status   `json:"next_gate,omitempty"`
+	LegalCommands    []string `json:"legal_commands"`
+	HumanOnly        []string `json:"human_only"`
+	Blockers         []string `json:"blockers,omitempty"`
+}
+
+// GuidanceForPhase builds the driving guidance for status. Blockers are supplied
+// by the caller (the deterministic gate failures for the next transition); this
+// function is pure over the command palette. Deferred verbs and verbs not legal
+// in the phase are omitted; human-only verbs are listed separately so an agent
+// cannot mistake approval for a machine action (spec 01 R6).
+func GuidanceForPhase(status Status, blockers []string) Guidance {
+	phase := PhaseForStatus(status)
+	g := Guidance{
+		Status:           status,
+		Phase:            phase,
+		RequiredArtifact: RequiredArtifact(status),
+		NextGate:         NextStatus(status),
+		Blockers:         blockers,
+	}
+	for _, cmd := range Commands {
+		if cmd.Deferred || !cmd.AllowsPhase(phase) {
+			continue
+		}
+		if cmd.HumanOnly {
+			g.HumanOnly = append(g.HumanOnly, cmd.Name)
+		} else {
+			g.LegalCommands = append(g.LegalCommands, cmd.Name)
+		}
+	}
+	return g
+}
+
+// RequiredArtifact is the source artifact a lifecycle status is producing, or ""
+// once the planning artifacts are authored (execution phases produce evidence,
+// not a single artifact).
+func RequiredArtifact(status Status) string {
+	switch status {
+	case StatusRequirements:
+		return "requirements.md"
+	case StatusDesign:
+		return "design.md"
+	case StatusTasks:
+		return "tasks.md"
+	}
+	return ""
+}
+
+// NextStatus returns the status immediately after status in the lifecycle order,
+// or "" when status is already final. It names the gate an actor must clear next
+// (spec 01 R6.1 driving guidance).
+func NextStatus(status Status) Status {
+	for i, s := range statusOrder {
+		if s == status && i+1 < len(statusOrder) {
+			return statusOrder[i+1]
+		}
+	}
+	return ""
 }
 
 // AllowsPhase reports whether the command may run in phase. A command that

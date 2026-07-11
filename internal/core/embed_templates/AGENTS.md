@@ -5,13 +5,18 @@ makes the plan safely delegable: it owns state, gates, and evidence — determin
 with no LLM in its decision path. Read this file before acting on a specd project.
 
 ## The loop
-1. `specd status` — see the spec, phase, and current task frontier.
-2. `specd context <slug> <task>` — get the lean, cited context manifest for one task.
+1. `specd status <slug> --guide` — the machine guidance for the current phase: the
+   legal commands, the required artifact, the blockers, and the human-only actions.
+   Only run the commands it lists as legal. It never lists task context or task verify
+   when there is no executable task, and **`approve` is always human-only** — you never
+   self-approve.
+2. `specd context <slug> <task>` — get the lean, cited context manifest for one task
+   (only once a task is executable — the guide will say so).
 3. Do the task under its **role** (below). Touch only the task's declared `files:`.
 4. `specd verify` — record evidence (exit code + git HEAD). This, not your say-so, is
    what marks a task complete.
-5. `specd check` — run the readiness gates. `specd approve` advances the phase only if
-   they pass.
+5. `specd check` — run the readiness gates. A **human** runs `specd approve` to advance
+   the phase, and only if the gates pass.
 
 ## Roles (read `.specd/roles/<role>.md` before acting as one)
 - 🔍 **scout** — read-only explore & report. Never bound to a write task.

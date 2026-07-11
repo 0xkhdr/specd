@@ -377,6 +377,55 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	return nil
 }
 
+// guidanceForSpec builds the machine driving guidance for a spec (spec 01
+// R6.1): current phase, the artifact it must produce, the machine-legal
+// commands, the human-only actions, and the deterministic blockers that stop the
+// next approval. Blockers come from the gate registry run for the next gate; the
+// guidance never invents them.
+func guidanceForSpec(root, slug string) (core.Guidance, error) {
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return core.Guidance{}, err
+	}
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return core.Guidance{}, err
+	}
+	var blockers []string
+	if next := core.NextStatus(state.Status); next != "" {
+		for _, f := range gates.CoreRegistry().Run(buildCheckCtx(root, slug, spec, string(next))) {
+			if f.Severity == gates.Error {
+				blockers = append(blockers, f.Message)
+			}
+		}
+	}
+	g := core.GuidanceForPhase(state.Status, blockers)
+	// R6.2: only suggest task-bearing commands (task verify/context) when the
+	// spec actually has an executable task. requireTaskGate fails closed before
+	// execution is approved; an empty frontier means nothing to run.
+	if !hasExecutableTask(root, slug, spec) {
+		kept := g.LegalCommands[:0]
+		for _, name := range g.LegalCommands {
+			if c, ok := core.CommandByName(name); ok && c.RequiresTask {
+				continue
+			}
+			kept = append(kept, name)
+		}
+		g.LegalCommands = kept
+	}
+	return g, nil
+}
+
+// hasExecutableTask reports whether the spec has a task ready to run: execution
+// must be gate-approved and the frontier non-empty.
+func hasExecutableTask(root, slug string, spec specData) bool {
+	if requireTaskGate(root, slug) != nil {
+		return false
+	}
+	frontier, err := core.FrontierExcluding(spec.Tasks, taskStatus(spec.Tasks), nil)
+	return err == nil && len(frontier) > 0
+}
+
 func runStatus(root string, args []string, flags map[string]string) error {
 	if flagEnabled(flags, "program") {
 		if len(args) != 0 {
@@ -388,6 +437,12 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		}
 		fmt.Fprint(os.Stdout, view)
 		return nil
+	}
+	if flagEnabled(flags, "guide") {
+		if len(args) != 1 {
+			return errors.New("usage: specd status <spec> --guide [--json]")
+		}
+		return emitGuidance(root, args[0], flagEnabled(flags, "json"))
 	}
 	if len(args) != 1 {
 		return errors.New("usage: status slug [--json]")

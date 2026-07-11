@@ -33,6 +33,12 @@ type CheckCtx struct {
 	RequirementsStub     string // the scaffold stub to compare against (ADR-10 single source)
 	DesignDoc            string
 	DesignStub           string
+	// DesignContractRequired arms the full decision-contract check (spec 01
+	// R2.1): under the production design profile the design must declare every
+	// decision-metadata field and a resolvable requirement reference. Zero ⇒
+	// default profile, where the contract fields are optional (R7.1) and only
+	// unknown references are refused. Unknown-reference resolution is always on.
+	DesignContractRequired bool
 
 	// Criteria gate inputs (spec 04 R6, opt-in). CriteriaRequired mirrors
 	// config criteria.required; CriteriaUnmet lists acceptance-criterion ids
@@ -51,6 +57,13 @@ type CheckCtx struct {
 	ReviewHead         string
 	ReviewFindings     string
 	ReviewExpectedHead string
+
+	// TaskTraceRequired arms the full task trace/risk contract (spec 01 R3.1):
+	// under the production planning profile every task must declare its
+	// references, work kind, risk tier, required context, evidence classes, and
+	// edge checks. Zero ⇒ default profile, where those fields are optional
+	// (R7.1); unknown references and unknown risk tiers are always refused.
+	TaskTraceRequired bool
 
 	// Program-link gate input (spec 12 R5). When the gate under approval is the
 	// execution transition, the caller fills ProgramDepsIncomplete with the
@@ -75,7 +88,23 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "design", run: designGate})
 	registry.Register(gateFunc{name: "criteria", run: criteriaGate})
 	registry.Register(gateFunc{name: "review", run: reviewGate})
+	registry.Register(gateFunc{name: "task-trace", run: taskTrace})
 	return registry
+}
+
+// taskTrace enforces the task trace/risk contract (spec 01 R3.1). It always
+// refuses a task whose declared requirement reference does not resolve or whose
+// risk tier is unrecognized; under the production planning profile
+// (TaskTraceRequired) it also refuses a task that omits any required trace
+// field. Pure over CheckCtx: the caller supplies the requirements bytes, the
+// gate never touches disk. Empty CheckCtx ⇒ no tasks ⇒ no findings (parity).
+func taskTrace(ctx CheckCtx) []Finding {
+	known := core.RequirementIDSet(ctx.RequirementsDoc)
+	var findings []Finding
+	for _, f := range core.ValidateTaskTrace(ctx.Tasks, known, ctx.TaskTraceRequired) {
+		findings = append(findings, Finding{Severity: Error, Message: f.Message})
+	}
+	return findings
 }
 
 type gateFunc struct {

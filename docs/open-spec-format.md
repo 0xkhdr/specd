@@ -75,6 +75,41 @@ A malformed or unknown-field `state.json` surfaces as a `schema` gate finding (e
 than a silent load. Because the whole surface is plain Markdown + one validated JSON file,
 integrators can read spec state without linking against specd.
 
+## Decision contract & task trace/risk metadata (spec 01)
+
+Both extensions are **additive and backward compatible** — existing `design.md` and
+`tasks.md` files parse unchanged, and the stricter checks arm only under the production
+profile.
+
+**`design.md` decision contract.** Declare the trace with labelled bullets:
+
+```markdown
+- references: R1.1, R2
+- boundaries: <what this design owns / does not own>
+- interfaces: <the contracts it exposes>
+- invariants: <what stays true>
+- failure: <failure modes>
+- integration: <integration modes>
+- alternatives: <what was weighed>
+- disposition: <the chosen option>
+- owner: <human accountable>
+```
+
+A `references:` entry that names an unknown requirement is **always** refused. The full
+contract is required only when the production design profile is on.
+
+**`tasks.md` optional trace/risk columns.** Add any of `refs`, `kind`, `risk`, `context`,
+`evidence`, `checks` to the table header — columns are matched by name, so a legacy
+six-column table keeps working:
+
+```markdown
+| id | role | files | depends-on | verify | acceptance | refs | kind | risk | context | evidence | checks |
+```
+
+A declared `refs` requirement that does not resolve, or an unknown `risk` tier
+(`low`/`medium`/`high`/`critical`), is always refused. Declaring the full set on every task
+is required only under the production planning profile.
+
 ---
 
 **See also:** [validation-gates.md](validation-gates.md) · [user-guide.md](user-guide.md) ·

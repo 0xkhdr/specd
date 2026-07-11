@@ -59,3 +59,40 @@ func TestCommandByName(t *testing.T) {
 		t.Error("unknown command reported as found")
 	}
 }
+
+// TestGuideModel pins spec 01 R6.1: driving guidance for a phase separates the
+// machine-legal commands from the human-only actions (so an agent never treats
+// approval as self-serve), and names the artifact the phase must produce.
+func TestGuideModel(t *testing.T) {
+	g := core.GuidanceForPhase(core.StatusRequirements, nil)
+	if g.Phase != core.PhasePerceive {
+		t.Fatalf("phase = %q", g.Phase)
+	}
+	if g.RequiredArtifact != "requirements.md" {
+		t.Fatalf("required artifact = %q", g.RequiredArtifact)
+	}
+	if !contains(g.HumanOnly, "approve") {
+		t.Fatalf("approve must be a human-only action, got %v", g.HumanOnly)
+	}
+	if contains(g.LegalCommands, "approve") {
+		t.Fatalf("approve must not appear as a machine-legal command, got %v", g.LegalCommands)
+	}
+	if !contains(g.LegalCommands, "status") {
+		t.Fatalf("status should be machine-legal, got %v", g.LegalCommands)
+	}
+	if core.NextStatus(core.StatusRequirements) != core.StatusDesign {
+		t.Fatalf("next status after requirements = %q", core.NextStatus(core.StatusRequirements))
+	}
+	if core.NextStatus(core.StatusComplete) != "" {
+		t.Fatalf("final status should have no successor")
+	}
+}
+
+func contains(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
+}

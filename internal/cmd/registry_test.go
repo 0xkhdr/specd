@@ -8,6 +8,35 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+// TestGuideForSpec pins spec 01 R6.1: a spec's driving guidance names the phase
+// and required artifact, lists machine-legal commands, and keeps approval in the
+// human-only set — never as a self-serve command for an agent.
+func TestGuideForSpec(t *testing.T) {
+	root := newDemoSpec(t)
+	g, err := guidanceForSpec(root, "demo")
+	if err != nil {
+		t.Fatalf("guidanceForSpec: %v", err)
+	}
+	if g.Phase != core.PhasePerceive || g.RequiredArtifact != "requirements.md" {
+		t.Fatalf("guidance = %+v", g)
+	}
+	if !containsStr(g.HumanOnly, "approve") {
+		t.Fatalf("approve must be human-only, got %v", g.HumanOnly)
+	}
+	if containsStr(g.LegalCommands, "approve") {
+		t.Fatalf("approve must not be a machine-legal command, got %v", g.LegalCommands)
+	}
+}
+
+func containsStr(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
+}
+
 // TestEveryCommandHasHandler is the parity guard (R13.2): every verb in
 // core.Commands must resolve to a non-nil handler or carry Deferred:true.
 func TestEveryCommandHasHandler(t *testing.T) {

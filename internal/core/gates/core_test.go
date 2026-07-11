@@ -7,6 +7,40 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+func TestTaskTraceGate(t *testing.T) {
+	reqs := "### R1 — Title\n\n- R1.1: When x, the system shall y.\n"
+
+	// Unknown requirement reference is always refused (spec 01 R3.1 safety).
+	badRef := []core.TaskRow{{ID: "T1", Role: "craftsman", Refs: []string{"R9"}}}
+	if f := taskTrace(CheckCtx{Tasks: badRef, RequirementsDoc: reqs}); !HasErrors(f) {
+		t.Fatalf("unknown ref should refuse, got %+v", f)
+	}
+
+	// Unknown risk tier is always refused.
+	badRisk := []core.TaskRow{{ID: "T1", Role: "craftsman", Refs: []string{"R1.1"}, Risk: "spicy"}}
+	if f := taskTrace(CheckCtx{Tasks: badRisk, RequirementsDoc: reqs}); !HasErrors(f) {
+		t.Fatalf("unknown risk tier should refuse, got %+v", f)
+	}
+
+	// Legacy task (no trace columns) passes under the default profile (R7.1).
+	legacy := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./..."}}
+	if f := taskTrace(CheckCtx{Tasks: legacy, RequirementsDoc: reqs}); len(f) != 0 {
+		t.Fatalf("legacy task should pass default profile, got %+v", f)
+	}
+
+	// Production planning profile demands the full contract (R3.1).
+	if f := taskTrace(CheckCtx{Tasks: legacy, RequirementsDoc: reqs, TaskTraceRequired: true}); !HasErrors(f) {
+		t.Fatalf("production profile should require the trace contract, got %+v", f)
+	}
+
+	// A fully-declared write task passes under the production profile.
+	full := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./...",
+		Refs: []string{"R1.1"}, Kind: "feature", Risk: "high", Context: "design", Evidence: "unit", Checks: "empty"}}
+	if f := taskTrace(CheckCtx{Tasks: full, RequirementsDoc: reqs, TaskTraceRequired: true}); len(f) != 0 {
+		t.Fatalf("full contract should pass, got %+v", f)
+	}
+}
+
 func TestRolesGate(t *testing.T) {
 	if f := roles(CheckCtx{Tasks: []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./..."}}}); HasErrors(f) {
 		t.Fatalf("known role should pass, got %+v", f)

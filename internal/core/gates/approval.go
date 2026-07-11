@@ -41,7 +41,18 @@ func designGate(ctx CheckCtx) []Finding {
 	if section, empty := firstEmptySection(ctx.DesignDoc); empty {
 		return []Finding{{Severity: Error, Message: fmt.Sprintf("design.md section %q is empty", section)}}
 	}
-	return nil
+	// Decision-contract trace (spec 01 R2): a design tracing to a requirement
+	// that does not exist is always refused (R2.2); the full decision-metadata
+	// contract is required only under the production design profile
+	// (DesignContractRequired), keeping default-profile design.md files
+	// backward compatible (R7.1).
+	design := core.ParseDesign([]byte(ctx.DesignDoc))
+	known := core.RequirementIDSet(ctx.RequirementsDoc)
+	var findings []Finding
+	for _, f := range core.ValidateDesign(design, known, ctx.DesignContractRequired) {
+		findings = append(findings, Finding{Severity: Error, Message: f.Message})
+	}
+	return findings
 }
 
 // criteriaGate is the opt-in per-acceptance-criterion ratchet (spec 04 R6). It

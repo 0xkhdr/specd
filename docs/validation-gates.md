@@ -23,7 +23,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 14 core gates
+## The 15 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -43,6 +43,7 @@ Registered by `CoreRegistry()` in the order they run:
 | 12 | `design` | `design.md` is filled past its scaffold stub (armed when approving the `design` gate). |
 | 13 | `criteria` | *(opt-in)* Every acceptance criterion has a current passing evidence record. |
 | 14 | `review` | *(opt-in)* `review_report.md` carries an `approve` verdict recorded at the current git HEAD. |
+| 15 | `task-trace` | A task's declared requirement `refs` resolve and its `risk` tier is known; *(opt-in)* under the production planning profile every task declares refs/kind/risk/context/evidence/checks. |
 
 ### Notes on individual gates
 
@@ -54,7 +55,13 @@ Registered by `CoreRegistry()` in the order they run:
 - **`sync` (11)** catches the two-source drift: `tasks.md` markers say one thing, `state.json`
   says another. It fails closed so a hand-edited marker can't fake completion.
 - **`design` (12)** only fires when the gate under approval is `design`; it compares
-  `design.md` against the scaffold stub (single-source stub comparison, no hard-coded prose).
+  `design.md` against the scaffold stub (single-source stub comparison, no hard-coded prose),
+  and refuses a design whose declared `references:` name an unknown requirement. The full
+  decision contract (boundaries/interfaces/invariants/failure/integration/alternatives/
+  disposition/owner) is required only under the production design profile.
+- **`task-trace` (15)** always refuses an unresolvable requirement reference or an unknown
+  risk tier declared on a task; the full trace/risk contract is required only under the
+  production planning profile, so legacy six-column `tasks.md` tables keep planning.
 - **`criteria` (13)** is armed by `config.criteria.required = true`. Until then it is dormant.
   Record criterion evidence with `specd verify <slug> --criterion <r>.<n> --status pass|fail
   --evidence <text>`.

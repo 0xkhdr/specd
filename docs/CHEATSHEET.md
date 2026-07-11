@@ -298,18 +298,20 @@ specd version --json
 
 ### `status`
 ```
-specd status [spec] [--json] | specd status --program
+specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program
 ```
-Report current spec and task state, or the cross-spec program view. **Phases:** any.
+Report current spec and task state, machine driving guidance, or the cross-spec program view. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--json` | bool | Emit machine-readable status. |
+| `--guide` | bool | Emit machine driving guidance: phase, required artifact, legal commands, human-only actions, and blockers. |
 | `--program` | bool | Show the cross-spec program view: specs, links, phases, and frontier. |
 
 ```bash
 specd status payments
 specd status payments --json
+specd status payments --guide --json
 specd status --program
 ```
 

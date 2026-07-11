@@ -106,7 +106,15 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		}
 		state.Status = target
 		state.Phase = phase
-		if err := appendRecord(root, &state, "approval:"+gate, core.Record{Kind: "approval", Gate: gate, ApprovedRevision: state.Revision}); err != nil {
+		rec := core.Record{Kind: "approval", Gate: gate, ApprovedRevision: state.Revision}
+		// Pin the approved artifact's source digest so a later amendment can
+		// detect drift (spec 01 R2.1 "and digest", R5 staleness).
+		if artifact := approvalArtifact(gate); artifact != "" {
+			if b, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", slug, artifact)); err == nil {
+				rec.SourceDigest = core.Digest(b)
+			}
+		}
+		if err := appendRecord(root, &state, "approval:"+gate, rec); err != nil {
 			return struct{}{}, err
 		}
 		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
@@ -318,6 +326,19 @@ func appendRecord(root string, state *core.State, key string, rec core.Record) e
 	}
 	state.Records[key] = raw
 	return nil
+}
+
+// approvalArtifact maps an approval gate to the spec artifact whose bytes it
+// pins into the approval record (spec 01 R2.1). Gates without a source artifact
+// (tasks/executing/verifying/complete) pin nothing.
+func approvalArtifact(gate string) string {
+	switch core.Status(gate) {
+	case core.StatusRequirements:
+		return "requirements.md"
+	case core.StatusDesign:
+		return "design.md"
+	}
+	return ""
 }
 
 func countPrefix(records map[string]json.RawMessage, prefix string) int {

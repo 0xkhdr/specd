@@ -1,0 +1,41 @@
+package core
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// TestScaffoldCarriesFormatGuidance pins spec 01 R3.1/R2.1 authoring migration
+// guidance: a scaffolded project's structure steering documents the design
+// decision contract and the optional task trace/risk columns, and states that
+// legacy tables stay backward compatible.
+func TestScaffoldCarriesFormatGuidance(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatalf("scaffold: %v", err)
+	}
+	assets, err := ManagedAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body string
+	for _, asset := range assets {
+		if strings.HasSuffix(asset.RelPath, "structure.md") {
+			raw, err := os.ReadFile(filepath.Join(root, asset.RelPath))
+			if err != nil {
+				t.Fatalf("read %s: %v", asset.RelPath, err)
+			}
+			body = string(raw)
+		}
+	}
+	if body == "" {
+		t.Fatal("structure steering not scaffolded")
+	}
+	for _, want := range []string{"references:", "boundaries:", "risk", "refs", "backward compatible"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("scaffold authoring guidance missing %q:\n%s", want, body)
+		}
+	}
+}

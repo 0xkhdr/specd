@@ -48,3 +48,24 @@ func TestInitWritesBoundedProjectConfig(t *testing.T) {
 		t.Fatalf("second init clobbered operator config:\n%s", got)
 	}
 }
+
+// TestInitScaffoldGuidanceParity pins spec 01 R6.2: the scaffolded AGENTS.md
+// points agents at the machine guidance surface and keeps approval human-only —
+// it never tells an agent to self-approve.
+func TestInitScaffoldGuidanceParity(t *testing.T) {
+	root := t.TempDir()
+	if err := runInit(root, nil, map[string]string{}); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("AGENTS.md not written: %v", err)
+	}
+	agents := string(body)
+	if !strings.Contains(agents, "status <slug> --guide") {
+		t.Fatalf("scaffold does not point agents at machine guidance:\n%s", agents)
+	}
+	if !strings.Contains(agents, "human-only") || !strings.Contains(agents, "self-approve") {
+		t.Fatalf("scaffold must mark approval human-only and forbid self-approval:\n%s", agents)
+	}
+}

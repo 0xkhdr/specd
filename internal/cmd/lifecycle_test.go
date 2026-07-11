@@ -236,3 +236,46 @@ func TestBrainDispatchesFrontierViaCLI(t *testing.T) {
 		t.Fatalf("expected one dispatch event for T1, got %+v", events)
 	}
 }
+
+// TestDesignApprovalRefusesUnknownRef proves the live approve path refuses a
+// design that traces to a requirement that does not exist (spec 01 R2.2) and,
+// on a resolvable design, pins the design source digest into the approval record
+// (spec 01 R2.1 "and digest").
+func TestDesignApprovalRefusesUnknownRef(t *testing.T) {
+	root := newDemoSpec(t)
+	dir := filepath.Join(core.SpecdDir(root), "specs", "demo")
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("requirements.md", "# Requirements — demo\n\n### R1 — Thing\n\n- R1.1: When x runs, the system shall y.\n")
+	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+		t.Fatalf("approve requirements: %v", err)
+	}
+
+	// Design traces to a requirement that does not exist → refused.
+	write("design.md", "# Design — demo\n\n## Modules\nThe module runs gates.\n\n- references: R9\n")
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err == nil {
+		t.Fatal("approve design accepted an unknown requirement reference")
+	}
+
+	// Design tracing to a real requirement → accepted, digest pinned.
+	good := "# Design — demo\n\n## Modules\nThe module runs gates.\n\n- references: R1.1\n"
+	write("design.md", good)
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve design (known ref): %v", err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rec core.Record
+	if err := json.Unmarshal(state.Records["approval:design"], &rec); err != nil {
+		t.Fatalf("approval record: %v", err)
+	}
+	if rec.SourceDigest != core.Digest([]byte(good)) {
+		t.Fatalf("design approval did not pin the source digest: %q", rec.SourceDigest)
+	}
+}

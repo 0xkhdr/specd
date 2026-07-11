@@ -71,6 +71,57 @@ func TestSingleLineRewrite(t *testing.T) {
 	}
 }
 
+func TestTasksTraceMetadata(t *testing.T) {
+	// Legacy 6-column tables carry no trace metadata and still parse (spec 01
+	// R3.1 backward compatible).
+	legacy, err := ParseTasksMd([]byte(sampleTasksMd))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Tasks[0].Risk != "" || len(legacy.Tasks[0].Refs) != 0 {
+		t.Fatalf("legacy task carried unexpected metadata: %+v", legacy.Tasks[0])
+	}
+
+	// A table that declares the optional columns parses the trace/risk metadata.
+	src := "# Tasks\n\n" +
+		"| id | role | files | depends-on | verify | acceptance | refs | kind | risk | context | evidence | checks |\n" +
+		"|---|---|---|---|---|---|---|---|---|---|---|---|\n" +
+		"| T1 | craftsman | a.go | - | go test ./... | first | R1.1, D2 | feature | high | design.md 2 | unit, integration | empty-input |\n"
+	doc, err := ParseTasksMd([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := doc.Tasks[0]
+	if !reflect.DeepEqual(task.Refs, []string{"R1.1", "D2"}) {
+		t.Fatalf("Refs = %#v", task.Refs)
+	}
+	if task.Kind != "feature" || task.Risk != "high" || task.Context != "design.md 2" ||
+		task.Evidence != "unit, integration" || task.Checks != "empty-input" {
+		t.Fatalf("trace metadata = %+v", task)
+	}
+	// Byte-stable: the extended table round-trips unchanged.
+	if got := SerializeTasksMd(doc); !bytes.Equal(got, []byte(src)) {
+		t.Fatalf("extended table did not round-trip:\n%s", got)
+	}
+}
+
+func TestRewriteKeepsMetadataColumns(t *testing.T) {
+	src := "# Tasks\n\n" +
+		"| id | role | files | depends-on | verify | acceptance | risk |\n" +
+		"|---|---|---|---|---|---|---|\n" +
+		"| T1 | craftsman | a.go | - | go test ./... | first | high |\n"
+	out, err := RewriteTaskStatusLine([]byte(src), "T1", "✅")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "high") {
+		t.Fatalf("rewrite dropped the risk column:\n%s", out)
+	}
+	if !strings.Contains(string(out), "✅ T1") {
+		t.Fatalf("rewrite missed the marker:\n%s", out)
+	}
+}
+
 func TestTaskDAGTopologicalWaves(t *testing.T) {
 	doc, err := ParseTasksMd([]byte(sampleTasksMd))
 	if err != nil {

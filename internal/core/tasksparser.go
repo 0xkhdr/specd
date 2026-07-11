@@ -14,6 +14,16 @@ type TaskRow struct {
 	DependsOn  []string
 	Verify     string
 	Acceptance string
+	// Trace/risk planning metadata (spec 01 R3.1). Parsed from optional named
+	// columns; absent columns yield zero values so legacy 6-column tasks.md
+	// files parse unchanged (backward compatible). The task-trace gate requires
+	// them only under the production planning profile.
+	Refs     []string // requirement/design references this task implements
+	Kind     string   // work kind (e.g. feature, fix, refactor, docs)
+	Risk     string   // risk tier
+	Context  string   // required context declaration
+	Evidence string   // evidence classes planned
+	Checks   string   // negative/edge checks planned
 }
 
 type TaskRunStatus string
@@ -50,6 +60,14 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 				DependsOn:  splitTaskList(cell(cells, indexes["depends-on"])),
 				Verify:     strings.Trim(cell(cells, indexes["verify"]), "`"),
 				Acceptance: cell(cells, indexes["acceptance"]),
+				// Optional trace/risk columns (spec 01 R3.1). headerIndex returns
+				// -1 for a column the header omits, which cell() reads as empty.
+				Refs:     splitTaskList(cell(cells, headerIndex(header, "refs"))),
+				Kind:     cell(cells, headerIndex(header, "kind")),
+				Risk:     cell(cells, headerIndex(header, "risk")),
+				Context:  cell(cells, headerIndex(header, "context")),
+				Evidence: cell(cells, headerIndex(header, "evidence")),
+				Checks:   cell(cells, headerIndex(header, "checks")),
 			})
 		}
 		return nil
@@ -92,6 +110,78 @@ func RewriteTaskStatusLine(raw []byte, id string, marker string) ([]byte, error)
 		return nil, fmt.Errorf("task %s not found", id)
 	}
 	return out, nil
+}
+
+// knownRiskTiers are the accepted risk-tier values a task may declare (spec 01
+// R3.1). An unrecognized tier is always refused so a typo cannot silently pass.
+var knownRiskTiers = map[string]bool{"low": true, "medium": true, "high": true, "critical": true}
+
+// TaskTraceFinding is an addressable task-planning defect (spec 01 R3.1). TaskID
+// names the offending task.
+type TaskTraceFinding struct {
+	TaskID  string
+	Message string
+}
+
+// ValidateTaskTrace reports task trace/risk defects. A declared requirement
+// reference (R<n>/R<n>.<m>) that does not resolve, and an unrecognized risk
+// tier, are always refused (safety). When requireTrace is set — the production
+// planning profile (spec 01 R7.2) — every task must additionally declare its
+// references, work kind, risk tier, required context, evidence classes, and
+// negative/edge checks (R3.1); under the default profile these are optional so
+// legacy tasks.md files keep planning (R7.1). Design-component references (ids
+// that are not R<n> shaped) are accepted here; resolving them against a design
+// component registry is deferred to a later wave. Pure: no disk, no clock.
+func ValidateTaskTrace(tasks []TaskRow, knownReqIDs map[string]bool, requireTrace bool) []TaskTraceFinding {
+	var findings []TaskTraceFinding
+	for _, task := range tasks {
+		for _, ref := range task.Refs {
+			if !reReqRefToken.MatchString(ref) {
+				continue
+			}
+			if !knownReqIDs[ref] && !knownReqIDs[requirementOf(ref)] {
+				findings = append(findings, TaskTraceFinding{TaskID: task.ID, Message: task.ID + " references unknown requirement " + ref})
+			}
+		}
+		if task.Risk != "" && !knownRiskTiers[strings.ToLower(task.Risk)] {
+			findings = append(findings, TaskTraceFinding{TaskID: task.ID, Message: task.ID + " has unknown risk tier " + task.Risk})
+		}
+		if requireTrace {
+			for _, field := range missingTraceFields(task) {
+				findings = append(findings, TaskTraceFinding{TaskID: task.ID, Message: task.ID + " must declare " + field})
+			}
+		}
+	}
+	return findings
+}
+
+// missingTraceFields lists the trace/risk fields a task has not declared (spec
+// 01 R3.1). A read-only scout task is exempt from evidence-class and edge-check
+// declaration — it produces a finding, not a change — so only work-bearing
+// tasks must declare the full contract.
+func missingTraceFields(task TaskRow) []string {
+	var missing []string
+	if len(task.Refs) == 0 {
+		missing = append(missing, "refs")
+	}
+	if task.Kind == "" {
+		missing = append(missing, "kind")
+	}
+	if task.Risk == "" {
+		missing = append(missing, "risk")
+	}
+	if task.Context == "" {
+		missing = append(missing, "context")
+	}
+	if IsWriteRole(task.Role) {
+		if task.Evidence == "" {
+			missing = append(missing, "evidence")
+		}
+		if task.Checks == "" {
+			missing = append(missing, "checks")
+		}
+	}
+	return missing
 }
 
 func splitMarkedTaskID(value string) (string, string) {

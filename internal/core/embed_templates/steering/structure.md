@@ -10,3 +10,13 @@
 ## Naming & patterns
 - <naming convention a change must follow>
 - <where tests live relative to source>
+
+## Spec authoring format
+- `design.md` decision contract: declare `references:` (the `R<n>` requirements it
+  traces to), plus `boundaries:`, `interfaces:`, `invariants:`, `failure:`,
+  `integration:`, `alternatives:`, `disposition:`, and `owner:`. An unknown
+  reference is always refused; the full contract is required under the production
+  profile.
+- `tasks.md` optional trace/risk columns: `refs`, `kind`, `risk`, `context`,
+  `evidence`, `checks`. Legacy six-column tables keep working (backward compatible);
+  the production planning profile requires the full set.
