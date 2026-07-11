@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 const specdDirName = ".specd"
@@ -23,6 +24,25 @@ func (e NotFoundError) ExitCode() int {
 
 func SpecdDir(root string) string {
 	return filepath.Join(root, specdDirName)
+}
+
+// SafeJoin resolves a slash-separated repo-relative path against root, refusing
+// empty input, absolute paths, and traversal ("..") that escapes the base. It
+// returns the cleaned absolute path. It performs no symlink resolution and does
+// not require existence — callers that need those (see context.ResolveSource)
+// layer them on top.
+func SafeJoin(root, rel string) (string, error) {
+	if rel == "" {
+		return "", fmt.Errorf("empty path")
+	}
+	if filepath.IsAbs(rel) || strings.HasPrefix(rel, "/") {
+		return "", fmt.Errorf("absolute path not allowed: %q", rel)
+	}
+	clean := filepath.Clean(filepath.FromSlash(rel))
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path escapes repository base: %q", rel)
+	}
+	return filepath.Join(root, clean), nil
 }
 
 // SpecMemoryPath is the per-spec steering-memory store (RM.1).

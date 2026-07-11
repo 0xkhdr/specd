@@ -4,8 +4,27 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// TestSafeJoin (R2.2): repo-relative paths resolve under root; empty, absolute,
+// and traversal-escaping inputs are refused.
+func TestSafeJoinPath(t *testing.T) {
+	root := t.TempDir()
+	for _, bad := range []string{"", "/etc/passwd", "../escape", "a/../../b"} {
+		if _, err := SafeJoin(root, bad); err == nil {
+			t.Fatalf("SafeJoin accepted unsafe %q", bad)
+		}
+	}
+	abs, err := SafeJoin(root, ".specd/specs/demo/tasks.md")
+	if err != nil {
+		t.Fatalf("SafeJoin rejected safe path: %v", err)
+	}
+	if !strings.HasPrefix(abs, root+string(filepath.Separator)) {
+		t.Fatalf("SafeJoin escaped root: %s", abs)
+	}
+}
 
 func TestFindRoot(t *testing.T) {
 	root := t.TempDir()

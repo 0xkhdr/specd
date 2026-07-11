@@ -20,8 +20,8 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 01 W0 — Contract and baseline
 - [x] 01 W1 — Design and planning guidance (needs 01 W0)
 - [x] 01 W2 — Task trace/risk contract (needs 01 W0,W1)
-- [ ] 02 W0 — contract, fixtures, migration
-- [ ] 02 W1 — typed v2 foundation (needs 02 W0)
+- [x] 02 W0 — contract, fixtures, migration
+- [x] 02 W1 — typed v2 foundation (needs 02 W0)
 - [ ] 02 W2 — required lanes and driver contract (needs 02 W1, 01 task metadata)
 - [ ] 03 W0 — contract baseline
 - [ ] 03 W1 — truthful paths, scaffold, resolution, doctor (needs 03 W0)

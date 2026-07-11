@@ -7,17 +7,21 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/02-context-knowledge-and-skills.md; specs/02-context-knowledge-and-skills | | printf ok | contract inventory/maps R1-R8 to code and external domains |
-| [ ] T02 | craftsman | internal/context/manifest_test.go; internal/context/steering_manifest_test.go; internal/cmd/lifecycle_test.go; internal/cmd/integration_polish_test.go | T01 | go test ./internal/context ./internal/cmd -run 'Test(BuildManifest|SteeringInManifest|Lifecycle|Integration)' | failing wrong-root/missing/overflow/stale/route fixture baseline R8 |
-| [ ] T03 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T01 | go test ./internal/context -run TestManifest && ./scripts/docs-lint.sh | V1/V2 compatibility/render decision documented R1.3,R8.2 |
+| [x] T01 | scout | docs/google-sdlc-alignment/02-context-knowledge-and-skills.md; specs/02-context-knowledge-and-skills | | printf ok | contract inventory/maps R1-R8 to code and external domains |
+| [x] T02 | craftsman | internal/context/manifest_test.go; internal/context/steering_manifest_test.go; internal/cmd/lifecycle_test.go; internal/cmd/integration_polish_test.go | T01 | go test ./internal/context ./internal/cmd -run 'Test(BuildManifest|SteeringInManifest|Lifecycle|Integration)' | failing wrong-root/missing/overflow/stale/route fixture baseline R8 |
+| [x] T03 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T01 | go test ./internal/context -run TestManifest && ./scripts/docs-lint.sh | V1/V2 compatibility/render decision documented R1.3,R8.2 |
+
+> **W0 deviations.** T02 (subtractive): the R8 baseline scenarios are all observable on the `context.Manifest` value, so the fixtures live in the two declared context-package test files (`manifest_test.go`, `steering_manifest_test.go`). The two declared cmd files (`internal/cmd/lifecycle_test.go`, `internal/cmd/integration_polish_test.go`) were not needed — their existing `TestLifecycleE2E`/handshake tests already cover the CLI surface; end-to-end route/stale baselines are deferred to the W6 conformance wave. No product code changed in W0.
 
 ## W1 — typed v2 foundation
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/estimate.go; internal/context/estimate_test.go | T02,T03 | go test ./internal/context -run 'TestManifest|TestEstimate' | typed V2 schema, required fields, canonical ordering/digest R1 |
-| [ ] T05 | craftsman | internal/context/resolver.go; internal/context/resolver_test.go; internal/core/paths.go; internal/core/paths_test.go | T04 | go test ./internal/context ./internal/core -run 'TestResolver|Test.*Path' | canonical root, traversal/symlink/wrong-root refusal R2.2 |
-| [ ] T06 | craftsman | internal/context/manifest.go; internal/context/budget.go; internal/context/budget_test.go; internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go | T04,T05 | go test ./internal/context ./internal/core/gates -run 'Test.*Budget|TestManifest' | emitted-byte accounting; required overflow fails R3 |
+| [x] T04 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/estimate.go; internal/context/estimate_test.go | T02,T03 | go test ./internal/context -run 'TestManifest|TestEstimate' | typed V2 schema, required fields, canonical ordering/digest R1 |
+| [x] T05 | craftsman | internal/context/resolver.go; internal/context/resolver_test.go; internal/core/paths.go; internal/core/paths_test.go | T04 | go test ./internal/context ./internal/core -run 'TestResolver|Test.*Path' | canonical root, traversal/symlink/wrong-root refusal R2.2 |
+| [x] T06 | craftsman | internal/context/manifest.go; internal/context/budget.go; internal/context/budget_test.go; internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go | T04,T05 | go test ./internal/context ./internal/core/gates -run 'Test.*Budget|TestManifest' | emitted-byte accounting; required overflow fails R3 |
+
+> **W1 deviations.** T04 (subtractive): the typed V2 schema and canonical digest reuse the existing `EstimateText` estimator, so the declared `internal/context/estimate.go` / `estimate_test.go` were not modified. T06 (subtractive): the V2 budget (`EnforceBudgetV2`) is additive in `manifest.go`; the V1 `budget.go` gate and `contextbudget.go` were left unchanged. V2 is built and validated alongside V1 but is **not** yet the default renderer (per the W1 note below) — the W0 baselines still characterize the V1 default.
 
 ## W2 — required lanes and driver contract
 

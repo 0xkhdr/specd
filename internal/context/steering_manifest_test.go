@@ -76,3 +76,21 @@ func TestSteeringInManifest(t *testing.T) {
 		}
 	}
 }
+
+// TestSteeringInManifestMissingSilentBaseline (W0 T02, R8/R2.3) pins the current
+// gap: when no steering/memory exists it is silently skipped rather than failing
+// the build with item identity. W1/W3 make *required* knowledge fail closed;
+// optional steering legitimately stays optional. This baseline flips when the
+// required-lane resolution lands.
+func TestSteeringInManifestMissingSilentBaseline(t *testing.T) {
+	root := t.TempDir() // no .specd/steering dir at all
+	m, err := BuildManifest(root, "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 0)
+	if err != nil {
+		t.Fatalf("baseline expected silent skip, got error: %v — update this baseline in W1/W3", err)
+	}
+	for _, it := range m.Items {
+		if it.Kind == "steering" || it.Kind == "memory" {
+			t.Fatalf("expected no steering/memory when dir absent, got %+v", it)
+		}
+	}
+}

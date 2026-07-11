@@ -221,6 +221,8 @@ specd context <slug> <task-id> [--json|--hud]
 ```
 Build the bounded context manifest for a task. **Phases:** post-requirements.
 
+Manifest schema **v1** is the current compatibility renderer; a typed **v2** contract is being introduced additively. Unknown or unsupported manifest versions fail closed rather than being reinterpreted.
+
 | Flag | Value | Description |
 |---|---|---|
 | `--json` | bool | Emit machine-readable context. |

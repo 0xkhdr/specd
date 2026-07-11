@@ -33,3 +33,37 @@ func TestCheckBudgetDisabledDoesNoWork(t *testing.T) {
 		}
 	}
 }
+
+// TestEnforceBudgetV2 (R3.2/R3.3): a required total over budget fails closed and
+// truncates nothing; optional items shed in deterministic priority-desc order,
+// each omission naming item and reason; budget<=0 disables enforcement.
+func TestEnforceBudgetV2(t *testing.T) {
+	req := ItemV2{Kind: "task", Required: true, Priority: 0, EstimatedTokens: 100, Reason: "selected task"}
+	optHi := ItemV2{Kind: "memory", Source: "m1", Priority: 5, EstimatedTokens: 30, Reason: "relevant memory"}
+	optLo := ItemV2{Kind: "examples", Source: "e1", Priority: 9, EstimatedTokens: 30, Reason: "example"}
+
+	if _, _, _, _, err := EnforceBudgetV2([]ItemV2{req}, 50); err == nil {
+		t.Fatal("required overflow must fail closed")
+	} else if _, ok := err.(BudgetError); !ok {
+		t.Fatalf("want BudgetError, got %v", err)
+	}
+
+	kept, oms, reqTok, optTok, err := EnforceBudgetV2([]ItemV2{req, optHi, optLo}, 130)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	if reqTok != 100 {
+		t.Fatalf("required tokens = %d", reqTok)
+	}
+	if len(oms) != 1 || oms[0].Source != "e1" || oms[0].Reason == "" {
+		t.Fatalf("expected e1 shed first with a reason, got %+v", oms)
+	}
+	if len(kept) != 2 || optTok != 30 {
+		t.Fatalf("kept=%+v optTok=%d", kept, optTok)
+	}
+
+	kept2, oms2, _, _, err := EnforceBudgetV2([]ItemV2{req, optHi}, 0)
+	if err != nil || len(oms2) != 0 || len(kept2) != 2 {
+		t.Fatalf("budget<=0 must keep all: kept=%+v oms=%+v err=%v", kept2, oms2, err)
+	}
+}
