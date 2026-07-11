@@ -65,6 +65,16 @@ type CheckCtx struct {
 	// (R7.1); unknown references and unknown risk tiers are always refused.
 	TaskTraceRequired bool
 
+	// Quality-freshness gate inputs (spec 04 R3.3, opt-in). QualityContracts maps
+	// a task id to its declared required evidence classes/checks; Evals is the
+	// imported eval store; QualitySubject is the current subject revision/digests.
+	// The evidence gate refuses a completed task whose required evidence is
+	// missing or stale for the subject. All zero ⇒ no contracts ⇒ no new findings
+	// (parity: an empty CheckCtx yields no quality findings).
+	QualityContracts map[string]core.QualityContract
+	Evals            []core.EvidenceEnvelopeV1
+	QualitySubject   core.FreshnessSubject
+
 	// Program-link gate input (spec 12 R5). When the gate under approval is the
 	// execution transition, the caller fills ProgramDepsIncomplete with the
 	// cross-spec dependencies that are not yet complete; a non-empty list refuses
@@ -208,8 +218,22 @@ func verifyCommands(ctx CheckCtx) []Finding {
 func evidence(ctx CheckCtx) []Finding {
 	var findings []Finding
 	for _, task := range ctx.Tasks {
-		if ctx.Status[task.ID] == core.TaskComplete && !core.HasPassingEvidence(ctx.Evidence, task.ID) {
+		if ctx.Status[task.ID] != core.TaskComplete {
+			continue
+		}
+		if !core.HasPassingEvidence(ctx.Evidence, task.ID) {
 			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s is complete without passing evidence", task.ID)})
+		}
+		contract, ok := ctx.QualityContracts[task.ID]
+		if !ok {
+			continue
+		}
+		st := core.EvaluateQuality(contract, ctx.Evals, ctx.QualitySubject)
+		for _, req := range st.Missing {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s is complete without passing evidence for %s/%s", task.ID, req.EvidenceClass, req.CheckID)})
+		}
+		for _, req := range st.Stale {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s has EVIDENCE_STALE for %s/%s (not current for subject)", task.ID, req.EvidenceClass, req.CheckID)})
 		}
 	}
 	return findings

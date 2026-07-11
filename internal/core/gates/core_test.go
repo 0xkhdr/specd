@@ -110,3 +110,35 @@ func TestCoreGates(t *testing.T) {
 		t.Fatalf("missing evidence should fail")
 	}
 }
+
+func TestCoreGatesQualityFreshness(t *testing.T) {
+	base := CheckCtx{
+		Tasks:    []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./..."}},
+		Status:   map[string]core.TaskRunStatus{"T1": core.TaskComplete},
+		Evidence: map[string]core.EvidenceRecord{"T1": {TaskID: "T1", ExitCode: 0, GitHead: "abc"}},
+	}
+	// No quality contract configured ⇒ gate stays silent (parity).
+	if HasErrors(CoreRegistry().Run(base)) {
+		t.Fatalf("empty quality contract produced errors")
+	}
+
+	base.QualityContracts = map[string]core.QualityContract{
+		"T1": {TaskID: "T1", Required: []core.EvidenceRequirement{{EvidenceClass: core.EvidenceOutputEval, CheckID: "rubric"}}},
+	}
+	base.QualitySubject = core.FreshnessSubject{Revision: "abc"}
+
+	// required eval absent ⇒ completed task flagged
+	if !HasErrors(CoreRegistry().Run(base)) {
+		t.Fatalf("missing required eval on complete task not flagged")
+	}
+	// stale eval ⇒ flagged
+	base.Evals = []core.EvidenceEnvelopeV1{{EvidenceClass: core.EvidenceOutputEval, TaskID: "T1", CheckID: "rubric", Verdict: core.EvalPass, SubjectRevision: "old"}}
+	if !HasErrors(CoreRegistry().Run(base)) {
+		t.Fatalf("stale eval not flagged")
+	}
+	// fresh eval ⇒ clean
+	base.Evals = []core.EvidenceEnvelopeV1{{EvidenceClass: core.EvidenceOutputEval, TaskID: "T1", CheckID: "rubric", Verdict: core.EvalPass, SubjectRevision: "abc"}}
+	if HasErrors(CoreRegistry().Run(base)) {
+		t.Fatalf("fresh eval still flagged")
+	}
+}

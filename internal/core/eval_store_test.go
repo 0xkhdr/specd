@@ -21,6 +21,28 @@ func TestEvalStoreAppendAndDuplicate(t *testing.T) {
 	}
 }
 
+func TestEvalStoreImportRejectsAndPersists(t *testing.T) {
+	root := t.TempDir()
+	path := EvalStorePath(root, "demo")
+	raw := marshalJSONL(t, validOutputEnvelope("e1", "rubric-v1"))
+	// first import stores the record
+	if f, err := ImportEvalsToStore(path, raw, ImportExpect{SpecSlug: "demo", TaskID: "T1"}); err != nil || len(f) != 0 {
+		t.Fatalf("import = %+v, %v", f, err)
+	}
+	got, err := LoadEvals(path)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("load = %+v, %v", got, err)
+	}
+	// re-import the same record is rejected against the existing store, no partial write
+	f, err := ImportEvalsToStore(path, raw, ImportExpect{SpecSlug: "demo", TaskID: "T1"})
+	if err != nil || len(f) != 1 || f[0].Code != "EVAL_IMPORT_DUPLICATE" {
+		t.Fatalf("re-import = %+v, %v", f, err)
+	}
+	if again, _ := LoadEvals(path); len(again) != 1 {
+		t.Fatalf("store grew on rejected import: %+v", again)
+	}
+}
+
 func TestEvalStorePaths(t *testing.T) {
 	root := "/repo"
 	if got := EvalStorePath(root, "demo"); got != filepath.Join(root, ".specd", "specs", "demo", "evals", "records.jsonl") {

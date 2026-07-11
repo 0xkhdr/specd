@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -41,6 +42,32 @@ type ACPEvent struct {
 	ChangedFiles []string          `json:"changed_files,omitempty"`
 	VerifyRef    string            `json:"verify_ref,omitempty"`
 	Telemetry    *core.Annotations `json:"telemetry,omitempty"`
+
+	// TraceDigest pins the normalized observable trace (TraceDigest) backing a
+	// report, linking the ledger to the trajectory evidence a trajectory eval
+	// scores (spec 04 R4.2/R4.3). Optional so bare dispatch/claim events and
+	// pre-trace ledgers stay valid.
+	TraceDigest string `json:"trace_digest,omitempty"`
+}
+
+// HarnessAffectedPaths is the harness-observed set of paths a worker touched.
+// It is audit evidence, not an authoritative diff: Domain 06 owns changed-file
+// authority (spec 04 R4.3). Paths are de-duplicated and sorted.
+func HarnessAffectedPaths(events []ObservableEvent) []string {
+	seen := map[string]bool{}
+	for _, ev := range events {
+		for _, p := range ev.Paths {
+			if p != "" {
+				seen[p] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // NextAttempt is the attempt number for a new claim on taskID: the count of
