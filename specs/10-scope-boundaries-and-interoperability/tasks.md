@@ -16,11 +16,11 @@ record deviation before edit. Cross-domain prerequisites live in `README.md` and
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/adapter/envelope.go; internal/adapter/envelope_test.go; internal/adapter/testdata | T02 | go test ./internal/adapter -run 'TestEnvelope' | R2.1,R2.3 versioned request/result golden round-trip |
-| [ ] T05 | craftsman | internal/adapter/envelope.go; internal/adapter/envelope_test.go | T04 | go test ./internal/adapter -run 'TestEnvelopeReject|TestExitClass' | R2.2,R2.4 unknown version/field fail; stable status classes |
-| [ ] T06 | craftsman | internal/adapter/identity.go; internal/adapter/identity_test.go | T04 | go test ./internal/adapter -run 'TestIdentity' | R3.1,R3.2,R3.3 mismatch rejected before gate; stale marked historical |
-| [ ] T07 | craftsman | internal/adapter/classify.go; internal/adapter/classify_test.go; docs/data-classification.md | T04 | go test ./internal/adapter -run 'TestClassify' && ./scripts/docs-lint.sh | R4.1,R4.2,R4.3 restricted classes absent/redacted by default |
-| [ ] T08 | craftsman | docs/google-sdlc-alignment/README.md; docs/adapter-contract.md; specs/10-scope-boundaries-and-interoperability/README.md | T01 | ./scripts/docs-lint.sh | R5.1 every integration item classified core/adapter/reference/external |
+| [x] T04 | craftsman | internal/adapter/envelope.go; internal/adapter/envelope_test.go; internal/adapter/testdata | T02 | go test ./internal/adapter -run 'TestEnvelope' | R2.1,R2.3 versioned request/result golden round-trip |
+| [x] T05 | craftsman | internal/adapter/envelope.go; internal/adapter/envelope_test.go | T04 | go test ./internal/adapter -run 'TestEnvelopeReject|TestExitClass' | R2.2,R2.4 unknown version/field fail; stable status classes |
+| [x] T06 | craftsman | internal/adapter/identity.go; internal/adapter/identity_test.go | T04 | go test ./internal/adapter -run 'TestIdentity' | R3.1,R3.2,R3.3 mismatch rejected before gate; stale marked historical |
+| [x] T07 | craftsman | internal/adapter/classify.go; internal/adapter/classify_test.go; docs/data-classification.md | T04 | go test ./internal/adapter -run 'TestClassify' && ./scripts/docs-lint.sh | R4.1,R4.2,R4.3 restricted classes absent/redacted by default |
+| [x] T08 | craftsman | docs/google-sdlc-alignment/README.md; docs/adapter-contract.md; specs/10-scope-boundaries-and-interoperability/README.md | T01 | ./scripts/docs-lint.sh | R5.1 every integration item classified core/adapter/reference/external |
 
 ## W2 — runner and capability inspection
 

@@ -1,0 +1,24 @@
+{
+  "schema_version": "adapter/v1",
+  "kind": "eval.request",
+  "request_id": "req-1",
+  "correlation_id": "corr-1",
+  "subject": {
+    "spec_slug": "10-scope",
+    "task_id": "T04",
+    "mission_id": "m-1",
+    "git_head": "abc123",
+    "release_id": "r-9",
+    "environment": "staging"
+  },
+  "actor": "brain",
+  "authority_ref": "role/craftsman",
+  "input_refs": [
+    {"name": "design", "digest": "d1", "class": "spec-text"},
+    {"name": "src", "digest": "d2", "class": "source-path"}
+  ],
+  "capabilities_required": ["eval.run"],
+  "limits": {"timeout_ms": 30000, "output_bytes": 1048576},
+  "started_at": "2026-07-11T00:00:00Z",
+  "adapter_name": "fake-eval"
+}

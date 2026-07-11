@@ -39,7 +39,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 08 W0 — `08a-delivery-assurance-baseline`
 - [x] 09 W0 — `09a-maintenance-baseline`
 - [x] 10 W0 — baseline and boundary invariant
-- [ ] 10 W1 — envelope, identity, classification (10c freezes only after 04/05/07/08
+- [x] 10 W1 — envelope, identity, classification (10c freezes only after 04/05/07/08
       record P0 adapter field demands against 10 W0's inventory)
 
 **Exit P0:** all rows above `[x]` and confirmed by the user.

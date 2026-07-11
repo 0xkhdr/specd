@@ -1,0 +1,27 @@
+{
+  "schema_version": "adapter/v1",
+  "kind": "eval.result",
+  "request_id": "req-1",
+  "correlation_id": "corr-1",
+  "subject": {
+    "spec_slug": "10-scope",
+    "task_id": "T04",
+    "mission_id": "m-1",
+    "git_head": "abc123",
+    "release_id": "r-9",
+    "environment": "staging"
+  },
+  "adapter_name": "fake-eval",
+  "adapter_version": "1.0.0",
+  "capabilities_offered": ["eval.run"],
+  "status": "succeeded",
+  "exit_class": "ok",
+  "retryable": false,
+  "output_refs": [
+    {"name": "score", "digest": "o1", "class": "public-metadata"}
+  ],
+  "measurements": {"score": 0.91},
+  "input_digests": {"design": "d1", "src": "d2"},
+  "started_at": "2026-07-11T00:00:00Z",
+  "finished_at": "2026-07-11T00:00:05Z"
+}
