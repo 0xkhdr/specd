@@ -8,9 +8,9 @@ record deviation before edit. Cross-domain prerequisites live in `README.md` and
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/10-scope-boundaries-and-interoperability.md; specs/10-scope-boundaries-and-interoperability | | printf ok | boundary inventory maps R1-R10 to code and to consuming domains 03-09 |
-| [ ] T02 | craftsman | internal/adapter/import_guard_test.go; internal/adapter/doc.go | T01 | go test ./internal/adapter -run TestImportGuard | R1.1,R1.3 prohibited import in trusted core fails |
-| [ ] T03 | craftsman | internal/adapter/import_guard_test.go; go.mod; go.sum | T02 | go test ./internal/adapter -run TestZeroDependency && go mod verify | R1.2 zero runtime dependency assertion |
+| [x] T01 | scout | docs/google-sdlc-alignment/10-scope-boundaries-and-interoperability.md; specs/10-scope-boundaries-and-interoperability | | printf ok | boundary inventory maps R1-R10 to code and to consuming domains 03-09 |
+| [x] T02 | craftsman | internal/adapter/import_guard_test.go; internal/adapter/doc.go | T01 | go test ./internal/adapter -run TestImportGuard | R1.1,R1.3 prohibited import in trusted core fails |
+| [x] T03 | craftsman | internal/adapter/import_guard_test.go; go.mod; go.sum | T02 | go test ./internal/adapter -run TestZeroDependency && go mod verify | R1.2 zero runtime dependency assertion |
 
 ## W1 — envelope, identity, classification
 
