@@ -5,6 +5,36 @@ import (
 	"os"
 )
 
+type ToolContract struct {
+	Name       string     `json:"name"`
+	Route      string     `json:"route"`
+	Phases     []Phase    `json:"phases"`
+	Capability string     `json:"capability"`
+	Mutable    bool       `json:"mutable"`
+	HumanOnly  bool       `json:"human_only"`
+	ExitCodes  []ExitCode `json:"exit_codes"`
+}
+
+// ManifestToolContracts derives driver routes from canonical Commands.
+func ManifestToolContracts() []ToolContract {
+	out := make([]ToolContract, 0, len(Commands))
+	for _, command := range Commands {
+		if ForbiddenTool(command.Name) {
+			continue
+		}
+		mutable := command.RequiresTask || command.Name == "verify" || command.Name == "submit" || command.Name == "review"
+		capability := "read"
+		if mutable {
+			capability = "write"
+		}
+		if command.HumanOnly {
+			capability, mutable = "human", true
+		}
+		out = append(out, ToolContract{Name: command.Name, Route: "cli:" + command.Name, Phases: append([]Phase(nil), command.AllowedPhases...), Capability: capability, Mutable: mutable, HumanOnly: command.HumanOnly, ExitCodes: append([]ExitCode(nil), command.ExitCodes...)})
+	}
+	return out
+}
+
 type ToolPolicy struct {
 	Optional map[string]bool
 }

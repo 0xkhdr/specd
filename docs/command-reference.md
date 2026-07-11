@@ -56,9 +56,9 @@ specd init --refresh
 
 ### `agents`
 ```
-specd agents [--json]
+specd agents [doctor | guide <slug>] [--json]
 ```
-Inspect installed agent artifacts without writing. **Phases:** any.
+Inspect installed agent artifacts, run read-only diagnostics with `doctor`, or emit deterministic driver actions with `guide`. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -66,7 +66,8 @@ Inspect installed agent artifacts without writing. **Phases:** any.
 
 ```bash
 specd agents
-specd agents --json
+specd agents doctor --json
+specd agents guide payments --json
 ```
 
 ### `new`
@@ -178,7 +179,7 @@ Run the validation gate registry against a spec. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
-| `--security` | bool | Run opt-in security gates. |
+| `--security` | bool | Run opt-in security gates. These scan selected tracked files; they do not yet scan `.specd/` or enforce role capability, declared-file diff scope, or mandatory sandboxing. |
 | `--schema` | bool | Validate `state.json` schema. |
 | `--schema-only` | bool | Validate only `state.json` schema. |
 | `--json` | bool | Emit machine-readable findings. |
@@ -423,11 +424,14 @@ specd unlink api auth
 
 ### `brain`
 ```
-specd brain <start|step|run|status|cancel|resume> <spec> [--authority]
+specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args] [--authority]
 ```
 Run the opt-in deterministic orchestration controller. No LLM sits in its decision path.
-`run` dispatches every currently-ready, unleased task (one wave) and returns — it does **not**
-run to completion; re-invoke it after external workers report so newly-unblocked tasks dispatch.
+`run` records a pending mission/dispatch for every currently-ready, unleased task (one wave) and
+returns. It does **not** launch a worker, agent, model, or adapter. Workers explicitly `claim` a
+pending mission, renew its typed lease with `heartbeat`, then `report` passing current evidence.
+Report validates mission/lease/worker/role/HEAD, derives the local diff and scope verdict, and calls
+normal task completion. Pending dispatch remains no proof of delivery or work.
 **Phases:** post-requirements.
 
 | Flag | Value | Description |
@@ -436,6 +440,9 @@ run to completion; re-invoke it after external workers report so newly-unblocked
 
 ```bash
 specd brain start payments --authority
+specd brain claim payments payments.s1.T1 worker-1 craftsman
+specd brain heartbeat payments <lease-id> worker-1
+specd brain report payments <lease-id> worker-1
 specd brain status payments
 specd brain resume payments
 specd brain cancel payments

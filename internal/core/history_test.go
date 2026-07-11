@@ -57,3 +57,25 @@ func TestRenderHistoryJSONLineParses(t *testing.T) {
 		t.Fatalf("round-trip lost fields: %+v", first)
 	}
 }
+
+// TestHistoryTelemetryTokensAreConflated characterizes the W0 gap the later
+// token-split work closes: worker-reported tokens are a single scalar with no
+// input/output/cache breakdown. Proven on the aggregated telemetry report's
+// JSON surface, which history rendering draws from.
+func TestHistoryTelemetryTokensAreConflated(t *testing.T) {
+	records := []EvidenceRecord{{TaskID: "T1", Telemetry: &Annotations{Tokens: 100}}}
+	report := AggregateTelemetry(records, []string{"T1"})
+	blob, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(blob)
+	for _, absent := range []string{"input_tokens", "output_tokens", "cache_tokens"} {
+		if strings.Contains(js, absent) {
+			t.Fatalf("W0 gap closed early: token breakdown %q present: %s", absent, js)
+		}
+	}
+	if !strings.Contains(js, `"tokens":100`) {
+		t.Fatalf("conflated tokens scalar missing: %s", js)
+	}
+}

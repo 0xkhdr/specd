@@ -3,17 +3,22 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"path"
+	"sort"
 	"strings"
 )
 
 type TaskRow struct {
-	ID         string
-	Marker     string
-	Role       string
-	Files      string
-	DependsOn  []string
-	Verify     string
-	Acceptance string
+	ID     string
+	Marker string
+	Role   string
+	Files  string
+	// DeclaredFiles is the canonical, sorted, de-duplicated projection of Files.
+	// Files remains untouched so tasks.md round-trips byte-for-byte.
+	DeclaredFiles []string
+	DependsOn     []string
+	Verify        string
+	Acceptance    string
 	// Trace/risk planning metadata (spec 01 R3.1). Parsed from optional named
 	// columns; absent columns yield zero values so legacy 6-column tasks.md
 	// files parse unchanged (backward compatible). The task-trace gate requires
@@ -52,14 +57,20 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 				return formatDuplicateTask(id)
 			}
 			seen[id] = true
+			files := cell(cells, indexes["files"])
+			declaredFiles, err := normalizeDeclaredFiles(files)
+			if err != nil {
+				return fmt.Errorf("task %s files: %w", id, err)
+			}
 			doc.Tasks = append(doc.Tasks, TaskRow{
-				ID:         id,
-				Marker:     marker,
-				Role:       cell(cells, indexes["role"]),
-				Files:      cell(cells, indexes["files"]),
-				DependsOn:  splitTaskList(cell(cells, indexes["depends-on"])),
-				Verify:     strings.Trim(cell(cells, indexes["verify"]), "`"),
-				Acceptance: cell(cells, indexes["acceptance"]),
+				ID:            id,
+				Marker:        marker,
+				Role:          cell(cells, indexes["role"]),
+				Files:         files,
+				DeclaredFiles: declaredFiles,
+				DependsOn:     splitTaskList(cell(cells, indexes["depends-on"])),
+				Verify:        strings.Trim(cell(cells, indexes["verify"]), "`"),
+				Acceptance:    cell(cells, indexes["acceptance"]),
 				// Optional trace/risk columns (spec 01 R3.1). headerIndex returns
 				// -1 for a column the header omits, which cell() reads as empty.
 				Refs:     splitTaskList(cell(cells, headerIndex(header, "refs"))),
@@ -77,6 +88,28 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 	}
 	doc.Tables = tables
 	return doc, nil
+}
+
+func normalizeDeclaredFiles(raw string) ([]string, error) {
+	seen := map[string]bool{}
+	for _, value := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' }) {
+		value = strings.TrimSpace(value)
+		if value == "" || value == "-" {
+			continue
+		}
+		value = strings.ReplaceAll(value, "\\", "/")
+		clean := path.Clean(value)
+		if path.IsAbs(clean) || (len(clean) >= 2 && clean[1] == ':') || clean == ".." || strings.HasPrefix(clean, "../") {
+			return nil, fmt.Errorf("declared path %q escapes repository base", value)
+		}
+		seen[clean] = true
+	}
+	out := make([]string, 0, len(seen))
+	for value := range seen {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func RewriteTaskStatusLine(raw []byte, id string, marker string) ([]byte, error) {

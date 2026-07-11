@@ -4,6 +4,14 @@ Every artifact specd reads and writes lives under `.specd/` in the managed proje
 is stable, greppable, and human-editable — the harness owns the writes, but nothing is opaque.
 This page documents the on-disk surface so integrators can read it directly.
 
+## Quality evidence declaration
+
+Tasks may use optional `evidence` and `checks` columns. `evidence` contains comma-separated
+`<class>/<check-id>` requirements; classes are `test`, `output_eval`, `trajectory_eval`, or
+`review`. `checks` lists stable check IDs. Legacy tables omitting both remain valid; existing
+`verify` records mean `test` evidence only. Parser preserves author bytes—no companion file or
+silent rewrite is required.
+
 ## Layout
 
 ```

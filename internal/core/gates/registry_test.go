@@ -14,3 +14,15 @@ func TestRegistryOrder(t *testing.T) {
 		}
 	}
 }
+
+type namedGate string
+
+func (g namedGate) Name() string           { return string(g) }
+func (g namedGate) Run(CheckCtx) []Finding { return nil }
+
+func TestRegistryProductionRequiredGate(t *testing.T) {
+	names := CoreRegistryWith(namedGate("security")).Names()
+	if names[len(names)-1] != "security" {
+		t.Fatalf("names=%v", names)
+	}
+}

@@ -10,7 +10,8 @@ with no LLM in its decision path. Read this file before acting on a specd projec
    Only run the commands it lists as legal. It never lists task context or task verify
    when there is no executable task, and **`approve` is always human-only** — you never
    self-approve.
-2. `specd context <slug> <task>` — get the lean, cited context manifest for one task
+2. `specd context <slug> <task> --json` — get typed context V2, including required
+   task knowledge, tool routes, authority limits, and config/palette drift digests
    (only once a task is executable — the guide will say so).
 3. Do the task under its **role** (below). Touch only the task's declared `files:`.
 4. `specd verify` — record evidence (exit code + git HEAD). This, not your say-so, is

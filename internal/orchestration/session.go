@@ -34,8 +34,10 @@ type Session struct {
 	State    SessionState `json:"state,omitempty"`
 	// Step is the controller tick counter, incremented per dispatch. It feeds the
 	// mission id so a re-issued dispatch after resume reuses the same id.
-	Step   int     `json:"step,omitempty"`
-	Leases []Lease `json:"leases,omitempty"`
+	Step            int         `json:"step,omitempty"`
+	Leases          []Lease     `json:"leases,omitempty"`
+	PendingMissions []MissionV1 `json:"pending_missions,omitempty"`
+	Missions        []MissionV1 `json:"missions,omitempty"`
 }
 
 // Status returns the effective lifecycle state, treating the empty zero value as

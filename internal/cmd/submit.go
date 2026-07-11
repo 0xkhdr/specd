@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
+	"github.com/0xkhdr/specd/internal/core/gates/security"
 	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 )
 
@@ -29,7 +31,21 @@ func runSubmit(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	gateFailures := gateFailureMessages(gates.CoreRegistry().Run(buildCheckCtx(root, slug, spec, "")))
+	cfg := loadSpecConfig(root)
+	policy, err := security.ResolvePolicy(cfg.Security)
+	if err != nil {
+		return err
+	}
+	registry := gates.CoreRegistry()
+	if policy.Profile == "production" {
+		registry = gates.CoreRegistryWith(security.New(security.ConfigForPolicy(cfg.Security, policy)))
+	}
+	gateFailures := gateFailureMessages(registry.Run(buildCheckCtx(root, slug, spec, "")))
+	if policy.Profile == "production" {
+		if err := requireCurrentSecurityEvidence(root, slug, policy); err != nil {
+			gateFailures = append(gateFailures, err.Error())
+		}
+	}
 	model, err := reportModel(root, slug)
 	if err != nil {
 		return err
@@ -54,7 +70,6 @@ func runSubmit(root string, args []string, flags map[string]string) error {
 		return fmt.Errorf("already submitted at HEAD %s; pass --resubmit to submit again", head)
 	}
 
-	cfg := loadSpecConfig(root)
 	if cfg.Submit.Command == "" {
 		// Dry-run default: no operator command configured (R3). Print the summary
 		// to stdout and exit 0; nothing is recorded because nothing was submitted.
@@ -98,6 +113,25 @@ func runSubmit(root string, args []string, flags map[string]string) error {
 		return fmt.Errorf("submit command failed with exit code %d", result.ExitCode)
 	}
 	fmt.Fprintf(os.Stdout, "submitted %s at %s (summary %s)\n", slug, head, hash[:12])
+	return nil
+}
+
+func requireCurrentSecurityEvidence(root, slug string, policy security.PolicyV1) error {
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return err
+	}
+	raw, ok := state.Records["security"]
+	if !ok {
+		return fmt.Errorf("security_evidence_stale: run `specd check %s --security`", slug)
+	}
+	var rec securityEvidenceRecord
+	if err := json.Unmarshal(raw, &rec); err != nil {
+		return fmt.Errorf("security_evidence_stale: run `specd check %s --security`", slug)
+	}
+	if rec.PolicyVersion != policy.PolicyVersion || rec.PolicyDigest != policy.PolicyDigest || rec.SubjectHead != gitHead(root) || rec.SubjectRevision+1 != state.Revision {
+		return fmt.Errorf("security_evidence_stale: run `specd check %s --security`", slug)
+	}
 	return nil
 }
 

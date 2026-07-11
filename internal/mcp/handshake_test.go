@@ -38,3 +38,11 @@ func TestNotificationGetsNoReply(t *testing.T) {
 		t.Fatalf("notification drew a reply: %q", out.String())
 	}
 }
+
+func TestHandshakeDriverProtocolVersion(t *testing.T) {
+	resp := Dispatch(Request{JSONRPC: "2.0", ID: 1, Method: "initialize"}, CoreTools(), nil)
+	result := resp.Result.(map[string]any)
+	if result["driverProtocolVersion"] != "1" {
+		t.Fatalf("driver protocol version = %#v", result["driverProtocolVersion"])
+	}
+}

@@ -3,8 +3,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 // ErrUsage is the sentinel for fail-closed rejections that must map to exit
@@ -19,6 +21,10 @@ var ErrUsage = errors.New("usage")
 // (exit 2); unknown verbs wrap ErrUnknownCommand (exit 2). This is the one
 // place the harness turns command metadata into enforcement (spec 03).
 func Run(root, name string, args []string, flags map[string]string) error {
+	return runDispatch(root, name, args, flags, nil, time.Time{}, nil)
+}
+
+func runDispatch(root, name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time, changedPaths []string) error {
 	handler, ok := Registry[name]
 	if !ok || handler == nil {
 		return fmt.Errorf("%w: %q", ErrUnknownCommand, name)
@@ -31,8 +37,40 @@ func Run(root, name string, args []string, flags map[string]string) error {
 		if err := checkPhase(root, meta, args); err != nil {
 			return err
 		}
+		cfg := loadSpecConfig(root)
+		if cfg.Security.Profile == "production" && meta.RequiresTask && authority == nil {
+			return fmt.Errorf("authority denied: production task command requires AuthorityV1 packet")
+		}
+		if authority != nil {
+			mutable := name == "task" || name == "submit" || name == "review"
+			for _, tool := range core.ManifestToolContracts() {
+				if tool.Name == name {
+					mutable = tool.Mutable
+				}
+			}
+			phase := string(authority.Phase)
+			if err := core.AuthorizeTool(*authority, name, changedPaths, now, phase, mutable); err != nil {
+				_ = orchestration.RecordAuthorityDenial(root, *authority, name, "denied", now)
+				return fmt.Errorf("authority denied: %w", err)
+			}
+			if meta.SpecSlugArg != nil && *meta.SpecSlugArg < len(args) && authority.SpecID != args[*meta.SpecSlugArg] {
+				return fmt.Errorf("authority denied: spec mismatch")
+			}
+			taskArg := 1
+			if name == "task" {
+				taskArg = 2
+			}
+			if meta.RequiresTask && len(args) > taskArg && authority.TaskID != args[taskArg] {
+				return fmt.Errorf("authority denied: task mismatch")
+			}
+		}
 	}
 	return handler(root, args, flags)
+}
+
+// RunAuthorized enforces a mission authority packet before normal dispatch.
+func RunAuthorized(root, name string, args []string, flags map[string]string, authority core.AuthorityV1, changedPaths []string, now time.Time) error {
+	return runDispatch(root, name, args, flags, &authority, now, changedPaths)
 }
 
 // checkFlagEnums fails closed (exit 2) when a flag carrying a declared enum is

@@ -135,10 +135,10 @@ var Commands = []Command{
 	},
 	{
 		Name:          "agents",
-		Usage:         "specd agents [--json]",
-		Description:   "Inspect installed agent artifacts without writing.",
+		Usage:         "specd agents [doctor | guide <slug>] [--json]",
+		Description:   "Inspect agent artifacts, diagnose prerequisites, or emit deterministic driver guidance without writing.",
 		AllowedPhases: anyPhase(),
-		Examples:      []string{"specd agents", "specd agents --json"},
+		Examples:      []string{"specd agents", "specd agents doctor --json", "specd agents guide payments --json"},
 		Flags:         []Flag{{Name: "json", TakesValue: false, Type: "bool", Description: "Emit JSON."}},
 		ExitCodes:     stdCodes(),
 	},
@@ -324,12 +324,12 @@ var Commands = []Command{
 	},
 	{
 		Name:          "brain",
-		Usage:         "specd brain <start|step|run|status|cancel|resume> <spec> [--authority]",
+		Usage:         "specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args] [--authority]",
 		Description:   "Run the opt-in deterministic orchestration controller.",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(1),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd brain start payments --authority", "specd brain status payments", "specd brain resume payments", "specd brain cancel payments"},
+		Examples:      []string{"specd brain start payments --authority", "specd brain claim payments payments.s1.T1 worker-1 craftsman", "specd brain heartbeat payments <lease-id> worker-1", "specd brain report payments <lease-id> worker-1"},
 		Flags: []Flag{
 			{Name: "authority", Type: "bool", Description: "Grant dispatch authority (fail-closed by default)."},
 		},

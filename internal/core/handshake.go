@@ -13,8 +13,9 @@ type Handshake struct {
 	// PaletteDigest and ConfigDigest let an agent detect that its cached command
 	// palette or effective config has drifted from this binary's (spec 11 R6).
 	// Both are SHA-256 over the canonical (stable-key-order) JSON.
-	PaletteDigest string `json:"palette_digest"`
-	ConfigDigest  string `json:"config_digest"`
+	PaletteDigest string         `json:"palette_digest"`
+	ConfigDigest  string         `json:"config_digest"`
+	ToolContracts []ToolContract `json:"tool_contracts"`
 }
 
 func BootstrapHandshake(config Config) Handshake {
@@ -31,6 +32,7 @@ func BootstrapHandshake(config Config) Handshake {
 		Tools:         allowed,
 		PaletteDigest: PaletteDigest(),
 		ConfigDigest:  ConfigDigest(config),
+		ToolContracts: ManifestToolContracts(),
 	}
 }
 

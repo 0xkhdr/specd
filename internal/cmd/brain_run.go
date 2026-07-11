@@ -17,8 +17,8 @@ const brainLeaseTTL = 15 * time.Minute
 // authority is fail-closed: without --authority the controller waits and writes
 // nothing. No LLM sits in this path — Decide/Sense are pure functions of state.
 func runBrain(root string, args []string, flags map[string]string) error {
-	if len(args) != 2 {
-		return errors.New("usage: specd brain <start|step|run|status|cancel|resume> <spec>")
+	if len(args) < 2 {
+		return errors.New("usage: specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args]")
 	}
 	sub, slug := args[0], args[1]
 	sessionPath := filepath.Join(core.SpecdDir(root), "specs", slug, "session.json")
@@ -26,7 +26,16 @@ func runBrain(root string, args []string, flags map[string]string) error {
 	checkpointPath := orchestration.CheckpointPath(root, slug)
 
 	switch sub {
+	case "claim":
+		return brainClaim(root, sessionPath, acpPath, slug, args[2:])
+	case "heartbeat":
+		return brainHeartbeat(root, sessionPath, acpPath, slug, args[2:])
+	case "report":
+		return brainWorkerReport(root, sessionPath, acpPath, slug, args[2:])
 	case "status":
+		if len(args) != 2 {
+			return errors.New("usage: specd brain status <spec>")
+		}
 		return brainStatus(sessionPath, checkpointPath, acpPath, slug)
 	case "start":
 		if err := requireBrainStartPreconditions(root, slug); err != nil {
@@ -65,6 +74,9 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	session, err := orchestration.LoadSession(sessionPath)
 	if err != nil {
 		return "", err
+	}
+	if session.ID == "" {
+		session.ID = slug
 	}
 	// A cancelled or complete session refuses further stepping (spec 07 R2). Fail
 	// closed (exit 1) rather than silently no-op.
@@ -119,11 +131,16 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 		return "", err
 	}
 
-	snapshot := orchestration.Sense(state, frontier, session.Leases, now)
+	reservations := append([]orchestration.Lease(nil), session.Leases...)
+	for _, mission := range session.PendingMissions {
+		reservations = append(reservations, orchestration.Lease{TaskID: mission.TaskID, ExpiresAt: mission.ExpiresAt})
+	}
+	snapshot := orchestration.Sense(state, frontier, reservations, now)
 	authority := orchestration.Authority{Enabled: flagEnabled(flags, "authority")}
 	limits := orchestration.DecisionLimitsForAuthority(authority, orchestration.DecisionLimits{MaxRetries: 1})
 
-	dispatcher := &sessionDispatcher{root: root, acpPath: acpPath, checkpointPath: checkpointPath, now: now, session: &session}
+	config, _ := core.LoadConfig(configPaths(root), getenv())
+	dispatcher := &sessionDispatcher{root: root, slug: slug, tasks: spec.Tasks, config: config, acpPath: acpPath, checkpointPath: checkpointPath, now: now, session: &session}
 	decision, err := orchestration.DispatchFrontier(snapshot, limits, dispatcher)
 	if err != nil {
 		return "", err
@@ -185,6 +202,9 @@ func requireBrainStartPreconditions(root, slug string) error {
 
 type sessionDispatcher struct {
 	root           string
+	slug           string
+	tasks          []core.TaskRow
+	config         core.Config
 	acpPath        string
 	checkpointPath string
 	now            time.Time
@@ -202,10 +222,17 @@ type sessionDispatcher struct {
 func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 	step := d.session.Step + 1
 	missionID := orchestration.MissionID(d.session.ID, step, task.ID)
-	lease := orchestration.Lease{
-		TaskID:    task.ID,
-		WorkerID:  "brain",
-		ExpiresAt: d.now.Add(brainLeaseTTL),
+	var selected core.TaskRow
+	for _, row := range d.tasks {
+		if row.ID == task.ID {
+			selected = row
+			break
+		}
+	}
+	mission := orchestration.MissionV1{ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: d.session.ID, MissionID: missionID, SpecSlug: d.slug, TaskID: task.ID, Attempt: 1, Role: selected.Role, AuthorityRef: "approval:tasks", DeclaredFiles: append([]string(nil), selected.DeclaredFiles...), Acceptance: []string{selected.Acceptance}, Verify: selected.Verify, ContextRef: "context:" + d.slug + ":" + task.ID, ContextDigest: core.Digest([]byte(selected.ID + selected.Role + selected.Files + selected.Verify + selected.Acceptance)), ConfigDigest: core.ConfigDigest(d.config), PaletteDigest: core.PaletteDigest(), PolicyDigest: core.ConfigDigest(d.config), SubjectHead: gitHead(d.root), RouteClass: "pending-local", RouteReason: "controller recorded; delivery adapter not configured", Limits: orchestration.MissionLimits{MaxAttempts: 1, TimeoutSeconds: int(brainLeaseTTL.Seconds())}, IssuedAt: d.now, ExpiresAt: d.now.Add(brainLeaseTTL), Status: orchestration.MissionPending}
+	payload, err := orchestration.MissionPayload(mission)
+	if err != nil {
+		return err
 	}
 	if err := orchestration.SaveCheckpoint(d.root, d.checkpointPath, orchestration.Checkpoint{
 		SessionID: d.session.ID,
@@ -213,7 +240,6 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 		Decision:  orchestration.ACPKindDispatch,
 		MissionID: missionID,
 		TaskID:    task.ID,
-		Lease:     &lease,
 		Time:      d.now,
 	}); err != nil {
 		return err
@@ -223,11 +249,12 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 		Kind:      orchestration.ACPKindDispatch,
 		TaskID:    task.ID,
 		MissionID: missionID,
+		Payload:   payload,
 	}); err != nil {
 		return err
 	}
 	d.session.Step = step
-	d.session.Leases = append(d.session.Leases, lease)
+	d.session.PendingMissions = append(d.session.PendingMissions, mission)
 	return nil
 }
 

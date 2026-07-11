@@ -37,3 +37,12 @@ func TestCompleteRequiresEvidence(t *testing.T) {
 		t.Fatalf("task row was not updated")
 	}
 }
+
+func TestCompleteTaskLegacySubjectFreshnessBaseline(t *testing.T) {
+	raw := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok |\n")
+	// Current API has no expected subject input, so any pinned historical head
+	// passes. W2 replaces this baseline with explicit freshness refusal.
+	if _, err := CompleteTask(raw, "T1", map[string]EvidenceRecord{"T1": {TaskID: "T1", ExitCode: 0, GitHead: "old-head"}}); err != nil {
+		t.Fatalf("baseline changed early: %v", err)
+	}
+}

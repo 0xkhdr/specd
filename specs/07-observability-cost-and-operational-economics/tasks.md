@@ -9,9 +9,19 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/07-observability-cost-and-operational-economics.md; specs/07-observability-cost-and-operational-economics | | printf ok | map R1-R9 to telemetry/evidence/acp/history/report_metrics/prometheus/manifest/budget/contextbudget/brakes/sense/brain_run surfaces and Domain 01/02/04/05/06/10 boundaries |
-| [ ] T02 | craftsman | internal/core/telemetry_test.go; internal/core/history_test.go; internal/context/budget_test.go; internal/orchestration/brakes_test.go; internal/core/prometheus_test.go | T01 | go test ./internal/core ./internal/context ./internal/orchestration -run 'Test(Telemetry|History|Budget|Brake|Prometheus)' | failing fixtures: no run/span correlation, conflated `tokens`, cost-without-currency, dormant unset cost brake, underestimated context payload, unbounded label additions R1-R6 |
-| [ ] T03 | craftsman | docs/observability.md; docs/open-spec-format.md; docs/command-reference.md; docs/CHEATSHEET.md | T01 | ./scripts/docs-lint.sh | correct wording: history is audit projection not full trace; telemetry is worker-reported not measured; cost brake dormant; budget does not prove sufficiency; name P0 route |
+| [x] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/07-observability-cost-and-operational-economics.md; specs/07-observability-cost-and-operational-economics | | printf ok | map R1-R9 to telemetry/evidence/acp/history/report_metrics/prometheus/manifest/budget/contextbudget/brakes/sense/brain_run surfaces and Domain 01/02/04/05/06/10 boundaries |
+| [x] T02 | craftsman | internal/core/telemetry_test.go; internal/core/history_test.go; internal/context/budget_test.go; internal/orchestration/brakes_test.go; internal/core/prometheus_test.go | T01 | go test ./internal/core ./internal/context ./internal/orchestration -run 'Test(Telemetry|History|Budget|Brake|Prometheus)' | failing fixtures: no run/span correlation, conflated `tokens`, cost-without-currency, dormant unset cost brake, underestimated context payload, unbounded label additions R1-R6 |
+| [x] T03 | craftsman | docs/observability.md; docs/open-spec-format.md; docs/command-reference.md; docs/CHEATSHEET.md | T01 | ./scripts/docs-lint.sh | correct wording: history is audit projection not full trace; telemetry is worker-reported not measured; cost brake dormant; budget does not prove sufficiency; name P0 route |
+
+> **W0 deviations.** T01 inventory already recorded in `w0-inventory.md` (R1–R9 → telemetry/evidence/
+> acp/history/prometheus/manifest/budget/contextbudget/brakes/sense/brain_run surfaces with 01/02/04/
+> 05/06/10 boundaries). T02 "failing fixtures" are written as **passing characterization** tests that
+> pin each current gap and flip to assert the fix when its wave lands: run/span+currency
+> (`TestTelemetryLacksCorrelationAndCurrency`), conflated tokens (`TestHistoryTelemetryTokensAreConflated`),
+> underestimated payload (`TestBudgetUnderestimatesPayload`), dormant brake (`TestBrakeDormantWhenMaxCostUnset`,
+> new `brakes_test.go`), unbounded labels (`TestPrometheusTaskLabelsAreUnbounded`). T03: honesty wording
+> added to `docs/observability.md` only; `open-spec-format.md`, `command-reference.md`, `CHEATSHEET.md`
+> needed no edit (no telemetry wording / no CLI change in W0) — declared but not touched (subtractive).
 
 ## W1 — versioned run/telemetry envelope
 

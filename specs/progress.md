@@ -22,20 +22,20 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 01 W2 — Task trace/risk contract (needs 01 W0,W1)
 - [x] 02 W0 — contract, fixtures, migration
 - [x] 02 W1 — typed v2 foundation (needs 02 W0)
-- [ ] 02 W2 — required lanes and driver contract (needs 02 W1, 01 task metadata)
-- [ ] 03 W0 — contract baseline
-- [ ] 03 W1 — truthful paths, scaffold, resolution, doctor (needs 03 W0)
-- [ ] 03 W2 — driver projection (needs 03 W1, 02 manifest v2)
-- [ ] 04 W0 — baseline and contract decision
-- [ ] 04 W1 — evidence envelope and declaration (needs 04 W0, 01 task metadata)
-- [ ] 05 W0 — inventory, wording, contract baseline
-- [ ] 05 W1 — mission and pending dispatch (needs 05 W0, 03 dispatch envelope)
-- [ ] 05 W2 — worker lifecycle and normal completion (needs 05 W1, 04/06 contracts)
-- [ ] 06 W0 — inventory, wording, contract baseline
-- [ ] 06 W1 — operating profiles and required gates (needs 06 W0, 01)
-- [ ] 06 W2 — declared scope from harness diff (needs 06 W1, 05 report)
-- [ ] 06 W3 — role authority packets and tool policy (needs 06 W2, 05 mission)
-- [ ] 07 W0 — inventory, wording, contract baseline
+- [x] 02 W2 — required lanes and driver contract (needs 02 W1, 01 task metadata)
+- [x] 03 W0 — contract baseline
+- [x] 03 W1 — truthful paths, scaffold, resolution, doctor (needs 03 W0)
+- [x] 03 W2 — driver projection (needs 03 W1, 02 manifest v2)
+- [x] 04 W0 — baseline and contract decision
+- [x] 04 W1 — evidence envelope and declaration (needs 04 W0, 01 task metadata)
+- [x] 05 W0 — inventory, wording, contract baseline
+- [x] 05 W1 — mission and pending dispatch (needs 05 W0, 03 dispatch envelope)
+- [x] 05 W2 — worker lifecycle and normal completion (needs 05 W1, 04/06 contracts)
+- [x] 06 W0 — inventory, wording, contract baseline
+- [x] 06 W1 — operating profiles and required gates (needs 06 W0, 01)
+- [x] 06 W2 — declared scope from harness diff (needs 06 W1, 05 report)
+- [x] 06 W3 — role authority packets and tool policy (needs 06 W2, 05 mission)
+- [x] 07 W0 — inventory, wording, contract baseline
 - [ ] 08 W0 — `08a-delivery-assurance-baseline`
 - [ ] 09 W0 — `09a-maintenance-baseline`
 - [ ] 10 W0 — baseline and boundary invariant

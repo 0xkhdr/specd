@@ -1,6 +1,7 @@
 # Role: Validator (read-only)
 
 **Capability:** run the verification and report the record. **You may NOT write code.**
+Runtime authority comes only from validated `AuthorityV1`; this prose grants no tool or path access.
 
 ## Mandate
 - Run the task's `verify:` line via `specd verify`, unmodified.

@@ -14,6 +14,14 @@ type NotFoundError struct {
 	Start string
 }
 
+func EvalStorePath(root, slug string) string {
+	return filepath.Join(SpecdDir(root), "specs", slug, "evals", "records.jsonl")
+}
+
+func EvalTracePath(root, slug, runID string) string {
+	return filepath.Join(SpecdDir(root), "specs", slug, "evals", "traces", runID+".jsonl")
+}
+
 func (e NotFoundError) Error() string {
 	return fmt.Sprintf("specd root not found from %s", e.Start)
 }

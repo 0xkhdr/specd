@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -106,5 +107,21 @@ func TestRenderPrometheusEmptyCostIsZero(t *testing.T) {
 	lintPrometheus(t, out)
 	if !strings.Contains(out, `specd_worker_cost_total{spec="demo"} 0`) {
 		t.Fatalf("unreported cost should render 0:\n%s", out)
+	}
+}
+
+// TestPrometheusTaskLabelsAreUnbounded characterizes the W0 gap W5/W8 closes:
+// per-task telemetry is rendered as a distinct series carrying a task="…"
+// label, so label cardinality grows one-for-one with task count with no bound.
+// A spec with N telemetried tasks emits N task-labeled series.
+func TestPrometheusTaskLabelsAreUnbounded(t *testing.T) {
+	report := TelemetryReport{}
+	for i := 0; i < 50; i++ {
+		id := fmt.Sprintf("T%d", i)
+		report.Tasks = append(report.Tasks, TaskTelemetry{TaskID: id, HasTelemetry: true, Tokens: 1, Attempts: []Annotations{{Tokens: 1}}})
+	}
+	out := RenderTelemetry("demo", report)
+	if n := strings.Count(out, `specd_task_cost{spec="demo",task="`); n != 50 {
+		t.Fatalf("expected one unbounded task series per task, got %d", n)
 	}
 }

@@ -105,6 +105,46 @@ func TestTasksTraceMetadata(t *testing.T) {
 	}
 }
 
+func TestTasksDeclaredFilesNormalized(t *testing.T) {
+	src := "| id | role | files | depends-on | verify | acceptance |\n" +
+		"|---|---|---|---|---|---|\n" +
+		"| T1 | craftsman | ./b.go; a_test.go, a.go; ./b.go | - | go test ./... | R2.1 |\n"
+	doc, err := ParseTasksMd([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"a.go", "a_test.go", "b.go"}
+	if got := doc.Tasks[0].DeclaredFiles; !reflect.DeepEqual(got, want) {
+		t.Fatalf("DeclaredFiles = %#v, want %#v", got, want)
+	}
+	if got := SerializeTasksMd(doc); !bytes.Equal(got, []byte(src)) {
+		t.Fatal("normalization changed author bytes")
+	}
+}
+
+func TestTasksDeclaredFilesRejectEscape(t *testing.T) {
+	for _, files := range []string{"../secret", "/etc/passwd", "a/../../secret", "C:\\temp\\x"} {
+		src := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | " + files + " | - | go test ./... | R2.1 |\n"
+		if _, err := ParseTasksMd([]byte(src)); err == nil {
+			t.Fatalf("unsafe files %q accepted", files)
+		}
+	}
+}
+
+func TestTasksQualityDeclarationCompatibility(t *testing.T) {
+	src := "| id | role | files | depends-on | verify | acceptance | evidence | checks |\n|---|---|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | R1 | test/unit, output_eval/rubric-v1 | unit, rubric-v1 |\n"
+	doc, err := ParseTasksMd([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Tasks[0].Evidence != "test/unit, output_eval/rubric-v1" || doc.Tasks[0].Checks != "unit, rubric-v1" {
+		t.Fatalf("quality declaration = %+v", doc.Tasks[0])
+	}
+	if got := SerializeTasksMd(doc); !bytes.Equal(got, []byte(src)) {
+		t.Fatal("quality columns changed bytes")
+	}
+}
+
 func TestRewriteKeepsMetadataColumns(t *testing.T) {
 	src := "# Tasks\n\n" +
 		"| id | role | files | depends-on | verify | acceptance | risk |\n" +

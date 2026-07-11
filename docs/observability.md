@@ -60,6 +60,30 @@ Prometheus metric **names are an API** — the full family list and naming contr
 [command-reference.md](command-reference.md); renaming one breaks dashboards, so they must not
 churn.
 
+## Current limits (P0 honesty baseline)
+
+The observability surface is deliberately narrow today. State these limits plainly so operators
+do not over-trust the numbers; the P0 route below is the remediation path (Domain 07 waves W1–W9):
+
+- **History is an audit projection, not a full execution trace.** `report --history` folds the
+  on-disk ledgers into an ordered, replayable trail — it is not a span tree and carries no
+  run/span correlation identity. A versioned run envelope with correlated attempts lands in
+  W1–W2.
+- **Telemetry is worker-reported, never measured.** `--tokens`/`--cost`/`--duration-ms` are
+  values a worker chooses to record; specd stores them verbatim and computes nothing. The
+  `tokens` field is a single conflated scalar (no input/output/cache split) and `cost` is a bare
+  decimal with no currency. Provenance and typed decimals land in W1.
+- **The cost brake is dormant unless armed.** The orchestration cost limit only halts when
+  `MaxCost` is a positive value; an unset limit is a silently disabled brake, not a guarantee.
+  An honest, explicit cost brake lands in W4.
+- **The context budget bounds size, it does not prove sufficiency.** `ManifestBudget` estimates
+  from declared item token counts and never reads the referenced files, so it can underestimate
+  the real payload and says nothing about whether the context is *enough*. Measured accounting
+  and a sufficiency signal land in W3.
+
+**P0 route:** these are tracked as the Domain 07 W0 contract baseline; each limit above names the
+wave that closes it. Until then, treat reported cost/tokens as advisory, not authoritative.
+
 ## Crash-safety
 
 The opt-in Brain's ACP ledger is append-only and crash-safe: an interrupted append replays to a

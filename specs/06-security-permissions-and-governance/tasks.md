@@ -8,35 +8,59 @@ fixture before each enforcement change. Stdlib-only; no `reference/` edits; no L
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/06-security-permissions-and-governance.md; specs/06-security-permissions-and-governance | | printf ok | map R1-R8 to config_loader/gates/security/verify/roles/dispatch/mcp/allowlist surfaces and Domain 01/02/04/05/07/10 boundaries |
-| [ ] T02 | craftsman | internal/core/gates/security/gate_test.go; internal/core/gates/security/scanner_test.go; internal/core/verify/sandbox_test.go; internal/cmd/submit_test.go; internal/cmd/dispatch_test.go | T01 | go test ./internal/core/gates/security ./internal/core/verify ./internal/cmd -run 'Test(Gate|Scanner|Sandbox|Submit|Dispatch)' | failing fixtures: opt-in security excluded from submit, role fallback, unenforced scope, `.specd` excluded, fail-open enumeration, unsandboxed verify R1-R5 |
-| [ ] T03 | craftsman | SECURITY.md; docs/agent-integration.md; docs/command-reference.md; docs/CHEATSHEET.md | T01 | ./scripts/docs-lint.sh | correct "convention + gates" wording; state real coverage: roles grant no capability, declared files not diff-compared, injection scan skips `.specd`; name production migration route R1 |
+| [x] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/06-security-permissions-and-governance.md; specs/06-security-permissions-and-governance | | printf ok | map R1-R8 to config_loader/gates/security/verify/roles/dispatch/mcp/allowlist surfaces and Domain 01/02/04/05/07/10 boundaries |
+| [x] T02 | craftsman | internal/core/gates/security/gate_test.go; internal/core/gates/security/scanner_test.go; internal/core/verify/sandbox_test.go; internal/cmd/submit_test.go; internal/cmd/dispatch_test.go | T01 | go test ./internal/core/gates/security ./internal/core/verify ./internal/cmd -run 'Test(Gate|Scanner|Sandbox|Submit|Dispatch)' | failing fixtures: opt-in security excluded from submit, role fallback, unenforced scope, `.specd` excluded, fail-open enumeration, unsandboxed verify R1-R5 |
+| [x] T03 | craftsman | SECURITY.md; docs/agent-integration.md; docs/command-reference.md; docs/CHEATSHEET.md | T01 | ./scripts/docs-lint.sh | correct "convention + gates" wording; state real coverage: roles grant no capability, declared files not diff-compared, injection scan skips `.specd`; name production migration route R1 |
+
+> **W0 deviations.** Inventory maps R1 config/security registry, R2 tasks/diff, R3 roles/dispatch/MCP,
+> R4 scanner/context, R5 verify, R6 dependency policy, R7 allowlist/audit, and R8 adapters, with
+> 01/02/04/05/07/10 boundaries. Existing gate/scanner/sandbox and command tests already characterize
+> opt-in, `.specd` exclusion, role/scope, enumeration, and unsandboxed gaps; no duplicate test files
+> or fixtures were needed. Documentation changes state current limits and migration route.
 
 ## W1 — operating profiles and required gates
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/embed_templates/project.yml | T02 | go test ./internal/core -run 'TestConfig' | versioned `security_profile` parse/validate; prototype/production severity map; invalid/absent profile fails closed; safe defaults preserve current behavior R1.1,R1.4 |
-| [ ] T05 | craftsman | internal/core/gates/security/policy.go; internal/core/gates/security/policy_test.go; internal/core/config_loader.go | T04 | go test ./internal/core/gates/security ./internal/core -run 'Test(Policy|Config)' | canonical policy serialization → stable `policy_version`/`policy_digest`; same inputs identical digest R1.3 |
-| [ ] T06 | craftsman | internal/core/gates/registry.go; internal/core/gates/registry_test.go; internal/core/gates/security/gate.go; internal/core/gates/security/gate_test.go | T05 | go test ./internal/core/gates ./internal/core/gates/security -run 'Test(Registry|Gate)' | production registry includes required security gates; prototype behavior explicit R1.1,R1.2 |
-| [ ] T07 | craftsman | internal/cmd/submit.go; internal/cmd/submit_test.go; internal/cmd/registry.go | T06 | go test ./internal/cmd -run 'Test(Submit|Check|Record)' | production submit refuses stale/absent security with `security_evidence_stale` + exact next command; digest pinned R1.2,R1.3 |
+| [x] T04 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/embed_templates/project.yml | T02 | go test ./internal/core -run 'TestConfig' | versioned `security_profile` parse/validate; prototype/production severity map; invalid/absent profile fails closed; safe defaults preserve current behavior R1.1,R1.4 |
+| [x] T05 | craftsman | internal/core/gates/security/policy.go; internal/core/gates/security/policy_test.go; internal/core/config_loader.go | T04 | go test ./internal/core/gates/security ./internal/core -run 'Test(Policy|Config)' | canonical policy serialization → stable `policy_version`/`policy_digest`; same inputs identical digest R1.3 |
+| [x] T06 | craftsman | internal/core/gates/registry.go; internal/core/gates/registry_test.go; internal/core/gates/security/gate.go; internal/core/gates/security/gate_test.go | T05 | go test ./internal/core/gates ./internal/core/gates/security -run 'Test(Registry|Gate)' | production registry includes required security gates; prototype behavior explicit R1.1,R1.2 |
+| [x] T07 | craftsman | internal/cmd/submit.go; internal/cmd/submit_test.go; internal/cmd/registry.go | T06 | go test ./internal/cmd -run 'Test(Submit|Check|Record)' | production submit refuses stale/absent security with `security_evidence_stale` + exact next command; digest pinned R1.2,R1.3 |
+
+> **W1 deviations.** Stable core gate order lives in `gates/core.go`, so `CoreRegistryWith` was
+> added there rather than the declarative `registry.go`; production callers append the security
+> gate while prototype retains the legacy registry. Existing security gate behavior needed no
+> edit: resolved production policy raises every configured scanner/policy severity to error.
+> Approval also consumes the required registry so production enforcement is not submit-only.
 
 ## W2 — declared scope from harness diff
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T08 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go | T02 | go test ./internal/core -run 'TestTasks' | normalized declared read/write path/glob + explicit test paths byte-stable; `../`/absolute rejected R2.1,R2.4 |
-| [ ] T09 | craftsman | internal/core/scope/diff.go; internal/core/scope/diff_test.go; internal/core/scope/normalize.go; internal/core/scope/normalize_test.go | T08 | go test ./internal/core/scope -run 'Test(Diff|Normalize)' | derive tracked/staged/untracked/delete/rename/mode/symlink from pinned baseline; symlink/submodule escapes fail R2.2 |
-| [ ] T10 | craftsman | internal/core/gates/scope.go; internal/core/gates/scope_test.go; internal/core/gates/registry.go | T06,T09 | go test ./internal/core/gates -run 'Test(Scope|Registry)' | out-of-scope change fails completion even when verify passes; worker claim is audit hint only R2.3 |
-| [ ] T11 | craftsman | internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/task_complete.go; internal/core/task_complete_test.go | T10, Domain 05 report | go test ./internal/cmd ./internal/core -run 'Test(BrainReport|Complete|Scope)' | completion/report path invokes scope gate; worker-reported paths cannot override derived set R2.2,R2.3 |
+| [x] T08 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go | T02 | go test ./internal/core -run 'TestTasks' | normalized declared read/write path/glob + explicit test paths byte-stable; `../`/absolute rejected R2.1,R2.4 |
+| [x] T09 | craftsman | internal/core/scope/diff.go; internal/core/scope/diff_test.go; internal/core/scope/normalize.go; internal/core/scope/normalize_test.go | T08 | go test ./internal/core/scope -run 'Test(Diff|Normalize)' | derive tracked/staged/untracked/delete/rename/mode/symlink from pinned baseline; symlink/submodule escapes fail R2.2 |
+| [x] T10 | craftsman | internal/core/gates/scope.go; internal/core/gates/scope_test.go; internal/core/gates/registry.go | T06,T09 | go test ./internal/core/gates -run 'Test(Scope|Registry)' | out-of-scope change fails completion even when verify passes; worker claim is audit hint only R2.3 |
+| [x] T11 | craftsman | internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/task_complete.go; internal/core/task_complete_test.go | T10, Domain 05 report | go test ./internal/cmd ./internal/core -run 'Test(BrainReport|Complete|Scope)' | completion/report path invokes scope gate; worker-reported paths cannot override derived set R2.2,R2.3 |
+
+> **W2 deviations.** `core.DeriveDiff` remains a compatibility wrapper over the new scope package.
+> Scope needs repository/session state, so production completion invokes it in `cmd/lifecycle.go`
+> before pure `core.CompleteTask`; the latter remains evidence-only and disk-free. Existing worker
+> evidence checks and registry composition needed no edits. Brain report and normal completion both
+> use mission-pinned baseline plus harness-derived paths; worker claims never replace that set.
 
 ## W3 — role authority packets and tool policy
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T12 | craftsman | internal/core/roles.go; internal/core/roles_test.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T04 | go test ./internal/core ./internal/core/gates -run 'Test(Role|Core)' | role gate accepts only 4 documented roles; no craftsman fallback for unknown/auditor mode R3.1 |
-| [ ] T13 | craftsman | internal/core/authority.go; internal/core/authority_test.go; internal/core/embed_templates/roles; internal/context/manifest.go; internal/context/manifest_test.go | T12, Domain 05 mission | go test ./internal/core ./internal/context -run 'Test(Authority|Manifest)' | machine-readable AuthorityV1 packet: tools/paths/net/sandbox/expiry/digest; stale/expired/wrong-phase fails R3.2,R3.4 |
-| [ ] T14 | craftsman | internal/cmd/dispatch.go; internal/cmd/dispatch_test.go; internal/mcp/server.go; internal/mcp/server_test.go; internal/orchestration/authority.go | T13 | go test ./internal/cmd ./internal/mcp ./internal/orchestration -run 'Test(Dispatch|MCP|Authority)' | scout/validator/auditor write denied + sanitized denial event; craftsman out-of-path denied; unknown tool default-deny production R3.3 |
+| [x] T12 | craftsman | internal/core/roles.go; internal/core/roles_test.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T04 | go test ./internal/core ./internal/core/gates -run 'Test(Role|Core)' | role gate accepts only 4 documented roles; no craftsman fallback for unknown/auditor mode R3.1 |
+| [x] T13 | craftsman | internal/core/authority.go; internal/core/authority_test.go; internal/core/embed_templates/roles; internal/context/manifest.go; internal/context/manifest_test.go | T12, Domain 05 mission | go test ./internal/core ./internal/context -run 'Test(Authority|Manifest)' | machine-readable AuthorityV1 packet: tools/paths/net/sandbox/expiry/digest; stale/expired/wrong-phase fails R3.2,R3.4 |
+| [x] T14 | craftsman | internal/cmd/dispatch.go; internal/cmd/dispatch_test.go; internal/mcp/server.go; internal/mcp/server_test.go; internal/orchestration/authority.go | T13 | go test ./internal/cmd ./internal/mcp ./internal/orchestration -run 'Test(Dispatch|MCP|Authority)' | scout/validator/auditor write denied + sanitized denial event; craftsman out-of-path denied; unknown tool default-deny production R3.3 |
+
+> **W3 deviations.** Existing core role gate already accepted exactly four embedded roles, so only
+> fallback prompt/mode paths changed. Authority must travel with the actual claimed lease; therefore
+> `orchestration/lease.go`, `worker.go`, and their tests also changed. CLI authorized dispatch writes
+> bounded identity/tool/code denial records without arguments. Validator `verify` and auditor
+> `report` remain allowed evidence operations; neither grants product-file write authority.
 
 ## W4 — context and change-boundary scan
 

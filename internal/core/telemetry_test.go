@@ -1,6 +1,8 @@
 package core
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -75,6 +77,25 @@ func TestTelemetryAggregateExactDecimal(t *testing.T) {
 		}
 		if task.TaskID == "T2" && task.HasTelemetry {
 			t.Fatalf("T2 must not report telemetry")
+		}
+	}
+}
+
+// TestTelemetryLacksCorrelationAndCurrency characterizes the W0 contract gaps
+// that W1 (R1.1–R1.3) closes: a worker-reported Annotations record carries no
+// run/attempt correlation identity, and its Cost is a bare decimal with no
+// currency. Both are proven on the record's JSON surface. When W1 lands, this
+// test flips to assert the versioned envelope's new fields are present.
+func TestTelemetryLacksCorrelationAndCurrency(t *testing.T) {
+	ann := &Annotations{Tokens: 10, Cost: "1.50", DurationMs: 5}
+	blob, err := json.Marshal(ann)
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(blob)
+	for _, absent := range []string{"run_id", "span_id", "attempt", "currency"} {
+		if strings.Contains(js, absent) {
+			t.Fatalf("W0 gap closed early: Annotations already carries %q: %s", absent, js)
 		}
 	}
 }

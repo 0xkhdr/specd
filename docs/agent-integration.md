@@ -29,7 +29,10 @@ task. Each task in `tasks.md` declares one, and the `roles` gate rejects unknown
 | **validator** | Read-only. Runs the task's verify command and reports the specd-generated record. |
 | **auditor** | Read-only. Audits a diff against the acceptance criteria; fills the review report. |
 
-The capability split is enforced by convention + gates, not trusted to the prompt alone.
+The capability split is currently convention plus structural gates. Role prose does not grant or
+revoke host tools, and declared task files are not yet compared with the harness-derived diff.
+Until production authority and scope gates land, hosts must enforce tool permissions and reviewers
+must inspect actual changes; `specd check --security` remains an explicit migration check.
 
 ## Steering: the constitution
 

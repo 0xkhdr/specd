@@ -7,27 +7,49 @@ before edit. Cross-domain prerequisites remain README program links, not local t
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/03-agent-tool-driving-and-native-guidance.md; specs/03-agent-tool-driving-and-native-guidance | | printf ok | map R1-R8 to current command/context/MCP surfaces and Domain 01/02/04/06 boundaries |
-| [ ] T02 | craftsman | internal/core/driver.go; internal/core/driver_test.go; internal/core/commands.go; internal/core/handshake.go; internal/core/handshake_test.go | T01 | go test ./internal/core -run 'Test(Driver|Handshake|Command)' | versioned Bootstrap/Guide/Finding model, canonical ordering/digest R1 |
-| [ ] T03 | craftsman | internal/cmd/integration_polish_test.go; internal/cmd/lifecycle_test.go; internal/mcp/handshake_test.go; internal/mcp/parity_test.go | T01 | go test ./internal/cmd ./internal/mcp -run 'Test(Integration|Lifecycle|Handshake|Parity)' | failing fresh-fixture path/example/pin/ambiguity/handoff baseline R3-R8 |
+| [x] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/03-agent-tool-driving-and-native-guidance.md; specs/03-agent-tool-driving-and-native-guidance | | printf ok | map R1-R8 to current command/context/MCP surfaces and Domain 01/02/04/06 boundaries |
+| [x] T02 | craftsman | internal/core/driver.go; internal/core/driver_test.go; internal/core/commands.go; internal/core/handshake.go; internal/core/handshake_test.go | T01 | go test ./internal/core -run 'Test(Driver|Handshake|Command)' | versioned Bootstrap/Guide/Finding model, canonical ordering/digest R1 |
+| [x] T03 | craftsman | internal/cmd/integration_polish_test.go; internal/cmd/lifecycle_test.go; internal/mcp/handshake_test.go; internal/mcp/parity_test.go | T01 | go test ./internal/cmd ./internal/mcp -run 'Test(Integration|Lifecycle|Handshake|Parity)' | failing fresh-fixture path/example/pin/ambiguity/handoff baseline R3-R8 |
+
+> **W0 deviations.** T01 inventory maps R1→core driver, R2→Domain 02 manifest,
+> R3→scaffold, R4→dispatch/MCP config, R5→doctor, R6→guidance/palette,
+> R7→handshake, and R8→CLI/MCP/orchestration. T02 reused existing command and handshake
+> contracts, so `commands.go` and `handshake.go` needed no W0 edit. T03 baselines fit in
+> `integration_polish_test.go`, `mcp/handshake_test.go`, and `mcp/parity_test.go`; declared
+> lifecycle test files were not needed until later implementation waves.
 
 ## W1 — truthful paths, scaffold, resolution, doctor
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/steering_manifest_test.go | T02,T03 | go test ./internal/context -run 'Test(BuildManifest|SteeringInManifest)' | `.specd/specs` canonical emitted paths; unresolved required item fails R2.1,R2.3 |
-| [ ] T05 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/core/tasksparser.go; internal/core/tasksparser_test.go | T04 | go test ./internal/context ./internal/core -run 'Test(Manifest|Tasks)' | design/task/declared-file guidance fields consume Domain 02-compatible metadata R2.2 |
-| [ ] T06 | craftsman | internal/core/embed_templates/AGENTS.md; internal/core/embed_templates/roles; internal/core/scaffold.go; internal/core/scaffold_test.go; internal/cmd/init_scaffold_test.go | T03 | go test ./internal/core ./internal/cmd -run 'Test(Scaffold|InitScaffold)' | every generated unmarked command runnable or explicit placeholder R3.1,R3.2 |
-| [ ] T07 | craftsman | internal/core/specresolver.go; internal/core/specresolver_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go; internal/core/mcpconfig.go; internal/core/mcpconfig_test.go | T02,T03 | go test ./internal/core ./internal/cmd -run 'Test(SpecResolver|Dispatch|MCPConfig)' | explicit/pinned/single resolution; ambiguity refusal; no inert `SPECD_SPEC` R4 |
-| [ ] T08 | craftsman | internal/core/doctor.go; internal/core/doctor_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go; internal/cmd/integration_polish_test.go | T04,T06,T07 | go test ./internal/core ./internal/cmd -run 'Test(Doctor|Registry|Integration)' | read-only agent doctor codes/fixes; fresh bad fixtures never false-pass R5 |
+| [x] T04 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/steering_manifest_test.go | T02,T03 | go test ./internal/context -run 'Test(BuildManifest|SteeringInManifest)' | `.specd/specs` canonical emitted paths; unresolved required item fails R2.1,R2.3 |
+| [x] T05 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/core/tasksparser.go; internal/core/tasksparser_test.go | T04 | go test ./internal/context ./internal/core -run 'Test(Manifest|Tasks)' | design/task/declared-file guidance fields consume Domain 02-compatible metadata R2.2 |
+| [x] T06 | craftsman | internal/core/embed_templates/AGENTS.md; internal/core/embed_templates/roles; internal/core/scaffold.go; internal/core/scaffold_test.go; internal/cmd/init_scaffold_test.go | T03 | go test ./internal/core ./internal/cmd -run 'Test(Scaffold|InitScaffold)' | every generated unmarked command runnable or explicit placeholder R3.1,R3.2 |
+| [x] T07 | craftsman | internal/core/specresolver.go; internal/core/specresolver_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go; internal/core/mcpconfig.go; internal/core/mcpconfig_test.go | T02,T03 | go test ./internal/core ./internal/cmd -run 'Test(SpecResolver|Dispatch|MCPConfig)' | explicit/pinned/single resolution; ambiguity refusal; no inert `SPECD_SPEC` R4 |
+| [x] T08 | craftsman | internal/core/doctor.go; internal/core/doctor_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go; internal/cmd/integration_polish_test.go | T04,T06,T07 | go test ./internal/core ./internal/cmd -run 'Test(Doctor|Registry|Integration)' | read-only agent doctor codes/fixes; fresh bad fixtures never false-pass R5 |
+
+> **W1 deviations.** T08 also required `internal/core/commands.go`,
+> `docs/command-reference.md`, and `docs/CHEATSHEET.md`: exposing `agents doctor` changes the
+> existing command usage contract and docs-lint requires both operator references synchronized.
+> T05 reused Domain 02 `DeclaredFiles`, so no parser edit was needed. T06 only changed the
+> defective memory command placeholder and its scaffold test; other declared scaffold/role files
+> already conformed. T07 removed inert MCP pin emission and added the pure resolver; dispatch
+> remains explicit-operand-only, so its declared files needed no edit. V1 path fields remain
+> additive-compatible; strict missing-required refusal stays on authoritative V2.
 
 ## W2 — driver projection
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T09 | craftsman | internal/core/driver.go; internal/core/driver_test.go; internal/core/commands.go; internal/core/commandmeta_test.go; internal/core/gates/registry.go | T02,T07 | go test ./internal/core ./internal/core/gates -run 'Test(Driver|Command|Registry)' | phase/frontier/blocker projection; parser-valid actions R6.1,R6.2 |
-| [ ] T10 | craftsman | internal/cmd/registry.go; internal/cmd/registry_test.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go | T08,T09 | go test ./internal/cmd -run 'Test(Registry|Lifecycle|Dispatch)' | guide/doctor CLI JSON; human-only action never agent-authorized R5,R6.3 |
-| [ ] T11 | craftsman | internal/mcp/server.go; internal/mcp/tools_core.go; internal/mcp/parity_test.go; docs/mcp-guide.md | T10 | go test ./internal/mcp -run 'Test(Parity|Initialize)' | MCP guide/doctor parity and documented route R6,R8.1 |
+| [x] T09 | craftsman | internal/core/driver.go; internal/core/driver_test.go; internal/core/commands.go; internal/core/commandmeta_test.go; internal/core/gates/registry.go | T02,T07 | go test ./internal/core ./internal/core/gates -run 'Test(Driver|Command|Registry)' | phase/frontier/blocker projection; parser-valid actions R6.1,R6.2 |
+| [x] T10 | craftsman | internal/cmd/registry.go; internal/cmd/registry_test.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go | T08,T09 | go test ./internal/cmd -run 'Test(Registry|Lifecycle|Dispatch)' | guide/doctor CLI JSON; human-only action never agent-authorized R5,R6.3 |
+| [x] T11 | craftsman | internal/mcp/server.go; internal/mcp/tools_core.go; internal/mcp/parity_test.go; docs/mcp-guide.md | T10 | go test ./internal/mcp -run 'Test(Parity|Initialize)' | MCP guide/doctor parity and documented route R6,R8.1 |
+
+> **W2 deviations.** T09 reused command and gate metadata without editing
+> `commandmeta_test.go` or `gates/registry.go`. T10 added `internal/core/commands.go` plus synced
+> command docs for the additive `agents guide` usage; existing lifecycle/dispatch code needed no
+> change. T11 also updated `internal/mcp/handshake_test.go` to pin advertised driver protocol;
+> canonical `tools_core.go` already projected the `agents` positional route.
 
 ## W3 — drift, context metadata, handoff
 

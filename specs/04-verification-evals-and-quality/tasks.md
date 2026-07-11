@@ -7,17 +7,28 @@ before edit. Cross-domain links remain README program links, not local task ids.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/04-verification-evals-and-quality.md; specs/04-verification-evals-and-quality | | printf ok | map R1-R7 to current evidence/criteria/complete/gates/ACP/context/report surfaces and Domain 01/02/05/06/07/09/10 boundaries |
-| [ ] T02 | craftsman | internal/core/evidence_test.go; internal/core/task_complete_test.go; internal/core/tasksparser_test.go; internal/core/gates/core_test.go; internal/cmd/lifecycle_test.go | T01 | go test ./internal/core ./internal/core/gates ./internal/cmd -run 'Test(Evidence|CompleteTask|Tasks|Core|Lifecycle)' | failing legacy/stale/wrong-class/wrong-task/malformed baseline; old verify compatibility fixed |
-| [ ] T03 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; docs/open-spec-format.md; docs/validation-gates.md | T01 | go test ./internal/core -run 'TestTasks' && ./scripts/docs-lint.sh | choose companion vs task-table quality declaration; byte-stable migration and schema documented R1,R2 |
+| [x] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/04-verification-evals-and-quality.md; specs/04-verification-evals-and-quality | | printf ok | map R1-R7 to current evidence/criteria/complete/gates/ACP/context/report surfaces and Domain 01/02/05/06/07/09/10 boundaries |
+| [x] T02 | craftsman | internal/core/evidence_test.go; internal/core/task_complete_test.go; internal/core/tasksparser_test.go; internal/core/gates/core_test.go; internal/cmd/lifecycle_test.go | T01 | go test ./internal/core ./internal/core/gates ./internal/cmd -run 'Test(Evidence|CompleteTask|Tasks|Core|Lifecycle)' | failing legacy/stale/wrong-class/wrong-task/malformed baseline; old verify compatibility fixed |
+| [x] T03 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; docs/open-spec-format.md; docs/validation-gates.md | T01 | go test ./internal/core -run 'TestTasks' && ./scripts/docs-lint.sh | choose companion vs task-table quality declaration; byte-stable migration and schema documented R1,R2 |
+
+> **W0 deviations.** T01 map: R1 evidence, R2 tasks parser, R3/R5 completion+gates,
+> R4 ACP, R6 local import, R7 context/report; external boundaries remain 01/02/05/06/07/09/10.
+> T02 baselines fit existing core evidence/completion tests; gate/cmd files needed no duplicate
+> fixture. T03 chose optional task-table `evidence`/`checks`; parser already supported both named
+> columns byte-stably from Domain 01, so only conformance test and docs changed.
 
 ## W1 — evidence envelope and declaration
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/core/eval.go; internal/core/eval_test.go; internal/core/evidence.go; internal/core/evidence_test.go | T02,T03 | go test ./internal/core -run 'Test(Eval|Evidence)' | V1 envelope/classes/identity/ordered canonical digest; unknown input fails R1 |
-| [ ] T05 | craftsman | internal/core/quality_contract.go; internal/core/quality_contract_test.go; internal/core/tasksparser.go; internal/core/tasksparser_test.go | T03,T04 | go test ./internal/core -run 'Test(QualityContract|Tasks|Eval)' | task required class/check refs; legacy task bytes unchanged; cross-class satisfaction refused R2 |
-| [ ] T06 | craftsman | internal/core/paths.go; internal/core/paths_test.go; internal/core/eval_store.go; internal/core/eval_store_test.go; internal/core/io.go | T04 | go test ./internal/core -run 'Test(EvalStore|Path|Atomic)' | canonical eval/trace paths; append/atomic local storage and duplicate identity refusal R1,R3 |
+| [x] T04 | craftsman | internal/core/eval.go; internal/core/eval_test.go; internal/core/evidence.go; internal/core/evidence_test.go | T02,T03 | go test ./internal/core -run 'Test(Eval|Evidence)' | V1 envelope/classes/identity/ordered canonical digest; unknown input fails R1 |
+| [x] T05 | craftsman | internal/core/quality_contract.go; internal/core/quality_contract_test.go; internal/core/tasksparser.go; internal/core/tasksparser_test.go | T03,T04 | go test ./internal/core -run 'Test(QualityContract|Tasks|Eval)' | task required class/check refs; legacy task bytes unchanged; cross-class satisfaction refused R2 |
+| [x] T06 | craftsman | internal/core/paths.go; internal/core/paths_test.go; internal/core/eval_store.go; internal/core/eval_store_test.go; internal/core/io.go | T04 | go test ./internal/core -run 'Test(EvalStore|Path|Atomic)' | canonical eval/trace paths; append/atomic local storage and duplicate identity refusal R1,R3 |
+
+> **W1 deviations.** T04 placed legacy adaptation in the new `eval.go`; existing evidence storage
+> needed no mutation. T05 consumed existing byte-stable `Evidence`/`Checks` task fields, so parser
+> source/tests needed no further edit. T06 reused `AtomicWrite`; `io.go` and existing path tests
+> needed no changes beyond new eval-store tests.
 
 ## W2 — import, freshness, trajectory
 

@@ -39,3 +39,17 @@ func TestScaffoldCarriesFormatGuidance(t *testing.T) {
 		}
 	}
 }
+
+func TestScaffoldCommandsUseExplicitPlaceholders(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, ".specd/steering/memory.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "specd memory <slug> add") {
+		t.Fatalf("memory guidance lacks required spec placeholder:\n%s", raw)
+	}
+}

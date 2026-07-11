@@ -21,6 +21,7 @@ verify:
 #   model: ""
 
 # security:
+#   profile: prototype     # prototype|production; production makes security mandatory.
 #   secrets: error         # off|warn|error per scanner.
 #   injection: warn
 #   slopsquat: warn

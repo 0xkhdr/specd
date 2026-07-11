@@ -98,6 +98,15 @@ The digests are pure functions of on-disk material — no LLM, no network. Pin t
 prompt or CI step to make "am I still driving the harness I was built for?" a deterministic
 check rather than a hope.
 
+`specd context <slug> <task> --json` and `specd next <slug> --dispatch` carry those same
+digests in context manifest V2, alongside canonical tool routes, capabilities, mutability,
+human-only boundaries, and exit semantics. Compare handshake expectations before any mutable
+route; digest drift fails closed instead of dispatching against stale authority.
+
+MCP `initialize` advertises `driverProtocolVersion`. The canonical `agents` tool accepts
+positional `args`; call it with `["doctor"]` or `["guide", "<slug>"]` plus `json: true` for
+the same read-only driver projections exposed by CLI.
+
 ---
 
 **See also:** [agent-integration.md](agent-integration.md) ·

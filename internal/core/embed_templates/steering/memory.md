@@ -8,7 +8,7 @@ flywheel: patterns proven in real work graduate here so future tasks inherit the
 - Promote a pattern here once it has held across repeated tasks — not on first sight.
 - Record durable facts (a convention, a gotcha, a decision's consequence), not
   conversation-local detail.
-- Append with `specd memory add`.
+- Append with `specd memory <slug> add`, replacing `<slug>` with active spec.
 
 ## Promoted patterns
 <!-- specd appends verified, promoted facts below this line -->

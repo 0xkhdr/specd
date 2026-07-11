@@ -28,6 +28,7 @@ type Config struct {
 // warn findings print but pass, off skips the scanner. Defaults tuned so a real
 // secret blocks while noisier heuristics only warn.
 type SecurityConfig struct {
+	Profile       string
 	Secrets       string
 	Injection     string
 	Slopsquat     string
@@ -152,6 +153,7 @@ var DefaultConfig = Config{
 		Model:   "",
 	},
 	Security: SecurityConfig{
+		Profile:       "prototype",
 		Secrets:       "error",
 		Injection:     "warn",
 		Slopsquat:     "warn",

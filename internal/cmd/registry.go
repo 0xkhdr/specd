@@ -111,13 +111,27 @@ func runCheck(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return err
 		}
+		cfg, diagnostics := core.LoadConfig(configPaths(root), getenv())
+		for _, d := range diagnostics {
+			if d.Severity == "error" {
+				return fmt.Errorf("load config: %s", d.Message)
+			}
+		}
+		policy, err := security.ResolvePolicy(cfg.Security)
+		if err != nil {
+			return err
+		}
 		registry := gates.CoreRegistry()
+		if policy.Profile == "production" {
+			registry = gates.CoreRegistryWith(security.New(security.ConfigForPolicy(cfg.Security, policy)))
+		}
 		findings = append(findings, registry.Run(buildCheckCtx(root, slug, spec, ""))...)
-		if flagEnabled(flags, "security") {
-			cfg, _ := core.LoadConfig(configPaths(root), getenv())
-			result := security.Analyze(root, cfg.Security)
-			findings = append(findings, security.GateFindings(result)...)
-			if err := recordSecurity(root, slug, result); err != nil {
+		if flagEnabled(flags, "security") || policy.Profile == "production" {
+			result := security.Analyze(root, security.ConfigForPolicy(cfg.Security, policy))
+			if policy.Profile != "production" {
+				findings = append(findings, security.GateFindings(result)...)
+			}
+			if err := recordSecurity(root, slug, policy, result); err != nil {
 				return err
 			}
 		}
@@ -137,26 +151,52 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	return nil
 }
 
+func requiredRegistry(root string) (gates.Registry, security.PolicyV1, error) {
+	cfg, diagnostics := core.LoadConfig(configPaths(root), getenv())
+	for _, d := range diagnostics {
+		if d.Severity == "error" {
+			return gates.Registry{}, security.PolicyV1{}, fmt.Errorf("load config: %s", d.Message)
+		}
+	}
+	policy, err := security.ResolvePolicy(cfg.Security)
+	if err != nil {
+		return gates.Registry{}, security.PolicyV1{}, err
+	}
+	if policy.Profile == "production" {
+		return gates.CoreRegistryWith(security.New(security.ConfigForPolicy(cfg.Security, policy))), policy, nil
+	}
+	return gates.CoreRegistry(), policy, nil
+}
+
 // recordSecurity persists the security analysis under state.security so reports
 // and history can consume it (spec 05 R6). A missing state.json (unscaffolded or
 // non-spec slug) is not fatal — the gate still reports; recording is best-effort
 // for consumers. Findings are stored verbatim, including allowlisted ones.
-func recordSecurity(root, slug string, result security.Result) error {
+type securityEvidenceRecord struct {
+	PolicyVersion   string             `json:"policy_version"`
+	PolicyDigest    string             `json:"policy_digest"`
+	SubjectHead     string             `json:"subject_head"`
+	SubjectRevision int64              `json:"subject_revision"`
+	Findings        []security.Finding `json:"findings"`
+}
+
+func recordSecurity(root, slug string, policy security.PolicyV1, result security.Result) error {
 	statePath := core.StatePath(root, slug)
 	if _, err := os.Stat(statePath); err != nil {
 		return nil // nothing to record against; gate output already emitted
 	}
-	raw, err := json.Marshal(result.Findings)
-	if err != nil {
-		return err
-	}
-	_, err = core.WithSpecLock(root, func() (struct{}, error) {
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
 		state, err := core.LoadState(statePath)
 		if err != nil {
 			return struct{}{}, err
 		}
 		if state.Records == nil {
 			state.Records = map[string]json.RawMessage{}
+		}
+		record := securityEvidenceRecord{PolicyVersion: policy.PolicyVersion, PolicyDigest: policy.PolicyDigest, SubjectHead: gitHead(root), SubjectRevision: state.Revision, Findings: result.Findings}
+		raw, err := json.Marshal(record)
+		if err != nil {
+			return struct{}{}, err
 		}
 		state.Records["security"] = raw
 		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
@@ -165,8 +205,31 @@ func recordSecurity(root, slug string, result security.Result) error {
 }
 
 func runAgents(root string, args []string, flags map[string]string) error {
+	if len(args) == 2 && args[0] == "guide" {
+		guide, err := driverGuideForSpec(root, args[1])
+		if err != nil {
+			return err
+		}
+		if flagEnabled(flags, "json") {
+			return writeJSON(guide)
+		}
+		for _, action := range guide.NextActions {
+			fmt.Fprintf(os.Stdout, "%s\t%s\t%s %s\n", action.Actor, action.SideEffect, action.Command, strings.Join(action.Args, " "))
+		}
+		return nil
+	}
+	if len(args) == 1 && args[0] == "doctor" {
+		findings := core.Doctor(root, getenv()["SPECD_SPEC"])
+		if flagEnabled(flags, "json") {
+			return writeJSON(findings)
+		}
+		for _, finding := range findings {
+			fmt.Fprintf(os.Stdout, "%s %s %s: %s; fix: %s\n", finding.Severity, finding.Code, finding.Ref, finding.Message, finding.RecoveryAction)
+		}
+		return nil
+	}
 	if len(args) != 0 {
-		return errors.New("usage: specd agents [--json]")
+		return errors.New("usage: specd agents [doctor | guide <slug>] [--json]")
 	}
 	discovery := core.DiscoverAgents(root)
 	if flags["json"] == "true" {
@@ -182,6 +245,40 @@ func runAgents(root string, args []string, flags map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func driverGuideForSpec(root, slug string) (core.DriverGuideV1, error) {
+	legacy, err := guidanceForSpec(root, slug)
+	if err != nil {
+		return core.DriverGuideV1{}, err
+	}
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return core.DriverGuideV1{}, err
+	}
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return core.DriverGuideV1{}, err
+	}
+	var frontier []string
+	if requireTaskGate(root, slug) == nil {
+		if rows, e := core.FrontierExcluding(spec.Tasks, taskStatus(spec.Tasks), nil); e == nil {
+			for _, row := range rows {
+				frontier = append(frontier, row.ID)
+			}
+		}
+	}
+	var approvals []string
+	for _, name := range []string{"requirements", "design", "tasks", "complete"} {
+		if _, ok := state.Records["approval:"+name]; ok {
+			approvals = append(approvals, name)
+		}
+	}
+	var blockers []core.DriverFinding
+	for i, message := range legacy.Blockers {
+		blockers = append(blockers, core.DriverFinding{Code: fmt.Sprintf("GATE_BLOCKER_%03d", i+1), Severity: "error", Ref: slug, Message: message, RecoveryAction: "fix artifact and run `specd check " + slug + "`"})
+	}
+	return core.ProjectDriverGuide(filepath.Clean(root), slug, state.Status, approvals, frontier, blockers), nil
 }
 
 func runInit(root string, args []string, flags map[string]string) error {
@@ -265,7 +362,12 @@ func runContext(root string, args []string, flags map[string]string) error {
 		return errors.New("usage: specd context <slug> <task> [--json|--hud]: choose one render")
 	}
 	if asJSON {
-		return writeJSON(manifest)
+		config, _ := core.LoadConfig(configPaths(root), getenv())
+		machine, err := speccontext.BuildManifestV2(root, args[0], spec.Tasks, args[1], "context", "execute", contextBudget(root), core.BootstrapHandshake(config))
+		if err != nil {
+			return err
+		}
+		return writeJSON(machine)
 	}
 	if hud {
 		fmt.Fprint(os.Stdout, speccontext.RenderHUD(manifest))
@@ -315,7 +417,8 @@ func runNext(root string, args []string, flags map[string]string) error {
 		if len(frontier) == 0 {
 			return writeJSON(map[string]any{"items": nil})
 		}
-		manifest, err := speccontext.BuildManifest(root, args[0], spec.Tasks, frontier[0].ID, contextBudget(root))
+		config, _ := core.LoadConfig(configPaths(root), getenv())
+		manifest, err := speccontext.BuildManifestV2(root, args[0], spec.Tasks, frontier[0].ID, "dispatch", "execute", contextBudget(root), core.BootstrapHandshake(config))
 		if err != nil {
 			return err
 		}

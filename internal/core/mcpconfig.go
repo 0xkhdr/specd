@@ -15,7 +15,8 @@ func MCPHosts() []string {
 
 // MCPConfigSnippet returns a ready-to-paste MCP server configuration wiring
 // `specd mcp` for the named host. Optional root pins the server's working
-// directory; optional spec pins the active spec via env. An unknown host is an
+// directory. spec is reserved until MCP consumes the common resolver; no inert
+// SPECD_SPEC pin is emitted. An unknown host is an
 // error naming the known hosts, which the caller maps to a fail-closed exit 2.
 //
 // The snippet is built from a typed structure and marshaled, so it is always
@@ -38,9 +39,7 @@ func claudeCodeSnippet(root, spec string) (string, error) {
 	if root != "" {
 		server["cwd"] = root
 	}
-	if spec != "" {
-		server["env"] = map[string]string{"SPECD_SPEC": spec}
-	}
+	_ = spec
 	cfg := map[string]any{
 		"mcpServers": map[string]any{"specd": server},
 	}

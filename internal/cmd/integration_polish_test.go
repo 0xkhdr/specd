@@ -104,7 +104,7 @@ func TestMCPConfig(t *testing.T) {
 	if !json.Valid([]byte(out)) {
 		t.Fatalf("snippet is not valid JSON:\n%s", out)
 	}
-	for _, want := range []string{`"mcpServers"`, `"specd"`, `"mcp"`, "SPECD_SPEC", "demo", "/proj"} {
+	for _, want := range []string{`"mcpServers"`, `"specd"`, `"mcp"`, "/proj"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("snippet missing %q:\n%s", want, out)
 		}
@@ -148,5 +148,42 @@ func TestHandshakeDigest(t *testing.T) {
 	err = Run(root, "handshake", []string{"bootstrap"}, map[string]string{"expect-config-digest": "deadbeef"})
 	if err == nil || !strings.Contains(err.Error(), "config digest drift") {
 		t.Fatalf("stale config digest should be caught, got %v", err)
+	}
+}
+
+func TestIntegrationContextV2CarriesDriverContract(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{".specd/specs/demo", ".specd/roles", "internal"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(root, ".specd/specs/demo/tasks.md"), "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | internal/a.go | - | go test ./... | R2.1 |\n")
+	writeFile(t, filepath.Join(root, ".specd/specs/demo/requirements.md"), "# Requirements\n")
+	writeFile(t, filepath.Join(root, ".specd/specs/demo/design.md"), "# Design\n")
+	writeFile(t, filepath.Join(root, ".specd/roles/craftsman.md"), "# Craftsman\n")
+	writeFile(t, filepath.Join(root, "internal/a.go"), "package internal\n")
+	out, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, map[string]string{"json": ""}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"schema_version": "2"`, `"selected_task"`, `"route": "cli:`, `"palette_digest"`, `"config_digest"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("V2 context missing %s:\n%s", want, out)
+		}
+	}
+}
+
+// Domain 03 W0 baselines: later waves flip each assertion when common spec
+// resolution and truthful plain-path migration land.
+func TestIntegrationDriverGapBaseline(t *testing.T) {
+	root := t.TempDir()
+	if err := Run(root, "mcp", nil, map[string]string{"config": "claude-code", "spec": "demo"}); err != nil {
+		t.Fatal(err)
+	}
+	// Until MCP consumes common resolver, generated config must not emit inert pin.
+	out, _ := captureStdout(t, func() error { return Run(root, "mcp", nil, map[string]string{"config": "claude-code", "spec": "demo"}) })
+	if strings.Contains(out, "SPECD_SPEC") {
+		t.Fatal("generated inert host pin")
 	}
 }

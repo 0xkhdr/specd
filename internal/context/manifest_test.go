@@ -4,21 +4,28 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
 
 func TestBuildManifest(t *testing.T) {
-	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman"}}
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go", "a_test.go"}, Verify: "go test ./...", Acceptance: "R2.2"}}
 	got, err := BuildManifest("", "demo", tasks, "T1", 0)
 	if err != nil {
 		t.Fatalf("BuildManifest: %v", err)
 	}
-	if got.Version != ManifestVersion || got.Mode != "craftsman" || len(got.Items) != 4 {
+	if got.Version != ManifestVersion || got.Mode != "craftsman" || len(got.Items) != 7 {
 		t.Fatalf("manifest = %+v", got)
 	}
-	if got.Items[0].Kind != "role" || got.Items[3].Kind != "tasks" {
-		t.Fatalf("items not deterministic: %+v", got.Items)
+	var task Item
+	for _, item := range got.Items {
+		if item.Kind == "task" {
+			task = item
+		}
+	}
+	if task.Role != "craftsman" || task.Verify != "go test ./..." || task.Acceptance != "R2.2" {
+		t.Fatalf("task guidance = %+v", task)
 	}
 }
 
@@ -115,6 +122,59 @@ func TestManifestV2CanonicalDigest(t *testing.T) {
 	}
 }
 
+func TestManifestV2SelectedTaskRecord(t *testing.T) {
+	m := validV2()
+	m.SelectedTask = SelectedTaskV2{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go", "a_test.go"}, Verify: "go test ./...", Acceptance: "R2.1"}
+	if err := ValidateManifestV2(m); err != nil {
+		t.Fatalf("structured selected task rejected: %v", err)
+	}
+	m.SelectedTask.DeclaredFiles = []string{"../escape"}
+	if err := ValidateManifestV2(m); err == nil {
+		t.Fatal("unsafe declared file accepted")
+	}
+}
+
+func TestManifestAuthorityPacket(t *testing.T) {
+	m := validV2()
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a, err := core.BuildAuthority(core.TaskRow{ID: m.TaskID, Role: "craftsman", DeclaredFiles: []string{"a.go"}}, "controller", "w", m.Slug, m.Phase, "abc", "policy", "required", now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err = AttachAuthority(m, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Authority == nil || m.Authority.Digest == "" {
+		t.Fatalf("manifest=%+v", m)
+	}
+}
+
+func TestModeForTaskFailsClosed(t *testing.T) {
+	if got := ModeForTask(core.TaskRow{Role: "auditor"}); got != "auditor" {
+		t.Fatalf("auditor mode=%q", got)
+	}
+	if got := ModeForTask(core.TaskRow{Role: "unknown"}); got != "invalid" {
+		t.Fatalf("unknown mode=%q", got)
+	}
+}
+
+func TestManifestDriverLanes(t *testing.T) {
+	hs := core.BootstrapHandshake(core.Config{})
+	items := DriverItems(hs, "execute", "craftsman")
+	if len(items) < 2 {
+		t.Fatalf("driver items = %+v", items)
+	}
+	if items[0].Kind != "guardrails" {
+		t.Fatalf("first driver lane = %+v", items[0])
+	}
+	for _, item := range items[1:] {
+		if item.Kind != "tools" || item.Route == "" || item.Capability == "" || item.SourceDigest != hs.PaletteDigest {
+			t.Fatalf("incomplete tool lane: %+v", item)
+		}
+	}
+}
+
 // --- W0 T02 R8 baseline fixtures ---------------------------------------------
 // These characterize the current (pre-typed-v2) behavior for the R8 negative
 // scenarios so each later wave's fix lands as a visible RED->GREEN flip. They
@@ -122,10 +182,7 @@ func TestManifestV2CanonicalDigest(t *testing.T) {
 // defect. Scenarios: wrong-root, required-overflow, missing-design, tool-route,
 // stale-receipt (steering-missing lives in steering_manifest_test.go).
 
-// TestBuildManifestWrongRootBaseline (R8/R2.2) pins the wrong-tree defect:
-// BuildManifest emits `specs/<slug>/...` instead of the runtime
-// `.specd/specs/<slug>/...` base. W1 flips this to the canonical repo-base path.
-func TestBuildManifestWrongRootBaseline(t *testing.T) {
+func TestBuildManifestUsesRuntimeSpecRoot(t *testing.T) {
 	m, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 0)
 	if err != nil {
 		t.Fatalf("BuildManifest: %v", err)
@@ -136,8 +193,8 @@ func TestBuildManifestWrongRootBaseline(t *testing.T) {
 			spec = it
 		}
 	}
-	if !strings.HasPrefix(spec.Path, "specs/") || strings.HasPrefix(spec.Path, ".specd/") {
-		t.Fatalf("baseline expected wrong-tree specs/ path, got %q — update this baseline in W1", spec.Path)
+	if spec.Path != ".specd/specs/demo/requirements.md" {
+		t.Fatalf("spec path = %q", spec.Path)
 	}
 }
 
@@ -162,16 +219,16 @@ func TestBuildManifestRequiredOverflowBaseline(t *testing.T) {
 	}
 }
 
-// TestBuildManifestMissingDesignBaseline (R8/R2.1) pins the gap: applicable
-// design.md is never a required manifest item, so a missing design is
-// undetectable. W1 adds the design lane and fails closed on a missing required
-// item.
-func TestBuildManifestMissingDesignBaseline(t *testing.T) {
+func TestBuildManifestIncludesRequiredDesign(t *testing.T) {
 	m, _ := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 0)
+	found := false
 	for _, it := range m.Items {
 		if it.Kind == "design" {
-			t.Fatal("design lane already present — update this baseline in W1")
+			found = it.Required && it.Path == ".specd/specs/demo/design.md"
 		}
+	}
+	if !found {
+		t.Fatal("required design lane missing")
 	}
 }
 

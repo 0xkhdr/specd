@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -13,5 +15,30 @@ func TestTruncateEvidenceOutputReportsLimit(t *testing.T) {
 	}
 	if len(truncated) >= len(output) {
 		t.Fatalf("expected shortened output, got %d >= %d", len(truncated), len(output))
+	}
+}
+
+func TestEvidenceQualityLegacyBaseline(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.jsonl")
+	if err := os.WriteFile(path, []byte(`{"task_id":"T1","command":"go test ./...","exit_code":0,"git_head":"abc"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	records, err := LoadEvidence(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !HasPassingEvidence(records, "T1") {
+		t.Fatal("legacy verify lost test compatibility")
+	}
+	if _, ok := records["T2"]; ok {
+		t.Fatal("wrong-task evidence selected")
+	}
+}
+
+func TestEvidenceMalformedBaseline(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.jsonl")
+	os.WriteFile(path, []byte("{truncated\n"), 0o644)
+	if _, err := LoadEvidence(path); err == nil {
+		t.Fatal("malformed evidence accepted")
 	}
 }

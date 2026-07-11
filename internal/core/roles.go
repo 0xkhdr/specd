@@ -45,18 +45,15 @@ func IsKnownRole(role string) bool {
 
 // RolePrompt returns the role constitution for role, read from the embedded
 // role files — the single source of truth also written to .specd/roles/ by
-// WriteScaffold. An unknown role falls back to craftsman.
+// WriteScaffold. Unknown roles fail closed and never inherit craftsman prose.
 func RolePrompt(role string) string {
 	role = strings.TrimSpace(role)
-	if role == "" {
-		role = "craftsman"
+	if !IsKnownRole(role) {
+		return "role:invalid\n"
 	}
 	raw, err := embedtemplates.FS.ReadFile("roles/" + role + ".md")
 	if err != nil {
-		raw, err = embedtemplates.FS.ReadFile("roles/craftsman.md")
-		if err != nil {
-			return "role:" + role + "\n"
-		}
+		return "role:invalid\n"
 	}
 	return string(raw)
 }

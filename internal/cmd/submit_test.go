@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates/security"
 )
 
 // gitInitRepo makes root a git repo with one commit so gitHead resolves to a
@@ -56,6 +57,39 @@ func TestSubmitRefusesUntilComplete(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "blocked") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSubmitProductionRequiresCurrentSecurityEvidence(t *testing.T) {
+	root := newDemoSpec(t)
+	gitInitRepo(t, root)
+	path := filepath.Join(root, ".specd", "project.yml")
+	if err := os.WriteFile(path, []byte("security:\n  profile: production\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := loadSpecConfig(root)
+	policy, err := security.ResolvePolicy(cfg.Security)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := requireCurrentSecurityEvidence(root, "demo", policy); err == nil || !strings.Contains(err.Error(), "security_evidence_stale") {
+		t.Fatalf("missing evidence err=%v", err)
+	}
+	if err := recordSecurity(root, "demo", policy, security.Result{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := requireCurrentSecurityEvidence(root, "demo", policy); err != nil {
+		t.Fatalf("current evidence rejected: %v", err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.SaveStateCAS(core.StatePath(root, "demo"), state.Revision, state); err != nil {
+		t.Fatal(err)
+	}
+	if err := requireCurrentSecurityEvidence(root, "demo", policy); err == nil {
+		t.Fatal("stale revision accepted")
 	}
 }
 

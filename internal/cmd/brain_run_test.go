@@ -48,6 +48,33 @@ func TestBrainStartCreatesSessionWhenPreconditionsPass(t *testing.T) {
 	}
 }
 
+func TestBrainDispatchCreatesPendingMissionWithoutWorkerLease(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
+		t.Fatal(err)
+	}
+	s := loadBrainSession(t, root)
+	if len(s.PendingMissions) != 1 || s.PendingMissions[0].Status != orchestration.MissionPending {
+		t.Fatalf("pending missions = %+v", s.PendingMissions)
+	}
+	if len(s.Leases) != 0 {
+		t.Fatalf("controller minted worker lease: %+v", s.Leases)
+	}
+	events, err := orchestration.ReadACP(filepath.Join(root, ".specd/specs/demo/acp.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || !strings.Contains(events[0].Payload, `"status":"pending"`) {
+		t.Fatalf("ACP = %+v", events)
+	}
+}
+
 func TestBrainStatusReportsPreciseWorkerStates(t *testing.T) {
 	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\n")
 	now := time.Now()

@@ -3,8 +3,10 @@ package cmd
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -47,6 +49,27 @@ func TestDispatchPhase(t *testing.T) {
 	}
 	if string(before) != string(after) {
 		t.Fatal("state.json mutated on a rejected out-of-phase dispatch")
+	}
+}
+
+func TestDispatchAuthorityDeniesReadOnlyWrite(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	task := core.TaskRow{ID: "T1", Role: "validator", DeclaredFiles: []string{"a.go"}}
+	a, err := core.BuildAuthority(task, "controller", "w", "demo", "execute", "abc", "policy", "required", now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.AllowedTools = append(a.AllowedTools, core.ToolAuthority{ID: "task"})
+	a.Digest = ""
+	core.FinalizeAuthority(&a)
+	root := t.TempDir()
+	err = RunAuthorized(root, "task", []string{"complete", "demo", "T1"}, nil, a, nil, now)
+	if err == nil || (!strings.Contains(err.Error(), "ROLE_WRITE_DENIED") && !strings.Contains(err.Error(), "authority denied")) {
+		t.Fatalf("err=%v", err)
+	}
+	raw, readErr := os.ReadFile(filepath.Join(root, ".specd/specs/demo/authority-denials.jsonl"))
+	if readErr != nil || strings.Contains(string(raw), "complete") {
+		t.Fatalf("denial record=%q err=%v", raw, readErr)
 	}
 }
 

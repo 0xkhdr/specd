@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -65,6 +66,10 @@ func Serve(r io.Reader, w io.Writer, tools []Tool, exec Executor) error {
 }
 
 func Dispatch(req Request, tools []Tool, exec Executor) Response {
+	return DispatchAuthorized(req, tools, exec, nil, time.Time{}, "")
+}
+
+func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *core.AuthorityV1, now time.Time, phase string) Response {
 	resp := Response{JSONRPC: "2.0", ID: req.ID}
 	switch req.Method {
 	case "initialize":
@@ -72,9 +77,10 @@ func Dispatch(req Request, tools []Tool, exec Executor) Response {
 		// proceed to tools/list until it succeeds. Without this the connection
 		// never establishes, so even tool discovery is unreachable.
 		resp.Result = map[string]any{
-			"protocolVersion": "2024-11-05",
-			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "specd", "version": "1"},
+			"protocolVersion":       "2024-11-05",
+			"driverProtocolVersion": core.DriverProtocolVersion,
+			"capabilities":          map[string]any{"tools": map[string]any{}},
+			"serverInfo":            map[string]any{"name": "specd", "version": "1"},
 		}
 	case "tools/list":
 		resp.Result = map[string]any{"tools": tools}
@@ -84,9 +90,44 @@ func Dispatch(req Request, tools []Tool, exec Executor) Response {
 			resp.Error = &ResponseError{Code: -32602, Message: "invalid params"}
 			return resp
 		}
+		if authority == nil {
+			if rawAuthority, ok := params.Arguments["authority"]; ok {
+				raw, _ := json.Marshal(rawAuthority)
+				var parsed core.AuthorityV1
+				if json.Unmarshal(raw, &parsed) == nil {
+					authority = &parsed
+					now = time.Now()
+					phase = parsed.Phase
+				}
+				delete(params.Arguments, "authority")
+			}
+		}
 		if core.ForbiddenTool(params.Name) {
 			resp.Error = &ResponseError{Code: -32001, Message: "tool denied by policy"}
 			return resp
+		}
+		known := false
+		mutable := false
+		for _, tool := range tools {
+			if tool.Name == params.Name {
+				known = true
+				break
+			}
+		}
+		for _, tool := range core.ManifestToolContracts() {
+			if tool.Name == params.Name {
+				mutable = tool.Mutable
+			}
+		}
+		if !known {
+			resp.Error = &ResponseError{Code: -32001, Message: "tool denied by policy"}
+			return resp
+		}
+		if authority != nil {
+			if err := core.AuthorizeTool(*authority, params.Name, nil, now, phase, mutable); err != nil {
+				resp.Error = &ResponseError{Code: -32001, Message: "tool denied by authority"}
+				return resp
+			}
 		}
 		if exec == nil {
 			resp.Error = &ResponseError{Code: -32601, Message: "tool not implemented"}

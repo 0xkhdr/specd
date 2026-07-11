@@ -67,3 +67,21 @@ func TestEnforceBudgetV2(t *testing.T) {
 		t.Fatalf("budget<=0 must keep all: kept=%+v oms=%+v err=%v", kept2, oms2, err)
 	}
 }
+
+// TestBudgetUnderestimatesPayload characterizes the W0 gap W3 (R3.1) closes:
+// ManifestBudget counts only each item's declared EstimatedTokens plus its
+// short kind/path strings — it never reads the referenced file. So an item with
+// EstimatedTokens=0 pointing at a large design.md/source file contributes only
+// its path length, grossly underestimating the real context payload. When W3
+// lands, the estimate accounts for the bytes the contract actually loads.
+func TestBudgetUnderestimatesPayload(t *testing.T) {
+	m := Manifest{
+		Slug:   "demo",
+		TaskID: "T1",
+		Mode:   "craftsman",
+		Items:  []Item{{Kind: "design", Path: "specs/demo/design.md", EstimatedTokens: 0}},
+	}
+	if got := ManifestBudget(m); got > 100 {
+		t.Fatalf("W0 gap closed early: budget %d already accounts for file payload", got)
+	}
+}

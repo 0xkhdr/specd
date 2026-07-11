@@ -222,14 +222,14 @@ func TestBrainDispatchesFrontierViaCLI(t *testing.T) {
 		t.Fatal("wrote evidence without authority")
 	}
 
-	// With authority: dispatch frontier, write session lease + ACP evidence.
+	// With authority: record pending mission + ACP evidence; no worker lease.
 	flags := map[string]string{"authority": "true"}
 	if _, err := captureStdout(t, func() error { return Run(root, "brain", []string{"step", "demo"}, flags) }); err != nil {
 		t.Fatalf("brain step (authority): %v", err)
 	}
 	session, _ = orchestration.LoadSession(sessionPath)
-	if len(session.Leases) != 1 || session.Leases[0].TaskID != "T1" {
-		t.Fatalf("expected one lease on T1, got %+v", session.Leases)
+	if len(session.Leases) != 0 || len(session.PendingMissions) != 1 || session.PendingMissions[0].TaskID != "T1" {
+		t.Fatalf("expected pending mission without lease, got %+v", session)
 	}
 	events, _ := orchestration.ReadACP(acpPath)
 	if len(events) != 1 || events[0].Kind != "dispatch" || events[0].TaskID != "T1" {

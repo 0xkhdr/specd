@@ -82,6 +82,12 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Security.Secrets = value
+		case "security.profile":
+			if value != "prototype" && value != "production" {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.profile must be prototype|production"})
+				continue
+			}
+			cfg.Security.Profile = value
 		case "security.injection":
 			if !validSeverity(value) {
 				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "security.injection must be off|warn|error"})
@@ -192,6 +198,12 @@ func applyEnv(cfg *Config, env map[string]string, diagnostics *[]Diagnostic) {
 				continue
 			}
 			cfg.Security.CleanWorktree = value
+		case "SPECD_SECURITY_PROFILE":
+			if value != "prototype" && value != "production" {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SECURITY_PROFILE must be prototype|production"})
+				continue
+			}
+			cfg.Security.Profile = value
 		case "SPECD_SECURITY_SANDBOX":
 			if !validSeverity(value) {
 				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Message: "SPECD_SECURITY_SANDBOX must be off|warn|error"})

@@ -10,6 +10,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 // runNew creates a spec workspace: requirements.md, design.md, tasks.md, and state.json at
@@ -78,7 +79,11 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return struct{}{}, err
 		}
-		findings := gates.CoreRegistry().Run(buildCheckCtx(root, slug, spec, gate))
+		registry, _, err := requiredRegistry(root)
+		if err != nil {
+			return struct{}{}, err
+		}
+		findings := registry.Run(buildCheckCtx(root, slug, spec, gate))
 		if gates.HasErrors(findings) {
 			for _, finding := range findings {
 				if finding.Severity == gates.Error {
@@ -156,6 +161,41 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		raw, err := os.ReadFile(tasksPath)
 		if err != nil {
 			return struct{}{}, err
+		}
+		cfg := loadSpecConfig(root)
+		if cfg.Security.Profile == "production" {
+			var task core.TaskRow
+			found := false
+			for _, row := range spec.Tasks {
+				if row.ID == id {
+					task, found = row, true
+					break
+				}
+			}
+			if !found {
+				return struct{}{}, fmt.Errorf("task %s not found", id)
+			}
+			sessionPath := filepath.Join(core.SpecdDir(root), "specs", slug, "session.json")
+			session, err := orchestration.LoadSession(sessionPath)
+			if err != nil {
+				return struct{}{}, err
+			}
+			baseline := ""
+			for _, m := range append(session.Missions, session.PendingMissions...) {
+				if m.TaskID == id {
+					baseline = m.SubjectHead
+				}
+			}
+			if baseline == "" {
+				return struct{}{}, fmt.Errorf("outside_scope: task %s has no pinned baseline; dispatch a fresh mission", id)
+			}
+			diff, err := core.DeriveDiff(root, baseline)
+			if err != nil {
+				return struct{}{}, err
+			}
+			if err := gates.CheckScope(diff.Paths, task.DeclaredFiles); err != nil {
+				return struct{}{}, err
+			}
 		}
 		// Escalation ratchet (spec 06 R2): a task blocked by N consecutive verify
 		// failures cannot complete until a human override resets the counter. The

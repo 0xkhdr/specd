@@ -106,3 +106,21 @@ func TestVerifyTimeoutConfig(t *testing.T) {
 		t.Fatalf("negative timeout diagnostics = %#v, want one verify.timeout_seconds error", diags)
 	}
 }
+
+func TestConfigSecurityProfile(t *testing.T) {
+	if DefaultConfig.Security.Profile != "prototype" {
+		t.Fatalf("default profile = %q", DefaultConfig.Security.Profile)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yml")
+	os.WriteFile(path, []byte("security:\n  profile: production\n"), 0o644)
+	cfg, diags := LoadConfig(ConfigPaths{Project: path}, nil)
+	if len(diags) != 0 || cfg.Security.Profile != "production" {
+		t.Fatalf("cfg=%+v diags=%v", cfg.Security, diags)
+	}
+	os.WriteFile(path, []byte("security:\n  profile: unsafe\n"), 0o644)
+	_, diags = LoadConfig(ConfigPaths{Project: path}, nil)
+	if len(diags) != 1 {
+		t.Fatalf("invalid profile diagnostics=%v", diags)
+	}
+}

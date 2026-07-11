@@ -44,6 +44,20 @@ func TestMCPParity(t *testing.T) {
 	}
 }
 
+func TestParityAgentsGuideDoctorRoute(t *testing.T) {
+	for _, tool := range CoreTools() {
+		if tool.Name != "agents" {
+			continue
+		}
+		props := tool.InputSchema["properties"].(map[string]any)
+		if _, ok := props["args"]; !ok {
+			t.Fatal("agents MCP tool lacks positional guide/doctor route")
+		}
+		return
+	}
+	t.Fatal("agents MCP tool missing")
+}
+
 // TestDenyList pins the MCP deny list itself (R2.1): the named human-gate and
 // host-only verbs must be absent from tools/list AND refused by tools/call.
 // Removing any entry from core.ForbiddenTool breaks CI here at both layers.
@@ -74,5 +88,16 @@ func TestBrainToolsGatedByConfig(t *testing.T) {
 	}
 	if got := BrainTools(core.Config{Orchestration: core.OrchestrationConfig{Enabled: true}}); len(got) != 1 {
 		t.Fatalf("brain tools should be enabled: %#v", got)
+	}
+}
+
+func TestParityTypedHandoffBaseline(t *testing.T) {
+	resp := Dispatch(Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"approve"}`)}, CoreTools(), nil)
+	if resp.Error == nil {
+		t.Fatal("forbidden mutation accepted")
+	}
+	raw, _ := json.Marshal(resp.Error)
+	if strings.Contains(string(raw), "MCP_HANDOFF_REQUIRED") {
+		t.Fatal("typed handoff already present; update W0 baseline")
 	}
 }

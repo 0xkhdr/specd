@@ -11,6 +11,10 @@ findings), so opt-in gates stay dormant until their config arms them.
 `specd approve <spec> <gate>` advances a lifecycle phase **only** when the relevant gates
 pass. `specd submit` runs every gate before streaming a PR.
 
+Quality declarations use optional task-table `evidence` and `checks` columns. Legacy `verify`
+evidence satisfies only class `test`; it never satisfies output, trajectory, or review proof.
+Quality gates stay offline and consume validated local records only.
+
 ## Severity & exit codes
 
 | Severity | Effect |

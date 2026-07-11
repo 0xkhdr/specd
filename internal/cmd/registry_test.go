@@ -77,3 +77,25 @@ func TestDeferredVerbExitsZero(t *testing.T) {
 		t.Fatalf("deferred verb must print a deferral notice, got %q", out)
 	}
 }
+
+func TestRegistryAgentsDoctor(t *testing.T) {
+	root := t.TempDir()
+	out, err := captureStdout(t, func() error { return Run(root, "agents", []string{"doctor"}, map[string]string{"json": ""}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "LAYOUT_MISSING") {
+		t.Fatalf("doctor false-pass: %s", out)
+	}
+}
+
+func TestRegistryAgentsGuideV1(t *testing.T) {
+	root := newDemoSpec(t)
+	out, err := captureStdout(t, func() error { return Run(root, "agents", []string{"guide", "demo"}, map[string]string{"json": ""}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"protocol_version": "1"`) || !strings.Contains(out, `"actor": "human"`) {
+		t.Fatalf("driver guide missing contract/human action: %s", out)
+	}
+}

@@ -79,6 +79,15 @@ The gate scans git-tracked files but excludes paths that only yield false positi
 lockfiles (`go.sum`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`), and the
 `testdata/`, `.specd/`, `reference/`, `vendor/`, and `.git/` trees.
 
+## Current enforcement boundary
+
+Security hardening remains opt-in and incomplete in prototype mode. Roles describe intended
+capability but do not grant or revoke host tools. Declared task files are not yet compared with a
+harness-derived git diff. The security scan excludes runtime `.specd/` content and untracked files,
+and verification is unsandboxed unless `--sandbox` is supplied. Use `specd check --security` and
+`specd verify --sandbox` during migration; neither substitutes for production profile enforcement,
+scope validation, runtime-context scanning, or host isolation planned by Domain 06.
+
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities **privately** — do not open a public issue for an unfixed flaw.

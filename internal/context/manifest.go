@@ -27,6 +27,10 @@ type Item struct {
 	Kind            string `json:"kind"`
 	Path            string `json:"path,omitempty"`
 	TaskID          string `json:"task_id,omitempty"`
+	Role            string `json:"role,omitempty"`
+	Verify          string `json:"verify,omitempty"`
+	Acceptance      string `json:"acceptance,omitempty"`
+	Required        bool   `json:"required,omitempty"`
 	Mode            string `json:"mode,omitempty"`
 	EstimatedTokens int    `json:"estimated_tokens"`
 }
@@ -53,10 +57,18 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 	}
 	mode := ModeForTask(task)
 	items := []Item{
-		{Kind: "spec", Path: fmt.Sprintf("specs/%s/requirements.md", slug)},
-		{Kind: "tasks", Path: fmt.Sprintf("specs/%s/tasks.md", slug)},
-		{Kind: "task", TaskID: task.ID},
-		{Kind: "role", Path: fmt.Sprintf(".specd/roles/%s.md", task.Role)},
+		{Kind: "spec", Path: fmt.Sprintf(".specd/specs/%s/requirements.md", slug), Required: true},
+		{Kind: "design", Path: fmt.Sprintf(".specd/specs/%s/design.md", slug), Required: true},
+		{Kind: "tasks", Path: fmt.Sprintf(".specd/specs/%s/tasks.md", slug), Required: true},
+		{Kind: "task", TaskID: task.ID, Role: task.Role, Verify: task.Verify, Acceptance: task.Acceptance, Required: true},
+		{Kind: "role", Path: fmt.Sprintf(".specd/roles/%s.md", task.Role), Required: true},
+	}
+	for _, file := range task.DeclaredFiles {
+		kind := "source"
+		if strings.HasSuffix(file, "_test.go") || strings.Contains(file, "_test.") {
+			kind = "test"
+		}
+		items = append(items, Item{Kind: kind, Path: file, Required: true})
 	}
 	for i := range items {
 		items[i].EstimatedTokens = EstimateText(items[i].Kind + items[i].Path + items[i].TaskID)
@@ -170,10 +182,12 @@ func ModeForTask(task core.TaskRow) string {
 		return "validator"
 	case "scout":
 		return "scout"
-	case "scribe":
-		return "scribe"
-	default:
+	case "auditor":
+		return "auditor"
+	case "craftsman":
 		return "craftsman"
+	default:
+		return "invalid"
 	}
 }
 
@@ -259,22 +273,34 @@ type Omission struct {
 
 // ManifestV2 is the versioned typed context manifest (design.md "ManifestV2").
 type ManifestV2 struct {
-	SchemaVersion  string     `json:"schema_version"`
-	Kind           string     `json:"kind"`
-	Root           string     `json:"root"`
-	Slug           string     `json:"slug"`
-	Action         string     `json:"action"`
-	Phase          string     `json:"phase"`
-	TaskID         string     `json:"task_id"`
-	ConfigDigest   string     `json:"config_digest,omitempty"`
-	PaletteDigest  string     `json:"palette_digest,omitempty"`
-	Items          []ItemV2   `json:"items"`
-	RequiredTokens int        `json:"required_tokens"`
-	OptionalTokens int        `json:"optional_tokens"`
-	Budget         int        `json:"budget"`
-	Omissions      []Omission `json:"omissions,omitempty"`
-	Provenance     string     `json:"provenance,omitempty"`
-	ManifestDigest string     `json:"manifest_digest,omitempty"`
+	SchemaVersion  string            `json:"schema_version"`
+	Kind           string            `json:"kind"`
+	Root           string            `json:"root"`
+	Slug           string            `json:"slug"`
+	Action         string            `json:"action"`
+	Phase          string            `json:"phase"`
+	TaskID         string            `json:"task_id"`
+	SelectedTask   SelectedTaskV2    `json:"selected_task"`
+	Authority      *core.AuthorityV1 `json:"authority,omitempty"`
+	ConfigDigest   string            `json:"config_digest,omitempty"`
+	PaletteDigest  string            `json:"palette_digest,omitempty"`
+	Items          []ItemV2          `json:"items"`
+	RequiredTokens int               `json:"required_tokens"`
+	OptionalTokens int               `json:"optional_tokens"`
+	Budget         int               `json:"budget"`
+	Omissions      []Omission        `json:"omissions,omitempty"`
+	Provenance     string            `json:"provenance,omitempty"`
+	ManifestDigest string            `json:"manifest_digest,omitempty"`
+}
+
+// SelectedTaskV2 carries exact machine-readable task scope. DeclaredFiles is
+// normalized by the byte-stable tasks parser; raw Markdown remains untouched.
+type SelectedTaskV2 struct {
+	ID            string   `json:"id"`
+	Role          string   `json:"role"`
+	DeclaredFiles []string `json:"declared_files"`
+	Verify        string   `json:"verify"`
+	Acceptance    string   `json:"acceptance"`
 }
 
 // Known enum values. Unknown values fail closed (R1.3) — the manifest never
@@ -312,6 +338,25 @@ func ValidateManifestV2(m ManifestV2) error {
 	}
 	if len(m.Items) == 0 {
 		return fmt.Errorf("manifest must contain at least one item")
+	}
+	if m.SelectedTask.ID != "" {
+		if m.SelectedTask.ID != m.TaskID || m.SelectedTask.Role == "" {
+			return fmt.Errorf("selected_task must match task_id and declare role")
+		}
+		for _, file := range m.SelectedTask.DeclaredFiles {
+			clean := filepath.ToSlash(filepath.Clean(file))
+			if filepath.IsAbs(file) || clean == ".." || strings.HasPrefix(clean, "../") {
+				return fmt.Errorf("selected_task declared file %q escapes repository base", file)
+			}
+		}
+	}
+	if m.Authority != nil {
+		if err := core.ValidateAuthority(*m.Authority, m.Authority.IssuedAt, m.Phase); err != nil {
+			return fmt.Errorf("manifest authority: %w", err)
+		}
+		if m.Authority.TaskID != m.TaskID || m.Authority.SpecID != m.Slug {
+			return fmt.Errorf("manifest authority subject mismatch")
+		}
 	}
 	for i, it := range m.Items {
 		if !knownKindsV2[it.Kind] {
@@ -448,4 +493,48 @@ func ManifestV2Digest(m ManifestV2) string {
 	CanonicalizeV2(&m)
 	raw, _ := json.Marshal(m)
 	return core.Digest(raw)
+}
+
+// DriverItems projects guardrail and palette metadata before mutable action.
+func DriverItems(handshake core.Handshake, phase, role string) []ItemV2 {
+	items := []ItemV2{{Kind: "guardrails", Source: "inline:driver-policy", SourceDigest: handshake.ConfigDigest, Required: true, LoadMode: "eager", Priority: 0, Reason: "driver authority and drift contract", Trust: "guardrail", Sensitivity: "internal", AuthorityLimit: "role=" + role + "; phase=" + phase + "; human-only tools forbidden", EstimatedTokens: 1}}
+	for _, tool := range handshake.ToolContracts {
+		items = append(items, ItemV2{Kind: "tools", Source: "inline:tool/" + tool.Name, SourceDigest: handshake.PaletteDigest, Required: true, LoadMode: "eager", Priority: 1, Reason: "canonical command palette route", Trust: "harness", Sensitivity: "internal", AuthorityLimit: fmt.Sprintf("mutable=%t; human_only=%t; exit_semantics=declared", tool.Mutable, tool.HumanOnly), EstimatedTokens: 1, Applicability: phase, Route: tool.Route, Capability: tool.Capability})
+	}
+	return items
+}
+
+// BuildManifestV2 assembles required action knowledge and driver lanes into the
+// authoritative machine contract. Plain V1 rendering remains separate.
+func BuildManifestV2(root, slug string, tasks []core.TaskRow, taskID, action, phase string, budget int, handshake core.Handshake) (ManifestV2, error) {
+	task, ok := findTask(tasks, taskID)
+	if !ok {
+		return ManifestV2{}, fmt.Errorf("task %s not found", taskID)
+	}
+	items, err := SelectRequiredLanes(root, slug, task)
+	if err != nil {
+		return ManifestV2{}, err
+	}
+	items = append(items, DriverItems(handshake, phase, task.Role)...)
+	kept, omissions, required, optional, err := EnforceBudgetV2(items, budget)
+	if err != nil {
+		return ManifestV2{}, err
+	}
+	m := ManifestV2{SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: SelectedTaskV2{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection"}
+	CanonicalizeV2(&m)
+	if err := ValidateManifestV2(m); err != nil {
+		return ManifestV2{}, err
+	}
+	m.ManifestDigest = ManifestV2Digest(m)
+	return m, nil
+}
+
+func AttachAuthority(m ManifestV2, authority core.AuthorityV1) (ManifestV2, error) {
+	m.Authority = &authority
+	m.ManifestDigest = ""
+	if err := ValidateManifestV2(m); err != nil {
+		return ManifestV2{}, err
+	}
+	m.ManifestDigest = ManifestV2Digest(m)
+	return m, nil
 }

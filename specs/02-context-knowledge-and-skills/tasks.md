@@ -27,10 +27,14 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T07 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T04 | go test ./internal/core ./internal/context -run 'TestTasks|TestManifest' | structured selected-task record, normalized declared files R2.1 |
-| [ ] T08 | craftsman | internal/context/selector.go; internal/context/selector_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T05,T06,T07 | go test ./internal/context -run 'Test(Selector|Manifest)' | required requirements/design/role/source selection; named missing/selector findings R2 |
-| [ ] T09 | craftsman | internal/core/manifest_tools.go; internal/core/handshake.go; internal/core/handshake_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T04 | go test ./internal/core ./internal/context -run 'Test(Handshake|Manifest)' | tool/guardrail lane contains route, authority, palette/config digest R4 |
-| [ ] T10 | craftsman | internal/cmd/registry.go; internal/cmd/integration_polish_test.go; internal/core/embed_templates/AGENTS.md; docs/mcp-guide.md | T08,T09 | go test ./internal/cmd -run 'TestIntegration|TestLifecycle' | bootstrap/context surfaces route and drift before mutable action R4.3,R8.2 |
+| [x] T07 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T04 | go test ./internal/core ./internal/context -run 'TestTasks|TestManifest' | structured selected-task record, normalized declared files R2.1 |
+| [x] T08 | craftsman | internal/context/selector.go; internal/context/selector_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T05,T06,T07 | go test ./internal/context -run 'Test(Selector|Manifest)' | required requirements/design/role/source selection; named missing/selector findings R2 |
+| [x] T09 | craftsman | internal/core/manifest_tools.go; internal/core/handshake.go; internal/core/handshake_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T04 | go test ./internal/core ./internal/context -run 'Test(Handshake|Manifest)' | tool/guardrail lane contains route, authority, palette/config digest R4 |
+| [x] T10 | craftsman | internal/cmd/registry.go; internal/cmd/integration_polish_test.go; internal/core/embed_templates/AGENTS.md; docs/mcp-guide.md | T08,T09 | go test ./internal/cmd -run 'TestIntegration|TestLifecycle' | bootstrap/context surfaces route and drift before mutable action R4.3,R8.2 |
+
+> **W2 deviations.** T10 required `internal/context/manifest.go` beyond its declared list to
+> assemble required selector and driver lanes into authoritative V2 output; `registry.go` only
+> selects renderer and supplies effective config. No declared files were omitted.
 
 ## W3 — progressive static lanes
 

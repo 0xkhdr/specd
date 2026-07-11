@@ -92,6 +92,15 @@ func CoreRegistry() Registry {
 	return registry
 }
 
+// CoreRegistryWith appends profile-required gates after stable core order.
+func CoreRegistryWith(required ...Gate) Registry {
+	r := CoreRegistry()
+	for _, gate := range required {
+		r.Register(gate)
+	}
+	return r
+}
+
 // taskTrace enforces the task trace/risk contract (spec 01 R3.1). It always
 // refuses a task whose declared requirement reference does not resolve or whose
 // risk tier is unrecognized; under the production planning profile

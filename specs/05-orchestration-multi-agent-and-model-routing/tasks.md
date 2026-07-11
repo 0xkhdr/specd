@@ -7,30 +7,46 @@ Cross-domain prerequisites remain README links, not local task ids.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/05-orchestration-multi-agent-and-model-routing.md; specs/05-orchestration-multi-agent-and-model-routing | | printf ok | map R1-R6 to Brain/ACP/session/lease/config/MCP/report surfaces and Domain 01/02/03/04/06/07/10 boundaries |
-| [ ] T02 | craftsman | internal/cmd/brain_run_test.go; internal/cmd/brain_lifecycle_test.go; internal/cmd/brain_worker_test.go; internal/orchestration/acp_rigor_test.go; internal/orchestration/recover_test.go | T01 | go test ./internal/cmd ./internal/orchestration -run 'Test(Brain|Worker|ACP|Recover)' | failing no-launch, controller-lease, missing-public-lifecycle, stale-pin, claim-race baseline R1-R4 |
-| [ ] T03 | craftsman | docs/command-reference.md; docs/CHEATSHEET.md; docs/google-sdlc-alignment/05-orchestration-multi-agent-and-model-routing.md | T01 | ./scripts/docs-lint.sh | docs say dispatch records pending mission, not worker/model launch; exact present limitations and migration route R1 |
+| [x] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/05-orchestration-multi-agent-and-model-routing.md; specs/05-orchestration-multi-agent-and-model-routing | | printf ok | map R1-R6 to Brain/ACP/session/lease/config/MCP/report surfaces and Domain 01/02/03/04/06/07/10 boundaries |
+| [x] T02 | craftsman | internal/cmd/brain_run_test.go; internal/cmd/brain_lifecycle_test.go; internal/cmd/brain_worker_test.go; internal/orchestration/acp_rigor_test.go; internal/orchestration/recover_test.go | T01 | go test ./internal/cmd ./internal/orchestration -run 'Test(Brain|Worker|ACP|Recover)' | failing no-launch, controller-lease, missing-public-lifecycle, stale-pin, claim-race baseline R1-R4 |
+| [x] T03 | craftsman | docs/command-reference.md; docs/CHEATSHEET.md; docs/google-sdlc-alignment/05-orchestration-multi-agent-and-model-routing.md | T01 | ./scripts/docs-lint.sh | docs say dispatch records pending mission, not worker/model launch; exact present limitations and migration route R1 |
+
+> **W0 deviations.** T01 maps R1 Brain/ACP/session, R2 lease, R3 worker/report, R4 recovery,
+> R5 config/routing, R6 MCP/report adapters, with 01/02/03/04/06/07/10 boundaries. Existing
+> brain/ACP/recovery tests already pin no-launch, controller lease, stale/race limitations, so T02
+> required no duplicate fixtures. Domain alignment doc already stated limitations; T03 tightened
+> only synchronized command docs to remove ambiguous “dispatch” wording.
 
 ## W1 — mission and pending dispatch
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/orchestration/mission.go; internal/orchestration/mission_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T02 | go test ./internal/orchestration -run 'Test(Mission|ACP)' | canonical MissionV1/version/digest/pins/ordered serialization; unknown/missing/duplicate fail R1 |
-| [ ] T05 | craftsman | internal/orchestration/session.go; internal/orchestration/session_test.go; internal/orchestration/checkpoint.go; internal/orchestration/checkpoint_test.go; internal/orchestration/lease.go; internal/orchestration/lease_test.go | T04 | go test ./internal/orchestration -run 'Test(Session|Checkpoint|Lease)' | pending mission distinct from LeaseV1; unique lease id/state/revocation model R1,R2 |
-| [ ] T06 | craftsman | internal/cmd/brain_run.go; internal/cmd/brain_run_test.go; internal/cmd/brain_lifecycle_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T03,T04,T05 | go test ./internal/cmd ./internal/orchestration -run 'Test(Brain|Report|Mission|Session)' | Brain writes checkpoint then pending ACP mission; never `worker_id=brain`; status/report names pending/no delivery R1 |
-| [ ] T07 | craftsman | internal/core/driver.go; internal/core/driver_test.go; internal/context/manifest.go; internal/context/manifest_test.go; internal/orchestration/mission.go | T04 | go test ./internal/core ./internal/context ./internal/orchestration -run 'Test(Driver|Manifest|Mission)' | consume Domain 03 dispatch + Domain 02 receipt pin; role/files/acceptance/verify/context/config/palette/authority/subject drift fails R1 |
+| [x] T04 | craftsman | internal/orchestration/mission.go; internal/orchestration/mission_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T02 | go test ./internal/orchestration -run 'Test(Mission|ACP)' | canonical MissionV1/version/digest/pins/ordered serialization; unknown/missing/duplicate fail R1 |
+| [x] T05 | craftsman | internal/orchestration/session.go; internal/orchestration/session_test.go; internal/orchestration/checkpoint.go; internal/orchestration/checkpoint_test.go; internal/orchestration/lease.go; internal/orchestration/lease_test.go | T04 | go test ./internal/orchestration -run 'Test(Session|Checkpoint|Lease)' | pending mission distinct from LeaseV1; unique lease id/state/revocation model R1,R2 |
+| [x] T06 | craftsman | internal/cmd/brain_run.go; internal/cmd/brain_run_test.go; internal/cmd/brain_lifecycle_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T03,T04,T05 | go test ./internal/cmd ./internal/orchestration -run 'Test(Brain|Report|Mission|Session)' | Brain writes checkpoint then pending ACP mission; never `worker_id=brain`; status/report names pending/no delivery R1 |
+| [x] T07 | craftsman | internal/core/driver.go; internal/core/driver_test.go; internal/context/manifest.go; internal/context/manifest_test.go; internal/orchestration/mission.go | T04 | go test ./internal/core ./internal/context ./internal/orchestration -run 'Test(Driver|Manifest|Mission)' | consume Domain 03 dispatch + Domain 02 receipt pin; role/files/acceptance/verify/context/config/palette/authority/subject drift fails R1 |
+
+> **W1 deviations.** Existing ACP duplicate-mission, checkpoint ordering/identity, and report
+> projection contracts already supported pending missions, so `acp.go`, `acp_test.go`,
+> `checkpoint.go`, `checkpoint_test.go`, `report.go`, and `report_test.go` needed no edits.
 
 ## W2 — worker lifecycle and normal completion
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T08 | craftsman | internal/orchestration/worker.go; internal/orchestration/worker_test.go; internal/orchestration/lease.go; internal/orchestration/lease_test.go; internal/orchestration/acp.go | T05,T07 | go test ./internal/orchestration -run 'Test(Worker|Lease|ACP)' | registered worker/capability claim validates role/pins; locked claim race grants one typed lease R2 |
-| [ ] T09 | craftsman | internal/cmd/brain.go; internal/cmd/brain_claim_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go; internal/core/commands.go | T08 | go test ./internal/cmd ./internal/orchestration -run 'Test(BrainClaim|Registry|Worker|Lease)' | public versioned `brain claim` parser/output/error codes; no direct state edit R2 |
-| [ ] T10 | craftsman | internal/orchestration/heartbeat.go; internal/orchestration/heartbeat_test.go; internal/cmd/brain.go; internal/cmd/brain_heartbeat_test.go | T08,T09 | go test ./internal/cmd ./internal/orchestration -run 'Test(Heartbeat|BrainHeartbeat|Lease)' | matching live lease heartbeat/renewal bounded by policy; stale/wrong/revoked rejected R3 |
-| [ ] T11 | craftsman | internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/cmd/brain.go; internal/orchestration/report.go; internal/orchestration/report_test.go | T09,T10 | go test ./internal/cmd ./internal/orchestration -run 'Test(BrainReport|WorkerReport|Report)' | report validates mission/lease/worker/role/pins/current evidence then normal completion path; no helper bypass R3 |
-| [ ] T12 | craftsman | internal/core/diff.go; internal/core/diff_test.go; internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/gates/scope.go; internal/core/gates/scope_test.go | T11 | go test ./internal/core ./internal/core/gates ./internal/cmd -run 'Test(Diff|Scope|BrainReport)' | local HEAD/diff server-observed; claimed scope disagreement retained/refused; consume Domain 06 scope verdict R3 |
+| [x] T08 | craftsman | internal/orchestration/worker.go; internal/orchestration/worker_test.go; internal/orchestration/lease.go; internal/orchestration/lease_test.go; internal/orchestration/acp.go | T05,T07 | go test ./internal/orchestration -run 'Test(Worker|Lease|ACP)' | registered worker/capability claim validates role/pins; locked claim race grants one typed lease R2 |
+| [x] T09 | craftsman | internal/cmd/brain.go; internal/cmd/brain_claim_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go; internal/core/commands.go | T08 | go test ./internal/cmd ./internal/orchestration -run 'Test(BrainClaim|Registry|Worker|Lease)' | public versioned `brain claim` parser/output/error codes; no direct state edit R2 |
+| [x] T10 | craftsman | internal/orchestration/heartbeat.go; internal/orchestration/heartbeat_test.go; internal/cmd/brain.go; internal/cmd/brain_heartbeat_test.go | T08,T09 | go test ./internal/cmd ./internal/orchestration -run 'Test(Heartbeat|BrainHeartbeat|Lease)' | matching live lease heartbeat/renewal bounded by policy; stale/wrong/revoked rejected R3 |
+| [x] T11 | craftsman | internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/cmd/brain.go; internal/orchestration/report.go; internal/orchestration/report_test.go | T09,T10 | go test ./internal/cmd ./internal/orchestration -run 'Test(BrainReport|WorkerReport|Report)' | report validates mission/lease/worker/role/pins/current evidence then normal completion path; no helper bypass R3 |
+| [x] T12 | craftsman | internal/core/diff.go; internal/core/diff_test.go; internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/gates/scope.go; internal/core/gates/scope_test.go | T11 | go test ./internal/core ./internal/core/gates ./internal/cmd -run 'Test(Diff|Scope|BrainReport)' | local HEAD/diff server-observed; claimed scope disagreement retained/refused; consume Domain 06 scope verdict R3 |
 
 ## W3 — recovery, cancellation, conformance
+
+> **W2 deviations.** Repository has no `internal/cmd/brain.go`; public lifecycle parsing stays in
+> `brain_run.go` with atomic helpers split into `brain_claim.go`, `brain_heartbeat.go`, and
+> `brain_report.go`. Command metadata changed CLI guidance, requiring synchronized command docs.
+> Existing `brain_worker.go` evidence checks were reused. Domain 06 scope files were introduced
+> early because T12 requires the harness-derived verdict; worker-reported paths remain audit-only.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
