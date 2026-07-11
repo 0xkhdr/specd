@@ -49,7 +49,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 ## Stage P1 — operational and economic substrate
 
 - [x] 04 W2 — import, freshness, trajectory (needs 05 event identity, 06 profile)
-- [ ] 04 W3 — coverage and gate composition (needs 04 W2)
+- [x] 04 W3 — coverage and gate composition (needs 04 W2)
 - [ ] 05 W3 — recovery, cancellation, conformance (needs 05 W2)
 - [ ] 05 W4 — routing, limits, observation (needs 05 W2, 06/07 policy)
 - [ ] 06 W4 — context and change-boundary scan (needs 06 W3)

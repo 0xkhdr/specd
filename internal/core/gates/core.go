@@ -75,6 +75,13 @@ type CheckCtx struct {
 	Evals            []core.EvidenceEnvelopeV1
 	QualitySubject   core.FreshnessSubject
 
+	// QualityPolicyRequired arms Domain 04 production coverage enforcement.
+	// Callers supply parsed policy/criterion registries; the gate stays pure and
+	// offline. Zero values preserve compatibility with legacy/default projects.
+	QualityPolicyRequired bool
+	QualityPolicies       map[string]core.QualityPolicy
+	KnownCriteria         map[string]bool
+
 	// Program-link gate input (spec 12 R5). When the gate under approval is the
 	// execution transition, the caller fills ProgramDepsIncomplete with the
 	// cross-spec dependencies that are not yet complete; a non-empty list refuses

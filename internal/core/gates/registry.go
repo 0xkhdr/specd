@@ -52,6 +52,15 @@ func (r Registry) Run(ctx CheckCtx) []Finding {
 	return findings
 }
 
+// Append returns a registry with gates appended in caller order. It makes
+// profile composition explicit while preserving stable core gate order.
+func (r Registry) Append(gates ...Gate) Registry {
+	for _, gate := range gates {
+		r.Register(gate)
+	}
+	return r
+}
+
 func HasErrors(findings []Finding) bool {
 	for _, finding := range findings {
 		if finding.Severity == Error {

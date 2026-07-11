@@ -32,6 +32,7 @@ for tasks in "$ROOT"/review-specs/0[0-6]-*/tasks.md; do
 	while IFS= read -r line; do
 		id=$(cell "$line" 2 | sed -n 's/^\(P[0-9][0-9]*\.[0-9][0-9]*[a-z]*\)$/\1/p')
 		[ -n "$id" ] || continue
+		role=$(cell "$line" 3)
 		files=$(cell "$line" 4)
 		verify=$(cell "$line" 6 | sed -n 's/^[^`]*`\([^`]*\)`.*/\1/p' | sed 's/\\|/|/g')
 
@@ -45,7 +46,14 @@ for tasks in "$ROOT"/review-specs/0[0-6]-*/tasks.md; do
 		# B: hollow-verify — passes without asserting behavior.
 		case "$verify" in
 			""|":"|"true"|"true "*|"test -e "*|"test -f "*|"[ -e "*|"[ -f "*|"ls "*|*"|| true")
-				[ -n "$verify" ] && flag "$id" "B" "hollow-verify (asserts existence only / cannot fail): $verify" ;;
+				[ -n "$verify" ] && [ "$role" = "craftsman" ] && flag "$id" "B" "write-task hollow verify: $verify" ;;
+		esac
+
+		# D: compile-only commands cannot prove production-risk write behavior.
+		# Read-only roles remain explicitly exempt and may use a trivial command.
+		case "$verify" in
+			"go build"|"go build "*)
+				[ "$role" = "craftsman" ] && flag "$id" "D" "write-task compile-only verify: $verify" ;;
 		esac
 
 		# C: stale target — clean single-path tokens that don't exist.
@@ -63,6 +71,23 @@ for tasks in "$ROOT"/review-specs/0[0-6]-*/tasks.md; do
 		done
 	done <"$tasks"
 done
+
+# Domain 04 R5 verify-quality lint. Inspect its authoring contract without the
+# stale-target audit above: later waves intentionally declare files not created
+# yet. Only write tasks are subject to shallow-verify rejection; read-only
+# scout/validator/auditor rows retain their explicit trivial exception.
+tasks="$ROOT/specs/04-verification-evals-and-quality/tasks.md"
+while IFS= read -r line; do
+	id=$(cell "$line" 2 | sed -n 's/^\(\[[ x]\] \)\{0,1\}\(T[0-9][0-9]*\)$/\2/p')
+	[ -n "$id" ] || continue
+	role=$(cell "$line" 3)
+	verify=$(cell "$line" 6 | sed 's/^[ 	]*//;s/[ 	]*$//')
+	[ "$role" = "craftsman" ] || continue
+	case "$verify" in
+		""|":"|"true"|"true "*|"printf ok"|"go build"|"go build "*|*"|| true")
+			flag "$id" "D" "Domain 04 write-task shallow verify: $verify" ;;
+	esac
+done <"$tasks"
 
 if [ "$smells" -eq 0 ]; then
 	echo "regress-lint: clean — no smells"

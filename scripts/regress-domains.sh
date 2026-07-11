@@ -29,6 +29,14 @@ SPECD="$RUN/specd"
 violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
 
+# Domain 04 W3 has no CLI surface until W4. Pin its pure/offline production
+# policy now: risky writes reject shallow verify while read-only work remains
+# explicitly exempt.
+go test ./internal/core/gates -run '^TestQualityGateVerifyStrengthAndReadOnlyException$' >/dev/null 2>&1 || {
+	violation 04-W3 "quality verify-strength composition regressed"
+}
+pass 04-W3 "quality gate rejects shallow writes and exempts read-only work"
+
 # W0 — honesty: progress.md must obey its own wave-ordering invariant
 # ("a wave may start only when every spec in the prior wave is done"). In file
 # order, waves run top-to-bottom, so a `pending`/`in-progress` row must never

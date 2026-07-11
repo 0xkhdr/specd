@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -74,7 +76,6 @@ func LoadCriteria(path string) ([]CriterionRecord, error) {
 		return nil, err
 	}
 	defer file.Close()
-
 	var records []CriterionRecord
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -126,4 +127,83 @@ func CurrentPassing(records []CriterionRecord, since time.Time) map[string]bool 
 		}
 	}
 	return passing
+}
+
+type QualityCheck struct {
+	ID            string
+	EvidenceClass EvidenceClass
+	Threshold     *float64
+}
+
+type AcceptanceCriterion struct {
+	ID        string
+	Critical  bool
+	CheckIDs  []string
+	Exception *QualityException
+}
+
+// QualityException is deliberately narrow. Critical criteria cannot use it;
+// noncritical exceptions must remain attributable and time-bounded.
+type QualityException struct {
+	ApprovalRef string
+	Owner       string
+	ExpiresAt   string
+}
+
+// ValidateCriteria verifies stable acceptance→check coverage. Eval-like checks
+// require explicit thresholds; core never guesses score semantics.
+func ValidateCriteria(policy QualityPolicy, knownCriteria map[string]bool) []QualityPolicyFinding {
+	checks := map[string]QualityCheck{}
+	var findings []QualityPolicyFinding
+	for _, check := range policy.Checks {
+		if check.ID == "" {
+			findings = append(findings, qualityFinding("CHECK_ID_REQUIRED", policy.TaskID, "quality check id is empty"))
+			continue
+		}
+		if _, exists := checks[check.ID]; exists {
+			findings = append(findings, qualityFinding("CHECK_ID_DUPLICATE", policy.TaskID, fmt.Sprintf("duplicate check %q", check.ID)))
+		}
+		checks[check.ID] = check
+		if (check.EvidenceClass == EvidenceOutputEval || check.EvidenceClass == EvidenceReview) && check.Threshold == nil {
+			findings = append(findings, qualityFinding("SCORE_THRESHOLD_REQUIRED", policy.TaskID, fmt.Sprintf("check %q has no threshold", check.ID)))
+		}
+	}
+	for _, criterion := range policy.Criteria {
+		if criterion.ID == "" || (knownCriteria != nil && !knownCriteria[criterion.ID]) {
+			findings = append(findings, qualityFinding("CRITERION_UNKNOWN", policy.TaskID, fmt.Sprintf("unknown criterion %q", criterion.ID)))
+		}
+		if criterion.Critical && criterion.Exception != nil {
+			findings = append(findings, qualityFinding("CRITICAL_EXCEPTION_PROHIBITED", policy.TaskID, fmt.Sprintf("critical criterion %q cannot be excepted", criterion.ID)))
+		}
+		if !criterion.Critical && criterion.Exception != nil && (criterion.Exception.ApprovalRef == "" || criterion.Exception.Owner == "" || criterion.Exception.ExpiresAt == "") {
+			findings = append(findings, qualityFinding("EXCEPTION_INVALID", policy.TaskID, fmt.Sprintf("criterion %q exception needs approval, owner, and expiry", criterion.ID)))
+		}
+		if criterion.Critical && len(criterion.CheckIDs) == 0 {
+			findings = append(findings, qualityFinding("CRITERION_UNCOVERED", policy.TaskID, fmt.Sprintf("critical criterion %q has no checks", criterion.ID)))
+		}
+		for _, id := range criterion.CheckIDs {
+			if _, ok := checks[id]; !ok {
+				findings = append(findings, qualityFinding("CHECK_ID_UNKNOWN", policy.TaskID, fmt.Sprintf("criterion %q references unknown check %q", criterion.ID, id)))
+			}
+		}
+	}
+	sortQualityFindings(findings)
+	return findings
+}
+
+func QualityCheckIDs(policy QualityPolicy) map[string]bool {
+	ids := make(map[string]bool, len(policy.Checks))
+	for _, check := range policy.Checks {
+		ids[check.ID] = true
+	}
+	return ids
+}
+
+func SortedCriterionIDs(policy QualityPolicy) []string {
+	ids := make([]string, 0, len(policy.Criteria))
+	for _, criterion := range policy.Criteria {
+		ids = append(ids, criterion.ID)
+	}
+	sort.Strings(ids)
+	return ids
 }

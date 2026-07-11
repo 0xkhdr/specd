@@ -43,9 +43,12 @@ before edit. Cross-domain links remain README program links, not local task ids.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T11 | craftsman | internal/core/quality_policy.go; internal/core/quality_policy_test.go; internal/core/gates/quality.go; internal/core/gates/quality_test.go; internal/core/gates/registry.go | T05,T08,T10 | go test ./internal/core ./internal/core/gates -run 'Test(QualityPolicy|Quality|Registry)' | required evidence composition; stable offline gate order; stale/missing class blocks R3,R5 |
-| [ ] T12 | craftsman | internal/core/criteria.go; internal/core/criteria_test.go; internal/core/quality_policy.go; internal/core/quality_policy_test.go; internal/core/gates/quality.go; internal/core/gates/quality_test.go | T11 | go test ./internal/core ./internal/core/gates -run 'Test(Criteria|QualityPolicy|Quality)' | critical acceptance→check mapping; unknown/uncovered/threshold-less refs fail R5 |
-| [ ] T13 | craftsman | internal/core/gates/quality.go; internal/core/gates/quality_test.go; scripts/regress-lint.sh; scripts/regress-domains.sh | T12 | go test ./internal/core/gates -run TestQuality && ./scripts/regress-lint.sh && ./scripts/regress-domains.sh | production-risk trivial/compile-only verify lint; explicit read-only exception R5 |
+| [x] T11 | craftsman | internal/core/quality_policy.go; internal/core/quality_policy_test.go; internal/core/gates/quality.go; internal/core/gates/quality_test.go; internal/core/gates/registry.go | T05,T08,T10 | go test ./internal/core ./internal/core/gates -run 'Test(QualityPolicy|Quality|Registry)' | required evidence composition; stable offline gate order; stale/missing class blocks R3,R5 |
+| [x] T12 | craftsman | internal/core/criteria.go; internal/core/criteria_test.go; internal/core/quality_policy.go; internal/core/quality_policy_test.go; internal/core/gates/quality.go; internal/core/gates/quality_test.go | T11 | go test ./internal/core ./internal/core/gates -run 'Test(Criteria|QualityPolicy|Quality)' | critical acceptance→check mapping; unknown/uncovered/threshold-less refs fail R5 |
+| [x] T13 | craftsman | internal/core/gates/quality.go; internal/core/gates/quality_test.go; scripts/regress-lint.sh; scripts/regress-domains.sh | T12 | go test ./internal/core/gates -run TestQuality && ./scripts/regress-lint.sh && ./scripts/regress-domains.sh | production-risk trivial/compile-only verify lint; explicit read-only exception R5 |
+
+> **W3 deviation.** T11 also edits `internal/core/gates/core.go`: `CheckCtx` is the existing
+> caller-to-gate interface and must carry quality policy inputs so `quality` remains pure/offline.
 
 ## W4 — adapters, dataset/rubric governance
 
