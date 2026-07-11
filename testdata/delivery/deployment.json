@@ -1,0 +1,20 @@
+{
+  "schema": "DeploymentV1",
+  "deployment_id": "dep-01H8X9",
+  "attempt": 1,
+  "release_id": "specd-0.8.0-a1b2c3d4",
+  "environment": "staging",
+  "status": "observing",
+  "strategy": "canary",
+  "population": "5%",
+  "window": "30m",
+  "adapter": "github-actions",
+  "authority": "ci-identity:0xkhdr/specd",
+  "actor": "release-bot",
+  "idempotency_key": "specd-0.8.0-a1b2c3d4:staging:1",
+  "started_at": "2026-07-11T09:05:00Z",
+  "finished_at": "",
+  "telemetry_source": "prometheus:staging",
+  "evidence_ref": ".specd/artifacts/dep-01H8X9.evidence.json",
+  "attestation_ref": ".specd/artifacts/dep-01H8X9.attestation.json"
+}

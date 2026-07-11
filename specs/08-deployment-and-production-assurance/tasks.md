@@ -21,6 +21,10 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 | T04 | craftsman | `internal/core/gates/regress`; `scripts/regress-domains.sh` | T01 | `bash scripts/regress-domains.sh; test $? -ne 0 || grep -q 'input absent' <(bash scripts/regress-domains.sh)` | R4.2 reproduce W0 fail-open |
 | T05 | auditor | domain README/requirements/design vs `08-*.md` | T02 | `printf ok` | confirm 15 scenarios each have a planned fixture |
 
+> **08a/T04 deviation:** the fail-open reproduction is shell-only, so `internal/core/gates/regress`
+> (a listed file) was **not** created — a Go gate package there is the 08e/T22 *fix*, not the W0
+> *reproduction*. Subtractive bias: no empty package added.
+
 ## W1 — `08b-agent-bootstrap-binding` (requires 08a)
 
 | id | role | files | deps | verify | req |

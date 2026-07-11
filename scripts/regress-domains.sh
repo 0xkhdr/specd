@@ -35,18 +35,25 @@ pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
 # precede a `done` row. Pure text check — no binary, current program/wave format.
 w0_seen_incomplete=0
 w0_bad=0
+w0_rows=$(awk -F'|' 'NF>=5 { s=$4; gsub(/^[ \t]+|[ \t]+$/, "", s); if (s=="pending"||s=="in-progress"||s=="done") print s }' "$RUN/specs/progress.md")
 while IFS= read -r st; do
 	case "$st" in
 		pending|in-progress) w0_seen_incomplete=1 ;;
 		done) [ "$w0_seen_incomplete" -eq 1 ] && w0_bad=1 ;;
 	esac
 done <<EOF
-$(awk -F'|' 'NF>=5 { s=$4; gsub(/^[ \t]+|[ \t]+$/, "", s); if (s=="pending"||s=="in-progress"||s=="done") print s }' "$RUN/specs/progress.md")
+$w0_rows
 EOF
-if [ "$w0_bad" -eq 0 ]; then
-	pass W0 "progress.md wave ordering honest"
-else
+if [ "$w0_bad" -ne 0 ]; then
 	violation W0 "progress.md marks a later wave done while an earlier wave is pending"
+elif [ -z "$w0_rows" ]; then
+	# 08a/T04: reproduce the documented fail-open. This advertised honesty check
+	# parses a `| ... | done |` table cell, but progress.md now uses `[x]`/`[ ]`
+	# checkbox rows — so its input absent, and the check still reports a pass
+	# instead of failing or skipping. 08e/T22 replaces this line with a fail/skip.
+	pass W0 "progress.md wave ordering honest (input absent: fail-open reproduced)"
+else
+	pass W0 "progress.md wave ordering honest"
 fi
 
 # W1 — enum enforcement (spec 03 R3): an out-of-enum flag value must be refused.

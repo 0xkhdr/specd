@@ -1,0 +1,18 @@
+{
+  "schema": "HealthObservationV1",
+  "deployment_id": "dep-01H8X9",
+  "criterion_id": "http_5xx_rate",
+  "health_check": "rate(http_requests_total{status=~\"5..\"}[5m])",
+  "threshold": "< 0.01",
+  "observation": "0.002",
+  "freshness": {
+    "observed_at": "2026-07-11T09:20:00Z",
+    "max_age": "5m"
+  },
+  "release_identity": {
+    "release_id": "specd-0.8.0-a1b2c3d4",
+    "artifact_digest": "sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+    "environment": "staging"
+  },
+  "source": "prometheus:staging"
+}

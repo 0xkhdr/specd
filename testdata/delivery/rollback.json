@@ -1,0 +1,15 @@
+{
+  "schema": "RollbackV1",
+  "deployment_id": "dep-01H8X9",
+  "rollback_target": "specd-0.7.4-9f8e7d6c",
+  "reason": "http_5xx_rate breached threshold during observation window",
+  "adapter": "github-actions",
+  "action_result": "issued",
+  "post_rollback_health": {
+    "criterion_id": "http_5xx_rate",
+    "observation": "0.001",
+    "observed_at": "2026-07-11T09:35:00Z"
+  },
+  "capability_class": "reversible",
+  "human_required": false
+}

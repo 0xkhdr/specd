@@ -148,3 +148,42 @@ recovery against versioned fixtures.
 - L5 — delivery loop: canary cannot promote before its full fresh window; failed canary requires
   rollback/exception; rollback complete only after target health; duplicate idempotency key is one
   transition; reports are byte-identical; docs-lint and command-reference/CHEATSHEET mirror.
+
+## W0 baseline observations (08a)
+
+### T01 scout inventory — current behavior of the four P0 surfaces
+
+Read against `internal/core/handshake.go`, `internal/core/state.go`, `scripts/install.sh`,
+`scripts/regress-domains.sh`. Each gap is what the corresponding later wave must close.
+
+**Handshake (`BootstrapHandshake`).** Today binds only `version` (literal `"1"`), `agent`,
+allowed `tools`, `palette_digest`, `config_digest`, and `tool_contracts`. Gaps for 08b: no binary
+release/commit (`internal/version` unbound), no state/context/template **schema** versions, no
+workspace root, no active spec/slug/status/revision, no `managed_digest` over managed
+`AGENTS.md`/roles/steering content, and no typing that separates harness instructions from untrusted
+requirements/source/test-output/adapter-observation. There is no path that **exits non-zero before
+mutation** on a pinned mismatch.
+
+**Mode (`state.go`).** Modes are `default` and `agent` only; there is no declared, schema-validated
+`orchestrated` mode and no reachable CLI/CAS/approval transition into it (08c). The cost/deadline
+brake is not production-wired.
+
+**Installer (`scripts/install.sh`).** Verifies the archive checksum, then installs the extracted
+binary **directly** with `install -m 0755` over `$BIN`. Gaps for 08f: no staged temp path + atomic
+rename, no retained previous binary, no rollback-on-failed-smoke, no attestation verification, no
+`version --json` commit smoke, no state/delivery **schema preflight**, and no managed-asset diff
+preview.
+
+**Regress (`scripts/regress-domains.sh`).** The advertised **W0 honesty** invariant parses a
+`| … | done |` table cell from `specs/progress.md`, but `progress.md` now uses `[x]`/`[ ]` checkbox
+rows — so the awk yields **zero rows** and the check reports a pass over absent input (fail-open).
+08a/T04 reproduces and labels this (`input absent: fail-open reproduced`); 08e/T22 replaces the line
+with a fail/skip so absent input never passes.
+
+### T05 auditor sign-off — 15 scenarios each have a planned fixture
+
+Audited `docs/delivery-contract.md` §Fixture plan against the 15 production validation scenarios in
+`docs/google-sdlc-alignment/08-deployment-and-production-assurance.md`. Every scenario (1–15) maps to
+a named planned fixture and its landing wave; the four canonical envelope fixtures
+(`release_candidate.json`, `deployment.json`, `health_observation.json`, `rollback.json`) are landed
+by 08a and pinned by `TestDeliveryFixture`. Coverage is complete — no scenario is unmapped.
