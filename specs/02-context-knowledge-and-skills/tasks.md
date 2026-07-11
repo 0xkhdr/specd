@@ -14,6 +14,7 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 ## W1 — typed v2 foundation
 
 | id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
 | [ ] T04 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/estimate.go; internal/context/estimate_test.go | T02,T03 | go test ./internal/context -run 'TestManifest|TestEstimate' | typed V2 schema, required fields, canonical ordering/digest R1 |
 | [ ] T05 | craftsman | internal/context/resolver.go; internal/context/resolver_test.go; internal/core/paths.go; internal/core/paths_test.go | T04 | go test ./internal/context ./internal/core -run 'TestResolver|Test.*Path' | canonical root, traversal/symlink/wrong-root refusal R2.2 |
 | [ ] T06 | craftsman | internal/context/manifest.go; internal/context/budget.go; internal/context/budget_test.go; internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go | T04,T05 | go test ./internal/context ./internal/core/gates -run 'Test.*Budget|TestManifest' | emitted-byte accounting; required overflow fails R3 |
@@ -21,6 +22,7 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 ## W2 — required lanes and driver contract
 
 | id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
 | [ ] T07 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T04 | go test ./internal/core ./internal/context -run 'TestTasks|TestManifest' | structured selected-task record, normalized declared files R2.1 |
 | [ ] T08 | craftsman | internal/context/selector.go; internal/context/selector_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T05,T06,T07 | go test ./internal/context -run 'Test(Selector|Manifest)' | required requirements/design/role/source selection; named missing/selector findings R2 |
 | [ ] T09 | craftsman | internal/core/manifest_tools.go; internal/core/handshake.go; internal/core/handshake_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T04 | go test ./internal/core ./internal/context -run 'Test(Handshake|Manifest)' | tool/guardrail lane contains route, authority, palette/config digest R4 |
@@ -29,6 +31,7 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 ## W3 — progressive static lanes
 
 | id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
 | [ ] T11 | craftsman | internal/context/steering.go; internal/context/steering_test.go; internal/context/manifest.go; internal/context/steering_manifest_test.go | T08 | go test ./internal/context -run 'Test(Steering|Manifest)' | deterministic steering tags/applicability/omissions R3,R6 |
 | [ ] T12 | craftsman | internal/core/memory.go; internal/core/memory_test.go; internal/context/memory.go; internal/context/memory_test.go | T08 | go test ./internal/core ./internal/context -run 'TestMemory' | stable block index/selector; critical ordering R6 |
 | [ ] T13 | craftsman | internal/context/examples.go; internal/context/examples_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T08 | go test ./internal/context -run 'Test(Examples|Manifest)' | versioned applicable positive/negative examples R6 |
@@ -36,6 +39,7 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 ## W4 — portable skills
 
 | id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
 | [ ] T14 | craftsman | internal/context/skills.go; internal/context/skills_test.go; internal/core/scaffold.go; internal/core/scaffold_test.go | T04 | go test ./internal/context ./internal/core -run 'Test(Skills|Scaffold)' | `.specd/skills` package metadata/version/provenance validation R7.1 |
 | [ ] T15 | craftsman | internal/context/skills.go; internal/context/skills_test.go; internal/core/manifest_tools.go | T09,T14 | go test ./internal/context ./internal/core -run 'Test(Skills|ManifestTools)' | phase/role/capability subset and explicit unsupported result R7.2,R7.3 |
 | [ ] T16 | craftsman | internal/context/skills.go; internal/context/manifest.go; internal/context/skills_test.go; internal/context/manifest_test.go | T11,T13,T15 | go test ./internal/context -run 'Test(Skills|Manifest)' | progressive skill selection, refs, digest, budget R6,R7 |
@@ -43,6 +47,7 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 ## W5 — receipts and durable knowledge
 
 | id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
 | [ ] T17 | craftsman | internal/context/receipt.go; internal/context/receipt_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T06,T08,T16 | go test ./internal/context -run 'Test(Receipt|Manifest)' | stable receipt; no raw content/secret field R5.1,R5.3 |
 | [ ] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; internal/context/receipt.go; internal/context/receipt_test.go | T17 | go test ./internal/core ./internal/context -run 'Test(Evidence|Receipt)' | required digest change marks receipt stale; historical readable R5.2 |
 | [ ] T19 | craftsman | internal/cmd/memory.go; internal/cmd/memory_test.go; internal/core/memory.go; internal/core/memory_test.go; internal/context/memory.go; internal/context/memory_test.go | T12,T17 | go test ./internal/cmd ./internal/core ./internal/context -run 'TestMemory|TestReceipt' | evidence/review or exception provenance; expired/superseded excluded R6.3 |
@@ -50,6 +55,7 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 ## W6 — conformance and release proof
 
 | id | role | files | depends-on | verify | acceptance |
+|---|---|---|---|---|---|
 | [ ] T20 | craftsman | internal/context/manifest_test.go; internal/context/resolver_test.go; internal/context/budget_test.go; internal/cmd/lifecycle_test.go | T10,T18 | go test ./internal/context ./internal/cmd -run 'Test(Manifest|Resolver|Budget|Lifecycle)' | wrong-root, missing design/source, overflow, stale receipt black-box cases R8.1 |
 | [ ] T21 | craftsman | internal/context/skills_test.go; internal/context/memory_test.go; internal/cmd/integration_polish_test.go; internal/core/gates/security | T15,T19,T20 | go test ./internal/context ./internal/cmd ./internal/core/gates/security -run 'Test(Skills|Memory|Integration)' | injection label, route mismatch, portable skill, poisoned memory cases R8.1 |
 | [ ] T22 | craftsman | docs/open-spec-format.md; docs/mcp-guide.md; docs/command-reference.md; docs/CHEATSHEET.md; docs/contributor-guide.md | T20,T21 | ./scripts/docs-lint.sh && go test ./internal/context -run TestManifest | V2 migration/operator/host contract docs R8.2 |

@@ -38,7 +38,7 @@ wave in the roadmap consumes it: `03f`/`03g`, `04f`/`04g`, `05f`, `06i`, `07i`/`
 Therefore `10a`–`10e` (envelope, identity, classification, boundary invariant, index) must be
 authored and **frozen early** — co-designed from the P0 field demands of Domains 04/05/07/08 — so
 consuming domains adopt a stable schema. Reference adapters (`10f`–`10i`) and ecosystem mappings
-(`10j`–`10m`) follow later without blocking the deterministic core. See `../progress-plan.md` for
+(`10j`–`10m`) follow later without blocking the deterministic core. See `../progress.md` for
 the program-wide build order.
 
 ## Ownership
@@ -56,7 +56,7 @@ the program-wide build order.
 
 ## External prerequisites
 
-Cross-domain links remain program dependencies tracked in `../progress-plan.md`, not local DAG
+Cross-domain links remain program dependencies tracked in `../progress.md`, not local DAG
 `T<n>` IDs. Do not encode foreign task IDs in `depends-on`.
 
 - Domains 04/05/07/08 must surface the concrete fields their adapter waves need (eval, mission,
