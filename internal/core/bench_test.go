@@ -15,7 +15,7 @@ func chainTasks(n int) []TaskRow {
 		if i > 0 {
 			deps = []string{"T" + itoaBench(i-1)}
 		}
-		tasks[i] = TaskRow{ID: id, Marker: "⬜", Role: "builder", DependsOn: deps, Verify: "printf ok"}
+		tasks[i] = TaskRow{ID: id, Marker: "⬜", Role: "craftsman", DependsOn: deps, Verify: "printf ok"}
 	}
 	return tasks
 }

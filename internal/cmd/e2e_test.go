@@ -60,7 +60,7 @@ func TestLifecycleE2E(t *testing.T) {
 	}
 	// Swap in a trivially-passing verify so the verify step exercises the real
 	// runner without depending on a toolchain inside the temp repo.
-	tasks := "# Tasks\n\n| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | spec.md | - | true | ok |\n"
+	tasks := "# Tasks\n\n| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | scout | spec.md | - | true | ok |\n"
 	if err := os.WriteFile(filepath.Join(repo, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}

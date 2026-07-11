@@ -92,7 +92,7 @@ func TestBrainStepReleasesCompletedLease(t *testing.T) {
 	specDir := filepath.Join(root, ".specd", "specs", "demo")
 	tasks := "| id | role | files | depends-on | verify | acceptance |\n" +
 		"|---|---|---|---|---|---|\n" +
-		"| ✅ T1 | builder | a.txt | - | printf ok | done |\n"
+		"| ✅ T1 | craftsman | a.txt | - | printf done | done |\n"
 	if err := os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}

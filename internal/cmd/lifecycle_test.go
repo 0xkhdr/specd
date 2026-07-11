@@ -22,7 +22,7 @@ func newDemoSpec(t *testing.T) string {
 	if err := Run(root, "new", []string{"demo"}, nil); err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | - | true | ok |")
+	writeTasks(t, root, "demo", "| T1 | scout | spec.md | - | true | ok |")
 	authorDemoSpec(t, root, "demo")
 	return root
 }
@@ -77,7 +77,7 @@ func TestApproveGatesE2E(t *testing.T) {
 
 	// Red readiness: a dangling dependency makes the dag gate error; approve
 	// must refuse and leave state unchanged.
-	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | T9 | true | ok |")
+	writeTasks(t, root, "demo", "| T1 | scout | spec.md | T9 | true | ok |")
 	before, _ := core.LoadState(statePath)
 	if err := Run(root, "approve", []string{"demo", "tasks"}, nil); err == nil {
 		t.Fatal("approve should refuse on red readiness gates")
@@ -189,7 +189,7 @@ func TestTaskShowsDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("task: %v", err)
 	}
-	for _, want := range []string{"T1", "craftsman", "true"} {
+	for _, want := range []string{"T1", "scout", "true"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("task output missing %q:\n%s", want, out)
 		}

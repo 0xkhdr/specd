@@ -1,11 +1,21 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 )
+
+// Digest returns the hex-encoded SHA-256 of data — the canonical content
+// address used to pin approved requirement/design source bytes into a record so
+// a later amendment can detect drift (spec 01 R5). Deterministic and pure.
+func Digest(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
 
 // ReadOrNull returns the file contents, or nil when path does not exist.
 func ReadOrNull(path string) *string {

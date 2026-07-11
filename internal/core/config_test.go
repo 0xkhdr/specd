@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -70,7 +71,7 @@ func TestConfigNoLegacyJSON(t *testing.T) {
 	if len(diagnostics) != 0 {
 		t.Fatalf("legacy json diagnostics = %#v, want ignored", diagnostics)
 	}
-	if cfg != DefaultConfig {
+	if !reflect.DeepEqual(cfg, DefaultConfig) {
 		t.Fatalf("legacy config changed cfg = %#v, want default %#v", cfg, DefaultConfig)
 	}
 }

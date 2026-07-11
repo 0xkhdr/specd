@@ -34,7 +34,7 @@ func newCriterionSpec(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(dir, "design.md"), []byte(design), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | - | true | ok |")
+	writeTasks(t, root, "demo", "| T1 | scout | spec.md | - | true | ok |")
 	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
 		t.Fatalf("approve requirements: %v", err)
 	}

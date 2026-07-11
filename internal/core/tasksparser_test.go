@@ -13,10 +13,10 @@ const sampleTasksMd = `# Tasks
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| T1 | builder | a.go | - | go test ./... | first task |
-| T2 | builder | b.go | T1 | go test ./... | second task |
-| T3 | builder | c.go | T1 | go test ./... | third task |
-| T4 | builder | d.go | T2, T3 | go test ./... | final task |
+| T1 | craftsman | a.go | - | go test ./... | first task |
+| T2 | craftsman | b.go | T1 | go test ./... | second task |
+| T3 | craftsman | c.go | T1 | go test ./... | third task |
+| T4 | craftsman | d.go | T2, T3 | go test ./... | final task |
 `
 
 func TestParseTasksMdRoundTrip(t *testing.T) {

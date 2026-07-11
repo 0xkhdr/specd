@@ -18,6 +18,18 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 			cfg.Agent = value
 		case "gates.verify":
 			cfg.Gates.Verify = value
+		case "verify.trivial":
+			var trivial []string
+			for _, part := range strings.Split(value, ",") {
+				if p := strings.TrimSpace(part); p != "" {
+					trivial = append(trivial, p)
+				}
+			}
+			if len(trivial) == 0 {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "verify.trivial must list at least one command"})
+				continue
+			}
+			cfg.Verify.Trivial = trivial
 		case "verify.timeout_seconds":
 			parsed, err := strconv.Atoi(value)
 			if err != nil || parsed < 0 {

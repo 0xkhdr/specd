@@ -1,6 +1,9 @@
 package gates
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestEARSGate(t *testing.T) {
 	stub := "# Requirements — demo\n\n- **R1** When <trigger>, the system shall <response>.\n"
@@ -27,5 +30,30 @@ func TestEARSGate(t *testing.T) {
 	// No doc provided → no findings (parity).
 	if f := earsGate(CheckCtx{}); len(f) != 0 {
 		t.Fatalf("empty ctx should be silent, got %+v", f)
+	}
+}
+
+func TestEARSGateStructuredFindings(t *testing.T) {
+	// A structured doc with a duplicate criterion and a non-EARS clause must
+	// produce addressable Error findings naming the offending IDs (R1.2).
+	doc := "### R1 — Group\n\n- R1.1: When a user acts, system shall respond.\n- R1.1: this one is malformed.\n"
+	f := earsGate(CheckCtx{RequirementsDoc: doc})
+	if !HasErrors(f) {
+		t.Fatalf("structured defects should error, got %+v", f)
+	}
+	var sawDup bool
+	for _, finding := range f {
+		if strings.Contains(finding.Message, "R1.1") {
+			sawDup = true
+		}
+	}
+	if !sawDup {
+		t.Fatalf("findings should name the offending id R1.1, got %+v", f)
+	}
+
+	// A valid structured doc passes clean.
+	good := "### R1 — Group\n\n- R1.1: When a user acts, the system shall respond.\n"
+	if f := earsGate(CheckCtx{RequirementsDoc: good}); len(f) != 0 {
+		t.Fatalf("valid structured doc should pass, got %+v", f)
 	}
 }

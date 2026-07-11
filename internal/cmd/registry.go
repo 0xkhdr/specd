@@ -701,6 +701,7 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 		MaxContextTokens: contextBudget(root),
 		ApproveTarget:    approveTarget,
 		RequirementsStub: requirementsStub(slug),
+		TrivialVerify:    loadSpecConfig(root).Verify.Trivial,
 	}
 	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	if b, err := os.ReadFile(filepath.Join(dir, "requirements.md")); err == nil {

@@ -28,7 +28,7 @@ func TestCheckBudgetDisabledZeroAllocs(t *testing.T) {
 func manifestTasks(n int) []core.TaskRow {
 	tasks := make([]core.TaskRow, n)
 	for i := 0; i < n; i++ {
-		tasks[i] = core.TaskRow{ID: "T" + strconv.Itoa(i), Role: "builder"}
+		tasks[i] = core.TaskRow{ID: "T" + strconv.Itoa(i), Role: "craftsman"}
 	}
 	return tasks
 }

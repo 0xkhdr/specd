@@ -28,9 +28,17 @@ type Record struct {
 	Scope            string `json:"scope,omitempty"`
 	Gate             string `json:"gate,omitempty"`
 	ApprovedRevision int64  `json:"approved_revision,omitempty"`
-	Timestamp        string `json:"timestamp"`
-	GitHead          string `json:"git_head"`
-	Actor            string `json:"actor"`
+	// SourceDigest and CriteriaIDs are the compact, validated Domain 01
+	// structured-intent metadata (spec 01 R1/R5): SourceDigest pins the approved
+	// requirements/design source bytes via core.Digest so a later amendment can
+	// detect drift; CriteriaIDs records which criterion IDs the record covers.
+	// Both are additive and omitempty — records written by an older specd load
+	// unchanged (backward compatible, no schema bump required).
+	SourceDigest string   `json:"source_digest,omitempty"`
+	CriteriaIDs  []string `json:"criteria_ids,omitempty"`
+	Timestamp    string   `json:"timestamp"`
+	GitHead      string   `json:"git_head"`
+	Actor        string   `json:"actor"`
 }
 
 // StampRecord fills the provenance triple on rec: an RFC 3339 timestamp from

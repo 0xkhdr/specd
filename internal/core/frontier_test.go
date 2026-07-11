@@ -4,9 +4,9 @@ import "testing"
 
 func TestFrontierAndWaves(t *testing.T) {
 	tasks := []TaskRow{
-		{ID: "T1", Role: "builder", Verify: "true"},
-		{ID: "T2", Role: "builder", DependsOn: []string{"T1"}, Verify: "true"},
-		{ID: "T3", Role: "builder", DependsOn: []string{"T1"}, Verify: "true"},
+		{ID: "T1", Role: "craftsman", Verify: "true"},
+		{ID: "T2", Role: "craftsman", DependsOn: []string{"T1"}, Verify: "true"},
+		{ID: "T3", Role: "craftsman", DependsOn: []string{"T1"}, Verify: "true"},
 	}
 	frontier, err := Frontier(tasks, map[string]TaskRunStatus{})
 	if err != nil {

@@ -26,7 +26,7 @@ func TestRevertOnFail(t *testing.T) {
 	}
 	tasks := "| id | role | files | depends-on | verify | acceptance |\n" +
 		"|---|---|---|---|---|---|\n" +
-		"| ⬜ T1 | builder | tracked.txt | - | printf changed > tracked.txt; false | fails after edit |\n"
+		"| ⬜ T1 | craftsman | tracked.txt | - | printf changed > tracked.txt; false | fails after edit |\n"
 	if err := os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestVerifyFailureLeavesCleanTree(t *testing.T) {
 	}
 	tasks := "| id | role | files | depends-on | verify | acceptance |\n" +
 		"|---|---|---|---|---|---|\n" +
-		"| ⬜ T1 | builder | tracked.txt | - | printf changed > tracked.txt; false | fails after edit |\n"
+		"| ⬜ T1 | craftsman | tracked.txt | - | printf changed > tracked.txt; false | fails after edit |\n"
 	if err := os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}

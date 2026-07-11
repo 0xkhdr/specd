@@ -36,7 +36,7 @@ func TestVerifyTimeout(t *testing.T) {
 	}
 	tasks := "| id | role | files | depends-on | verify | acceptance |\n" +
 		"|---|---|---|---|---|---|\n" +
-		"| ⬜ T1 | builder | seed.txt | - | sleep 5 | never completes |\n"
+		"| ⬜ T1 | craftsman | seed.txt | - | sleep 5 | never completes |\n"
 	if err := os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}

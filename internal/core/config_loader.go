@@ -60,6 +60,30 @@ type GatesConfig struct {
 // preserves prior behavior — operators opt into a bound.
 type VerifyConfig struct {
 	TimeoutSecs int
+	// Trivial lists verify commands that do no real checking (spec 01 R4.2). A
+	// write task (role craftsman) using one of these is rejected — it must
+	// verify its own change — while a read-only task (scout/validator/auditor)
+	// may legitimately retain a trivial verify. Configurable to avoid false
+	// positives (design 01: role/profile allowlists, exact finding, no opaque ban).
+	Trivial []string
+}
+
+// DefaultTrivialVerify is the built-in set of no-op verify commands. A write
+// task using any of these is rejected by the verify gate; read-only tasks may
+// keep them (their `verify` is meant to be a trivial `printf ok`).
+var DefaultTrivialVerify = []string{"printf ok", "true", ":"}
+
+// IsTrivialVerify reports whether cmd (trimmed) matches one of the trivial verify
+// commands. Matching is exact on the trimmed command; a genuine verify that
+// merely contains "true" as a substring is not trivial.
+func IsTrivialVerify(cmd string, trivial []string) bool {
+	cmd = strings.TrimSpace(cmd)
+	for _, t := range trivial {
+		if cmd == strings.TrimSpace(t) {
+			return true
+		}
+	}
+	return false
 }
 
 // SubmitConfig configures the terminal `submit` verb (spec 08). Command is an
@@ -116,6 +140,9 @@ var DefaultConfig = Config{
 	Agent:   "codex",
 	Gates: GatesConfig{
 		Verify: "error",
+	},
+	Verify: VerifyConfig{
+		Trivial: DefaultTrivialVerify,
 	},
 	Context: ContextConfig{
 		MaxTokens: 12000,

@@ -18,6 +18,12 @@ type CheckCtx struct {
 	// W4 gate inputs. Gate bodies stay pure over CheckCtx: the caller reads
 	// files and state, the gates never touch disk. Zero values disable the
 	// gate (parity: an empty CheckCtx yields no findings).
+	// TrivialVerify is the configured set of no-op verify commands (config
+	// verify.trivial, default core.DefaultTrivialVerify). The verify gate rejects
+	// a write task using one of these (spec 01 R4.2). Nil disables the check
+	// (parity: an empty CheckCtx yields no findings).
+	TrivialVerify []string
+
 	StateLoaded          bool                          // caller loaded state.json for this spec
 	StateTaskStatus      map[string]core.TaskRunStatus // machine truth from state.json
 	ApprovedRequirements bool
@@ -124,8 +130,13 @@ func dag(ctx CheckCtx) []Finding {
 func roles(ctx CheckCtx) []Finding {
 	var findings []Finding
 	for _, task := range ctx.Tasks {
-		if strings.TrimSpace(task.Role) == "" {
+		role := strings.TrimSpace(task.Role)
+		if role == "" {
 			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s role is required", task.ID)})
+			continue
+		}
+		if !core.IsKnownRole(role) {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s has unknown role %q (known: %s)", task.ID, role, strings.Join(core.KnownRoles(), ", "))})
 		}
 	}
 	return findings
@@ -144,8 +155,13 @@ func files(ctx CheckCtx) []Finding {
 func verifyCommands(ctx CheckCtx) []Finding {
 	var findings []Finding
 	for _, task := range ctx.Tasks {
-		if strings.TrimSpace(task.Verify) == "" {
+		cmd := strings.TrimSpace(task.Verify)
+		if cmd == "" {
 			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s verify command is required", task.ID)})
+			continue
+		}
+		if core.IsWriteRole(task.Role) && core.IsTrivialVerify(cmd, ctx.TrivialVerify) {
+			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s is a write task with trivial verify %q; a write task must verify its change", task.ID, cmd)})
 		}
 	}
 	return findings

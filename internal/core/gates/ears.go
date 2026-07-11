@@ -3,6 +3,8 @@ package gates
 import (
 	"fmt"
 	"strings"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // earsGate guards requirements.md (P8/F8). It errors when the file is still the
@@ -19,6 +21,20 @@ func earsGate(ctx CheckCtx) []Finding {
 	if ctx.RequirementsStub != "" &&
 		strings.TrimSpace(ctx.RequirementsDoc) == strings.TrimSpace(ctx.RequirementsStub) {
 		return []Finding{{Severity: Error, Message: "requirements.md is the unedited scaffold stub"}}
+	}
+	// Structured `### R<n>` / `- R<n>.<m>:` docs get exact addressable findings
+	// (spec 01 R1.2). Legacy bullet docs (no structured requirements parsed) fall
+	// back to the "shall" shape heuristic below so older projects keep passing.
+	if doc, err := core.ParseRequirements([]byte(ctx.RequirementsDoc)); err == nil && len(doc.Requirements) > 0 {
+		var findings []Finding
+		for _, f := range core.ValidateRequirements(doc) {
+			msg := f.Message
+			if f.ID != "" {
+				msg = f.ID + ": " + f.Message
+			}
+			findings = append(findings, Finding{Severity: Error, Message: msg})
+		}
+		return findings
 	}
 	var findings []Finding
 	for i, line := range strings.Split(ctx.RequirementsDoc, "\n") {

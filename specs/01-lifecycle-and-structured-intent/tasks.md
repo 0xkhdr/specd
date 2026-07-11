@@ -6,11 +6,16 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go | | go test ./internal/core -run 'TestRequirements' | R1.1,R1.3 parser/model |
-| [ ] T02 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go; internal/core/gates/ears.go; internal/core/gates/ears_test.go | T01 | go test ./internal/core ./internal/core/gates -run 'TestRequirements\|TestEARS' | R1.2 exact requirement findings |
-| [ ] T03 | craftsman | internal/core/state.go; internal/core/state_test.go; internal/core/io.go | T01 | go test ./internal/core -run 'TestState' | schema migration, CAS-safe records |
-| [ ] T04 | craftsman | internal/core/gates/core.go; internal/core/gates/core_test.go; internal/core/roles.go | | go test ./internal/core ./internal/core/gates -run 'TestRoles' | R4.1 reject unknown role |
-| [ ] T05 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T04 | go test ./internal/core ./internal/core/gates -run 'TestVerify' | R4.2 role-aware trivial verify policy |
+| [x] T01 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go | | go test ./internal/core -run 'TestRequirements' | R1.1,R1.3 parser/model |
+| [x] T02 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go; internal/core/gates/ears.go; internal/core/gates/ears_test.go | T01 | go test ./internal/core ./internal/core/gates -run 'TestRequirements\|TestEARS' | R1.2 exact requirement findings |
+| [x] T03 | craftsman | internal/core/state.go; internal/core/state_test.go; internal/core/io.go | T01 | go test ./internal/core -run 'TestState' | schema migration, CAS-safe records |
+| [x] T04 | craftsman | internal/core/gates/core.go; internal/core/gates/core_test.go; internal/core/roles.go | | go test ./internal/core ./internal/core/gates -run 'TestRoles' | R4.1 reject unknown role |
+| [x] T05 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T04 | go test ./internal/core ./internal/core/gates -run 'TestVerify' | R4.2 role-aware trivial verify policy |
+
+**W0 cross-wave deviations (files edited beyond the declared lists, recorded per prompt.md §2):**
+- `internal/cmd/registry.go` (T05): wired `CheckCtx.TrivialVerify` from config so R4.2 enforces in the live `check`/`approve` path.
+- `internal/cmd/lifecycle.go` (T05): scaffold placeholder task `craftsman → scout` — a fresh placeholder is read-only until authored (craftsman + `printf ok` violated R4.2).
+- Test-fixture migrations (T04/T05): `builder → craftsman` in 9 test files (builder is not a canonical role); craftsman + trivial verify → `scout` in `task_complete_test.go`, `e2e_test.go`, `criteria_test.go`, `link_test.go`, `lifecycle_test.go`; `brain_run_test.go` verify `printf ok → printf done`; `lifecycle_test.go` role assertion `craftsman → scout`; `config_test.go` `== → reflect.DeepEqual` (VerifyConfig gained a slice field).
 
 ## W1 — Design and planning guidance
 

@@ -17,7 +17,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 
 ## Stage P0 — truthful contracts + boundary keystone
 
-- [ ] 01 W0 — Contract and baseline
+- [x] 01 W0 — Contract and baseline
 - [ ] 01 W1 — Design and planning guidance (needs 01 W0)
 - [ ] 01 W2 — Task trace/risk contract (needs 01 W0,W1)
 - [ ] 02 W0 — contract, fixtures, migration

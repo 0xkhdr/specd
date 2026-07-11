@@ -14,7 +14,7 @@ func newSpecInProject(t *testing.T, root, slug string) {
 	if err := Run(root, "new", []string{slug}, nil); err != nil {
 		t.Fatalf("new %s: %v", slug, err)
 	}
-	writeTasks(t, root, slug, "| T1 | craftsman | spec.md | - | true | ok |")
+	writeTasks(t, root, slug, "| T1 | scout | spec.md | - | true | ok |")
 	authorDemoSpec(t, root, slug)
 }
 
