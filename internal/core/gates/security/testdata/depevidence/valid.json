@@ -1,0 +1,8 @@
+{
+  "schema": "dep-evidence/v1",
+  "generated_at": "2026-07-12T00:00:00Z",
+  "manifest_digest": "PINNED",
+  "findings": [
+    {"module": "github.com/pkg/errors", "severity": "error", "advisory": "GHSA-xxxx", "summary": "example advisory"}
+  ]
+}

@@ -92,9 +92,18 @@ fixture before each enforcement change. Stdlib-only; no `reference/` edits; no L
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T22 | craftsman | internal/core/gates/security/slopsquat.go; internal/core/gates/security/manifest.go; internal/core/gates/security/manifest_test.go | T10,T15 | go test ./internal/core/gates/security -run 'Test(Slopsquat|Manifest)' | manifest-diff: new dep needs reason/source; unknown registry/checksum/provenance fails per profile; lockfile-only inspected R6.1 |
-| [ ] T23 | craftsman | internal/core/gates/security/depevidence.go; internal/core/gates/security/depevidence_test.go; internal/core/gates/security/testdata; scripts/dep-evidence.sh | T22 | go test ./internal/core/gates/security -run 'TestDepEvidence' | pinned offline adapter artifact validated; malformed/stale fails; gate stays offline/stdlib-only R6.2 |
-| [ ] T24 | craftsman | internal/core/gates/security/dangerous.go; internal/core/gates/security/dangerous_test.go; internal/core/gates/security/testdata | T10,T16 | go test ./internal/core/gates/security -run 'TestDangerous' | detect destructive shell, world-writable/exec mode, authz change, generated secret file, symlink escape over normalized diff; documented false-positive controls R6.3 |
+| [x] T22 | craftsman | internal/core/gates/security/slopsquat.go; internal/core/gates/security/manifest.go; internal/core/gates/security/manifest_test.go | T10,T15 | go test ./internal/core/gates/security -run 'Test(Slopsquat|Manifest)' | manifest-diff: new dep needs reason/source; unknown registry/checksum/provenance fails per profile; lockfile-only inspected R6.1 |
+| [x] T23 | craftsman | internal/core/gates/security/depevidence.go; internal/core/gates/security/depevidence_test.go; internal/core/gates/security/testdata; scripts/dep-evidence.sh | T22 | go test ./internal/core/gates/security -run 'TestDepEvidence' | pinned offline adapter artifact validated; malformed/stale fails; gate stays offline/stdlib-only R6.2 |
+| [x] T24 | craftsman | internal/core/gates/security/dangerous.go; internal/core/gates/security/dangerous_test.go; internal/core/gates/security/testdata | T10,T16 | go test ./internal/core/gates/security -run 'TestDangerous' | detect destructive shell, world-writable/exec mode, authz change, generated secret file, symlink escape over normalized diff; documented false-positive controls R6.3 |
+
+> **W6 deviations.** New governance detectors are pure functions in the `security` package taking
+> their profile/policy as parameters (not read from `SecurityConfig`, which is W1's file territory
+> and outside this wave's declared files), so W6 stays self-contained and additive; wiring into the
+> production `Analyze`/report path is deferred to W7/W8 (T27, T30) per the DAG. `slopsquat.go` was
+> unchanged — `manifest.go` reuses its `parseGoMod` helper in-package. New findings resolve severity
+> per profile (production → error, else warn); generated-secret and symlink-escape always fail closed
+> at error. `ManifestDigest` matches `cat go.mod go.sum | sha256sum` so `scripts/dep-evidence.sh`
+> (offline, empty-findings baseline adapter) and the gate pin the same manifest state.
 
 ## W7 — governed exceptions and mission audit
 
