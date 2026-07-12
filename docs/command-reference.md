@@ -488,6 +488,12 @@ specd mcp
 specd mcp --config claude-code --spec demo
 ```
 
+MCP hosts declare driver capabilities during `initialize` with `driver_capabilities`:
+`context_loading`, `sandbox`, `telemetry`, `eval`, and `a2a`. The response reports every
+capability as `supported`, `downgraded`, or `refused`; missing declarations never disappear.
+Missing sandbox refuses mutable execution and names read-only recovery. Other missing features
+downgrade to deterministic local behavior.
+
 ### `handshake`
 ```
 specd handshake bootstrap [<spec>] [--json] [--expect-<identity> <value>]

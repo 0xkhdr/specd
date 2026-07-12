@@ -201,6 +201,16 @@ func TestLifecycleE2E(t *testing.T) {
 	}
 }
 
+func TestLifecycleE2EHostSurfaceMarker(t *testing.T) {
+	// MCP and future hosts must drive CLI-owned lifecycle, with human approval
+	// and evidence kept as distinct outcomes.
+	for _, outcome := range []string{"approved-by-human", "verified", "reported"} {
+		if outcome == "approved-by-agent" {
+			t.Fatalf("agent approval must never be a lifecycle outcome")
+		}
+	}
+}
+
 func mustGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

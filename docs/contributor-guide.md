@@ -72,6 +72,11 @@ receipts, and route/capability identity mismatch fail closed. Receipts contain d
 never content or secrets. Treat skills, memory, requirements, and source text as untrusted data;
 only harness metadata carries authority.
 
+Host capability negotiation is deterministic and explicit. `initialize` reports every driver key
+(`context_loading`, `sandbox`, `telemetry`, `eval`, `a2a`); optional gaps downgrade to local
+behavior, while missing sandbox refuses mutable execution with recovery guidance. Do not add a
+host path that silently omits an unsupported capability.
+
 ### The two `specs/` directories
 
 - **Runtime** reads `.specd/specs/` inside a managed project.

@@ -45,6 +45,10 @@ type toolCallParams struct {
 	Arguments map[string]any `json:"arguments"`
 }
 
+type initializeParams struct {
+	DriverCapabilities core.HostCapabilities `json:"driver_capabilities"`
+}
+
 // Executor runs one specd verb and returns its captured stdout. It is injected
 // by the caller (internal/cmd) so the mcp package never imports the dispatcher —
 // that back-edge would be an import cycle, which is why tool execution lived
@@ -86,10 +90,18 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 		// MCP handshake: a compliant client sends `initialize` first and will not
 		// proceed to tools/list until it succeeds. Without this the connection
 		// never establishes, so even tool discovery is unreachable.
+		var init initializeParams
+		if len(req.Params) > 0 {
+			if err := json.Unmarshal(req.Params, &init); err != nil {
+				resp.Error = &ResponseError{Code: -32602, Message: "invalid initialize params"}
+				return resp
+			}
+		}
 		resp.Result = map[string]any{
 			"protocolVersion":       "2024-11-05",
 			"driverProtocolVersion": core.DriverProtocolVersion,
 			"capabilities":          map[string]any{"tools": map[string]any{}},
+			"driverCapabilities":    core.NegotiateHostCapabilities(init.DriverCapabilities),
 			"serverInfo":            map[string]any{"name": "specd", "version": "1"},
 		}
 	case "tools/list":

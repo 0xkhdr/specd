@@ -63,9 +63,9 @@ before edit. Cross-domain prerequisites remain README program links, not local t
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T15 | craftsman | internal/integration/driver_conformance_test.go; internal/integration/registry.go; internal/integration/snippet.go; internal/cmd/e2e_test.go; internal/mcp/parity_test.go | T10,T11,T14 | go test ./internal/integration ./internal/cmd ./internal/mcp -run 'Test(DriverConformance|LifecycleE2E|Parity)' | CLI/MCP/future-host lifecycle fixture equivalent R8.1 |
-| [ ] T16 | craftsman | internal/core/capabilities.go; internal/core/capabilities_test.go; internal/mcp/server.go; internal/mcp/policy_test.go; docs/mcp-guide.md | T15 | go test ./internal/core ./internal/mcp -run 'Test(Capabilities|Policy)' | deterministic supported/downgrade/refusal for host declarations R8.2 |
-| [ ] T17 | craftsman | docs/command-reference.md; docs/CHEATSHEET.md; docs/mcp-guide.md; docs/contributor-guide.md; internal/core/embed_templates/AGENTS.md | T13,T16 | ./scripts/docs-lint.sh && go test ./internal/cmd -run 'Test(Registry|InitScaffold)' | operator/host migration and bootstrap docs synchronized |
+| [x] T15 | craftsman | internal/integration/driver_conformance_test.go; internal/integration/registry.go; internal/integration/snippet.go; internal/cmd/e2e_test.go; internal/mcp/parity_test.go | T10,T11,T14 | go test ./internal/integration ./internal/cmd ./internal/mcp -run 'Test(DriverConformance|LifecycleE2E|Parity)' | CLI/MCP/future-host lifecycle fixture equivalent R8.1 |
+| [x] T16 | craftsman | internal/core/capabilities.go; internal/core/capabilities_test.go; internal/mcp/server.go; internal/mcp/policy_test.go; docs/mcp-guide.md | T15 | go test ./internal/core ./internal/mcp -run 'Test(Capabilities|Policy)' | deterministic supported/downgrade/refusal for host declarations R8.2 |
+| [x] T17 | craftsman | docs/command-reference.md; docs/CHEATSHEET.md; docs/mcp-guide.md; docs/contributor-guide.md; internal/core/embed_templates/AGENTS.md | T13,T16 | ./scripts/docs-lint.sh && go test ./internal/cmd -run 'Test(Registry|InitScaffold)' | operator/host migration and bootstrap docs synchronized |
 
 ## W5 — remote envelope, release proof
 

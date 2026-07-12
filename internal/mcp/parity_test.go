@@ -101,3 +101,15 @@ func TestParityTypedHandoffBaseline(t *testing.T) {
 		t.Fatalf("forbidden mutation must return typed handoff: %#v", resp.Error)
 	}
 }
+
+func TestDriverConformanceHostParity(t *testing.T) {
+	// MCP exposes same read/driver contract as CLI; transport adds no authority.
+	for _, tool := range CoreTools() {
+		if tool.Name == "approve" || tool.Name == "task" {
+			t.Fatalf("human/evidence lifecycle verb leaked into MCP: %s", tool.Name)
+		}
+	}
+	if len(CoreTools()) != len(core.ManifestToolContracts()) {
+		t.Fatalf("MCP/CLI tool contract count diverged")
+	}
+}

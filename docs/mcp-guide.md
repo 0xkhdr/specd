@@ -73,6 +73,15 @@ The `claude-code` snippet is a standard `mcpServers` block:
 }
 ```
 
+### Capability negotiation
+
+Hosts may declare driver capabilities in `initialize.params.driver_capabilities`:
+`context_loading`, `sandbox`, `telemetry`, `eval`, and `a2a`. specd returns one deterministic
+result for each key. Supported features are marked `supported`; optional missing features are
+`downgraded` to local/offline behavior; missing `sandbox` is `refused` for mutable execution.
+Every result includes reason and recovery action. Omitted capabilities are never silently
+treated as supported.
+
 `cwd` and `env` appear only when you pass `--root` / `--spec`. `specd` must be on the host's
 `PATH` (or replace `"command"` with an absolute path).
 

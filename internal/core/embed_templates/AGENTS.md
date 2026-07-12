@@ -23,6 +23,10 @@ with no LLM in its decision path. Read this file before acting on a specd projec
 6. `specd check` — run the readiness gates. A **human** runs `specd approve` to advance
    the phase, and only if the gates pass.
 
+Host capability contract: declare `context_loading`, `sandbox`, `telemetry`, `eval`, and `a2a`
+during MCP `initialize`. Read every returned `supported`, `downgraded`, or `refused` result;
+missing sandbox means mutable work is refused and requires read-only recovery.
+
 ## Roles (read `.specd/roles/<role>.md` before acting as one)
 - 🔍 **scout** — read-only explore & report. Never bound to a write task.
 - 🛠️ **craftsman** — write + verify. Exactly one atomic task per invocation.
