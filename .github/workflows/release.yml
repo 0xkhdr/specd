@@ -54,3 +54,56 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attest release archives
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: dist/*.tar.gz
+
+      - name: Verify published archive attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh attestation verify dist/*.tar.gz --repo "$GITHUB_REPOSITORY"
+
+      - name: Preserve built release for install smoke
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-dist
+          path: dist
+
+  install-smoke:
+    name: Install smoke (${{ matrix.os }}/${{ matrix.arch }})
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os: linux
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+          - runner: macos-15-intel
+            os: darwin
+            arch: amd64
+          - runner: macos-latest
+            os: darwin
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v6
+        with:
+          name: release-dist
+          path: dist
+      - name: Install real archive and run release smoke
+        env:
+          SPECD_RELEASE_DIR: dist
+          SPECD_OS: ${{ matrix.os }}
+          SPECD_ARCH: ${{ matrix.arch }}
+          SPECD_VERSION: ${{ github.ref_name }}
+          SPECD_EXPECT_COMMIT: ${{ github.sha }}
+        run: |
+          ./scripts/install.sh --install-dir "$RUNNER_TEMP/bin"
+          ./scripts/release-smoke.sh "$RUNNER_TEMP/bin/specd"

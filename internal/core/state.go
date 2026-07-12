@@ -13,6 +13,28 @@ import (
 
 const StateSchemaVersion = 2
 
+// PreflightStateSchema checks compatibility without decoding or mutating state.
+// Installers use it before replacing a binary so future state cannot be opened
+// by an older binary and silently downgraded.
+func PreflightStateSchema(raw []byte) error {
+	var header struct {
+		SchemaVersion *int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(raw, &header); err != nil {
+		return fmt.Errorf("state schema preflight: %w", err)
+	}
+	if header.SchemaVersion == nil {
+		return errors.New("state schema preflight: schema_version is required")
+	}
+	if *header.SchemaVersion > StateSchemaVersion {
+		return fmt.Errorf("state schema preflight: unsafe downgrade from schema %d to %d", *header.SchemaVersion, StateSchemaVersion)
+	}
+	if *header.SchemaVersion < 0 {
+		return fmt.Errorf("state schema preflight: invalid schema %d", *header.SchemaVersion)
+	}
+	return nil
+}
+
 // Clock is the injectable time source for record timestamps. Production uses
 // wall-clock UTC; tests swap it for determinism. All record timestamps flow
 // through here — never call time.Now directly in a record path.

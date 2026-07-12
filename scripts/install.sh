@@ -134,6 +134,33 @@ check_checksum() {
   [ "$actual" = "$expected" ] || die "checksum mismatch for $name"
 }
 
+binary_identity() {
+  candidate=$1
+  identity=$($candidate version --json 2>/dev/null) || return 1
+  printf '%s' "$identity" | grep -q '"version"' || return 1
+  if [ -n "${SPECD_EXPECT_COMMIT:-}" ]; then
+    printf '%s' "$identity" | grep -q '"commit":"'"$SPECD_EXPECT_COMMIT"'"' || \
+      return 1
+  fi
+}
+
+smoke_binary() {
+  candidate=$1
+  binary_identity "$candidate" || return 1
+  if [ -n "${SPECD_SMOKE_ROOT:-}" ]; then
+    [ -d "$SPECD_SMOKE_ROOT" ] || return 1
+    (cd "$SPECD_SMOKE_ROOT" && "$candidate" handshake bootstrap --json >/dev/null) || \
+      return 1
+  fi
+}
+
+managed_digest() {
+  candidate=$1
+  [ -n "${SPECD_SMOKE_ROOT:-}" ] || return 1
+  output=$(cd "$SPECD_SMOKE_ROOT" && "$candidate" handshake bootstrap --json 2>/dev/null) || return 1
+  printf '%s' "$output" | awk -F'"managed_digest":"' 'NF > 1 {split($2, a, "\""); print a[1]; exit}'
+}
+
 VERSION=${SPECD_VERSION:-}
 INSTALL_DIR=${SPECD_INSTALL_DIR:-$DEFAULT_INSTALL_DIR}
 FORCE=0
@@ -195,8 +222,11 @@ if [ "$DRY_RUN" = "1" ]; then
   printf '+ download %s/%s\n' "$BASE_URL" "$ARCHIVE"
   printf '+ download %s/checksums.txt\n' "$BASE_URL"
   printf '+ verify checksum\n'
+  printf '+ verify version/commit identity\n'
+  printf '+ preview managed-asset changes\n'
   ensure_install_dir
-  run_privileged install -m 0755 "<extracted specd>" "$BIN"
+  printf '+ stage binary beside target and atomically rename\n'
+  printf '+ retain previous binary until post-install smoke passes\n'
   exit 0
 fi
 
@@ -209,6 +239,40 @@ download "$BASE_URL/checksums.txt" "$tmp/checksums.txt"
 check_checksum "$tmp/checksums.txt" "$tmp/$ARCHIVE"
 tar -xzf "$tmp/$ARCHIVE" -C "$tmp" specd
 
+smoke_binary "$tmp/specd" || die "staged binary failed identity/handshake smoke"
+
 ensure_install_dir
-run_privileged install -m 0755 "$tmp/specd" "$BIN"
+STAGED="$INSTALL_DIR/.specd-stage-$$"
+PREVIOUS="$INSTALL_DIR/specd.previous"
+run_privileged install -m 0755 "$tmp/specd" "$STAGED"
+
+old_managed=
+new_managed=
+if [ -e "$BIN" ]; then old_managed=$(managed_digest "$BIN" || true); fi
+new_managed=$(managed_digest "$STAGED" || true)
+if [ -n "$old_managed" ] && [ -n "$new_managed" ]; then
+  if [ "$old_managed" = "$new_managed" ]; then
+    printf 'Managed-asset changes: none (digest %s)\n' "$new_managed"
+  else
+    printf 'Managed-asset changes: digest %s -> %s\n' "$old_managed" "$new_managed"
+  fi
+else
+  printf 'Managed-asset changes: preview unavailable (set SPECD_SMOKE_ROOT to a managed workspace)\n'
+fi
+had_previous=0
+if [ -e "$BIN" ]; then
+  had_previous=1
+  run_privileged rm -f "$PREVIOUS"
+  run_privileged mv "$BIN" "$PREVIOUS"
+fi
+if ! run_privileged mv "$STAGED" "$BIN"; then
+  [ "$had_previous" = 0 ] || run_privileged mv "$PREVIOUS" "$BIN"
+  die "atomic binary swap failed; previous binary restored"
+fi
+if ! smoke_binary "$BIN"; then
+  run_privileged rm -f "$BIN"
+  [ "$had_previous" = 0 ] || run_privileged mv "$PREVIOUS" "$BIN"
+  die "post-install smoke failed; previous binary restored"
+fi
+run_privileged rm -f "$PREVIOUS"
 printf 'Installed %s\n' "$BIN"

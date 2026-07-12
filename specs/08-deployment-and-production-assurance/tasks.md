@@ -89,12 +89,18 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T25 | craftsman | `scripts/install.sh` (staged temp path + atomic rename) | T01 | `bash scripts/install-scripts-test.sh` | R5.2 staged atomic swap |
-| T26 | craftsman | `scripts/install.sh` (retain previous binary, restore on fail) | T25 | `bash scripts/install-scripts-test.sh` | R5.2 rollback-on-failed-smoke |
-| T27 | craftsman | new `scripts/release-smoke.sh` | T25 | `bash scripts/release-smoke.sh` | R5.1 checksum/attestation + version commit + handshake smoke |
-| T28 | craftsman | `internal/core/state.go` (schema preflight) | T11 | `go test ./internal/core -run TestSchemaPreflight -count=1` | R5.3 future schema/unsafe downgrade fail before write |
-| T29 | craftsman | `.github/workflows/release.yml`; `.goreleaser.yml` | T27 | `printf ok` (workflow-lint offline) | R5.1 install real just-built archive per OS/arch |
-| T30 | craftsman | `scripts/install.sh` (managed-asset diff preview) | T26 | `bash scripts/install-scripts-test.sh` | R5.2 preview managed changes |
+| [x] T25 | craftsman | `scripts/install.sh` (staged temp path + atomic rename) | T01 | `bash scripts/install-scripts-test.sh` | R5.2 staged atomic swap |
+| [x] T26 | craftsman | `scripts/install.sh` (retain previous binary, restore on fail) | T25 | `bash scripts/install-scripts-test.sh` | R5.2 rollback-on-failed-smoke |
+| [x] T27 | craftsman | new `scripts/release-smoke.sh` | T25 | `bash scripts/release-smoke.sh` | R5.1 checksum/attestation + version commit + handshake smoke |
+| [x] T28 | craftsman | `internal/core/state.go` (schema preflight) | T11 | `go test ./internal/core -run TestSchemaPreflight -count=1` | R5.3 future schema/unsafe downgrade fail before write |
+| [x] T29 | craftsman | `.github/workflows/release.yml`; `.goreleaser.yml` | T27 | `printf ok` (workflow-lint offline) | R5.1 install real just-built archive per OS/arch |
+| [x] T30 | craftsman | `scripts/install.sh` (managed-asset diff preview) | T26 | `bash scripts/install-scripts-test.sh` | R5.2 preview managed changes |
+
+> **08f scope deviations:** strict TDD extends `scripts/install-scripts-test.sh` and
+> `internal/core/state_test.go`; release attestation and per-platform archive execution require
+> `.github/workflows/release.yml`, while restoring the declared macOS/amd64 install target requires
+> `.goreleaser.yml`. These files pin rollback failure, schema preflight, release identity, and every
+> supported OS/architecture without adding runtime dependencies.
 
 ## W6 — `08g-release-and-deployment-ledgers` (requires 08d)
 

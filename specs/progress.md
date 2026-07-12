@@ -66,7 +66,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 08 W2 — `08c-orchestrated-mode-reachability` (needs 08 W0, Domain 05 dispatch)
 - [x] 08 W3 — `08d-delivery-envelopes-and-state-machine` (needs 08 W0)
 - [x] 08 W4 — `08e-installed-lifecycle-e2e-and-regression-prereqs` (needs 08 W1)
-- [ ] 08 W5 — `08f-release-install-upgrade-hardening` (needs 08 W1)
+- [x] 08 W5 — `08f-release-install-upgrade-hardening` (needs 08 W1)
 - [ ] 08 W6 — `08g-release-and-deployment-ledgers` (needs 08 W3)
 - [ ] 08 W7 — `08h-environment-policy-and-delivery-gates` (needs 08 W3,W6, Domain 06 authority)
 - [ ] 10 W2 — runner and capability inspection (needs 10 W1)

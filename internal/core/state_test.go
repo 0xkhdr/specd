@@ -168,3 +168,26 @@ func TestStateRejectsInvalidSchema(t *testing.T) {
 		t.Fatal("LoadState accepted unsupported schema")
 	}
 }
+
+func TestSchemaPreflight(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		raw     string
+		wantErr string
+	}{
+		{name: "current", raw: `{"schema_version":2}`},
+		{name: "legacy_upgrade", raw: `{"schema_version":1}`},
+		{name: "future_unsafe_downgrade", raw: `{"schema_version":99}`, wantErr: "unsafe downgrade"},
+		{name: "missing", raw: `{}`, wantErr: "schema_version"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := PreflightStateSchema([]byte(tc.raw))
+			if tc.wantErr == "" && err != nil {
+				t.Fatalf("preflight rejected schema: %v", err)
+			}
+			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("preflight error = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}
