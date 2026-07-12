@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/0xkhdr/specd/internal/adapter"
 	"github.com/0xkhdr/specd/internal/core"
 )
 
@@ -234,5 +235,42 @@ func TestIntegrationDriverGapBaseline(t *testing.T) {
 	out, _ := captureStdout(t, func() error { return Run(root, "mcp", nil, map[string]string{"config": "claude-code", "spec": "demo"}) })
 	if strings.Contains(out, "SPECD_SPEC") {
 		t.Fatal("generated inert host pin")
+	}
+}
+
+// TestOfflineProviderOutageContinuesPlanning pins R8.2 at the command layer: a
+// configured-but-unreachable adapter is projected as `missing` with an exact
+// external cause, and the read-only command still succeeds. The outage becomes
+// visible blocked evidence, never an implicit success (`configured`) and never a
+// command failure that would stall local planning.
+func TestOfflineProviderOutageContinuesPlanning(t *testing.T) {
+	root := t.TempDir()
+	missing := filepath.Join(root, "unreachable-provider")
+	writeManifest(t, root, []adapter.Adapter{
+		{Name: "provider", Path: missing, SchemaVersion: adapter.SchemaVersion, Enabled: true},
+	})
+
+	out, err := captureStdout(t, func() error {
+		return Run(root, "adapters", nil, map[string]string{"json": ""})
+	})
+	if err != nil {
+		t.Fatalf("outage must not fail the command (planning continues): %v", err)
+	}
+	var report adaptersReport
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out)
+	}
+	if len(report.Adapters) != 1 {
+		t.Fatalf("want one adapter, got %d", len(report.Adapters))
+	}
+	got := report.Adapters[0]
+	if got.State == "configured" {
+		t.Fatal("an unreachable provider must never project as configured (implicit success)")
+	}
+	if got.State != "missing" {
+		t.Fatalf("state=%q, want missing", got.State)
+	}
+	if !strings.Contains(got.Detail, missing) {
+		t.Fatalf("missing detail must name the exact external cause %q, got %q", missing, got.Detail)
 	}
 }

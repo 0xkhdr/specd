@@ -123,4 +123,10 @@ else
 	violation W6 "version prints nothing"
 fi
 
+# Domain 10 W3 — public adapter contract remains executable without internal imports.
+./scripts/adapter-conformance.sh >/dev/null 2>&1 || {
+	violation 10-W3 "adapter conformance contract regressed"
+}
+pass 10-W3 "adapter/v1 third-party conformance holds"
+
 echo "regress-domains: all per-domain invariants hold"

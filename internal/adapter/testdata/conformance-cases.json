@@ -1,0 +1,16 @@
+{
+  "schema_version": "adapter/v1",
+  "cases": [
+    {"id": "no-adapters", "expected": "core-independent"},
+    {"id": "wrong-version", "expected": "unknown_schema_version"},
+    {"id": "malformed-output", "expected": "malformed_output"},
+    {"id": "oversized-output", "expected": "oversized_output"},
+    {"id": "timeout", "expected": "timeout"},
+    {"id": "crash", "expected": "nonzero_exit"},
+    {"id": "stale-result", "expected": "identity_mismatch"},
+    {"id": "restricted-export", "expected": "redacted-by-default"},
+    {"id": "provider-outage", "expected": "missing_binary"},
+    {"id": "a2a-mcp", "expected": "adapter-owned"},
+    {"id": "third-party-adapter", "expected": "succeeded"}
+  ]
+}

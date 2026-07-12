@@ -70,7 +70,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 08 W6 — `08g-release-and-deployment-ledgers` (needs 08 W3)
 - [x] 08 W7 — `08h-environment-policy-and-delivery-gates` (needs 08 W3,W6, Domain 06 authority)
 - [x] 10 W2 — runner and capability inspection (needs 10 W1)
-- [ ] 10 W3 — offline continuity and conformance (needs 10 W2)
+- [x] 10 W3 — offline continuity and conformance (needs 10 W2)
 
 **Exit P1:** verification/orchestration/security/observability/deployment ledgers exist and
 fail closed; reference adapters pass the conformance suite; core stays green with no adapters.

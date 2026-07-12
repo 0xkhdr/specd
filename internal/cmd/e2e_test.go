@@ -96,6 +96,24 @@ func TestLifecycleE2E(t *testing.T) {
 		t.Fatalf("report: code=%d out=%q", code, out)
 	}
 
+	// R8.1 offline continuity: the entire lifecycle above ran with zero adapters
+	// configured, and the read-only projection confirms none exist. Core
+	// (init→check→approve→next→verify→report) is fully usable offline — no adapter
+	// is ever required to complete a phase, gate, verify, or report.
+	if out, code := run("adapters", "--json"); code != 0 {
+		t.Fatalf("adapters --json offline: code=%d out=%q", code, out)
+	} else {
+		var report struct {
+			Adapters []json.RawMessage `json:"adapters"`
+		}
+		if err := json.Unmarshal([]byte(out), &report); err != nil {
+			t.Fatalf("adapters --json not JSON: %v\n%s", err, out)
+		}
+		if len(report.Adapters) != 0 {
+			t.Fatalf("expected zero adapters offline, got %d", len(report.Adapters))
+		}
+	}
+
 	// R3.1: the approval record names the gate approved and the artifact
 	// revision it approved, stamped with the provenance triple.
 	state, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))

@@ -33,8 +33,8 @@ record deviation before edit. Cross-domain prerequisites live in `README.md` and
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T11 | craftsman | internal/cmd/e2e_test.go; internal/adapter/offline_test.go; internal/cmd/integration_polish_test.go | T09,T10 | go test ./internal/cmd ./internal/adapter -run 'TestOffline|TestProviderOutage|TestLifecycleE2E' | R8.1,R8.2 all-adapters-absent green; outage blocks with exact cause |
-| [ ] T12 | craftsman | scripts/adapter-conformance.sh; internal/adapter/testdata; scripts/regress-domains.sh | T11 | ./scripts/adapter-conformance.sh && ./scripts/regress-domains.sh | R9.1,R9.2 third-party adapter certified without internal/ import |
+| [x] T11 | craftsman | internal/cmd/e2e_test.go; internal/adapter/offline_test.go; internal/cmd/integration_polish_test.go | T09,T10 | go test ./internal/cmd ./internal/adapter -run 'TestOffline|TestProviderOutage|TestLifecycleE2E' | R8.1,R8.2 all-adapters-absent green; outage blocks with exact cause |
+| [x] T12 | craftsman | scripts/adapter-conformance.sh; internal/adapter/testdata; scripts/regress-domains.sh | T11 | ./scripts/adapter-conformance.sh && ./scripts/regress-domains.sh | R9.1,R9.2 third-party adapter certified without internal/ import |
 
 ## W4 — ecosystem mappings
 
