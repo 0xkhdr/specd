@@ -137,3 +137,26 @@ func TestEvidenceRedactsCredentials(t *testing.T) {
 		t.Fatalf("evidence leaked credential: %s", body)
 	}
 }
+
+func TestEvidencePinsContextReceipt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.jsonl")
+	digest := strings.Repeat("a", 64)
+	if err := AppendEvidence(path, EvidenceRecord{TaskID: "T1", GitHead: "abc", ContextReceiptDigest: digest}); err != nil {
+		t.Fatal(err)
+	}
+	records, err := LoadEvidenceRecords(path)
+	if err != nil || len(records) != 1 || records[0].ContextReceiptDigest != digest {
+		t.Fatalf("records=%+v err=%v", records, err)
+	}
+	if err := AppendEvidence(path, EvidenceRecord{TaskID: "T2", GitHead: "abc", ContextReceiptDigest: "not-a-digest"}); err == nil {
+		t.Fatal("invalid context receipt digest accepted")
+	}
+
+	legacy := filepath.Join(t.TempDir(), "legacy.jsonl")
+	if err := os.WriteFile(legacy, []byte(`{"task_id":"T0","git_head":"abc"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LoadEvidenceRecords(legacy); err != nil || len(got) != 1 || got[0].ContextReceiptDigest != "" {
+		t.Fatalf("legacy evidence unreadable: %+v %v", got, err)
+	}
+}

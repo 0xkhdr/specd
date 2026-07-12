@@ -11,9 +11,9 @@ func TestMemoryBlock(t *testing.T) {
 	// RenderMemBlock is byte-stable and formats --related into wikilinks.
 	got := RenderMemBlock(MemFields{
 		Key: "atomic-writes", Pattern: "write temp then rename", Detail: "fsync dir after",
-		Source: "io.go", Criticality: "important", Related: "cas, lock",
+		Source: "evidence:sha256:abc", Criticality: "important", Related: "cas, lock",
 	})
-	want := "## atomic-writes\n**Pattern:** write temp then rename\n**Detail:** fsync dir after\n**Source:** io.go\n**Criticality:** important\n**Related:** [[cas]], [[lock]]\n"
+	want := "## atomic-writes\n**Pattern:** write temp then rename\n**Detail:** fsync dir after\n**Source:** evidence:sha256:abc\n**Criticality:** important\n**Related:** [[cas]], [[lock]]\n**Status:** active\n"
 	if got != want {
 		t.Fatalf("RenderMemBlock mismatch:\n got %q\nwant %q", got, want)
 	}
@@ -26,7 +26,7 @@ func TestMemoryBlock(t *testing.T) {
 	// ExtractMemBlock reads one block up to the next heading.
 	doc := "# title\n\n" + want + "\n## other\n**Pattern:** nope\n"
 	block := ExtractMemBlock(doc, "atomic-writes")
-	if block != "## atomic-writes\n**Pattern:** write temp then rename\n**Detail:** fsync dir after\n**Source:** io.go\n**Criticality:** important\n**Related:** [[cas]], [[lock]]" {
+	if block != "## atomic-writes\n**Pattern:** write temp then rename\n**Detail:** fsync dir after\n**Source:** evidence:sha256:abc\n**Criticality:** important\n**Related:** [[cas]], [[lock]]\n**Status:** active" {
 		t.Fatalf("ExtractMemBlock did not stop at next heading:\n%q", block)
 	}
 	if ExtractMemBlock(doc, "missing") != "" {
@@ -35,7 +35,7 @@ func TestMemoryBlock(t *testing.T) {
 }
 
 func TestIndexMemBlocks(t *testing.T) {
-	doc := "# Memory\n\n## beta\n**Pattern:** B\n**Criticality:** important\n**Applies-To:** tags=go; phases=execute\n\n## alpha\n**Pattern:** A\n**Criticality:** critical\n**Applies-To:** tags=core\n"
+	doc := "# Memory\n\n## beta\n**Pattern:** B\n**Source:** review:review_report.md\n**Criticality:** important\n**Status:** superseded\n**Superseded-By:** gamma\n**Applies-To:** tags=go; phases=execute\n\n## alpha\n**Pattern:** A\n**Source:** exception:EX-1\n**Criticality:** critical\n**Status:** expired\n**Applies-To:** tags=core\n"
 	blocks, err := IndexMemBlocks(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +45,22 @@ func TestIndexMemBlocks(t *testing.T) {
 	}
 	if blocks[0].Criticality != "critical" || blocks[0].Digest == "" || blocks[1].AppliesTo != "tags=go; phases=execute" {
 		t.Fatalf("blocks = %+v", blocks)
+	}
+	if blocks[0].Status != "expired" || blocks[1].SupersededBy != "gamma" {
+		t.Fatalf("lifecycle = %+v", blocks)
+	}
+}
+
+func TestMemoryProvenance(t *testing.T) {
+	for _, good := range []string{"evidence:sha256:abc", "review:review_report.md", "exception:EX-1"} {
+		if err := ValidateMemoryProvenance(good); err != nil {
+			t.Fatalf("%q: %v", good, err)
+		}
+	}
+	for _, bad := range []string{"", "io.go", "evidence:", "other:x"} {
+		if err := ValidateMemoryProvenance(bad); err == nil {
+			t.Fatalf("invalid provenance accepted: %q", bad)
+		}
 	}
 }
 

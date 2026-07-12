@@ -56,9 +56,9 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T17 | craftsman | internal/context/receipt.go; internal/context/receipt_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T06,T08,T16 | go test ./internal/context -run 'Test(Receipt|Manifest)' | stable receipt; no raw content/secret field R5.1,R5.3 |
-| [ ] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; internal/context/receipt.go; internal/context/receipt_test.go | T17 | go test ./internal/core ./internal/context -run 'Test(Evidence|Receipt)' | required digest change marks receipt stale; historical readable R5.2 |
-| [ ] T19 | craftsman | internal/cmd/memory.go; internal/cmd/memory_test.go; internal/core/memory.go; internal/core/memory_test.go; internal/context/memory.go; internal/context/memory_test.go | T12,T17 | go test ./internal/cmd ./internal/core ./internal/context -run 'TestMemory|TestReceipt' | evidence/review or exception provenance; expired/superseded excluded R6.3 |
+| [x] T17 | craftsman | internal/context/receipt.go; internal/context/receipt_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T06,T08,T16 | go test ./internal/context -run 'Test(Receipt|Manifest)' | stable receipt; no raw content/secret field R5.1,R5.3 |
+| [x] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; internal/context/receipt.go; internal/context/receipt_test.go | T17 | go test ./internal/core ./internal/context -run 'Test(Evidence|Receipt)' | required digest change marks receipt stale; historical readable R5.2 |
+| [x] T19 | craftsman | internal/cmd/memory.go; internal/cmd/memory_test.go; internal/core/memory.go; internal/core/memory_test.go; internal/context/memory.go; internal/context/memory_test.go | T12,T17 | go test ./internal/cmd ./internal/core ./internal/context -run 'TestMemory|TestReceipt' | evidence/review or exception provenance; expired/superseded excluded R6.3 |
 
 ## W6 — conformance and release proof
 

@@ -44,6 +44,10 @@ type EvidenceRecord struct {
 	ExitCode    int    `json:"exit_code"`
 	GitHead     string `json:"git_head"`
 	EvidenceRef string `json:"evidence_ref,omitempty"`
+	// ContextReceiptDigest pins context identity used for this attempt. It is
+	// optional for backward compatibility and never substitutes for exit-code
+	// evidence or a resolvable Git HEAD.
+	ContextReceiptDigest string `json:"context_receipt_digest,omitempty"`
 	// Timestamp and Actor stamp the attempt so `report --history` (spec 13) can
 	// replay verify attempts in time order alongside approvals and submissions.
 	// Both are omitempty: records written before spec 13 carry neither and still
@@ -68,6 +72,9 @@ func AppendEvidence(path string, record EvidenceRecord) error {
 		return err
 	}
 	if err := validateEvidenceRef(record.EvidenceRef); err != nil {
+		return err
+	}
+	if err := validateContextReceiptDigest(record.ContextReceiptDigest); err != nil {
 		return err
 	}
 	// Stamp provenance centrally so every writer (verify and task complete) gets
@@ -123,6 +130,9 @@ func LoadEvidence(path string) (map[string]EvidenceRecord, error) {
 		if err := validateEvidenceRef(record.EvidenceRef); err != nil {
 			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
 		}
+		if err := validateContextReceiptDigest(record.ContextReceiptDigest); err != nil {
+			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
+		}
 		if record.TaskID != "" {
 			records[record.TaskID] = record
 		}
@@ -160,9 +170,27 @@ func LoadEvidenceRecords(path string) ([]EvidenceRecord, error) {
 		if err := validateEvidenceRef(record.EvidenceRef); err != nil {
 			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
 		}
+		if err := validateContextReceiptDigest(record.ContextReceiptDigest); err != nil {
+			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
+		}
 		records = append(records, record)
 	}
 	return records, scanner.Err()
+}
+
+func validateContextReceiptDigest(digest string) error {
+	if digest == "" {
+		return nil
+	}
+	if len(digest) != 64 || strings.ToLower(digest) != digest {
+		return errors.New("context_receipt_digest must be a lowercase SHA-256 digest")
+	}
+	for _, r := range digest {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			return errors.New("context_receipt_digest must be a lowercase SHA-256 digest")
+		}
+	}
+	return nil
 }
 
 func HasPassingEvidence(records map[string]EvidenceRecord, taskID string) bool {

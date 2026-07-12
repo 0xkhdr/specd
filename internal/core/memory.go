@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -24,7 +25,7 @@ type MemFields struct {
 // MemBlock is one indexed H2 memory record. Raw preserves selected bytes;
 // Digest pins that representation without exposing it in a manifest.
 type MemBlock struct {
-	Key, Pattern, Detail, Source, Criticality, Related, AppliesTo, Raw, Digest string
+	Key, Pattern, Detail, Source, Criticality, Related, Status, SupersededBy, AppliesTo, Raw, Digest string
 }
 
 // IndexMemBlocks parses memory into a stable key-sorted block index. Duplicate
@@ -63,6 +64,10 @@ func IndexMemBlocks(text string) ([]MemBlock, error) {
 				b.Criticality = field("**Criticality:**")
 			case strings.HasPrefix(line, "**Related:**"):
 				b.Related = field("**Related:**")
+			case strings.HasPrefix(line, "**Status:**"):
+				b.Status = field("**Status:**")
+			case strings.HasPrefix(line, "**Superseded-By:**"):
+				b.SupersededBy = field("**Superseded-By:**")
 			case strings.HasPrefix(line, "**Applies-To:**"):
 				b.AppliesTo = field("**Applies-To:**")
 			}
@@ -77,8 +82,31 @@ func IndexMemBlocks(text string) ([]MemBlock, error) {
 // heading and ends with a trailing newline; callers prepend a blank line to
 // separate appended blocks. Pure function of its input.
 func RenderMemBlock(f MemFields) string {
-	return fmt.Sprintf("## %s\n**Pattern:** %s\n**Detail:** %s\n**Source:** %s\n**Criticality:** %s\n**Related:** %s\n",
+	return fmt.Sprintf("## %s\n**Pattern:** %s\n**Detail:** %s\n**Source:** %s\n**Criticality:** %s\n**Related:** %s\n**Status:** active\n",
 		f.Key, f.Pattern, f.Detail, f.Source, f.Criticality, renderRelated(f.Related))
+}
+
+// ValidateMemoryProvenance admits only durable local evidence, review, or
+// governed-exception references. Free-form notes cannot become selected memory.
+func ValidateMemoryProvenance(source string) error {
+	parts := strings.SplitN(source, ":", 2)
+	if len(parts) != 2 || strings.TrimSpace(parts[1]) == "" {
+		return errors.New("memory source must use evidence:, review:, or exception: provenance")
+	}
+	kind, ref := parts[0], strings.TrimSpace(parts[1])
+	switch kind {
+	case "evidence", "review":
+		if err := validateEvidenceRef(ref); err != nil {
+			return fmt.Errorf("memory %s provenance: %w", kind, err)
+		}
+	case "exception":
+		if strings.ContainsAny(ref, " /\\\t\r\n") {
+			return errors.New("memory exception provenance must be a stable identifier")
+		}
+	default:
+		return errors.New("memory source must use evidence:, review:, or exception: provenance")
+	}
+	return nil
 }
 
 // renderRelated turns "a, b" into "[[a]], [[b]]"; empty input renders as "—".

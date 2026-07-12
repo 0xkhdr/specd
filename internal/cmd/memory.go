@@ -56,6 +56,9 @@ func memoryAdd(root, slug string, flags map[string]string) error {
 	if !validCriticalities[f.Criticality] {
 		return errors.New("--criticality must be one of: minor, important, critical")
 	}
+	if err := core.ValidateMemoryProvenance(f.Source); err != nil {
+		return err
+	}
 	memPath := core.SpecMemoryPath(root, slug)
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {
 		return struct{}{}, core.AppendFile(memPath, "\n"+core.RenderMemBlock(f))

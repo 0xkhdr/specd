@@ -86,7 +86,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 01 W7 — Conformance and reports (needs 01 W1–W6)
 - [x] 02 W3 — progressive static lanes (needs 02 W2)
 - [x] 02 W4 — portable skills (needs 02 W3)
-- [ ] 02 W5 — receipts and durable knowledge (needs 02 W4)
+- [x] 02 W5 — receipts and durable knowledge (needs 02 W4)
 - [ ] 02 W6 — conformance and release proof (needs 02 W5)
 - [ ] 03 W3 — drift, context metadata, handoff (needs 03 W2)
 - [ ] 03 W4 — host conformance and capabilities (needs 03 W3, 10)

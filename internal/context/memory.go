@@ -32,13 +32,37 @@ func SelectMemory(root, slug string, c SelectionContext) ([]ItemV2, []Omission, 
 			if block.AppliesTo == "" {
 				continue
 			} // headings such as Rules are auditable prose, not selectable memory
+			source := filepath.ToSlash(relOS)
+			identity := source + "#" + block.Key
+			if err := core.ValidateMemoryProvenance(block.Source); err != nil {
+				omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "untrusted provenance: " + err.Error()})
+				continue
+			}
+			switch block.Status {
+			case "", "active":
+			case "expired":
+				omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "expired"})
+				continue
+			case "superseded":
+				reason := "superseded"
+				if block.SupersededBy != "" {
+					reason += " by " + block.SupersededBy
+				}
+				omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: reason})
+				continue
+			default:
+				return nil, nil, fmt.Errorf("%s: unknown memory status %q", identity, block.Status)
+			}
+			if block.SupersededBy != "" {
+				omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "superseded by " + block.SupersededBy})
+				continue
+			}
 			meta, err := parseApplicability(block.AppliesTo)
 			if err != nil {
 				return nil, nil, fmt.Errorf("%s#%s: %w", filepath.ToSlash(relOS), block.Key, err)
 			}
-			source := filepath.ToSlash(relOS)
 			if !applicable(meta, c) {
-				omissions = append(omissions, Omission{Kind: "memory", Source: source + "#" + block.Key, Reason: "not applicable"})
+				omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "not applicable"})
 				continue
 			}
 			priority := 30

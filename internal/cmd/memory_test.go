@@ -25,7 +25,7 @@ func TestMemoryPromoteFlywheel(t *testing.T) {
 		if err := runNew(root, []string{slug}, nil); err != nil {
 			t.Fatalf("new %s: %v", slug, err)
 		}
-		flags := map[string]string{"key": "kx", "pattern": "p", "body": "b", "source": "s", "criticality": "minor"}
+		flags := map[string]string{"key": "kx", "pattern": "p", "body": "b", "source": "evidence:sha256:abc", "criticality": "minor"}
 		if err := runMemory(root, []string{slug, "add"}, flags); err != nil {
 			t.Fatalf("add %s: %v", slug, err)
 		}
@@ -56,13 +56,13 @@ func TestMemoryPromoteFlywheel(t *testing.T) {
 		t.Fatalf("at-threshold promote: %v", err)
 	}
 	got := readFile(t, steering)
-	want := "\n## kx\n**Pattern:** p\n**Detail:** b\n**Source:** s\n**Criticality:** minor\n**Related:** —\n**Promoted:** from spec 'alpha' on 2020-01-02 (seen in 3 spec(s))\n"
+	want := "\n## kx\n**Pattern:** p\n**Detail:** b\n**Source:** evidence:sha256:abc\n**Criticality:** minor\n**Related:** —\n**Status:** active\n**Promoted:** from spec 'alpha' on 2020-01-02 (seen in 3 spec(s))\n"
 	if got != want {
 		t.Fatalf("promotion output not byte-stable:\n got %q\nwant %q", got, want)
 	}
 
 	// --force promotes past the threshold for a fresh, single-spec pattern.
-	force := map[string]string{"key": "ky", "pattern": "p", "body": "b", "source": "s", "criticality": "minor"}
+	force := map[string]string{"key": "ky", "pattern": "p", "body": "b", "source": "review:review_report.md", "criticality": "minor"}
 	if err := runMemory(root, []string{"alpha", "add"}, force); err != nil {
 		t.Fatalf("add ky: %v", err)
 	}
@@ -74,6 +74,17 @@ func TestMemoryPromoteFlywheel(t *testing.T) {
 	}
 	if !strings.Contains(readFile(t, steering), "## ky") {
 		t.Fatal("--force promotion should append the block")
+	}
+}
+
+func TestMemoryAddRequiresDurableProvenance(t *testing.T) {
+	root := t.TempDir()
+	if err := runNew(root, []string{"demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	flags := map[string]string{"key": "k", "pattern": "p", "body": "b", "source": "notes.md", "criticality": "important"}
+	if err := runMemory(root, []string{"demo", "add"}, flags); err == nil || !strings.Contains(err.Error(), "evidence:, review:, or exception:") {
+		t.Fatalf("unprovenanced memory accepted: %v", err)
 	}
 }
 
