@@ -58,6 +58,36 @@ func TestRenderHistoryJSONLineParses(t *testing.T) {
 	}
 }
 
+// TestHistorySpanKindMapping pins the single event-name → span-kind mapping the
+// trace exporter reuses (spec 07 R6.1). Trace-worthy activities classify to a
+// closed-enum kind; bookkeeping events (decision, submission, ACP claim/report)
+// are not spans and return false so the trace stays a metadata trajectory.
+func TestHistorySpanKindMapping(t *testing.T) {
+	cases := []struct {
+		event string
+		kind  SpanKind
+		ok    bool
+	}{
+		{"approval", SpanApproval, true},
+		{"verify:pass", SpanVerify, true},
+		{"verify:fail", SpanVerify, true},
+		{"completion", SpanEval, true},
+		{"criterion:pass", SpanEval, true},
+		{"acp:dispatch", SpanDispatch, true},
+		{"acp:report", "", false},
+		{"acp:claim", "", false},
+		{"decision", "", false},
+		{"midreq", "", false},
+		{"submission", "", false},
+	}
+	for _, c := range cases {
+		got, ok := (HistoryEvent{Event: c.event}).SpanKind()
+		if ok != c.ok || got != c.kind {
+			t.Fatalf("SpanKind(%q) = (%q, %v), want (%q, %v)", c.event, got, ok, c.kind, c.ok)
+		}
+	}
+}
+
 // TestHistoryTelemetryTokensAreConflated characterizes the W0 gap the later
 // token-split work closes: worker-reported tokens are a single scalar with no
 // input/output/cache breakdown. Proven on the aggregated telemetry report's

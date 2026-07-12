@@ -182,9 +182,35 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T19 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go; internal/core/commands.go | T06,T09,T17 | go test ./internal/core -run 'Test(RunSpan|Span)' | metadata-only spans for context/model/tool/edit/verify/eval/approval/dispatch; `kind` closed enum + extension; unknown critical kind fails parse R6.1 |
-| [ ] T20 | craftsman | internal/cmd/report_trace.go; internal/cmd/report_trace_test.go; internal/core/history.go; internal/core/history_test.go | T19 | go test ./internal/cmd ./internal/core -run 'Test(ReportTrace|History)' | `report --trace --json` parent refs resolve, IDs unique, order stable on equal/missing ts, two exports byte-identical R6.2 |
-| [ ] T21 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go | T19 | go test ./internal/core -run 'TestRunSpan' | code-effect/completion span carries `git_head`; timestamps informational; no gate derives outcome from wall-clock order R6.3 |
+| [x] T19 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go; internal/core/commands.go | T06,T09,T17 | go test ./internal/core -run 'Test(RunSpan|Span)' | metadata-only spans for context/model/tool/edit/verify/eval/approval/dispatch; `kind` closed enum + extension; unknown critical kind fails parse R6.1 |
+| [x] T20 | craftsman | internal/cmd/report_trace.go; internal/cmd/report_trace_test.go; internal/core/history.go; internal/core/history_test.go | T19 | go test ./internal/cmd ./internal/core -run 'Test(ReportTrace|History)' | `report --trace --json` parent refs resolve, IDs unique, order stable on equal/missing ts, two exports byte-identical R6.2 |
+| [x] T21 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go | T19 | go test ./internal/core -run 'TestRunSpan' | code-effect/completion span carries `git_head`; timestamps informational; no gate derives outcome from wall-clock order R6.3 |
+
+> **W6 deviations (subtractive bias, backward-compat).**
+> - T19 `commands.go` **edited** as declared: added the `report --trace` flag
+>   (usage/example/schema). Spans are metadata-only **by schema** — `RunSpan` has
+>   no free-form content field; every field is a bounded identifier/reference
+>   reusing W2 run identity and W3 accounting. `kind` is the closed enum
+>   context/model/tool/edit/verify/eval/approval/dispatch; unknown kinds fail
+>   `ParseSpanKind` unless namespaced `x-…` (extension escape hatch), so a
+>   critical kind never silently disappears (R6.1).
+> - T20 `history.go` **edited**: added `HistoryEvent.SpanKind()` (the single
+>   event-name→kind mapping the trace reuses) and an in-process `TaskID` field
+>   (`json:"-"`, so history JSON stays byte-identical). `report_trace.go` projects
+>   the existing audit-history records into spans, correlates each to its W2 run
+>   chain via `runs.jsonl`, and parents a task's activity spans on its dispatch
+>   span. Export re-sorts by (timestamp, SourceRank, Seq) so two exports are
+>   byte-identical, ids are unique, and every parent resolves (R6.2). `report.go`
+>   `gatherHistory` **edited** (unlisted, needed): populates the in-process
+>   `TaskID` on verify/completion/ACP events so the exporter can correlate — no
+>   serialized surface changed. The `--trace --json` acceptance renders JSONL
+>   directly (a trace is inherently structured); `--json` is a no-op alongside it.
+> - T21 code-effect/completion spans (edit/verify/eval) fail `Validate` without a
+>   `git_head`; approval/dispatch/context/model/tool need none. Ordering is purely
+>   the (SourceRank, Seq) tie-break; `NewSpanID` is a pure function of stable
+>   coordinates, never wall-clock — no outcome derives from timestamp order
+>   (R6.3). `docs/command-reference.md`/`CHEATSHEET.md` updated together for the
+>   new flag.
 
 ## W7 — provider-neutral annotation expansion
 

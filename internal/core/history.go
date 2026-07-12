@@ -29,6 +29,38 @@ type HistoryEvent struct {
 	// identical on every run.
 	SourceRank int `json:"-"`
 	Seq        int `json:"-"`
+
+	// TaskID is the in-process run-correlation key (spec 07 R6): the trace
+	// exporter reuses it to attach a span to the W2 run chain and to link
+	// activity spans to their task's dispatch. Not serialized — history JSON
+	// stays byte-identical; the task already travels in Reference for readers.
+	TaskID string `json:"-"`
+}
+
+// SpanKind maps a history event to its trace span kind and reports whether the
+// event is a trace-worthy activity (spec 07 R6.1). This is the single place event
+// names become span kinds, so the trace exporter and the audit replay never
+// drift. Bookkeeping events without a code, evaluation, or dispatch effect —
+// decisions, mid-requirement notes, submissions, ACP claim/report transport — are
+// not spans and return false.
+func (e HistoryEvent) SpanKind() (SpanKind, bool) {
+	name := e.Event
+	if i := strings.IndexByte(name, ':'); i >= 0 {
+		name = name[:i]
+	}
+	switch name {
+	case "approval":
+		return SpanApproval, true
+	case "verify":
+		return SpanVerify, true
+	case "completion", "criterion":
+		return SpanEval, true
+	case "acp":
+		if e.Event == "acp:dispatch" {
+			return SpanDispatch, true
+		}
+	}
+	return "", false
 }
 
 // History source ranks. The values fix the tie-break order for events sharing a

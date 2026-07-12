@@ -70,6 +70,7 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 			GitHead:    rec.GitHead,
 			SourceRank: core.HistorySourceVerify,
 			Seq:        seq,
+			TaskID:     rec.TaskID,
 		})
 	}
 	// A completion is a task now marked complete; its provenance is the passing
@@ -91,6 +92,7 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 			GitHead:    rec.GitHead,
 			SourceRank: core.HistorySourceCompletion,
 			Seq:        seq,
+			TaskID:     task.ID,
 		})
 	}
 
@@ -140,6 +142,7 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 			Reference:  acpReference(e),
 			SourceRank: core.HistorySourceACP,
 			Seq:        e.Seq,
+			TaskID:     e.TaskID,
 		})
 	}
 

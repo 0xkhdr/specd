@@ -640,6 +640,16 @@ func runReport(root string, args []string, flags map[string]string) error {
 		fmt.Fprint(os.Stdout, core.RenderHistory(args[0], events))
 		return nil
 	}
+	// --trace exports the spec's metadata-only run trace as stable JSON Lines
+	// (spec 07 R6); a pure projection of on-disk records that writes nothing.
+	if flagEnabled(flags, "trace") {
+		out, err := runTrace(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
 	// --format prometheus emits a textfile-collector exposition (spec 13 R4).
 	if flags["format"] == "prometheus" {
 		metrics, err := gatherPrometheus(root, args[0], model)
