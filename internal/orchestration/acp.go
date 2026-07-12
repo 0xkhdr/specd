@@ -161,6 +161,9 @@ func AppendACP(path string, event ACPEvent) error {
 		}
 		event.Observation = &normalized
 	}
+	if err := core.ValidateAnnotations(event.Telemetry); err != nil {
+		return fmt.Errorf("acp telemetry: %w", err)
+	}
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("encode acp event: %w", err)
@@ -199,6 +202,9 @@ func ReadACP(path string) ([]ACPEvent, error) {
 		var event ACPEvent
 		if err := json.Unmarshal(line, &event); err != nil {
 			return nil, fmt.Errorf("decode acp: %w", err)
+		}
+		if err := core.ValidateAnnotations(event.Telemetry); err != nil {
+			return nil, fmt.Errorf("acp telemetry: %w", err)
 		}
 		event.Seq = len(events) + 1
 		events = append(events, event)

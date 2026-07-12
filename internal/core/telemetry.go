@@ -9,16 +9,85 @@ import (
 	"strings"
 )
 
+// Telemetry envelope schema versions (spec 07 R1.1). An empty EnvelopeVersion
+// marks a legacy, pre-envelope record: it decodes and re-encodes byte-for-byte
+// unchanged and is validated leniently for backward compatibility. A canonical
+// record carries TelemetryEnvelopeV1 and is held to the strict v1 contract
+// (R1.2/R1.3). Any other, unrecognized version is a *required* schema mismatch
+// and fails closed.
+const TelemetryEnvelopeV1 = "v1"
+
+// Telemetry provenance (spec 07 R1.3): who reported the measured values. specd
+// stores worker numbers verbatim and never presents them as independently
+// measured — every report renders them "as reported" against this label.
+const (
+	TelemetrySourceWorker   = "worker"
+	TelemetrySourceAdapter  = "provider_adapter"
+	TelemetrySourceOperator = "operator"
+)
+
 // Annotations is worker-reported cost telemetry attached verbatim to a record.
 // The doctrine is "stored, never computed" (spec 10 R1): specd accepts these
 // values from the host worker and never estimates, derives, or counts tokens
 // itself. Every field is optional (R5) — a worker that cannot report cost still
 // produces valid records. Cost is a decimal string with currency-agnostic
 // semantics; aggregation uses exact rational math, never float64 (R6).
+//
+// The envelope fields (spec 07 R1) are all omitempty so a legacy record (bare
+// tokens/cost/duration) decodes unchanged and re-encodes byte-identically,
+// while a canonical record round-trips its version and provenance byte-stably.
 type Annotations struct {
 	Tokens     int    `json:"tokens,omitempty"`
 	Cost       string `json:"cost,omitempty"`
 	DurationMs int    `json:"duration_ms,omitempty"`
+
+	// Source is the trust provenance (worker|provider_adapter|operator, R1.3).
+	// Currency pairs with Cost on canonical records (R1.2). AttestationRef is an
+	// external, always-optional pointer to a provider attestation (R1.3).
+	// EnvelopeVersion marks the schema; empty means legacy (grandfathered).
+	Source          string `json:"telemetry_source,omitempty"`
+	Currency        string `json:"currency,omitempty"`
+	AttestationRef  string `json:"attestation_ref,omitempty"`
+	EnvelopeVersion string `json:"envelope_version,omitempty"`
+}
+
+// ValidateAnnotations enforces the telemetry envelope's decode/persist rules
+// (spec 07 R1.2). A nil record is valid (absence is honest, never zero). A
+// legacy record (no EnvelopeVersion) is grandfathered so old ledgers keep
+// decoding (R1.1) — only an outright malformed decimal or negative unit is
+// rejected. A canonical v1 record is held to the full contract: a known
+// provenance, and cost paired with a currency. Any unrecognized required
+// version fails closed. Optional fields left absent stay absent.
+func ValidateAnnotations(a *Annotations) error {
+	if a == nil {
+		return nil
+	}
+	if a.EnvelopeVersion != "" && a.EnvelopeVersion != TelemetryEnvelopeV1 {
+		return fmt.Errorf("unknown telemetry envelope version %q", a.EnvelopeVersion)
+	}
+	if a.Cost != "" && !decimalPattern.MatchString(a.Cost) {
+		return fmt.Errorf("telemetry cost %q is not a non-negative decimal", a.Cost)
+	}
+	if a.Tokens < 0 {
+		return fmt.Errorf("telemetry tokens %d is negative", a.Tokens)
+	}
+	if a.DurationMs < 0 {
+		return fmt.Errorf("telemetry duration_ms %d is negative", a.DurationMs)
+	}
+	if a.EnvelopeVersion == "" {
+		return nil // legacy: grandfathered, no v1 strictness
+	}
+	switch a.Source {
+	case TelemetrySourceWorker, TelemetrySourceAdapter, TelemetrySourceOperator:
+	case "":
+		return fmt.Errorf("canonical telemetry envelope requires telemetry_source")
+	default:
+		return fmt.Errorf("unknown telemetry_source %q", a.Source)
+	}
+	if a.Cost != "" && a.Currency == "" {
+		return fmt.Errorf("telemetry cost present without currency")
+	}
+	return nil
 }
 
 // decimalPattern is a non-negative decimal: digits, optional fractional part.
@@ -66,12 +135,16 @@ func ParseAnnotations(tokens, cost, durationMs string, present func(string) bool
 // is explicit: HasTelemetry is false when no attempt carried annotations, so the
 // report shows missing data rather than imputing zero (R4).
 type TaskTelemetry struct {
-	TaskID       string        `json:"task_id"`
-	Attempts     []Annotations `json:"attempts,omitempty"`
-	Tokens       int           `json:"tokens"`
-	Cost         string        `json:"cost"`
-	DurationMs   int           `json:"duration_ms"`
-	HasTelemetry bool          `json:"has_telemetry"`
+	TaskID   string        `json:"task_id"`
+	Attempts []Annotations `json:"attempts,omitempty"`
+	Tokens   int           `json:"tokens"`
+	Cost     string        `json:"cost"`
+	// Source is the telemetry provenance surfaced so a report renders the values
+	// as reported, never as independently measured (spec 07 R1.3). A legacy
+	// attempt carries no explicit source and is reported as worker-reported.
+	Source       string `json:"telemetry_source,omitempty"`
+	DurationMs   int    `json:"duration_ms"`
+	HasTelemetry bool   `json:"has_telemetry"`
 }
 
 // TelemetryReport aggregates annotations per spec and per task. Totals are exact
@@ -128,6 +201,7 @@ func AggregateTelemetry(records []EvidenceRecord, taskOrder []string) TelemetryR
 		}
 		task.HasTelemetry = true
 		task.Attempts = attempts
+		task.Source = telemetrySource(attempts)
 		taskCost := new(big.Rat)
 		for _, ann := range attempts {
 			task.Tokens += ann.Tokens
@@ -146,6 +220,28 @@ func AggregateTelemetry(records []EvidenceRecord, taskOrder []string) TelemetryR
 	}
 	report.Cost = formatRat(total)
 	return report
+}
+
+// telemetrySource reports the provenance of a task's telemetry (spec 07 R1.3):
+// the explicit source when every annotated attempt agrees, "mixed" when they
+// diverge, and "worker" when none is set (legacy attempts are worker-reported).
+func telemetrySource(attempts []Annotations) string {
+	src := ""
+	for _, a := range attempts {
+		s := a.Source
+		if s == "" {
+			s = TelemetrySourceWorker
+		}
+		if src == "" {
+			src = s
+		} else if src != s {
+			return "mixed"
+		}
+	}
+	if src == "" {
+		return TelemetrySourceWorker
+	}
+	return src
 }
 
 // formatRat renders a rational money value as an exact decimal string, trimming
@@ -168,6 +264,10 @@ func formatRat(r *big.Rat) string {
 // are emitted as an explicit gauge so absence is visible, never imputed (R4).
 func RenderTelemetry(slug string, report TelemetryReport) string {
 	var b strings.Builder
+	// Provenance is a comment, never a metric label — the label allowlist stays
+	// spec/task/status only (spec 07 R5 cardinality). Values are rendered as
+	// reported by the worker, not as independently measured (R1.3).
+	fmt.Fprintf(&b, "# specd telemetry is worker-reported, not independently measured\n")
 	fmt.Fprintf(&b, "specd_cost_tokens_total{spec=%q} %d\n", slug, report.Tokens)
 	fmt.Fprintf(&b, "specd_cost_duration_ms_total{spec=%q} %d\n", slug, report.DurationMs)
 	fmt.Fprintf(&b, "specd_cost_total{spec=%q} %s\n", slug, report.Cost)

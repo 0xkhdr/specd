@@ -27,9 +27,25 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; internal/core/evidence_test.go | T02 | go test ./internal/core -run 'Test(Telemetry|Evidence)' | versioned envelope preserves legacy `Annotations`; old fixtures decode unchanged; new records round-trip byte-stably R1.1 |
-| [ ] T05 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T04 | go test ./internal/core ./internal/orchestration -run 'Test(Telemetry|ACP)' | malformed decimal, negative unit, cost-without-currency, unknown required schema version fail closed; absent stays absent not zero R1.2 |
-| [ ] T06 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T05 | go test ./internal/core ./internal/cmd -run 'Test(Telemetry|Report)' | `telemetry_source` provenance required; reports render worker values as reported not measured; attestation ref external/optional R1.3 |
+| [x] T04 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; internal/core/evidence_test.go | T02 | go test ./internal/core -run 'Test(Telemetry|Evidence)' | versioned envelope preserves legacy `Annotations`; old fixtures decode unchanged; new records round-trip byte-stably R1.1 |
+| [x] T05 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T04 | go test ./internal/core ./internal/orchestration -run 'Test(Telemetry|ACP)' | malformed decimal, negative unit, cost-without-currency, unknown required schema version fail closed; absent stays absent not zero R1.2 |
+| [x] T06 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T05 | go test ./internal/core ./internal/cmd -run 'Test(Telemetry|Report)' | `telemetry_source` provenance required; reports render worker values as reported not measured; attestation ref external/optional R1.3 |
+
+> **W1 deviations.** Envelope realized as omitempty fields on `Annotations`
+> (`telemetry_source`, `currency`, `attestation_ref`, `envelope_version`) rather
+> than a wrapper type, so legacy records decode/re-encode byte-identically and
+> canonical v1 records round-trip byte-stably (R1.1). `ValidateAnnotations`
+> version-gates strictness: legacy (no `envelope_version`) is grandfathered;
+> canonical v1 fails closed on malformed decimal, negative unit,
+> cost-without-currency, unknown source, and unknown required version (R1.2) —
+> wired into `AppendEvidence`/`LoadEvidence(Records)` and `AppendACP`/`ReadACP`.
+> No CLI `--currency`/`--source` flag added: that is W7 (T22, which owns
+> `command-reference.md`/`CHEATSHEET.md`); W1 has no CLI/docs surface. T06
+> `report.go` **not edited** (subtractive): provenance renders through
+> `core.RenderTelemetry` (worker-reported disclaimer comment, never a metric
+> label — cardinality allowlist stays `spec`/task/status per W5) and the
+> `TaskTelemetry.telemetry_source` report field; `report.go`'s prometheus path
+> needed no change. `attestation_ref` stays external/optional (R1.3).
 
 ## W2 — run correlation and attempt identity
 

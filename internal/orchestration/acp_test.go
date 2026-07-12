@@ -1,9 +1,36 @@
 package orchestration
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
+
+// TestACPTelemetryEnvelope pins the W1 fail-closed rules on ACP telemetry
+// (spec 07 R1.2). Legacy worker telemetry (bare cost) is grandfathered; a
+// malformed canonical envelope is rejected on both append and decode.
+func TestACPTelemetryEnvelope(t *testing.T) {
+	dir := t.TempDir()
+
+	legacy := filepath.Join(dir, "legacy.jsonl")
+	if err := AppendACP(legacy, ACPEvent{Kind: ACPKindReport, TaskID: "T1",
+		Telemetry: &core.Annotations{Cost: "0.01"}}); err != nil {
+		t.Fatalf("legacy telemetry rejected: %v", err)
+	}
+
+	if err := AppendACP(filepath.Join(dir, "bad.jsonl"), ACPEvent{Kind: ACPKindReport, TaskID: "T1",
+		Telemetry: &core.Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "0.02"}}); err == nil {
+		t.Fatal("canonical cost-without-currency accepted on append")
+	}
+
+	decode := filepath.Join(dir, "decode.jsonl")
+	os.WriteFile(decode, []byte(`{"kind":"report","task_id":"T1","telemetry":{"envelope_version":"v2"}}`+"\n"), 0o644)
+	if _, err := ReadACP(decode); err == nil {
+		t.Fatal("unknown envelope version accepted on decode")
+	}
+}
 
 func TestACPReportPinsTraceDigest(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "acp.jsonl")

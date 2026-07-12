@@ -40,6 +40,9 @@ func AppendEvidence(path string, record EvidenceRecord) error {
 	if record.TaskID == "" {
 		return errors.New("evidence task id is required")
 	}
+	if err := ValidateAnnotations(record.Telemetry); err != nil {
+		return err
+	}
 	// Stamp provenance centrally so every writer (verify and task complete) gets
 	// an ordering-safe timestamp/actor without threading it through call sites.
 	// A caller that already stamped (tests, replay fixtures) is left untouched.
@@ -79,6 +82,9 @@ func LoadEvidence(path string) (map[string]EvidenceRecord, error) {
 		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
 			return nil, err
 		}
+		if err := ValidateAnnotations(record.Telemetry); err != nil {
+			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
+		}
 		if record.TaskID != "" {
 			records[record.TaskID] = record
 		}
@@ -109,6 +115,9 @@ func LoadEvidenceRecords(path string) ([]EvidenceRecord, error) {
 		var record EvidenceRecord
 		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
 			return nil, err
+		}
+		if err := ValidateAnnotations(record.Telemetry); err != nil {
+			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
 		}
 		records = append(records, record)
 	}

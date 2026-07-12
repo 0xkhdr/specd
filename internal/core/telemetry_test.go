@@ -81,21 +81,112 @@ func TestTelemetryAggregateExactDecimal(t *testing.T) {
 	}
 }
 
-// TestTelemetryLacksCorrelationAndCurrency characterizes the W0 contract gaps
-// that W1 (R1.1–R1.3) closes: a worker-reported Annotations record carries no
-// run/attempt correlation identity, and its Cost is a bare decimal with no
-// currency. Both are proven on the record's JSON surface. When W1 lands, this
-// test flips to assert the versioned envelope's new fields are present.
-func TestTelemetryLacksCorrelationAndCurrency(t *testing.T) {
-	ann := &Annotations{Tokens: 10, Cost: "1.50", DurationMs: 5}
-	blob, err := json.Marshal(ann)
+// TestTelemetryEnvelopeCanonicalAndLegacy pins the W1 versioned envelope
+// (R1.1). A legacy record (bare tokens/cost/duration) round-trips byte-for-byte
+// with no envelope fields injected, so old fixtures decode unchanged. A
+// canonical v1 record carries its version, provenance, and currency and
+// round-trips byte-stably. (Run/attempt correlation is Domain 07 W2/W6, not W1.)
+func TestTelemetryEnvelopeCanonicalAndLegacy(t *testing.T) {
+	legacy := `{"tokens":10,"cost":"1.50","duration_ms":5}`
+	var ann Annotations
+	if err := json.Unmarshal([]byte(legacy), &ann); err != nil {
+		t.Fatal(err)
+	}
+	blob, err := json.Marshal(&ann)
 	if err != nil {
 		t.Fatal(err)
 	}
-	js := string(blob)
-	for _, absent := range []string{"run_id", "span_id", "attempt", "currency"} {
-		if strings.Contains(js, absent) {
-			t.Fatalf("W0 gap closed early: Annotations already carries %q: %s", absent, js)
+	if string(blob) != legacy {
+		t.Fatalf("legacy record not byte-stable: got %s want %s", blob, legacy)
+	}
+	for _, injected := range []string{"telemetry_source", "currency", "envelope_version"} {
+		if strings.Contains(string(blob), injected) {
+			t.Fatalf("legacy record silently gained %q: %s", injected, blob)
 		}
+	}
+
+	canonical := &Annotations{
+		Tokens: 10, Cost: "1.50", Currency: "USD",
+		Source: TelemetrySourceWorker, EnvelopeVersion: TelemetryEnvelopeV1,
+	}
+	first, err := json.Marshal(canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back Annotations
+	if err := json.Unmarshal(first, &back); err != nil {
+		t.Fatal(err)
+	}
+	second, err := json.Marshal(&back)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatalf("canonical record not byte-stable: %s vs %s", first, second)
+	}
+	js := string(first)
+	for _, want := range []string{`"telemetry_source":"worker"`, `"currency":"USD"`, `"envelope_version":"v1"`} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("canonical envelope missing %q: %s", want, js)
+		}
+	}
+}
+
+func TestValidateAnnotations(t *testing.T) {
+	ok := []struct {
+		name string
+		ann  *Annotations
+	}{
+		{"nil", nil},
+		{"legacy_cost_without_currency", &Annotations{Cost: "0.01"}},
+		{"legacy_bare_tokens", &Annotations{Tokens: 100}},
+		{"canonical_worker", &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "1.50", Currency: "USD"}},
+		{"canonical_no_cost_no_currency", &Annotations{EnvelopeVersion: "v1", Source: "operator"}},
+		{"canonical_adapter_attested", &Annotations{EnvelopeVersion: "v1", Source: "provider_adapter", AttestationRef: "att://x"}},
+	}
+	for _, tc := range ok {
+		if err := ValidateAnnotations(tc.ann); err != nil {
+			t.Fatalf("%s: unexpected error: %v", tc.name, err)
+		}
+	}
+
+	bad := []struct {
+		name string
+		ann  *Annotations
+	}{
+		{"malformed_decimal", &Annotations{Cost: "1,00"}},
+		{"negative_tokens", &Annotations{Tokens: -1}},
+		{"negative_duration", &Annotations{DurationMs: -5}},
+		{"unknown_version", &Annotations{EnvelopeVersion: "v2"}},
+		{"canonical_cost_without_currency", &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "1.50"}},
+		{"canonical_missing_source", &Annotations{EnvelopeVersion: "v1", Cost: "1.50", Currency: "USD"}},
+		{"canonical_unknown_source", &Annotations{EnvelopeVersion: "v1", Source: "robot"}},
+	}
+	for _, tc := range bad {
+		if err := ValidateAnnotations(tc.ann); err == nil {
+			t.Fatalf("%s: expected fail-closed error", tc.name)
+		}
+	}
+}
+
+func TestTelemetrySourceProvenance(t *testing.T) {
+	// A legacy attempt (no explicit source) is reported as worker-reported; the
+	// render marks values as reported, never independently measured (R1.3).
+	report := AggregateTelemetry([]EvidenceRecord{
+		{TaskID: "T1", Telemetry: &Annotations{Tokens: 5, Cost: "0.01"}},
+	}, []string{"T1"})
+	if report.Tasks[0].Source != TelemetrySourceWorker {
+		t.Fatalf("legacy attempt provenance = %q, want worker", report.Tasks[0].Source)
+	}
+	out := RenderTelemetry("demo", report)
+	if !strings.Contains(out, "worker-reported, not independently measured") {
+		t.Fatalf("render missing provenance disclaimer:\n%s", out)
+	}
+	// An adapter-sourced attempt surfaces its provenance.
+	adapter := AggregateTelemetry([]EvidenceRecord{
+		{TaskID: "T2", Telemetry: &Annotations{EnvelopeVersion: "v1", Source: TelemetrySourceAdapter, Cost: "0.02", Currency: "USD"}},
+	}, []string{"T2"})
+	if adapter.Tasks[0].Source != TelemetrySourceAdapter {
+		t.Fatalf("adapter provenance = %q, want provider_adapter", adapter.Tasks[0].Source)
 	}
 }

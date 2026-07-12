@@ -54,7 +54,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 05 W4 — routing, limits, observation (needs 05 W2, 06/07 policy)
 - [x] 06 W4 — context and change-boundary scan (needs 06 W3)
 - [x] 06 W5 — mandatory sandbox and secret isolation (needs 06 W4)
-- [ ] 07 W1 — versioned run/telemetry envelope (needs 02, 05, 06)
+- [x] 07 W1 — versioned run/telemetry envelope (needs 02, 05, 06)
 - [ ] 07 W2 — run correlation and attempt identity (needs 07 W1)
 - [ ] 07 W3 — context accounting and sufficiency (needs 07 W2, 02)
 - [ ] 07 W4 — honest cost brake (needs 07 W3, 05)
