@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -10,6 +11,18 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 	for key, value := range values {
 		if isSecretKey(key) {
 			*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "secret value not allowed: " + key})
+			continue
+		}
+		if name, ok := strings.CutPrefix(key, "environments."); ok {
+			env, err := parseEnvironmentPolicy(name, value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
+				continue
+			}
+			if cfg.Environments == nil {
+				cfg.Environments = map[EnvironmentName]EnvironmentV1{}
+			}
+			cfg.Environments[env.Name] = env
 			continue
 		}
 		switch key {
@@ -199,6 +212,48 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 		}
 	}
 	validateRouting(cfg, path, diagnostics)
+}
+
+// parseEnvironmentPolicy decodes one `strategy=..;approver=..;..` compound value
+// into a validated EnvironmentV1. It reuses ValidateEnvironment so the load-time
+// closed-set and required-field rules are the exact same code the delivery gate
+// relies on — an unknown environment name, unknown field, or missing/invalid
+// required field fails closed.
+func parseEnvironmentPolicy(name, value string) (EnvironmentV1, error) {
+	env := EnvironmentV1{Schema: EnvironmentSchemaV1, Name: EnvironmentName(name)}
+	for _, entry := range strings.Split(value, ";") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		field, v, ok := strings.Cut(entry, "=")
+		if !ok {
+			return EnvironmentV1{}, fmt.Errorf("environment %q: malformed field %q", name, entry)
+		}
+		field, v = strings.TrimSpace(field), strings.TrimSpace(v)
+		switch field {
+		case "strategy":
+			env.Strategy = v
+		case "approver":
+			env.RequiredApprover = v
+		case "authority":
+			env.RequiredAuthority = v
+		case "criteria":
+			env.HealthCriteria = strings.Split(v, "+")
+		case "window":
+			env.ObservationWindow = v
+		case "freshness":
+			env.Freshness = v
+		case "rollback":
+			env.RollbackTarget = v
+		default:
+			return EnvironmentV1{}, fmt.Errorf("environment %q: unknown field %q", name, field)
+		}
+	}
+	if err := ValidateEnvironment(env); err != nil {
+		return EnvironmentV1{}, err
+	}
+	return env, nil
 }
 
 func configList(value string) ([]string, bool) {

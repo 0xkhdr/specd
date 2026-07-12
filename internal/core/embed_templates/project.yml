@@ -43,6 +43,16 @@ verify:
 #   clean_worktree: off
 #   sandbox: off
 
+# Closed delivery policy per environment (spec 08 R7). Each environment name is
+# a closed set member (development|staging|production); an unknown name or a
+# missing/invalid required field fails closed at load. One line per environment,
+# fields joined by `;`, health criteria joined by `+`. window/freshness are Go
+# durations. production additionally requires an explicit adapter/authority,
+# artifact identity, fresh observation, and rollback target at the delivery gate.
+# environments:
+#   staging: strategy=rolling;criteria=health;window=5m;freshness=2m;rollback=previous
+#   production: strategy=canary;approver=release-manager;authority=oncall;criteria=health+latency;window=10m;freshness=5m;rollback=previous
+
 # criteria:
 #   required: false        # block completion until each acceptance criterion has evidence.
 

@@ -22,6 +22,11 @@ type Config struct {
 	Security           SecurityConfig
 	Escalation         EscalationConfig
 	PromotionThreshold int
+	// Environments is the closed delivery policy per environment name (spec 08
+	// R7.1). Empty by default — a project opts in. Keys are validated against the
+	// closed EnvironmentName set; an unknown name or missing required field fails
+	// closed at load time.
+	Environments map[EnvironmentName]EnvironmentV1
 }
 
 // SecurityConfig sets per-scanner severity for the opt-in security gate (spec

@@ -156,6 +156,56 @@ func TestConfigRoutingPolicy(t *testing.T) {
 	}
 }
 
+// TestEnvPolicy pins R7.1: closed environment policy loads per-environment
+// strategy/approver/authority/criteria/window/freshness/rollback, and an unknown
+// environment name or a missing/invalid required field fails closed.
+func TestEnvPolicy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yml")
+	good := strings.Join([]string{
+		"environments:",
+		"  staging: strategy=rolling;criteria=health;window=5m;freshness=2m;rollback=previous",
+		"  production: strategy=canary;approver=release-manager;authority=oncall;criteria=health+latency;window=10m;freshness=5m;rollback=previous",
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(good), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, diags := LoadConfig(ConfigPaths{Project: path}, nil)
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v", diags)
+	}
+	prod, ok := cfg.Environments[EnvironmentProduction]
+	if !ok {
+		t.Fatal("production policy missing")
+	}
+	if prod.Schema != EnvironmentSchemaV1 || prod.Name != EnvironmentProduction {
+		t.Fatalf("schema/name = %q/%q", prod.Schema, prod.Name)
+	}
+	if prod.Strategy != "canary" || prod.RequiredApprover != "release-manager" || prod.RequiredAuthority != "oncall" ||
+		prod.ObservationWindow != "10m" || prod.Freshness != "5m" || prod.RollbackTarget != "previous" {
+		t.Fatalf("production policy = %#v", prod)
+	}
+	if !reflect.DeepEqual(prod.HealthCriteria, []string{"health", "latency"}) {
+		t.Fatalf("criteria = %#v", prod.HealthCriteria)
+	}
+
+	for _, raw := range []string{
+		"environments:\n  qa: strategy=rolling;criteria=health;window=5m;freshness=2m;rollback=previous\n",         // unknown env
+		"environments:\n  production: strategy=canary;criteria=health;window=10m;freshness=5m\n",                   // missing rollback
+		"environments:\n  production: strategy=canary;criteria=health;window=nope;freshness=5m;rollback=prev\n",    // bad duration
+		"environments:\n  production: strategy=canary;window=10m;freshness=5m;rollback=prev\n",                     // missing criteria
+		"environments:\n  production: strategy=canary;criteria=health;window=10m;freshness=5m;rollback=prev;x=y\n", // unknown field
+	} {
+		if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, diags := LoadConfig(ConfigPaths{Project: path}, nil); len(diags) == 0 {
+			t.Fatalf("policy %q accepted, want fail-closed diagnostic", raw)
+		}
+	}
+}
+
 func TestConfigRoutingSafeDefaultsAndValidation(t *testing.T) {
 	if DefaultConfig.Routing.Version != "1" || !DefaultConfig.Routing.AllowUnknownTelemetry || DefaultConfig.Routing.DefaultClass == "" {
 		t.Fatalf("unsafe routing defaults = %#v", DefaultConfig.Routing)

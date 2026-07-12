@@ -127,10 +127,18 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T36 | craftsman | `internal/core/config_loader.go`; `internal/core/config_validate.go`; `project.yml` template | T31 | `go test ./internal/core -run TestEnvPolicy -count=1` | R7.1 closed env → strategy/approver/criteria/window/freshness/rollback |
-| T37 | craftsman | new `internal/core/gates/delivery.go` | T36 | `go test ./internal/core/gates -run TestDeliveryGate -count=2` | R7.1 same policy+evidence → same verdict |
-| T38 | craftsman | `internal/core/gates/delivery.go` (production requirements) | T37,T36 | `go test ./internal/core/gates -run TestProductionRequires -count=1` | R7.2 prod needs adapter/authority/artifact/freshness/rollback |
-| T39 | craftsman | `internal/core/gates/delivery.go` (artifact digest check) | T37 | `go test ./internal/core/gates -run TestArtifactSubstitution -count=1` | R7.3 swapped artifact fails digest |
+| [x] T36 | craftsman | `internal/core/config_loader.go`; `internal/core/config_validate.go`; `project.yml` template | T31 | `go test ./internal/core -run TestEnvPolicy -count=1` | R7.1 closed env → strategy/approver/criteria/window/freshness/rollback |
+| [x] T37 | craftsman | new `internal/core/gates/delivery.go` | T36 | `go test ./internal/core/gates -run TestDeliveryGate -count=2` | R7.1 same policy+evidence → same verdict |
+| [x] T38 | craftsman | `internal/core/gates/delivery.go` (production requirements) | T37,T36 | `go test ./internal/core/gates -run TestProductionRequires -count=1` | R7.2 prod needs adapter/authority/artifact/freshness/rollback |
+| [x] T39 | craftsman | `internal/core/gates/delivery.go` (artifact digest check) | T37 | `go test ./internal/core/gates -run TestArtifactSubstitution -count=1` | R7.3 swapped artifact fails digest |
+
+> **08h scope deviations:** strict TDD requires test files not listed in the rows — `TestEnvPolicy`
+> lands in the existing `internal/core/config_test.go` (T36) and `TestDeliveryGate`/
+> `TestProductionRequires`/`TestArtifactSubstitution` in new `internal/core/gates/delivery_test.go`
+> (T37–T39). The closed environment policy reuses the existing routing-style compound-value encoding
+> (`key=val;key=val`, `+` for lists) so the flat `parseSimpleYAML` needs no change, and load-time
+> validation reuses `core.ValidateEnvironment`. No new verb/flag, gate registration, status value, or
+> runtime dependency is added; the delivery gate is a package-level pure function like `evidence`.
 
 ## W8 — `08i-deployment-adapter-envelope` (requires 08g, Domain 10 adapter)
 
