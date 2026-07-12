@@ -66,11 +66,20 @@
 
 ## W5 — Production profile
 
+**W5 implementation deviation:** the production profile arms the gates through the caller, so
+T20 also wires `internal/cmd/registry.go` (`buildCheckCtx` sets `ProductionProfile`,
+`DesignContractRequired`, `TaskTraceRequired`, and the effective `ProductionPolicy`/criteria/
+review arming from `config.profile`), and T21 adds the `ProductionProfile` field in
+`internal/core/gates/core.go` and arms `criteriaGate` in `internal/core/gates/approval.go` via a
+helper — the criteria *gate* lives in `approval.go`, while `criteria.go` holds its parser and the
+`criteriaArmed` helper. Gate bodies stay pure over `CheckCtx`. `command-reference.md`/`CHEATSHEET.md`
+were unchanged (no new CLI verb/flag; the `profile` knob is config-only).
+
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T20 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/handshake.go | T15,T18 | go test ./internal/core -run 'TestConfig\|TestHandshake' | R7.1,R7.2 profile/config digest |
-| [ ] T21 | craftsman | internal/core/gates/criteria.go; internal/core/gates/review.go; internal/core/gates/criteria_test.go; internal/core/gates/review_test.go | T20 | go test ./internal/core/gates -run 'TestCriteria\|TestReview' | production current evidence/review |
-| [ ] T22 | craftsman | docs/open-spec-format.md; docs/validation-gates.md; docs/command-reference.md; docs/CHEATSHEET.md; internal/core/embed_templates/project.yml | T20,T21 | ./scripts/docs-lint.sh && go test ./internal/core -run TestConfig | profile operator docs/template |
+| [x] T20 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/handshake.go | T15,T18 | go test ./internal/core -run 'TestConfig\|TestHandshake' | R7.1,R7.2 profile/config digest |
+| [x] T21 | craftsman | internal/core/gates/criteria.go; internal/core/gates/review.go; internal/core/gates/criteria_test.go; internal/core/gates/review_test.go | T20 | go test ./internal/core/gates -run 'TestCriteria\|TestReview' | production current evidence/review |
+| [x] T22 | craftsman | docs/open-spec-format.md; docs/validation-gates.md; docs/command-reference.md; docs/CHEATSHEET.md; internal/core/embed_templates/project.yml | T20,T21 | ./scripts/docs-lint.sh && go test ./internal/core -run TestConfig | profile operator docs/template |
 
 ## W6 — Bounded spikes
 

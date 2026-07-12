@@ -20,7 +20,7 @@ import (
 // Pure over CheckCtx; the LLM writes the report through the host agent, the
 // harness only checks it — the enforcement thesis is preserved.
 func reviewGate(ctx CheckCtx) []Finding {
-	if !ctx.ReviewRequired || ctx.ApproveTarget != string(core.StatusComplete) {
+	if !reviewArmed(ctx) || ctx.ApproveTarget != string(core.StatusComplete) {
 		return nil
 	}
 	if ctx.ReviewParseErr != "" {
@@ -48,4 +48,12 @@ func shortHead(head string) string {
 		return head[:12]
 	}
 	return head
+}
+
+// reviewArmed reports whether the review ratchet must run: either config armed
+// it explicitly (review.required) or the production lifecycle profile requires a
+// current-HEAD review (spec 01 R7.2). Default profile with the switch off keeps
+// the ratchet disabled (R7.1).
+func reviewArmed(ctx CheckCtx) bool {
+	return ctx.ReviewRequired || ctx.ProductionProfile
 }

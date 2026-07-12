@@ -56,3 +56,17 @@ func TestCriteriaRequired(t *testing.T) {
 		t.Fatalf("disabled gate should be silent, got %+v", f)
 	}
 }
+
+// TestCriteriaProductionProfile pins spec 01 R7.2: the production lifecycle
+// profile arms the criterion ratchet on its own — the explicit criteria.required
+// switch is off, yet an unmet criterion still refuses completion.
+func TestCriteriaProductionProfile(t *testing.T) {
+	armed := CheckCtx{ApproveTarget: "complete", ProductionProfile: true, CriteriaUnmet: []string{"1.2"}}
+	if f := criteriaGate(armed); !HasErrors(f) {
+		t.Fatalf("production profile should arm criteria ratchet, got %+v", f)
+	}
+	// Production profile with every criterion met ⇒ clean.
+	if f := criteriaGate(CheckCtx{ApproveTarget: "complete", ProductionProfile: true}); len(f) != 0 {
+		t.Fatalf("all met under production should pass, got %+v", f)
+	}
+}

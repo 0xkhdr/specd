@@ -10,6 +10,12 @@ verify:
 
 # Opt-in gates — uncomment to enable.
 
+# Lifecycle strictness profile (spec 01 R7). default|production.
+#   default    — every completeness gate below stays opt-in (backward compatible).
+#   production — arms the criterion, review, and integration/negative-path
+#                evidence gates together, regardless of the switches below.
+# profile: default
+
 # gates:
 #   verify: error          # error|warn|off — severity when a verify record fails.
 

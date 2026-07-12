@@ -28,6 +28,14 @@ func TestReviewGate(t *testing.T) {
 	}{
 		{"approve_fresh_passes", func(c *CheckCtx) {}, false, ""},
 		{"disabled_passes", func(c *CheckCtx) { c.ReviewRequired = false }, false, ""},
+		// R7.2: the production profile arms the review ratchet on its own — the
+		// explicit switch is off, yet a missing report fails closed.
+		{"production_profile_arms_without_switch", func(c *CheckCtx) {
+			c.ReviewRequired = false
+			c.ProductionProfile = true
+			c.ReviewVerdict = ""
+			c.ReviewParseErr = "no review report"
+		}, true, "no review report"},
 		{"non_completion_target_passes", func(c *CheckCtx) { c.ApproveTarget = "design" }, false, ""},
 		{"parse_error_fails_closed", func(c *CheckCtx) { c.ReviewParseErr = "no review report" }, true, "no review report"},
 		{"reject_surfaces_findings", func(c *CheckCtx) {

@@ -66,12 +66,18 @@ Registered by `CoreRegistry()` in the order they run:
 - **`task-trace` (15)** always refuses an unresolvable requirement reference or an unknown
   risk tier declared on a task; the full trace/risk contract is required only under the
   production planning profile, so legacy six-column `tasks.md` tables keep planning.
-- **`criteria` (13)** is armed by `config.criteria.required = true`. Until then it is dormant.
-  Record criterion evidence with `specd verify <slug> --criterion <r>.<n> --status pass|fail
-  --evidence <text>`.
-- **`review` (14)** is armed by `config.review.required = true`. A missing or malformed
-  `review_report.md`, a stale HEAD, or a non-approve verdict all fail closed. Scaffold the
-  report with `specd review <spec>`.
+- **`criteria` (13)** is armed by `config.criteria.required = true` or the production lifecycle
+  profile (`config.profile = production`). Until then it is dormant. Record criterion evidence
+  with `specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>`.
+- **`review` (14)** is armed by `config.review.required = true` or the production lifecycle
+  profile (`config.profile = production`). A missing or malformed `review_report.md`, a stale
+  HEAD, or a non-approve verdict all fail closed. Scaffold the report with `specd review <spec>`.
+- **Production profile.** `config.profile = production` (spec 01 R7.2) is the single switch that
+  raises the whole bar: it arms the `criteria` and `review` ratchets and the integration /
+  negative-path evidence policy together, so each need not be enabled by hand. `default` (R7.1)
+  keeps every one of them opt-in for backward compatibility. The effective policy is surfaced as
+  a `policy_digest` on the bootstrap handshake so a later approval can detect that the judgment
+  policy has moved.
 - **program links** — when approving the execution transition, incomplete cross-spec
   dependencies (`specd link`) refuse the approval. Planning phases are never program-gated.
 

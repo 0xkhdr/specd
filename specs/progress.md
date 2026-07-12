@@ -81,7 +81,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 
 - [x] 01 W3 — Coverage gates (needs 01 W2)
 - [x] 01 W4 — Amendment staleness (needs 01 W3)
-- [ ] 01 W5 — Production profile (needs 01 W4)
+- [x] 01 W5 — Production profile (needs 01 W4)
 - [ ] 01 W6 — Bounded spikes (needs 01 W4,W5)
 - [ ] 01 W7 — Conformance and reports (needs 01 W1–W6)
 - [ ] 02 W3 — progressive static lanes (needs 02 W2)

@@ -87,7 +87,10 @@ integrators can read spec state without linking against specd.
 
 Both extensions are **additive and backward compatible** — existing `design.md` and
 `tasks.md` files parse unchanged, and the stricter checks arm only under the production
-profile.
+profile. That profile is a single project-config switch, `profile: production` in
+`project.yml` (spec 01 R7): it arms the design-contract and task-trace completeness checks
+alongside the criterion, review, and integration/negative-path evidence gates. `profile:
+default` (the default) keeps every one of them opt-in.
 
 **`design.md` decision contract.** Declare the trace with labelled bullets:
 

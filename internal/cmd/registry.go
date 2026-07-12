@@ -957,16 +957,19 @@ func loadSpec(root, slug string) (specData, error) {
 func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates.CheckCtx {
 	cfg := loadSpecConfig(root)
 	ctx := gates.CheckCtx{
-		Root:             root,
-		Slug:             slug,
-		Tasks:            spec.Tasks,
-		Status:           taskStatus(spec.Tasks),
-		Evidence:         spec.Evidence,
-		MaxContextTokens: contextBudget(root),
-		ApproveTarget:    approveTarget,
-		RequirementsStub: requirementsStub(slug),
-		TrivialVerify:    cfg.Verify.Trivial,
-		ProductionPolicy: cfg.Security.Profile == "production",
+		Root:                   root,
+		Slug:                   slug,
+		Tasks:                  spec.Tasks,
+		Status:                 taskStatus(spec.Tasks),
+		Evidence:               spec.Evidence,
+		MaxContextTokens:       contextBudget(root),
+		ApproveTarget:          approveTarget,
+		RequirementsStub:       requirementsStub(slug),
+		TrivialVerify:          cfg.Verify.Trivial,
+		ProductionPolicy:       cfg.IntegrationPolicyArmed(),
+		ProductionProfile:      cfg.ProductionProfile(),
+		DesignContractRequired: cfg.ProductionProfile(),
+		TaskTraceRequired:      cfg.ProductionProfile(),
 	}
 	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	if b, err := os.ReadFile(filepath.Join(dir, "requirements.md")); err == nil {
@@ -996,12 +999,11 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 	// Opt-in per-criterion ratchet: only the completion transition consults it,
 	// and only when config enabled it (spec 04 R6).
 	if approveTarget == string(core.StatusComplete) {
-		cfg := loadSpecConfig(root)
-		if cfg.Criteria.Required {
+		if cfg.CriteriaGateArmed() {
 			ctx.CriteriaRequired = true
 			ctx.CriteriaUnmet = unmetCriteria(root, slug, ctx.RequirementsDoc)
 		}
-		if cfg.Review.Required {
+		if cfg.ReviewGateArmed() {
 			applyReviewInputs(&ctx, root, slug)
 		}
 	}

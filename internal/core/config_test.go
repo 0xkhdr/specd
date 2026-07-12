@@ -228,3 +228,79 @@ func TestConfigRoutingSafeDefaultsAndValidation(t *testing.T) {
 		}
 	}
 }
+
+// TestConfigProfile pins spec 01 R7: the default lifecycle profile keeps every
+// completeness gate opt-in (R7.1); the production profile arms the criterion,
+// review, and integration/negative-path gates together (R7.2); an unknown
+// profile fails closed.
+func TestConfigProfile(t *testing.T) {
+	if DefaultConfig.Profile != ProfileDefault {
+		t.Fatalf("default profile = %q, want %q", DefaultConfig.Profile, ProfileDefault)
+	}
+	if DefaultConfig.ProductionProfile() || DefaultConfig.CriteriaGateArmed() ||
+		DefaultConfig.ReviewGateArmed() || DefaultConfig.IntegrationPolicyArmed() {
+		t.Fatalf("default profile arms a gate: %#v", DefaultConfig)
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yml")
+	if err := os.WriteFile(path, []byte("profile: production\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, diags := LoadConfig(ConfigPaths{Project: path}, nil)
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v", diags)
+	}
+	if cfg.Profile != ProfileProduction || !cfg.ProductionProfile() {
+		t.Fatalf("profile = %q, want production", cfg.Profile)
+	}
+	if !cfg.CriteriaGateArmed() || !cfg.ReviewGateArmed() || !cfg.IntegrationPolicyArmed() {
+		t.Fatalf("production profile did not arm all gates: criteria=%v review=%v integration=%v",
+			cfg.CriteriaGateArmed(), cfg.ReviewGateArmed(), cfg.IntegrationPolicyArmed())
+	}
+
+	if err := os.WriteFile(path, []byte("profile: staging\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, diags = LoadConfig(ConfigPaths{Project: path}, nil); len(diags) != 1 ||
+		!strings.Contains(diags[0].Message, "profile must be default|production") {
+		t.Fatalf("invalid profile diagnostics = %#v, want one profile error", diags)
+	}
+}
+
+// TestConfigProfileArmsPerSwitch pins R7.1: under the default profile each gate
+// still arms from its own explicit switch, independently of the profile.
+func TestConfigProfileArmsPerSwitch(t *testing.T) {
+	cfg := DefaultConfig
+	cfg.Criteria.Required = true
+	if !cfg.CriteriaGateArmed() || cfg.ReviewGateArmed() || cfg.ProductionProfile() {
+		t.Fatalf("criteria switch alone: %#v", cfg)
+	}
+	cfg = DefaultConfig
+	cfg.Review.Required = true
+	if !cfg.ReviewGateArmed() || cfg.CriteriaGateArmed() {
+		t.Fatalf("review switch alone: %#v", cfg)
+	}
+}
+
+// TestHandshakePolicyDigest pins R7.2 "policy digest shall pin judgment": the
+// digest is stable for an unchanged policy and changes when the profile flips,
+// so an approval pinned to it goes stale exactly when the policy moves.
+func TestHandshakePolicyDigest(t *testing.T) {
+	base := DefaultConfig
+	if PolicyDigest(base) != PolicyDigest(base) {
+		t.Fatal("policy digest not stable for identical config")
+	}
+	prod := DefaultConfig
+	prod.Profile = ProfileProduction
+	if PolicyDigest(base) == PolicyDigest(prod) {
+		t.Fatal("policy digest unchanged when profile flipped to production")
+	}
+	hs := BootstrapHandshake(prod)
+	if hs.PolicyDigest != PolicyDigest(prod) {
+		t.Fatalf("handshake policy digest = %q, want %q", hs.PolicyDigest, PolicyDigest(prod))
+	}
+	if hs.PolicyDigest == PolicyDigest(base) {
+		t.Fatal("handshake did not surface the production policy digest")
+	}
+}

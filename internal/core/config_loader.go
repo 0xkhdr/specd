@@ -9,8 +9,14 @@ import (
 
 // Config is the deterministic runtime configuration used by the harness.
 type Config struct {
-	Version            string
-	Agent              string
+	Version string
+	Agent   string
+	// Profile is the lifecycle strictness profile (spec 01 R7). "default" keeps
+	// the backward-compatible policy where new completeness checks are opt-in
+	// per-flag (R7.1). "production" raises the whole bar: it arms the criterion,
+	// review, and integration/negative-path evidence gates together (R7.2),
+	// regardless of the individual criteria.required / review.required switches.
+	Profile            string
 	Gates              GatesConfig
 	Verify             VerifyConfig
 	Context            ContextConfig
@@ -112,6 +118,43 @@ type SubmitConfig struct {
 // leaves submit.timeout_seconds unset.
 const SubmitDefaultTimeoutSecs = 120
 
+// Lifecycle strictness profiles (spec 01 R7). ProfileDefault keeps every new
+// completeness check opt-in (backward compatible, R7.1); ProfileProduction
+// arms the risk-proportionate criterion/review/integration/negative-path
+// evidence gates together (R7.2).
+const (
+	ProfileDefault    = "default"
+	ProfileProduction = "production"
+)
+
+// ProductionProfile reports whether the production lifecycle profile is armed.
+// An empty profile resolves to the default profile.
+func (c Config) ProductionProfile() bool {
+	return c.Profile == ProfileProduction
+}
+
+// CriteriaGateArmed reports whether the per-criterion evidence ratchet must run:
+// either the explicit criteria.required switch, or the production profile
+// (which requires current criterion evidence, R7.2).
+func (c Config) CriteriaGateArmed() bool {
+	return c.Criteria.Required || c.ProductionProfile()
+}
+
+// ReviewGateArmed reports whether the review ratchet must run: either the
+// explicit review.required switch, or the production profile (which requires a
+// current-HEAD review, R7.2).
+func (c Config) ReviewGateArmed() bool {
+	return c.Review.Required || c.ProductionProfile()
+}
+
+// IntegrationPolicyArmed reports whether declared external/integration
+// boundaries must carry error-path and integration evidence planning (R3.3).
+// The production lifecycle profile arms it; security.profile=production keeps
+// arming it for backward compatibility.
+func (c Config) IntegrationPolicyArmed() bool {
+	return c.ProductionProfile() || c.Security.Profile == ProfileProduction
+}
+
 // CriteriaConfig is the opt-in per-acceptance-criterion evidence ratchet. When
 // Required is true, the completion approval gate refuses while any acceptance
 // criterion lacks a current passing record (spec 04 R6). Default off so existing
@@ -165,6 +208,7 @@ type ConfigPaths struct {
 var DefaultConfig = Config{
 	Version: "1",
 	Agent:   "codex",
+	Profile: ProfileDefault,
 	Gates: GatesConfig{
 		Verify: "error",
 	},

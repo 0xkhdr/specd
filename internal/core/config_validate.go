@@ -30,6 +30,12 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 			cfg.Version = value
 		case "agent":
 			cfg.Agent = value
+		case "profile":
+			if value != ProfileDefault && value != ProfileProduction {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "profile must be default|production"})
+				continue
+			}
+			cfg.Profile = value
 		case "gates.verify":
 			cfg.Gates.Verify = value
 		case "verify.trivial":

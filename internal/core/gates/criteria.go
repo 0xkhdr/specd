@@ -7,6 +7,15 @@ import (
 	"strings"
 )
 
+// criteriaArmed reports whether the per-acceptance-criterion evidence ratchet
+// must run for this approval: either config armed it explicitly
+// (criteria.required) or the production lifecycle profile requires current
+// criterion evidence (spec 01 R7.2). Default profile with the switch off keeps
+// the ratchet disabled (R7.1).
+func criteriaArmed(ctx CheckCtx) bool {
+	return ctx.CriteriaRequired || ctx.ProductionProfile
+}
+
 // CriterionID names a single acceptance criterion of a requirement, addressed
 // as "<req>.<sub>" (e.g. "1.2" = the second criterion of requirement R1).
 type CriterionID struct {

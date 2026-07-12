@@ -38,8 +38,13 @@ type Handshake struct {
 	// PaletteDigest and ConfigDigest let an agent detect that its cached command
 	// palette or effective config has drifted from this binary's (spec 11 R6).
 	// Both are SHA-256 over the canonical (stable-key-order) JSON.
-	PaletteDigest string         `json:"palette_digest"`
-	ConfigDigest  string         `json:"config_digest"`
+	PaletteDigest string `json:"palette_digest"`
+	ConfigDigest  string `json:"config_digest"`
+	// PolicyDigest pins the effective lifecycle judgment policy (spec 01 R7.2):
+	// the profile plus the criterion/review/integration gates it arms. It lets a
+	// later approval detect that the policy governing an earlier decision has
+	// changed, without diffing the whole config.
+	PolicyDigest  string         `json:"policy_digest"`
 	ToolContracts []ToolContract `json:"tool_contracts"`
 }
 
@@ -83,6 +88,7 @@ func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCom
 		},
 		PaletteDigest: PaletteDigest(),
 		ConfigDigest:  ConfigDigest(config),
+		PolicyDigest:  PolicyDigest(config),
 		ToolContracts: ManifestToolContracts(),
 	}
 	if state != nil {
@@ -102,6 +108,24 @@ func PaletteDigest() string {
 // ConfigDigest is the SHA-256 of the effective config.
 func ConfigDigest(config Config) string {
 	return digest(config)
+}
+
+// PolicyDigest is the SHA-256 of the effective lifecycle judgment policy: the
+// profile and the criterion/review/integration gates it arms (spec 01 R7.2).
+// It changes when the profile or any armed gate changes, so an approval pinned
+// to it goes stale exactly when the policy that produced it moves.
+func PolicyDigest(config Config) string {
+	return digest(struct {
+		Profile     string `json:"profile"`
+		Criteria    bool   `json:"criteria"`
+		Review      bool   `json:"review"`
+		Integration bool   `json:"integration"`
+	}{
+		Profile:     config.Profile,
+		Criteria:    config.CriteriaGateArmed(),
+		Review:      config.ReviewGateArmed(),
+		Integration: config.IntegrationPolicyArmed(),
+	})
 }
 
 func digest(v any) string {

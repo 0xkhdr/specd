@@ -49,6 +49,12 @@ type CheckCtx struct {
 	IntegrationEvidenceGaps []string
 	ProductionPolicy        bool
 
+	// ProductionProfile mirrors the production lifecycle profile (spec 01 R7.2).
+	// It arms the criterion and review ratchets on its own, so the production
+	// profile requires current criterion evidence and a current-HEAD review even
+	// when the individual criteria.required / review.required switches are off.
+	ProductionProfile bool
+
 	// Review gate inputs (spec 09 R3/R4/R5, opt-in). ReviewRequired mirrors
 	// config review.required. The caller reads review_report.md, parses it, and
 	// fills these — the gate never touches disk. ReviewParseErr non-empty means
