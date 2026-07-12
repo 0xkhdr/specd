@@ -51,9 +51,28 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T07 | craftsman | internal/core/runledger.go; internal/core/runledger_test.go; internal/core/commands.go | T02 | go test ./internal/core -run 'Test(RunLedger|Run)' | deterministic `run_id`/monotonic `attempt` under spec lock; never provider trace ID as key; `runs.jsonl` append-only R2.1 |
-| [ ] T08 | craftsman | internal/cmd/registry.go; internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/task_complete.go; internal/core/task_complete_test.go | T07 | go test ./internal/cmd ./internal/core -run 'Test(BrainReport|Complete|Run)' | manual + Brain runs share one allocator; two failures + one pass = three attempts one chain; evidence gate identical with ledger absent R2.2,R2.3 |
-| [ ] T09 | craftsman | internal/orchestration/checkpoint.go; internal/orchestration/recover.go; internal/core/runledger.go; scripts/stress-acp.sh | T08 | go test ./internal/orchestration -run 'Test(Checkpoint|Recover|Run)' && ./scripts/stress-acp.sh | crash mid-append yields one complete record or prior; no partial line or duplicate run/mission; racing writers do not duplicate attempt R2.4 |
+| [x] T07 | craftsman | internal/core/runledger.go; internal/core/runledger_test.go; internal/core/commands.go | T02 | go test ./internal/core -run 'Test(RunLedger|Run)' | deterministic `run_id`/monotonic `attempt` under spec lock; never provider trace ID as key; `runs.jsonl` append-only R2.1 |
+| [x] T08 | craftsman | internal/cmd/registry.go; internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/task_complete.go; internal/core/task_complete_test.go | T07 | go test ./internal/cmd ./internal/core -run 'Test(BrainReport|Complete|Run)' | manual + Brain runs share one allocator; two failures + one pass = three attempts one chain; evidence gate identical with ledger absent R2.2,R2.3 |
+| [x] T09 | craftsman | internal/orchestration/checkpoint.go; internal/orchestration/recover.go; internal/core/runledger.go; scripts/stress-acp.sh | T08 | go test ./internal/orchestration -run 'Test(Checkpoint|Recover|Run)' && ./scripts/stress-acp.sh | crash mid-append yields one complete record or prior; no partial line or duplicate run/mission; racing writers do not duplicate attempt R2.4 |
+
+> **W2 scope deviations (file list vs. actual edits, subtractive bias).**
+> - T07 `commands.go` **not edited**: run/attempt identity is a side effect of
+>   verify, not a verb — it needs no CLI surface or config, and `RunLedgerPath`
+>   is a plain path function like every other ledger (`evidence.jsonl`,
+>   `acp.jsonl`). Recorded rather than adding a dormant verb.
+> - T08 `brain_report.go` **edited** (unlisted, needed): the shared allocator
+>   `core.AllocateRun` must be called where `root`/`slug`/`head` are in hand; the
+>   helper `allocateWorkerRun` lives in `brain_worker.go` (listed) and is invoked
+>   from `brain_report.go`'s report flow. `task_complete.go` gains only a doc
+>   comment: completion authority never reads `runs.jsonl` (R2.3), proven by
+>   `TestCompleteTaskIndependentOfRunLedger`.
+> - T09 `acp.go` **edited** (unlisted, needed): R2.4's "never a partial line"
+>   applies to the mission ledger too — `ReadACP` now drops a torn *trailing*
+>   line so recovery converges on the prior complete ledger. `checkpoint.go`
+>   already crash-safe via `core.AtomicWrite` (temp+rename) and `recover.go`
+>   inherits the tolerance through `ReadACP`, so neither needed a functional
+>   change; both are exercised by the new `Recover`/`Run` tests and
+>   `stress-acp.sh`'s run-ledger race.
 
 ## W3 — context accounting and sufficiency
 

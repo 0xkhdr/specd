@@ -24,6 +24,41 @@ func TestRejectUnknownHead(t *testing.T) {
 	}
 }
 
+// TestCompleteTaskIndependentOfRunLedger asserts the evidence gate is identical
+// whether the run ledger is present or absent (spec 07 R2.3): allocating run
+// records for a task neither enables nor blocks its completion — only verify
+// evidence does.
+func TestCompleteTaskIndependentOfRunLedger(t *testing.T) {
+	raw := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | ok |\n")
+	pass := map[string]EvidenceRecord{"T1": {TaskID: "T1", ExitCode: 0, GitHead: "abc"}}
+
+	// Ledger absent: completes on evidence.
+	absent, err := CompleteTask(raw, "T1", pass)
+	if err != nil {
+		t.Fatalf("completion failed with ledger absent: %v", err)
+	}
+
+	// Ledger present with several attempts: identical outcome.
+	root := t.TempDir()
+	for i := 0; i < 3; i++ {
+		if _, err := AllocateRun(root, "demo", "T1", "base0", "a", "", TelemetrySourceWorker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	present, err := CompleteTask(raw, "T1", pass)
+	if err != nil {
+		t.Fatalf("completion failed with ledger present: %v", err)
+	}
+	if string(present) != string(absent) {
+		t.Fatal("run ledger changed the completion outcome")
+	}
+
+	// Failing evidence still refuses regardless of a populated ledger.
+	if _, err := CompleteTask(raw, "T1", map[string]EvidenceRecord{"T1": {TaskID: "T1", ExitCode: 1, GitHead: "abc"}}); err == nil {
+		t.Fatal("run ledger presence bypassed the evidence gate")
+	}
+}
+
 func TestCompleteRequiresEvidence(t *testing.T) {
 	raw := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok |\n")
 	if _, err := CompleteTask(raw, "T1", nil); err == nil {

@@ -30,6 +30,10 @@ func verifyEvidenceReady(taskID string, records map[string]EvidenceRecord) error
 	return nil
 }
 
+// CompleteTask advances a task to done. Completion authority is verify/eval
+// evidence alone: this function never reads the run ledger (runs.jsonl), so the
+// evidence gate passes or fails identically whether that additive ledger is
+// present or absent (spec 07 R2.3).
 func CompleteTask(rawTasks []byte, taskID string, records map[string]EvidenceRecord) ([]byte, error) {
 	if err := verifyEvidenceReady(taskID, records); err != nil {
 		return nil, err

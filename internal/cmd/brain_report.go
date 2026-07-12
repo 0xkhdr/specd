@@ -63,6 +63,12 @@ func brainWorkerReport(root, sessionPath, acpPath, slug string, args []string) e
 	if err := acceptWorkerReport(records, workerReport{TaskID: m.TaskID, WorkerID: workerID, GitHead: head, Lease: l, Now: now}); err != nil {
 		return err
 	}
+	// Share the manual path's run allocator so this Brain attempt lands on the
+	// task's run chain (spec 07 R2.2). Deviation: T08 lists brain_worker.go but
+	// the caller with root/slug in hand is here.
+	if err := allocateWorkerRun(root, slug, m.TaskID, head, workerID); err != nil {
+		return err
+	}
 	if err := runTaskComplete(root, []string{slug, m.TaskID}, nil); err != nil {
 		return err
 	}

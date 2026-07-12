@@ -195,13 +195,22 @@ func ReadACP(path string) ([]ACPEvent, error) {
 		return nil, fmt.Errorf("open acp: %w", err)
 	}
 	var events []ACPEvent
-	for _, line := range bytes.Split(data, []byte{'\n'}) {
+	lines := bytes.Split(data, []byte{'\n'})
+	for i, line := range lines {
 		if len(bytes.TrimSpace(line)) == 0 {
 			continue
 		}
 		var event ACPEvent
 		if err := json.Unmarshal(line, &event); err != nil {
-			return nil, fmt.Errorf("decode acp: %w", err)
+			if i == len(lines)-1 {
+				// A torn *final* line is the signature of a crash mid-append
+				// (AppendACP writes the record and its newline in one fsynced
+				// write): drop it and keep the prior complete events, so recovery
+				// converges on the prior complete ledger rather than failing to
+				// read (spec 07 R2.4). Corruption anywhere else is a real error.
+				break
+			}
+			return nil, fmt.Errorf("decode acp line %d: %w", i+1, err)
 		}
 		if err := core.ValidateAnnotations(event.Telemetry); err != nil {
 			return nil, fmt.Errorf("acp telemetry: %w", err)

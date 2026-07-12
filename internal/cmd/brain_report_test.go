@@ -42,6 +42,15 @@ func TestBrainFakeHostLifecycleE2E(t *testing.T) {
 	if err := runBrain(root, []string{"report", "demo", leaseID, "worker-1"}, nil); err != nil {
 		t.Fatal(err)
 	}
+	// The Brain report shares the manual verify path's run allocator, so the
+	// completed attempt lands on the task's run chain (spec 07 R2.2).
+	runs, err := core.ReadRuns(core.RunLedgerPath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runs) != 1 || runs[0].TaskID != "T1" || runs[0].Attempt != 1 || runs[0].WorkerID != "worker-1" {
+		t.Fatalf("brain report did not allocate a run: %+v", runs)
+	}
 	if err := runBrain(root, []string{"report", "demo", leaseID, "worker-1"}, nil); err == nil {
 		t.Fatal("duplicate completion report accepted")
 	}

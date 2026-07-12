@@ -788,6 +788,13 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil && err == nil {
 		err = appendErr
 	}
+	// Allocate this attempt's run/attempt identity through the shared core
+	// allocator (spec 07 R2.1/R2.2): a manual verify accrues an attempt on the
+	// task's run chain, monotonic through the fail/fail/pass loop. The ledger is
+	// additive — an allocation failure never blocks the verify record above.
+	if _, allocErr := core.AllocateRun(root, slug, taskID, head, "", "", core.TelemetrySourceWorker); allocErr != nil && err == nil {
+		err = allocErr
+	}
 	if result.Stdout != "" {
 		fmt.Fprint(os.Stdout, core.TruncateEvidenceOutput(result.Stdout))
 	}

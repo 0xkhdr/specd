@@ -16,6 +16,16 @@ type workerReport struct {
 	Now      time.Time
 }
 
+// allocateWorkerRun records the Brain-driven attempt's run/attempt identity
+// through the same core allocator the manual verify path uses (spec 07 R2.2), so
+// a task's attempts accrue on one run chain regardless of whether a human or the
+// Brain drove them. The run ledger is additive; the caller treats an allocation
+// error as fatal to the report only because it means the ledger write failed.
+func allocateWorkerRun(root, slug, taskID, head, workerID string) error {
+	_, err := core.AllocateRun(root, slug, taskID, head, "", workerID, core.TelemetrySourceWorker)
+	return err
+}
+
 func acceptWorkerReport(records map[string]core.EvidenceRecord, report workerReport) error {
 	if report.TaskID == "" {
 		return fmt.Errorf("worker report missing task")
