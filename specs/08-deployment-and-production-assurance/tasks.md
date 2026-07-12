@@ -29,11 +29,18 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T06 | craftsman | `internal/core/managed.go`; new `internal/core/managed_digest.go` | T01 | `go test ./internal/core -run TestManagedDigest -count=1` | R2.3 managed role/steering content digest |
-| T07 | craftsman | `internal/core/handshake.go`; `internal/version/version.go` | T06 | `go test ./internal/core -run TestHandshakeBind -count=1` | R2.1 one packet binds all identities |
-| T08 | craftsman | `internal/core/handshake.go`; `internal/cmd/registry.go` | T07 | `go test ./internal/cmd -run TestHandshakeMismatchExits -count=1` | R2.2 pinned mismatch exits non-zero pre-mutation |
-| T09 | craftsman | `internal/core/handshake.go` (typed source fields) | T07 | `go test ./internal/core -run TestHandshakeTypedSources -count=1` | R2.3 harness vs untrusted separation |
-| T10 | craftsman | `docs/mcp-guide.md`; managed `AGENTS.md` template | T08 | `./scripts/docs-lint.sh` | R2.1 document bootstrap packet |
+| [x] T06 | craftsman | `internal/core/managed.go`; new `internal/core/managed_digest.go` | T01 | `go test ./internal/core -run TestManagedDigest -count=1` | R2.3 managed role/steering content digest |
+| [x] T07 | craftsman | `internal/core/handshake.go`; `internal/version/version.go` | T06 | `go test ./internal/core -run TestHandshakeBind -count=1` | R2.1 one packet binds all identities |
+| [x] T08 | craftsman | `internal/core/handshake.go`; `internal/cmd/registry.go` | T07 | `go test ./internal/cmd -run TestHandshakeMismatchExits -count=1` | R2.2 pinned mismatch exits non-zero pre-mutation |
+| [x] T09 | craftsman | `internal/core/handshake.go` (typed source fields) | T07 | `go test ./internal/core -run TestHandshakeTypedSources -count=1` | R2.3 harness vs untrusted separation |
+| [x] T10 | craftsman | `docs/mcp-guide.md`; managed `AGENTS.md` template | T08 | `./scripts/docs-lint.sh` | R2.1 document bootstrap packet |
+
+> **08b scope deviations:** TDD requires `internal/core/handshake_test.go` and
+> `internal/cmd/integration_polish_test.go`; T08's public expectation flags require their canonical
+> declaration in `internal/core/commands.go`; the CLI-surface invariant requires mirrored
+> `docs/command-reference.md` and `docs/CHEATSHEET.md` updates. Template-version bump exposed a
+> hardcoded marker assertion, so backprop V9/B1 updates `internal/core/managed_test.go` and
+> `SPEC.md`.
 
 ## W2 — `08c-orchestrated-mode-reachability` (requires 08a, Domain 05 dispatch)
 

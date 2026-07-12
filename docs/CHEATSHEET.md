@@ -389,15 +389,24 @@ specd mcp --config claude-code --spec demo
 
 ### `handshake`
 ```
-specd handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]
+specd handshake bootstrap [<spec>] [--json] [--expect-<identity> <value>]
 ```
-Emit bootstrap handshake material, including palette and config digests. **Phases:** any.
+Emit a complete, drift-safe bootstrap identity packet. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--json` | bool | Emit machine-readable handshake. |
 | `--expect-palette-digest` | string | Fail (exit 1) if the command-palette digest differs. |
 | `--expect-config-digest` | string | Fail (exit 1) if the effective-config digest differs. |
+| `--expect-managed-digest` | string | Fail if managed guidance differs. |
+| `--expect-binary-version` | string | Fail if binary version differs. |
+| `--expect-binary-commit` | string | Fail if binary commit differs. |
+| `--expect-state-schema` | string | Fail if state schema differs. |
+| `--expect-context-schema` | string | Fail if context schema differs. |
+| `--expect-template-schema` | string | Fail if template schema differs. |
+| `--expect-root` | string | Fail if workspace root differs. |
+| `--expect-spec` | string | Fail if active spec differs. |
+| `--expect-revision` | string | Fail if state revision differs. |
 
 ```bash
 specd handshake bootstrap

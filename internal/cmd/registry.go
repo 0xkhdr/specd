@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	speccontext "github.com/0xkhdr/specd/internal/context"
@@ -481,18 +482,67 @@ func runMCP(root string, args []string, flags map[string]string) error {
 }
 
 func runHandshake(root string, args []string, flags map[string]string) error {
-	if len(args) != 1 || args[0] != "bootstrap" {
-		return errors.New("usage: handshake bootstrap [--json] [--expect-palette-digest <d>] [--expect-config-digest <d>]")
+	if len(args) < 1 || len(args) > 2 || args[0] != "bootstrap" {
+		return errors.New("usage: handshake bootstrap [<spec>] [--json] [--expect-<identity> <value>]")
 	}
 	config, _ := core.LoadConfig(configPaths(root), getenv())
-	handshake := core.BootstrapHandshake(config)
-
-	// Digest-drift guards fail with exit 1 identifying which digest moved (R6).
-	if exp, ok := flags["expect-palette-digest"]; ok && exp != handshake.PaletteDigest {
-		return fmt.Errorf("palette digest drift: expected %s, current %s", exp, handshake.PaletteDigest)
+	explicit := ""
+	if len(args) == 2 {
+		explicit = args[1]
 	}
-	if exp, ok := flags["expect-config-digest"]; ok && exp != handshake.ConfigDigest {
-		return fmt.Errorf("config digest drift: expected %s, current %s", exp, handshake.ConfigDigest)
+	var state *core.State
+	var nextCommands []string
+	resolution, resolveErr := core.ResolveSpec(root, explicit, os.Getenv("SPECD_SPEC"))
+	if resolveErr == nil {
+		current, err := core.LoadState(core.StatePath(root, resolution.Slug))
+		if err != nil {
+			return err
+		}
+		state = &current
+		if guide, err := driverGuideForSpec(root, resolution.Slug); err == nil {
+			for _, action := range guide.NextActions {
+				nextCommands = append(nextCommands, strings.TrimSpace("specd "+action.Command+" "+strings.Join(action.Args, " ")))
+			}
+		} else {
+			nextCommands = []string{"specd status " + resolution.Slug + " --guide --json"}
+		}
+	} else if core.FindingCode(resolveErr) == "SPEC_REQUIRED" {
+		nextCommands = []string{"specd new <slug> --title <title>"}
+	} else {
+		return resolveErr
+	}
+	handshake, err := core.BootstrapHandshakeForRoot(root, config, state, nextCommands)
+	if err != nil {
+		return err
+	}
+	activeSlug, revision := "<none>", "<none>"
+	if handshake.ActiveSpec != nil {
+		activeSlug = handshake.ActiveSpec.Slug
+		revision = strconv.FormatInt(handshake.ActiveSpec.Revision, 10)
+	}
+	preconditions := []struct{ flag, current string }{
+		{"binary-version", handshake.Binary.Version},
+		{"binary-commit", handshake.Binary.Commit},
+		{"state-schema", strconv.Itoa(handshake.StateSchemaVersion)},
+		{"context-schema", handshake.ContextSchemaVersion},
+		{"template-schema", strconv.Itoa(handshake.TemplateSchemaVersion)},
+		{"root", handshake.WorkspaceRoot},
+		{"spec", activeSlug},
+		{"revision", revision},
+		{"palette-digest", handshake.PaletteDigest},
+		{"config-digest", handshake.ConfigDigest},
+		{"managed-digest", handshake.ManagedDigest},
+	}
+	for _, precondition := range preconditions {
+		if expected, ok := flags["expect-"+precondition.flag]; ok && expected != precondition.current {
+			legacy := ""
+			if precondition.flag == "palette-digest" {
+				legacy = " (palette digest drift)"
+			} else if precondition.flag == "config-digest" {
+				legacy = " (config digest drift)"
+			}
+			return fmt.Errorf("precondition %s mismatch: expected %s, current %s%s", precondition.flag, expected, precondition.current, legacy)
+		}
 	}
 
 	if flagEnabled(flags, "json") {
@@ -501,6 +551,7 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	fmt.Fprintf(os.Stdout, "version: %s\n", handshake.Version)
 	fmt.Fprintf(os.Stdout, "palette_digest: %s\n", handshake.PaletteDigest)
 	fmt.Fprintf(os.Stdout, "config_digest: %s\n", handshake.ConfigDigest)
+	fmt.Fprintf(os.Stdout, "managed_digest: %s\n", handshake.ManagedDigest)
 	for _, tool := range handshake.Tools {
 		fmt.Fprintf(os.Stdout, "tool: %s\n", tool)
 	}

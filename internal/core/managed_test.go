@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -26,7 +27,7 @@ func TestManagedMarkers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", asset.RelPath, err)
 		}
-		begin := "<!-- specd:managed:" + asset.Name + ":v1 begin -->"
+		begin := "<!-- specd:managed:" + asset.Name + ":v" + strconv.Itoa(TemplateVersion) + " begin -->"
 		if !strings.Contains(string(raw), begin) {
 			t.Fatalf("%s missing begin marker:\n%s", asset.RelPath, raw)
 		}

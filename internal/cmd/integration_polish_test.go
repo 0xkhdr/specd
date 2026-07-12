@@ -151,6 +151,55 @@ func TestHandshakeDigest(t *testing.T) {
 	}
 }
 
+func TestHandshakeMismatchExits(t *testing.T) {
+	root := t.TempDir()
+	if err := Run(root, "init", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(root, "new", []string{"demo"}, map[string]string{"title": "Demo"}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := captureStdout(t, func() error {
+		return Run(root, "handshake", []string{"bootstrap", "demo"}, map[string]string{"json": ""})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hs core.Handshake
+	if err := json.Unmarshal([]byte(out), &hs); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]string{
+		"expect-binary-version":  "wrong",
+		"expect-state-schema":    "999",
+		"expect-context-schema":  "999",
+		"expect-template-schema": "999",
+		"expect-root":            filepath.Join(root, "wrong"),
+		"expect-spec":            "wrong",
+		"expect-revision":        "999",
+		"expect-palette-digest":  "wrong",
+		"expect-config-digest":   "wrong",
+		"expect-managed-digest":  "wrong",
+	}
+	for flag, value := range cases {
+		err := Run(root, "handshake", []string{"bootstrap", "demo"}, map[string]string{flag: value})
+		if err == nil || !strings.Contains(err.Error(), "precondition "+strings.TrimPrefix(flag, "expect-")) || !strings.Contains(err.Error(), "current") {
+			t.Fatalf("%s mismatch not actionable: %v", flag, err)
+		}
+		after, readErr := os.ReadFile(core.StatePath(root, "demo"))
+		if readErr != nil || string(after) != string(before) {
+			t.Fatalf("%s mismatch mutated state: %v", flag, readErr)
+		}
+	}
+	if err := Run(root, "handshake", []string{"bootstrap", "demo"}, map[string]string{"expect-managed-digest": hs.ManagedDigest}); err != nil {
+		t.Fatalf("matching managed digest: %v", err)
+	}
+}
+
 func TestIntegrationContextV2CarriesDriverContract(t *testing.T) {
 	root := t.TempDir()
 	for _, dir := range []string{".specd/specs/demo", ".specd/roles", "internal"} {

@@ -13,7 +13,7 @@ import (
 // TemplateVersion is the current version stamp for specd-managed scaffold assets.
 // It rides in every managed-region marker so `init --refresh` can detect a region
 // written by an older binary. Bump it whenever a role/steering template changes.
-const TemplateVersion = 1
+const TemplateVersion = 2
 
 // ManagedAsset is one specd-managed scaffold file (a role or steering template).
 // Its Template is wrapped in stable marker comments so `init --repair`/`--refresh`

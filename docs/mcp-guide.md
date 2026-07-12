@@ -78,14 +78,20 @@ The `claude-code` snippet is a standard `mcpServers` block:
 
 ## Handshake
 
-Before an agent trusts the tool surface, it can confirm it is talking to the binary and config
-it expects. `handshake bootstrap` emits the bootstrap material plus two digests:
+Before an agent trusts the tool surface, it confirms one packet binding binary version/commit,
+state/context/template schemas, canonical workspace root, active spec/status/revision,
+palette/config/managed-guidance digests, allowed tools, and exact next valid commands:
 
 ```bash
-specd handshake bootstrap --json
-specd handshake bootstrap \
-  --expect-palette-digest <d> \
-  --expect-config-digest <d>
+specd handshake bootstrap demo --json
+specd handshake bootstrap demo \
+	--expect-binary-version <version> \
+	--expect-root <root> \
+	--expect-spec demo \
+	--expect-revision <revision> \
+	--expect-palette-digest <d> \
+	--expect-config-digest <d> \
+	--expect-managed-digest <d>
 ```
 
 - **palette digest** — a hash of the command palette. If the running binary's palette differs
@@ -93,6 +99,12 @@ specd handshake bootstrap \
   prompt/role built against palette v1 detects a binary that moved on.
 - **config digest** — a hash of the effective config. `--expect-config-digest` fails closed
   (exit 1) on any drift, so an agent notices when the project's rules changed under it.
+- **managed digest** — a hash of managed `AGENTS.md`, role, and steering regions. User-owned
+  surrounding text is excluded; missing, stale, or modified managed guidance changes identity.
+
+Every `--expect-*` mismatch exits non-zero before mutation and names expected/current identity.
+Packet authority metadata labels harness instructions separately from untrusted requirements,
+source, test output, and adapter observations; external text never amends harness policy.
 
 The digests are pure functions of on-disk material — no LLM, no network. Pin them in a role
 prompt or CI step to make "am I still driving the harness I was built for?" a deterministic

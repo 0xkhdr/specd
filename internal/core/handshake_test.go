@@ -1,6 +1,11 @@
 package core
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
 
 func TestHandshakeToolContracts(t *testing.T) {
 	hs := BootstrapHandshake(Config{})
@@ -14,5 +19,77 @@ func TestHandshakeToolContracts(t *testing.T) {
 		if tool.HumanOnly && tool.Mutable == false {
 			t.Fatalf("human-only mutation not labeled mutable: %+v", tool)
 		}
+	}
+}
+
+func TestManagedDigest(t *testing.T) {
+	root := t.TempDir()
+	assets, err := ManagedAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, asset := range assets {
+		path := filepath.Join(root, asset.RelPath)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(asset.Block()+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("user\n"+agentsBegin+"\nharness\n"+agentsEnd+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before, err := ManagedDigest(root)
+	if err != nil || before == "" {
+		t.Fatalf("managed digest: %q, %v", before, err)
+	}
+	if err := os.WriteFile(filepath.Join(root, assets[0].RelPath), []byte(assets[0].Block()+"\nuser tail\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	afterUserEdit, _ := ManagedDigest(root)
+	if before != afterUserEdit {
+		t.Fatal("content outside managed region changed digest")
+	}
+	if err := os.WriteFile(filepath.Join(root, assets[0].RelPath), []byte("corrupt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	afterManagedEdit, _ := ManagedDigest(root)
+	if before == afterManagedEdit {
+		t.Fatal("managed content drift did not change digest")
+	}
+}
+
+func TestHandshakeBind(t *testing.T) {
+	state := InitialState("demo")
+	state.Status = StatusTasks
+	state.Phase = PhaseForStatus(StatusTasks)
+	state.Revision = 7
+	hs, err := BootstrapHandshakeForRoot(t.TempDir(), Config{}, &state, []string{"specd status demo --guide --json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hs.Binary.Version == "" || hs.StateSchemaVersion != StateSchemaVersion || hs.ContextSchemaVersion == "" || hs.TemplateSchemaVersion != TemplateVersion {
+		t.Fatalf("schema/binary identity missing: %+v", hs)
+	}
+	if hs.WorkspaceRoot == "" || hs.ActiveSpec == nil || hs.ActiveSpec.Slug != "demo" || hs.ActiveSpec.Status != StatusTasks || hs.ActiveSpec.Revision != 7 {
+		t.Fatalf("workspace/spec identity missing: %+v", hs)
+	}
+	if hs.PaletteDigest == "" || hs.ConfigDigest == "" || hs.ManagedDigest == "" || len(hs.Tools) == 0 || len(hs.NextCommands) != 1 {
+		t.Fatalf("operational identity missing: %+v", hs)
+	}
+}
+
+func TestHandshakeTypedSources(t *testing.T) {
+	hs, err := BootstrapHandshakeForRoot(t.TempDir(), Config{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hs.Authority.HarnessInstructions) == 0 {
+		t.Fatal("harness instruction authority missing")
+	}
+	want := []string{"requirements", "source", "test_output", "adapter_observation"}
+	if !reflect.DeepEqual(hs.Authority.UntrustedInputs, want) {
+		t.Fatalf("untrusted source classes = %v, want %v", hs.Authority.UntrustedInputs, want)
 	}
 }

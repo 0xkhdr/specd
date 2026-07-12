@@ -27,6 +27,7 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 - V6: Write work has risk-proportionate non-trivial evidence; read-only work may use explicit trivial verify.
 - V7: Default behavior remains explicit/backward compatible; production policy opt-in and digest-pinned.
 - V8: Guidance returns only legal actor-aware next actions for current phase.
+- V9: Managed-marker tests derive expected version from `TemplateVersion`; template bumps remain valid.
 
 ## §T
 
@@ -45,3 +46,4 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 
 | id | date | cause | fix |
 |---|---|---|---|
+| B1 | 2026-07-12 | managed-marker test hardcoded `v1`; valid template bump failed suite | V9 |
