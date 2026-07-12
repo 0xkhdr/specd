@@ -68,8 +68,8 @@ func validV2() ManifestV2 {
 		SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: ".", Slug: "demo",
 		Action: "implement", Phase: "post-design", TaskID: "T1",
 		Items: []ItemV2{
-			{Kind: "guardrails", Source: ".specd/steering/product.md", Required: true, LoadMode: "eager", Trust: "guardrail", Sensitivity: "public", Reason: "harness constitution", EstimatedTokens: 3},
-			{Kind: "task", Selector: "T1", Required: true, LoadMode: "eager", Trust: "harness", Sensitivity: "public", Reason: "selected task record", EstimatedTokens: 5},
+			{Kind: "guardrails", Source: ".specd/steering/product.md", SourceDigest: "guardrail-digest", Required: true, LoadMode: "eager", Trust: "guardrail", ContentTrust: ContentTrustUntrustedData, Sensitivity: "public", Reason: "harness constitution", EstimatedTokens: 3},
+			{Kind: "task", Selector: "T1", SourceDigest: "task-digest", Required: true, LoadMode: "eager", Trust: "harness", ContentTrust: ContentTrustUntrustedData, Sensitivity: "public", Reason: "selected task record", EstimatedTokens: 5},
 		},
 	}
 }
@@ -87,6 +87,7 @@ func TestManifestV2ValidateFailsClosed(t *testing.T) {
 		func(m *ManifestV2) { m.Items[0].Kind = "wat" },
 		func(m *ManifestV2) { m.Items[0].LoadMode = "sometimes" },
 		func(m *ManifestV2) { m.Items[0].Trust = "vibes" },
+		func(m *ManifestV2) { m.Items[0].ContentTrust = "trusted_by_claim" },
 		func(m *ManifestV2) { m.Items[0].Reason = "" },
 		func(m *ManifestV2) { m.Items = nil },
 	}

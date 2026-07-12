@@ -1,6 +1,7 @@
 package security
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -86,7 +87,7 @@ func (g Gate) enabled() map[string]bool {
 func Analyze(root string, cfg core.SecurityConfig) Result {
 	g := Gate{cfg: cfg}
 	enabled := g.enabled()
-	files := trackedFiles(root)
+	files, inputFindings := scanInputs(root)
 
 	allow, allowFindings := loadAllowlist(root)
 
@@ -109,6 +110,7 @@ func Analyze(root string, cfg core.SecurityConfig) Result {
 		raw[i].Severity = severity[raw[i].Scanner]
 		raw[i].Allowlisted = allow.allows(raw[i].Fingerprint)
 	}
+	raw = append(raw, inputFindings...)
 	// Allowlist load failures surface as error findings regardless of scanners.
 	raw = append(raw, allowFindings...)
 
@@ -166,54 +168,100 @@ func sortFindings(f []Finding) {
 	})
 }
 
-// trackedFiles enumerates git-tracked working-tree files, excluding checksum
-// manifests and test fixtures (synthetic by convention). Reads content; skips
-// files it cannot read. Boundary is documented in docs/validation-gates.md.
-func trackedFiles(root string) []TrackedFile {
-	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
-	if err != nil {
-		return nil
-	}
-	var files []TrackedFile
-	for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
-		if rel == "" || excludedFromScan(rel) {
-			continue
-		}
-		content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+type scanRef struct {
+	Path string
+	Kind ScanKind
+}
+
+// scanInputs enumerates the repository boundary. Any enumeration/read failure
+// is itself an error finding, never an empty successful scan.
+func scanInputs(root string) ([]ScanInputV1, []Finding) {
+	var refs []scanRef
+	var findings []Finding
+	for _, query := range []struct {
+		kind ScanKind
+		args []string
+	}{
+		{ScanKindSource, []string{"ls-files", "-z", "--cached"}},
+		{ScanKindUntracked, []string{"ls-files", "-z", "--others", "--exclude-standard"}},
+	} {
+		out, err := exec.Command("git", append([]string{"-C", root}, query.args...)...).Output()
 		if err != nil {
+			findings = append(findings, inputErrorFinding("enumeration-failed", ".", "unable to enumerate repository inputs"))
 			continue
 		}
-		files = append(files, TrackedFile{Path: rel, Content: content})
-	}
-	return files
-}
-
-// excludedFromScan drops files that only yield false positives: dependency
-// checksum manifests, synthetic test fixtures, the harness's own runtime state
-// (which stores fingerprints/digests), and vendored/frozen trees. Documented as
-// the scan boundary in docs/validation-gates.md.
-func excludedFromScan(rel string) bool {
-	switch path(rel) {
-	case "go.sum", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock":
-		return true
-	}
-	for _, dir := range excludedDirs {
-		if rel == dir || strings.HasPrefix(rel, dir+"/") || strings.Contains(rel, "/"+dir+"/") {
-			return true
+		for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+			if rel != "" {
+				refs = append(refs, scanRef{Path: filepath.ToSlash(rel), Kind: query.kind})
+			}
 		}
 	}
-	return false
+	for _, runtime := range []struct {
+		dir  string
+		kind ScanKind
+	}{
+		{filepath.Join(".specd", "specs"), ScanKindSpec},
+		{filepath.Join(".specd", "steering"), ScanKindSteering},
+		{filepath.Join(".specd", "roles"), ScanKindRole},
+		{filepath.Join(".specd", "memory"), ScanKindMemory},
+	} {
+		base := filepath.Join(root, runtime.dir)
+		err := filepath.WalkDir(base, func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.Type().IsRegular() {
+				rel, err := filepath.Rel(root, path)
+				if err != nil {
+					return err
+				}
+				refs = append(refs, scanRef{Path: filepath.ToSlash(rel), Kind: runtime.kind})
+			}
+			return nil
+		})
+		if err != nil && !os.IsNotExist(err) {
+			findings = append(findings, inputErrorFinding("enumeration-failed", filepath.ToSlash(runtime.dir), "unable to enumerate runtime inputs"))
+		}
+	}
+	sort.Slice(refs, func(i, j int) bool { return refs[i].Path < refs[j].Path })
+	refs = uniqueScanRefs(refs)
+	inputs, readFindings := readScanInputs(root, refs)
+	return inputs, append(findings, readFindings...)
 }
 
-// excludedDirs are directory names whose contents are fixtures, runtime state,
-// or vendored copies rather than the operator's live source.
-var excludedDirs = []string{"testdata", ".specd", "reference", "vendor", ".git"}
-
-func path(rel string) string {
-	if i := strings.LastIndex(rel, "/"); i >= 0 {
-		return rel[i+1:]
+func uniqueScanRefs(refs []scanRef) []scanRef {
+	out := refs[:0]
+	for _, ref := range refs {
+		if len(out) > 0 && out[len(out)-1].Path == ref.Path {
+			// Runtime classifications replace generic tracked/untracked kinds.
+			if ref.Kind != ScanKindSource && ref.Kind != ScanKindUntracked {
+				out[len(out)-1] = ref
+			}
+			continue
+		}
+		out = append(out, ref)
 	}
-	return rel
+	return out
+}
+
+func readScanInputs(root string, refs []scanRef) ([]ScanInputV1, []Finding) {
+	inputs := make([]ScanInputV1, 0, len(refs))
+	var findings []Finding
+	for _, ref := range refs {
+		content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref.Path)))
+		if err != nil {
+			findings = append(findings, inputErrorFinding("read-failed", ref.Path, "unable to read scanner input"))
+			continue
+		}
+		input := NewScanInput(ref.Path, ref.Kind, TrustUntrustedData, content)
+		input.Root = root
+		inputs = append(inputs, input)
+	}
+	return inputs, findings
+}
+
+func inputErrorFinding(rule, file, excerpt string) Finding {
+	return Finding{Scanner: "input", Rule: rule, File: file, Severity: "error", Fingerprint: fingerprint(rule, file, excerpt), Excerpt: excerpt}
 }
 
 func itoa(n int) string {

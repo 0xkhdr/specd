@@ -66,9 +66,14 @@ fixture before each enforcement change. Stdlib-only; no `reference/` edits; no L
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T15 | craftsman | internal/core/gates/security/scanner.go; internal/core/gates/security/scanner_test.go; internal/core/gates/security/testdata | T06 | go test ./internal/core/gates/security -run 'Test(Scanner|Input)' | ScanInputV1 abstraction; per-scanner explicit exclusion; failed enumeration/read → error finding not empty-green R4.2 |
-| [ ] T16 | craftsman | internal/core/gates/security/gate.go; internal/core/gates/security/gate_test.go; internal/core/gates/security/injection.go; internal/core/gates/security/injection_test.go | T15 | go test ./internal/core/gates/security -run 'Test(Gate|Injection)' | scan `.specd/` specs/steering/roles/memory + untracked pending set; injection marker under runtime spec found pre-dispatch R4.1 |
-| [ ] T17 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/core/gates/security/secrets.go; internal/core/gates/security/secrets_test.go | T16, Domain 02 context | go test ./internal/context ./internal/core/gates/security -run 'Test(Manifest|Secrets)' | trust label/digest per item; untrusted text cannot alter gate behavior; findings bounded safe excerpts, no inlined secret/payload R4.3,R4.4 |
+| [x] T15 | craftsman | internal/core/gates/security/scanner.go; internal/core/gates/security/scanner_test.go; internal/core/gates/security/testdata | T06 | go test ./internal/core/gates/security -run 'Test(Scanner|Input)' | ScanInputV1 abstraction; per-scanner explicit exclusion; failed enumeration/read → error finding not empty-green R4.2 |
+| [x] T16 | craftsman | internal/core/gates/security/gate.go; internal/core/gates/security/gate_test.go; internal/core/gates/security/injection.go; internal/core/gates/security/injection_test.go | T15 | go test ./internal/core/gates/security -run 'Test(Gate|Injection)' | scan `.specd/` specs/steering/roles/memory + untracked pending set; injection marker under runtime spec found pre-dispatch R4.1 |
+| [x] T17 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/core/gates/security/secrets.go; internal/core/gates/security/secrets_test.go | T16, Domain 02 context | go test ./internal/context ./internal/core/gates/security -run 'Test(Manifest|Secrets)' | trust label/digest per item; untrusted text cannot alter gate behavior; findings bounded safe excerpts, no inlined secret/payload R4.3,R4.4 |
+
+> **W4 deviations.** T15's scanner-interface migration also updates the three existing scanner
+> implementations and `gate.go`; otherwise `ScanInputV1` cannot become the enforced input contract.
+> T17 also updates `internal/context/selector.go` and its test because that is where manifest items
+> receive source digests and boundary trust labels. No task checkbox is complete before user review.
 
 ## W5 — mandatory sandbox and secret isolation
 

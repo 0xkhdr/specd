@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 func readFixture(t *testing.T, rel string) TrackedFile {
@@ -51,31 +53,45 @@ func TestScannerFramework(t *testing.T) {
 		}
 	})
 
-	t.Run("scan_boundary_excludes_fixtures_and_checksums", func(t *testing.T) {
-		// Every documented exclusion: all lockfiles, all excluded dirs (as the
-		// dir root, nested under it, and deeper), plus .git. The boundary is the
-		// security gate's trust edge — a regression that starts scanning any of
-		// these floods the operator with false positives (T-04-01).
-		excluded := []string{
-			// lockfiles (basename match, at root and nested)
-			"go.sum", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock",
-			"sub/dir/go.sum", "web/package-lock.json",
-			// excluded dirs
-			"testdata/secrets/leak.txt", "internal/x/testdata/f.go",
-			".specd/security/allow.json", ".specd/specs/s/tasks.md",
-			"reference/foo.go", "reference/nested/bar.go",
-			"vendor/x/y.go",
-			".git/config", "sub/.git/HEAD",
+	t.Run("scan_input_digest_and_trust_are_stable", func(t *testing.T) {
+		input := NewScanInput("a.md", ScanKindSource, TrustUntrustedData, []byte("hello"))
+		if input.ItemRef != "a.md" || input.Digest == "" || input.Trust != TrustUntrustedData {
+			t.Fatalf("input = %+v", input)
 		}
-		for _, rel := range excluded {
-			if !excludedFromScan(rel) {
-				t.Errorf("expected %s excluded from scan", rel)
-			}
-		}
-		for _, rel := range []string{"main.go", "internal/core/state.go", "docs/CHEATSHEET.md", "go.mod", "testdataish/x.go"} {
-			if excludedFromScan(rel) {
-				t.Errorf("expected %s scanned", rel)
-			}
+		if again := NewScanInput("a.md", ScanKindSource, TrustUntrustedData, []byte("hello")); again.Digest != input.Digest {
+			t.Fatalf("digest not stable: %q != %q", input.Digest, again.Digest)
 		}
 	})
+
+	t.Run("exclusions_are_scanner_specific", func(t *testing.T) {
+		input := NewScanInput(".specd/specs/demo/tasks.md", ScanKindSpec, TrustUntrustedData, []byte("text"))
+		if (injectionScanner{}).Exclude(input) {
+			t.Fatal("injection scanner must inspect runtime specs")
+		}
+		if !(slopsquatScanner{}).Exclude(input) {
+			t.Fatal("slopsquat scanner should exclude non-manifest runtime specs")
+		}
+		control := NewScanInput(".specd/security/allow.json", ScanKindUntracked, TrustUntrustedData, []byte("state"))
+		if !(secretsScanner{}).Exclude(control) || !(injectionScanner{}).Exclude(control) {
+			t.Fatal("scanners must explicitly exclude harness security control state")
+		}
+	})
+}
+
+func TestInputEnumerationFailureIsFinding(t *testing.T) {
+	result := Analyze(t.TempDir(), core.SecurityConfig{Injection: "error"})
+	if !hasFinding(result.Findings, "input", "enumeration-failed") {
+		t.Fatalf("missing enumeration error: %+v", result.Findings)
+	}
+}
+
+func TestInputReadFailureIsFinding(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "unreadable.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	inputs, findings := readScanInputs(root, []scanRef{{Path: "unreadable.md", Kind: ScanKindSource}})
+	if len(inputs) != 0 || !hasFinding(findings, "input", "read-failed") {
+		t.Fatalf("inputs=%+v findings=%+v", inputs, findings)
+	}
 }

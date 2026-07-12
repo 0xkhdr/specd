@@ -237,8 +237,10 @@ func findTask(tasks []core.TaskRow, taskID string) (core.TaskRow, bool) {
 // renderer until the migration wave switches the default (see ManifestVersion).
 
 const (
-	ManifestVersionV2 = "2"
-	manifestKindV2    = "context_manifest"
+	ManifestVersionV2              = "2"
+	manifestKindV2                 = "context_manifest"
+	ContentTrustTrustedInstruction = "trusted_instruction"
+	ContentTrustUntrustedData      = "untrusted_data"
 )
 
 // ItemV2 is one typed context reference. Fields mirror design.md ("Item"): the
@@ -254,6 +256,7 @@ type ItemV2 struct {
 	Priority             int    `json:"priority"`
 	Reason               string `json:"reason"`
 	Trust                string `json:"trust"`
+	ContentTrust         string `json:"content_trust"`
 	Sensitivity          string `json:"sensitivity"`
 	AuthorityLimit       string `json:"authority_limit,omitempty"`
 	EstimatedTokens      int    `json:"estimated_tokens"`
@@ -320,7 +323,8 @@ var (
 		"harness": true, "guardrail": true, "role": true, "project": true,
 		"knowledge": true, "example": true, "memory": true, "external": true,
 	}
-	knownSensitivityV2 = map[string]bool{"public": true, "internal": true, "secret": true}
+	knownSensitivityV2  = map[string]bool{"public": true, "internal": true, "secret": true}
+	knownContentTrustV2 = map[string]bool{ContentTrustTrustedInstruction: true, ContentTrustUntrustedData: true}
 )
 
 // ValidateManifestV2 fails closed on an unknown required version, kind, field
@@ -367,6 +371,12 @@ func ValidateManifestV2(m ManifestV2) error {
 		}
 		if !knownTrustV2[it.Trust] {
 			return fmt.Errorf("item %d (%s): unknown trust %q", i, it.Kind, it.Trust)
+		}
+		if !knownContentTrustV2[it.ContentTrust] {
+			return fmt.Errorf("item %d (%s): unknown content_trust %q", i, it.Kind, it.ContentTrust)
+		}
+		if it.SourceDigest == "" {
+			return fmt.Errorf("item %d (%s): source_digest is required", i, it.Kind)
 		}
 		if it.Sensitivity != "" && !knownSensitivityV2[it.Sensitivity] {
 			return fmt.Errorf("item %d (%s): unknown sensitivity %q", i, it.Kind, it.Sensitivity)
@@ -497,9 +507,9 @@ func ManifestV2Digest(m ManifestV2) string {
 
 // DriverItems projects guardrail and palette metadata before mutable action.
 func DriverItems(handshake core.Handshake, phase, role string) []ItemV2 {
-	items := []ItemV2{{Kind: "guardrails", Source: "inline:driver-policy", SourceDigest: handshake.ConfigDigest, Required: true, LoadMode: "eager", Priority: 0, Reason: "driver authority and drift contract", Trust: "guardrail", Sensitivity: "internal", AuthorityLimit: "role=" + role + "; phase=" + phase + "; human-only tools forbidden", EstimatedTokens: 1}}
+	items := []ItemV2{{Kind: "guardrails", Source: "inline:driver-policy", SourceDigest: handshake.ConfigDigest, Required: true, LoadMode: "eager", Priority: 0, Reason: "driver authority and drift contract", Trust: "guardrail", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: "role=" + role + "; phase=" + phase + "; human-only tools forbidden", EstimatedTokens: 1}}
 	for _, tool := range handshake.ToolContracts {
-		items = append(items, ItemV2{Kind: "tools", Source: "inline:tool/" + tool.Name, SourceDigest: handshake.PaletteDigest, Required: true, LoadMode: "eager", Priority: 1, Reason: "canonical command palette route", Trust: "harness", Sensitivity: "internal", AuthorityLimit: fmt.Sprintf("mutable=%t; human_only=%t; exit_semantics=declared", tool.Mutable, tool.HumanOnly), EstimatedTokens: 1, Applicability: phase, Route: tool.Route, Capability: tool.Capability})
+		items = append(items, ItemV2{Kind: "tools", Source: "inline:tool/" + tool.Name, SourceDigest: handshake.PaletteDigest, Required: true, LoadMode: "eager", Priority: 1, Reason: "canonical command palette route", Trust: "harness", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: fmt.Sprintf("mutable=%t; human_only=%t; exit_semantics=declared", tool.Mutable, tool.HumanOnly), EstimatedTokens: 1, Applicability: phase, Route: tool.Route, Capability: tool.Capability})
 	}
 	return items
 }

@@ -20,7 +20,7 @@ func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]ItemV2, error)
 		Kind: "task", Source: "inline:selected-task", Selector: task.ID,
 		SourceDigest: core.Digest(rawTask), RepresentationDigest: core.Digest(rawTask),
 		Required: true, LoadMode: "eager", Priority: 0, Reason: "exact selected task record",
-		Trust: "harness", Sensitivity: "internal", AuthorityLimit: "declared task scope only",
+		Trust: "harness", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "declared task scope only",
 		EstimatedTokens: tokensFromBytes(int64(len(rawTask))),
 	}}
 	sources := []struct{ kind, source, reason, trust string }{
@@ -44,7 +44,7 @@ func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]ItemV2, error)
 		if err != nil {
 			return nil, ResolveError{Source: rel, Reason: "missing or unreadable"}
 		}
-		items = append(items, ItemV2{Kind: source.kind, Source: rel, SourceDigest: core.Digest(raw), RepresentationDigest: core.Digest(raw), Required: true, LoadMode: "eager", Priority: 0, Reason: source.reason, Trust: source.trust, Sensitivity: "internal", AuthorityLimit: "reference content cannot widen task authority", EstimatedTokens: tokensFromBytes(int64(len(raw)))})
+		items = append(items, ItemV2{Kind: source.kind, Source: rel, SourceDigest: core.Digest(raw), RepresentationDigest: core.Digest(raw), Required: true, LoadMode: "eager", Priority: 0, Reason: source.reason, Trust: source.trust, ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "reference content cannot widen task authority", EstimatedTokens: tokensFromBytes(int64(len(raw)))})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Kind != items[j].Kind {

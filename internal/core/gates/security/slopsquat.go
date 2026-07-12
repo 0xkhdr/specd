@@ -12,6 +12,10 @@ type slopsquatScanner struct{}
 
 func (slopsquatScanner) Name() string { return "slopsquat" }
 
+func (slopsquatScanner) Exclude(input ScanInputV1) bool {
+	return !strings.HasSuffix(input.Path, "go.mod")
+}
+
 //go:embed popular_go_packages.txt
 var popularPackagesRaw string
 
@@ -30,10 +34,10 @@ func parsePopularList(raw string) []string {
 	return out
 }
 
-func (slopsquatScanner) Scan(files []TrackedFile) []Finding {
+func (s slopsquatScanner) Scan(files []ScanInputV1) []Finding {
 	var findings []Finding
 	for _, file := range files {
-		if !strings.HasSuffix(file.Path, "go.mod") {
+		if s.Exclude(file) {
 			continue // extensible: package.json, requirements.txt (design note R4)
 		}
 		for _, dep := range parseGoMod(string(file.Content)) {

@@ -14,6 +14,10 @@ type secretsScanner struct{}
 
 func (secretsScanner) Name() string { return "secrets" }
 
+func (secretsScanner) Exclude(input ScanInputV1) bool {
+	return excludedScannerPath(input.Path, "testdata", "reference", "vendor", ".git", ".specd/security")
+}
+
 // Format rules: prefix + length + charset. Kept intentionally strict.
 var secretFormatRules = []struct {
 	rule string
@@ -36,9 +40,12 @@ const (
 	hexEntropyThreshold    = 3.6
 )
 
-func (secretsScanner) Scan(files []TrackedFile) []Finding {
+func (s secretsScanner) Scan(files []ScanInputV1) []Finding {
 	var findings []Finding
 	for _, file := range files {
+		if s.Exclude(file) {
+			continue
+		}
 		for lineIdx, line := range strings.Split(string(file.Content), "\n") {
 			lineNo := lineIdx + 1
 			for _, fr := range secretFormatRules {

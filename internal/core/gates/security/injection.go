@@ -11,6 +11,10 @@ type injectionScanner struct{}
 
 func (injectionScanner) Name() string { return "injection" }
 
+func (injectionScanner) Exclude(input ScanInputV1) bool {
+	return excludedScannerPath(input.Path, "testdata", "reference", "vendor", ".git", ".specd/security")
+}
+
 // Scannable text extensions. Injection payloads hide in prose, not binaries.
 var textExtensions = map[string]struct{}{
 	".md": {}, ".markdown": {}, ".txt": {}, ".rst": {},
@@ -37,10 +41,10 @@ var zeroWidthRunes = []rune{
 	0x202A, 0x202B, 0x202C, 0x202D, 0x202E,
 }
 
-func (injectionScanner) Scan(files []TrackedFile) []Finding {
+func (s injectionScanner) Scan(files []ScanInputV1) []Finding {
 	var findings []Finding
 	for _, file := range files {
-		if !isTextFile(file.Path) {
+		if s.Exclude(file) || !isTextFile(file.Path) {
 			continue
 		}
 		for lineIdx, line := range strings.Split(string(file.Content), "\n") {
@@ -53,7 +57,7 @@ func (injectionScanner) Scan(files []TrackedFile) []Finding {
 						File:        file.Path,
 						Line:        lineNo,
 						Fingerprint: fingerprint(pr.rule, file.Path, strings.ToLower(strings.TrimSpace(m))),
-						Excerpt:     truncate(strings.TrimSpace(m), 48),
+						Excerpt:     injectionExcerpt(pr.rule),
 					})
 				}
 			}
@@ -72,6 +76,21 @@ func (injectionScanner) Scan(files []TrackedFile) []Finding {
 	return findings
 }
 
+func injectionExcerpt(rule string) string {
+	switch rule {
+	case "override-instructions":
+		return "prompt override marker"
+	case "role-override":
+		return "role override marker"
+	case "hidden-instruction":
+		return "hidden instruction marker"
+	case "tool-exfil":
+		return "tool exfiltration marker"
+	default:
+		return "injection marker"
+	}
+}
+
 func isTextFile(path string) bool {
 	dot := strings.LastIndex(path, ".")
 	if dot < 0 {
@@ -88,11 +107,4 @@ func hasZeroWidth(line string) bool {
 		}
 	}
 	return false
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
 }

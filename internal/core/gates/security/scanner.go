@@ -8,14 +8,41 @@ package security
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 )
 
-// TrackedFile is one working-tree file the gate feeds to scanners. Path is the
-// repo-relative slash path (git ls-files semantics); Content is the raw bytes.
-type TrackedFile struct {
-	Path    string
-	Content []byte
+type ScanKind string
+
+const (
+	ScanKindSpec            ScanKind = "spec"
+	ScanKindSteering        ScanKind = "steering"
+	ScanKindRole            ScanKind = "role"
+	ScanKindMemory          ScanKind = "memory"
+	ScanKindSource          ScanKind = "source"
+	ScanKindUntracked       ScanKind = "untracked"
+	ScanKindToolResult      ScanKind = "tool_result"
+	TrustTrustedInstruction          = "trusted_instruction"
+	TrustUntrustedData               = "untrusted_data"
+)
+
+// ScanInputV1 identifies exact bytes crossing the scanner trust boundary.
+type ScanInputV1 struct {
+	Root    string   `json:"root,omitempty"`
+	ItemRef string   `json:"item_ref"`
+	Path    string   `json:"path"`
+	Kind    ScanKind `json:"kind"`
+	Trust   string   `json:"trust"`
+	Digest  string   `json:"digest"`
+	Content []byte   `json:"-"`
 }
+
+func NewScanInput(ref string, kind ScanKind, trust string, content []byte) ScanInputV1 {
+	content = append([]byte(nil), content...)
+	return ScanInputV1{ItemRef: ref, Path: ref, Kind: kind, Trust: trust, Digest: digest(content), Content: content}
+}
+
+// TrackedFile keeps existing scanner fixtures source-compatible.
+type TrackedFile = ScanInputV1
 
 // Finding is one scanner hit before severity resolution. Fingerprint pins the
 // finding to (rule + path + matched content) so a reasoned allowlist entry
@@ -40,7 +67,23 @@ type Finding struct {
 // findings in a stable order for identical input.
 type Scanner interface {
 	Name() string
-	Scan(files []TrackedFile) []Finding
+	Exclude(input ScanInputV1) bool
+	Scan(files []ScanInputV1) []Finding
+}
+
+func excludedScannerPath(rel string, dirs ...string) bool {
+	rel = strings.TrimPrefix(strings.ReplaceAll(rel, "\\", "/"), "./")
+	for _, dir := range dirs {
+		if rel == dir || strings.HasPrefix(rel, dir+"/") || strings.Contains(rel, "/"+dir+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func digest(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
 }
 
 // fingerprint is the SHA-256 of rule id + relative path + matched content. The

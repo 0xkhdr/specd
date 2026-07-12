@@ -39,6 +39,10 @@ func TestSelectorRequiredLanes(t *testing.T) {
 		if items[i].Kind != want || !items[i].Required || items[i].SourceDigest == "" {
 			t.Fatalf("item %d = %+v, want required %s with digest", i, items[i], want)
 		}
+		wantTrust := ContentTrustUntrustedData
+		if items[i].ContentTrust != wantTrust {
+			t.Errorf("item %s content trust = %q, want %q", want, items[i].ContentTrust, wantTrust)
+		}
 	}
 }
 
