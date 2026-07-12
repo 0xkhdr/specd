@@ -331,6 +331,21 @@ specd deploy payments --release a1b2c3 --environment staging --adapter shell --a
 
 ## Inspection
 
+### `adapters`
+```
+specd adapters [--json]
+```
+Inspect configured interoperability adapters read-only, distinguishing configured, missing, incompatible, and disabled without loading secrets or running anything. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable JSON. |
+
+```bash
+specd adapters
+specd adapters --json
+```
+
 ### `help`
 ```
 specd help [command] [--json]

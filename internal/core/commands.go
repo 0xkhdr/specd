@@ -152,6 +152,15 @@ var Commands = []Command{
 		ExitCodes:     stdCodes(),
 	},
 	{
+		Name:          "adapters",
+		Usage:         "specd adapters [--json]",
+		Description:   "Inspect configured interoperability adapters read-only, distinguishing configured, missing, incompatible, and disabled without loading secrets or running anything.",
+		AllowedPhases: anyPhase(),
+		Examples:      []string{"specd adapters", "specd adapters --json"},
+		Flags:         []Flag{{Name: "json", Type: "bool", Description: "Emit machine-readable JSON."}},
+		ExitCodes:     stdCodes(),
+	},
+	{
 		Name:          "new",
 		Usage:         "specd new <name> [--agent=<name>]",
 		Description:   "Create a new spec workspace.",

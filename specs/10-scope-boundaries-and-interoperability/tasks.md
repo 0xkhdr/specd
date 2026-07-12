@@ -26,8 +26,8 @@ record deviation before edit. Cross-domain prerequisites live in `README.md` and
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T09 | craftsman | internal/adapter/runner.go; internal/adapter/runner_test.go; internal/core/submit.go | T05,T06,T07 | go test ./internal/adapter ./internal/core -run 'TestRunner|TestSubmit' | R6.1,R6.2,R6.3 typed failing records; no unsafe fallback; secrets via env only |
-| [ ] T10 | craftsman | internal/cmd/adapters.go; internal/cmd/adapters_test.go; internal/core/commands.go; internal/cmd/registry.go; docs/command-reference.md; docs/CHEATSHEET.md | T09 | go test ./internal/cmd ./internal/core -run 'TestAdapters|TestCommand' && ./scripts/docs-lint.sh | R7.1,R7.2 capability negotiation; read-only doctor; no secret load |
+| [x] T09 | craftsman | internal/adapter/runner.go; internal/adapter/runner_test.go; internal/core/submit.go | T05,T06,T07 | go test ./internal/adapter ./internal/core -run 'TestRunner|TestSubmit' | R6.1,R6.2,R6.3 typed failing records; no unsafe fallback; secrets via env only |
+| [x] T10 | craftsman | internal/cmd/adapters.go; internal/cmd/adapters_test.go; internal/core/commands.go; internal/cmd/registry.go; docs/command-reference.md; docs/CHEATSHEET.md | T09 | go test ./internal/cmd ./internal/core -run 'TestAdapters|TestCommand' && ./scripts/docs-lint.sh | R7.1,R7.2 capability negotiation; read-only doctor; no secret load |
 
 ## W3 — offline continuity and conformance
 

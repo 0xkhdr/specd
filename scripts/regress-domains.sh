@@ -105,10 +105,10 @@ else
 fi
 
 # W5 — surface lock: the bare verb count is pinned as a tripwire, so adding or
-# removing a verb is a deliberate edit here. Current surface is 26 (16 original
-# + submit, review, link, unlink, program-era verbs, version, triage, and the
-# delivery verbs release + deploy). Bump this only alongside an intended verb change.
-W5_EXPECT=26
+# removing a verb is a deliberate edit here. Current surface is 27 (16 original
+# + submit, review, link, unlink, program-era verbs, version, triage, the
+# delivery verbs release + deploy, and adapters). Bump this only alongside an intended verb change.
+W5_EXPECT=27
 verbs=$("$SPECD" 2>&1 | sed -n 's/^  \([a-z][a-z]*\) .*/\1/p' | sort -u | wc -l | tr -d ' ')
 if [ "$verbs" -ne "$W5_EXPECT" ]; then
 	violation W5 "verb count is $verbs, expected $W5_EXPECT"
