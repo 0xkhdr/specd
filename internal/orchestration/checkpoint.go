@@ -19,14 +19,15 @@ import (
 // re-issue — this is what makes crash recovery converge with zero
 // double-dispatch.
 type Checkpoint struct {
-	SessionID string    `json:"session_id"`
-	Step      int       `json:"step"`
-	Wave      int       `json:"wave"`
-	Decision  string    `json:"decision"`
-	MissionID string    `json:"mission_id,omitempty"`
-	TaskID    string    `json:"task_id,omitempty"`
-	Lease     *Lease    `json:"lease,omitempty"`
-	Time      time.Time `json:"time"`
+	SessionID string     `json:"session_id"`
+	Step      int        `json:"step"`
+	Wave      int        `json:"wave"`
+	Decision  string     `json:"decision"`
+	MissionID string     `json:"mission_id,omitempty"`
+	TaskID    string     `json:"task_id,omitempty"`
+	Mission   *MissionV1 `json:"mission,omitempty"`
+	Lease     *Lease     `json:"lease,omitempty"`
+	Time      time.Time  `json:"time"`
 }
 
 // CheckpointPath is the per-spec write-ahead checkpoint file.

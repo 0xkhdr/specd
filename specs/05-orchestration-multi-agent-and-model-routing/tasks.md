@@ -55,6 +55,14 @@ Cross-domain prerequisites remain README links, not local task ids.
 | [ ] T15 | craftsman | internal/orchestration/conflict.go; internal/orchestration/conflict_test.go; internal/core/frontier.go; internal/core/frontier_test.go; internal/orchestration/worker.go | T08,T14 | go test ./internal/orchestration ./internal/core -run 'Test(Conflict|Frontier|Worker)' | overlapping write scopes no parallel lease absent pinned coordination rule R4 |
 | [ ] T16 | craftsman | internal/integration/orchestration_conformance_test.go; internal/cmd/e2e_test.go; internal/cmd/brain_claim_test.go; internal/cmd/brain_report_test.go | T12,T13,T14,T15 | go test ./internal/integration ./internal/cmd -run 'Test(OrchestrationConformance|LifecycleE2E|Brain)' | fake host pending→claim→heartbeat→verify→report→complete/resume fixture; exactly-once mission, safe retry R1-R4 |
 
+> **W3 deviations.** T14 changes cancellation from deleting leases to retaining typed revoked
+> leases, so the pre-W3 lifecycle assertion in `internal/cmd/brain_lifecycle_test.go` must be
+> updated to assert retained revocation; deletion would let a stale report lose its causal refusal.
+> T15 must edit `internal/cmd/brain_claim.go` to enforce its conflict decision at the public claim
+> boundary; a pure helper without this integration would leave overlapping leases possible.
+> T16 conformance exposed harness-owned `.specd/` ledger/session writes in worker scope. It reuses
+> T12's declared `internal/core/diff.go` and test to exclude harness metadata from subject changes.
+
 ## W4 — routing, limits, observation
 
 | id | role | files | depends-on | verify | acceptance |

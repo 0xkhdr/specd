@@ -36,8 +36,10 @@ func TestBrainCancel(t *testing.T) {
 		if session.Status() != orchestration.SessionCancelled {
 			t.Fatalf("expected cancelled, got %q", session.Status())
 		}
-		if len(session.Leases) != 0 {
-			t.Fatalf("expected leases released, got %v", session.Leases)
+		for _, lease := range session.Leases {
+			if lease.State != orchestration.LeaseRevoked {
+				t.Fatalf("expected retained revoked leases, got %v", session.Leases)
+			}
 		}
 	})
 

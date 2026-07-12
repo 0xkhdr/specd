@@ -19,6 +19,7 @@ const (
 	ACPKindDispatch = "dispatch"
 	ACPKindClaim    = "claim"
 	ACPKindReport   = "report"
+	ACPKindCancel   = "cancel"
 )
 
 type ACPEvent struct {

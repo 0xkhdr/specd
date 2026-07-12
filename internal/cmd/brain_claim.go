@@ -36,6 +36,9 @@ func brainClaim(root, sessionPath, acpPath, slug string, args []string) error {
 		if err := orchestration.CheckClaimConflict(s.Leases, m, now); err != nil {
 			return struct{}{}, err
 		}
+		if err := orchestration.CheckParallelConflict(m, s.Missions, s.Leases, orchestration.CoordinationRule{}, now); err != nil {
+			return struct{}{}, err
+		}
 		e := orchestration.ClaimEcho{MissionID: m.MissionID, TaskID: m.TaskID, Role: role, ContextDigest: m.ContextDigest, ConfigDigest: m.ConfigDigest, PaletteDigest: m.PaletteDigest, AuthorityRef: m.AuthorityRef, SubjectHead: m.SubjectHead}
 		l, err := orchestration.ClaimMission(m, orchestration.WorkerV1{WorkerID: workerID, Host: "local", Roles: []string{role}, Capabilities: []string{"edit", "verify"}}, e, now, brainLeaseTTL)
 		if err != nil {

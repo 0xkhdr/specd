@@ -1,12 +1,51 @@
 package cmd
 
 import (
+	"github.com/0xkhdr/specd/internal/core"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestBrainFakeHostLifecycleE2E(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("package fixture\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitInitRepo(t, root)
+	execGit(t, root, "add", ".")
+	execGit(t, root, "commit", "-m", "fixture")
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"claim", "demo", "demo.s1.T1", "worker-1", "craftsman"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	s := loadBrainSession(t, root)
+	leaseID := s.Leases[0].LeaseID
+	if err := runBrain(root, []string{"heartbeat", "demo", leaseID, "worker-1"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	head := gitHead(root)
+	if err := core.AppendEvidence(core.EvidencePath(root, "demo"), core.EvidenceRecord{TaskID: "T1", Command: "printf ok", ExitCode: 0, GitHead: head}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"report", "demo", leaseID, "worker-1"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"report", "demo", leaseID, "worker-1"}, nil); err == nil {
+		t.Fatal("duplicate completion report accepted")
+	}
+}
 
 func TestBrainReportProductionScopeRejectsUndeclared(t *testing.T) {
 	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\nsecurity:\n  profile: production\n")

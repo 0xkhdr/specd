@@ -1,6 +1,7 @@
 package orchestration
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -66,6 +67,42 @@ func TestBrainResume(t *testing.T) {
 			t.Fatalf("expected cancelled, got %q", got)
 		}
 	})
+}
+
+func TestRecoverRestoresPendingMission(t *testing.T) {
+	m := MissionV1{MissionID: "demo.s1.T1", TaskID: "T1"}
+	cp := Checkpoint{MissionID: m.MissionID, TaskID: m.TaskID, Mission: &m}
+	s := Session{}
+	got, changed, err := ReconcileSession(s, cp, true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || len(got.PendingMissions) != 1 || got.PendingMissions[0].MissionID != m.MissionID {
+		t.Fatalf("pending mission not restored: changed=%v session=%+v", changed, got)
+	}
+	got, changed, err = ReconcileSession(got, cp, true, []ACPEvent{{Kind: ACPKindDispatch, MissionID: m.MissionID, TaskID: m.TaskID}})
+	if err != nil || changed || len(got.PendingMissions) != 1 {
+		t.Fatalf("reconcile not idempotent: changed=%v err=%v session=%+v", changed, err, got)
+	}
+}
+
+func TestRecoverProjectsCancelAndReport(t *testing.T) {
+	now := time.Now()
+	l := Lease{LeaseID: "l1", MissionID: "m1", TaskID: "T1", State: LeaseActive, ExpiresAt: now.Add(time.Hour)}
+	b, _ := json.Marshal(l)
+	s := Session{Leases: []Lease{l}}
+	cancelled := l
+	cancelled.State = LeaseRevoked
+	cancelled.RevocationReason = "operator"
+	cb, _ := json.Marshal(cancelled)
+	got, changed, err := ReconcileSession(s, Checkpoint{}, false, []ACPEvent{{Kind: ACPKindClaim, MissionID: "m1", Payload: string(b)}, {Kind: ACPKindCancel, MissionID: "m1", Payload: string(cb)}})
+	if err != nil || !changed || got.Leases[0].State != LeaseRevoked {
+		t.Fatalf("cancel projection failed: changed=%v err=%v session=%+v", changed, err, got)
+	}
+	got, changed, err = ReconcileSession(got, Checkpoint{}, false, []ACPEvent{{Kind: ACPKindReport, MissionID: "m1"}})
+	if err != nil || !changed || len(got.Leases) != 0 {
+		t.Fatalf("report projection failed: changed=%v err=%v session=%+v", changed, err, got)
+	}
 }
 
 // TestLeaseExclusive pins the lease-liveness discriminator that gates a second

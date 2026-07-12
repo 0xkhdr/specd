@@ -1,6 +1,7 @@
 package orchestration
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -39,6 +40,88 @@ func PlanResume(cp Checkpoint, cpExists bool, events []ACPEvent) ResumePlan {
 	return ResumePlan{}
 }
 
+// ReconcileSession projects a checkpoint and append-only ledger into session
+// state. It is pure and idempotent, allowing callers to persist with CAS.
+func ReconcileSession(s Session, cp Checkpoint, cpExists bool, events []ACPEvent) (Session, bool, error) {
+	plan := PlanResume(cp, cpExists, events)
+	if plan.Conflict != "" {
+		return s, false, fmt.Errorf("%s", plan.Conflict)
+	}
+	changed := false
+	if cpExists && cp.Mission != nil && !sessionHasMission(s, cp.Mission.MissionID) {
+		s.PendingMissions = append(s.PendingMissions, *cp.Mission)
+		changed = true
+	}
+	if cpExists && cp.Step > s.Step {
+		s.Step, changed = cp.Step, true
+	}
+	for _, event := range events {
+		switch event.Kind {
+		case ACPKindDispatch:
+			if event.Payload == "" || sessionHasMission(s, event.MissionID) {
+				continue
+			}
+			var m MissionV1
+			if err := json.Unmarshal([]byte(event.Payload), &m); err != nil {
+				return s, changed, fmt.Errorf("decode dispatch mission: %w", err)
+			}
+			s.PendingMissions = append(s.PendingMissions, m)
+			changed = true
+		case ACPKindClaim:
+			if event.Payload == "" || leaseIndex(s.Leases, event.MissionID) >= 0 {
+				continue
+			}
+			var l Lease
+			if err := json.Unmarshal([]byte(event.Payload), &l); err != nil {
+				return s, changed, fmt.Errorf("decode claim lease: %w", err)
+			}
+			s.Leases = append(s.Leases, l)
+			changed = true
+		case ACPKindCancel:
+			if event.Payload == "" {
+				continue
+			}
+			var l Lease
+			if err := json.Unmarshal([]byte(event.Payload), &l); err != nil {
+				return s, changed, fmt.Errorf("decode cancelled lease: %w", err)
+			}
+			if i := leaseIndex(s.Leases, event.MissionID); i >= 0 && s.Leases[i].State != l.State {
+				s.Leases[i] = l
+				changed = true
+			}
+		case ACPKindReport:
+			if i := leaseIndex(s.Leases, event.MissionID); i >= 0 {
+				s.Leases = append(s.Leases[:i], s.Leases[i+1:]...)
+				changed = true
+			}
+		}
+	}
+	return s, changed, nil
+}
+
+func sessionHasMission(s Session, id string) bool {
+	for _, m := range s.PendingMissions {
+		if m.MissionID == id {
+			return true
+		}
+	}
+	for _, m := range s.Missions {
+		if m.MissionID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func leaseIndex(leases []Lease, missionID string) int {
+	for i := range leases {
+		if leases[i].MissionID == missionID {
+			return i
+		}
+	}
+	return -1
+}
+
 // DeriveStatus is the effective status reported by `brain status`. A terminal
 // session reports its persisted state. A running session whose checkpoint names
 // a mission missing from the ledger is reported as crashed: the process died
@@ -58,7 +141,7 @@ func DeriveStatus(session Session, cp Checkpoint, cpExists bool, events []ACPEve
 // start/resume; only expired/orphaned leases are recoverable by resume (R5).
 func HasLiveLease(leases []Lease, now time.Time) bool {
 	for _, lease := range leases {
-		if now.Before(lease.ExpiresAt) {
+		if (lease.State == LeaseActive || lease.State == "") && now.Before(lease.ExpiresAt) {
 			return true
 		}
 	}

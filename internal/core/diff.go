@@ -17,5 +17,12 @@ func DeriveDiff(root, baseline string) (DerivedDiff, error) {
 	if err != nil {
 		return DerivedDiff{}, err
 	}
-	return DerivedDiff{Baseline: baseline, Paths: diff.Paths, Digest: Digest([]byte(strings.Join(diff.Paths, "\n")))}, nil
+	paths := diff.Paths[:0]
+	for _, path := range diff.Paths {
+		if path == ".specd" || strings.HasPrefix(path, ".specd/") {
+			continue
+		}
+		paths = append(paths, path)
+	}
+	return DerivedDiff{Baseline: baseline, Paths: paths, Digest: Digest([]byte(strings.Join(paths, "\n")))}, nil
 }

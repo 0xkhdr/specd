@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -52,7 +53,7 @@ func runBrain(root string, args []string, flags map[string]string) error {
 		fmt.Fprintf(os.Stdout, "brain start: session initialized for %s\n", slug)
 		return nil
 	case "cancel":
-		return brainCancel(root, sessionPath, slug)
+		return brainCancel(root, sessionPath, acpPath, slug)
 	case "resume":
 		return brainResume(root, sessionPath, checkpointPath, acpPath, slug)
 	case "step":
@@ -240,6 +241,7 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 		Decision:  orchestration.ACPKindDispatch,
 		MissionID: missionID,
 		TaskID:    task.ID,
+		Mission:   &mission,
 		Time:      d.now,
 	}); err != nil {
 		return err
@@ -262,26 +264,42 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 // Only session.json is touched — task and evidence state are untouched, so a
 // cancel never rewrites history. Cancelling a complete session is refused; a
 // second cancel is idempotent.
-func brainCancel(root, sessionPath, slug string) error {
-	session, err := orchestration.LoadSession(sessionPath)
-	if err != nil {
-		return err
-	}
-	switch session.Status() {
-	case orchestration.SessionComplete:
-		return errors.New("brain cancel refused: session already complete")
-	case orchestration.SessionCancelled:
-		fmt.Fprintf(os.Stdout, "brain cancel: session already cancelled for %s\n", slug)
-		return nil
-	}
-	next := session
-	next.State = orchestration.SessionCancelled
-	next.Leases = nil // lease released
-	if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, next); err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stdout, "brain cancel: session cancelled for %s\n", slug)
-	return nil
+func brainCancel(root, sessionPath, acpPath, slug string) error {
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		session, err := orchestration.LoadSession(sessionPath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		switch session.Status() {
+		case orchestration.SessionComplete:
+			return struct{}{}, errors.New("brain cancel refused: session already complete")
+		case orchestration.SessionCancelled:
+			fmt.Fprintf(os.Stdout, "brain cancel: session already cancelled for %s\n", slug)
+			return struct{}{}, nil
+		}
+		now := time.Now()
+		next := session
+		next.State = orchestration.SessionCancelled
+		for i := range next.Leases {
+			lease, changed, err := orchestration.CancelLease(next.Leases[i], "operator", now)
+			if err != nil {
+				return struct{}{}, err
+			}
+			next.Leases[i] = lease
+			if changed {
+				payload, _ := json.Marshal(lease)
+				if err := orchestration.AppendACP(acpPath, orchestration.ACPEvent{Time: now, Kind: orchestration.ACPKindCancel, MissionID: lease.MissionID, TaskID: lease.TaskID, Attempt: lease.Attempt, Payload: string(payload)}); err != nil {
+					return struct{}{}, err
+				}
+			}
+		}
+		if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, next); err != nil {
+			return struct{}{}, err
+		}
+		fmt.Fprintf(os.Stdout, "brain cancel: session cancelled for %s\n", slug)
+		return struct{}{}, nil
+	})
+	return err
 }
 
 // brainResume reconstructs the controller from the last checkpoint reconciled
@@ -325,11 +343,15 @@ func brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug string) 
 		return err
 	}
 	now := time.Now()
+	next, _, err := orchestration.ReconcileSession(session, cp, cpExists, events)
+	if err != nil {
+		return fmt.Errorf("brain resume refused: %w", err)
+	}
 	// A live lease is recoverable only when the session actually crashed (the
 	// checkpoint outran the ledger). A running session with a live lease is a
 	// controller mid-flight; refuse rather than clobber it.
-	if orchestration.DeriveStatus(session, cp, cpExists, events) == orchestration.SessionRunning &&
-		orchestration.HasLiveLease(session.Leases, now) {
+	if orchestration.DeriveStatus(next, cp, cpExists, events) == orchestration.SessionRunning &&
+		orchestration.HasLiveLease(next.Leases, now) {
 		return errors.New("brain resume refused: session is running with a live lease")
 	}
 	plan := orchestration.PlanResume(cp, cpExists, events)
@@ -338,8 +360,13 @@ func brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug string) 
 	}
 	// Claim the resume: bump the revision and reclaim orphaned leases. Racing
 	// resumes both load the same revision and this CAS lets exactly one win.
-	next := session
-	next.Leases = nil
+	kept := next.Leases[:0:0]
+	for _, lease := range next.Leases {
+		if lease.State == orchestration.LeaseRevoked {
+			kept = append(kept, lease)
+		}
+	}
+	next.Leases = kept
 	if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, next); err != nil {
 		return err
 	}
@@ -349,6 +376,13 @@ func brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug string) 
 			Kind:      orchestration.ACPKindDispatch,
 			TaskID:    cp.TaskID,
 			MissionID: cp.MissionID,
+			Payload: func() string {
+				if cp.Mission == nil {
+					return ""
+				}
+				payload, _ := orchestration.MissionPayload(*cp.Mission)
+				return payload
+			}(),
 		}); err != nil {
 			return err
 		}
