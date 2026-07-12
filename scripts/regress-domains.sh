@@ -31,6 +31,13 @@ violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
 skip() { printf 'skip  %s  %s\n' "$1" "$2"; }
 
+# Domain 03 W5 — remote envelope proof. Keep this on the freshly copied tree so
+# release validation exercises the same source/binary boundary as other probes.
+go test ./internal/orchestration ./internal/core -run 'Test(DispatchEnvelope|DispatchDigest|Driver)' -count=1 >/dev/null 2>&1 || {
+	violation 03-W5 "dispatch envelope pinning regression"
+}
+pass 03-W5 "remote envelope pins scope, digests, and HEAD"
+
 # Domain 04 W3 has no CLI surface until W4. Pin its pure/offline production
 # policy now: risky writes reject shallow verify while read-only work remains
 # explicitly exempt.

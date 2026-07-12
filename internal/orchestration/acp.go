@@ -54,10 +54,11 @@ type ACPEvent struct {
 
 	// Sanitized mission audit identity. AuditID is strictly increasing within a
 	// run/mission/task/policy stream; AuditKind follows constitutional stage order.
-	AuditID      int    `json:"audit_id,omitempty"`
-	AuditKind    string `json:"audit_kind,omitempty"`
-	RunID        string `json:"run_id,omitempty"`
-	PolicyDigest string `json:"policy_digest,omitempty"`
+	AuditID        int    `json:"audit_id,omitempty"`
+	AuditKind      string `json:"audit_kind,omitempty"`
+	RunID          string `json:"run_id,omitempty"`
+	PolicyDigest   string `json:"policy_digest,omitempty"`
+	DispatchDigest string `json:"dispatch_digest,omitempty"`
 }
 
 var auditStage = map[string]int{"authority": 1, "tools": 2, "diff": 3, "scans": 4, "verify": 5, "review": 6, "exceptions": 7, "submit": 8}

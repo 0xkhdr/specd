@@ -49,6 +49,7 @@ type MissionV1 struct {
 	PaletteDigest   string        `json:"palette_digest"`
 	PolicyDigest    string        `json:"policy_digest"`
 	SubjectHead     string        `json:"subject_head"`
+	DispatchDigest  string        `json:"dispatch_digest,omitempty"`
 	DiffDigest      string        `json:"diff_digest,omitempty"`
 	RouteClass      string        `json:"route_class"`
 	RouteReason     string        `json:"route_reason"`
@@ -96,16 +97,17 @@ func MissionPayload(m MissionV1) (string, error) {
 }
 
 type DispatchPins struct {
-	TaskID        string
-	Role          string
-	DeclaredFiles []string
-	Acceptance    []string
-	Verify        string
-	ContextDigest string
-	ConfigDigest  string
-	PaletteDigest string
-	AuthorityRef  string
-	SubjectHead   string
+	TaskID         string
+	Role           string
+	DeclaredFiles  []string
+	Acceptance     []string
+	Verify         string
+	ContextDigest  string
+	ConfigDigest   string
+	PaletteDigest  string
+	AuthorityRef   string
+	SubjectHead    string
+	DispatchDigest string
 }
 
 func ValidateMissionPins(m MissionV1, p DispatchPins) error {
@@ -126,7 +128,7 @@ func ValidateMissionPins(m MissionV1, p DispatchPins) error {
 		}
 		return true
 	}
-	if m.TaskID != p.TaskID || m.Role != p.Role || !eq(aFiles, bFiles) || !eq(aAccept, bAccept) || m.Verify != p.Verify || m.ContextDigest != p.ContextDigest || m.ConfigDigest != p.ConfigDigest || m.PaletteDigest != p.PaletteDigest || m.AuthorityRef != p.AuthorityRef || m.SubjectHead != p.SubjectHead {
+	if m.TaskID != p.TaskID || m.Role != p.Role || !eq(aFiles, bFiles) || !eq(aAccept, bAccept) || m.Verify != p.Verify || m.ContextDigest != p.ContextDigest || m.ConfigDigest != p.ConfigDigest || m.PaletteDigest != p.PaletteDigest || m.AuthorityRef != p.AuthorityRef || m.SubjectHead != p.SubjectHead || (m.DispatchDigest != "" && m.DispatchDigest != p.DispatchDigest) {
 		return fmt.Errorf("MISSION_PIN_MISMATCH: re-bootstrap and dispatch a fresh mission")
 	}
 	return nil

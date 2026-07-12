@@ -24,6 +24,7 @@ type Lease struct {
 	IssuedAt         time.Time        `json:"issued_at,omitempty"`
 	ExpiresAt        time.Time        `json:"expires_at"`
 	PolicyDigest     string           `json:"policy_digest,omitempty"`
+	DispatchDigest   string           `json:"dispatch_digest,omitempty"`
 	State            LeaseState       `json:"state,omitempty"`
 	RevocationReason string           `json:"revocation_reason,omitempty"`
 	Authority        core.AuthorityV1 `json:"authority"`

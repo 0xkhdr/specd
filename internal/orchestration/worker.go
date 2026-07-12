@@ -16,14 +16,15 @@ type WorkerV1 struct {
 	Capabilities []string `json:"capabilities"`
 }
 type ClaimEcho struct {
-	MissionID     string
-	TaskID        string
-	Role          string
-	ContextDigest string
-	ConfigDigest  string
-	PaletteDigest string
-	AuthorityRef  string
-	SubjectHead   string
+	MissionID      string
+	TaskID         string
+	Role           string
+	ContextDigest  string
+	ConfigDigest   string
+	PaletteDigest  string
+	AuthorityRef   string
+	SubjectHead    string
+	DispatchDigest string
 }
 
 func ClaimMission(m MissionV1, w WorkerV1, e ClaimEcho, now time.Time, ttl time.Duration) (Lease, error) {
@@ -36,7 +37,7 @@ func ClaimMission(m MissionV1, w WorkerV1, e ClaimEcho, now time.Time, ttl time.
 	if !hasString(w.Roles, m.Role) {
 		return Lease{}, fmt.Errorf("WORKER_ROLE_MISMATCH")
 	}
-	if e.MissionID != m.MissionID || e.TaskID != m.TaskID || e.Role != m.Role || e.ContextDigest != m.ContextDigest || e.ConfigDigest != m.ConfigDigest || e.PaletteDigest != m.PaletteDigest || e.AuthorityRef != m.AuthorityRef || e.SubjectHead != m.SubjectHead {
+	if e.MissionID != m.MissionID || e.TaskID != m.TaskID || e.Role != m.Role || e.ContextDigest != m.ContextDigest || e.ConfigDigest != m.ConfigDigest || e.PaletteDigest != m.PaletteDigest || e.AuthorityRef != m.AuthorityRef || e.SubjectHead != m.SubjectHead || (m.DispatchDigest != "" && e.DispatchDigest != m.DispatchDigest) {
 		return Lease{}, fmt.Errorf("WORKER_PIN_MISMATCH")
 	}
 	if now.Before(m.IssuedAt) || !now.Before(m.ExpiresAt) || ttl <= 0 {
@@ -54,7 +55,7 @@ func ClaimMission(m MissionV1, w WorkerV1, e ClaimEcho, now time.Time, ttl time.
 	if err != nil {
 		return Lease{}, err
 	}
-	return Lease{LeaseID: hex.EncodeToString(b), MissionID: m.MissionID, TaskID: m.TaskID, Attempt: m.Attempt, WorkerID: w.WorkerID, IssuedAt: now, ExpiresAt: expires, PolicyDigest: m.PolicyDigest, State: LeaseActive, Authority: authority}, nil
+	return Lease{LeaseID: hex.EncodeToString(b), MissionID: m.MissionID, TaskID: m.TaskID, Attempt: m.Attempt, WorkerID: w.WorkerID, IssuedAt: now, ExpiresAt: expires, PolicyDigest: m.PolicyDigest, DispatchDigest: m.DispatchDigest, State: LeaseActive, Authority: authority}, nil
 }
 
 func CheckClaimConflict(leases []Lease, m MissionV1, now time.Time) error {

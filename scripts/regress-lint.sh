@@ -91,6 +91,12 @@ while IFS= read -r line; do
 	esac
 done <"$tasks"
 
+# Domain 03 W5 release-proof tripwire: envelope contract and stale-claim tests
+# must remain present; absence would turn the remote proof into a hollow script.
+for p in internal/orchestration/dispatch_envelope.go internal/orchestration/dispatch_envelope_test.go internal/orchestration/lease_test.go; do
+	[ -f "$ROOT/$p" ] || flag 03-W5 C "missing remote-envelope proof target: $p"
+done
+
 if [ "$smells" -eq 0 ]; then
 	echo "regress-lint: clean — no smells"
 else

@@ -28,6 +28,25 @@ func TestDriverValidateFailsClosed(t *testing.T) {
 	}
 }
 
+func TestDispatchDigestPinsSemanticFields(t *testing.T) {
+	d := DispatchV1{ProtocolVersion: DriverProtocolVersion, Root: "/repo", SpecSlug: "demo", TaskID: "T1", Role: "craftsman", DeclaredFiles: []string{"b.go", "a.go"}, Acceptance: []string{"R2", "R1"}, Verify: "go test ./...", ContextRef: "ctx", ContextDigest: "ctx-d", ConfigDigest: "cfg", PaletteDigest: "pal", AuthorityRef: "auth", SubjectHead: "head"}
+	d.EnvelopeDigest = DispatchDigest(d)
+	if err := ValidateDispatchV1(d); err != nil {
+		t.Fatal(err)
+	}
+	d.Verify = "printf ok"
+	if err := ValidateDispatchV1(d); err == nil {
+		t.Fatal("changed verify accepted")
+	}
+	d.Verify = "go test ./..."
+	d.EnvelopeDigest = DispatchDigest(d)
+	d.DeclaredFiles = []string{"a.go", "b.go"}
+	d.Acceptance = []string{"R1", "R2"}
+	if err := ValidateDispatchV1(d); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDriverGuideCanonicalActions(t *testing.T) {
 	g := DriverGuideV1{ProtocolVersion: DriverProtocolVersion, Root: "/repo", SpecSlug: "demo", Phase: PhaseExecute, Status: StatusTasks, NextActions: []NextAction{{ID: "z", Command: "verify", Actor: "agent", SideEffect: "write", SourceRef: "palette"}, {ID: "a", Command: "status", Actor: "agent", SideEffect: "read", SourceRef: "palette"}}}
 	CanonicalizeDriverGuide(&g)

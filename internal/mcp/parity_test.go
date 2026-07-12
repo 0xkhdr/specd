@@ -113,3 +113,10 @@ func TestDriverConformanceHostParity(t *testing.T) {
 		t.Fatalf("MCP/CLI tool contract count diverged")
 	}
 }
+
+func TestRemoteEnvelopeMissingPinFailsClosed(t *testing.T) {
+	d := core.DispatchV1{ProtocolVersion: core.DriverProtocolVersion, Root: "/repo", SpecSlug: "demo", TaskID: "T1", Role: "craftsman", Verify: "printf ok", ContextRef: "ctx", ConfigDigest: "cfg", PaletteDigest: "pal", AuthorityRef: "auth", SubjectHead: "head"}
+	if err := core.ValidateDispatchV1(d); err == nil {
+		t.Fatal("missing context pin silently accepted")
+	}
+}

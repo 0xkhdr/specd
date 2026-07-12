@@ -2,7 +2,11 @@ package integration
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 // TestDriverConformance proves host adapters consume one lifecycle contract.
@@ -15,6 +19,25 @@ func TestDriverConformance(t *testing.T) {
 		if got := lifecycleFixture(registry, host); !reflect.DeepEqual(got, want) {
 			t.Fatalf("%s lifecycle = %#v, want %#v", host, got, want)
 		}
+	}
+}
+
+func TestRemoteDispatchReleaseProof(t *testing.T) {
+	m := orchestration.MissionV1{
+		ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: "s", MissionID: "m", SpecSlug: "demo", TaskID: "T1", Attempt: 1,
+		Role: "craftsman", AuthorityRef: "auth", DeclaredFiles: []string{"main.go"}, Verify: "printf ok", ContextRef: "ctx", ContextDigest: "ctx-d", ConfigDigest: "cfg", PaletteDigest: "pal", PolicyDigest: "pol", SubjectHead: "head", RouteClass: "local", RouteReason: "test",
+		Limits: orchestration.MissionLimits{MaxAttempts: 1, TimeoutSeconds: 1}, IssuedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), ExpiresAt: time.Date(2026, 1, 1, 1, 0, 0, 0, time.UTC), Status: orchestration.MissionPending,
+	}
+	e, err := orchestration.NewDispatchEnvelope("/repo", m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := orchestration.ValidateDispatchEnvelope(e); err != nil {
+		t.Fatal(err)
+	}
+	e.SpecSlug = "other"
+	if err := orchestration.ValidateDispatchEnvelope(e); err == nil || !strings.Contains(err.Error(), "DIGEST") {
+		t.Fatalf("stale multi-spec envelope accepted: %v", err)
 	}
 }
 

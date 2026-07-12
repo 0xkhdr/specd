@@ -4,9 +4,63 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 const DriverProtocolVersion = "1"
+
+// DispatchV1 is the transport-neutral, digest-pinned task packet. It contains
+// identities and references only; repository bytes and worker output never
+// cross this boundary.
+type DispatchV1 struct {
+	ProtocolVersion string   `json:"protocol_version"`
+	Root            string   `json:"root"`
+	SpecSlug        string   `json:"spec_slug"`
+	TaskID          string   `json:"task_id"`
+	Role            string   `json:"role"`
+	DeclaredFiles   []string `json:"declared_files"`
+	Acceptance      []string `json:"acceptance"`
+	Verify          string   `json:"verify"`
+	ContextRef      string   `json:"context_ref"`
+	ContextDigest   string   `json:"context_digest"`
+	ConfigDigest    string   `json:"config_digest"`
+	PaletteDigest   string   `json:"palette_digest"`
+	AuthorityRef    string   `json:"authority_ref"`
+	SubjectHead     string   `json:"subject_head"`
+	EnvelopeDigest  string   `json:"envelope_digest,omitempty"`
+}
+
+func CanonicalizeDispatchV1(d *DispatchV1) {
+	sort.Strings(d.DeclaredFiles)
+	sort.Strings(d.Acceptance)
+}
+
+func DispatchDigest(d DispatchV1) string {
+	d.EnvelopeDigest = ""
+	CanonicalizeDispatchV1(&d)
+	raw, _ := json.Marshal(d)
+	return Digest(raw)
+}
+
+func ValidateDispatchV1(d DispatchV1) error {
+	if d.ProtocolVersion != DriverProtocolVersion {
+		return fmt.Errorf("DISPATCH_VERSION_UNSUPPORTED")
+	}
+	if d.Root == "" || d.SpecSlug == "" || d.TaskID == "" || d.Role == "" || d.Verify == "" || d.ContextRef == "" || d.ContextDigest == "" || d.ConfigDigest == "" || d.PaletteDigest == "" || d.AuthorityRef == "" || d.SubjectHead == "" {
+		return fmt.Errorf("DISPATCH_REQUIRED_PIN_MISSING")
+	}
+	seen := map[string]bool{}
+	for _, path := range d.DeclaredFiles {
+		if path == "" || seen[path] || path[0] == '/' || path == "." || strings.HasPrefix(path, "../") || strings.Contains(path, "/../") {
+			return fmt.Errorf("DISPATCH_FILE_INVALID")
+		}
+		seen[path] = true
+	}
+	if d.EnvelopeDigest != "" && d.EnvelopeDigest != DispatchDigest(d) {
+		return fmt.Errorf("DISPATCH_DIGEST_MISMATCH")
+	}
+	return nil
+}
 
 type DriverFinding struct {
 	Code           string `json:"code"`

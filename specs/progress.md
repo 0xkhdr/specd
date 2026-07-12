@@ -90,7 +90,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 02 W6 — conformance and release proof (needs 02 W5)
 - [x] 03 W3 — drift, context metadata, handoff (needs 03 W2)
 - [x] 03 W4 — host conformance and capabilities (needs 03 W3, 10)
-- [ ] 03 W5 — remote envelope, release proof (needs 03 W4)
+- [x] 03 W5 — remote envelope, release proof (needs 03 W4)
 - [ ] 04 W4 — adapters, dataset/rubric governance (needs 04 W3, 10)
 - [ ] 04 W5 — quality packet, review, flywheel, release proof (needs 04 W4, 02/07/09)
 - [ ] 05 W5 — adapters and release proof (needs 05 W3,W4, 10)
