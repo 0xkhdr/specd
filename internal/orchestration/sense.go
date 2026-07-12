@@ -8,13 +8,16 @@ import (
 )
 
 type Snapshot struct {
-	Revision int64
-	Phase    core.Phase
-	Records  map[string]json.RawMessage
-	Frontier []core.FrontierTask
-	Leases   []Lease
-	Now      time.Time
-	Cost     int
+	Revision       int64
+	Phase          core.Phase
+	Records        map[string]json.RawMessage
+	Frontier       []core.FrontierTask
+	Leases         []Lease
+	Now            time.Time
+	Cost           int
+	CostMicros     int64
+	Tokens         int64
+	TelemetryKnown bool
 }
 
 func Sense(state core.State, frontier []core.FrontierTask, leases []Lease, now time.Time) Snapshot {

@@ -51,7 +51,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 04 W2 — import, freshness, trajectory (needs 05 event identity, 06 profile)
 - [x] 04 W3 — coverage and gate composition (needs 04 W2)
 - [x] 05 W3 — recovery, cancellation, conformance (needs 05 W2)
-- [ ] 05 W4 — routing, limits, observation (needs 05 W2, 06/07 policy)
+- [x] 05 W4 — routing, limits, observation (needs 05 W2, 06/07 policy)
 - [ ] 06 W4 — context and change-boundary scan (needs 06 W3)
 - [ ] 06 W5 — mandatory sandbox and secret isolation (needs 06 W4)
 - [ ] 07 W1 — versioned run/telemetry envelope (needs 02, 05, 06)

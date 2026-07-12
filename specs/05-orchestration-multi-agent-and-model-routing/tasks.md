@@ -67,10 +67,13 @@ Cross-domain prerequisites remain README links, not local task ids.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T17 | craftsman | internal/core/config.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/embed_templates/project.yml | T04 | go test ./internal/core -run 'TestConfig' | versioned routing/limits policy parse/validation; safe defaults preserve current behavior R5 |
-| [ ] T18 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/orchestration/routing.go; internal/orchestration/routing_test.go | T17 | go test ./internal/core ./internal/orchestration -run 'Test(Tasks|Routing)' | risk/complexity/capability metadata byte-stable; deterministic eligible class/reason/fallback R5 |
-| [ ] T19 | craftsman | internal/orchestration/brakes.go; internal/orchestration/brakes_test.go; internal/orchestration/decide.go; internal/orchestration/decide_test.go; internal/cmd/brain_run.go | T17,T18 | go test ./internal/orchestration ./internal/cmd -run 'Test(Brakes|Decide|Brain)' | config budget/deadline/retry/unknown telemetry brakes before dispatch/escalates R5 |
-| [ ] T20 | craftsman | internal/orchestration/telemetry.go; internal/orchestration/telemetry_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go; internal/cmd/report.go | T11,T19 | go test ./internal/orchestration ./internal/cmd -run 'Test(Telemetry|ACP|Report)' | unit/source/knownness + provider/model route facts bounded/redacted; facts not proof R5,R6 |
+| [x] T17 | craftsman | internal/core/config.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/embed_templates/project.yml | T04 | go test ./internal/core -run 'TestConfig' | versioned routing/limits policy parse/validation; safe defaults preserve current behavior R5 |
+| [x] T18 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/orchestration/routing.go; internal/orchestration/routing_test.go | T17 | go test ./internal/core ./internal/orchestration -run 'Test(Tasks|Routing)' | risk/complexity/capability metadata byte-stable; deterministic eligible class/reason/fallback R5 |
+| [x] T19 | craftsman | internal/orchestration/brakes.go; internal/orchestration/brakes_test.go; internal/orchestration/decide.go; internal/orchestration/decide_test.go; internal/cmd/brain_run.go | T17,T18 | go test ./internal/orchestration ./internal/cmd -run 'Test(Brakes|Decide|Brain)' | config budget/deadline/retry/unknown telemetry brakes before dispatch/escalates R5 |
+| [x] T20 | craftsman | internal/orchestration/telemetry.go; internal/orchestration/telemetry_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go; internal/cmd/report.go | T11,T19 | go test ./internal/orchestration ./internal/cmd -run 'Test(Telemetry|ACP|Report)' | unit/source/knownness + provider/model route facts bounded/redacted; facts not proof R5,R6 |
+
+> **W4 deviations.** T17 names `internal/core/config.go`, but the current config contract lives in
+> `internal/core/config_loader.go`; that file is used instead. No compatibility shim is added.
 
 ## W5 — adapters and release proof
 

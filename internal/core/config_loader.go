@@ -15,6 +15,7 @@ type Config struct {
 	Verify             VerifyConfig
 	Context            ContextConfig
 	Orchestration      OrchestrationConfig
+	Routing            RoutingConfig
 	Criteria           CriteriaConfig
 	Review             ReviewConfig
 	Submit             SubmitConfig
@@ -126,6 +127,21 @@ type OrchestrationConfig struct {
 	Model   string
 }
 
+// RoutingConfig is approved, provider-neutral dispatch policy. Core selects a
+// capability class only; adapters own any provider/model mapping.
+type RoutingConfig struct {
+	Version               string
+	Classes               []string
+	DefaultClass          string
+	Fallback              []string
+	ClassCapabilities     map[string][]string
+	MaxTokens             int64
+	MaxCostMicros         int64
+	DeadlineSeconds       int
+	MaxRetries            int
+	AllowUnknownTelemetry bool
+}
+
 type Diagnostic struct {
 	Severity string
 	Path     string
@@ -151,6 +167,15 @@ var DefaultConfig = Config{
 	Orchestration: OrchestrationConfig{
 		Enabled: false,
 		Model:   "",
+	},
+	Routing: RoutingConfig{
+		Version:               "1",
+		Classes:               []string{"default"},
+		DefaultClass:          "default",
+		Fallback:              []string{"default"},
+		ClassCapabilities:     map[string][]string{"default": {"context", "eval", "review", "sandbox"}},
+		MaxRetries:            3,
+		AllowUnknownTelemetry: true,
 	},
 	Security: SecurityConfig{
 		Profile:       "prototype",

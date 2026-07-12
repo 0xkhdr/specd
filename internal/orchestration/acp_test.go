@@ -23,6 +23,14 @@ func TestACPReportPinsTraceDigest(t *testing.T) {
 	}
 }
 
+func TestACPRejectsInvalidObservation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "acp.jsonl")
+	err := AppendACP(path, ACPEvent{Kind: ACPKindReport, Observation: &ObservationV1{Version: "1", Known: true, Source: "worker", Unit: "usd", CostMicros: 1}})
+	if err == nil {
+		t.Fatal("invalid observation appended")
+	}
+}
+
 func TestHarnessAffectedPathsIsDerivedNotClaimed(t *testing.T) {
 	events := []ObservableEvent{
 		{RunID: "r1", EventID: "a", Seq: 1, Tool: "read", Time: "t", Actor: "w", Paths: []string{"b.go"}},

@@ -35,6 +35,24 @@ func TestParseTasksMdRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTasksRoutingMetadataByteStable(t *testing.T) {
+	raw := []byte("| id | role | files | depends-on | verify | acceptance | risk | complexity | capabilities |\n|---|---|---|---|---|---|---|---|---|\n| [ ] T1 | craftsman | a.go | | go test ./... | R5 | high | complex | context, sandbox, review |\n")
+	doc, err := ParseTasksMd(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Tasks) != 1 {
+		t.Fatalf("tasks = %d", len(doc.Tasks))
+	}
+	task := doc.Tasks[0]
+	if task.Complexity != "complex" || !reflect.DeepEqual(task.Capabilities, []string{"context", "review", "sandbox"}) {
+		t.Fatalf("routing metadata = %#v", task)
+	}
+	if !bytes.Equal(doc.Raw, raw) {
+		t.Fatal("routing metadata changed source bytes")
+	}
+}
+
 func TestTasksRoundTrip(t *testing.T) {
 	TestParseTasksMdRoundTrip(t)
 }

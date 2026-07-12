@@ -23,12 +23,14 @@ type TaskRow struct {
 	// columns; absent columns yield zero values so legacy 6-column tasks.md
 	// files parse unchanged (backward compatible). The task-trace gate requires
 	// them only under the production planning profile.
-	Refs     []string // requirement/design references this task implements
-	Kind     string   // work kind (e.g. feature, fix, refactor, docs)
-	Risk     string   // risk tier
-	Context  string   // required context declaration
-	Evidence string   // evidence classes planned
-	Checks   string   // negative/edge checks planned
+	Refs         []string // requirement/design references this task implements
+	Kind         string   // work kind (e.g. feature, fix, refactor, docs)
+	Risk         string   // risk tier
+	Complexity   string   // operator-declared routing complexity
+	Capabilities []string // required provider-neutral capability ids
+	Context      string   // required context declaration
+	Evidence     string   // evidence classes planned
+	Checks       string   // negative/edge checks planned
 }
 
 type TaskRunStatus string
@@ -73,12 +75,14 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 				Acceptance:    cell(cells, indexes["acceptance"]),
 				// Optional trace/risk columns (spec 01 R3.1). headerIndex returns
 				// -1 for a column the header omits, which cell() reads as empty.
-				Refs:     splitTaskList(cell(cells, headerIndex(header, "refs"))),
-				Kind:     cell(cells, headerIndex(header, "kind")),
-				Risk:     cell(cells, headerIndex(header, "risk")),
-				Context:  cell(cells, headerIndex(header, "context")),
-				Evidence: cell(cells, headerIndex(header, "evidence")),
-				Checks:   cell(cells, headerIndex(header, "checks")),
+				Refs:         splitTaskList(cell(cells, headerIndex(header, "refs"))),
+				Kind:         cell(cells, headerIndex(header, "kind")),
+				Risk:         cell(cells, headerIndex(header, "risk")),
+				Complexity:   cell(cells, headerIndex(header, "complexity")),
+				Capabilities: sortedUnique(splitTaskList(cell(cells, headerIndex(header, "capabilities")))),
+				Context:      cell(cells, headerIndex(header, "context")),
+				Evidence:     cell(cells, headerIndex(header, "evidence")),
+				Checks:       cell(cells, headerIndex(header, "checks")),
 			})
 		}
 		return nil
@@ -88,6 +92,21 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 	}
 	doc.Tables = tables
 	return doc, nil
+}
+
+func sortedUnique(values []string) []string {
+	seen := map[string]bool{}
+	for _, value := range values {
+		if value != "" {
+			seen[value] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for value := range seen {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func normalizeDeclaredFiles(raw string) ([]string, error) {

@@ -20,3 +20,19 @@ func TestBrakeDormantWhenMaxCostUnset(t *testing.T) {
 		t.Fatalf("armed cost brake failed to halt: %+v", d)
 	}
 }
+
+func TestBrakesUnknownAndExceededTelemetry(t *testing.T) {
+	now := time.Unix(10, 0).UTC()
+	unknown := EvaluateBrakes(Snapshot{Now: now}, DecisionLimits{RequireTelemetry: true})
+	if unknown.Action != ActionHalt || unknown.Reason != "required telemetry unknown" {
+		t.Fatalf("unknown brake = %#v", unknown)
+	}
+	cost := EvaluateBrakes(Snapshot{Now: now, TelemetryKnown: true, CostMicros: 11}, DecisionLimits{MaxCostMicros: 10})
+	if cost.Action != ActionHalt {
+		t.Fatalf("cost brake = %#v", cost)
+	}
+	tokens := EvaluateBrakes(Snapshot{Now: now, TelemetryKnown: true, Tokens: 101}, DecisionLimits{MaxTokens: 100})
+	if tokens.Action != ActionHalt {
+		t.Fatalf("token brake = %#v", tokens)
+	}
+}

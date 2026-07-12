@@ -20,6 +20,21 @@ verify:
 #   enabled: false         # required true before `specd brain` will start.
 #   model: ""
 
+# Provider-neutral routing. Core chooses capability class only; adapters map it
+# to provider/model. Zero limits are unbounded. Unknown telemetry is allowed by
+# default for compatibility; production policy should set it false.
+# routing:
+#   version: 1
+#   classes: default
+#   default_class: default
+#   fallback: default
+#   class_capabilities: default=context
+#   max_tokens: 0
+#   max_cost_micros: 0
+#   deadline_seconds: 0
+#   max_retries: 3
+#   allow_unknown_telemetry: true
+
 # security:
 #   profile: prototype     # prototype|production; production makes security mandatory.
 #   secrets: error         # off|warn|error per scanner.

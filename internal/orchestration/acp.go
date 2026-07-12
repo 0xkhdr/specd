@@ -43,6 +43,7 @@ type ACPEvent struct {
 	ChangedFiles []string          `json:"changed_files,omitempty"`
 	VerifyRef    string            `json:"verify_ref,omitempty"`
 	Telemetry    *core.Annotations `json:"telemetry,omitempty"`
+	Observation  *ObservationV1    `json:"observation,omitempty"`
 
 	// TraceDigest pins the normalized observable trace (TraceDigest) backing a
 	// report, linking the ledger to the trajectory evidence a trajectory eval
@@ -153,6 +154,13 @@ func AppendDispatch(path string, event ACPEvent) error {
 // bounded by task count × attempts. Maintain an on-disk index only if a ledger
 // ever grows past a few thousand events.
 func AppendACP(path string, event ACPEvent) error {
+	if event.Observation != nil {
+		normalized, err := NormalizeObservation(*event.Observation)
+		if err != nil {
+			return err
+		}
+		event.Observation = &normalized
+	}
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("encode acp event: %w", err)

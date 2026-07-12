@@ -138,9 +138,19 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	}
 	snapshot := orchestration.Sense(state, frontier, reservations, now)
 	authority := orchestration.Authority{Enabled: flagEnabled(flags, "authority")}
-	limits := orchestration.DecisionLimitsForAuthority(authority, orchestration.DecisionLimits{MaxRetries: 1})
-
-	config, _ := core.LoadConfig(configPaths(root), getenv())
+	config, diagnostics := core.LoadConfig(configPaths(root), getenv())
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == "error" {
+			return "", fmt.Errorf("load config: %s", diagnostic.Message)
+		}
+	}
+	limits := orchestration.DecisionLimitsForAuthority(authority, orchestration.DecisionLimits{
+		MaxRetries: config.Routing.MaxRetries, MaxCostMicros: config.Routing.MaxCostMicros,
+		MaxTokens: config.Routing.MaxTokens, RequireTelemetry: !config.Routing.AllowUnknownTelemetry,
+	})
+	if config.Routing.DeadlineSeconds > 0 {
+		limits.Deadline = now.Add(time.Duration(config.Routing.DeadlineSeconds) * time.Second)
+	}
 	dispatcher := &sessionDispatcher{root: root, slug: slug, tasks: spec.Tasks, config: config, acpPath: acpPath, checkpointPath: checkpointPath, now: now, session: &session}
 	decision, err := orchestration.DispatchFrontier(snapshot, limits, dispatcher)
 	if err != nil {
@@ -230,7 +240,16 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 			break
 		}
 	}
-	mission := orchestration.MissionV1{ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: d.session.ID, MissionID: missionID, SpecSlug: d.slug, TaskID: task.ID, Attempt: 1, Role: selected.Role, AuthorityRef: "approval:tasks", DeclaredFiles: append([]string(nil), selected.DeclaredFiles...), Acceptance: []string{selected.Acceptance}, Verify: selected.Verify, ContextRef: "context:" + d.slug + ":" + task.ID, ContextDigest: core.Digest([]byte(selected.ID + selected.Role + selected.Files + selected.Verify + selected.Acceptance)), ConfigDigest: core.ConfigDigest(d.config), PaletteDigest: core.PaletteDigest(), PolicyDigest: core.ConfigDigest(d.config), SubjectHead: gitHead(d.root), RouteClass: "pending-local", RouteReason: "controller recorded; delivery adapter not configured", Limits: orchestration.MissionLimits{MaxAttempts: 1, TimeoutSeconds: int(brainLeaseTTL.Seconds())}, IssuedAt: d.now, ExpiresAt: d.now.Add(brainLeaseTTL), Status: orchestration.MissionPending}
+	route, err := orchestration.RouteTask(selected, d.config.Routing)
+	if err != nil {
+		return err
+	}
+	timeout := int(brainLeaseTTL.Seconds())
+	if d.config.Routing.DeadlineSeconds > 0 && d.config.Routing.DeadlineSeconds < timeout {
+		timeout = d.config.Routing.DeadlineSeconds
+	}
+	maxAttempts := d.config.Routing.MaxRetries + 1
+	mission := orchestration.MissionV1{ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: d.session.ID, MissionID: missionID, SpecSlug: d.slug, TaskID: task.ID, Attempt: 1, Role: selected.Role, AuthorityRef: "approval:tasks", DeclaredFiles: append([]string(nil), selected.DeclaredFiles...), Acceptance: []string{selected.Acceptance}, Verify: selected.Verify, ContextRef: "context:" + d.slug + ":" + task.ID, ContextDigest: core.Digest([]byte(selected.ID + selected.Role + selected.Files + selected.Verify + selected.Acceptance)), ConfigDigest: core.ConfigDigest(d.config), PaletteDigest: core.PaletteDigest(), PolicyDigest: core.ConfigDigest(d.config), SubjectHead: gitHead(d.root), RouteClass: route.Class, RouteReason: route.Reason, Limits: orchestration.MissionLimits{MaxAttempts: maxAttempts, TimeoutSeconds: timeout, MaxTokens: d.config.Routing.MaxTokens, MaxCostMicros: d.config.Routing.MaxCostMicros}, IssuedAt: d.now, ExpiresAt: d.now.Add(time.Duration(timeout) * time.Second), Status: orchestration.MissionPending}
 	payload, err := orchestration.MissionPayload(mission)
 	if err != nil {
 		return err

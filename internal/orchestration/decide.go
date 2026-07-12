@@ -38,10 +38,13 @@ type Decision struct {
 }
 
 type DecisionLimits struct {
-	MaxCost       int
-	Deadline      time.Time
-	MaxRetries    int
-	AllowDispatch bool
+	MaxCost          int
+	Deadline         time.Time
+	MaxRetries       int
+	AllowDispatch    bool
+	MaxCostMicros    int64
+	MaxTokens        int64
+	RequireTelemetry bool
 }
 
 func Decide(snapshot Snapshot, limits DecisionLimits) Decision {

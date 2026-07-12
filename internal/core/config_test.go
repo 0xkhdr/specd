@@ -124,3 +124,57 @@ func TestConfigSecurityProfile(t *testing.T) {
 		t.Fatalf("invalid profile diagnostics=%v", diags)
 	}
 }
+
+func TestConfigRoutingPolicy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yml")
+	raw := strings.Join([]string{
+		"routing:",
+		"  version: 1",
+		"  classes: basic,reviewed,sandboxed",
+		"  fallback: sandboxed,reviewed,basic",
+		"  class_capabilities: basic=context;reviewed=context+review;sandboxed=context+review+sandbox+eval",
+		"  max_tokens: 50000",
+		"  max_cost_micros: 250000",
+		"  deadline_seconds: 900",
+		"  max_retries: 2",
+		"  allow_unknown_telemetry: false",
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, diags := LoadConfig(ConfigPaths{Project: path}, nil)
+	if len(diags) != 0 {
+		t.Fatalf("diagnostics = %#v", diags)
+	}
+	if cfg.Routing.Version != "1" || cfg.Routing.MaxTokens != 50000 || cfg.Routing.MaxCostMicros != 250000 || cfg.Routing.DeadlineSeconds != 900 || cfg.Routing.MaxRetries != 2 || cfg.Routing.AllowUnknownTelemetry {
+		t.Fatalf("routing = %#v", cfg.Routing)
+	}
+	if got := cfg.Routing.ClassCapabilities["sandboxed"]; !reflect.DeepEqual(got, []string{"context", "eval", "review", "sandbox"}) {
+		t.Fatalf("sandboxed capabilities = %#v", got)
+	}
+}
+
+func TestConfigRoutingSafeDefaultsAndValidation(t *testing.T) {
+	if DefaultConfig.Routing.Version != "1" || !DefaultConfig.Routing.AllowUnknownTelemetry || DefaultConfig.Routing.DefaultClass == "" {
+		t.Fatalf("unsafe routing defaults = %#v", DefaultConfig.Routing)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yml")
+	for _, raw := range []string{
+		"routing:\n  version: 2\n",
+		"routing:\n  classes: basic,basic\n",
+		"routing:\n  fallback: missing\n",
+		"routing:\n  max_cost_micros: -1\n",
+		"routing:\n  class_capabilities: malformed\n",
+	} {
+		if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, diags := LoadConfig(ConfigPaths{Project: path}, nil)
+		if len(diags) == 0 {
+			t.Fatalf("config %q accepted, want diagnostic", raw)
+		}
+	}
+}
