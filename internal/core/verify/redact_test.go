@@ -17,6 +17,23 @@ func TestRedactSecretValues(t *testing.T) {
 	}
 }
 
+func TestRedactHomePath(t *testing.T) {
+	r := NewRedactor(nil)
+	for input, want := range map[string]string{
+		"/home/alice/repo/x": "~/repo/x",
+		"/Users/bob/file":    "~/file",
+		"/root/.specd":       "~/.specd",
+	} {
+		if got := r.String(input); got != want {
+			t.Fatalf("home path %q not masked: got %q want %q", input, got, want)
+		}
+	}
+	// A non-home absolute path is left intact — only the user's home leaks identity.
+	if got := r.String("/usr/local/bin"); got != "/usr/local/bin" {
+		t.Fatalf("non-home path was altered: %q", got)
+	}
+}
+
 func TestRedactAcrossWriteBoundaries(t *testing.T) {
 	secret := "boundary-secret-value"
 	var dst strings.Builder

@@ -84,6 +84,45 @@ func TestEvidenceTelemetryEnvelope(t *testing.T) {
 	}
 }
 
+// TestEvidenceRefRejectsUnsafe pins the evidence_ref locator contract (spec 07
+// R5.3): a ref must be workspace-relative or content-addressed. Absolute paths,
+// URLs, and parent traversal fail closed on both append and decode; a relative
+// or content-addressed ref is accepted.
+func TestEvidenceRefRejectsUnsafe(t *testing.T) {
+	dir := t.TempDir()
+	for _, bad := range []string{
+		"/etc/passwd",
+		"~/secrets",
+		"https://evil.example/x",
+		"file:///etc/shadow",
+		"../../outside",
+		"artifacts/../../escape",
+	} {
+		p := filepath.Join(dir, "bad.jsonl")
+		if err := AppendEvidence(p, EvidenceRecord{TaskID: "T1", GitHead: "abc", EvidenceRef: bad}); err == nil {
+			t.Fatalf("unsafe evidence_ref accepted on append: %q", bad)
+		}
+	}
+
+	// Good refs: workspace-relative path and content-addressed digest.
+	for _, good := range []string{"artifacts/out.log", "sha256:deadbeef"} {
+		p := filepath.Join(dir, "good.jsonl")
+		if err := AppendEvidence(p, EvidenceRecord{TaskID: "T1", GitHead: "abc", EvidenceRef: good}); err != nil {
+			t.Fatalf("safe evidence_ref rejected: %q: %v", good, err)
+		}
+	}
+
+	// A ledger line carrying an unsafe ref fails closed on decode.
+	tampered := filepath.Join(dir, "tampered.jsonl")
+	os.WriteFile(tampered, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","evidence_ref":"/etc/passwd"}`+"\n"), 0o644)
+	if _, err := LoadEvidenceRecords(tampered); err == nil {
+		t.Fatal("unsafe evidence_ref accepted on decode")
+	}
+	if _, err := LoadEvidence(tampered); err == nil {
+		t.Fatal("unsafe evidence_ref accepted on LoadEvidence")
+	}
+}
+
 func TestEvidenceRedactsCredentials(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "evidence.jsonl")
 	secret := "abcdefghijklmnop"

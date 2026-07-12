@@ -46,7 +46,18 @@ text, task tables, dependency names, verify commands). We assume that content ca
     via git diff/apply over stdin (no temp patch files), leaving a clean tree and no stray
     artifacts.
   - **Redacted evidence.** The secrets scanner masks candidate secrets (first/last 4 chars only)
-    so a scanner that exists to find leaks cannot itself print one into CI logs.
+    so a scanner that exists to find leaks cannot itself print one into CI logs. The same central
+    redactor also collapses an absolute home directory (`/home/<u>`, `/Users/<u>`, `/root`) to `~`,
+    and guards the one free-form telemetry field (`attestation_ref`) so a secret or home path in
+    worker-reported telemetry never reaches the ledger (spec 07 R5.2/R5.4).
+  - **Metadata-only telemetry, bounded metric labels.** Telemetry is metadata-only by schema — no
+    prompt, response, chain-of-thought, file content, or raw output field exists. Metric series
+    carry only allowlisted labels (`spec`/`status`/`verdict`/`task`); high-cardinality correlation
+    stays in the trace JSONL (R5.1). See `docs/telemetry-schema.md`.
+  - **Workspace-scoped evidence references.** `evidence_ref` must be workspace-relative or
+    content-addressed; a URL, absolute path, or `..` traversal is rejected in the core schema on
+    both append and decode, so an evidence locator can never point off the machine or off the
+    network (R5.3).
 
 ### 3. Hostile dependency names (typosquatting)
 

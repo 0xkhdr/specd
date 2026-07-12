@@ -7,10 +7,34 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 )
+
+// validateEvidenceRef enforces the evidence_ref locator contract (spec 07 R5.3):
+// a reference must be workspace-relative or content-addressed — never a URL, an
+// absolute path, or a parent-directory traversal. An empty ref is valid (the
+// field is optional). Core never dereferences a ref, but must refuse to store
+// one that points outside the workspace or off to the network.
+func validateEvidenceRef(ref string) error {
+	if ref == "" {
+		return nil
+	}
+	if strings.Contains(ref, "://") {
+		return fmt.Errorf("evidence_ref %q must be workspace-relative or content-addressed, not a URL", ref)
+	}
+	if filepath.IsAbs(ref) || strings.HasPrefix(ref, "/") || strings.HasPrefix(ref, `\`) || strings.HasPrefix(ref, "~") {
+		return fmt.Errorf("evidence_ref %q must be workspace-relative, not absolute", ref)
+	}
+	for _, seg := range strings.Split(filepath.ToSlash(ref), "/") {
+		if seg == ".." {
+			return fmt.Errorf("evidence_ref %q must not traverse outside the workspace", ref)
+		}
+	}
+	return nil
+}
 
 const EvidenceOutputLimit = 64 * 1024
 
@@ -43,6 +67,9 @@ func AppendEvidence(path string, record EvidenceRecord) error {
 	if err := ValidateAnnotations(record.Telemetry); err != nil {
 		return err
 	}
+	if err := validateEvidenceRef(record.EvidenceRef); err != nil {
+		return err
+	}
 	// Stamp provenance centrally so every writer (verify and task complete) gets
 	// an ordering-safe timestamp/actor without threading it through call sites.
 	// A caller that already stamped (tests, replay fixtures) is left untouched.
@@ -55,6 +82,14 @@ func AppendEvidence(path string, record EvidenceRecord) error {
 	redactor := verifyexec.NewRedactor(nil)
 	record.Command = redactor.String(record.Command)
 	record.EvidenceRef = redactor.String(record.EvidenceRef)
+	// attestation_ref is telemetry's one free-form field; run it through the same
+	// central redactor so a secret or absolute home path never reaches the ledger
+	// (spec 07 R5.2/R5.4). Copy before mutating so the caller's record is unchanged.
+	if record.Telemetry != nil && record.Telemetry.AttestationRef != "" {
+		tel := *record.Telemetry
+		tel.AttestationRef = redactor.String(tel.AttestationRef)
+		record.Telemetry = &tel
+	}
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
@@ -83,6 +118,9 @@ func LoadEvidence(path string) (map[string]EvidenceRecord, error) {
 			return nil, err
 		}
 		if err := ValidateAnnotations(record.Telemetry); err != nil {
+			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
+		}
+		if err := validateEvidenceRef(record.EvidenceRef); err != nil {
 			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
 		}
 		if record.TaskID != "" {
@@ -117,6 +155,9 @@ func LoadEvidenceRecords(path string) ([]EvidenceRecord, error) {
 			return nil, err
 		}
 		if err := ValidateAnnotations(record.Telemetry); err != nil {
+			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
+		}
+		if err := validateEvidenceRef(record.EvidenceRef); err != nil {
 			return nil, fmt.Errorf("evidence %s: %w", record.TaskID, err)
 		}
 		records = append(records, record)

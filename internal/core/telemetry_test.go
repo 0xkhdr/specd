@@ -2,9 +2,67 @@ package core
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// TestTelemetryMetadataOnly is the privacy contract for the telemetry schema
+// (spec 07 R5.2): a fully populated Annotations serializes to metadata keys
+// only. No field can carry a prompt, response, chain-of-thought, file content,
+// or raw worker output, so a default fixture is structurally metadata-only.
+func TestTelemetryMetadataOnly(t *testing.T) {
+	full := Annotations{
+		Tokens: 10, Cost: "0.01", DurationMs: 5,
+		Source: TelemetrySourceWorker, Currency: "USD",
+		AttestationRef: "att/abc", EnvelopeVersion: TelemetryEnvelopeV1,
+	}
+	data, err := json.Marshal(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keyed map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keyed); err != nil {
+		t.Fatal(err)
+	}
+	allowed := map[string]bool{
+		"tokens": true, "cost": true, "duration_ms": true,
+		"telemetry_source": true, "currency": true,
+		"attestation_ref": true, "envelope_version": true,
+	}
+	for k := range keyed {
+		if !allowed[k] {
+			t.Fatalf("telemetry carries non-metadata field %q — schema must stay metadata-only", k)
+		}
+	}
+}
+
+// TestTelemetryAttestationRefRedacted pins central redaction of the one
+// free-form telemetry field before persistence/display (spec 07 R5.2/R5.4): a
+// secret or absolute home path smuggled into attestation_ref is scrubbed by the
+// same central redactor that guards command/evidence_ref, so it never reaches
+// disk.
+func TestTelemetryAttestationRefRedacted(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.jsonl")
+	secret := "leaked-secret-token-value"
+	rec := EvidenceRecord{TaskID: "T1", GitHead: "abc", Telemetry: &Annotations{
+		AttestationRef: "api_key=" + secret + " at /home/alice/.specd/att",
+	}}
+	if err := AppendEvidence(path, rec); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), secret) {
+		t.Fatalf("telemetry leaked secret to evidence: %s", body)
+	}
+	if strings.Contains(string(body), "/home/alice") {
+		t.Fatalf("telemetry leaked absolute home path to evidence: %s", body)
+	}
+}
 
 func present(names ...string) func(string) bool {
 	set := map[string]bool{}

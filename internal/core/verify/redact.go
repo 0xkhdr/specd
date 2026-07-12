@@ -13,6 +13,13 @@ var credentialPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)((?:api[_-]?key|access[_-]?token|secret|password)\s*[=:]\s*)[^\s,;]{4,}`),
 }
 
+// homePathPattern masks an absolute home directory so evidence and telemetry
+// carry no username or machine-specific home path (spec 07 R5.2). The user's
+// home root (`/home/<u>`, `/Users/<u>`, `/root`) collapses to `~`, keeping the
+// path meaningful without leaking identity. Non-home absolute paths are left
+// intact. The replacement is deterministic — it reads the input, never the host.
+var homePathPattern = regexp.MustCompile(`/home/[^/\s:"]+|/Users/[^/\s:"]+|/root`)
+
 type Redactor struct{ secrets []string }
 
 func NewRedactor(secrets []string) Redactor {
@@ -32,6 +39,7 @@ func (r Redactor) String(value string) string {
 	for _, pattern := range credentialPatterns {
 		value = pattern.ReplaceAllString(value, `${1}`+Redacted)
 	}
+	value = homePathPattern.ReplaceAllString(value, "~")
 	return value
 }
 

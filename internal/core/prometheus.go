@@ -2,9 +2,60 @@ package core
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
+
+// MetricLabelAllowlist is the closed set of label keys any specd metric series
+// may carry (spec 07 R5.1). Metrics are a bounded-cardinality surface: `spec`
+// and `task` are per-project identifiers, `status` and `verdict` are small
+// closed enums. High-cardinality or sensitive correlation
+// (run/mission/commit/path/model/actor/error) belongs in the trace JSONL, never
+// in a metric label — each distinct value mints a new time series and can
+// overwhelm a Prometheus store. Adding a label key outside this set must fail
+// TestPrometheusLabelAllowlist.
+var MetricLabelAllowlist = map[string]bool{
+	"spec":    true,
+	"status":  true,
+	"verdict": true,
+	"task":    true,
+}
+
+// metricLabelKey matches one `key="value"` pair inside a metric label set,
+// capturing the key. The value body admits exposition-escaped quotes and
+// backslashes so an escaped quote never ends the match early.
+var metricLabelKey = regexp.MustCompile(`([a-zA-Z_][a-zA-Z0-9_]*)="(?:\\.|[^"\\])*"`)
+
+// MetricLabelNames returns the sorted, de-duplicated label keys present in a
+// Prometheus exposition. It is the inspector behind the static label allowlist
+// (R5.1): any key it reports that MetricLabelAllowlist does not permit is a
+// cardinality-policy violation.
+func MetricLabelNames(exposition string) []string {
+	seen := map[string]bool{}
+	var names []string
+	for _, line := range strings.Split(exposition, "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		open := strings.IndexByte(line, '{')
+		if open < 0 {
+			continue
+		}
+		end := strings.LastIndexByte(line, '}')
+		if end < open {
+			continue
+		}
+		for _, m := range metricLabelKey.FindAllStringSubmatch(line[open:end+1], -1) {
+			if !seen[m[1]] {
+				seen[m[1]] = true
+				names = append(names, m[1])
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
 
 // PrometheusMetrics is the pure, on-disk-derived snapshot rendered as a
 // Prometheus textfile exposition (spec 13 R4). It is assembled by the caller

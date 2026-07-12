@@ -150,9 +150,33 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T16 | craftsman | internal/core/prometheus.go; internal/core/prometheus_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T04 | go test ./internal/core -run 'Test(Prometheus|ReportMetrics)' | static contract test rejects label additions outside allowlist (`spec`,task/status); no run/mission/SHA/path/model/actor/error label R5.1 |
-| [ ] T17 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; docs/telemetry-schema.md | T16, Domain 06 redaction | go test ./internal/core -run 'Test(Telemetry|Evidence|Redact)' | default fixtures metadata-only: no prompt/response/CoT/file content/raw output/secret/abs home path; central redaction before display R5.2,R5.4 |
-| [ ] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; docs/observability.md; SECURITY.md | T17 | go test ./internal/core -run 'Test(Evidence|Ref)' && ./scripts/docs-lint.sh | `evidence_ref` workspace-relative/content-addressed only; traversal + URL rejected in core schema; policy documented R5.3,R5.4 |
+| [x] T16 | craftsman | internal/core/prometheus.go; internal/core/prometheus_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T04 | go test ./internal/core -run 'Test(Prometheus|ReportMetrics)' | static contract test rejects label additions outside allowlist (`spec`,task/status); no run/mission/SHA/path/model/actor/error label R5.1 |
+| [x] T17 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; docs/telemetry-schema.md | T16, Domain 06 redaction | go test ./internal/core -run 'Test(Telemetry|Evidence|Redact)' | default fixtures metadata-only: no prompt/response/CoT/file content/raw output/secret/abs home path; central redaction before display R5.2,R5.4 |
+| [x] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; docs/observability.md; SECURITY.md | T17 | go test ./internal/core -run 'Test(Evidence|Ref)' && ./scripts/docs-lint.sh | `evidence_ref` workspace-relative/content-addressed only; traversal + URL rejected in core schema; policy documented R5.3,R5.4 |
+
+> **W5 deviations (subtractive bias, backward-compat).**
+> - T16 realized as an exported `MetricLabelAllowlist` (`spec`/`status`/`verdict`/
+>   `task`) plus a `MetricLabelNames` exposition inspector in `prometheus.go`; the
+>   static contract test `TestPrometheusLabelAllowlist` (and
+>   `TestReportMetricsLabelsAllowlisted`) fails on any label outside the allowlist
+>   and asserts none of run/mission/SHA/path/model/actor/error is ever emitted
+>   (R5.1). `verdict` is a bounded closed enum already emitted by `specd_criteria`,
+>   so it is allowlisted alongside the acceptance's `spec`/task/status.
+> - T17 telemetry is metadata-only **by schema** — `Annotations` has no free-form
+>   content field, proven by `TestTelemetryMetadataOnly`. The one free-form field
+>   `attestation_ref` is routed through the existing central redactor in
+>   `AppendEvidence` (R5.2/R5.4). `internal/core/verify/redact.go` **edited**
+>   (unlisted, needed cross-file): the central redactor gains absolute-home-path
+>   masking (`/home/<u>`,`/Users/<u>`,`/root` → `~`) so "no abs home path" is
+>   enforced in one place for command/evidence_ref/attestation_ref/verify output
+>   rather than duplicated in Domain 07 — Domain 06 keeps owning redaction policy.
+>   Tested by `TestRedactHomePath`. No new default strictness on legacy records.
+> - T18 `validateEvidenceRef` rejects URL / absolute / `..`-traversal refs on both
+>   append and decode (R5.3). Backward-compatible: production never wrote a
+>   non-empty `evidence_ref`, so no legacy ledger carries a now-invalid ref;
+>   content-addressed refs (`sha256:…`, `ledger:1`) and workspace-relative paths
+>   stay valid. `docs/telemetry-schema.md` (new) documents schema + redaction +
+>   allowlist + locator policy; `observability.md`/`SECURITY.md` cross-reference it.
 
 ## W6 — metadata run spans and trace export
 

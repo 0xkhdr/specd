@@ -110,6 +110,57 @@ func TestRenderPrometheusEmptyCostIsZero(t *testing.T) {
 	}
 }
 
+// forbiddenMetricLabels are the high-cardinality / sensitive label keys spec 07
+// R5.1 forbids on any metric series. Each distinct value would mint a new time
+// series (run/mission/sha) or leak a locator/identity (path/model/actor/error);
+// that correlation belongs in the trace JSONL, never in a metric label.
+var forbiddenMetricLabels = []string{
+	"run", "run_id", "mission", "mission_id", "attempt",
+	"sha", "commit", "git_head", "head",
+	"path", "file", "model", "provider", "actor", "user", "error",
+}
+
+// TestPrometheusLabelAllowlist is the static cardinality contract (spec 07
+// R5.1): every label key any renderer emits must be in MetricLabelAllowlist, the
+// allowlist itself must exclude every forbidden high-cardinality key, and a
+// forbidden key must never appear in a real exposition. Adding a label outside
+// the allowlist to any renderer fails here.
+func TestPrometheusLabelAllowlist(t *testing.T) {
+	// The allowlist may never be widened to admit a forbidden key.
+	for _, bad := range forbiddenMetricLabels {
+		if MetricLabelAllowlist[bad] {
+			t.Fatalf("allowlist admits forbidden high-cardinality label %q", bad)
+		}
+	}
+
+	// Render every label-bearing family with representative data, including a
+	// per-task telemetry series (the highest-cardinality allowed label, `task`).
+	prom := RenderPrometheus(PrometheusMetrics{
+		Slug:            `pay"ments`,
+		TasksByStatus:   map[string]int{"complete": 2, "pending": 1},
+		CriteriaPassing: 3, CriteriaTotal: 4,
+	})
+	report := TelemetryReport{}
+	for i := 0; i < 3; i++ {
+		report.Tasks = append(report.Tasks, TaskTelemetry{TaskID: fmt.Sprintf("T%d", i), HasTelemetry: true, Attempts: []Annotations{{Tokens: 1}}})
+	}
+	tel := RenderTelemetry("demo", report)
+	metrics := RenderMetrics(ReportModel{Slug: "demo", Total: 3})
+
+	for _, out := range []string{prom, tel, metrics} {
+		for _, name := range MetricLabelNames(out) {
+			if !MetricLabelAllowlist[name] {
+				t.Fatalf("metric emits label %q outside the allowlist:\n%s", name, out)
+			}
+		}
+		for _, bad := range forbiddenMetricLabels {
+			if strings.Contains(out, bad+"=") {
+				t.Fatalf("metric emits forbidden label %q:\n%s", bad, out)
+			}
+		}
+	}
+}
+
 // TestPrometheusTaskLabelsAreUnbounded characterizes the W0 gap W5/W8 closes:
 // per-task telemetry is rendered as a distinct series carrying a task="…"
 // label, so label cardinality grows one-for-one with task count with no bound.

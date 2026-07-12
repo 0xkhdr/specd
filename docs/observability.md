@@ -84,6 +84,25 @@ do not over-trust the numbers; the P0 route below is the remediation path (Domai
 **P0 route:** these are tracked as the Domain 07 W0 contract baseline; each limit above names the
 wave that closes it. Until then, treat reported cost/tokens as advisory, not authoritative.
 
+## Privacy and cardinality policy (W5)
+
+The measurement surface is privacy-preserving and bounded-cardinality by
+construction:
+
+- **Telemetry is metadata-only.** The `telemetry` object holds only counts,
+  cost, duration, provenance, currency, an optional attestation pointer, and a
+  schema version — never a prompt, response, chain-of-thought, file content, or
+  raw output. Its one free-form field (`attestation_ref`) is scrubbed by the
+  central redactor before it reaches the ledger, so a secret or absolute home
+  path cannot leak. See [telemetry-schema.md](telemetry-schema.md).
+- **Metric labels are allowlisted.** Only `spec`, `status`, `verdict`, and
+  `task` may label a metric series. Run/mission/commit/path/model/actor/error
+  correlation stays in the trace JSONL, never a label — a label added outside the
+  allowlist fails a static contract test.
+- **Evidence references stay inside the workspace.** `evidence_ref` must be
+  workspace-relative or content-addressed; a URL, absolute path, or `..`
+  traversal is rejected in the core schema on both append and decode.
+
 ## Crash-safety
 
 The opt-in Brain's ACP ledger is append-only and crash-safe: an interrupted append replays to a
