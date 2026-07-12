@@ -236,6 +236,38 @@ func TestManifestDriverLanes(t *testing.T) {
 	}
 }
 
+// TestManifestConformanceFailureMatrix is the W6 black-box contract: every
+// required lane failure is named, required overflow is not truncated, and a
+// receipt built from changed required context is stale.
+func TestManifestConformanceFailureMatrix(t *testing.T) {
+	root := t.TempDir()
+	writeManifestFixture(t, root, ".specd/specs/demo/requirements.md", "# Requirements\n")
+	writeManifestFixture(t, root, ".specd/roles/craftsman.md", "# Role\n")
+	task := core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"internal/main.go"}}
+	_, err := BuildManifestV2(root, "demo", []core.TaskRow{task}, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
+	if err == nil || !strings.Contains(err.Error(), ".specd/specs/demo/design.md") {
+		t.Fatalf("missing required design must be named: %v", err)
+	}
+
+	if _, err := ResolveSource(root, ".specd/specs/demo/../../../../etc/passwd"); err == nil {
+		t.Fatal("wrong-root traversal accepted")
+	}
+	if _, _, _, _, err := EnforceBudgetV2([]ItemV2{{Kind: "task", Required: true, EstimatedTokens: 10, Reason: "task"}}, 1); err == nil {
+		t.Fatal("required overflow accepted")
+	}
+
+	m := receiptManifest()
+	r, err := BuildReceipt(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Items[0].RepresentationDigest = strings.Repeat("f", 64)
+	m.ManifestDigest = ManifestV2Digest(m)
+	if stale := ReceiptStaleness(r, m); len(stale) == 0 {
+		t.Fatal("changed required context did not stale receipt")
+	}
+}
+
 // --- W0 T02 R8 baseline fixtures ---------------------------------------------
 // These characterize the current (pre-typed-v2) behavior for the R8 negative
 // scenarios so each later wave's fix lands as a visible RED->GREEN flip. They

@@ -249,7 +249,12 @@ specd context <slug> <task-id> [--json|--hud]
 ```
 Build the bounded context manifest for a task. **Phases:** post-requirements.
 
-Manifest schema **v1** is the current compatibility renderer; a typed **v2** contract is being introduced additively. Unknown or unsupported manifest versions fail closed rather than being reinterpreted.
+Manifest schema **v1** remains compatibility output; hosts opt into typed **v2** additively. V2
+requires requirements/design/role/source lanes, canonical ordering, source digests, selected-task
+identity, and driver route/capability identity. Unknown schema/item/trust values, missing lanes,
+route mismatch, stale receipt, or required-budget overflow fail closed. Optional omissions carry a
+reason. Receipts contain digests/totals/provenance only; skills and memory remain untrusted
+advisory data and cannot widen authority.
 
 | Flag | Value | Description |
 |---|---|---|

@@ -121,6 +121,21 @@ A declared `refs` requirement that does not resolve, or an unknown `risk` tier
 (`low`/`medium`/`high`/`critical`), is always refused. Declaring the full set on every task
 is required only under the production planning profile.
 
+## Context manifest V2 and receipts
+
+Context V2 is additive. Hosts that understand V2 consume `schema_version: "2"`; older hosts
+continue using the V1 renderer. Unknown versions, item kinds, routes, trust labels, and missing
+required lanes fail closed rather than being reinterpreted. V2 requires canonical item ordering,
+source digests, selected-task identity, driver route/capability metadata, and explicit omission
+records. Required context overflow is an error; only optional items may be shed under budget.
+
+A receipt contains digests, token totals, and provenance only—never source bytes, prompts, or
+secrets. Compare config, palette, required-context, and selected-skill digests before trusting a
+receipt. Any mismatch marks it stale while preserving its historical JSON for audit. Skills and
+memory are untrusted advisory data and cannot add tools, widen declared files, approve work, or
+change route authority. Hosts must treat route and capability metadata as an exact identity
+binding and stop on mismatch.
+
 ---
 
 **See also:** [validation-gates.md](validation-gates.md) · [user-guide.md](user-guide.md) ·

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# regress-lint.sh (P7.2) — static smell audit of the W0–W6 verify tables.
+# regress-lint.sh (P7.2) — static smell audit of active Domain 02 verify tables.
 #
 # Never runs a verify. Reads the tables and flags three smells:
 #   A  verify targets authoring `specs/` when runtime reads `.specd/specs/`
@@ -27,10 +27,12 @@ cell() {
 }
 flag() { smells=$((smells+1)); printf '%-8s %-6s %s\n' "$1" "$2" "$3"; }
 
-for tasks in "$ROOT"/review-specs/0[0-6]-*/tasks.md; do
+# Future domain tables intentionally contain planned paths. Audit current Domain 02
+# release work here; each later domain owns the same audit when its wave activates.
+for tasks in "$ROOT"/specs/02-*/tasks.md; do
 	[ -f "$tasks" ] || continue
 	while IFS= read -r line; do
-		id=$(cell "$line" 2 | sed -n 's/^\(P[0-9][0-9]*\.[0-9][0-9]*[a-z]*\)$/\1/p')
+		id=$(cell "$line" 2 | sed -n 's/^\(\[[ x]\] \)\{0,1\}\(T[0-9][0-9]*\)$/\2/p')
 		[ -n "$id" ] || continue
 		role=$(cell "$line" 3)
 		files=$(cell "$line" 4)

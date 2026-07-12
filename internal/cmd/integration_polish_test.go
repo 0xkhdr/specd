@@ -224,6 +224,27 @@ func TestIntegrationContextV2CarriesDriverContract(t *testing.T) {
 	}
 }
 
+func TestIntegrationContextV2RejectsRouteIdentityMismatch(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{".specd/specs/demo", ".specd/roles", "internal"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(root, ".specd/specs/demo/tasks.md"), "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | internal/a.go | - | go test ./... | R2.1 |\n")
+	writeFile(t, filepath.Join(root, ".specd/specs/demo/requirements.md"), "# Requirements\n")
+	writeFile(t, filepath.Join(root, ".specd/specs/demo/design.md"), "# Design\n")
+	writeFile(t, filepath.Join(root, ".specd/roles/craftsman.md"), "# Craftsman\n")
+	writeFile(t, filepath.Join(root, "internal/a.go"), "package internal\n")
+	out, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, map[string]string{"json": ""}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"route": "cli:`) || strings.Contains(out, `"route": "mcp:`) {
+		t.Fatalf("context route identity mismatch: %s", out)
+	}
+}
+
 // Domain 03 W0 baselines: later waves flip each assertion when common spec
 // resolution and truthful plain-path migration land.
 func TestIntegrationDriverGapBaseline(t *testing.T) {

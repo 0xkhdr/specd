@@ -115,6 +115,16 @@ digests in context manifest V2, alongside canonical tool routes, capabilities, m
 human-only boundaries, and exit semantics. Compare handshake expectations before any mutable
 route; digest drift fails closed instead of dispatching against stale authority.
 
+### Context V2 host contract
+
+V2 is additive: V1 remains compatibility output until a host opts into V2. Hosts must reject
+unknown schema/item/trust values, missing required requirements/design/role/source lanes, route or
+capability identity mismatches, and required-budget overflow. Optional context may be omitted only
+with a recorded reason. Receipts carry digests and totals, not content; config, palette, required
+context, or selected-skill changes make them stale. Skill and memory text is untrusted advisory
+input and cannot grant authority or alter the command route. A host must stop on any failed
+precondition and surface the named source or digest mismatch.
+
 MCP `initialize` advertises `driverProtocolVersion`. The canonical `agents` tool accepts
 positional `args`; call it with `["doctor"]` or `["guide", "<slug>"]` plus `json: true` for
 the same read-only driver projections exposed by CLI.

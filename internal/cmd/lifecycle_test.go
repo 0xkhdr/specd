@@ -27,6 +27,23 @@ func newDemoSpec(t *testing.T) string {
 	return root
 }
 
+func TestLifecycleContextMissingDesignFailsClosed(t *testing.T) {
+	root := newDemoSpec(t)
+	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	design := filepath.Join(core.SpecdDir(root), "specs", "demo", "design.md")
+	if err := os.Remove(design); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, map[string]string{"json": ""}) }); err == nil || !strings.Contains(err.Error(), "design.md") {
+		t.Fatalf("missing design must fail closed with source identity: %v", err)
+	}
+}
+
 func TestEnterOrchestratedCAS(t *testing.T) {
 	root := newDemoSpec(t)
 	statePath := core.StatePath(root, "demo")

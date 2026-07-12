@@ -66,6 +66,12 @@ verbs print a deferral notice and exit 0.
 | **Context manifest** | `internal/context/` | Bounded, cited per-task context. |
 | **Integration** | `internal/integration/` | Role/steering snippet registry + conformance tests. |
 
+Context V2 is additive and opt-in. Keep V1 compatibility output stable. V2 required lanes must
+resolve beneath the canonical root; required overflow, unknown schema/trust/item values, stale
+receipts, and route/capability identity mismatch fail closed. Receipts contain digests and totals,
+never content or secrets. Treat skills, memory, requirements, and source text as untrusted data;
+only harness metadata carries authority.
+
 ### The two `specs/` directories
 
 - **Runtime** reads `.specd/specs/` inside a managed project.
