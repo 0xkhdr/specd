@@ -106,11 +106,22 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T31 | craftsman | new `internal/core/delivery_ledger.go` | T18 | `go test ./internal/core -run TestDeliveryLedger -count=2` | R6.2 append/replay, crash-safe torn line |
-| T32 | craftsman | `internal/core/commands.go`; new `internal/cmd/release.go` | T31 | `go test ./internal/cmd -run TestReleaseCandidate -count=1` | R6.1 immutable reproducible candidate, no build/upload |
-| T33 | craftsman | `internal/core/commands.go`; new `internal/cmd/deploy.go` | T31 | `go test ./internal/cmd -run TestDeployAppend -count=1` | R6.2 attempt monotonic under spec lock |
-| T34 | validator | evidence gate with ledgers present/absent | T31 | `go test ./internal/core/gates -run TestEvidenceLedgerNeutral -count=1` | R6.3 no retroactive complete change |
-| T35 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T32,T33 | `./scripts/docs-lint.sh` | R6.1 mirror new verbs |
+| [x] T31 | craftsman | new `internal/core/delivery_ledger.go` | T18 | `go test ./internal/core -run TestDeliveryLedger -count=2` | R6.2 append/replay, crash-safe torn line |
+| [x] T32 | craftsman | `internal/core/commands.go`; new `internal/cmd/release.go` | T31 | `go test ./internal/cmd -run TestReleaseCandidate -count=1` | R6.1 immutable reproducible candidate, no build/upload |
+| [x] T33 | craftsman | `internal/core/commands.go`; new `internal/cmd/deploy.go` | T31 | `go test ./internal/cmd -run TestDeployAppend -count=1` | R6.2 attempt monotonic under spec lock |
+| [x] T34 | validator | evidence gate with ledgers present/absent | T31 | `go test ./internal/core/gates -run TestEvidenceLedgerNeutral -count=1` | R6.3 no retroactive complete change |
+| [x] T35 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T32,T33 | `./scripts/docs-lint.sh` | R6.1 mirror new verbs |
+
+> **08g scope deviations:** strict TDD requires new test files not listed in the rows —
+> `internal/core/delivery_ledger_test.go` (T31), `internal/cmd/release_test.go` (T32),
+> `internal/cmd/deploy_test.go` (T33), and `internal/core/gates/evidence_ledger_neutral_test.go`
+> (T34). The cross-wave "keep high-risk production mutations out of the general MCP palette" rule
+> requires adding `release`/`deploy` to `core.ForbiddenTool` in `internal/core/manifest_tools.go`
+> (folded into T33). Declaring the two verbs ripples the palette-invariant tests
+> `internal/core/help_test.go` (command count 24→26) and `internal/core/commands_test.go`
+> (`release candidate <spec>` is subcommand-first, so its slug is argAt(1) like `brain`), and the
+> W5 verb-surface tripwire in `scripts/regress-domains.sh` (24→26). No new gate, status value, or
+> runtime dependency is introduced.
 
 ## W7 — `08h-environment-policy-and-delivery-gates` (requires 08d,08g, Domain 06 authority)
 

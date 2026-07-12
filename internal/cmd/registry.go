@@ -52,6 +52,8 @@ var executable = map[string]Handler{
 	"midreq":    runMidreq,
 	"new":       runNew,
 	"next":      runNext,
+	"release":   runRelease,
+	"deploy":    runDeploy,
 	"report":    runReport,
 	"review":    runReview,
 	"status":    runStatus,

@@ -273,6 +273,62 @@ specd submit payments --resubmit
 
 ---
 
+## Delivery
+
+Release and deployment ledgers are an additive, offline domain. They never build,
+upload, or drive an external system, and they never change task evidence or
+`complete` — the evidence gate passes or fails identically whether these ledgers
+are present or absent. Both verbs are kept out of the general MCP palette.
+
+### `release`
+```
+specd release candidate <spec> --artifact-digest <d> --sbom-ref <r> --provenance-ref <r>
+```
+Freeze an immutable, reproducible release-candidate identity — spec revision, git
+HEAD, evidence-set digest, artifact digest, SBOM/provenance refs, and bootstrap
+digest — into `.specd/specs/<spec>/releases.jsonl`. The candidate id is a content
+address of those inputs, so identical inputs re-freeze idempotently. Builds and
+uploads nothing. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--artifact-digest` | string | Content digest of the already-built artifact (a reference; release never builds). |
+| `--sbom-ref` | string | Reference to the artifact's SBOM. |
+| `--provenance-ref` | string | Reference to the artifact's provenance attestation. |
+
+```bash
+specd release candidate payments --artifact-digest sha256:abc --sbom-ref sbom://payments --provenance-ref prov://payments
+```
+
+### `deploy`
+```
+specd deploy <spec> --release <id> --environment <env> --adapter <a> --authority <auth> [--strategy <s>] [--population <p>] [--window <w>] [--idempotency-key <k>]
+```
+Append a monotonic deployment attempt to `.specd/specs/<spec>/deployments.jsonl`
+under the spec lock. The attempt binds the frozen candidate's git HEAD and
+artifact digest, so it can never claim an artifact the release did not freeze.
+Retries of the same release into the same environment share a deployment id and
+accrue monotonic attempts; a crash yields the prior complete record or one
+complete new record, never a partial or duplicate attempt. Drives no external
+system. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--release` | string | Frozen release-candidate id to deploy. |
+| `--environment` | string | Target environment (development\|staging\|production). |
+| `--adapter` | string | Deployment adapter name (a reference; core drives nothing). |
+| `--authority` | string | Authority under which the attempt is recorded. |
+| `--strategy` | string | Rollout strategy label. |
+| `--population` | string | Target population label. |
+| `--window` | string | Observation window label. |
+| `--idempotency-key` | string | Caller-supplied idempotency key for the attempt. |
+
+```bash
+specd deploy payments --release a1b2c3 --environment staging --adapter shell --authority ci
+```
+
+---
+
 ## Inspection
 
 ### `help`

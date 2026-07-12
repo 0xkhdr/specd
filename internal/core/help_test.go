@@ -10,8 +10,8 @@ import (
 )
 
 func TestHelpListsRegistryCommands(t *testing.T) {
-	if got := len(core.Commands); got != 24 {
-		t.Fatalf("len(core.Commands) = %d, want 24", got)
+	if got := len(core.Commands); got != 26 {
+		t.Fatalf("len(core.Commands) = %d, want 26", got)
 	}
 
 	var buf bytes.Buffer

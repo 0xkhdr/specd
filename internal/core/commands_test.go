@@ -53,7 +53,9 @@ func TestSpecSlugArgPositions(t *testing.T) {
 			continue
 		}
 		want := 0
-		if meta.Name == "brain" {
+		// Subcommand-first verbs carry their slug at argAt(1): `brain start <spec>`
+		// and `release candidate <spec>`. Every other slug-bearing verb reads argAt(0).
+		if meta.Name == "brain" || meta.Name == "release" {
 			want = 1
 		}
 		if got := *meta.SpecSlugArg; got != want {

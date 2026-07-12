@@ -418,6 +418,39 @@ var Commands = []Command{
 		Examples:      []string{"specd triage payments"},
 		Deferred:      true,
 	},
+	{
+		Name:          "release",
+		Usage:         "specd release candidate <spec> --artifact-digest <d> --sbom-ref <r> --provenance-ref <r>",
+		Description:   "Freeze an immutable, reproducible release candidate identity into releases.jsonl. Builds and uploads nothing.",
+		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(1),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd release candidate payments --artifact-digest sha256:abc --sbom-ref sbom://payments --provenance-ref prov://payments"},
+		Flags: []Flag{
+			{Name: "artifact-digest", TakesValue: true, Type: "string", Description: "Content digest of the already-built artifact (a reference; release never builds)."},
+			{Name: "sbom-ref", TakesValue: true, Type: "string", Description: "Reference to the artifact's SBOM."},
+			{Name: "provenance-ref", TakesValue: true, Type: "string", Description: "Reference to the artifact's provenance attestation."},
+		},
+	},
+	{
+		Name:          "deploy",
+		Usage:         "specd deploy <spec> --release <id> --environment <env> --adapter <a> --authority <auth> [--strategy <s>] [--population <p>] [--window <w>] [--idempotency-key <k>]",
+		Description:   "Append a monotonic deployment attempt to deployments.jsonl under the spec lock. Drives no external system.",
+		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd deploy payments --release a1b2c3 --environment staging --adapter shell --authority ci"},
+		Flags: []Flag{
+			{Name: "release", TakesValue: true, Type: "string", Description: "Frozen release-candidate id to deploy."},
+			{Name: "environment", TakesValue: true, Type: "string", Description: "Target environment (development|staging|production)."},
+			{Name: "adapter", TakesValue: true, Type: "string", Description: "Deployment adapter name (a reference; core drives nothing)."},
+			{Name: "authority", TakesValue: true, Type: "string", Description: "Authority under which the attempt is recorded."},
+			{Name: "strategy", TakesValue: true, Type: "string", Description: "Rollout strategy label."},
+			{Name: "population", TakesValue: true, Type: "string", Description: "Target population label."},
+			{Name: "window", TakesValue: true, Type: "string", Description: "Observation window label."},
+			{Name: "idempotency-key", TakesValue: true, Type: "string", Description: "Caller-supplied idempotency key for the attempt."},
+		},
+	},
 }
 
 // CommandNames returns command names in help order.

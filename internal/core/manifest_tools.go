@@ -45,7 +45,7 @@ type toolPolicyFile struct {
 
 func ForbiddenTool(name string) bool {
 	switch name {
-	case "approve", "brain", "decision", "init", "mcp", "memory", "report", "task":
+	case "approve", "brain", "decision", "deploy", "init", "mcp", "memory", "release", "report", "task":
 		return true
 	default:
 		return false
