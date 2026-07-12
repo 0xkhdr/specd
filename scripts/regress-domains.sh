@@ -28,6 +28,7 @@ SPECD="$RUN/specd"
 
 violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
+skip() { printf 'skip  %s  %s\n' "$1" "$2"; }
 
 # Domain 04 W3 has no CLI surface until W4. Pin its pure/offline production
 # policy now: risky writes reject shallow verify while read-only work remains
@@ -37,13 +38,25 @@ go test ./internal/core/gates -run '^TestQualityGateVerifyStrengthAndReadOnlyExc
 }
 pass 04-W3 "quality gate rejects shallow writes and exempts read-only work"
 
-# W0 — honesty: progress.md must obey its own wave-ordering invariant
-# ("a wave may start only when every spec in the prior wave is done"). In file
-# order, waves run top-to-bottom, so a `pending`/`in-progress` row must never
-# precede a `done` row. Pure text check — no binary, current program/wave format.
+# W0 — honesty: progress.md must obey its own wave-ordering invariant. Prove
+# the advertised input exists and parses before evaluating it: absent and
+# unparseable are failures, not vacuous passes.
+progress=${SPECD_PROGRESS_PATH:-$RUN/specs/progress.md}
+if [ ! -f "$progress" ]; then
+	if [ "${SPECD_PROGRESS_POLICY:-required}" = "optional" ]; then
+		skip W0 "not applicable by optional-input policy: progress.md absent"
+	else
+		violation W0 "input absent: progress.md"
+	fi
+else
 w0_seen_incomplete=0
 w0_bad=0
-w0_rows=$(awk -F'|' 'NF>=5 { s=$4; gsub(/^[ \t]+|[ \t]+$/, "", s); if (s=="pending"||s=="in-progress"||s=="done") print s }' "$RUN/specs/progress.md")
+w0_rows=$(awk '
+/^- \[[x ]\] / {
+	if (substr($0, 4, 1) == "x") print "done"
+	else print "pending"
+}' "$progress")
+[ -n "$w0_rows" ] || violation W0 "input unparseable: progress.md has no wave rows"
 while IFS= read -r st; do
 	case "$st" in
 		pending|in-progress) w0_seen_incomplete=1 ;;
@@ -54,14 +67,9 @@ $w0_rows
 EOF
 if [ "$w0_bad" -ne 0 ]; then
 	violation W0 "progress.md marks a later wave done while an earlier wave is pending"
-elif [ -z "$w0_rows" ]; then
-	# 08a/T04: reproduce the documented fail-open. This advertised honesty check
-	# parses a `| ... | done |` table cell, but progress.md now uses `[x]`/`[ ]`
-	# checkbox rows — so its input absent, and the check still reports a pass
-	# instead of failing or skipping. 08e/T22 replaces this line with a fail/skip.
-	pass W0 "progress.md wave ordering honest (input absent: fail-open reproduced)"
 else
-	pass W0 "progress.md wave ordering honest"
+	pass W0 "input parsed; progress.md wave ordering honest"
+fi
 fi
 
 # W1 — enum enforcement (spec 03 R3): an out-of-enum flag value must be refused.

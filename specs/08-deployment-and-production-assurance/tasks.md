@@ -79,11 +79,11 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T20 | craftsman | new `scripts/production-smoke.sh` | T08 | `bash scripts/production-smoke.sh` | R4.1 empty repo → full documented lifecycle via CLI |
-| T21 | craftsman | `scripts/production-smoke.sh` (deliberately invalid step) | T20 | `bash scripts/production-smoke.sh --negative; test $? -eq 0` | R4.1 invalid step fails closed w/ next action |
-| T22 | craftsman | `scripts/regress-domains.sh` (prove input exists) | T04 | `bash scripts/regress-domains.sh` | R4.2 absent input → fail/skip, never pass |
-| T23 | craftsman | `.github/workflows/ci.yml`; `internal/integration` | T20 | `go test ./internal/integration -run TestProductionSmokeLane -count=1` | R4.1 CI lane wired |
-| T24 | craftsman | `TESTING.md` | T22 | `./scripts/docs-lint.sh` | R4.2 declared skip policy documented |
+| [x] T20 | craftsman | new `scripts/production-smoke.sh` | T08 | `bash scripts/production-smoke.sh` | R4.1 empty repo → full documented lifecycle via CLI |
+| [x] T21 | craftsman | `scripts/production-smoke.sh` (deliberately invalid step) | T20 | `bash scripts/production-smoke.sh --negative; test $? -eq 0` | R4.1 invalid step fails closed w/ next action |
+| [x] T22 | craftsman | `scripts/regress-domains.sh` (prove input exists) | T04 | `bash scripts/regress-domains.sh` | R4.2 absent input → fail/skip, never pass |
+| [x] T23 | craftsman | `.github/workflows/ci.yml`; `internal/integration` | T20 | `go test ./internal/integration -run TestProductionSmokeLane -count=1` | R4.1 CI lane wired |
+| [x] T24 | craftsman | `TESTING.md` | T22 | `./scripts/docs-lint.sh` | R4.2 declared skip policy documented |
 
 ## W5 — `08f-release-install-upgrade-hardening` (requires 08b)
 

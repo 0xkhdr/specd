@@ -10,10 +10,26 @@ points at.
 go test ./... -race -count=1      # full suite, as CI runs it
 go test ./... -count=2            # order/iteration-order dependence catch (F4)
 go test ./internal/cmd -run TestLifecycleE2E -count=1   # one test by name
+./scripts/production-smoke.sh                           # installed lifecycle lane
 ```
 
 CI runs `-race -count=1` and `-count=2` on `{ubuntu, macos} × {go 1.26.x, stable}`. Both legs must
 be green before merge.
+
+### Installed production lifecycle
+
+`scripts/production-smoke.sh` starts from an empty temporary Git repository and drives an installed
+binary through `init`, `new`, approvals, `context`, `verify`, task completion, `review`, and
+`submit`. It first attempts an invalid phase jump and requires both a non-zero exit and the
+documented next gate. Use `SPECD_BIN=/absolute/path/to/specd` to test an already-built binary;
+otherwise the script builds one from the current checkout. `--negative` stops after proving the
+fail-closed step.
+
+Regression prerequisites are required by default. `scripts/regress-domains.sh` reports three states
+distinctly: `input absent` or `input unparseable` fails; a parsed invariant prints `ok`; an absent
+input explicitly declared optional with `SPECD_PROGRESS_POLICY=optional` prints `skip` and
+`not applicable`. The optional policy is for distributions that intentionally omit planning specs;
+repository wave and release gates use required policy and may not set it.
 
 ### The `-count=2` leg (order-dependence)
 

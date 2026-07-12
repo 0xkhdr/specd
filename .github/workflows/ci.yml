@@ -127,6 +127,12 @@ jobs:
       - name: perf-gate
         run: ./scripts/perf-gate.sh
 
+      - name: installed production lifecycle smoke
+        if: matrix.os != 'windows-latest'
+        run: |
+          go build -o "$RUNNER_TEMP/specd" .
+          SPECD_BIN="$RUNNER_TEMP/specd" ./scripts/production-smoke.sh
+
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
         uses: codecov/codecov-action@v5
