@@ -43,8 +43,11 @@ type CheckCtx struct {
 	// Criteria gate inputs (spec 04 R6, opt-in). CriteriaRequired mirrors
 	// config criteria.required; CriteriaUnmet lists acceptance-criterion ids
 	// with no current passing record. Both zero ⇒ gate disabled.
-	CriteriaRequired bool
-	CriteriaUnmet    []string
+	CriteriaRequired        bool
+	CriteriaUnmet           []string
+	CoverageGaps            []string
+	IntegrationEvidenceGaps []string
+	ProductionPolicy        bool
 
 	// Review gate inputs (spec 09 R3/R4/R5, opt-in). ReviewRequired mirrors
 	// config review.required. The caller reads review_report.md, parses it, and
@@ -106,6 +109,8 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "criteria", run: criteriaGate})
 	registry.Register(gateFunc{name: "review", run: reviewGate})
 	registry.Register(gateFunc{name: "task-trace", run: taskTrace})
+	registry.Register(gateFunc{name: "coverage", run: coverageGate})
+	registry.Register(gateFunc{name: "evidence-policy", run: evidencePolicyGate})
 	return registry
 }
 

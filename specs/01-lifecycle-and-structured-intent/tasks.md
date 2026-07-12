@@ -46,11 +46,13 @@
 
 ## W3 — Coverage gates
 
+**W3 implementation deviations:** current gate registration and `CheckCtx` inputs live in `internal/core/gates/core.go`; gate bodies live in `internal/core/gates/approval.go`; lifecycle context derivation lives in `internal/cmd/registry.go`; registry-count docs updated for gate parity. These existing ownership boundaries are required to wire declared `criteria.go`/`registry.go` contracts without duplicate gate state.
+
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T14 | craftsman | internal/core/coverage.go; internal/core/coverage_test.go; internal/core/gates/criteria.go; internal/core/gates/criteria_test.go | T12 | go test ./internal/core ./internal/core/gates -run 'TestCoverage\|TestCriteria' | R3.2 requirement/design/task graph |
-| [ ] T15 | craftsman | internal/core/evidence_policy.go; internal/core/evidence_policy_test.go; internal/core/gates/registry.go; internal/core/gates/registry_test.go | T14,T05 | go test ./internal/core ./internal/core/gates -run 'TestEvidencePolicy\|TestRegistry' | R3.3 deterministic boundary policy |
-| [ ] T16 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/e2e_test.go | T14,T15 | go test ./internal/cmd -run 'TestLifecycle\|TestCoverage' | execution approval blocks coverage gap |
+| [x] T14 | craftsman | internal/core/coverage.go; internal/core/coverage_test.go; internal/core/gates/criteria.go; internal/core/gates/criteria_test.go | T12 | go test ./internal/core ./internal/core/gates -run 'TestCoverage\|TestCriteria' | R3.2 requirement/design/task graph |
+| [x] T15 | craftsman | internal/core/evidence_policy.go; internal/core/evidence_policy_test.go; internal/core/gates/registry.go; internal/core/gates/registry_test.go | T14,T05 | go test ./internal/core ./internal/core/gates -run 'TestEvidencePolicy\|TestRegistry' | R3.3 deterministic boundary policy |
+| [x] T16 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/e2e_test.go | T14,T15 | go test ./internal/cmd -run 'TestLifecycle\|TestCoverage' | execution approval blocks coverage gap |
 
 ## W4 — Amendment staleness
 

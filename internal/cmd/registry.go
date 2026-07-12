@@ -955,6 +955,7 @@ func loadSpec(root, slug string) (specData, error) {
 // the machine-truth task status. approveTarget is the gate under approval
 // ("design" arms the design-stub gate); "" for a plain check.
 func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates.CheckCtx {
+	cfg := loadSpecConfig(root)
 	ctx := gates.CheckCtx{
 		Root:             root,
 		Slug:             slug,
@@ -964,15 +965,22 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 		MaxContextTokens: contextBudget(root),
 		ApproveTarget:    approveTarget,
 		RequirementsStub: requirementsStub(slug),
-		TrivialVerify:    loadSpecConfig(root).Verify.Trivial,
+		TrivialVerify:    cfg.Verify.Trivial,
+		ProductionPolicy: cfg.Security.Profile == "production",
 	}
 	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	if b, err := os.ReadFile(filepath.Join(dir, "requirements.md")); err == nil {
 		ctx.RequirementsDoc = string(b)
 	}
-	if approveTarget == "design" {
-		if b, err := os.ReadFile(filepath.Join(dir, "design.md")); err == nil {
-			ctx.DesignDoc = string(b)
+	if b, err := os.ReadFile(filepath.Join(dir, "design.md")); err == nil {
+		ctx.DesignDoc = string(b)
+		if approveTarget == string(core.StatusExecuting) && core.HasTaskTrace(ctx.Tasks) {
+			if requirements, parseErr := core.ParseRequirements([]byte(ctx.RequirementsDoc)); parseErr == nil {
+				ctx.CoverageGaps = coverageGaps(requirements, ctx.DesignDoc, ctx.Tasks)
+			}
+		}
+		if approveTarget == string(core.StatusExecuting) {
+			ctx.IntegrationEvidenceGaps = evidencePolicyGaps(ctx.DesignDoc, ctx.Tasks, ctx.ProductionPolicy)
 		}
 		ctx.DesignStub = designStub(slug)
 	}
@@ -995,6 +1003,38 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 		}
 	}
 	return ctx
+}
+
+func coverageGaps(requirements core.RequirementsDoc, designRaw string, tasks []core.TaskRow) []string {
+	findings := core.AnalyzeCoverage(requirements, core.ParseDesign([]byte(designRaw)), tasks)
+	gaps := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		if finding.Requirement != "" {
+			gaps = append(gaps, finding.Requirement)
+		}
+	}
+	return dedupStrings(gaps)
+}
+
+func evidencePolicyGaps(designRaw string, tasks []core.TaskRow, production bool) []string {
+	findings := core.BoundaryEvidenceFindings(core.ParseDesign([]byte(designRaw)), tasks, production)
+	gaps := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		gaps = append(gaps, finding.Message)
+	}
+	return gaps
+}
+
+func dedupStrings(values []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if !seen[value] {
+			seen[value] = true
+			out = append(out, value)
+		}
+	}
+	return out
 }
 
 // applyReviewInputs reads and parses review_report.md into the gate context for

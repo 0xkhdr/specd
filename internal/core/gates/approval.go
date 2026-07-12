@@ -75,6 +75,45 @@ func criteriaGate(ctx CheckCtx) []Finding {
 	}}
 }
 
+func coverageGate(ctx CheckCtx) []Finding {
+	if ctx.ApproveTarget != string(core.StatusExecuting) || !core.HasTaskTrace(ctx.Tasks) {
+		return nil
+	}
+	gaps := ctx.CoverageGaps
+	if len(gaps) == 0 {
+		requirements, err := core.ParseRequirements([]byte(ctx.RequirementsDoc))
+		if err != nil {
+			return nil
+		}
+		for _, finding := range core.AnalyzeCoverage(requirements, core.ParseDesign([]byte(ctx.DesignDoc)), ctx.Tasks) {
+			if finding.Requirement != "" {
+				gaps = append(gaps, finding.Requirement)
+			}
+		}
+	}
+	if len(gaps) == 0 {
+		return nil
+	}
+	return []Finding{{Severity: Error, Message: "coverage: approved requirement(s) without an implementing task or deferred disposition: " + strings.Join(gaps, ", ")}}
+}
+
+func evidencePolicyGate(ctx CheckCtx) []Finding {
+	if ctx.ApproveTarget != string(core.StatusExecuting) {
+		return nil
+	}
+	gaps := ctx.IntegrationEvidenceGaps
+	if len(gaps) == 0 {
+		for _, finding := range core.BoundaryEvidenceFindings(core.ParseDesign([]byte(ctx.DesignDoc)), ctx.Tasks, ctx.ProductionPolicy) {
+			gaps = append(gaps, finding.Message)
+		}
+	}
+	findings := make([]Finding, 0, len(gaps))
+	for _, gap := range gaps {
+		findings = append(findings, Finding{Severity: Error, Message: "evidence-policy: " + gap})
+	}
+	return findings
+}
+
 // firstEmptySection reports the first "## " heading with no non-blank content
 // before the next heading or EOF.
 func firstEmptySection(doc string) (string, bool) {
