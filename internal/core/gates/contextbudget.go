@@ -12,15 +12,14 @@ func contextBudget(ctx CheckCtx) []Finding {
 	}
 	var findings []Finding
 	for _, task := range ctx.Tasks {
-		manifest, err := speccontext.BuildManifest(ctx.Root, ctx.Slug, ctx.Tasks, task.ID, ctx.MaxContextTokens)
-		if err != nil {
-			findings = append(findings, Finding{Severity: Error, Message: err.Error()})
-			continue
-		}
-		if manifest.EstimatedTokens > ctx.MaxContextTokens {
+		// R3.2: BuildManifest fails closed when the required set exceeds budget,
+		// carrying the concise remediation (decompose / narrow declared files). A
+		// successful build already fits budget — optional items shed, required
+		// items never truncated — so the error is the only over-budget signal.
+		if _, err := speccontext.BuildManifest(ctx.Root, ctx.Slug, ctx.Tasks, task.ID, ctx.MaxContextTokens); err != nil {
 			findings = append(findings, Finding{
 				Severity: Error,
-				Message:  fmt.Sprintf("%s context estimate %d exceeds budget %d", task.ID, manifest.EstimatedTokens, ctx.MaxContextTokens),
+				Message:  fmt.Sprintf("%s: %s", task.ID, err.Error()),
 			})
 		}
 	}

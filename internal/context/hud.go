@@ -29,10 +29,11 @@ func RenderHUD(m Manifest) string {
 	return b.String()
 }
 
-// itemBytes is the byte length of the exact string the estimator consumed for
-// this item, so tokens == (bytes+3)/4 holds by construction.
+// itemBytes is the payload the estimator counted for this item — the on-disk
+// file size for path-backed items (R3.1), else the metadata string length — so
+// tokens == (bytes+3)/4 holds by construction.
 func itemBytes(item Item) int {
-	return len(item.Kind + item.Path + item.TaskID)
+	return item.Bytes
 }
 
 func itemLabel(item Item) string {

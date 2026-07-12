@@ -1,6 +1,24 @@
 package context
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
+)
+
+func writeUnder(t *testing.T, root, rel string, n int) {
+	t.Helper()
+	full := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(strings.Repeat("x", n)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // TestCheckBudgetDisabledDoesNoWork pins invariant A4: when the context budget
 // is disabled (maxTokens <= 0), CheckBudget short-circuits and does no budget
@@ -68,20 +86,36 @@ func TestEnforceBudgetV2(t *testing.T) {
 	}
 }
 
-// TestBudgetUnderestimatesPayload characterizes the W0 gap W3 (R3.1) closes:
-// ManifestBudget counts only each item's declared EstimatedTokens plus its
-// short kind/path strings — it never reads the referenced file. So an item with
-// EstimatedTokens=0 pointing at a large design.md/source file contributes only
-// its path length, grossly underestimating the real context payload. When W3
-// lands, the estimate accounts for the bytes the contract actually loads.
-func TestBudgetUnderestimatesPayload(t *testing.T) {
-	m := Manifest{
-		Slug:   "demo",
-		TaskID: "T1",
-		Mode:   "craftsman",
-		Items:  []Item{{Kind: "design", Path: "specs/demo/design.md", EstimatedTokens: 0}},
+// TestBudgetAccountsForPayload closes the W0 gap W3 (R3.1) named: the estimate
+// now covers the bytes the contract actually loads — design.md and the declared
+// source files — not just the path string. A 4000-byte design.md (~1000 tokens)
+// plus a 2000-byte declared source file (~500 tokens) must dominate the estimate.
+func TestBudgetAccountsForPayload(t *testing.T) {
+	root := t.TempDir()
+	writeUnder(t, root, ".specd/specs/demo/design.md", 4000)
+	writeUnder(t, root, "impl.go", 2000)
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"impl.go"}}}
+
+	m, err := BuildManifest(root, "demo", tasks, "T1", 0)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
 	}
-	if got := ManifestBudget(m); got > 100 {
-		t.Fatalf("W0 gap closed early: budget %d already accounts for file payload", got)
+	if m.EstimatedTokens < 1400 {
+		t.Fatalf("estimate %d ignores file payload (design.md + impl.go ~1500 tokens)", m.EstimatedTokens)
+	}
+	var design, impl Item
+	for _, it := range m.Items {
+		switch {
+		case it.Kind == "design":
+			design = it
+		case it.Path == "impl.go":
+			impl = it
+		}
+	}
+	if design.EstimatedTokens < 900 {
+		t.Fatalf("design estimate %d underestimates a 4000-byte design.md", design.EstimatedTokens)
+	}
+	if impl.EstimatedTokens < 450 {
+		t.Fatalf("declared-file estimate %d underestimates a 2000-byte source file", impl.EstimatedTokens)
 	}
 }

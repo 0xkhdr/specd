@@ -78,9 +78,39 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T10 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/budget.go; internal/context/budget_test.go | T02, Domain 02 context | go test ./internal/context -run 'Test(Manifest|Budget)' | estimate covers bytes contract loads incl `design.md` + declared source files; repeated manifest byte-identical R3.1,R3.4 |
-| [ ] T11 | craftsman | internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go; internal/context/manifest.go | T10 | go test ./internal/core/gates ./internal/context -run 'Test(ContextBudget|Manifest)' | required item never silently dropped; over-budget required set fails with concise remediation; safety rules cannot be budgeted out R3.2 |
-| [ ] T12 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/perf_test.go; scripts/perf-gate.sh | T11 | go test ./internal/context -run 'Test(Manifest|Perf)' && ./scripts/perf-gate.sh | estimated/host-reported/provider-billed distinct fields; canonical `context_manifest_digest`; supplied vs omitted items+reasons; host ack recorded R3.3,R3.4 |
+| [x] T10 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/budget.go; internal/context/budget_test.go | T02, Domain 02 context | go test ./internal/context -run 'Test(Manifest|Budget)' | estimate covers bytes contract loads incl `design.md` + declared source files; repeated manifest byte-identical R3.1,R3.4 |
+| [x] T11 | craftsman | internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go; internal/context/manifest.go | T10 | go test ./internal/core/gates ./internal/context -run 'Test(ContextBudget|Manifest)' | required item never silently dropped; over-budget required set fails with concise remediation; safety rules cannot be budgeted out R3.2 |
+| [x] T12 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/perf_test.go; scripts/perf-gate.sh | T11 | go test ./internal/context -run 'Test(Manifest|Perf)' && ./scripts/perf-gate.sh | estimated/host-reported/provider-billed distinct fields; canonical `context_manifest_digest`; supplied vs omitted items+reasons; host ack recorded R3.3,R3.4 |
+
+> **W3 deviations (subtractive bias, backward-compat).**
+> - T10 `budget.go` **not edited**: the underestimate lived in `BuildManifest`,
+>   which set each item's `EstimatedTokens` from the path string, not the file.
+>   The fix populates `Item.Bytes`/`EstimatedTokens` from real on-disk size
+>   (`fileBytes`) at build time (R3.1); `ManifestBudget` already sums those, so
+>   the pure struct function needed no change. `TestBudgetUnderestimatesPayload`
+>   became `TestBudgetAccountsForPayload`, asserting the payload-aware estimate
+>   through `BuildManifest`. Added `TestManifestByteIdentical` for R3.4.
+> - T11 fail-closed is scoped to the **required core** set (spec/design/tasks/
+>   task/role + declared files): if it alone exceeds budget, `BuildManifest`
+>   returns `BudgetError` with the concise remediation (never silently truncated).
+>   The steering-constitution / memory **drop order stays as domain-02 R4.3
+>   defines it** (memory sheds before steering) — `TestSteeringInManifest`'s
+>   tight-budget contract is preserved (gotcha b: no new default strictness that
+>   breaks legacy behavior). "Safety rules cannot be budgeted out" is realized as
+>   the required action set failing closed, not by protecting steering.
+>   `TestBuildManifestRequiredOverflowBaseline` flipped to
+>   `TestBuildManifestRequiredOverflowFailsClosed`; the gate surfaces the
+>   `BudgetError` verbatim (redundant second estimate check removed).
+> - T12 accounting realized as a separate `ContextAccountingV1` ledger
+>   (`BuildAccounting`, `RecordHostAck`) with distinct estimated / host-reported /
+>   provider-billed fields — the latter two default to `nil` (unknown, never
+>   zero) — plus a canonical `context_manifest_digest` and supplied/omitted
+>   items+reasons (R3.3,R3.4). The digest lives on the ledger, **not** embedded in
+>   the base `Manifest`, so W5/W6's manifest-receipt baseline
+>   (`TestBuildManifestNoReceiptBaseline`) stays valid. `Manifest.Notes` (unread)
+>   was replaced by typed `Omissions`. `perf-gate.sh` unchanged; the perf pin
+>   `TestPerfManifestDigestStable` proves byte-stable digest + payload-aware
+>   estimate with no file-read amplification.
 
 ## W4 — honest cost brake
 

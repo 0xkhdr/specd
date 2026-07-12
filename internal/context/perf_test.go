@@ -1,6 +1,8 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -50,6 +52,38 @@ func TestBuildManifestNoN1FileReads(t *testing.T) {
 	}
 	if len(small.Items) != len(large.Items) {
 		t.Fatalf("manifest item count grew with task count (%d vs %d) — N+1 amplification", len(small.Items), len(large.Items))
+	}
+}
+
+// TestPerfManifestDigestStable (W3 T12, R3.4) proves the payload-aware estimate
+// and canonical digest are byte-stable and do not amplify file reads: building
+// the same manifest twice over a real design.md yields an identical accounting
+// digest, and the estimate reflects the file payload rather than the path string.
+func TestPerfManifestDigestStable(t *testing.T) {
+	root := t.TempDir()
+	design := filepath.Join(root, ".specd", "specs", "demo", "design.md")
+	if err := os.MkdirAll(filepath.Dir(design), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(design, make([]byte, 4000), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tasks := manifestTasks(3)
+	first, err := BuildManifest(root, "demo", tasks, "T0", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := BuildManifest(root, "demo", tasks, "T0", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d1 := BuildAccounting(first).ContextManifestDigest
+	d2 := BuildAccounting(second).ContextManifestDigest
+	if d1 == "" || d1 != d2 {
+		t.Fatalf("manifest digest unstable: %q vs %q", d1, d2)
+	}
+	if first.EstimatedTokens < 900 {
+		t.Fatalf("estimate %d ignores the 4000-byte design.md payload", first.EstimatedTokens)
 	}
 }
 

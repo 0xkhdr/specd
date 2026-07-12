@@ -32,17 +32,18 @@ type Item struct {
 	Acceptance      string `json:"acceptance,omitempty"`
 	Required        bool   `json:"required,omitempty"`
 	Mode            string `json:"mode,omitempty"`
+	Bytes           int    `json:"bytes,omitempty"`
 	EstimatedTokens int    `json:"estimated_tokens"`
 }
 
 type Manifest struct {
-	Version         string   `json:"version"`
-	Mode            string   `json:"mode"`
-	Slug            string   `json:"slug"`
-	TaskID          string   `json:"task_id"`
-	Items           []Item   `json:"items"`
-	Notes           []string `json:"notes,omitempty"`
-	EstimatedTokens int      `json:"estimated_tokens"`
+	Version         string     `json:"version"`
+	Mode            string     `json:"mode"`
+	Slug            string     `json:"slug"`
+	TaskID          string     `json:"task_id"`
+	Items           []Item     `json:"items"`
+	Omissions       []Omission `json:"omissions,omitempty"`
+	EstimatedTokens int        `json:"estimated_tokens"`
 }
 
 // BuildManifest assembles the context references for one task. The steering
@@ -71,7 +72,14 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 		items = append(items, Item{Kind: kind, Path: file, Required: true})
 	}
 	for i := range items {
-		items[i].EstimatedTokens = EstimateText(items[i].Kind + items[i].Path + items[i].TaskID)
+		if items[i].Path != "" {
+			// R3.1: the estimate covers the bytes the contract actually loads
+			// (design.md, declared source/test files), not just the path string.
+			items[i].Bytes = int(fileBytes(filepath.Join(root, filepath.FromSlash(items[i].Path))))
+		} else {
+			items[i].Bytes = len(items[i].Kind + items[i].TaskID)
+		}
+		items[i].EstimatedTokens = tokensFromBytes(int64(items[i].Bytes))
 	}
 	items = append(items, steeringItems(root, slug)...)
 	sort.SliceStable(items, func(i, j int) bool {
@@ -83,8 +91,22 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 		}
 		return items[i].Kind < items[j].Kind
 	})
-	items, notes := enforceBudget(items, maxTokens)
-	manifest := Manifest{Version: ManifestVersion, Mode: mode, Slug: slug, TaskID: taskID, Items: items, Notes: notes}
+	// R3.2: the required set is never silently truncated. If the required core
+	// (spec/design/tasks/task/role + declared files) alone exceeds the budget,
+	// fail closed with a concise remediation instead of dropping a required item.
+	if maxTokens > 0 {
+		required := 0
+		for _, item := range items {
+			if item.Required {
+				required += item.EstimatedTokens
+			}
+		}
+		if required > maxTokens {
+			return Manifest{}, BudgetError{RequiredTokens: required, Budget: maxTokens}
+		}
+	}
+	items, omissions := enforceBudget(items, maxTokens)
+	manifest := Manifest{Version: ManifestVersion, Mode: mode, Slug: slug, TaskID: taskID, Items: items, Omissions: omissions}
 	for _, item := range items {
 		manifest.EstimatedTokens += item.EstimatedTokens
 	}
@@ -110,21 +132,24 @@ func steeringItems(root, slug string) []Item {
 		if entry.Name() == "memory.md" {
 			kind, mode = "memory", "reference-if-needed"
 		}
-		items = append(items, Item{Kind: kind, Path: rel, Mode: mode, EstimatedTokens: estimateFile(filepath.Join(root, rel))})
+		nbytes := fileBytes(filepath.Join(root, rel))
+		items = append(items, Item{Kind: kind, Path: rel, Mode: mode, Bytes: int(nbytes), EstimatedTokens: tokensFromBytes(nbytes)})
 	}
 	specMem := filepath.Join(".specd", "specs", slug, "memory.md")
 	if fi, err := os.Stat(filepath.Join(root, specMem)); err == nil && !fi.IsDir() {
-		items = append(items, Item{Kind: "memory", Path: filepath.ToSlash(specMem), Mode: "reference-if-needed", EstimatedTokens: tokensFromBytes(fi.Size())})
+		items = append(items, Item{Kind: "memory", Path: filepath.ToSlash(specMem), Mode: "reference-if-needed", Bytes: int(fi.Size()), EstimatedTokens: tokensFromBytes(fi.Size())})
 	}
 	return items
 }
 
-func estimateFile(path string) int {
+// fileBytes reports the on-disk size of path, or 0 when it is missing or a
+// directory. It is the single source of the payload the context estimate counts.
+func fileBytes(path string) int64 {
 	fi, err := os.Stat(path)
 	if err != nil || fi.IsDir() {
 		return 0
 	}
-	return tokensFromBytes(fi.Size())
+	return fi.Size()
 }
 
 func tokensFromBytes(n int64) int { return int((n + 3) / 4) }
@@ -133,7 +158,7 @@ func tokensFromBytes(n int64) int { return int((n + 3) / 4) }
 // steering (constitution wins). Core items (spec/tasks/task/role) are never
 // dropped. Deterministic: items arrive sorted, droppable ones removed from the
 // end. Returns the surviving items and one note per drop.
-func enforceBudget(items []Item, maxTokens int) ([]Item, []string) {
+func enforceBudget(items []Item, maxTokens int) ([]Item, []Omission) {
 	if maxTokens <= 0 {
 		return items, nil
 	}
@@ -141,17 +166,21 @@ func enforceBudget(items []Item, maxTokens int) ([]Item, []string) {
 	for _, item := range items {
 		total += item.EstimatedTokens
 	}
-	var notes []string
+	var omissions []Omission
 	for total > maxTokens {
 		idx := lastDroppable(items)
 		if idx < 0 {
 			break
 		}
 		total -= items[idx].EstimatedTokens
-		notes = append(notes, fmt.Sprintf("dropped %s (%s) over context budget", items[idx].Path, items[idx].Kind))
+		omissions = append(omissions, Omission{
+			Kind:   items[idx].Kind,
+			Source: items[idx].Path,
+			Reason: "shed over context budget (reference-if-needed)",
+		})
 		items = append(items[:idx], items[idx+1:]...)
 	}
-	return items, notes
+	return items, omissions
 }
 
 // lastDroppable returns the index of the last memory item, else the last
@@ -227,6 +256,82 @@ func findTask(tasks []core.TaskRow, taskID string) (core.TaskRow, bool) {
 		}
 	}
 	return core.TaskRow{}, false
+}
+
+// --- Context accounting (W3 T12, R3.3/R3.4) ----------------------------------
+//
+// The three context-cost quantities stay distinct and are never merged into one
+// authoritative number (cross-wave rule): the harness's local estimate, the
+// host's reported actual load, and the provider's billed usage. Host-reported
+// and provider-billed default to unknown (nil), never zero — an absent
+// measurement must read as "unknown", not "free".
+
+// AccountedItem is one supplied context reference with its estimated cost.
+type AccountedItem struct {
+	Kind            string `json:"kind"`
+	Ref             string `json:"ref,omitempty"`
+	EstimatedTokens int    `json:"estimated_tokens"`
+}
+
+// HostAck records the host's acknowledgement of the manifest it actually loaded:
+// the digest it echoed back and the token count it reported. It is a separate,
+// host-attributed quantity that never overwrites the harness estimate.
+type HostAck struct {
+	ManifestDigest string `json:"manifest_digest"`
+	ReportedTokens int    `json:"reported_tokens"`
+}
+
+// ContextAccountingV1 is the honest per-task context ledger (R3.3): estimated,
+// host-reported, and provider-billed tokens as distinct fields, the canonical
+// manifest digest, and the supplied vs. omitted items with reasons.
+type ContextAccountingV1 struct {
+	Slug                    string          `json:"slug"`
+	TaskID                  string          `json:"task_id"`
+	EstimatedInputTokens    int             `json:"estimated_input_tokens"`
+	HostReportedInputTokens *int            `json:"host_reported_input_tokens,omitempty"`
+	ProviderBilledTokens    *int            `json:"provider_billed_tokens,omitempty"`
+	ContextManifestDigest   string          `json:"context_manifest_digest"`
+	SuppliedItems           []AccountedItem `json:"supplied_items"`
+	OmittedItems            []Omission      `json:"omitted_items,omitempty"`
+	HostAck                 *HostAck        `json:"host_ack,omitempty"`
+}
+
+// ManifestDigest is the canonical SHA-256 over a built manifest. BuildManifest
+// already emits items in a deterministic total order, so the digest is stable
+// across identical builds (R3.4). The manifest carries no digest field of its
+// own (the manifest receipt is W5/W6's surface), so there is no self-reference.
+func ManifestDigest(m Manifest) string {
+	raw, _ := json.Marshal(m)
+	return core.Digest(raw)
+}
+
+// BuildAccounting derives the context ledger from a built manifest. Only the
+// harness estimate is known at build time; host-reported and provider-billed
+// stay unknown until RecordHostAck / an adapter supplies them.
+func BuildAccounting(m Manifest) ContextAccountingV1 {
+	acc := ContextAccountingV1{
+		Slug:                  m.Slug,
+		TaskID:                m.TaskID,
+		EstimatedInputTokens:  m.EstimatedTokens,
+		ContextManifestDigest: ManifestDigest(m),
+		OmittedItems:          m.Omissions,
+	}
+	for _, item := range m.Items {
+		ref := item.Path
+		if ref == "" {
+			ref = item.TaskID
+		}
+		acc.SuppliedItems = append(acc.SuppliedItems, AccountedItem{Kind: item.Kind, Ref: ref, EstimatedTokens: item.EstimatedTokens})
+	}
+	return acc
+}
+
+// RecordHostAck records the host's acknowledgement as the host-reported
+// quantity, kept distinct from the estimate and the provider-billed total.
+func (a *ContextAccountingV1) RecordHostAck(ack HostAck) {
+	a.HostAck = &ack
+	tokens := ack.ReportedTokens
+	a.HostReportedInputTokens = &tokens
 }
 
 // --- Typed manifest V2 (Domain 02 W1) ----------------------------------------

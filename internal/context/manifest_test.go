@@ -2,6 +2,8 @@ package context
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -199,24 +201,118 @@ func TestBuildManifestUsesRuntimeSpecRoot(t *testing.T) {
 	}
 }
 
-// TestBuildManifestRequiredOverflowBaseline (R8/R3.2) pins the false-pass: when
-// the required core exceeds the token budget, BuildManifest neither drops a core
-// item nor errors — the overflow survives silently. W3 flips this to a
-// fail-closed decomposition finding.
-func TestBuildManifestRequiredOverflowBaseline(t *testing.T) {
-	m, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 1)
-	if err != nil {
-		t.Fatalf("baseline expected silent survival, got error: %v — update this baseline in W3", err)
+// TestBuildManifestRequiredOverflowFailsClosed (R3.2): when the required core
+// exceeds the token budget, BuildManifest fails closed with a BudgetError that
+// names the concise remediation — it never silently truncates a required item.
+func TestBuildManifestRequiredOverflowFailsClosed(t *testing.T) {
+	_, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "craftsman"}}, "T1", 1)
+	be, ok := err.(BudgetError)
+	if !ok {
+		t.Fatalf("required overflow must fail closed with BudgetError, got %v", err)
 	}
-	n := 0
-	for _, it := range m.Items {
-		switch it.Kind {
-		case "spec", "tasks", "task", "role":
-			n++
+	if be.Budget != 1 || be.RequiredTokens <= 1 {
+		t.Fatalf("BudgetError = %+v", be)
+	}
+	for _, want := range []string{"exceeds budget", "decompose", "narrow declared files"} {
+		if !strings.Contains(be.Error(), want) {
+			t.Fatalf("remediation missing %q: %s", want, be.Error())
 		}
 	}
-	if n != 4 {
-		t.Fatalf("baseline expected all 4 core items to survive overflow, got %d", n)
+}
+
+// TestManifestByteIdentical (R3.4): identical inputs yield a byte-identical
+// manifest and a stable canonical digest across repeated builds.
+func TestManifestByteIdentical(t *testing.T) {
+	root := t.TempDir()
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go", "a_test.go"}}}
+	a, err := BuildManifest(root, "demo", tasks, "T1", 0)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	b, err := BuildManifest(root, "demo", tasks, "T1", 0)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	ra, _ := json.Marshal(a)
+	rb, _ := json.Marshal(b)
+	if string(ra) != string(rb) {
+		t.Fatalf("manifest not byte-identical:\n%s\n%s", ra, rb)
+	}
+	if ManifestDigest(a) != ManifestDigest(b) || ManifestDigest(a) == "" {
+		t.Fatalf("manifest digest unstable: %q vs %q", ManifestDigest(a), ManifestDigest(b))
+	}
+}
+
+// TestManifestAccountingDistinctQuantities (R3.3): the estimate, host-reported,
+// and provider-billed tokens are distinct fields; host-reported and
+// provider-billed default to unknown (nil), never zero; the ledger carries the
+// canonical digest and the supplied items, and RecordHostAck fills only the
+// host-reported quantity.
+func TestManifestAccountingDistinctQuantities(t *testing.T) {
+	root := t.TempDir()
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go"}}}
+	m, err := BuildManifest(root, "demo", tasks, "T1", 0)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	acc := BuildAccounting(m)
+	if acc.EstimatedInputTokens != m.EstimatedTokens {
+		t.Fatalf("estimate = %d, want %d", acc.EstimatedInputTokens, m.EstimatedTokens)
+	}
+	if acc.HostReportedInputTokens != nil || acc.ProviderBilledTokens != nil {
+		t.Fatal("host-reported and provider-billed must default to unknown (nil), not zero")
+	}
+	if acc.ContextManifestDigest != ManifestDigest(m) || acc.ContextManifestDigest == "" {
+		t.Fatalf("digest = %q", acc.ContextManifestDigest)
+	}
+	if len(acc.SuppliedItems) != len(m.Items) {
+		t.Fatalf("supplied items = %d, want %d", len(acc.SuppliedItems), len(m.Items))
+	}
+
+	acc.RecordHostAck(HostAck{ManifestDigest: acc.ContextManifestDigest, ReportedTokens: 4242})
+	if acc.HostReportedInputTokens == nil || *acc.HostReportedInputTokens != 4242 {
+		t.Fatalf("host ack not recorded: %+v", acc.HostReportedInputTokens)
+	}
+	if acc.ProviderBilledTokens != nil {
+		t.Fatal("recording host ack must not fabricate a provider-billed value")
+	}
+	if acc.HostAck == nil || acc.HostAck.ManifestDigest != acc.ContextManifestDigest {
+		t.Fatalf("host ack = %+v", acc.HostAck)
+	}
+}
+
+// TestManifestAccountingOmissions (R3.3): optional items shed under budget are
+// reported as omitted items with a ref and a reason, and appear in the ledger.
+func TestManifestAccountingOmissions(t *testing.T) {
+	root := t.TempDir()
+	writeMem(t, root, "demo", 400) // memory ~100 tokens, reference-if-needed
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman"}}
+	m, err := BuildManifest(root, "demo", tasks, "T1", 50)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	if len(m.Omissions) == 0 {
+		t.Fatal("expected the over-budget memory item to be shed")
+	}
+	acc := BuildAccounting(m)
+	if len(acc.OmittedItems) == 0 || acc.OmittedItems[0].Reason == "" || acc.OmittedItems[0].Kind != "memory" {
+		t.Fatalf("omitted items = %+v", acc.OmittedItems)
+	}
+	for _, it := range m.Items {
+		if it.Kind == "memory" {
+			t.Fatal("memory should have been shed to fit budget")
+		}
+	}
+}
+
+func writeMem(t *testing.T, root, slug string, n int) {
+	t.Helper()
+	dir := filepath.Join(root, ".specd", "steering")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "memory.md"), []byte(strings.Repeat("m", n)), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
