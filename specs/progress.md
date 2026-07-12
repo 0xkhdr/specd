@@ -63,7 +63,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 06 W6 — dependency and dangerous-change governance (needs 07 export)
 - [x] 06 W7 — governed exceptions and mission audit (needs 06 W6)
 - [x] 08 W1 — `08b-agent-bootstrap-binding` (needs 08 W0)
-- [ ] 08 W2 — `08c-orchestrated-mode-reachability` (needs 08 W0, Domain 05 dispatch)
+- [x] 08 W2 — `08c-orchestrated-mode-reachability` (needs 08 W0, Domain 05 dispatch)
 - [ ] 08 W3 — `08d-delivery-envelopes-and-state-machine` (needs 08 W0)
 - [ ] 08 W4 — `08e-installed-lifecycle-e2e-and-regression-prereqs` (needs 08 W1)
 - [ ] 08 W5 — `08f-release-install-upgrade-hardening` (needs 08 W1)

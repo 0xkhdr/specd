@@ -47,3 +47,4 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | id | date | cause | fix |
 |---|---|---|---|
 | B1 | 2026-07-12 | managed-marker test hardcoded `v1`; valid template bump failed suite | V9 |
+| B2 | 2026-07-12 | schema-migration fixture used never-declared `build` mode; mode validation correctly exposed stale fixture | V7,R3.1 |

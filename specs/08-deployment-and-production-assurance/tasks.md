@@ -46,11 +46,19 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T11 | craftsman | `internal/core/state.go` (declared `orchestrated` mode + schema validation) | T01 | `go test ./internal/core -run TestModeSchema -count=1` | R3.1 orchestrated is a validated mode |
-| T12 | craftsman | `internal/cmd/lifecycle.go`; `internal/core/config_*` | T11 | `go test ./internal/cmd -run TestEnterOrchestratedCAS -count=1` | R3.1 CAS/approval transition, no hand-edit |
-| T13 | craftsman | `internal/cmd/brain_run.go`; orchestration `Sense` | T11 | `go test ./internal/orchestration -run TestSenseCost -count=1` | R3.2 populate cost, wire brake |
-| T14 | craftsman | `internal/orchestration/decide.go` (fail-closed on missing trusted telemetry) | T13 | `go test ./internal/orchestration -run TestBrakeUntrusted -count=1` | R3.3 fail closed + labeled |
-| T15 | validator | grep tests/guides for `state.json` hand-edit | T12 | `! grep -rn 'orchestrated' --include=*_test.go internal | grep -q 'state.json'` | R3.1 no forbidden mutation path |
+| [x] T11 | craftsman | `internal/core/state.go` (declared `orchestrated` mode + schema validation) | T01 | `go test ./internal/core -run TestModeSchema -count=1` | R3.1 orchestrated is a validated mode |
+| [x] T12 | craftsman | `internal/cmd/lifecycle.go`; `internal/core/config_*` | T11 | `go test ./internal/cmd -run TestEnterOrchestratedCAS -count=1` | R3.1 CAS/approval transition, no hand-edit |
+| [x] T13 | craftsman | `internal/cmd/brain_run.go`; orchestration `Sense` | T11 | `go test ./internal/orchestration -run TestSenseCost -count=1` | R3.2 populate cost, wire brake |
+| [x] T14 | craftsman | `internal/orchestration/decide.go` (fail-closed on missing trusted telemetry) | T13 | `go test ./internal/orchestration -run TestBrakeUntrusted -count=1` | R3.3 fail closed + labeled |
+| [x] T15 | validator | grep tests/guides for `state.json` hand-edit | T12 | `! grep -rn 'orchestrated' --include=*_test.go internal | grep -q 'state.json'` | R3.1 no forbidden mutation path |
+
+> **08c scope deviations:** strict TDD requires `internal/core/state_test.go`,
+> `internal/cmd/lifecycle_test.go`, `internal/orchestration/sense_test.go`, and
+> `internal/orchestration/brakes_test.go`. The public human-only approval surface is declared in
+> `internal/core/commands.go`, so its usage/docs metadata is updated with mirrored
+> `docs/command-reference.md` and `docs/CHEATSHEET.md` text. Mode validation exposed a stale v1
+> migration fixture using never-declared mode `build`; backprop B2 updates `SPEC.md` and
+> `internal/core/state_test.go` to use declared legacy mode `agent`.
 
 ## W3 — `08d-delivery-envelopes-and-state-machine` (requires 08a)
 

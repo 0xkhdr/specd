@@ -27,6 +27,47 @@ func newDemoSpec(t *testing.T) string {
 	return root
 }
 
+func TestEnterOrchestratedCAS(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	before, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runApprove(root, []string{"demo", "orchestrated"}, nil); err == nil || !strings.Contains(err.Error(), "orchestration.enabled") {
+		t.Fatalf("disabled transition error = %v", err)
+	}
+	unchanged, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Revision != before.Revision || unchanged.Mode != before.Mode {
+		t.Fatalf("refused transition mutated state: before=%+v after=%+v", before, unchanged)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("orchestration:\n  enabled: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runApprove(root, []string{"demo", "orchestrated"}, nil); err != nil {
+		t.Fatalf("approve orchestrated: %v", err)
+	}
+	after, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Mode != core.ModeOrchestrated || after.Revision != before.Revision+1 {
+		t.Fatalf("transition = mode %q revision %d, want orchestrated/%d", after.Mode, after.Revision, before.Revision+1)
+	}
+	var approval core.Record
+	if err := json.Unmarshal(after.Records["approval:orchestrated"], &approval); err != nil {
+		t.Fatalf("approval record: %v", err)
+	}
+	if approval.Gate != "orchestrated" || approval.ApprovedRevision != before.Revision {
+		t.Fatalf("approval = %+v", approval)
+	}
+}
+
 func writeTasks(t *testing.T, root, slug, row string) {
 	t.Helper()
 	path := filepath.Join(core.SpecdDir(root), "specs", slug, "tasks.md")

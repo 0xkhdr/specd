@@ -165,10 +165,10 @@ var Commands = []Command{
 	{
 		Name:          "approve",
 		Usage:         "specd approve <spec> <gate>",
-		Description:   "Record human approval for a lifecycle gate.",
+		Description:   "Record human approval for a lifecycle gate or orchestrated mode.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd approve payments requirements", "specd approve payments design"},
+		Examples:      []string{"specd approve payments requirements", "specd approve payments design", "specd approve payments orchestrated"},
 		HumanOnly:     true,
 		Flags:         securityExceptionFlags(),
 	},

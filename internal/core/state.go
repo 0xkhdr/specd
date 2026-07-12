@@ -68,9 +68,19 @@ var ErrRevisionConflict = errors.New("state revision conflict")
 type Mode string
 
 const (
-	ModeDefault Mode = "default"
-	ModeAgent   Mode = "agent"
+	ModeDefault      Mode = "default"
+	ModeAgent        Mode = "agent"
+	ModeOrchestrated Mode = "orchestrated"
 )
+
+func ValidMode(mode Mode) bool {
+	switch mode {
+	case ModeDefault, ModeAgent, ModeOrchestrated:
+		return true
+	default:
+		return false
+	}
+}
 
 type State struct {
 	SchemaVersion int                        `json:"schema_version"`
@@ -172,6 +182,9 @@ func (s State) Validate() error {
 	}
 	if s.Slug == "" {
 		return errors.New("state slug is required")
+	}
+	if !ValidMode(s.Mode) {
+		return fmt.Errorf("invalid state mode %q", s.Mode)
 	}
 	if !ValidStatus(s.Status) {
 		return fmt.Errorf("invalid state status %q", s.Status)

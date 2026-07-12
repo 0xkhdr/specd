@@ -66,3 +66,13 @@ func TestBrakeRequiresTrustedTelemetry(t *testing.T) {
 		t.Fatalf("trusted cost brake must not be labelled untrusted: %#v", overTrusted)
 	}
 }
+
+func TestBrakeUntrusted(t *testing.T) {
+	decision := Decide(
+		Snapshot{Now: time.Unix(10, 0), TelemetryKnown: true, CostMicros: 1},
+		DecisionLimits{AllowDispatch: true, RequireTelemetry: true},
+	)
+	if decision.Action != ActionHalt || !strings.Contains(decision.Reason, "untrusted") || !strings.Contains(decision.Reason, "host/adapter/attested") {
+		t.Fatalf("untrusted production telemetry decision = %#v", decision)
+	}
+}

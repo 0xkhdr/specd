@@ -5,8 +5,25 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestModeSchema(t *testing.T) {
+	for _, mode := range []Mode{ModeDefault, ModeAgent, ModeOrchestrated} {
+		state := InitialState("demo")
+		state.Mode = mode
+		if err := state.Validate(); err != nil {
+			t.Fatalf("mode %q rejected: %v", mode, err)
+		}
+	}
+
+	state := InitialState("demo")
+	state.Mode = Mode("orchestratd")
+	if err := state.Validate(); err == nil || !strings.Contains(err.Error(), "invalid state mode") {
+		t.Fatalf("unknown mode error = %v", err)
+	}
+}
 
 func TestDigestStable(t *testing.T) {
 	a := Digest([]byte("hello"))
@@ -118,7 +135,7 @@ func TestStateCAS(t *testing.T) {
 
 func TestLoadStateMigratesV1ToCurrentSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	raw := `{"schema_version":1,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1}`
+	raw := `{"schema_version":1,"slug":"demo","mode":"agent","status":"requirements","phase":"perceive","revision":1}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write state: %v", err)
 	}

@@ -7,6 +7,17 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
+func TestSenseCost(t *testing.T) {
+	telemetry := AccrueTelemetry([]ACPEvent{{
+		Kind:        ACPKindReport,
+		Observation: &ObservationV1{Version: "1", Known: true, Source: "attested", Unit: "micro-usd", CostMicros: 41, Tokens: 7},
+	}})
+	snapshot := Sense(core.InitialState("demo"), nil, nil, telemetry, time.Unix(1, 0))
+	if !snapshot.TelemetryKnown || !snapshot.TelemetryTrusted || snapshot.CostMicros != 41 || snapshot.Tokens != 7 {
+		t.Fatalf("accepted telemetry not wired into Sense: %+v", snapshot)
+	}
+}
+
 // TestSenseCostFromAcceptedTelemetryOnly pins R4.1: a snapshot's cost is
 // populated only from accepted telemetry folded by AccrueTelemetry — never a
 // value a test can hand-set in a way production cannot reproduce. Absent

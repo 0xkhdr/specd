@@ -65,6 +65,9 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	if err := core.ValidateSlug(slug); err != nil {
 		return err
 	}
+	if gate == string(core.ModeOrchestrated) {
+		return runApproveOrchestrated(root, slug)
+	}
 	target := core.Status(gate)
 	if !core.ValidStatus(target) {
 		return fmt.Errorf("invalid gate %q", gate)
@@ -128,6 +131,44 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "approved %s → %s\n", slug, gate)
+	return nil
+}
+
+// runApproveOrchestrated is the supported human-only transition into the
+// opt-in controller mode. Configuration arms orchestration; this approval
+// records human intent and changes mode under the same per-spec lock and state
+// revision CAS. Refused transitions write nothing.
+func runApproveOrchestrated(root, slug string) error {
+	config, diagnostics := core.LoadConfig(configPaths(root), getenv())
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == "error" {
+			return fmt.Errorf("load config: %s", diagnostic.Message)
+		}
+	}
+	if !config.Orchestration.Enabled {
+		return errors.New("approve orchestrated refused: orchestration.enabled must be true")
+	}
+
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		statePath := core.StatePath(root, slug)
+		state, err := core.LoadState(statePath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if state.Mode == core.ModeOrchestrated {
+			return struct{}{}, errors.New("approve orchestrated refused: spec mode is already orchestrated")
+		}
+		rec := core.Record{Kind: "approval", Gate: string(core.ModeOrchestrated), ApprovedRevision: state.Revision}
+		if err := appendRecord(root, &state, "approval:orchestrated", rec); err != nil {
+			return struct{}{}, err
+		}
+		state.Mode = core.ModeOrchestrated
+		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "approved %s → orchestrated mode\n", slug)
 	return nil
 }
 
