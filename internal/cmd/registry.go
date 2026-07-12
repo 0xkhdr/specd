@@ -759,12 +759,19 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		return fmt.Errorf("task %s is escalated after %d consecutive verify failures; clear it with `specd task %s --override --reason <text>` before re-attempting", taskID, count, taskID)
 	}
 	run := func() (verifyexec.Result, error) {
+		cfg, diagnostics := core.LoadConfig(configPaths(root), getenv())
+		for _, diagnostic := range diagnostics {
+			if diagnostic.Severity == "error" {
+				return verifyexec.Result{ExitCode: 2}, fmt.Errorf("load config: %s", diagnostic.Message)
+			}
+		}
 		return verifyexec.Run(context.Background(), verifyexec.Options{
-			Command:       task.Verify,
-			Dir:           root,
-			Sandbox:       flagEnabled(flags, "sandbox"),
-			SandboxBinary: flags["sandbox-binary"],
-			TimeoutSecs:   verifyTimeoutSecs(root),
+			Command:        task.Verify,
+			Dir:            root,
+			Sandbox:        flagEnabled(flags, "sandbox"),
+			RequireSandbox: cfg.Security.RequiresVerifySandbox(),
+			SandboxBinary:  flags["sandbox-binary"],
+			TimeoutSecs:    verifyTimeoutSecs(root),
 		})
 	}
 	var result verifyexec.Result

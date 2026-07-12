@@ -7,47 +7,59 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Options struct {
-	Command       string
-	Dir           string
-	Sandbox       bool
-	SandboxBinary string
-	// Stdin, when non-empty, is streamed to the command's standard input. The
-	// terminal `submit` verb uses it to pipe the PR summary to the
-	// operator-configured command through this one exec path (spec 08 R2) — no
-	// second exec implementation.
-	Stdin string
-	// TimeoutSecs, when > 0, caps wall-clock for this one exec. A timeout is
-	// reported as a failing Result (exit 124) with no error, so the caller records
-	// it as failing evidence rather than crashing the pipeline. Zero is unbounded.
-	TimeoutSecs int
+	Command        string
+	Dir            string
+	Sandbox        bool
+	RequireSandbox bool
+	SandboxBinary  string
+	Stdin          string
+	TimeoutSecs    int
+	Limits         Limits
+	Secrets        []string
 }
 
-// TimeoutExitCode is the exit code stamped on a verify record when the command
-// exceeds its configured deadline. 124 matches coreutils `timeout(1)`.
-const TimeoutExitCode = 124
+const (
+	TimeoutExitCode = 124
+	LimitExitCode   = 125
+)
 
 type Result struct {
-	ExitCode int
-	Stdout   string
-	Stderr   string
+	ExitCode       int
+	Stdout, Stderr string
 }
 
 func Run(ctx context.Context, opts Options) (Result, error) {
 	if opts.Command == "" {
 		return Result{ExitCode: 2}, errors.New("verify command is required")
 	}
-	if opts.TimeoutSecs > 0 {
+	limits := opts.Limits
+	if opts.RequireSandbox && limits == (Limits{}) {
+		limits = DefaultLimits
+	}
+	timeout := opts.TimeoutSecs
+	if limits.WallSeconds > 0 && (timeout <= 0 || limits.WallSeconds < timeout) {
+		timeout = limits.WallSeconds
+	}
+	if timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(opts.TimeoutSecs)*time.Second)
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 		defer cancel()
 	}
-	name, argv := wrapArgv("", opts.Dir, opts.Command)
-	if opts.Sandbox {
+	runCtx, stop := context.WithCancel(ctx)
+	defer stop()
+
+	env := os.Environ()
+	secrets := append(environmentSecrets(env), opts.Secrets...)
+	name, argv := sandboxArgv("", opts.Dir, "", opts.Command, limits)
+	sandbox := opts.Sandbox || opts.RequireSandbox
+	if sandbox {
 		binary := opts.SandboxBinary
 		if binary == "" {
 			binary = "bwrap"
@@ -56,27 +68,36 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		if err != nil {
 			return Result{ExitCode: 127}, fmt.Errorf("sandbox binary %q unavailable: %w", binary, err)
 		}
-		name, argv = wrapArgv(resolved, opts.Dir, opts.Command)
+		home, err := os.UserHomeDir()
+		if err != nil || home == "" {
+			return Result{ExitCode: 127}, errors.New("sandbox cannot resolve host home for credential isolation")
+		}
+		name, argv = sandboxArgv(resolved, opts.Dir, home, opts.Command, limits)
 	}
-	cmd := exec.CommandContext(ctx, name, argv...)
+	cmd := exec.CommandContext(runCtx, name, argv...)
 	cmd.Dir = opts.Dir
-	cmd.Env = scrubbedEnv(os.Environ())
+	cmd.Env = scrubbedEnv(env, sandbox)
 	if opts.Stdin != "" {
 		cmd.Stdin = strings.NewReader(opts.Stdin)
 	}
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	budget := newOutputBudget(limits.OutputBytes, stop)
+	cmd.Stdout = budget.writer(&stdout)
+	cmd.Stderr = budget.writer(&stderr)
 	err := cmd.Run()
-	result := Result{Stdout: stdout.String(), Stderr: stderr.String()}
-	if err == nil {
+	r := NewRedactor(secrets)
+	result := Result{Stdout: r.String(stdout.String()), Stderr: r.String(stderr.String())}
+	if budget.exceededLimit() {
+		result.ExitCode = LimitExitCode
+		result.Stderr += "\n[specd: output limit exceeded]\n"
 		return result, nil
 	}
-	// A deadline is a failing verify, not a crash: stamp exit 124 and return no
-	// error so the caller records failing evidence and the pipeline stays intact.
 	if ctx.Err() == context.DeadlineExceeded {
 		result.ExitCode = TimeoutExitCode
-		result.Stderr += fmt.Sprintf("\n[specd: verify timed out after %ds]\n", opts.TimeoutSecs)
+		result.Stderr += fmt.Sprintf("\n[specd: verify timed out after %ds]\n", timeout)
+		return result, nil
+	}
+	if err == nil {
 		return result, nil
 	}
 	var exitErr *exec.ExitError
@@ -88,37 +109,86 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	return result, err
 }
 
-// wrapArgv builds the (name, argv) to execute command. With binary empty the
-// command runs directly under /bin/sh. With binary set the command is wrapped in
-// a bwrap-style sandbox: read-only root, private /tmp, no network
-// (--unshare-all), and dir bind-mounted writable as the working directory. The
-// sandbox binary must accept bwrap-compatible arguments (bwrap by default, or a
-// bwrap-compatible wrapper via --sandbox-binary). Kept pure and side-effect free
-// so the isolation contract is unit-tested without spawning a process.
-func wrapArgv(binary, dir, command string) (string, []string) {
+func sandboxArgv(binary, dir, hostHome, command string, limits Limits) (string, []string) {
+	command = limits.shellPrefix() + command
 	if binary == "" {
 		return "/bin/sh", []string{"-c", command}
 	}
-	args := []string{
-		"--die-with-parent", "--unshare-all",
-		"--ro-bind", "/", "/",
-		"--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+	args := []string{"--die-with-parent", "--unshare-all", "--new-session", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", "--dir", "/tmp/specd-home"}
+	if hostHome != "" && hostHome != "/" {
+		args = append(args, "--tmpfs", hostHome)
+		if rel, err := filepath.Rel(hostHome, dir); err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			current := hostHome
+			for _, part := range strings.Split(rel, string(filepath.Separator)) {
+				current = filepath.Join(current, part)
+				args = append(args, "--dir", current)
+			}
+		}
 	}
 	if dir != "" {
 		args = append(args, "--bind", dir, dir, "--chdir", dir)
 	}
-	args = append(args, "/bin/sh", "-c", command)
+	args = append(args, "--setenv", "HOME", "/tmp/specd-home", "--setenv", "TMPDIR", "/tmp", "--setenv", "PATH", "/usr/local/bin:/usr/bin:/bin", "/bin/sh", "-c", command)
 	return binary, args
 }
 
-func scrubbedEnv(env []string) []string {
+type outputBudget struct {
+	mu        sync.Mutex
+	remaining int
+	limited   bool
+	exceeded  bool
+	cancel    context.CancelFunc
+}
+
+func newOutputBudget(limit int, cancel context.CancelFunc) *outputBudget {
+	return &outputBudget{remaining: limit, limited: limit > 0, cancel: cancel}
+}
+
+func (b *outputBudget) writer(dst *bytes.Buffer) *budgetWriter {
+	return &budgetWriter{budget: b, dst: dst}
+}
+
+func (b *outputBudget) exceededLimit() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.exceeded
+}
+
+type budgetWriter struct {
+	budget *outputBudget
+	dst    *bytes.Buffer
+}
+
+func (w *budgetWriter) Write(p []byte) (int, error) {
+	w.budget.mu.Lock()
+	defer w.budget.mu.Unlock()
+	original := len(p)
+	if !w.budget.limited {
+		_, _ = w.dst.Write(p)
+		return original, nil
+	}
+	if len(p) > w.budget.remaining {
+		p = p[:w.budget.remaining]
+		w.budget.exceeded = true
+	}
+	_, _ = w.dst.Write(p)
+	w.budget.remaining -= len(p)
+	if w.budget.exceeded {
+		w.budget.cancel()
+	}
+	return original, nil
+}
+
+func scrubbedEnv(env []string, sandboxMode ...bool) []string {
+	if len(sandboxMode) > 0 && sandboxMode[0] {
+		return []string{"HOME=/tmp/specd-home", "PATH=/usr/local/bin:/usr/bin:/bin", "TMPDIR=/tmp"}
+	}
 	allowed := map[string]bool{"HOME": true, "PATH": true, "TMPDIR": true}
-	out := make([]string, 0, len(env))
+	var out []string
 	for _, item := range env {
-		for key := range allowed {
-			if len(item) > len(key) && item[:len(key)+1] == key+"=" {
-				out = append(out, item)
-			}
+		key, _, ok := strings.Cut(item, "=")
+		if ok && allowed[key] {
+			out = append(out, item)
 		}
 	}
 	return out

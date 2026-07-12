@@ -94,6 +94,35 @@ func TestVerifyFailureLeavesCleanTree(t *testing.T) {
 	}
 }
 
+func TestVerifyProductionRequiresSandbox(t *testing.T) {
+	root := t.TempDir()
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "specd@example.test")
+	runGit(t, root, "config", "user.name", "specd")
+	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("security:\n  profile: production\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	specDir := filepath.Join(root, ".specd", "specs", "demo")
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	state := `{"schema_version":1,"slug":"demo","mode":"default","status":"tasks","phase":"plan","revision":1,"records":{}}`
+	if err := os.WriteFile(filepath.Join(specDir, "state.json"), []byte(state), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| ⬜ T1 | craftsman | x | - | touch must-not-run | isolated |\n"
+	if err := os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := runVerify(root, []string{"demo", "T1"}, map[string]string{"sandbox-binary": "definitely-missing-specd-sandbox"})
+	if err == nil || !strings.Contains(err.Error(), "unavailable") {
+		t.Fatalf("production verify error = %v, want missing sandbox refusal", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "must-not-run")); !os.IsNotExist(err) {
+		t.Fatal("verify shell started before sandbox refusal")
+	}
+}
+
 func runGit(t *testing.T, root string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", root}, args...)...)

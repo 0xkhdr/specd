@@ -34,3 +34,10 @@ func TestNoTimeoutWhenUnset(t *testing.T) {
 		t.Fatalf("Run(printf ok) = (%+v, %v), want exit 0 no error", result, err)
 	}
 }
+
+func TestLimitWallTimeoutRecordsFailingResult(t *testing.T) {
+	result, err := Run(context.Background(), Options{Command: "sleep 5", Dir: t.TempDir(), Limits: Limits{WallSeconds: 1}})
+	if err != nil || result.ExitCode != TimeoutExitCode {
+		t.Fatalf("Run = (%+v, %v), want timeout failure", result, err)
+	}
+}

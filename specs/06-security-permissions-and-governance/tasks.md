@@ -79,10 +79,14 @@ fixture before each enforcement change. Stdlib-only; no `reference/` edits; no L
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T18 | craftsman | internal/core/verify/exec.go; internal/core/verify/sandbox_test.go; internal/core/config_loader.go | T04 | go test ./internal/core/verify ./internal/core -run 'Test(Sandbox|Exec|Config)' | production verify requires sandbox before shell; missing binary/adapter fails closed; network off; no silent fallback R5.1 |
-| [ ] T19 | craftsman | internal/core/verify/exec.go; internal/core/verify/sandbox_test.go | T18 | go test ./internal/core/verify -run 'Test(Sandbox|Env|Cred)' | synthetic/empty HOME, minimal env, host credential path hidden (not just read-only); repo/temp writes only R5.1,R5.2 |
-| [ ] T20 | craftsman | internal/core/verify/redact.go; internal/core/verify/redact_test.go; internal/core/verify/exec.go; internal/core/evidence.go; internal/core/evidence_test.go | T19 | go test ./internal/core/verify ./internal/core -run 'Test(Redact|Exec|Evidence)' | central redaction on stdout/stderr/evidence; secret fixture never appears in full R5.3 |
-| [ ] T21 | craftsman | internal/core/verify/limits.go; internal/core/verify/limits_test.go; internal/core/verify/exec.go; internal/core/verify/timeout_test.go | T18 | go test ./internal/core/verify -run 'Test(Limits|Timeout|Exec)' | CPU/memory/process/output/wall/fs-growth limits in sandbox args; breach records failure not silent kill R5.4 |
+| [x] T18 | craftsman | internal/core/verify/exec.go; internal/core/verify/sandbox_test.go; internal/core/config_loader.go | T04 | go test ./internal/core/verify ./internal/core -run 'Test(Sandbox|Exec|Config)' | production verify requires sandbox before shell; missing binary/adapter fails closed; network off; no silent fallback R5.1 |
+| [x] T19 | craftsman | internal/core/verify/exec.go; internal/core/verify/sandbox_test.go | T18 | go test ./internal/core/verify -run 'Test(Sandbox|Env|Cred)' | synthetic/empty HOME, minimal env, host credential path hidden (not just read-only); repo/temp writes only R5.1,R5.2 |
+| [x] T20 | craftsman | internal/core/verify/redact.go; internal/core/verify/redact_test.go; internal/core/verify/exec.go; internal/core/evidence.go; internal/core/evidence_test.go | T19 | go test ./internal/core/verify ./internal/core -run 'Test(Redact|Exec|Evidence)' | central redaction on stdout/stderr/evidence; secret fixture never appears in full R5.3 |
+| [x] T21 | craftsman | internal/core/verify/limits.go; internal/core/verify/limits_test.go; internal/core/verify/exec.go; internal/core/verify/timeout_test.go | T18 | go test ./internal/core/verify -run 'Test(Limits|Timeout|Exec)' | CPU/memory/process/output/wall/fs-growth limits in sandbox args; breach records failure not silent kill R5.4 |
+
+> **W5 deviation.** T18 also updates `internal/cmd/registry.go` and its verify tests because
+> production-profile sandbox enforcement must be selected at the CLI boundary that loads project
+> config; `verify/exec.go` cannot infer project policy without breaking layer ownership.
 
 ## W6 — dependency and dangerous-change governance
 

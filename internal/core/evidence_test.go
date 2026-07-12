@@ -42,3 +42,18 @@ func TestEvidenceMalformedBaseline(t *testing.T) {
 		t.Fatal("malformed evidence accepted")
 	}
 }
+
+func TestEvidenceRedactsCredentials(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.jsonl")
+	secret := "abcdefghijklmnop"
+	if err := AppendEvidence(path, EvidenceRecord{TaskID: "T1", Command: "echo Authorization: Bearer " + secret, GitHead: "abc"}); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), secret) {
+		t.Fatalf("evidence leaked credential: %s", body)
+	}
+}

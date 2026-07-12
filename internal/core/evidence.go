@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 )
 
 const EvidenceOutputLimit = 64 * 1024
@@ -47,6 +49,9 @@ func AppendEvidence(path string, record EvidenceRecord) error {
 	if record.Actor == "" {
 		record.Actor = recordActor()
 	}
+	redactor := verifyexec.NewRedactor(nil)
+	record.Command = redactor.String(record.Command)
+	record.EvidenceRef = redactor.String(record.EvidenceRef)
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err

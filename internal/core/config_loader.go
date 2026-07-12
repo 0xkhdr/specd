@@ -37,6 +37,11 @@ type SecurityConfig struct {
 	Sandbox       string
 }
 
+// RequiresVerifySandbox reports whether policy makes isolation mandatory.
+// Keeping profile resolution in core prevents CLI flag behavior from becoming
+// an independent, potentially weaker policy interpretation.
+func (c SecurityConfig) RequiresVerifySandbox() bool { return c.Profile == "production" }
+
 // SecuritySeverities enumerates the valid per-scanner severities.
 var SecuritySeverities = []string{"off", "warn", "error"}
 
