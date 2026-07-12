@@ -41,7 +41,7 @@ func TestSense(t *testing.T) {
 	frontier := []core.FrontierTask{{ID: "T1", Verify: "go test"}}
 	leases := []Lease{{TaskID: "T0", WorkerID: "w", ExpiresAt: now.Add(time.Minute)}}
 
-	snapshot := Sense(state, frontier, leases, now)
+	snapshot := Sense(state, frontier, leases, Telemetry{}, now)
 	frontier[0].ID = "changed"
 	leases[0].TaskID = "changed"
 	state.Records["x"][2] = 'X'
@@ -56,7 +56,7 @@ func TestSense(t *testing.T) {
 
 func TestBrakes(t *testing.T) {
 	now := time.Unix(300, 0).UTC()
-	cost := EvaluateBrakes(Snapshot{Now: now, Cost: 11}, DecisionLimits{MaxCost: 10})
+	cost := EvaluateBrakes(Snapshot{Now: now, TelemetryKnown: true, TelemetryTrusted: true, CostMicros: 11}, DecisionLimits{MaxCostMicros: 10})
 	if cost.Action != ActionHalt {
 		t.Fatalf("cost brake = %#v, want halt", cost)
 	}

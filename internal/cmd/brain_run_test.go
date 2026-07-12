@@ -150,6 +150,68 @@ func TestBrainStepReleasesCompletedLease(t *testing.T) {
 	}
 }
 
+// TestBrainRunHaltsOnConfiguredCostBrake pins R4.2: a configured cost threshold
+// halts only subsequent dispatch, with the exact reason, minting no lease and
+// undoing nothing already on the ledger.
+func TestBrainRunHaltsOnConfiguredCostBrake(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig+"routing:\n  max_cost_micros: 100\n")
+	writeBrainSingleTask(t, root)
+	acpPath := filepath.Join(root, ".specd", "specs", "demo", "acp.jsonl")
+	if err := orchestration.AppendACP(acpPath, orchestration.ACPEvent{Kind: orchestration.ACPKindReport, TaskID: "T1", Observation: &orchestration.ObservationV1{Version: "1", Known: true, Source: "host", Unit: "micro-usd", CostMicros: 200}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	out, err := captureStdout(t, func() error {
+		return runBrain(root, []string{"run", "demo"}, map[string]string{"authority": ""})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "halt") || !strings.Contains(out, "cost limit exceeded") {
+		t.Fatalf("expected cost brake halt reason, got %q", out)
+	}
+	s := loadBrainSession(t, root)
+	if len(s.PendingMissions) != 0 || len(s.Leases) != 0 {
+		t.Fatalf("cost brake dispatched or leased: %+v", s)
+	}
+	events, err := orchestration.ReadACP(acpPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Kind != orchestration.ACPKindReport {
+		t.Fatalf("cost brake mutated the ledger: %+v", events)
+	}
+}
+
+// TestBrainRunWithoutLimitsDispatches proves the R4.2 backstop: with no
+// configured limit the controller dispatches exactly as it does today.
+func TestBrainRunWithoutLimitsDispatches(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	writeBrainSingleTask(t, root)
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := captureStdout(t, func() error {
+		return runBrain(root, []string{"run", "demo"}, map[string]string{"authority": ""})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	s := loadBrainSession(t, root)
+	if len(s.PendingMissions) != 1 {
+		t.Fatalf("expected one dispatch without limits, got %+v", s.PendingMissions)
+	}
+}
+
+func writeBrainSingleTask(t *testing.T, root string) {
+	t.Helper()
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd", "specs", "demo", "tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func newBrainTestRoot(t *testing.T, mode, projectConfig string) string {
 	t.Helper()
 	root := t.TempDir()

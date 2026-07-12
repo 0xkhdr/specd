@@ -116,9 +116,35 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T13 | craftsman | internal/orchestration/sense.go; internal/orchestration/sense_test.go; internal/orchestration/brakes.go; internal/orchestration/brakes_test.go | T04, Domain 05 dispatch | go test ./internal/orchestration -run 'Test(Sense|Brake)' | `Snapshot.Cost` populated only from accepted trusted telemetry; no test populates it in a way production cannot R4.1 |
-| [ ] T14 | craftsman | internal/cmd/brain_run.go; internal/cmd/brain_run_test.go; internal/core/commands.go; docs/command-reference.md; docs/CHEATSHEET.md | T13 | go test ./internal/cmd -run 'TestBrainRun' && ./scripts/docs-lint.sh | configured threshold halts only subsequent dispatch with exact reason, no lease, undoes nothing; without limits behavior matches today R4.2 |
-| [ ] T15 | craftsman | internal/orchestration/brakes.go; internal/orchestration/brakes_test.go; internal/orchestration/sense.go | T13 | go test ./internal/orchestration -run 'Test(Brake|Sense)' | production requiring trusted telemetry fails closed when missing/malformed with one actionable message; untrusted-data brake labelled as such R4.3 |
+| [x] T13 | craftsman | internal/orchestration/sense.go; internal/orchestration/sense_test.go; internal/orchestration/brakes.go; internal/orchestration/brakes_test.go | T04, Domain 05 dispatch | go test ./internal/orchestration -run 'Test(Sense|Brake)' | `Snapshot.Cost` populated only from accepted trusted telemetry; no test populates it in a way production cannot R4.1 |
+| [x] T14 | craftsman | internal/cmd/brain_run.go; internal/cmd/brain_run_test.go; internal/core/commands.go; docs/command-reference.md; docs/CHEATSHEET.md | T13 | go test ./internal/cmd -run 'TestBrainRun' && ./scripts/docs-lint.sh | configured threshold halts only subsequent dispatch with exact reason, no lease, undoes nothing; without limits behavior matches today R4.2 |
+| [x] T15 | craftsman | internal/orchestration/brakes.go; internal/orchestration/brakes_test.go; internal/orchestration/sense.go | T13 | go test ./internal/orchestration -run 'Test(Brake|Sense)' | production requiring trusted telemetry fails closed when missing/malformed with one actionable message; untrusted-data brake labelled as such R4.3 |
+
+> **W4 deviations (subtractive bias, backward-compat).**
+> - The dishonest legacy brake was **removed**: `Snapshot.Cost int` /
+>   `DecisionLimits.MaxCost int` fired without checking `TelemetryKnown` and were
+>   only ever populated by tests, never by production `Sense` — exactly the "test
+>   populates it in a way production cannot" that R4.1 forbids. All cost braking
+>   now flows through the honest `CostMicros`/`Tokens`/`TelemetryKnown`/
+>   `TelemetryTrusted` fields.
+> - T13 honest population: `Sense` now takes an accrued `Telemetry` folded by
+>   `AccrueTelemetry` from accepted `report` observations on the mission ledger.
+>   Absent telemetry stays **unknown, never zero-filled**; a single unknown
+>   observation poisons the total (unknown, not partial); worker-reported cost is
+>   known-but-untrusted (accounting hint), host/adapter/attested is trusted.
+> - T14 `commands.go`/`docs/command-reference.md`/`docs/CHEATSHEET.md` **not
+>   edited**: the configured threshold is the existing `routing.max_cost_micros`
+>   config key (already parsed/validated and wired into `DecisionLimits` in
+>   `runBrainStep`), not a new verb or flag — so no CLI/docs surface changed and
+>   `docs-lint.sh` stays green untouched (subtractive). `brain_run.go` now reads
+>   the ACP ledger and feeds `AccrueTelemetry` into `Sense` so the brake fires on
+>   measured cost; a halt withholds subsequent dispatch, mints no lease, and
+>   appends nothing (undoes nothing).
+> - T15 `sense.go` gains `TelemetryTrusted`; `brakes.go` fails closed under
+>   `RequireTelemetry` when telemetry is missing **or** untrusted with one
+>   actionable message, and labels any brake fired on untrusted data
+>   `(untrusted telemetry)`. Malformed telemetry never reaches the brake — it is
+>   rejected at `AppendACP`/`NormalizeObservation` before it can enter the ledger.
 
 ## W5 — privacy and cardinality policy
 

@@ -136,7 +136,15 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	for _, mission := range session.PendingMissions {
 		reservations = append(reservations, orchestration.Lease{TaskID: mission.TaskID, ExpiresAt: mission.ExpiresAt})
 	}
-	snapshot := orchestration.Sense(state, frontier, reservations, now)
+	// Fold accepted worker/host/adapter reports off the mission ledger into the
+	// honest cost brake input. Absent reports stay unknown (never zero-filled),
+	// so an unconfigured limit keeps today's behavior (spec 07 R4.1, R4.2).
+	acpEvents, err := orchestration.ReadACP(acpPath)
+	if err != nil {
+		return "", err
+	}
+	telemetry := orchestration.AccrueTelemetry(acpEvents)
+	snapshot := orchestration.Sense(state, frontier, reservations, telemetry, now)
 	authority := orchestration.Authority{Enabled: flagEnabled(flags, "authority")}
 	config, diagnostics := core.LoadConfig(configPaths(root), getenv())
 	for _, diagnostic := range diagnostics {

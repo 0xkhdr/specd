@@ -38,7 +38,6 @@ type Decision struct {
 }
 
 type DecisionLimits struct {
-	MaxCost          int
 	Deadline         time.Time
 	MaxRetries       int
 	AllowDispatch    bool
