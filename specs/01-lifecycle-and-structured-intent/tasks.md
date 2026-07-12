@@ -98,9 +98,14 @@ a spike is a distinct `spike:` record kind that neither `CompleteTask` nor desig
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T24 | craftsman | internal/cmd/e2e_test.go; internal/cmd/integration_polish_test.go; scripts/regress-domains.sh; scripts/regress-lint.sh | T10,T16,T19,T21,T23 | go test ./internal/cmd -run 'TestLifecycleE2E\|TestIntegration' && ./scripts/regress-domains.sh | R8.1 fresh/restart/negative suite |
-| [ ] T25 | craftsman | internal/core/report.go; internal/core/report_test.go; internal/cmd/report.go; internal/cmd/report_history_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T18,T21,T24 | go test ./internal/core ./internal/cmd -run 'TestReport\|TestHistory' && ./scripts/docs-lint.sh | R8.2 stable coverage/staleness report |
-| [ ] T26 | validator | SPEC.md; specs/01-lifecycle-and-structured-intent | T25 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | all R1-R8 release evidence |
+| [x] T24 | craftsman | internal/cmd/e2e_test.go; internal/cmd/integration_polish_test.go; scripts/regress-domains.sh; scripts/regress-lint.sh | T10,T16,T19,T21,T23 | go test ./internal/cmd -run 'TestLifecycleE2E\|TestIntegration' && ./scripts/regress-domains.sh | R8.1 fresh/restart/negative suite |
+| [x] T25 | craftsman | internal/core/report.go; internal/core/report_test.go; internal/cmd/report.go; internal/cmd/report_history_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T18,T21,T24 | go test ./internal/core ./internal/cmd -run 'TestReport\|TestHistory' && ./scripts/docs-lint.sh | R8.2 stable coverage/staleness report |
+| [x] T26 | validator | SPEC.md; specs/01-lifecycle-and-structured-intent | T25 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | all R1-R8 release evidence |
+
+## Deviations
+
+- T25: also edited `internal/cmd/registry.go` (not in `files`) to route the new
+  `report --proof` flag — flag dispatch lives there beside `--history`/`--trace`.
 
 ## Cross-wave checks
 

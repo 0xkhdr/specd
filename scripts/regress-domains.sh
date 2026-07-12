@@ -13,6 +13,7 @@
 #   W4 gates            `check` on a fresh scaffold rejects placeholder EARS
 #   W5 surface          bare verb count == 16 (ADR-scoped surface)
 #   W6 release          `--version` prints a stamp
+#   W7 conformance      `report --proof` is a deterministic lifecycle projection
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -121,6 +122,20 @@ if "$SPECD" version 2>/dev/null | grep -qE '.'; then
 	pass W6 "version prints a stamp"
 else
 	violation W6 "version prints nothing"
+fi
+
+# W7 — conformance: `report --proof` (spec 01 R8.2) is a deterministic projection
+# of on-disk state. Two consecutive runs against a scaffolded spec must be
+# byte-identical, and the proof must carry its four fixed sections.
+"$SPECD" new rp-w7 >/dev/null 2>&1 || violation W7 "could not scaffold probe spec"
+p1=$("$SPECD" report rp-w7 --proof 2>/dev/null) || violation W7 "report --proof failed"
+p2=$("$SPECD" report rp-w7 --proof 2>/dev/null) || violation W7 "report --proof failed"
+if [ "$p1" != "$p2" ]; then
+	violation W7 "report --proof is not deterministic across runs"
+elif ! printf '%s\n' "$p1" | grep -q "escaped-defects:"; then
+	violation W7 "report --proof missing escaped-defects projection"
+else
+	pass W7 "report --proof deterministic (coverage/stale/amendments/escaped)"
 fi
 
 # Domain 10 W3 — public adapter contract remains executable without internal imports.

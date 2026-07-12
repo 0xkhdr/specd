@@ -698,11 +698,30 @@ func sortedKeys(m map[string]int) []string {
 
 func runReport(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--json|--history|--format prometheus]")
+		return errors.New("usage: report slug [--pr|--metrics|--json|--history|--proof|--format prometheus]")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
 		return err
+	}
+	// --proof emits the deterministic R8.2 lifecycle proof: requirement-to-evidence
+	// coverage, stale records, amendments, and escaped-defect links. Pure projection
+	// of on-disk state; honours --json for a machine-readable object.
+	if flagEnabled(flags, "proof") {
+		proof, err := gatherLifecycleProof(root, args[0])
+		if err != nil {
+			return err
+		}
+		if flagEnabled(flags, "json") {
+			out, err := core.RenderLifecycleProofJSON(proof)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(os.Stdout, out)
+			return nil
+		}
+		fmt.Fprint(os.Stdout, core.RenderLifecycleProof(proof))
+		return nil
 	}
 	// --history replays the spec's audit trail from existing records (spec 13);
 	// it writes nothing and honours --json for machine-readable JSON Lines (R6).

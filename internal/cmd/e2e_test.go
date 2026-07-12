@@ -168,6 +168,37 @@ func TestLifecycleE2E(t *testing.T) {
 	if _, code := run("bogusverb"); code != 2 {
 		t.Fatalf("unknown verb exit = %d, want 2", code)
 	}
+
+	// R8.1 lifecycle-proof continuity: an amendment recorded on disk must survive
+	// a restart. Seed one that touches the requirements gate, then a fresh process
+	// must project it as a stale record and surface the amendment — proving the
+	// release binary preserves staleness/coverage across restart, deterministically.
+	statePath := filepath.Join(repo, ".specd/specs/demo/state.json")
+	proofState, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatalf("load state for amendment: %v", err)
+	}
+	if err := proofState.AppendAmendment(core.Amendment{
+		ChangeID: "chg-1", AffectedIDs: []string{"R1", "requirements"},
+		Rationale: "corrected accepted behaviour", RequiredRechecks: []string{"design"},
+	}); err != nil {
+		t.Fatalf("append amendment: %v", err)
+	}
+	if err := core.SaveStateCAS(statePath, proofState.Revision, proofState); err != nil {
+		t.Fatalf("persist amendment: %v", err)
+	}
+	proofOut, code := run("report", "demo", "--proof")
+	if code != 0 {
+		t.Fatalf("report --proof: code=%d out=%s", code, proofOut)
+	}
+	for _, want := range []string{"stale: approval:requirements", "amendment chg-1"} {
+		if !strings.Contains(proofOut, want) {
+			t.Fatalf("proof continuity missing %q after restart:\n%s", want, proofOut)
+		}
+	}
+	if again, _ := run("report", "demo", "--proof"); again != proofOut {
+		t.Fatalf("proof not deterministic across restart:\n--1--\n%s\n--2--\n%s", proofOut, again)
+	}
 }
 
 func mustGit(t *testing.T, dir string, args ...string) {

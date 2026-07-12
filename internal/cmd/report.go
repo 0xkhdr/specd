@@ -169,6 +169,33 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 	return events, nil
 }
 
+// gatherLifecycleProof assembles the deterministic R8.2 proof: requirement
+// coverage, stale approval records, amendments, and escaped-defect links. It
+// reads only on-disk state and writes nothing.
+func gatherLifecycleProof(root, slug string) (core.LifecycleProof, error) {
+	coverage, err := criterionCoverage(root, slug)
+	if err != nil {
+		return core.LifecycleProof{}, err
+	}
+	proofCoverage := make([]core.ProofCoverage, len(coverage))
+	for i, c := range coverage {
+		proofCoverage[i] = core.ProofCoverage{Req: c.Req, Passing: c.Passing, Total: c.Total}
+	}
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return core.LifecycleProof{}, err
+	}
+	freshness, err := state.StateFreshness()
+	if err != nil {
+		return core.LifecycleProof{}, err
+	}
+	amendments, err := state.Amendments()
+	if err != nil {
+		return core.LifecycleProof{}, err
+	}
+	return core.BuildLifecycleProof(slug, proofCoverage, freshness.Stale, amendments), nil
+}
+
 // gatherPrometheus assembles the metric snapshot from the same sources report
 // already reads: task statuses, verify evidence, criterion coverage, telemetry.
 func gatherPrometheus(root, slug string, model core.ReportModel) (core.PrometheusMetrics, error) {

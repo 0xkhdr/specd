@@ -418,10 +418,10 @@ specd status --program
 
 ### `report`
 ```
-specd report <spec> [--pr|--metrics|--json|--history|--trace|--format prometheus]
+specd report <spec> [--pr|--metrics|--json|--history|--trace|--proof|--format prometheus]
 ```
-Render evidence-backed status, PR, history, trace, and metrics reports. Deterministic — generated
-from `state.json` + task artifacts, never from an LLM. **Phases:** any.
+Render evidence-backed status, PR, history, trace, proof, and metrics reports. Deterministic —
+generated from `state.json` + task artifacts, never from an LLM. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -430,6 +430,7 @@ from `state.json` + task artifacts, never from an LLM. **Phases:** any.
 | `--json` | bool | Emit machine-readable report (JSON Lines with `--history`). |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
+| `--proof` | bool | Emit the lifecycle proof: coverage, stale records, amendments, escaped-defect links. |
 | `--format` | `prometheus` | Alternate output format; prometheus emits textfile-collector metrics. |
 
 ```bash
@@ -437,6 +438,7 @@ specd report payments --pr
 specd report payments --metrics
 specd report payments --history
 specd report payments --trace
+specd report payments --proof
 specd report payments --format prometheus
 ```
 

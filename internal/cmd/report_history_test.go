@@ -114,6 +114,75 @@ func TestReportPrometheusLintsAndCounts(t *testing.T) {
 	}
 }
 
+// TestReportProofSurfacesCoverageStaleAmendments drives the R8.2 lifecycle
+// proof: after a criterion passes (coverage) and an amendment touches both an
+// approved gate (staleness) and an evidenced requirement (escaped defect), a
+// fresh `report --proof` reads it all back off disk and renders deterministically.
+func TestReportProofSurfacesCoverageStaleAmendments(t *testing.T) {
+	root := newCriterionSpec(t)
+
+	// Coverage: record a pass for criterion 1.2 under requirement R1.
+	if err := Run(root, "verify", []string{"demo"}, map[string]string{"criterion": "1.2", "status": "pass", "evidence": "covered by T1"}); err != nil {
+		t.Fatalf("verify --criterion: %v", err)
+	}
+
+	// Seed one amendment: "requirements" marks the requirements approval stale;
+	// "R1" links an escaped defect because R1 already has passing evidence.
+	path := core.StatePath(root, "demo")
+	state, err := core.LoadState(path)
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+	if err := state.AppendAmendment(core.Amendment{
+		ChangeID: "chg-1", AffectedIDs: []string{"R1", "requirements"},
+		Rationale: "corrected accepted behaviour", RequiredRechecks: []string{"design"},
+	}); err != nil {
+		t.Fatalf("append amendment: %v", err)
+	}
+	if err := core.SaveStateCAS(path, state.Revision, state); err != nil {
+		t.Fatalf("persist amendment: %v", err)
+	}
+
+	// A fresh command reads the on-disk state back (restart continuity).
+	first, err := captureStdout(t, func() error {
+		return Run(root, "report", []string{"demo"}, map[string]string{"proof": ""})
+	})
+	if err != nil {
+		t.Fatalf("report --proof: %v", err)
+	}
+	for _, want := range []string{"R1 1/2", "stale: approval:requirements", "amendment chg-1", "escaped R1 -> chg-1"} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("proof missing %q:\n%s", want, first)
+		}
+	}
+
+	// R8.1/R8.2: deterministic across restarts — a second run is byte-identical.
+	second, err := captureStdout(t, func() error {
+		return Run(root, "report", []string{"demo"}, map[string]string{"proof": ""})
+	})
+	if err != nil {
+		t.Fatalf("second report --proof: %v", err)
+	}
+	if first != second {
+		t.Fatalf("proof not byte-identical:\n--- 1 ---\n%s\n--- 2 ---\n%s", first, second)
+	}
+
+	// --json is valid JSON exposing the same escaped-defect link.
+	out, err := captureStdout(t, func() error {
+		return Run(root, "report", []string{"demo"}, map[string]string{"proof": "", "json": ""})
+	})
+	if err != nil {
+		t.Fatalf("report --proof --json: %v", err)
+	}
+	var proof core.LifecycleProof
+	if err := json.Unmarshal([]byte(out), &proof); err != nil {
+		t.Fatalf("proof JSON does not parse: %v\n%s", err, out)
+	}
+	if len(proof.Escaped) != 1 || proof.Escaped[0].ChangeID != "chg-1" {
+		t.Fatalf("proof JSON missing escaped-defect link: %+v", proof.Escaped)
+	}
+}
+
 func TestReportRejectsUnknownFormat(t *testing.T) {
 	root := newDemoSpec(t)
 	if err := Run(root, "report", []string{"demo"}, map[string]string{"format": "html"}); err == nil {
