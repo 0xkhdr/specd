@@ -63,3 +63,18 @@ func TestHUDMatchesJSON(t *testing.T) {
 		t.Fatalf("HUD token total %d != --json %d", hudTokens, jsonView.EstimatedTokens)
 	}
 }
+
+func TestHUDV2MetadataIsCanonical(t *testing.T) {
+	a := validV2()
+	b := validV2()
+	b.Items[0], b.Items[1] = b.Items[1], b.Items[0]
+	first, second := RenderHUDV2(a), RenderHUDV2(b)
+	if first != second {
+		t.Fatalf("HUD V2 not byte-stable:\n%s\n%s", first, second)
+	}
+	for _, want := range []string{"PATH", "REASON", "PRIORITY", "DIGEST", "REQUIRED", "task", "selected task record"} {
+		if !strings.Contains(first, want) {
+			t.Fatalf("HUD V2 missing %q:\n%s", want, first)
+		}
+	}
+}

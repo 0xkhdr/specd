@@ -31,6 +31,29 @@ func TestBuildManifest(t *testing.T) {
 	}
 }
 
+func TestManifestItemsCarryStableMetadata(t *testing.T) {
+	root := t.TempDir()
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"main.go"}}}
+	a, err := BuildManifest(root, "demo", tasks, "T1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := BuildManifest(root, "demo", tasks, "T1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ra, _ := json.Marshal(a)
+	rb, _ := json.Marshal(b)
+	if string(ra) != string(rb) {
+		t.Fatalf("metadata manifest not byte-stable")
+	}
+	for _, item := range a.Items {
+		if item.Path != "" && (item.Reason == "" || item.Digest == "") {
+			t.Fatalf("path item lacks context metadata: %+v", item)
+		}
+	}
+}
+
 func TestManifestSelectsPortableSkills(t *testing.T) {
 	root := t.TempDir()
 	writeManifestFixture(t, root, ".specd/specs/demo/requirements.md", "# Requirements\n")

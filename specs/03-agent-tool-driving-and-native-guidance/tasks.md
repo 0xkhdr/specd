@@ -55,9 +55,9 @@ before edit. Cross-domain prerequisites remain README program links, not local t
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T12 | craftsman | internal/core/handshake.go; internal/core/handshake_test.go; internal/core/scaffold.go; internal/core/scaffold_test.go; internal/context/manifest.go | T05,T06,T09 | go test ./internal/core ./internal/context -run 'Test(Handshake|Scaffold|Manifest)' | isolated guidance/context-schema digests; managed drift detected R3.3,R7.1 |
-| [ ] T13 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/hud.go; internal/context/hud_test.go | T05,T12 | go test ./internal/context -run 'Test(Manifest|HUD)' | path/reason/priority/digest/required status byte-stable; missing required fail R2,R7 |
-| [ ] T14 | craftsman | internal/mcp/server.go; internal/mcp/policy_test.go; internal/mcp/parity_test.go; internal/cmd/dispatch.go | T11,T12 | go test ./internal/mcp ./internal/cmd -run 'Test(Policy|Parity|Dispatch)' | typed `MCP_HANDOFF_REQUIRED`; exact actor/CLI route; no side effect R7.2,R7.3 |
+| [x] T12 | craftsman | internal/core/handshake.go; internal/core/handshake_test.go; internal/core/scaffold.go; internal/core/scaffold_test.go; internal/context/manifest.go | T05,T06,T09 | go test ./internal/core ./internal/context -run 'Test(Handshake|Scaffold|Manifest)' | isolated guidance/context-schema digests; managed drift detected R3.3,R7.1 |
+| [x] T13 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/hud.go; internal/context/hud_test.go | T05,T12 | go test ./internal/context -run 'Test(Manifest|HUD)' | path/reason/priority/digest/required status byte-stable; missing required fail R2,R7 |
+| [x] T14 | craftsman | internal/mcp/server.go; internal/mcp/policy_test.go; internal/mcp/parity_test.go; internal/cmd/dispatch.go | T11,T12 | go test ./internal/mcp ./internal/cmd -run 'Test(Policy|Parity|Dispatch)' | typed `MCP_HANDOFF_REQUIRED`; exact actor/CLI route; no side effect R7.2,R7.3 |
 
 ## W4 — host conformance and capabilities
 

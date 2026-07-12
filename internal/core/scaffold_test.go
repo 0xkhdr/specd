@@ -69,3 +69,26 @@ func TestScaffoldCreatesPortableSkillsRoot(t *testing.T) {
 		}
 	}
 }
+
+func TestScaffoldManagedGuidanceDigestPreservesUserRegion(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := GuidanceDigest(root)
+	if err != nil || digest == "" {
+		t.Fatalf("guidance digest: %q, %v", digest, err)
+	}
+	path := filepath.Join(root, "AGENTS.md")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append([]byte("user-owned\n"), raw...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := GuidanceDigest(root)
+	if err != nil || changed != digest {
+		t.Fatalf("user-owned guidance changed digest: %q != %q", changed, digest)
+	}
+}

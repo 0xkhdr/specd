@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -28,6 +29,15 @@ type Response struct {
 type ResponseError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}
+
+const MCPHandoffRequiredCode = -32002
+
+type Handoff struct {
+	Code    string `json:"code"`
+	Actor   string `json:"actor"`
+	Command string `json:"command"`
 }
 
 type toolCallParams struct {
@@ -88,6 +98,16 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 		var params toolCallParams
 		if err := json.Unmarshal(req.Params, &params); err != nil || params.Name == "" {
 			resp.Error = &ResponseError{Code: -32602, Message: "invalid params"}
+			return resp
+		}
+		if command, ok := core.CommandByName(params.Name); ok && command.HumanOnly {
+			args, _ := splitArguments(params.Arguments)
+			commandLine := "specd " + params.Name
+			if len(args) > 0 {
+				commandLine += " " + strings.Join(args, " ")
+			}
+			handoff := Handoff{Code: "MCP_HANDOFF_REQUIRED", Actor: "human", Command: commandLine}
+			resp.Error = &ResponseError{Code: MCPHandoffRequiredCode, Message: handoff.Code + ": actor=" + handoff.Actor + " command=" + handoff.Command, Data: handoff}
 			return resp
 		}
 		if authority == nil {

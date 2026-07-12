@@ -34,6 +34,9 @@ type Item struct {
 	Mode            string `json:"mode,omitempty"`
 	Bytes           int    `json:"bytes,omitempty"`
 	EstimatedTokens int    `json:"estimated_tokens"`
+	Reason          string `json:"reason,omitempty"`
+	Priority        int    `json:"priority,omitempty"`
+	Digest          string `json:"digest,omitempty"`
 }
 
 type Manifest struct {
@@ -44,6 +47,9 @@ type Manifest struct {
 	Items           []Item     `json:"items"`
 	Omissions       []Omission `json:"omissions,omitempty"`
 	EstimatedTokens int        `json:"estimated_tokens"`
+	Reason          string     `json:"reason,omitempty"`
+	Priority        int        `json:"priority,omitempty"`
+	Digest          string     `json:"digest,omitempty"`
 }
 
 // BuildManifest assembles the context references for one task. The steering
@@ -58,18 +64,18 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 	}
 	mode := ModeForTask(task)
 	items := []Item{
-		{Kind: "spec", Path: fmt.Sprintf(".specd/specs/%s/requirements.md", slug), Required: true},
-		{Kind: "design", Path: fmt.Sprintf(".specd/specs/%s/design.md", slug), Required: true},
-		{Kind: "tasks", Path: fmt.Sprintf(".specd/specs/%s/tasks.md", slug), Required: true},
-		{Kind: "task", TaskID: task.ID, Role: task.Role, Verify: task.Verify, Acceptance: task.Acceptance, Required: true},
-		{Kind: "role", Path: fmt.Sprintf(".specd/roles/%s.md", task.Role), Required: true},
+		{Kind: "spec", Path: fmt.Sprintf(".specd/specs/%s/requirements.md", slug), Required: true, Reason: "approved task requirements"},
+		{Kind: "design", Path: fmt.Sprintf(".specd/specs/%s/design.md", slug), Required: true, Reason: "applicable task design"},
+		{Kind: "tasks", Path: fmt.Sprintf(".specd/specs/%s/tasks.md", slug), Required: true, Reason: "selected task DAG"},
+		{Kind: "task", TaskID: task.ID, Role: task.Role, Verify: task.Verify, Acceptance: task.Acceptance, Required: true, Reason: "exact selected task"},
+		{Kind: "role", Path: fmt.Sprintf(".specd/roles/%s.md", task.Role), Required: true, Reason: "task role authority"},
 	}
 	for _, file := range task.DeclaredFiles {
 		kind := "source"
 		if strings.HasSuffix(file, "_test.go") || strings.Contains(file, "_test.") {
 			kind = "test"
 		}
-		items = append(items, Item{Kind: kind, Path: file, Required: true})
+		items = append(items, Item{Kind: kind, Path: file, Required: true, Reason: "declared task file"})
 	}
 	for i := range items {
 		if items[i].Path != "" {
@@ -80,8 +86,14 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 			items[i].Bytes = len(items[i].Kind + items[i].TaskID)
 		}
 		items[i].EstimatedTokens = tokensFromBytes(int64(items[i].Bytes))
+		items[i].Digest = itemDigest(root, items[i])
 	}
 	items = append(items, steeringItems(root, slug)...)
+	for i := range items {
+		if items[i].Digest == "" {
+			items[i].Digest = itemDigest(root, items[i])
+		}
+	}
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].Kind == items[j].Kind {
 			if items[i].Path == items[j].Path {
@@ -133,13 +145,24 @@ func steeringItems(root, slug string) []Item {
 			kind, mode = "memory", "reference-if-needed"
 		}
 		nbytes := fileBytes(filepath.Join(root, rel))
-		items = append(items, Item{Kind: kind, Path: rel, Mode: mode, Bytes: int(nbytes), EstimatedTokens: tokensFromBytes(nbytes)})
+		items = append(items, Item{Kind: kind, Path: rel, Mode: mode, Bytes: int(nbytes), EstimatedTokens: tokensFromBytes(nbytes), Reason: "available project guidance"})
 	}
 	specMem := filepath.Join(".specd", "specs", slug, "memory.md")
 	if fi, err := os.Stat(filepath.Join(root, specMem)); err == nil && !fi.IsDir() {
-		items = append(items, Item{Kind: "memory", Path: filepath.ToSlash(specMem), Mode: "reference-if-needed", Bytes: int(fi.Size()), EstimatedTokens: tokensFromBytes(fi.Size())})
+		items = append(items, Item{Kind: "memory", Path: filepath.ToSlash(specMem), Mode: "reference-if-needed", Bytes: int(fi.Size()), EstimatedTokens: tokensFromBytes(fi.Size()), Reason: "reference memory"})
 	}
 	return items
+}
+
+func itemDigest(root string, item Item) string {
+	if item.Path == "" {
+		return core.Digest([]byte(item.Kind + "\x00" + item.TaskID))
+	}
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(item.Path)))
+	if err != nil {
+		return core.Digest(nil)
+	}
+	return core.Digest(raw)
 }
 
 // fileBytes reports the on-disk size of path, or 0 when it is missing or a

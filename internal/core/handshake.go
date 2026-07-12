@@ -33,6 +33,8 @@ type Handshake struct {
 	WorkspaceRoot         string             `json:"workspace_root"`
 	ActiveSpec            *HandshakeSpec     `json:"active_spec,omitempty"`
 	ManagedDigest         string             `json:"managed_digest"`
+	GuidanceDigest        string             `json:"guidance_digest"`
+	ContextSchemaDigest   string             `json:"context_schema_digest"`
 	NextCommands          []string           `json:"next_commands"`
 	Authority             HandshakeAuthority `json:"authority"`
 	// PaletteDigest and ConfigDigest let an agent detect that its cached command
@@ -71,6 +73,10 @@ func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCom
 	if err != nil {
 		return Handshake{}, err
 	}
+	guidanceDigest, err := GuidanceDigest(absRoot)
+	if err != nil {
+		return Handshake{}, err
+	}
 	hs := Handshake{
 		Version:               "1",
 		Agent:                 config.Agent,
@@ -81,6 +87,8 @@ func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCom
 		TemplateSchemaVersion: TemplateVersion,
 		WorkspaceRoot:         filepath.Clean(absRoot),
 		ManagedDigest:         managedDigest,
+		GuidanceDigest:        guidanceDigest,
+		ContextSchemaDigest:   ContextSchemaDigest(),
 		NextCommands:          append([]string(nil), nextCommands...),
 		Authority: HandshakeAuthority{
 			HarnessInstructions: []string{"AGENTS.md", ".specd/roles", ".specd/steering", "command palette"},
@@ -95,6 +103,22 @@ func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCom
 		hs.ActiveSpec = &HandshakeSpec{Slug: state.Slug, Status: state.Status, Revision: state.Revision}
 	}
 	return hs, nil
+}
+
+// GuidanceDigest isolates managed guidance identity from palette/config and
+// excludes user-owned bytes. ManagedDigest remains the compatibility name.
+func GuidanceDigest(root string) (string, error) { return ManagedDigest(root) }
+
+// ContextSchemaDigest pins semantic context metadata, not context payloads.
+// Keep field order explicit: this contract is consumed by external hosts.
+func ContextSchemaDigest() string {
+	return digest(struct {
+		Version string   `json:"version"`
+		Fields  []string `json:"fields"`
+	}{
+		Version: ContextSchemaVersion,
+		Fields:  []string{"kind", "path", "task_id", "role", "verify", "acceptance", "required", "mode", "bytes", "estimated_tokens", "reason", "priority", "digest"},
+	})
 }
 
 // PaletteDigest is the SHA-256 of the canonical `help --json` payload (spec 03).

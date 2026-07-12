@@ -76,7 +76,11 @@ func TestDenyList(t *testing.T) {
 			JSONRPC: "2.0", ID: 1, Method: "tools/call",
 			Params: []byte(`{"name":"` + name + `"}`),
 		}, CoreTools(), nil)
-		if resp.Error == nil || resp.Error.Code != -32001 {
+		wantCode := -32001
+		if name == "approve" {
+			wantCode = MCPHandoffRequiredCode
+		}
+		if resp.Error == nil || resp.Error.Code != wantCode {
 			t.Fatalf("tools/call %q: want policy error -32001, got %#v", name, resp.Error)
 		}
 	}
@@ -93,11 +97,7 @@ func TestBrainToolsGatedByConfig(t *testing.T) {
 
 func TestParityTypedHandoffBaseline(t *testing.T) {
 	resp := Dispatch(Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"approve"}`)}, CoreTools(), nil)
-	if resp.Error == nil {
-		t.Fatal("forbidden mutation accepted")
-	}
-	raw, _ := json.Marshal(resp.Error)
-	if strings.Contains(string(raw), "MCP_HANDOFF_REQUIRED") {
-		t.Fatal("typed handoff already present; update W0 baseline")
+	if resp.Error == nil || resp.Error.Code != MCPHandoffRequiredCode {
+		t.Fatalf("forbidden mutation must return typed handoff: %#v", resp.Error)
 	}
 }

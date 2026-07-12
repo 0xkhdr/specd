@@ -75,8 +75,50 @@ func TestHandshakeBind(t *testing.T) {
 	if hs.WorkspaceRoot == "" || hs.ActiveSpec == nil || hs.ActiveSpec.Slug != "demo" || hs.ActiveSpec.Status != StatusTasks || hs.ActiveSpec.Revision != 7 {
 		t.Fatalf("workspace/spec identity missing: %+v", hs)
 	}
-	if hs.PaletteDigest == "" || hs.ConfigDigest == "" || hs.ManagedDigest == "" || len(hs.Tools) == 0 || len(hs.NextCommands) != 1 {
+	if hs.PaletteDigest == "" || hs.ConfigDigest == "" || hs.ManagedDigest == "" || hs.GuidanceDigest == "" || hs.ContextSchemaDigest == "" || len(hs.Tools) == 0 || len(hs.NextCommands) != 1 {
 		t.Fatalf("operational identity missing: %+v", hs)
+	}
+}
+
+func TestHandshakeDigestIsolation(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	base, err := BootstrapHandshakeForRoot(root, Config{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.GuidanceDigest != base.ManagedDigest {
+		t.Fatalf("guidance digest must preserve managed compatibility identity: %q != %q", base.GuidanceDigest, base.ManagedDigest)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("user-only\n"+agentsBegin+"\nharness\n"+agentsEnd+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := BootstrapHandshakeForRoot(root, Config{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.GuidanceDigest == changed.GuidanceDigest {
+		t.Fatal("managed guidance drift not detected")
+	}
+	if base.PaletteDigest != changed.PaletteDigest || base.ConfigDigest != changed.ConfigDigest || base.ContextSchemaDigest != changed.ContextSchemaDigest {
+		t.Fatal("guidance drift changed unrelated handshake digests")
+	}
+}
+
+func TestContextSchemaDigestStableAndIndependent(t *testing.T) {
+	first := ContextSchemaDigest()
+	second := ContextSchemaDigest()
+	if first == "" || first != second {
+		t.Fatalf("context schema digest unstable: %q %q", first, second)
+	}
+	other, err := GuidanceDigest(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == other {
+		t.Fatal("context schema digest must be isolated from guidance digest")
 	}
 }
 
