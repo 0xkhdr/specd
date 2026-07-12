@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
@@ -89,7 +90,7 @@ func Analyze(root string, cfg core.SecurityConfig) Result {
 	enabled := g.enabled()
 	files, inputFindings := scanInputs(root)
 
-	allow, allowFindings := loadAllowlist(root)
+	allow, allowFindings := loadGovernedAllowlist(root, cfg.Profile, time.Now().UTC())
 
 	var raw []Finding
 	raw = append(raw, policyFindings(root, cfg)...)

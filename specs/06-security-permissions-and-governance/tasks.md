@@ -107,11 +107,15 @@ fixture before each enforcement change. Stdlib-only; no `reference/` edits; no L
 
 ## W7 — governed exceptions and mission audit
 
+Scope deviation (T26): public approve/revoke actions necessarily update
+`docs/command-reference.md` and `docs/CHEATSHEET.md`; mirrored-doc gates fail without these
+contract projections.
+
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T25 | craftsman | internal/core/gates/security/allowlist.go; internal/core/gates/security/exceptions.go; internal/core/gates/security/exceptions_test.go | T06 | go test ./internal/core/gates/security -run 'Test(Allowlist|Exception)' | exception requires finding/action/reason/ticket/owner/scope/revision/expiry/control; missing field fails; append-only, edit changes digest R7.1,R7.2 |
-| [ ] T26 | craftsman | internal/cmd/registry.go; internal/cmd/security_approve_test.go; internal/core/commands.go | T25 | go test ./internal/cmd -run 'Test(SecurityApprove|Revoke|Exception)' | approve/revoke commands; expired/revoked/wrong-revision suppresses nothing and re-surfaces; cannot waive evidence R7.2 |
-| [ ] T27 | craftsman | internal/cmd/report.go; internal/cmd/report_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T20,T26, Domain 07 export | go test ./internal/cmd ./internal/orchestration -run 'Test(Report|ACP)' | policy-digest-keyed audit correlates authority/tools/diff/scans/verify/review/exceptions/submit; dup/out-of-order fails; no secrets/raw args/hidden reasoning R7.3 |
+| [x] T25 | craftsman | internal/core/gates/security/allowlist.go; internal/core/gates/security/exceptions.go; internal/core/gates/security/exceptions_test.go | T06 | go test ./internal/core/gates/security -run 'Test(Allowlist|Exception)' | exception requires finding/action/reason/ticket/owner/scope/revision/expiry/control; missing field fails; append-only, edit changes digest R7.1,R7.2 |
+| [x] T26 | craftsman | internal/cmd/registry.go; internal/cmd/security_approve_test.go; internal/core/commands.go | T25 | go test ./internal/cmd -run 'Test(SecurityApprove|Revoke|Exception)' | approve/revoke commands; expired/revoked/wrong-revision suppresses nothing and re-surfaces; cannot waive evidence R7.2 |
+| [x] T27 | craftsman | internal/cmd/report.go; internal/cmd/report_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T20,T26, Domain 07 export | go test ./internal/cmd ./internal/orchestration -run 'Test(Report|ACP)' | policy-digest-keyed audit correlates authority/tools/diff/scans/verify/review/exceptions/submit; dup/out-of-order fails; no secrets/raw args/hidden reasoning R7.3 |
 
 ## W8 — cross-platform adapters and release proof
 

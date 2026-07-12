@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // allowEntry is one reasoned suppression in .specd/security/allow.json. It pins
@@ -16,6 +18,18 @@ import (
 type allowEntry struct {
 	Fingerprint string `json:"fingerprint"`
 	Reason      string `json:"reason"`
+}
+
+func loadGovernedAllowlist(root, environment string, now time.Time) (allowlist, []Finding) {
+	if _, err := os.Stat(filepath.Join(root, ".specd", "security", "exceptions.jsonl")); err == nil {
+		head, err := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
+		if err != nil {
+			return failClosed(), []Finding{{Scanner: "exceptions", Rule: "revision", Severity: "error", Excerpt: "cannot resolve git HEAD"}}
+		}
+		set, findings := LoadExceptions(root, strings.TrimSpace(string(head)), environment, now)
+		return allowlist{byFingerprint: set.active}, findings
+	}
+	return loadAllowlist(root)
 }
 
 type allowlist struct {

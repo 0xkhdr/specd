@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates/security"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
@@ -146,6 +148,24 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 		})
 	}
 
+	// 6. Governed exception ledger: retain every lifecycle record while marking
+	// current suppressions active. Projection exposes governance metadata only.
+	exceptions, exceptionFindings := security.LoadExceptions(root, gitHead(root), "production", time.Now().UTC())
+	if len(exceptionFindings) != 0 {
+		return nil, fmt.Errorf("load security exceptions: %s", exceptionFindings[0].Excerpt)
+	}
+	for seq, e := range exceptions.Records {
+		status := "historical"
+		if e.Action == "suppress" && exceptions.Allows(e.Finding) {
+			status = "active"
+		}
+		events = append(events, core.HistoryEvent{
+			Timestamp: e.IssuedAt, Event: "exception:" + status,
+			Reference: fmt.Sprintf("finding=%s ticket=%s owner=%s scope=%s policy=%s", e.Finding, e.Ticket, e.Owner, e.Scope, exceptions.Digest),
+			GitHead:   e.Revision, SourceRank: core.HistorySourceACP, Seq: seq,
+		})
+	}
+
 	return events, nil
 }
 
@@ -205,6 +225,9 @@ func recordSummary(rec core.Record) string {
 }
 
 func acpReference(e orchestration.ACPEvent) string {
+	if e.AuditID > 0 {
+		return fmt.Sprintf("run=%s mission=%s task=%s policy=%s stage=%s audit_id=%d", e.RunID, e.MissionID, e.TaskID, e.PolicyDigest, e.AuditKind, e.AuditID)
+	}
 	if e.TaskID == "" {
 		return ""
 	}

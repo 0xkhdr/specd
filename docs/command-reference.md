@@ -93,6 +93,10 @@ specd approve <spec> <gate>
 Record human approval for a lifecycle gate. Advances a phase only when the gate registry
 passes. **Phases:** any.
 
+`specd approve exception <approve|revoke> <finding> [governed exception fields]` appends an
+immutable governed exception lifecycle record. Every field is required; evidence integrity and
+worker authority cannot be waived.
+
 ```bash
 specd approve payments requirements
 specd approve payments design

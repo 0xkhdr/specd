@@ -67,6 +67,15 @@ type Command struct {
 // anyPhase is the explicit unrestricted declaration.
 func anyPhase() []Phase { return []Phase{PhaseAny} }
 
+func securityExceptionFlags() []Flag {
+	names := []string{"action", "reason", "ticket", "owner", "scope", "revision", "environment", "issued-at", "expires-at", "control", "approver"}
+	flags := make([]Flag, 0, len(names))
+	for _, name := range names {
+		flags = append(flags, Flag{Name: name, TakesValue: true, Type: "string", Description: "Governed exception " + name + "."})
+	}
+	return flags
+}
+
 // postRequirementsPhases is the set for execution verbs (verify, next): every
 // phase except perceive. A spec still in the requirements (perceive) phase has
 // no approved design or task DAG to act on, so these verbs fail closed there
@@ -161,6 +170,7 @@ var Commands = []Command{
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd approve payments requirements", "specd approve payments design"},
 		HumanOnly:     true,
+		Flags:         securityExceptionFlags(),
 	},
 	{
 		Name:          "midreq",

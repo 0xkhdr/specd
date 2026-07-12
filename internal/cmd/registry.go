@@ -35,7 +35,7 @@ func init() { Registry = buildRegistry() }
 var ErrUnknownCommand = errors.New("unknown command")
 
 var executable = map[string]Handler{
-	"approve":   runApprove,
+	"approve":   runApproveOrException,
 	"agents":    runAgents,
 	"brain":     runBrain,
 	"check":     runCheck,
@@ -58,6 +58,33 @@ var executable = map[string]Handler{
 	"task":      runTask,
 	"unlink":    runUnlink,
 	"verify":    runVerify,
+}
+
+func runApproveOrException(root string, args []string, flags map[string]string) error {
+	if len(args) > 0 && args[0] == "exception" {
+		return runSecurityException(root, args[1:], flags)
+	}
+	return runApprove(root, args, flags)
+}
+
+func runSecurityException(root string, args []string, flags map[string]string) error {
+	if len(args) != 2 || (args[0] != "approve" && args[0] != "revoke") {
+		return errors.New("usage: specd exception <approve|revoke> <finding> [governed exception fields]")
+	}
+	action := "suppress"
+	if args[0] == "revoke" {
+		action = "revoke"
+	}
+	// Evidence integrity and worker authority are constitutional constraints,
+	// never policy findings an exception may suppress.
+	scope := strings.ToLower(strings.TrimSpace(flags["scope"]))
+	finding := strings.ToLower(strings.TrimSpace(args[1]))
+	if strings.Contains(scope, "evidence") || strings.Contains(scope, "authority") || strings.Contains(finding, "evidence-integrity") || strings.Contains(finding, "worker-authority") {
+		return errors.New("security exception cannot waive evidence integrity or broaden worker authority")
+	}
+	return security.AppendException(root, security.Exception{
+		Finding: args[1], Action: action, Reason: flags["reason"], Ticket: flags["ticket"], Owner: flags["owner"], Scope: flags["scope"], Revision: flags["revision"], Environment: flags["environment"], IssuedAt: flags["issued-at"], ExpiresAt: flags["expires-at"], CompensatingControl: flags["control"], Approver: flags["approver"],
+	})
 }
 
 func buildRegistry() map[string]Handler {

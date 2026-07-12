@@ -3,6 +3,7 @@ package orchestration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -29,6 +30,32 @@ func TestACPTelemetryEnvelope(t *testing.T) {
 	os.WriteFile(decode, []byte(`{"kind":"report","task_id":"T1","telemetry":{"envelope_version":"v2"}}`+"\n"), 0o644)
 	if _, err := ReadACP(decode); err == nil {
 		t.Fatal("unknown envelope version accepted on decode")
+	}
+}
+
+func TestACPAuditRejectsDuplicateAndOutOfOrderIdentifiers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "acp.jsonl")
+	raw := "{\"seq\":1,\"kind\":\"audit\",\"audit_id\":2,\"audit_kind\":\"tools\",\"run_id\":\"r1\",\"mission_id\":\"m1\",\"task_id\":\"T1\",\"policy_digest\":\"p1\"}\n" +
+		"{\"seq\":2,\"kind\":\"audit\",\"audit_id\":1,\"audit_kind\":\"diff\",\"run_id\":\"r1\",\"mission_id\":\"m1\",\"task_id\":\"T1\",\"policy_digest\":\"p1\"}\n"
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadACP(path); err == nil {
+		t.Fatal("out-of-order audit id accepted")
+	}
+	if err := os.WriteFile(path, []byte(strings.Replace(raw, "\"audit_id\":1", "\"audit_id\":2", 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadACP(path); err == nil {
+		t.Fatal("duplicate audit id accepted")
+	}
+}
+
+func TestACPAuditRejectsSensitivePayload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "acp.jsonl")
+	e := ACPEvent{Kind: "audit", AuditID: 1, AuditKind: "tools", RunID: "r1", MissionID: "m1", TaskID: "T1", PolicyDigest: "p1", Payload: "--token=secret"}
+	if err := AppendACP(path, e); err == nil {
+		t.Fatal("raw sensitive argument accepted")
 	}
 }
 

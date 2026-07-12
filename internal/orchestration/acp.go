@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -50,6 +51,34 @@ type ACPEvent struct {
 	// scores (spec 04 R4.2/R4.3). Optional so bare dispatch/claim events and
 	// pre-trace ledgers stay valid.
 	TraceDigest string `json:"trace_digest,omitempty"`
+
+	// Sanitized mission audit identity. AuditID is strictly increasing within a
+	// run/mission/task/policy stream; AuditKind follows constitutional stage order.
+	AuditID      int    `json:"audit_id,omitempty"`
+	AuditKind    string `json:"audit_kind,omitempty"`
+	RunID        string `json:"run_id,omitempty"`
+	PolicyDigest string `json:"policy_digest,omitempty"`
+}
+
+var auditStage = map[string]int{"authority": 1, "tools": 2, "diff": 3, "scans": 4, "verify": 5, "review": 6, "exceptions": 7, "submit": 8}
+
+func validateAuditEvent(e ACPEvent) error {
+	if e.AuditID == 0 && e.AuditKind == "" {
+		return nil
+	}
+	if e.AuditID < 1 || e.RunID == "" || e.MissionID == "" || e.TaskID == "" || e.PolicyDigest == "" {
+		return errors.New("audit event missing identity")
+	}
+	if _, ok := auditStage[e.AuditKind]; !ok {
+		return fmt.Errorf("unknown audit kind %q", e.AuditKind)
+	}
+	lower := strings.ToLower(e.Payload)
+	for _, marker := range []string{"--token=", "password=", "secret=", "chain-of-thought", "hidden reasoning"} {
+		if strings.Contains(lower, marker) {
+			return errors.New("audit payload contains sensitive or hidden data")
+		}
+	}
+	return nil
 }
 
 // HarnessAffectedPaths is the harness-observed set of paths a worker touched.
@@ -154,6 +183,9 @@ func AppendDispatch(path string, event ACPEvent) error {
 // bounded by task count × attempts. Maintain an on-disk index only if a ledger
 // ever grows past a few thousand events.
 func AppendACP(path string, event ACPEvent) error {
+	if err := validateAuditEvent(event); err != nil {
+		return err
+	}
 	if event.Observation != nil {
 		normalized, err := NormalizeObservation(*event.Observation)
 		if err != nil {
@@ -195,6 +227,8 @@ func ReadACP(path string) ([]ACPEvent, error) {
 		return nil, fmt.Errorf("open acp: %w", err)
 	}
 	var events []ACPEvent
+	lastID := map[string]int{}
+	lastStage := map[string]int{}
 	lines := bytes.Split(data, []byte{'\n'})
 	for i, line := range lines {
 		if len(bytes.TrimSpace(line)) == 0 {
@@ -214,6 +248,20 @@ func ReadACP(path string) ([]ACPEvent, error) {
 		}
 		if err := core.ValidateAnnotations(event.Telemetry); err != nil {
 			return nil, fmt.Errorf("acp telemetry: %w", err)
+		}
+		if err := validateAuditEvent(event); err != nil {
+			return nil, fmt.Errorf("acp audit line %d: %w", i+1, err)
+		}
+		if event.AuditID > 0 {
+			key := event.RunID + "\x00" + event.MissionID + "\x00" + event.TaskID + "\x00" + event.PolicyDigest
+			if event.AuditID <= lastID[key] {
+				return nil, fmt.Errorf("audit id duplicate or out of order: %d", event.AuditID)
+			}
+			stage := auditStage[event.AuditKind]
+			if stage < lastStage[key] {
+				return nil, fmt.Errorf("audit stage out of order: %s", event.AuditKind)
+			}
+			lastID[key], lastStage[key] = event.AuditID, stage
 		}
 		event.Seq = len(events) + 1
 		events = append(events, event)

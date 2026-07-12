@@ -61,7 +61,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 07 W5 — privacy and cardinality policy (needs 07 W4, 06)
 - [x] 07 W6 — metadata run spans and trace export (needs 07 W5)
 - [x] 06 W6 — dependency and dangerous-change governance (needs 07 export)
-- [ ] 06 W7 — governed exceptions and mission audit (needs 06 W6)
+- [x] 06 W7 — governed exceptions and mission audit (needs 06 W6)
 - [ ] 08 W1 — `08b-agent-bootstrap-binding` (needs 08 W0)
 - [ ] 08 W2 — `08c-orchestrated-mode-reachability` (needs 08 W0, Domain 05 dispatch)
 - [ ] 08 W3 — `08d-delivery-envelopes-and-state-machine` (needs 08 W0)
