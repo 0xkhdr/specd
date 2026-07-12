@@ -64,10 +64,16 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T16 | craftsman | new `internal/core/delivery.go` (envelope structs, versioned) | T03 | `go test ./internal/core -run TestDeliveryEnvelope -count=1` | R1.1 release/env/deploy/health/rollback envelopes |
-| T17 | craftsman | `internal/core/delivery.go` (closed status set + transition table) | T16 | `go test ./internal/core -run TestDeliveryTransition -count=1` | R1.2 every transition fails closed |
-| T18 | craftsman | `internal/core/delivery.go`; fixtures | T16 | `go test ./internal/core -run TestDeliveryFixture -count=2` (GREEN) | R1.1,R1.2 offline fixtures validate; jumps/mismatch rejected |
-| T19 | validator | evidence gate with delivery structs present | T17 | `go test ./internal/core/gates -run TestEvidenceAdditive -count=1` | R1.3 delivery is additive, no gate crossover |
+| [x] T16 | craftsman | new `internal/core/delivery.go` (envelope structs, versioned) | T03 | `go test ./internal/core -run TestDeliveryEnvelope -count=1` | R1.1 release/env/deploy/health/rollback envelopes |
+| [x] T17 | craftsman | `internal/core/delivery.go` (closed status set + transition table) | T16 | `go test ./internal/core -run TestDeliveryTransition -count=1` | R1.2 every transition fails closed |
+| [x] T18 | craftsman | `internal/core/delivery.go`; fixtures | T16 | `go test ./internal/core -run TestDeliveryFixture -count=2` (GREEN) | R1.1,R1.2 offline fixtures validate; jumps/mismatch rejected |
+| [x] T19 | validator | evidence gate with delivery structs present | T17 | `go test ./internal/core/gates -run TestEvidenceAdditive -count=1` | R1.3 delivery is additive, no gate crossover |
+
+> **08d scope deviations:** strict TDD requires new `internal/core/delivery_test.go` and
+> `internal/core/gates/delivery_additive_test.go`. T18 extends the predeclared
+> `internal/core/delivery_fixtures_test.go` to exercise typed validation rather than JSON shape only.
+> Backprop protocol records the T16 compile-time test typo in root `SPEC.md` §B3; no new invariant
+> applies to the one-off local-identifier error.
 
 ## W4 — `08e-installed-lifecycle-e2e-and-regression-prereqs` (requires 08b)
 

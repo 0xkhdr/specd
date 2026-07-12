@@ -48,3 +48,5 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 |---|---|---|---|
 | B1 | 2026-07-12 | managed-marker test hardcoded `v1`; valid template bump failed suite | V9 |
 | B2 | 2026-07-12 | schema-migration fixture used never-declared `build` mode; mode validation correctly exposed stale fixture | V7,R3.1 |
+| B3 | 2026-07-12 | 08d transition-table test assigned through an out-of-scope local identifier; compile failed before behavior ran | mechanical typo; no new invariant |
+| B4 | 2026-07-12 | 08d additive test guessed a nonexistent exported evidence-gate API instead of using package-local gate contract | align test with `evidence(CheckCtx)`; no new invariant |

@@ -64,6 +64,36 @@ func TestDeliveryFixture(t *testing.T) {
 				t.Errorf("%s: status %q not in closed set", e.Name(), st)
 			}
 		}
+		switch schema {
+		case ReleaseCandidateSchemaV1:
+			var envelope ReleaseCandidateV1
+			if err := json.Unmarshal(raw, &envelope); err != nil {
+				t.Errorf("%s: decode typed release: %v", e.Name(), err)
+			} else if err := ValidateReleaseCandidate(envelope); err != nil {
+				t.Errorf("%s: validate typed release: %v", e.Name(), err)
+			}
+		case DeploymentSchemaV1:
+			var envelope DeploymentV1
+			if err := json.Unmarshal(raw, &envelope); err != nil {
+				t.Errorf("%s: decode typed deployment: %v", e.Name(), err)
+			} else if err := ValidateDeployment(envelope); err != nil {
+				t.Errorf("%s: validate typed deployment: %v", e.Name(), err)
+			}
+		case HealthObservationSchemaV1:
+			var envelope HealthObservationV1
+			if err := json.Unmarshal(raw, &envelope); err != nil {
+				t.Errorf("%s: decode typed health observation: %v", e.Name(), err)
+			} else if err := ValidateHealthObservation(envelope); err != nil {
+				t.Errorf("%s: validate typed health observation: %v", e.Name(), err)
+			}
+		case RollbackSchemaV1:
+			var envelope RollbackV1
+			if err := json.Unmarshal(raw, &envelope); err != nil {
+				t.Errorf("%s: decode typed rollback: %v", e.Name(), err)
+			} else if err := ValidateRollback(envelope); err != nil {
+				t.Errorf("%s: validate typed rollback: %v", e.Name(), err)
+			}
+		}
 	}
 
 	// Every canonical envelope must have a landed fixture — an absent kind is RED,
