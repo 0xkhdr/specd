@@ -631,10 +631,27 @@ func BuildManifestV2(root, slug string, tasks []core.TaskRow, taskID, action, ph
 		return ManifestV2{}, err
 	}
 	items = append(items, DriverItems(handshake, phase, task.Role)...)
+	selection := SelectionContext{Phase: phase, Role: task.Role, TaskID: task.ID, RequirementIDs: splitStaticValues(task.Acceptance), TaskFields: []string{action}, Files: append([]string(nil), task.DeclaredFiles...)}
+	steering, steeringOmissions, err := SelectSteering(root, selection)
+	if err != nil {
+		return ManifestV2{}, err
+	}
+	memory, memoryOmissions, err := SelectMemory(root, slug, selection)
+	if err != nil {
+		return ManifestV2{}, err
+	}
+	examples, exampleOmissions, err := SelectExamples(root, selection)
+	if err != nil {
+		return ManifestV2{}, err
+	}
+	items = append(items, steering...)
+	items = append(items, memory...)
+	items = append(items, examples...)
 	kept, omissions, required, optional, err := EnforceBudgetV2(items, budget)
 	if err != nil {
 		return ManifestV2{}, err
 	}
+	omissions = append(append(append(steeringOmissions, memoryOmissions...), exampleOmissions...), omissions...)
 	m := ManifestV2{SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: SelectedTaskV2{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection"}
 	CanonicalizeV2(&m)
 	if err := ValidateManifestV2(m); err != nil {
@@ -642,6 +659,12 @@ func BuildManifestV2(root, slug string, tasks []core.TaskRow, taskID, action, ph
 	}
 	m.ManifestDigest = ManifestV2Digest(m)
 	return m, nil
+}
+
+func splitStaticValues(raw string) []string {
+	fields := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ';' || r == ' ' })
+	sort.Strings(fields)
+	return fields
 }
 
 func AttachAuthority(m ManifestV2, authority core.AuthorityV1) (ManifestV2, error) {

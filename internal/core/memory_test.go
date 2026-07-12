@@ -34,6 +34,20 @@ func TestMemoryBlock(t *testing.T) {
 	}
 }
 
+func TestIndexMemBlocks(t *testing.T) {
+	doc := "# Memory\n\n## beta\n**Pattern:** B\n**Criticality:** important\n**Applies-To:** tags=go; phases=execute\n\n## alpha\n**Pattern:** A\n**Criticality:** critical\n**Applies-To:** tags=core\n"
+	blocks, err := IndexMemBlocks(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blocks) != 2 || blocks[0].Key != "alpha" || blocks[1].Key != "beta" {
+		t.Fatalf("blocks = %+v", blocks)
+	}
+	if blocks[0].Criticality != "critical" || blocks[0].Digest == "" || blocks[1].AppliesTo != "tags=go; phases=execute" {
+		t.Fatalf("blocks = %+v", blocks)
+	}
+}
+
 func TestSpecMemoryPath(t *testing.T) {
 	root := "/tmp/proj"
 	if got := SpecMemoryPath(root, "demo"); got != filepath.Join(root, ".specd/specs/demo/memory.md") {

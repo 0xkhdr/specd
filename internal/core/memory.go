@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -18,6 +19,58 @@ type MemFields struct {
 	Source      string
 	Criticality string
 	Related     string
+}
+
+// MemBlock is one indexed H2 memory record. Raw preserves selected bytes;
+// Digest pins that representation without exposing it in a manifest.
+type MemBlock struct {
+	Key, Pattern, Detail, Source, Criticality, Related, AppliesTo, Raw, Digest string
+}
+
+// IndexMemBlocks parses memory into a stable key-sorted block index. Duplicate
+// keys fail closed because a selector must identify exactly one representation.
+func IndexMemBlocks(text string) ([]MemBlock, error) {
+	lines := strings.Split(text, "\n")
+	var blocks []MemBlock
+	seen := map[string]bool{}
+	for i := 0; i < len(lines); {
+		if !memBlockRE.MatchString(lines[i]) {
+			i++
+			continue
+		}
+		start := i
+		key := strings.TrimSpace(strings.TrimPrefix(lines[i], "##"))
+		i++
+		for i < len(lines) && !memBlockRE.MatchString(lines[i]) {
+			i++
+		}
+		if key == "" || seen[key] {
+			return nil, fmt.Errorf("memory block key %q is empty or duplicated", key)
+		}
+		seen[key] = true
+		raw := strings.TrimRight(strings.Join(lines[start:i], "\n"), " \t\n")
+		b := MemBlock{Key: key, Raw: raw, Digest: Digest([]byte(raw))}
+		for _, line := range strings.Split(raw, "\n") {
+			field := func(prefix string) string { return strings.TrimSpace(strings.TrimPrefix(line, prefix)) }
+			switch {
+			case strings.HasPrefix(line, "**Pattern:**"):
+				b.Pattern = field("**Pattern:**")
+			case strings.HasPrefix(line, "**Detail:**"):
+				b.Detail = field("**Detail:**")
+			case strings.HasPrefix(line, "**Source:**"):
+				b.Source = field("**Source:**")
+			case strings.HasPrefix(line, "**Criticality:**"):
+				b.Criticality = field("**Criticality:**")
+			case strings.HasPrefix(line, "**Related:**"):
+				b.Related = field("**Related:**")
+			case strings.HasPrefix(line, "**Applies-To:**"):
+				b.AppliesTo = field("**Applies-To:**")
+			}
+		}
+		blocks = append(blocks, b)
+	}
+	sort.Slice(blocks, func(i, j int) bool { return blocks[i].Key < blocks[j].Key })
+	return blocks, nil
 }
 
 // RenderMemBlock renders a byte-stable `## <key>` block. Output starts at the

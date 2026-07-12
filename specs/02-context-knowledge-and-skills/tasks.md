@@ -40,9 +40,9 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T11 | craftsman | internal/context/steering.go; internal/context/steering_test.go; internal/context/manifest.go; internal/context/steering_manifest_test.go | T08 | go test ./internal/context -run 'Test(Steering|Manifest)' | deterministic steering tags/applicability/omissions R3,R6 |
-| [ ] T12 | craftsman | internal/core/memory.go; internal/core/memory_test.go; internal/context/memory.go; internal/context/memory_test.go | T08 | go test ./internal/core ./internal/context -run 'TestMemory' | stable block index/selector; critical ordering R6 |
-| [ ] T13 | craftsman | internal/context/examples.go; internal/context/examples_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T08 | go test ./internal/context -run 'Test(Examples|Manifest)' | versioned applicable positive/negative examples R6 |
+| [x] T11 | craftsman | internal/context/steering.go; internal/context/steering_test.go; internal/context/manifest.go; internal/context/steering_manifest_test.go | T08 | go test ./internal/context -run 'Test(Steering|Manifest)' | deterministic steering tags/applicability/omissions R3,R6 |
+| [x] T12 | craftsman | internal/core/memory.go; internal/core/memory_test.go; internal/context/memory.go; internal/context/memory_test.go | T08 | go test ./internal/core ./internal/context -run 'TestMemory' | stable block index/selector; critical ordering R6 |
+| [x] T13 | craftsman | internal/context/examples.go; internal/context/examples_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T08 | go test ./internal/context -run 'Test(Examples|Manifest)' | versioned applicable positive/negative examples R6 |
 
 ## W4 — portable skills
 

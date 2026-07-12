@@ -94,3 +94,40 @@ func TestSteeringInManifestMissingSilentBaseline(t *testing.T) {
 		}
 	}
 }
+
+func TestManifestProgressiveStaticLanes(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(".specd/specs/demo/requirements.md", "# Requirements\n")
+	write(".specd/specs/demo/design.md", "# Design\n")
+	write(".specd/roles/craftsman.md", "# Role\n")
+	write("internal/x.go", "package internal\n")
+	write(".specd/steering/go.md", "<!-- specd-context\nphases: execute\nroles: craftsman\nfiles: **/*.go\n-->\n# Go\n")
+	write(".specd/examples/go.md", "<!-- specd-example\nid: go\nversion: 1\nphases: execute\nroles: craftsman\n-->\n# Example\n")
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"internal/x.go"}, Acceptance: "R6"}}
+	hs := core.Handshake{ConfigDigest: "config", PaletteDigest: "palette"}
+	m, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"instructions": false, "examples": false}
+	for _, item := range m.Items {
+		if _, ok := want[item.Kind]; ok {
+			want[item.Kind] = true
+		}
+	}
+	for kind, found := range want {
+		if !found {
+			t.Fatalf("missing %s lane: %+v", kind, m.Items)
+		}
+	}
+}
