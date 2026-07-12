@@ -100,6 +100,46 @@ func TestStateLoadsLegacyRecordWithoutDigest(t *testing.T) {
 	}
 }
 
+func TestAmendmentAppendOnly(t *testing.T) {
+	state := InitialState("demo")
+	a := Amendment{ChangeID: "chg-1", AffectedIDs: []string{"R2", "R2.1"}, Rationale: "clarify failure path", BeforeDigests: map[string]string{"R2": "before"}, AfterDigests: map[string]string{"R2": "after"}, RequiredRechecks: []string{"design", "tasks"}}
+	if err := state.AppendAmendment(a); err != nil {
+		t.Fatalf("append amendment: %v", err)
+	}
+	if err := state.AppendAmendment(a); err != nil {
+		t.Fatalf("append second amendment: %v", err)
+	}
+	if len(state.Records) != 2 {
+		t.Fatalf("records = %d, want two append-only records", len(state.Records))
+	}
+	amendments, err := state.Amendments()
+	if err != nil || len(amendments) != 2 {
+		t.Fatalf("amendments = %+v, err = %v", amendments, err)
+	}
+	if amendments[0].ChangeID != "chg-1" || amendments[1].AffectedIDs[1] != "R2.1" {
+		t.Fatalf("amendments not round-tripped: %+v", amendments)
+	}
+	path := filepath.Join(t.TempDir(), "state.json")
+	if err := SaveStateCAS(path, 0, state); err != nil {
+		t.Fatalf("persist amendment: %v", err)
+	}
+	loaded, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("reload amendment: %v", err)
+	}
+	if got, err := loaded.Amendments(); err != nil || len(got) != 2 {
+		t.Fatalf("persisted amendments = %+v, err = %v", got, err)
+	}
+}
+
+func TestAmendmentValidation(t *testing.T) {
+	for _, amendment := range []Amendment{{}, {ChangeID: "x", Rationale: "why", AffectedIDs: []string{"R1"}}} {
+		if err := amendment.Validate(); err == nil {
+			t.Fatalf("invalid amendment accepted: %+v", amendment)
+		}
+	}
+}
+
 func TestStateCAS(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	state := InitialState("demo")

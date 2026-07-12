@@ -989,6 +989,9 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 		_, ctx.ApprovedRequirements = state.Records["approval:requirements"]
 		_, ctx.ApprovedDesign = state.Records["approval:design"]
 		ctx.StateTaskStatus = state.TaskStatus
+		if freshness, freshnessErr := state.StateFreshness(); freshnessErr == nil {
+			ctx.StaleRecords = freshness.Stale
+		}
 	}
 	// Opt-in per-criterion ratchet: only the completion transition consults it,
 	// and only when config enabled it (spec 04 R6).

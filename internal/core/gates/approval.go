@@ -12,8 +12,17 @@ import (
 // (StateLoaded) — unit/parity contexts that omit approval state disable it.
 // Severity is pinned error: it guards the approval gate.
 func approvalGate(ctx CheckCtx) []Finding {
-	if !ctx.StateLoaded || (ctx.ApprovedRequirements && ctx.ApprovedDesign) {
+	if !ctx.StateLoaded {
 		return nil
+	}
+	if len(ctx.StaleRecords) > 0 && (ctx.ApproveTarget == string(core.StatusTasks) || ctx.ApproveTarget == string(core.StatusExecuting)) {
+		return []Finding{{Severity: Error, Message: "freshness: approval blocked by stale records: " + strings.Join(ctx.StaleRecords, ", ")}}
+	}
+	if ctx.ApprovedRequirements && ctx.ApprovedDesign {
+		return nil
+	}
+	if len(ctx.StaleRecords) > 0 && (ctx.ApproveTarget == string(core.StatusTasks) || ctx.ApproveTarget == string(core.StatusExecuting)) {
+		return []Finding{{Severity: Error, Message: "freshness: approval blocked by stale records: " + strings.Join(ctx.StaleRecords, ", ")}}
 	}
 	for _, task := range ctx.Tasks {
 		if status := ctx.Status[task.ID]; status != "" && status != core.TaskPending {

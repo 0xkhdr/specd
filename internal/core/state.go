@@ -217,5 +217,8 @@ func (s State) Validate() error {
 	if s.Phase != PhaseForStatus(s.Status) && s.Status != StatusBlocked {
 		return fmt.Errorf("state phase %q does not match status %q", s.Phase, s.Status)
 	}
+	if _, err := s.Amendments(); err != nil {
+		return fmt.Errorf("invalid amendment record: %w", err)
+	}
 	return nil
 }

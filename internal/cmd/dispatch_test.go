@@ -52,6 +52,33 @@ func TestDispatchPhase(t *testing.T) {
 	}
 }
 
+func TestDispatchPausesOnAmendmentWithoutRewind(t *testing.T) {
+	root := newDemoSpec(t)
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("approve design: %v", err)
+	}
+	before, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(root, "midreq", []string{"demo"}, map[string]string{"text": "change R1", "scope": "R1"}); err != nil {
+		t.Fatalf("midreq: %v", err)
+	}
+	if err := Run(root, "next", []string{"demo"}, nil); err == nil || !strings.Contains(err.Error(), "dispatch paused") {
+		t.Fatalf("stale dispatch accepted: %v", err)
+	}
+	after, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Status != before.Status {
+		t.Fatalf("amendment rewound status from %q to %q", before.Status, after.Status)
+	}
+	if _, ok := after.Records["amendment:0"]; !ok {
+		t.Fatal("midreq did not append amendment record")
+	}
+}
+
 func TestDispatchAuthorityDeniesReadOnlyWrite(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	task := core.TaskRow{ID: "T1", Role: "validator", DeclaredFiles: []string{"a.go"}}

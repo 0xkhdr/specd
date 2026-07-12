@@ -28,3 +28,13 @@ func TestDesignGateContract(t *testing.T) {
 		t.Fatalf("non-design target should skip, got %+v", f)
 	}
 }
+
+func TestApprovalGateFreshness(t *testing.T) {
+	findings := approvalGate(CheckCtx{StateLoaded: true, ApprovedRequirements: true, ApprovedDesign: true, ApproveTarget: "executing", StaleRecords: []string{"approval:design"}})
+	if !HasErrors(findings) {
+		t.Fatalf("stale approval allowed: %+v", findings)
+	}
+	if findings[0].Message != "freshness: approval blocked by stale records: approval:design" {
+		t.Fatalf("unexpected freshness finding: %+v", findings)
+	}
+}

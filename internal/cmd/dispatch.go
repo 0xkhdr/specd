@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -37,6 +38,9 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		if err := checkPhase(root, meta, args); err != nil {
 			return err
 		}
+		if err := checkFreshDispatch(root, name, args); err != nil {
+			return err
+		}
 		cfg := loadSpecConfig(root)
 		if cfg.Security.Profile == "production" && meta.RequiresTask && authority == nil {
 			return fmt.Errorf("authority denied: production task command requires AuthorityV1 packet")
@@ -66,6 +70,28 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		}
 	}
 	return handler(root, args, flags)
+}
+
+func checkFreshDispatch(root, name string, args []string) error {
+	idx := -1
+	switch name {
+	case "next":
+		idx = 0
+	case "brain":
+		idx = 1
+	}
+	if idx < 0 || idx >= len(args) {
+		return nil
+	}
+	state, err := core.LoadState(core.StatePath(root, args[idx]))
+	if err != nil {
+		return nil
+	}
+	report, err := state.StateFreshness()
+	if err != nil || len(report.Stale) == 0 {
+		return nil
+	}
+	return fmt.Errorf("dispatch paused: stale records require re-approval: %s", strings.Join(report.Stale, ", "))
 }
 
 // RunAuthorized enforces a mission authority packet before normal dispatch.

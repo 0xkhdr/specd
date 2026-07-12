@@ -56,11 +56,13 @@
 
 ## W4 — Amendment staleness
 
+**W4 implementation deviation:** `internal/cmd/registry.go` wires persisted freshness findings into the pure approval `CheckCtx`; existing caller-owned context assembly is required to enforce R5.2 in live `check`/`approve` paths.
+
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T17 | craftsman | internal/core/amendment.go; internal/core/amendment_test.go; internal/core/state.go; internal/core/state_test.go | T03,T14 | go test ./internal/core -run 'TestAmendment\|TestState' | R5.1 append-only impact record |
-| [ ] T18 | craftsman | internal/core/freshness.go; internal/core/freshness_test.go; internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go | T17,T15 | go test ./internal/core ./internal/core/gates -run 'TestFreshness\|TestApproval' | R5.2,R5.3 stale/current rules |
-| [ ] T19 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go | T18 | go test ./internal/cmd -run 'TestMidreq\|TestDispatch' | unsafe dispatch pause, no rewind |
+| [x] T17 | craftsman | internal/core/amendment.go; internal/core/amendment_test.go; internal/core/state.go; internal/core/state_test.go | T03,T14 | go test ./internal/core -run 'TestAmendment\|TestState' | R5.1 append-only impact record |
+| [x] T18 | craftsman | internal/core/freshness.go; internal/core/freshness_test.go; internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go | T17,T15 | go test ./internal/core ./internal/core/gates -run 'TestFreshness\|TestApproval' | R5.2,R5.3 stale/current rules |
+| [x] T19 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go | T18 | go test ./internal/cmd -run 'TestMidreq\|TestDispatch' | unsafe dispatch pause, no rewind |
 
 ## W5 — Production profile
 

@@ -313,6 +313,24 @@ func appendScoped(root string, args []string, flags map[string]string, kind, usa
 		if err := appendRecord(root, &state, key, core.Record{Kind: kind, Text: text, Scope: flags["scope"]}); err != nil {
 			return struct{}{}, err
 		}
+		if kind == "midreq" {
+			affected := splitScope(flags["scope"])
+			if len(affected) == 0 {
+				affected = []string{"requirements"}
+			}
+			// Mid-course changes conservatively invalidate downstream intent;
+			// later re-approval can narrow the active contract again.
+			affected = appendUnique(affected, "design", "tasks")
+			amendment := core.StampAmendment(core.Amendment{
+				ChangeID:         fmt.Sprintf("midreq-%d", countPrefix(state.Records, "amendment:")),
+				AffectedIDs:      affected,
+				Rationale:        text,
+				RequiredRechecks: []string{"design", "tasks", "execution"},
+			}, gitHead(root))
+			if err := state.AppendAmendment(amendment); err != nil {
+				return struct{}{}, err
+			}
+		}
 		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
 	})
 	if err != nil {
@@ -320,6 +338,30 @@ func appendScoped(root string, args []string, flags map[string]string, kind, usa
 	}
 	fmt.Fprintf(os.Stdout, "recorded %s for %s\n", kind, slug)
 	return nil
+}
+
+func splitScope(scope string) []string {
+	var ids []string
+	for _, value := range strings.Split(scope, ",") {
+		if value = strings.TrimSpace(value); value != "" {
+			ids = appendUnique(ids, value)
+		}
+	}
+	return ids
+}
+
+func appendUnique(values []string, extra ...string) []string {
+	seen := make(map[string]bool, len(values)+len(extra))
+	for _, value := range values {
+		seen[value] = true
+	}
+	for _, value := range extra {
+		if !seen[value] {
+			values = append(values, value)
+			seen[value] = true
+		}
+	}
+	return values
 }
 
 // runHelp renders usage from core.Commands metadata; --json is machine-readable

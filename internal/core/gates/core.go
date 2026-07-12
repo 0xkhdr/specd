@@ -90,6 +90,7 @@ type CheckCtx struct {
 	// cross-spec dependencies that are not yet complete; a non-empty list refuses
 	// the approval. Empty ⇒ disabled (planning phases are never program-gated).
 	ProgramDepsIncomplete []string
+	StaleRecords          []string
 }
 
 func CoreRegistry() Registry {
