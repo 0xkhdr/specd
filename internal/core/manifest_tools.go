@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"os"
+	"sort"
 )
 
 type ToolContract struct {
@@ -32,6 +33,30 @@ func ManifestToolContracts() []ToolContract {
 		}
 		out = append(out, ToolContract{Name: command.Name, Route: "cli:" + command.Name, Phases: append([]Phase(nil), command.AllowedPhases...), Capability: capability, Mutable: mutable, HumanOnly: command.HumanOnly, ExitCodes: append([]ExitCode(nil), command.ExitCodes...)})
 	}
+	return out
+}
+
+// SupportedToolCapabilities returns deterministic non-human capabilities
+// available from the canonical palette in one phase. Skill prose consumes
+// this set but can never enlarge it.
+func SupportedToolCapabilities(contracts []ToolContract, phase Phase) []string {
+	seen := map[string]bool{}
+	for _, contract := range contracts {
+		if contract.HumanOnly || contract.Capability == "" || contract.Capability == "human" {
+			continue
+		}
+		for _, allowed := range contract.Phases {
+			if allowed == phase {
+				seen[contract.Capability] = true
+				break
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for capability := range seen {
+		out = append(out, capability)
+	}
+	sort.Strings(out)
 	return out
 }
 

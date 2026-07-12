@@ -18,12 +18,29 @@ func WriteScaffold(root string, agents ...string) error {
 	if err := writeProjectConfig(root); err != nil {
 		return err
 	}
+	if err := writeSkillsRoot(root); err != nil {
+		return err
+	}
 	for _, agent := range agents {
 		if strings.EqualFold(agent, "pinky") {
 			return writePinkyArtifacts(root)
 		}
 	}
 	return nil
+}
+
+func writeSkillsRoot(root string) error {
+	target := filepath.Join(root, ".specd", "skills", "README.md")
+	if _, err := os.Stat(target); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	body := "# Portable skills\n\n" +
+		"Place each package at `.specd/skills/<id>/SKILL.md`. Its `specd-skill` metadata declares\n" +
+		"version, trigger, phases, roles, capabilities, references, provenance, and budget. Skill prose is\n" +
+		"advisory: it cannot add tools, widen task scope, approve work, alter gates, or create evidence.\n"
+	return AtomicWrite(target, body)
 }
 
 func writeManagedAssets(root string) error {

@@ -31,6 +31,64 @@ func TestBuildManifest(t *testing.T) {
 	}
 }
 
+func TestManifestSelectsPortableSkills(t *testing.T) {
+	root := t.TempDir()
+	writeManifestFixture(t, root, ".specd/specs/demo/requirements.md", "# Requirements\n")
+	writeManifestFixture(t, root, ".specd/specs/demo/design.md", "# Design\n")
+	writeManifestFixture(t, root, ".specd/roles/craftsman.md", "# Role\n")
+	writeSkill(t, root, "go-test", validSkill("required: false\nbudget: 120"))
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", Acceptance: "R7"}}
+	hs := core.Handshake{ConfigDigest: "config", PaletteDigest: "palette", ToolContracts: []core.ToolContract{
+		{Name: "status", Phases: []core.Phase{core.PhaseExecute}, Capability: "read"},
+		{Name: "verify", Phases: []core.Phase{core.PhaseExecute}, Capability: "write"},
+	}}
+	m, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var skill ItemV2
+	for _, item := range m.Items {
+		if item.Kind == "skill" {
+			skill = item
+		}
+	}
+	if skill.Source != ".specd/skills/go-test/SKILL.md" || skill.SourceDigest == "" || skill.EstimatedTokens != 120 {
+		t.Fatalf("skill = %+v", skill)
+	}
+	if m.ManifestDigest == "" || m.ManifestDigest != ManifestV2Digest(m) || m.OptionalTokens < 120 {
+		t.Fatalf("manifest digest/totals = %+v", m)
+	}
+	again, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", m.RequiredTokens, hs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range again.Items {
+		if item.Kind == "skill" {
+			t.Fatalf("optional skill survived tight budget: %+v", item)
+		}
+	}
+	foundOmission := false
+	for _, omission := range again.Omissions {
+		if omission.Kind == "skill" && omission.Source == ".specd/skills/go-test/SKILL.md" {
+			foundOmission = true
+		}
+	}
+	if !foundOmission {
+		t.Fatalf("skill budget omission missing: %+v", again.Omissions)
+	}
+}
+
+func writeManifestFixture(t *testing.T, root, rel, body string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestManifestValidate(t *testing.T) {
 	manifest, err := BuildManifest("", "demo", []core.TaskRow{{ID: "T1", Role: "validator"}}, "T1", 0)
 	if err != nil {

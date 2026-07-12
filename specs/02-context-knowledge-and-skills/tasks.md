@@ -48,9 +48,9 @@ record deviation before edit. Cross-domain prerequisites live in `README.md`, no
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T14 | craftsman | internal/context/skills.go; internal/context/skills_test.go; internal/core/scaffold.go; internal/core/scaffold_test.go | T04 | go test ./internal/context ./internal/core -run 'Test(Skills|Scaffold)' | `.specd/skills` package metadata/version/provenance validation R7.1 |
-| [ ] T15 | craftsman | internal/context/skills.go; internal/context/skills_test.go; internal/core/manifest_tools.go | T09,T14 | go test ./internal/context ./internal/core -run 'Test(Skills|ManifestTools)' | phase/role/capability subset and explicit unsupported result R7.2,R7.3 |
-| [ ] T16 | craftsman | internal/context/skills.go; internal/context/manifest.go; internal/context/skills_test.go; internal/context/manifest_test.go | T11,T13,T15 | go test ./internal/context -run 'Test(Skills|Manifest)' | progressive skill selection, refs, digest, budget R6,R7 |
+| [x] T14 | craftsman | internal/context/skills.go; internal/context/skills_test.go; internal/core/scaffold.go; internal/core/scaffold_test.go | T04 | go test ./internal/context ./internal/core -run 'Test(Skills|Scaffold)' | `.specd/skills` package metadata/version/provenance validation R7.1 |
+| [x] T15 | craftsman | internal/context/skills.go; internal/context/skills_test.go; internal/core/manifest_tools.go | T09,T14 | go test ./internal/context ./internal/core -run 'Test(Skills|ManifestTools)' | phase/role/capability subset and explicit unsupported result R7.2,R7.3 |
+| [x] T16 | craftsman | internal/context/skills.go; internal/context/manifest.go; internal/context/skills_test.go; internal/context/manifest_test.go | T11,T13,T15 | go test ./internal/context -run 'Test(Skills|Manifest)' | progressive skill selection, refs, digest, budget R6,R7 |
 
 ## W5 — receipts and durable knowledge
 

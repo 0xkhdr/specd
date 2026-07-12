@@ -644,14 +644,22 @@ func BuildManifestV2(root, slug string, tasks []core.TaskRow, taskID, action, ph
 	if err != nil {
 		return ManifestV2{}, err
 	}
+	skills, skillOmissions, err := SelectSkills(root, SkillSelectionContext{
+		SelectionContext: selection,
+		Capabilities:     core.SupportedToolCapabilities(handshake.ToolContracts, core.Phase(phase)),
+	})
+	if err != nil {
+		return ManifestV2{}, err
+	}
 	items = append(items, steering...)
 	items = append(items, memory...)
 	items = append(items, examples...)
+	items = append(items, skills...)
 	kept, omissions, required, optional, err := EnforceBudgetV2(items, budget)
 	if err != nil {
 		return ManifestV2{}, err
 	}
-	omissions = append(append(append(steeringOmissions, memoryOmissions...), exampleOmissions...), omissions...)
+	omissions = append(append(append(append(steeringOmissions, memoryOmissions...), exampleOmissions...), skillOmissions...), omissions...)
 	m := ManifestV2{SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: SelectedTaskV2{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection"}
 	CanonicalizeV2(&m)
 	if err := ValidateManifestV2(m); err != nil {

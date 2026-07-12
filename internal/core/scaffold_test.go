@@ -53,3 +53,19 @@ func TestScaffoldCommandsUseExplicitPlaceholders(t *testing.T) {
 		t.Fatalf("memory guidance lacks required spec placeholder:\n%s", raw)
 	}
 }
+
+func TestScaffoldCreatesPortableSkillsRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, ".specd", "skills", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"SKILL.md", "specd-skill", "provenance", "capabilities", "advisory"} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatalf("skills scaffold missing %q:\n%s", want, raw)
+		}
+	}
+}
