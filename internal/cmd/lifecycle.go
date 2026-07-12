@@ -280,6 +280,45 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 	return nil
 }
 
+// runSpike records a bounded exploratory-learning spike (spec 01 R7.3). It
+// appends a spike record under the per-spec lock+CAS and touches no lifecycle
+// status, task status, or approval record. Completion still demands a passing
+// verify record (CompleteTask) and architecture still demands a human design
+// approval — a spike is a distinct record kind neither path reads, so recording
+// one can never complete a task or approve architecture. Required-field and
+// bound enforcement lives in core.Spike.Validate (via AppendSpike).
+func runSpike(root string, args []string, flags map[string]string) error {
+	if len(args) != 1 {
+		return errors.New("usage: specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]")
+	}
+	slug := args[0]
+	if err := core.ValidateSlug(slug); err != nil {
+		return err
+	}
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		statePath := core.StatePath(root, slug)
+		state, err := core.LoadState(statePath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		spike := core.StampSpike(core.Spike{
+			Question:  strings.TrimSpace(flags["question"]),
+			Scope:     strings.TrimSpace(flags["scope"]),
+			Expiry:    strings.TrimSpace(flags["expiry"]),
+			OutputRef: strings.TrimSpace(flags["output"]),
+		}, gitHead(root))
+		if err := state.AppendSpike(spike); err != nil {
+			return struct{}{}, err
+		}
+		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "recorded spike for %s\n", slug)
+	return nil
+}
+
 func runMidreq(root string, args []string, flags map[string]string) error {
 	return appendScoped(root, args, flags, "midreq", "usage: specd midreq <spec> --text <text> [--scope <scope>]")
 }

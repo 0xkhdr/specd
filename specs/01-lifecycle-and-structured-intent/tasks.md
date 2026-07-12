@@ -83,9 +83,16 @@ were unchanged (no new CLI verb/flag; the `profile` knob is config-only).
 
 ## W6 — Bounded spikes
 
+**W6 implementation deviation:** `spike` is a first-class CLI verb, so T23 also wires
+`internal/core/commands.go` (palette entry), `internal/cmd/registry.go` (handler map),
+`docs/command-reference.md`/`docs/CHEATSHEET.md` (verb docs, mirrored), and bumps the verb-count
+tripwires in `internal/core/help_test.go` and `scripts/regress-domains.sh` (27→28). The bound and
+required-field enforcement live in `core.Spike.Validate`; the non-bypass guarantee is structural —
+a spike is a distinct `spike:` record kind that neither `CompleteTask` nor design approval reads.
+
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T23 | craftsman | internal/core/spike.go; internal/core/spike_test.go; internal/core/state.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go | T17,T20 | go test ./internal/core ./internal/cmd -run 'TestSpike' | R7.3 no spike bypass |
+| [x] T23 | craftsman | internal/core/spike.go; internal/core/spike_test.go; internal/core/state.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go | T17,T20 | go test ./internal/core ./internal/cmd -run 'TestSpike' | R7.3 no spike bypass |
 
 ## W7 — Conformance and reports
 

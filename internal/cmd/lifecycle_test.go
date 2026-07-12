@@ -183,6 +183,66 @@ func TestDecisionRequiresText(t *testing.T) {
 	}
 }
 
+// TestSpikeRecordsWithoutBypass pins spec 01 R7.3: `specd spike` records a
+// bounded learning record and authorizes nothing. A spike moves no lifecycle
+// status, completes no task, and adds no approval record; the bound (question,
+// scope, future expiry) is mandatory, and a rejected spike writes nothing.
+func TestSpikeRecordsWithoutBypass(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	before, _ := core.LoadState(statePath)
+
+	flags := map[string]string{
+		"question": "is webhook retry idempotent?",
+		"scope":    "demo/webhook",
+		"expiry":   "2099-01-01T00:00:00Z",
+		"output":   "spike-notes.md",
+	}
+	if err := Run(root, "spike", []string{"demo"}, flags); err != nil {
+		t.Fatalf("spike: %v", err)
+	}
+
+	state, _ := core.LoadState(statePath)
+	spikes, err := state.Spikes()
+	if err != nil {
+		t.Fatalf("Spikes: %v", err)
+	}
+	if len(spikes) != 1 || spikes[0].Question != flags["question"] || spikes[0].OutputRef != "spike-notes.md" {
+		t.Fatalf("spike not recorded: %+v", spikes)
+	}
+	if spikes[0].Timestamp == "" || spikes[0].Actor == "" || spikes[0].GitHead == "" {
+		t.Fatalf("spike not stamped: %+v", spikes[0])
+	}
+
+	// No bypass: the spike neither advanced the lifecycle nor completed a task
+	// nor approved anything. Only the CAS revision moved.
+	if state.Status != before.Status || state.Phase != before.Phase {
+		t.Fatalf("spike moved lifecycle: %q/%q -> %q/%q", before.Status, before.Phase, state.Status, state.Phase)
+	}
+	if len(state.TaskStatus) != 0 {
+		t.Fatalf("spike completed a task: %+v", state.TaskStatus)
+	}
+	for key := range state.Records {
+		if strings.HasPrefix(key, "approval:") {
+			t.Fatalf("spike wrote an approval record %q", key)
+		}
+	}
+	if state.Revision != before.Revision+1 {
+		t.Fatalf("revision = %d, want %d (single CAS write)", state.Revision, before.Revision+1)
+	}
+
+	// The bound is mandatory: a spike missing a required field is a usage error
+	// and writes nothing.
+	revBefore := state.Revision
+	if err := Run(root, "spike", []string{"demo"}, map[string]string{"scope": "s", "expiry": "2099-01-01T00:00:00Z"}); err == nil {
+		t.Fatal("spike without --question: want error, got nil")
+	}
+	after, _ := core.LoadState(statePath)
+	if after.Revision != revBefore {
+		t.Fatal("rejected spike mutated state")
+	}
+}
+
 func TestStatusNextVerifyOnRealSpec(t *testing.T) {
 	root := newDemoSpec(t)
 	for _, verb := range []struct {

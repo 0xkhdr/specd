@@ -134,6 +134,27 @@ Record an explicit human decision. **Phases:** any.
 specd decision payments --text 'defer webhooks' --scope design
 ```
 
+### `spike`
+```
+specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]
+```
+Record a bounded exploratory spike (learning without a completion or approval bypass). **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--question` | string | Bounded question the spike explores (required). |
+| `--scope` | string | Bounded scope of the exploration (required). |
+| `--expiry` | string | RFC3339 instant after which the spike is stale (required, must be in the future). |
+| `--output` | string | Optional reference to the spike's output (attaches to a decision; never satisfies task evidence). |
+
+A spike attaches learning to a spec without authorizing anything: it never completes a task
+(that still requires a passing verify record) and never approves architecture (that still
+requires a human design approval).
+
+```bash
+specd spike payments --question 'is webhook retry idempotent?' --scope 'payments/webhook' --expiry 2026-07-19T00:00:00Z
+```
+
 ---
 
 ## Execution

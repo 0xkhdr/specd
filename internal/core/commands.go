@@ -208,6 +208,20 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "spike",
+		Usage:         "specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]",
+		Description:   "Record a bounded exploratory spike (learning without a completion or approval bypass).",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd spike payments --question 'is webhook retry idempotent?' --scope 'payments/webhook' --expiry 2026-07-19T00:00:00Z"},
+		Flags: []Flag{
+			{Name: "question", TakesValue: true, Type: "string", Description: "Bounded question the spike explores (required)."},
+			{Name: "scope", TakesValue: true, Type: "string", Description: "Bounded scope of the exploration (required)."},
+			{Name: "expiry", TakesValue: true, Type: "string", Description: "RFC3339 instant after which the spike is stale (required, must be in the future)."},
+			{Name: "output", TakesValue: true, Type: "string", Description: "Optional reference to the spike's output (attaches to a decision; never satisfies task evidence)."},
+		},
+	},
+	{
 		Name:          "next",
 		Usage:         "specd next <slug> [--json | --waves | --dispatch]",
 		Description:   "Select the next eligible task or wave.",

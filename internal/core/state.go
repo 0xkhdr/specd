@@ -220,5 +220,8 @@ func (s State) Validate() error {
 	if _, err := s.Amendments(); err != nil {
 		return fmt.Errorf("invalid amendment record: %w", err)
 	}
+	if _, err := s.Spikes(); err != nil {
+		return fmt.Errorf("invalid spike record: %w", err)
+	}
 	return nil
 }

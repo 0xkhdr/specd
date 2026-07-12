@@ -57,6 +57,7 @@ var executable = map[string]Handler{
 	"deploy":    runDeploy,
 	"report":    runReport,
 	"review":    runReview,
+	"spike":     runSpike,
 	"status":    runStatus,
 	"submit":    runSubmit,
 	"task":      runTask,
