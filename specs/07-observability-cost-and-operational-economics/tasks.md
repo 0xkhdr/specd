@@ -228,9 +228,9 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T25 | craftsman | internal/core/event.go; internal/core/event_test.go; internal/cmd/registry.go; docs/adapters/telemetry.md | T20,T22, Domain 10 adapter | go test ./internal/core ./internal/cmd -run 'Test(Event|Report)' | versioned provider-neutral event schema renders offline; golden validates; core no network/no module dep R8.1 |
-| [ ] T26 | craftsman | internal/core/event.go; internal/core/event_test.go; docs/adapters/telemetry.md | T25 | go test ./internal/core -run 'TestEvent' | adapter round-trip fixture preserves correlation + privacy fields; networking disabled in adapter tests R8.2 |
-| [ ] T27 | craftsman | internal/cmd/report.go; internal/cmd/report_test.go; internal/context/efficiency.go; internal/context/efficiency_test.go | T12,T20 | go test ./internal/cmd ./internal/context -run 'Test(Report|Efficiency)' | context-efficiency report shows estimated/actual tokens, omitted items, retries, first-pass, duration, cost with explicit `unknown` not zero R8.3 |
+| [x] T25 | craftsman | internal/core/event.go; internal/core/event_test.go; internal/cmd/registry.go; docs/adapters/telemetry.md | T20,T22, Domain 10 adapter | go test ./internal/core ./internal/cmd -run 'Test(Event|Report)' | versioned provider-neutral event schema renders offline; golden validates; core no network/no module dep R8.1 |
+| [x] T26 | craftsman | internal/core/event.go; internal/core/event_test.go; docs/adapters/telemetry.md | T25 | go test ./internal/core -run 'TestEvent' | adapter round-trip fixture preserves correlation + privacy fields; networking disabled in adapter tests R8.2 |
+| [x] T27 | craftsman | internal/cmd/report.go; internal/cmd/report_test.go; internal/context/efficiency.go; internal/context/efficiency_test.go | T12,T20 | go test ./internal/cmd ./internal/context -run 'Test(Report|Efficiency)' | context-efficiency report shows estimated/actual tokens, omitted items, retries, first-pass, duration, cost with explicit `unknown` not zero R8.3 |
 
 ## W9 — attested ingestion, routing, roll-ups, release proof
 

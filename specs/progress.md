@@ -97,7 +97,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 06 W8 — cross-platform adapters and release proof (needs 06 W7, 10)
 - [x] 07 W7 — provider-neutral annotation expansion (needs 07 W6)
 - [x] 10 W4 — ecosystem mappings (needs 10 W3)
-- [ ] 07 W8 — neutral event schema and context efficiency (needs 07 W7, 10)
+- [x] 07 W8 — neutral event schema and context efficiency (needs 07 W7, 10)
 - [ ] 07 W9 — attested ingestion, routing, roll-ups, release proof (needs 07 W8, 10)
 - [ ] 08 W8 — `08i-deployment-adapter-envelope` (needs 08 W6, Domain 10 adapter)
 - [ ] 08 W9 — `08j-canary-health-promotion-rollback` (needs 08 W7,W8, Domain 07 measurement)

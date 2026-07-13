@@ -409,7 +409,7 @@ var Commands = []Command{
 	},
 	{
 		Name:          "report",
-		Usage:         "specd report <spec> [--pr|--metrics|--json|--history|--trace|--format prometheus|otel]",
+		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--json|--history|--trace|--format prometheus|event|otel]",
 		Description:   "Render evidence-backed status, PR, history, trace, and metrics reports.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
@@ -417,10 +417,11 @@ var Commands = []Command{
 		Flags: []Flag{
 			{Name: "pr", Type: "bool", Description: "Emit PR-oriented report."},
 			{Name: "metrics", Type: "bool", Description: "Emit metrics summary."},
+			{Name: "efficiency", Type: "bool", Description: "Emit deterministic context-efficiency report with explicit unknown values."},
 			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
 			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
 			{Name: "trace", Type: "bool", Description: "Export the metadata-only run trace as stable JSON Lines."},
-			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus", "otel"}, Description: "Alternate output format; prometheus emits textfile-collector metrics, otel emits OpenTelemetry-compatible spans."},
+			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus", "event", "otel"}, Description: "Alternate output format; event emits neutral local JSONL, prometheus emits metrics, otel emits adapter-mapped spans."},
 		},
 	},
 	{

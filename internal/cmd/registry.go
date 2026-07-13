@@ -699,7 +699,7 @@ func sortedKeys(m map[string]int) []string {
 
 func runReport(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--json|--history|--proof|--trace|--format prometheus|otel]")
+		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--json|--history|--proof|--trace|--format prometheus|event|otel]")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
@@ -752,6 +752,14 @@ func runReport(root string, args []string, flags map[string]string) error {
 		fmt.Fprint(os.Stdout, out)
 		return nil
 	}
+	if flagEnabled(flags, "efficiency") {
+		out, err := gatherContextEfficiency(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
 	// --format prometheus emits a textfile-collector exposition (spec 13 R4).
 	if flags["format"] == "prometheus" {
 		metrics, err := gatherPrometheus(root, args[0], model)
@@ -771,8 +779,16 @@ func runReport(root string, args []string, flags map[string]string) error {
 		fmt.Fprint(os.Stdout, out)
 		return nil
 	}
+	if flags["format"] == "event" {
+		out, err := runEvents(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
 	if format, ok := flags["format"]; ok && format != "" {
-		return fmt.Errorf("%w: unsupported --format %q (only prometheus, otel)", ErrUsage, format)
+		return fmt.Errorf("%w: unsupported --format %q (only prometheus, event, otel)", ErrUsage, format)
 	}
 	coverage, err := criterionCoverage(root, args[0])
 	if err != nil {

@@ -9,17 +9,17 @@ import (
 // on-disk records) and the SpanKind mapping, correlates each span to its W2 run
 // chain via runs.jsonl, and links a task's activity spans to its dispatch span.
 // It writes nothing; two exports over the same tree are byte-identical.
-func runTrace(root, slug string, model core.ReportModel) (string, error) {
+func gatherSpans(root, slug string, model core.ReportModel) ([]core.RunSpan, error) {
 	events, err := gatherHistory(root, slug, model)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	core.SortHistory(events)
 
 	// All attempts of a task share one run_id (W2 R2.2), so first-seen wins.
 	runs, err := core.ReadRuns(core.RunLedgerPath(root, slug))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	runByTask := map[string]string{}
 	for _, r := range runs {
@@ -66,5 +66,25 @@ func runTrace(root, slug string, model core.ReportModel) (string, error) {
 			s.ParentSpanID = pid
 		}
 	}
+	return spans, nil
+}
+
+func runTrace(root, slug string, model core.ReportModel) (string, error) {
+	spans, err := gatherSpans(root, slug, model)
+	if err != nil {
+		return "", err
+	}
 	return core.RenderTraceJSON(spans)
+}
+
+func runEvents(root, slug string, model core.ReportModel) (string, error) {
+	spans, err := gatherSpans(root, slug, model)
+	if err != nil {
+		return "", err
+	}
+	events := make([]core.EventV1, 0, len(spans))
+	for _, span := range spans {
+		events = append(events, core.EventFromSpan(span))
+	}
+	return core.RenderEventsJSON(events)
 }

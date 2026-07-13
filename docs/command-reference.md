@@ -463,7 +463,7 @@ specd status --program
 
 ### `report`
 ```
-specd report <spec> [--pr|--metrics|--json|--history|--trace|--proof|--format prometheus|otel]
+specd report <spec> [--pr|--metrics|--efficiency|--json|--history|--trace|--proof|--format prometheus|event|otel]
 ```
 Render evidence-backed status, PR, history, trace, proof, and metrics reports. Deterministic —
 generated from `state.json` + task artifacts, never from an LLM. **Phases:** any.
@@ -472,11 +472,12 @@ generated from `state.json` + task artifacts, never from an LLM. **Phases:** any
 |---|---|---|
 | `--pr` | bool | Emit PR-oriented report. |
 | `--metrics` | bool | Emit metrics summary. |
+| `--efficiency` | bool | Emit deterministic context-efficiency data with explicit `unknown` measurements. |
 | `--json` | bool | Emit machine-readable report (JSON Lines with `--history`). |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
 | `--proof` | bool | Emit the lifecycle proof: coverage, stale records, amendments, escaped-defect links. |
-| `--format` | `prometheus`, `otel` | Alternate output format; prometheus emits textfile-collector metrics, otel emits OpenTelemetry-compatible spans. |
+| `--format` | `prometheus`, `event`, `otel` | Alternate output format; event emits neutral local JSONL, prometheus emits metrics, otel emits adapter-mapped spans. |
 
 ```bash
 specd report payments --pr
@@ -484,6 +485,8 @@ specd report payments --metrics
 specd report payments --history
 specd report payments --trace
 specd report payments --proof
+specd report payments --efficiency
+specd report payments --format event
 specd report payments --format prometheus
 specd report payments --format otel
 ```

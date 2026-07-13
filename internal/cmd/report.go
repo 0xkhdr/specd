@@ -7,10 +7,79 @@ import (
 	"sort"
 	"time"
 
+	contextpkg "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
+
+// gatherContextEfficiency joins load-plan estimates with attempt telemetry.
+// All inputs are existing local files; absent host/provider measurements stay
+// nil and render as "unknown", never as a fabricated zero.
+func gatherContextEfficiency(root, slug string, model core.ReportModel) (string, error) {
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return "", err
+	}
+	records, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+	if err != nil {
+		return "", err
+	}
+	byTask := make(map[string][]core.EvidenceRecord)
+	for _, record := range records {
+		byTask[record.TaskID] = append(byTask[record.TaskID], record)
+	}
+	report := contextpkg.EfficiencyReport{SchemaVersion: contextpkg.EfficiencySchemaV1, SpecID: slug}
+	for _, task := range model.Tasks {
+		row := contextpkg.TaskEfficiency{TaskID: task.ID, FirstPassResult: "unknown"}
+		manifest, buildErr := contextpkg.BuildManifest(root, slug, spec.Tasks, task.ID, contextBudget(root))
+		if buildErr != nil {
+			return "", fmt.Errorf("build context estimate for %s: %w", task.ID, buildErr)
+		}
+		estimated := manifest.EstimatedTokens
+		row.EstimatedInputTokens = &estimated
+		row.OmittedItems = manifest.Omissions
+		attempts := byTask[task.ID]
+		if len(attempts) > 0 {
+			if attempts[0].ExitCode == 0 {
+				row.FirstPassResult = "pass"
+			} else {
+				row.FirstPassResult = "fail"
+			}
+			row.RetryCount = len(attempts) - 1
+			var input, duration int
+			hasInput, hasDuration, hasCost := false, false, false
+			for _, attempt := range attempts {
+				if attempt.Telemetry == nil {
+					continue
+				}
+				if attempt.Telemetry.InputTokens > 0 || attempt.Telemetry.EnvelopeVersion != "" {
+					input += attempt.Telemetry.InputTokens
+					hasInput = true
+				}
+				if attempt.Telemetry.DurationMs > 0 || attempt.Telemetry.EnvelopeVersion != "" {
+					duration += attempt.Telemetry.DurationMs
+					hasDuration = true
+				}
+				if attempt.Telemetry.Cost != "" {
+					hasCost = true
+				}
+			}
+			if hasInput {
+				row.ActualInputTokens = &input
+			}
+			if hasDuration {
+				row.DurationMS = &duration
+			}
+			if hasCost {
+				cost := core.AggregateTelemetry(attempts, []string{task.ID}).Cost
+				row.Cost = &cost
+			}
+		}
+		report.Tasks = append(report.Tasks, row)
+	}
+	return contextpkg.RenderEfficiency(report)
+}
 
 // gatherHistory projects a spec's audit trail from every on-disk record source
 // into a single ordered slice (spec 13 R1/R2). It opens files read-only and
