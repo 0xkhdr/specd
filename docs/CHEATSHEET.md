@@ -159,6 +159,24 @@ Record an explicit human decision. **Phases:** any.
 specd decision payments --text 'defer webhooks' --scope design
 ```
 
+### `drift`
+```
+specd drift <spec> [--json]
+```
+Project versioned declarations from `.specd/specs/<spec>/drift.json` against append-only local
+verify evidence. Output distinguishes `holds`, `drifted`, `not-evaluable`, and `none`; each declared
+finding includes source, workspace-relative path, severity, last passing HEAD when known, and a
+suggested successor command. Read-only and offline: it never runs evidence commands or creates a
+spec. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit stable JSON Lines. |
+
+```bash
+specd drift payments --json
+```
+
 ### `spike`
 ```
 specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]

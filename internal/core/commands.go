@@ -236,6 +236,15 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "drift",
+		Usage:         "specd drift <spec> [--json]",
+		Description:   "Project declared invariants and active decisions against local verify evidence without writing.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd drift payments", "specd drift payments --json"},
+		Flags:         []Flag{{Name: "json", Type: "bool", Description: "Emit stable JSON Lines."}},
+	},
+	{
 		Name:          "spike",
 		Usage:         "specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]",
 		Description:   "Record a bounded exploratory spike (learning without a completion or approval bypass).",

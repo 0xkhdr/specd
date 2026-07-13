@@ -43,6 +43,7 @@ var executable = map[string]Handler{
 	"check":     runCheck,
 	"context":   runContext,
 	"decision":  runDecision,
+	"drift":     runDrift,
 	"handshake": runHandshake,
 	"help":      runHelp,
 	"init":      runInit,

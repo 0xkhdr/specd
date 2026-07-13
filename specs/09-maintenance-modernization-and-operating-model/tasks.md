@@ -122,10 +122,18 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T28 | craftsman | new `internal/core/drift.go` (compare invariants/decisions vs evidence) | T13,T17 | `go test ./internal/core -run TestDriftProjection -count=2` | R6.1 read-only; no mutation/network |
-| T29 | craftsman | new `internal/cmd/drift.go`; `internal/core/commands.go` | T28 | `go test ./internal/cmd -run TestDriftByteStable -count=2` | R6.2 byte-stable; finding carries source/path/HEAD/suggested cmd |
-| T30 | craftsman | `internal/core/drift.go` (holds/drifted/not-evaluable/none) | T28 | `go test ./internal/core -run TestDriftNotEvaluable -count=1` | R6.3 missing input never reported as holding |
-| T31 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T29 | `./scripts/docs-lint.sh` | R6.1 mirror `drift` verb |
+| [x] T28 | craftsman | new `internal/core/drift.go` (compare invariants/decisions vs evidence) | T13,T17 | `go test ./internal/core -run TestDriftProjection -count=2` | R6.1 read-only; no mutation/network |
+| [x] T29 | craftsman | new `internal/cmd/drift.go`; `internal/core/commands.go` | T28 | `go test ./internal/cmd -run TestDriftByteStable -count=2` | R6.2 byte-stable; finding carries source/path/HEAD/suggested cmd |
+| [x] T30 | craftsman | `internal/core/drift.go` (holds/drifted/not-evaluable/none) | T28 | `go test ./internal/core -run TestDriftNotEvaluable -count=1` | R6.3 missing input never reported as holding |
+| [x] T31 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T29 | `./scripts/docs-lint.sh` | R6.1 mirror `drift` verb |
+
+> **W6 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T28–T30 tests land in conventional companion files `internal/core/drift_test.go` and
+>   `internal/cmd/drift_test.go`.
+> - T29 updates `internal/cmd/registry.go`, which owns executable-handler parity, and
+>   `scripts/regress-domains.sh`'s intentional CLI surface-count tripwire from 30 to 31.
+> - Drift declarations use optional, versioned `.specd/specs/<slug>/drift.json`; absence projects
+>   `none`, preserving legacy projects without adding a completeness gate.
 
 ## W7 — `09h-recurring-invariants` (requires 09c, Domain 07 measurement)
 

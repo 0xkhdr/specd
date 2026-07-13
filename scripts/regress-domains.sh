@@ -132,7 +132,7 @@ fi
 # removing a verb is a deliberate edit here. Current surface is 30 (16 original
 # + submit, review, link, unlink, program-era verbs, version, triage, the
 # delivery verbs release + deploy, adapters, and spike). Bump this only alongside an intended verb change.
-W5_EXPECT=30
+W5_EXPECT=31
 verbs=$("$SPECD" 2>&1 | sed -n 's/^  \([a-z][a-z]*\) .*/\1/p' | sort -u | wc -l | tr -d ' ')
 if [ "$verbs" -ne "$W5_EXPECT" ]; then
 	violation W5 "verb count is $verbs, expected $W5_EXPECT"
