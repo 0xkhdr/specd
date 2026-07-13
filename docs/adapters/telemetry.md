@@ -30,3 +30,16 @@ free-form attribute field. References must be workspace-relative or content-addr
 Adapter round trips preserve correlation and privacy fields exactly. Adapter tests use local
 fixtures with networking disabled. Transport, endpoints, credentials, sampling, and export
 retries belong to external adapter policy—not core.
+
+## Attested usage ingestion
+
+Adapters may emit `attestation/v1` envelopes containing canonical `TelemetryV1` JSON. Operator
+config allowlists `key_id` and its verification key. Envelope pins payload with SHA-256 and signs
+schema version, key ID, attestation reference, and digest with HMAC-SHA256. Core validates local
+bytes only: unknown keys, changed payloads, signature mismatch, non-adapter provenance, and
+attestation-reference mismatch fail closed. Key discovery, rotation transport, and asymmetric
+provider signature translation remain adapter concerns.
+
+Routing recommendations are provider-neutral policy metadata (`complexity` → declared routing
+class). Core never resolves model availability or contacts a provider; adapters map classes to
+models, and no mapping can bypass verify evidence.

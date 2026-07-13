@@ -699,11 +699,18 @@ func sortedKeys(m map[string]int) []string {
 
 func runReport(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--json|--history|--proof|--trace|--format prometheus|event|otel]")
+		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--json|--history|--proof|--trace|--format prometheus|event|otel]")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
 		return err
+	}
+	if flagEnabled(flags, "rollup") {
+		rollup, err := gatherProgramEconomics(root)
+		if err != nil {
+			return err
+		}
+		return writeJSON(rollup)
 	}
 	// --proof emits the deterministic R8.2 lifecycle proof: requirement-to-evidence
 	// coverage, stale records, amendments, and escaped-defect links. Pure projection

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -193,6 +194,29 @@ type RoutingConfig struct {
 	DeadlineSeconds       int
 	MaxRetries            int
 	AllowUnknownTelemetry bool
+	// Recommendations maps task complexity to provider-neutral capability class.
+	// Adapters decide whether and how that class maps to an available model.
+	Recommendations map[string]string
+}
+
+type RoutingRecommendation struct {
+	Class      string `json:"class"`
+	Complexity string `json:"complexity,omitempty"`
+	Provider   string `json:"provider,omitempty"`
+	Model      string `json:"model,omitempty"`
+}
+
+// RecommendRouting returns policy metadata only. It never resolves provider
+// availability and cannot affect verify/evidence completion authority.
+func RecommendRouting(task TaskRow, cfg RoutingConfig) (RoutingRecommendation, error) {
+	class := cfg.DefaultClass
+	if recommended := cfg.Recommendations[task.Complexity]; recommended != "" {
+		class = recommended
+	}
+	if !contains(cfg.Classes, class) {
+		return RoutingRecommendation{}, fmt.Errorf("routing class %q is not declared", class)
+	}
+	return RoutingRecommendation{Class: class, Complexity: task.Complexity}, nil
 }
 
 type Diagnostic struct {
@@ -230,6 +254,7 @@ var DefaultConfig = Config{
 		ClassCapabilities:     map[string][]string{"default": {"context", "eval", "review", "sandbox"}},
 		MaxRetries:            3,
 		AllowUnknownTelemetry: true,
+		Recommendations:       map[string]string{},
 	},
 	Security: SecurityConfig{
 		Profile:       "prototype",

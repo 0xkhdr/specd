@@ -40,16 +40,17 @@ type Item struct {
 }
 
 type Manifest struct {
-	Version         string     `json:"version"`
-	Mode            string     `json:"mode"`
-	Slug            string     `json:"slug"`
-	TaskID          string     `json:"task_id"`
-	Items           []Item     `json:"items"`
-	Omissions       []Omission `json:"omissions,omitempty"`
-	EstimatedTokens int        `json:"estimated_tokens"`
-	Reason          string     `json:"reason,omitempty"`
-	Priority        int        `json:"priority,omitempty"`
-	Digest          string     `json:"digest,omitempty"`
+	Version         string                      `json:"version"`
+	Mode            string                      `json:"mode"`
+	Slug            string                      `json:"slug"`
+	TaskID          string                      `json:"task_id"`
+	Items           []Item                      `json:"items"`
+	Omissions       []Omission                  `json:"omissions,omitempty"`
+	EstimatedTokens int                         `json:"estimated_tokens"`
+	Reason          string                      `json:"reason,omitempty"`
+	Priority        int                         `json:"priority,omitempty"`
+	Digest          string                      `json:"digest,omitempty"`
+	Routing         *core.RoutingRecommendation `json:"routing,omitempty"`
 }
 
 // QualityPacket is the compact, reference-only quality contract carried with
@@ -125,6 +126,16 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 		return Manifest{}, fmt.Errorf("task %s not found", taskID)
 	}
 	mode := ModeForTask(task)
+	cfg, diagnostics := core.LoadConfig(core.ConfigPaths{Project: filepath.Join(root, "project.yml")}, nil)
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == "error" {
+			return Manifest{}, fmt.Errorf("load routing policy: %s", diagnostic.Message)
+		}
+	}
+	routing, err := core.RecommendRouting(task, cfg.Routing)
+	if err != nil {
+		return Manifest{}, err
+	}
 	items := []Item{
 		{Kind: "spec", Path: fmt.Sprintf(".specd/specs/%s/requirements.md", slug), Required: true, Reason: "approved task requirements"},
 		{Kind: "design", Path: fmt.Sprintf(".specd/specs/%s/design.md", slug), Required: true, Reason: "applicable task design"},
@@ -180,7 +191,7 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 		}
 	}
 	items, omissions := enforceBudget(items, maxTokens)
-	manifest := Manifest{Version: ManifestVersion, Mode: mode, Slug: slug, TaskID: taskID, Items: items, Omissions: omissions}
+	manifest := Manifest{Version: ManifestVersion, Mode: mode, Slug: slug, TaskID: taskID, Items: items, Omissions: omissions, Routing: &routing}
 	for _, item := range items {
 		manifest.EstimatedTokens += item.EstimatedTokens
 	}

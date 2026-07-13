@@ -7,6 +7,42 @@ import (
 	"testing"
 )
 
+func TestProgramEconomicRollupExactStableMissingAndDriftSources(t *testing.T) {
+	inputs := []SpecEconomics{
+		{SpecID: "zeta", Telemetry: &TelemetryReport{Cost: "0.20", InputTokens: 3}, SourceRefs: []string{"evidence:zeta:2"}},
+		{SpecID: "alpha", Telemetry: nil},
+		{SpecID: "beta", Telemetry: &TelemetryReport{Cost: "0.10", InputTokens: 0}, SourceRefs: []string{"evidence:beta:1"}, PreviousCost: "0.01"},
+	}
+	got, err := RollupEconomics(inputs, "0.05")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Cost != "0.3" || got.InputTokens != 3 {
+		t.Fatalf("totals = %#v", got)
+	}
+	if !reflect.DeepEqual(got.MissingSpecs, []string{"alpha"}) {
+		t.Fatalf("missing = %v", got.MissingSpecs)
+	}
+	if len(got.Specs) != 3 || got.Specs[0].SpecID != "alpha" || got.Specs[2].SpecID != "zeta" {
+		t.Fatalf("unstable rows = %#v", got.Specs)
+	}
+	if len(got.Alerts) != 1 || !reflect.DeepEqual(got.Alerts[0].SourceRefs, []string{"evidence:beta:1"}) {
+		t.Fatalf("alerts = %#v", got.Alerts)
+	}
+	if inputs[0].Telemetry.Cost != "0.20" {
+		t.Fatal("roll-up mutated source")
+	}
+}
+
+func TestProgramEconomicRollupRejectsDuplicateAndUnboundedDimensions(t *testing.T) {
+	if _, err := RollupEconomics([]SpecEconomics{{SpecID: "a"}, {SpecID: "a"}}, ""); err == nil {
+		t.Fatal("duplicate spec accepted")
+	}
+	if _, err := RollupEconomics([]SpecEconomics{{SpecID: "../secret"}}, ""); err == nil {
+		t.Fatal("unbounded spec id accepted")
+	}
+}
+
 // TestReopenRejected reproduces the R1.1 gap (09a/T04) and pins the guard that
 // 09b/T09 lands: reopening, rewinding, or editing a `complete` spec must fail
 // closed with a message directing the user to create a linked successor. Today

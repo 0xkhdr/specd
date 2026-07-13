@@ -236,11 +236,19 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T28 | craftsman | internal/core/attestation.go; internal/core/attestation_test.go; internal/core/telemetry.go; docs/adapters/telemetry.md | T23, Domain 10 adapter | go test ./internal/core -run 'Test(Attestation|Telemetry)' | signed/hashed attested envelope from allowlisted key accepted; tampering rejected; all adapter tests offline R9.1 |
-| [ ] T29 | craftsman | internal/core/config_loader.go; internal/core/config_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T10 | go test ./internal/core ./internal/context -run 'Test(Config|Manifest)' | routing recommendation is policy metadata; same task/config → same class; no provider contact; unavailable model cannot bypass evidence R9.2 |
-| [ ] T30 | craftsman | internal/core/program.go; internal/core/program_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T23,T27 | go test ./internal/core ./internal/cmd -run 'Test(Program|Report)' | cross-spec roll-ups exact, stable, bounded-cardinality, missing≠zero; drift alert references source records, mutates no lifecycle state R9.3 |
-| [ ] T31 | craftsman | internal/cmd/e2e_test.go; internal/integration/observability_conformance_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T14,T18,T21,T24,T27,T28 | go test ./internal/cmd ./internal/integration -run 'Test(ObservabilityE2E|ObservabilityConformance)' && ./scripts/docs-lint.sh | E2E: unannotated run, provider-annotated run, failed retry chain, crash mid-append, budget brake, missing attested accounting, context pressure, context drift, privacy, cardinality, offline, back-compat |
-| [ ] T32 | validator | specs/07-observability-cost-and-operational-economics; internal/core; internal/cmd; internal/context; internal/orchestration; internal/integration | T29,T30,T31 | go test ./... -race -count=1 && go test ./... -count=2 && go vet ./... && gofmt -l . && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | full Domain 07 evidence; iteration-order stable; `go mod tidy` clean |
+| [x] T28 | craftsman | internal/core/attestation.go; internal/core/attestation_test.go; internal/core/telemetry.go; docs/adapters/telemetry.md | T23, Domain 10 adapter | go test ./internal/core -run 'Test(Attestation|Telemetry)' | signed/hashed attested envelope from allowlisted key accepted; tampering rejected; all adapter tests offline R9.1 |
+| [x] T29 | craftsman | internal/core/config_loader.go; internal/core/config_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T10 | go test ./internal/core ./internal/context -run 'Test(Config|Manifest)' | routing recommendation is policy metadata; same task/config → same class; no provider contact; unavailable model cannot bypass evidence R9.2 |
+| [x] T30 | craftsman | internal/core/program.go; internal/core/program_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T23,T27 | go test ./internal/core ./internal/cmd -run 'Test(Program|Report)' | cross-spec roll-ups exact, stable, bounded-cardinality, missing≠zero; drift alert references source records, mutates no lifecycle state R9.3 |
+| [x] T31 | craftsman | internal/cmd/e2e_test.go; internal/integration/observability_conformance_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T14,T18,T21,T24,T27,T28 | go test ./internal/cmd ./internal/integration -run 'Test(ObservabilityE2E|ObservabilityConformance)' && ./scripts/docs-lint.sh | E2E: unannotated run, provider-annotated run, failed retry chain, crash mid-append, budget brake, missing attested accounting, context pressure, context drift, privacy, cardinality, offline, back-compat |
+| [x] T32 | validator | specs/07-observability-cost-and-operational-economics; internal/core; internal/cmd; internal/context; internal/orchestration; internal/integration | T29,T30,T31 | go test ./... -race -count=1 && go test ./... -count=2 && go vet ./... && gofmt -l . && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | full Domain 07 evidence; iteration-order stable; `go mod tidy` clean |
+
+> **W9 deviations (additive contract wiring).**
+> - T29 also edits `internal/core/config_validate.go`: `config_loader.go` owns the shape, while the
+>   existing validator owns every `project.yml` key parser. Keeping recommendation parsing there
+>   preserves one config-validation path.
+> - T30/T31 also edit `internal/core/commands.go` and `internal/cmd/registry.go`: the cross-spec
+>   projection is exposed as derived `report --rollup` metadata, so canonical command/MCP/help
+>   surfaces remain synchronized. Both mirrored command docs are updated together.
 
 ## Cross-wave rules
 

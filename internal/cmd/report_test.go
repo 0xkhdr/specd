@@ -35,6 +35,21 @@ func TestReportEventAndEfficiencyOffline(t *testing.T) {
 	}
 }
 
+func TestReportProgramRollupMissingIsNotZero(t *testing.T) {
+	root := newHistoryDemo(t)
+	out, err := captureStdout(t, func() error { return Run(root, "report", []string{"demo"}, map[string]string{"rollup": ""}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got core.ProgramEconomics
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.MissingSpecs) != 1 || got.MissingSpecs[0] != "demo" || got.Cost != "0" {
+		t.Fatalf("rollup = %#v", got)
+	}
+}
+
 func TestReportMissionAuditReferenceIsPolicyKeyedAndSanitized(t *testing.T) {
 	e := orchestration.ACPEvent{AuditID: 3, AuditKind: "diff", RunID: "run-1", MissionID: "mission-1", TaskID: "T1", PolicyDigest: "sha256:abc", Payload: "internal detail"}
 	got := acpReference(e)

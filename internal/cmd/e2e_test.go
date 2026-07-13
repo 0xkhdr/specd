@@ -248,6 +248,34 @@ func TestLifecycleE2EOrchestrationReleaseEnvelope(t *testing.T) {
 	}
 }
 
+func TestObservabilityE2EAttestedRoutingRollupOffline(t *testing.T) {
+	telemetry := core.Annotations{InputTokens: 7, OutputTokens: 2, Cost: "0.09", Currency: "USD", PricingRef: "price:v1"}
+	envelope, err := core.SignAttestation("local", []byte("test-key"), "usage:1", telemetry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := core.VerifyAttestation(envelope, map[string][]byte{"local": []byte("test-key")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accepted.Source != core.TelemetrySourceAdapter {
+		t.Fatalf("source = %q", accepted.Source)
+	}
+
+	recommendation, err := core.RecommendRouting(core.TaskRow{ID: "T1", Complexity: "high"}, core.RoutingConfig{Classes: []string{"standard", "reasoning"}, DefaultClass: "standard", Recommendations: map[string]string{"high": "reasoning"}})
+	if err != nil || recommendation.Class != "reasoning" || recommendation.Model != "" {
+		t.Fatalf("recommendation = %#v, err=%v", recommendation, err)
+	}
+
+	rollup, err := core.RollupEconomics([]core.SpecEconomics{{SpecID: "measured", Telemetry: &core.TelemetryReport{Cost: accepted.Cost, InputTokens: accepted.InputTokens}}, {SpecID: "missing"}}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rollup.Cost != "0.09" || len(rollup.MissingSpecs) != 1 || rollup.MissingSpecs[0] != "missing" {
+		t.Fatalf("rollup = %#v", rollup)
+	}
+}
+
 func mustGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

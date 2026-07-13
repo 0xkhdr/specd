@@ -157,6 +157,20 @@ func TestManifestValidate(t *testing.T) {
 	}
 }
 
+func TestManifestCarriesRoutingRecommendationMetadata(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("routing:\n  classes: standard,reasoning\n  default_class: standard\n  fallback: standard,reasoning\n  class_capabilities: standard=context;reasoning=context+eval\n  recommendations: high=reasoning\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m, err := BuildManifest(root, "demo", []core.TaskRow{{ID: "T1", Role: "craftsman", Complexity: "high"}}, "T1", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Routing == nil || m.Routing.Class != "reasoning" || m.Routing.Model != "" {
+		t.Fatalf("routing metadata = %#v", m.Routing)
+	}
+}
+
 // TestManifestVersionFailsClosed (R1.3/R8.2) pins the W0 V1/V2 migration
 // decision: V1 stays the compatibility renderer, and any unknown/unsupported
 // manifest version is rejected rather than silently reinterpreted. When the

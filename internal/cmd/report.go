@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -12,6 +13,44 @@ import (
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
+
+func gatherProgramEconomics(root string) (core.ProgramEconomics, error) {
+	dir := filepath.Join(core.SpecdDir(root), "specs")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return core.ProgramEconomics{}, err
+	}
+	inputs := make([]core.SpecEconomics, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		slug := entry.Name()
+		model, err := reportModel(root, slug)
+		if err != nil {
+			return core.ProgramEconomics{}, err
+		}
+		report, err := aggregateTelemetry(root, slug, model)
+		if err != nil {
+			return core.ProgramEconomics{}, err
+		}
+		records, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+		if err != nil {
+			return core.ProgramEconomics{}, err
+		}
+		input := core.SpecEconomics{SpecID: slug}
+		for i, record := range records {
+			if record.Telemetry != nil {
+				input.SourceRefs = append(input.SourceRefs, fmt.Sprintf("evidence:%s:%d", slug, i+1))
+			}
+		}
+		if len(input.SourceRefs) > 0 {
+			input.Telemetry = &report
+		}
+		inputs = append(inputs, input)
+	}
+	return core.RollupEconomics(inputs, "")
+}
 
 // gatherContextEfficiency joins load-plan estimates with attempt telemetry.
 // All inputs are existing local files; absent host/provider measurements stay

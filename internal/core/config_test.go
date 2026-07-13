@@ -156,6 +156,29 @@ func TestConfigRoutingPolicy(t *testing.T) {
 	}
 }
 
+func TestConfigRoutingRecommendationDeterministic(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "project.yml")
+	if err := os.WriteFile(path, []byte("routing:\n  classes: standard,reasoning\n  default_class: standard\n  fallback: standard,reasoning\n  class_capabilities: standard=context;reasoning=context+eval\n  recommendations: low=standard,high=reasoning\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, diagnostics := LoadConfig(ConfigPaths{Project: path}, nil)
+	if len(diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v", diagnostics)
+	}
+	task := TaskRow{ID: "T7", Complexity: "high"}
+	a, err := RecommendRouting(task, cfg.Routing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := RecommendRouting(task, cfg.Routing)
+	if err != nil || a != b || a.Class != "reasoning" {
+		t.Fatalf("recommendations = %#v %#v, err=%v", a, b, err)
+	}
+	if a.Provider != "" || a.Model != "" {
+		t.Fatalf("core selected provider/model: %#v", a)
+	}
+}
+
 // TestEnvPolicy pins R7.1: closed environment policy loads per-environment
 // strategy/approver/authority/criteria/window/freshness/rollback, and an unknown
 // environment name or a missing/invalid required field fails closed.

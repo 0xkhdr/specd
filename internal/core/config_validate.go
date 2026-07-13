@@ -7,6 +7,19 @@ import (
 	"strings"
 )
 
+func parseRoutingRecommendations(raw string) (map[string]string, bool) {
+	out := map[string]string{}
+	for _, item := range strings.Split(raw, ",") {
+		complexity, class, ok := strings.Cut(strings.TrimSpace(item), "=")
+		complexity, class = strings.TrimSpace(complexity), strings.TrimSpace(class)
+		if !ok || complexity == "" || class == "" || out[complexity] != "" || !boundedIdentifier.MatchString(complexity) || !boundedIdentifier.MatchString(class) {
+			return nil, false
+		}
+		out[complexity] = class
+	}
+	return out, len(out) > 0
+}
+
 func applyConfigMap(cfg *Config, values map[string]string, path string, diagnostics *[]Diagnostic) {
 	for key, value := range values {
 		if isSecretKey(key) {
@@ -105,6 +118,13 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Routing.ClassCapabilities = parsed
+		case "routing.recommendations":
+			parsed, ok := parseRoutingRecommendations(value)
+			if !ok {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "routing.recommendations must use complexity=class entries"})
+				continue
+			}
+			cfg.Routing.Recommendations = parsed
 		case "routing.max_tokens":
 			parsed, err := strconv.ParseInt(value, 10, 64)
 			if err != nil || parsed < 0 {

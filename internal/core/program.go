@@ -3,10 +3,94 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 )
+
+var programDimension = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+type SpecEconomics struct {
+	SpecID       string           `json:"spec_id"`
+	Telemetry    *TelemetryReport `json:"telemetry,omitempty"`
+	SourceRefs   []string         `json:"source_refs,omitempty"`
+	PreviousCost string           `json:"previous_cost,omitempty"`
+}
+
+type EconomicDriftAlert struct {
+	SpecID     string   `json:"spec_id"`
+	CostDelta  string   `json:"cost_delta"`
+	SourceRefs []string `json:"source_refs"`
+}
+
+type ProgramEconomics struct {
+	Cost         string               `json:"cost"`
+	InputTokens  int                  `json:"input_tokens"`
+	OutputTokens int                  `json:"output_tokens"`
+	CachedTokens int                  `json:"cached_tokens"`
+	DurationMs   int                  `json:"duration_ms"`
+	Specs        []SpecEconomics      `json:"specs"`
+	MissingSpecs []string             `json:"missing_specs,omitempty"`
+	Alerts       []EconomicDriftAlert `json:"alerts,omitempty"`
+}
+
+// RollupEconomics is a pure portfolio projection. Dimensions stay bounded to
+// spec IDs; missing telemetry remains distinct from a measured zero.
+func RollupEconomics(inputs []SpecEconomics, driftThreshold string) (ProgramEconomics, error) {
+	threshold := new(big.Rat)
+	if driftThreshold != "" {
+		if !decimalPattern.MatchString(driftThreshold) {
+			return ProgramEconomics{}, fmt.Errorf("invalid drift threshold %q", driftThreshold)
+		}
+		threshold.SetString(driftThreshold)
+	}
+	rows := append([]SpecEconomics(nil), inputs...)
+	sort.Slice(rows, func(i, j int) bool { return rows[i].SpecID < rows[j].SpecID })
+	out := ProgramEconomics{Specs: rows}
+	total := new(big.Rat)
+	for i, row := range rows {
+		if !programDimension.MatchString(row.SpecID) {
+			return ProgramEconomics{}, fmt.Errorf("invalid spec dimension %q", row.SpecID)
+		}
+		if i > 0 && rows[i-1].SpecID == row.SpecID {
+			return ProgramEconomics{}, fmt.Errorf("duplicate spec dimension %q", row.SpecID)
+		}
+		if row.Telemetry == nil {
+			out.MissingSpecs = append(out.MissingSpecs, row.SpecID)
+			continue
+		}
+		cost, ok := new(big.Rat).SetString(row.Telemetry.Cost)
+		if !ok || !decimalPattern.MatchString(row.Telemetry.Cost) {
+			return ProgramEconomics{}, fmt.Errorf("invalid cost for %s", row.SpecID)
+		}
+		total.Add(total, cost)
+		out.InputTokens += row.Telemetry.InputTokens
+		out.OutputTokens += row.Telemetry.OutputTokens
+		out.CachedTokens += row.Telemetry.CachedTokens
+		out.DurationMs += row.Telemetry.DurationMs
+		if row.PreviousCost != "" {
+			previous, ok := new(big.Rat).SetString(row.PreviousCost)
+			if !ok || !decimalPattern.MatchString(row.PreviousCost) {
+				return ProgramEconomics{}, fmt.Errorf("invalid previous cost for %s", row.SpecID)
+			}
+			delta := new(big.Rat).Sub(cost, previous)
+			if delta.Sign() < 0 {
+				delta.Neg(delta)
+			}
+			if driftThreshold != "" && delta.Cmp(threshold) > 0 {
+				refs := append([]string(nil), row.SourceRefs...)
+				sort.Strings(refs)
+				out.Alerts = append(out.Alerts, EconomicDriftAlert{SpecID: row.SpecID, CostDelta: formatRat(delta), SourceRefs: refs})
+			}
+		}
+	}
+	out.Cost = strings.TrimSpace(formatRat(total))
+	return out, nil
+}
 
 // ProgramSchemaVersion versions the program.json shape, following the same
 // forward-migration discipline as state.json (spec 02). Bump it when the shape
