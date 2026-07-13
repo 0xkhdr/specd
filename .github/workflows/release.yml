@@ -66,7 +66,10 @@ jobs:
       - name: Verify published archive attestations
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh attestation verify dist/*.tar.gz --repo "$GITHUB_REPOSITORY"
+        run: |
+          for f in dist/*.tar.gz; do
+            gh attestation verify "$f" --repo "$GITHUB_REPOSITORY"
+          done
 
       - name: Preserve built release for install smoke
         uses: actions/upload-artifact@v5
