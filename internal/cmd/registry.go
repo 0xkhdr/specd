@@ -37,6 +37,7 @@ var ErrUnknownCommand = errors.New("unknown command")
 
 var executable = map[string]Handler{
 	"approve":   runApproveOrException,
+	"archive":   runArchive,
 	"adapters":  runAdapters,
 	"agents":    runAgents,
 	"brain":     runBrain,
@@ -737,6 +738,7 @@ func runReport(root string, args []string, flags map[string]string) error {
 			return err
 		}
 		var inputs []core.PortfolioSpec
+		export := portfolioExport{SchemaVersion: 1}
 		for _, slug := range core.ListSpecs(root) {
 			state, err := core.LoadState(core.StatePath(root, slug))
 			if err != nil {
@@ -747,18 +749,59 @@ func runReport(root string, args []string, flags map[string]string) error {
 				return err
 			}
 			inputs = append(inputs, core.PortfolioSpec{SpecID: slug, Complete: state.Status == core.StatusComplete, Deployments: deployments})
+			risk := "unknown"
+			if provenance, err := core.LoadProvenance(core.ProvenancePath(root, slug)); err != nil {
+				return err
+			} else if provenance != nil && provenance.Risk != "" {
+				risk = provenance.Risk
+			}
+			records, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+			if err != nil {
+				return err
+			}
+			refs := make([]string, 0, len(records))
+			for i, record := range records {
+				refs = append(refs, fmt.Sprintf("verify:%s:%d:%s", record.TaskID, i+1, record.GitHead))
+			}
+			export.Specs = append(export.Specs, portfolioExportSpec{ID: slug, Status: string(state.Status), Risk: risk, EvidenceRefs: refs})
 		}
 		view, err := core.BuildPortfolioView(program, inputs)
 		if err != nil {
 			return err
 		}
-		return writeJSON(view)
+		links := append([]core.ProgramLink(nil), program.Links...)
+		sort.Slice(links, func(i, j int) bool {
+			if links[i].From != links[j].From {
+				return links[i].From < links[j].From
+			}
+			if links[i].To != links[j].To {
+				return links[i].To < links[j].To
+			}
+			return links[i].Kind < links[j].Kind
+		})
+		for _, link := range links {
+			export.Links = append(export.Links, portfolioExportLink{From: link.From, To: link.To, Kind: link.Kind})
+		}
+		export.View = view
+		return writeJSON(export)
 	}
 	if len(args) != 1 {
 		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event|otel] | report --portfolio")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
+		return err
+	}
+	if flagEnabled(flags, "outcome-review") {
+		records, err := core.LoadEvidenceRecords(core.EvidencePath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		refs := make([]string, 0, len(records))
+		for i, record := range records {
+			refs = append(refs, fmt.Sprintf("verify:%s:%d:%s", record.TaskID, i+1, record.GitHead))
+		}
+		_, err = fmt.Fprint(os.Stdout, renderOutcomeReview([]outcomeInput{{SpecID: args[0], EvidenceRefs: refs}}))
 		return err
 	}
 	if flagEnabled(flags, "delivery") {

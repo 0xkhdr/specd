@@ -83,3 +83,42 @@ func TestTemplateReadinessPassable(t *testing.T) {
 		}
 	}
 }
+
+func TestPolicyTemplates(t *testing.T) {
+	templates, err := PolicyTemplates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"approval", "incident-response", "on-call", "production-readiness", "review", "security-exception"}
+	if len(templates) != len(want) {
+		t.Fatalf("got %d policy templates, want %d", len(templates), len(want))
+	}
+	for i, template := range templates {
+		if template.Name != want[i] || template.Schema != "specd-policy" || template.Version != 1 {
+			t.Fatalf("template %d = %+v", i, template)
+		}
+		if !strings.Contains(template.Body, "owner:") || !strings.Contains(template.Body, "evidence:") {
+			t.Fatalf("%s lacks owner/evidence", template.Name)
+		}
+	}
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, ".specd", "templates", "policy", "approval.md")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom := "\nproject approval rule\n"
+	if err := os.WriteFile(path, append(raw, custom...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ApplyManagedRepair(root); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(path)
+	if !strings.HasSuffix(string(after), custom) {
+		t.Fatal("policy refresh clobbered project content")
+	}
+}

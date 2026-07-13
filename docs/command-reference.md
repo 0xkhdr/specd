@@ -111,6 +111,24 @@ source release/deployment ledgers remain unchanged. **Phases:** any.
 specd incident seed checkout-recovery --source-spec checkout --release rel-7 --deployment dep-4 --criterion availability --evidence-ref obs://health/42
 ```
 
+### `archive`
+```
+specd archive <spec> --successor <spec> --owner <owner> --evidence <ref>
+```
+Retire a spec from active discovery while preserving every file hash and an audit manifest.
+Archive requires an active successor and records a typed `supersedes` link; it never deletes or
+rewrites audit content. Replaying the same request is idempotent. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--successor` | string | Active successor spec that receives the `supersedes` link. |
+| `--owner` | string | Accountable archive owner. |
+| `--evidence` | string | Audit evidence reference authorizing retirement. |
+
+```bash
+specd archive payments-v1 --successor payments-v2 --owner platform --evidence release:rel-7
+```
+
 ### `approve`
 ```
 specd approve <spec> <gate>
@@ -528,7 +546,7 @@ specd status --program
 
 ### `report`
 ```
-specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--trace|--proof|--format prometheus|event|otel]
+specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--proof|--format prometheus|event|otel]
 specd report --portfolio
 ```
 Render evidence-backed status, PR, history, trace, proof, and metrics reports. Deterministic —
@@ -542,6 +560,7 @@ generated from `state.json` + task artifacts, never from an LLM. **Phases:** any
 | `--rollup` | bool | Emit exact cross-spec economic totals, preserving missing telemetry separately from measured zero. |
 | `--delivery` | bool | Emit byte-stable deployment status with adapter and trust source labeled separately. |
 | `--portfolio` | bool | Emit deterministic cross-spec release/environment status and blockers from local ledgers. |
+| `--outcome-review` | bool | Join local evidence to feedback references; missing outcomes remain `unknown`. |
 | `--json` | bool | Emit machine-readable report (JSON Lines with `--history`). |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
@@ -558,6 +577,7 @@ specd report payments --efficiency
 specd report payments --rollup
 specd report payments --delivery
 specd report --portfolio
+specd report payments --outcome-review
 specd report payments --format event
 specd report payments --format prometheus
 specd report payments --format otel
@@ -566,6 +586,10 @@ specd report payments --format otel
 ---
 
 ## Integration
+
+Portfolio status/export is bounded to 10,000 compact spec records. Routine projections never load
+spec prose or full context. Archive manifests bound active-context growth while retaining immutable
+history under `.specd/archive/specs/<slug>/` for explicit audit retrieval.
 
 ### `memory`
 ```

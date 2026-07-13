@@ -113,7 +113,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 09 W8 — `09i-incident-successor-and-prevention` (needs 09 W1,W5, Domain 08 observation)
 - [x] 09 W9 — `09j-portfolio-governance-status` (needs 09 W1,W3)
 - [x] 09 W10 — `09k-memory-conflict-lint` (needs 09 W4)
-- [ ] 09 W11 — `09l-org-adoption-and-archive` (needs 09 W8,W9,W10, Domain 10 boundary)
+- [x] 09 W11 — `09l-org-adoption-and-archive` (needs 09 W8,W9,W10, Domain 10 boundary)
 - [ ] 10 W5 — release/feedback contract and proof (needs 10 W4, 08)
 
 **Exit P2 / program done:** every domain's final validator wave is green against a fresh

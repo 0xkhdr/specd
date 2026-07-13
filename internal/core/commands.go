@@ -200,6 +200,19 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "archive",
+		Usage:         "specd archive <spec> --successor <spec> --owner <owner> --evidence <ref>",
+		Description:   "Retire a spec from active context while preserving content hashes and successor provenance.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd archive payments-v1 --successor payments-v2 --owner platform --evidence release:rel-7"},
+		Flags: []Flag{
+			{Name: "successor", TakesValue: true, Type: "string", Description: "Active successor spec receiving a supersedes link."},
+			{Name: "owner", TakesValue: true, Type: "string", Description: "Accountable archive owner."},
+			{Name: "evidence", TakesValue: true, Type: "string", Description: "Audit evidence reference authorizing retirement."},
+		},
+	},
+	{
 		Name:          "approve",
 		Usage:         "specd approve <spec> <gate>",
 		Description:   "Record human approval for a lifecycle gate or orchestrated mode.",
@@ -439,7 +452,7 @@ var Commands = []Command{
 	},
 	{
 		Name:          "report",
-		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--trace|--format prometheus|event|otel] | specd report --portfolio",
+		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--format prometheus|event|otel] | specd report --portfolio",
 		Description:   "Render evidence-backed status, PR, history, trace, and metrics reports.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
@@ -451,6 +464,7 @@ var Commands = []Command{
 			{Name: "rollup", Type: "bool", Description: "Emit exact cross-spec economic roll-up with explicit missing telemetry."},
 			{Name: "delivery", Type: "bool", Description: "Emit deterministic deployment status with adapter and trust source labeled separately."},
 			{Name: "portfolio", Type: "bool", Description: "Emit deterministic cross-spec release/environment status and blockers from local ledgers."},
+			{Name: "outcome-review", Type: "bool", Description: "Join local change evidence to release and incident references, preserving missing outcomes as unknown."},
 			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
 			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
 			{Name: "trace", Type: "bool", Description: "Export the metadata-only run trace as stable JSON Lines."},

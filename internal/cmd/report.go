@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,6 +15,58 @@ import (
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
+
+type outcomeInput struct {
+	SpecID       string   `json:"spec_id"`
+	EvidenceRefs []string `json:"evidence_refs,omitempty"`
+	FeedbackRefs []string `json:"feedback_refs,omitempty"`
+}
+
+type outcomeRow struct {
+	SpecID       string   `json:"spec_id"`
+	Outcome      string   `json:"outcome"`
+	EvidenceRefs []string `json:"evidence_refs,omitempty"`
+	FeedbackRefs []string `json:"feedback_refs,omitempty"`
+}
+
+type portfolioExportSpec struct {
+	ID           string   `json:"id"`
+	Status       string   `json:"status"`
+	Risk         string   `json:"risk"`
+	EvidenceRefs []string `json:"evidence_refs,omitempty"`
+}
+
+type portfolioExportLink struct {
+	From string        `json:"from"`
+	To   string        `json:"to"`
+	Kind core.LinkKind `json:"kind"`
+}
+
+type portfolioExport struct {
+	SchemaVersion int                   `json:"schema_version"`
+	Specs         []portfolioExportSpec `json:"specs"`
+	Links         []portfolioExportLink `json:"links,omitempty"`
+	View          core.PortfolioView    `json:"delivery"`
+}
+
+func renderOutcomeReview(inputs []outcomeInput) string {
+	rows := append([]outcomeInput(nil), inputs...)
+	sort.Slice(rows, func(i, j int) bool { return rows[i].SpecID < rows[j].SpecID })
+	out := make([]outcomeRow, 0, len(rows))
+	for _, row := range rows {
+		sort.Strings(row.EvidenceRefs)
+		sort.Strings(row.FeedbackRefs)
+		outcome := "unknown"
+		if len(row.FeedbackRefs) > 0 {
+			outcome = "observed"
+		}
+		out = append(out, outcomeRow{SpecID: row.SpecID, Outcome: outcome, EvidenceRefs: row.EvidenceRefs, FeedbackRefs: row.FeedbackRefs})
+	}
+	raw, _ := json.Marshal(out)
+	var compact bytes.Buffer
+	_ = json.Compact(&compact, raw)
+	return compact.String() + "\n"
+}
 
 func renderDeliveryReport(records []core.DeploymentV1) string {
 	rows := append([]core.DeploymentV1(nil), records...)

@@ -11,7 +11,7 @@
 #   W2 trust boundary   `brain start` is fail-closed on default config
 #   W3 records          `decision` without --text is a usage error
 #   W4 gates            `check` on a fresh scaffold rejects placeholder EARS
-#   W5 surface          bare verb count == 32 (ADR-scoped surface)
+#   W5 surface          bare verb count == 33 (ADR-scoped surface)
 #   W6 release          `--version` prints a stamp
 #   W7 conformance      `report --proof` is a deterministic lifecycle projection
 set -eu
@@ -129,10 +129,9 @@ else
 fi
 
 # W5 — surface lock: the bare verb count is pinned as a tripwire, so adding or
-# removing a verb is a deliberate edit here. Current surface is 30 (16 original
-# + submit, review, link, unlink, program-era verbs, version, triage, the
-# delivery verbs release + deploy, adapters, and spike). Bump this only alongside an intended verb change.
-W5_EXPECT=32
+# removing a verb is a deliberate edit here. Archive is the Domain 09
+# non-destructive retirement verb. Bump this only alongside an intended verb change.
+W5_EXPECT=33
 verbs=$("$SPECD" 2>&1 | sed -n 's/^  \([a-z][a-z]*\) .*/\1/p' | sort -u | wc -l | tr -d ' ')
 if [ "$verbs" -ne "$W5_EXPECT" ]; then
 	violation W5 "verb count is $verbs, expected $W5_EXPECT"

@@ -189,12 +189,12 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T45 | craftsman | new `internal/core/embed_templates/policy/{approval,review,security-exception,production-readiness,on-call,incident-response}.md` | T24 | `go test ./internal/core -run TestPolicyTemplates -count=1` | R5.2 inspectable schema/version; content survives refresh |
-| T46 | craftsman | `internal/cmd/report.go` (stable-JSON portfolio export, redacted) | T40 | `go test ./internal/cmd -run TestPortfolioExport -count=2` | R10.1 stable JSON; export failure cannot corrupt state |
-| T47 | craftsman | `internal/cmd/report.go` (outcome-review; unknown≠success) | T37,T46 | `go test ./internal/cmd -run TestOutcomeReviewUnknown -count=1` | R10.2 unknown stays unknown |
-| T48 | craftsman | new `internal/core/archive.go`; `internal/cmd` archive verb | T43,T15 | `go test ./internal/core -run TestArchivePreservesHashes -count=1` | R11.1,R11.2 retire from context; preserve hashes non-destructively |
-| T49 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md`; scale-envelope doc | T46,T48 | `./scripts/docs-lint.sh` | R11.3 retention/scale documented; mirror export/archive verbs |
-| T50 | validator | 9 production validation scenarios end to end | T38,T41,T44,T47,T48 | `go test ./... -race -count=1 && go test ./... -count=2` | operate proof: all scenarios pass offline; full suite green |
+| [x] T45 | craftsman | new `internal/core/embed_templates/policy/{approval,review,security-exception,production-readiness,on-call,incident-response}.md` | T24 | `go test ./internal/core -run TestPolicyTemplates -count=1` | R5.2 inspectable schema/version; content survives refresh |
+| [x] T46 | craftsman | `internal/cmd/report.go` (stable-JSON portfolio export, redacted) | T40 | `go test ./internal/cmd -run TestPortfolioExport -count=2` | R10.1 stable JSON; export failure cannot corrupt state |
+| [x] T47 | craftsman | `internal/cmd/report.go` (outcome-review; unknown≠success) | T37,T46 | `go test ./internal/cmd -run TestOutcomeReviewUnknown -count=1` | R10.2 unknown stays unknown |
+| [x] T48 | craftsman | new `internal/core/archive.go`; `internal/cmd` archive verb | T43,T15 | `go test ./internal/core -run TestArchivePreservesHashes -count=1` | R11.1,R11.2 retire from context; preserve hashes non-destructively |
+| [x] T49 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md`; scale-envelope doc | T46,T48 | `./scripts/docs-lint.sh` | R11.3 retention/scale documented; mirror export/archive verbs |
+| [x] T50 | validator | 9 production validation scenarios end to end | T38,T41,T44,T47,T48 | `go test ./... -race -count=1 && go test ./... -count=2` | operate proof: all scenarios pass offline; full suite green |
 
 ## Cross-wave rules
 

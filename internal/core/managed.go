@@ -29,7 +29,7 @@ type ManagedAsset struct {
 // ManagedAssets enumerates the role and steering templates baked into the binary.
 func ManagedAssets() ([]ManagedAsset, error) {
 	var assets []ManagedAsset
-	for _, base := range []string{"roles", "steering", "maintenance"} {
+	for _, base := range []string{"roles", "steering", "maintenance", "policy"} {
 		entries, err := embedtemplates.FS.ReadDir(base)
 		if err != nil {
 			return nil, err
@@ -44,7 +44,7 @@ func ManagedAssets() ([]ManagedAsset, error) {
 				return nil, err
 			}
 			relBase := base
-			if base == "maintenance" {
+			if base == "maintenance" || base == "policy" {
 				relBase = filepath.Join("templates", base)
 			}
 			assets = append(assets, ManagedAsset{
