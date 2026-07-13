@@ -177,6 +177,17 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 		}
 		events = append(events, event)
 	}
+	provenance, err := core.LoadProvenance(core.ProvenancePath(root, slug))
+	if err != nil {
+		return nil, err
+	}
+	if provenance != nil {
+		events = append(events, core.HistoryEvent{
+			Event:      "provenance",
+			Reference:  provenanceHistoryReference(*provenance),
+			SourceRank: core.HistorySourceProvenance,
+		})
+	}
 
 	// 2. Verify evidence (every attempt, in append order) and completions.
 	attempts, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
@@ -291,6 +302,32 @@ func gatherHistory(root, slug string, model core.ReportModel) ([]core.HistoryEve
 	}
 
 	return events, nil
+}
+
+func provenanceHistoryReference(p core.ProvenanceV1) string {
+	parts := []string{fmt.Sprintf("schema_version=%d", p.SchemaVersion), "source_type=" + string(p.SourceType)}
+	appendScalar := func(name, value string) {
+		if value != "" {
+			parts = append(parts, name+"="+value)
+		}
+	}
+	appendList := func(name string, values []string) {
+		if len(values) != 0 {
+			parts = append(parts, name+"="+strings.Join(values, ","))
+		}
+	}
+	appendScalar("source_ref", p.SourceRef)
+	appendList("systems", p.Systems)
+	appendList("affected_specs", p.AffectedSpecs)
+	appendScalar("severity", p.Severity)
+	appendScalar("risk", p.Risk)
+	appendScalar("owner", p.Owner)
+	links := make([]string, 0, len(p.PriorLinks))
+	for _, link := range p.PriorLinks {
+		links = append(links, link.To)
+	}
+	appendList("prior_links", links)
+	return strings.Join(parts, " ")
 }
 
 // gatherLifecycleProof assembles the deterministic R8.2 proof: requirement

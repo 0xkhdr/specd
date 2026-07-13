@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 17 core gates
+## The 18 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -53,6 +53,9 @@ Registered by `CoreRegistry()` in the order they run:
 | 13 | `criteria` | *(opt-in)* Every acceptance criterion has a current passing evidence record. |
 | 14 | `review` | *(opt-in)* `review_report.md` carries an `approve` verdict recorded at the current git HEAD. |
 | 15 | `task-trace` | A task's declared requirement `refs` resolve and its `risk` tier is known; *(opt-in)* under the production planning profile every task declares refs/kind/risk/context/evidence/checks. |
+| 16 | `coverage` | *(opt-in)* Requirements, design, and task acceptance coverage has no configured gap. |
+| 17 | `evidence-policy` | *(opt-in)* Declared integration boundaries carry required integration and negative-path evidence. |
+| 18 | `intake` | *(opt-in)* `provenance.json` supplies every configured typed-intake field; empty and `unknown` both fail readiness. |
 
 ### Notes on individual gates
 
@@ -71,6 +74,9 @@ Registered by `CoreRegistry()` in the order they run:
 - **`task-trace` (15)** always refuses an unresolvable requirement reference or an unknown
   risk tier declared on a task; the full trace/risk contract is required only under the
   production planning profile, so legacy six-column `tasks.md` tables keep planning.
+- **`intake` (18)** is armed by a non-empty `required_fields` list in versioned
+  `provenance.json`. Missing files and empty policies preserve legacy feature-spec behavior;
+  malformed provenance and configured fields whose value is empty or `unknown` fail closed.
 - **`criteria` (13)** is armed by `config.criteria.required = true` or the production lifecycle
   profile (`config.profile = production`). Until then it is dormant. Record criterion evidence
   with `specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>`.

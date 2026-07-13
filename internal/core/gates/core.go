@@ -97,6 +97,12 @@ type CheckCtx struct {
 	// the approval. Empty ⇒ disabled (planning phases are never program-gated).
 	ProgramDepsIncomplete []string
 	StaleRecords          []string
+
+	// Provenance is operator-recorded typed intake. A nil record or empty
+	// RequiredFields leaves legacy/default projects unchanged. The gate is pure:
+	// callers own disk reads and supply this immutable snapshot.
+	Provenance      *core.ProvenanceV1
+	ProvenanceError string
 }
 
 func CoreRegistry() Registry {
@@ -118,6 +124,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "task-trace", run: taskTrace})
 	registry.Register(gateFunc{name: "coverage", run: coverageGate})
 	registry.Register(gateFunc{name: "evidence-policy", run: evidencePolicyGate})
+	registry.Register(gateFunc{name: "intake", run: intakeReadiness})
 	return registry
 }
 

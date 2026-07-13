@@ -69,6 +69,7 @@ const (
 	HistorySourceApproval = iota
 	HistorySourceDecision
 	HistorySourceMidReq
+	HistorySourceProvenance
 	HistorySourceVerify
 	HistorySourceCompletion
 	HistorySourceCriterion

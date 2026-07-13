@@ -51,10 +51,20 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T11 | craftsman | new `internal/core/provenance.go` (versioned struct, back-compat decode) | T03 | `go test ./internal/core -run TestProvenanceDecode -count=2` | R2.1 typed source/system/severity/owner/prior-links |
-| T12 | craftsman | new `internal/core/gates/intake.go`; gates registry | T11 | `go test ./internal/core/gates -run TestIntakeReadiness -count=1` | R2.2 missing configured field fails readiness |
-| T13 | craftsman | `internal/core/gates/intake.go` (unknown≠empty; unconfigured no-op) | T12 | `go test ./internal/core/gates -run TestIntakeUnknownSentinel -count=2` | R2.2,R2.3 pure verdict; feature spec unaffected |
-| T14 | craftsman | `internal/cmd/report.go` (project provenance into history) | T11 | `go test ./internal/cmd -run TestProvenanceHistory -count=1` | R2.1 provenance visible without LLM path |
+| [x] T11 | craftsman | new `internal/core/provenance.go` (versioned struct, back-compat decode) | T03 | `go test ./internal/core -run TestProvenanceDecode -count=2` | R2.1 typed source/system/severity/owner/prior-links |
+| [x] T12 | craftsman | new `internal/core/gates/intake.go`; gates registry | T11 | `go test ./internal/core/gates -run TestIntakeReadiness -count=1` | R2.2 missing configured field fails readiness |
+| [x] T13 | craftsman | `internal/core/gates/intake.go` (unknown≠empty; unconfigured no-op) | T12 | `go test ./internal/core/gates -run TestIntakeUnknownSentinel -count=2` | R2.2,R2.3 pure verdict; feature spec unaffected |
+| [x] T14 | craftsman | `internal/cmd/report.go` (project provenance into history) | T11 | `go test ./internal/cmd -run TestProvenanceHistory -count=1` | R2.1 provenance visible without LLM path |
+
+> **W2 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T11–T14 tests land in the conventional companion files
+>   `internal/core/provenance_test.go`, `internal/core/gates/intake_test.go`, and
+>   `internal/cmd/report_provenance_test.go`.
+> - T12 wires the pure gate input in `internal/cmd/registry.go`, updates the registry-order test,
+>   and updates gate-count documentation; without caller-side loading the registered gate could
+>   not evaluate the per-spec provenance file.
+> - T14 adds a deterministic provenance source rank in `internal/core/history.go` so history
+>   ordering remains total when provenance has no timestamp.
 
 ## W3 — `09d-decision-exception-lifecycle` (requires 09a, Domain 06 authority)
 

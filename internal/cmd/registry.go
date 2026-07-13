@@ -1061,6 +1061,11 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 	if b, err := os.ReadFile(filepath.Join(dir, "requirements.md")); err == nil {
 		ctx.RequirementsDoc = string(b)
 	}
+	if provenance, err := core.LoadProvenance(core.ProvenancePath(root, slug)); err != nil {
+		ctx.ProvenanceError = err.Error()
+	} else {
+		ctx.Provenance = provenance
+	}
 	if b, err := os.ReadFile(filepath.Join(dir, "design.md")); err == nil {
 		ctx.DesignDoc = string(b)
 		if approveTarget == string(core.StatusExecuting) && core.HasTaskTrace(ctx.Tasks) {

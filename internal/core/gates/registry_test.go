@@ -4,7 +4,7 @@ import "testing"
 
 func TestRegistryOrder(t *testing.T) {
 	names := CoreRegistry().Names()
-	want := []string{"task-ids", "dependencies", "dag", "roles", "files", "verify", "evidence", "context-budget", "ears", "approval", "sync", "design", "criteria", "review", "task-trace", "coverage", "evidence-policy"}
+	want := []string{"task-ids", "dependencies", "dag", "roles", "files", "verify", "evidence", "context-budget", "ears", "approval", "sync", "design", "criteria", "review", "task-trace", "coverage", "evidence-policy", "intake"}
 	if len(names) != len(want) {
 		t.Fatalf("len = %d, want %d", len(names), len(want))
 	}
