@@ -38,7 +38,12 @@ specd init [--agent=<name>] [--repair|--refresh] [--dry-run]
 ```
 Initialize or re-sync specd project state and managed assets. Scaffolds `.specd/`, writes
 `AGENTS.md`, and a commented `project.yml` (with an active `verify.timeout_seconds: 600`
-bound) into the project root; an existing `project.yml` is never overwritten. **Phases:** any.
+bound) into the project root; an existing `project.yml` is never overwritten. It also installs
+inspectable, schema/version-stamped maintenance templates under
+`.specd/templates/maintenance/` for incident follow-up, dependency/deprecation work, migration,
+and recurring invariants. Each template traces source → requirements → tasks → evidence →
+learning and includes readiness-valid typed intake and successor-link examples. Content added
+outside its `specd:managed` markers survives `--repair` and `--refresh`. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|

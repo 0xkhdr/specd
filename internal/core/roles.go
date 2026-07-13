@@ -1,11 +1,46 @@
 package core
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	embedtemplates "github.com/0xkhdr/specd/internal/core/embed_templates"
 )
+
+// MaintenanceTemplate describes one inspectable, embedded maintenance intake
+// template. Templates contain guidance only; gates remain deterministic.
+type MaintenanceTemplate struct {
+	Name    string
+	Schema  string
+	Version int
+	Body    string
+}
+
+// MaintenanceTemplates returns embedded templates in stable name order.
+func MaintenanceTemplates() ([]MaintenanceTemplate, error) {
+	entries, err := embedtemplates.FS.ReadDir("maintenance")
+	if err != nil {
+		return nil, err
+	}
+	var out []MaintenanceTemplate
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		raw, err := embedtemplates.FS.ReadFile("maintenance/" + entry.Name())
+		if err != nil {
+			return nil, err
+		}
+		body := string(raw)
+		if !strings.Contains(body, "schema: specd-maintenance") || !strings.Contains(body, "version: 1") {
+			return nil, fmt.Errorf("maintenance template %s lacks schema/version", entry.Name())
+		}
+		out = append(out, MaintenanceTemplate{Name: strings.TrimSuffix(entry.Name(), ".md"), Schema: "specd-maintenance", Version: 1, Body: body})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
 
 // KnownRoles returns the canonical role names, derived from the embedded role
 // files (the single source of truth also written to .specd/roles/). Sorted for
