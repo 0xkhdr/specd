@@ -593,12 +593,19 @@ specd handshake bootstrap --json
 
 ### `link`
 ```
-specd link <from-slug> <to-slug>
+specd link <from-slug> <to-slug> [--kind <kind>] [--reason <text>]
 ```
-Record that one spec depends on another (cross-spec ordering). **Phases:** any.
+Record a typed, traceable cross-spec dependency link. Every kind preserves dependency ordering;
+`kind` defaults to `follows`. **Phases:** any.
+
+| Flag | Type | Description |
+|---|---|---|
+| `--kind` | string | Link kind: `follows`, `regresses`, `maintains`, or `supersedes` (default: `follows`). |
+| `--reason` | string | Optional human-authored reason stored with link. |
 
 ```bash
 specd link api auth
+specd link api-v2 api --kind supersedes --reason 'replace obsolete contract'
 ```
 
 ### `unlink`

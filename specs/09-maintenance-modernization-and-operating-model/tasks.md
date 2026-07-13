@@ -35,11 +35,17 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T06 | craftsman | `internal/core/program.go` (`ProgramLink.Kind`, versioned, back-compat decode) | T03 | `go test ./internal/core -run TestLinkKindDecode -count=2` | R1.2 typed kind; untyped links decode forward |
-| T07 | craftsman | `internal/cmd/link.go`; `internal/core/commands.go` (`--kind`) | T06 | `go test ./internal/cmd -run TestLinkKind -count=1` | R1.2 kind/reason recorded; source traceable |
-| T08 | craftsman | `internal/core/program.go` (cycle + ordering unchanged with kinds) | T06 | `go test ./internal/core -run TestProgramCycleWithKinds -count=2` | R1.3 cycle detection + ordering preserved |
-| T09 | craftsman | `internal/core/state.go`/`internal/cmd` completion path (reopen guard) | T04,T06 | `go test ./internal/core -run TestReopenRejected -count=1` (GREEN) | R1.1 completed spec immutable; directs to successor |
-| T10 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T07 | `./scripts/docs-lint.sh` | R1.2 mirror `--kind` verb/flag |
+| [x] T06 | craftsman | `internal/core/program.go` (`ProgramLink.Kind`, versioned, back-compat decode) | T03 | `go test ./internal/core -run TestLinkKindDecode -count=2` | R1.2 typed kind; untyped links decode forward |
+| [x] T07 | craftsman | `internal/cmd/link.go`; `internal/core/commands.go` (`--kind`) | T06 | `go test ./internal/cmd -run TestLinkKind -count=1` | R1.2 kind/reason recorded; source traceable |
+| [x] T08 | craftsman | `internal/core/program.go` (cycle + ordering unchanged with kinds) | T06 | `go test ./internal/core -run TestProgramCycleWithKinds -count=2` | R1.3 cycle detection + ordering preserved |
+| [x] T09 | craftsman | `internal/core/state.go`/`internal/cmd` completion path (reopen guard) | T04,T06 | `go test ./internal/core -run TestReopenRejected -count=1` (GREEN) | R1.1 completed spec immutable; directs to successor |
+| [x] T10 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T07 | `./scripts/docs-lint.sh` | R1.2 mirror `--kind` verb/flag |
+
+> **W1 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T06/T08 tests land in `internal/core/program_test.go`, and T07 tests land in
+>   `internal/cmd/link_test.go`, the existing test companions for their declared source files.
+> - T09's guard lands in `internal/core/phases.go`, where `AdvanceStatus` owns lifecycle transition
+>   validation; `state.go` stores state but does not decide transitions.
 
 ## W2 — `09c-typed-intake-provenance` (requires 09a)
 

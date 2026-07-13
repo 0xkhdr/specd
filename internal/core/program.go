@@ -152,14 +152,34 @@ func RollupEconomics(inputs []SpecEconomics, driftThreshold string) (ProgramEcon
 // ProgramSchemaVersion versions the program.json shape, following the same
 // forward-migration discipline as state.json (spec 02). Bump it when the shape
 // changes and add a migration in LoadProgram.
-const ProgramSchemaVersion = 1
+const ProgramSchemaVersion = 2
+
+type LinkKind string
+
+const (
+	LinkKindFollows    LinkKind = "follows"
+	LinkKindRegresses  LinkKind = "regresses"
+	LinkKindMaintains  LinkKind = "maintains"
+	LinkKindSupersedes LinkKind = "supersedes"
+)
+
+func (kind LinkKind) Valid() bool {
+	switch kind {
+	case LinkKindFollows, LinkKindRegresses, LinkKindMaintains, LinkKindSupersedes:
+		return true
+	default:
+		return false
+	}
+}
 
 // ProgramLink records that From depends on To — To must reach completion before
 // From may execute. Links live at the program level, never inside a spec's
 // state.json, so each file keeps a single writer (spec 12 R6).
 type ProgramLink struct {
-	From string `json:"from"`
-	To   string `json:"to"`
+	From   string   `json:"from"`
+	To     string   `json:"to"`
+	Kind   LinkKind `json:"kind"`
+	Reason string   `json:"reason,omitempty"`
 }
 
 // Program is the cross-spec dependency graph. It is stored at
@@ -197,6 +217,15 @@ func LoadProgram(path string) (Program, error) {
 	if program.SchemaVersion > ProgramSchemaVersion {
 		return Program{}, errors.New("program.json schema is newer than this binary supports")
 	}
+	for i := range program.Links {
+		if program.Links[i].Kind == "" {
+			program.Links[i].Kind = LinkKindFollows
+		}
+		if !program.Links[i].Kind.Valid() {
+			return Program{}, fmt.Errorf("unknown link kind %q", program.Links[i].Kind)
+		}
+	}
+	program.SchemaVersion = ProgramSchemaVersion
 	return program, nil
 }
 
@@ -222,9 +251,19 @@ func (p Program) HasLink(from, to string) bool {
 
 // AddLink records from→to. It is idempotent: a duplicate link is a no-op.
 func (p *Program) AddLink(from, to string) {
-	if !p.HasLink(from, to) {
-		p.Links = append(p.Links, ProgramLink{From: from, To: to})
+	_ = p.AddTypedLink(from, to, LinkKindFollows, "")
+}
+
+// AddTypedLink records a validated, traceable dependency edge. Link kinds are
+// metadata: every kind preserves the existing cycle and ordering semantics.
+func (p *Program) AddTypedLink(from, to string, kind LinkKind, reason string) error {
+	if !kind.Valid() {
+		return fmt.Errorf("unknown link kind %q", kind)
 	}
+	if !p.HasLink(from, to) {
+		p.Links = append(p.Links, ProgramLink{From: from, To: to, Kind: kind, Reason: reason})
+	}
+	return nil
 }
 
 // RemoveLink deletes from→to and reports whether it existed.

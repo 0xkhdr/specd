@@ -78,6 +78,9 @@ func AdvanceStatus(current, next Status) (Phase, error) {
 	if !ValidStatus(next) {
 		return "", fmt.Errorf("invalid target status %q", next)
 	}
+	if current == StatusComplete && next != StatusComplete {
+		return "", fmt.Errorf("completed spec is immutable; create a linked successor instead of moving status from %q to %q", current, next)
+	}
 	if !CanAdvanceStatus(current, next) {
 		return "", fmt.Errorf("cannot move status backward from %q to %q", current, next)
 	}

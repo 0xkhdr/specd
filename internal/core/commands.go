@@ -444,11 +444,15 @@ var Commands = []Command{
 	},
 	{
 		Name:          "link",
-		Usage:         "specd link <from-slug> <to-slug>",
-		Description:   "Record that one spec depends on another (cross-spec ordering).",
+		Usage:         "specd link <from-slug> <to-slug> [--kind <kind>] [--reason <text>]",
+		Description:   "Record a typed, traceable cross-spec dependency link.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd link api auth"},
+		Examples:      []string{"specd link api auth", "specd link api-v2 api --kind supersedes --reason 'replace obsolete contract'"},
+		Flags: []Flag{
+			{Name: "kind", TakesValue: true, Type: "string", Enum: []string{"follows", "regresses", "maintains", "supersedes"}, Description: "Link kind (default: follows)."},
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Optional human-authored reason stored with the link."},
+		},
 	},
 	{
 		Name:          "unlink",

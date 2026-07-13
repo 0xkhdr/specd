@@ -87,6 +87,31 @@ func TestLinkCycleRefusedAndEnforced(t *testing.T) {
 	}
 }
 
+func TestLinkKind(t *testing.T) {
+	root := newDemoSpec(t)
+	for _, slug := range []string{"original", "successor"} {
+		newSpecInProject(t, root, slug)
+	}
+	flags := map[string]string{"kind": "supersedes", "reason": "replace obsolete contract"}
+	if err := Run(root, "link", []string{"successor", "original"}, flags); err != nil {
+		t.Fatalf("typed link: %v", err)
+	}
+	program, err := core.LoadProgram(core.ProgramPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(program.Links) != 1 {
+		t.Fatalf("links = %+v", program.Links)
+	}
+	link := program.Links[0]
+	if link.From != "successor" || link.To != "original" || link.Kind != core.LinkKindSupersedes || link.Reason != flags["reason"] {
+		t.Fatalf("typed source trace lost: %+v", link)
+	}
+	if err := Run(root, "link", []string{"original", "successor"}, map[string]string{"kind": "invalid"}); err == nil {
+		t.Fatal("unknown link kind must fail closed")
+	}
+}
+
 func TestUnlinkRemovesEnforcement(t *testing.T) {
 	root := newDemoSpec(t)
 	gitInitRepo(t, root)

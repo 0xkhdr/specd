@@ -51,14 +51,57 @@ func TestProgramEconomicRollupRejectsDuplicateAndUnboundedDimensions(t *testing.
 // — so the successor-directing assertion is RED. It is skipped (not left RED)
 // per specs/prompt.md §5; 09b/T09 removes the skip and makes it GREEN.
 func TestReopenRejected(t *testing.T) {
-	t.Skip("R1.1 reopen guard + successor-directing message lands in 09b/T09")
-
 	_, err := AdvanceStatus(StatusComplete, StatusExecuting)
 	if err == nil {
 		t.Fatal("reopening a complete spec must fail closed")
 	}
 	if !strings.Contains(err.Error(), "successor") {
 		t.Errorf("reopen error must direct to a linked successor, got %q", err.Error())
+	}
+}
+
+func TestLinkKindDecode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "program.json")
+	legacy := `{"schema_version":1,"links":[{"from":"next","to":"original"}]}` + "\n"
+	if err := AtomicWrite(path, legacy); err != nil {
+		t.Fatal(err)
+	}
+	program, err := LoadProgram(path)
+	if err != nil {
+		t.Fatalf("load legacy program: %v", err)
+	}
+	if len(program.Links) != 1 || program.Links[0].Kind != LinkKindFollows {
+		t.Fatalf("legacy link did not decode as follows: %+v", program.Links)
+	}
+	for _, kind := range []LinkKind{LinkKindFollows, LinkKindRegresses, LinkKindMaintains, LinkKindSupersedes} {
+		if !kind.Valid() {
+			t.Errorf("declared link kind %q is invalid", kind)
+		}
+	}
+
+	bad := `{"schema_version":2,"links":[{"from":"next","to":"original","kind":"unknown"}]}` + "\n"
+	if err := AtomicWrite(path, bad); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadProgram(path); err == nil || !strings.Contains(err.Error(), "unknown link kind") {
+		t.Fatalf("unknown kind must fail closed, got %v", err)
+	}
+}
+
+func TestProgramCycleWithKinds(t *testing.T) {
+	var p Program
+	if err := p.AddTypedLink("a", "b", LinkKindSupersedes, "replacement"); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.AddTypedLink("b", "c", LinkKindMaintains, "maintenance"); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := p.WouldCycle("c", "a"), []string{"c", "a", "b", "c"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("typed cycle = %v, want %v", got, want)
+	}
+	none := func(string) bool { return false }
+	if got := p.IncompleteDeps("a", none); !reflect.DeepEqual(got, []string{"b"}) {
+		t.Fatalf("typed ordering changed: blockers = %v", got)
 	}
 }
 

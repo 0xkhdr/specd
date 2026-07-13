@@ -40,6 +40,14 @@ func runLink(root string, args []string, flags map[string]string) error {
 		return fmt.Errorf("%w: specd link <from-slug> <to-slug>", ErrUsage)
 	}
 	from, to := args[0], args[1]
+	kind := core.LinkKind(strings.TrimSpace(flags["kind"]))
+	if kind == "" {
+		kind = core.LinkKindFollows
+	}
+	if !kind.Valid() {
+		return fmt.Errorf("%w: unknown link kind %q", ErrUsage, kind)
+	}
+	reason := strings.TrimSpace(flags["reason"])
 	if from == to {
 		return fmt.Errorf("%w: a spec cannot depend on itself", ErrUsage)
 	}
@@ -68,13 +76,15 @@ func runLink(root string, args []string, flags map[string]string) error {
 		if cycle := program.WouldCycle(from, to); cycle != nil {
 			return struct{}{}, fmt.Errorf("link refused: would create a cycle: %s", strings.Join(cycle, " → "))
 		}
-		program.AddLink(from, to)
+		if err := program.AddTypedLink(from, to, kind, reason); err != nil {
+			return struct{}{}, fmt.Errorf("%w: %v", ErrUsage, err)
+		}
 		return struct{}{}, core.SaveProgram(path, program)
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "linked %s → %s (%s depends on %s)\n", from, to, from, to)
+	fmt.Fprintf(os.Stdout, "linked %s → %s (kind=%s; %s depends on %s)\n", from, to, kind, from, to)
 	return nil
 }
 
