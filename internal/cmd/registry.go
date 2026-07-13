@@ -46,6 +46,7 @@ var executable = map[string]Handler{
 	"handshake": runHandshake,
 	"help":      runHelp,
 	"init":      runInit,
+	"incident":  runIncident,
 	"link":      runLink,
 	"mcp":       runMCP,
 	"version":   runVersion,
@@ -698,8 +699,31 @@ func sortedKeys(m map[string]int) []string {
 }
 
 func runReport(root string, args []string, flags map[string]string) error {
+	if len(args) == 0 && flagEnabled(flags, "portfolio") {
+		program, err := core.LoadProgram(core.ProgramPath(root))
+		if err != nil {
+			return err
+		}
+		var inputs []core.PortfolioSpec
+		for _, slug := range core.ListSpecs(root) {
+			state, err := core.LoadState(core.StatePath(root, slug))
+			if err != nil {
+				return err
+			}
+			deployments, err := core.ReadDeployments(core.DeploymentLedgerPath(root, slug))
+			if err != nil {
+				return err
+			}
+			inputs = append(inputs, core.PortfolioSpec{SpecID: slug, Complete: state.Status == core.StatusComplete, Deployments: deployments})
+		}
+		view, err := core.BuildPortfolioView(program, inputs)
+		if err != nil {
+			return err
+		}
+		return writeJSON(view)
+	}
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--json|--history|--proof|--trace|--format prometheus|event|otel]")
+		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event|otel] | report --portfolio")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {

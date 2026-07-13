@@ -185,6 +185,21 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "incident",
+		Usage:         "specd incident seed <new-spec> --source-spec <spec> --release <id> --deployment <id> --criterion <id> --evidence-ref <ref[,ref]>",
+		Description:   "Seed a new spec from bounded delivery observation references without loading raw payloads.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd incident seed checkout-recovery --source-spec checkout --release rel-7 --deployment dep-4 --criterion availability --evidence-ref obs://health/42"},
+		Flags: []Flag{
+			{Name: "source-spec", TakesValue: true, Type: "string", Description: "Source spec owning the immutable delivery ledger."},
+			{Name: "release", TakesValue: true, Type: "string", Description: "Source release identity."},
+			{Name: "deployment", TakesValue: true, Type: "string", Description: "Source deployment identity."},
+			{Name: "criterion", TakesValue: true, Type: "string", Description: "Failed or observed health criterion."},
+			{Name: "evidence-ref", TakesValue: true, Type: "string", Description: "Comma-separated bounded external references; queries, fragments, and raw payloads are refused."},
+		},
+	},
+	{
 		Name:          "approve",
 		Usage:         "specd approve <spec> <gate>",
 		Description:   "Record human approval for a lifecycle gate or orchestrated mode.",
@@ -409,7 +424,7 @@ var Commands = []Command{
 	},
 	{
 		Name:          "report",
-		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--trace|--format prometheus|event|otel]",
+		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--trace|--format prometheus|event|otel] | specd report --portfolio",
 		Description:   "Render evidence-backed status, PR, history, trace, and metrics reports.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
@@ -420,6 +435,7 @@ var Commands = []Command{
 			{Name: "efficiency", Type: "bool", Description: "Emit deterministic context-efficiency report with explicit unknown values."},
 			{Name: "rollup", Type: "bool", Description: "Emit exact cross-spec economic roll-up with explicit missing telemetry."},
 			{Name: "delivery", Type: "bool", Description: "Emit deterministic deployment status with adapter and trust source labeled separately."},
+			{Name: "portfolio", Type: "bool", Description: "Emit deterministic cross-spec release/environment status and blockers from local ledgers."},
 			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
 			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
 			{Name: "trace", Type: "bool", Description: "Export the metadata-only run trace as stable JSON Lines."},

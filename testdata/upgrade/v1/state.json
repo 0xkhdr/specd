@@ -1,0 +1,1 @@
+{"schema_version":1,"slug":"upgrade-fixture","status":"requirements","revision":0,"mode":"default","evidence":[{"task_id":"T1","command":"printf ok","exit_code":0,"git_head":"0123456789abcdef0123456789abcdef01234567"}]}

@@ -58,3 +58,5 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B8 | 2026-07-13 | W7 MCP test assumed forbidden `task` command must be exposed as a tool | align test with legal derived palette; V10 already applies |
 | B9 | 2026-07-13 | W0 token-conflation characterization correctly failed when planned W7 expansion closed gap | flip seeded characterization to positive R7 contract; no new invariant |
 | B10 | 2026-07-13 | previously approved 06 W8 task rows were complete while program rollup checkbox drifted pending | restore rollup from domain truth; existing progress-order regression caught drift |
+| B11 | 2026-07-13 | 08l RED tests referenced incident and portfolio contracts before their planned implementation | expected TDD failure; no new invariant |
+| B12 | 2026-07-13 | 08l added public `incident` verb while W5 regression still pinned prior verb count 29 | update intentional surface tripwire to 30; V10 already applies |

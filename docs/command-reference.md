@@ -86,6 +86,26 @@ specd new payments --agent=codex
 specd new payments --agent=pinky
 ```
 
+### `incident`
+```
+specd incident seed <new-spec> --source-spec <spec> --release <id> --deployment <id> --criterion <id> --evidence-ref <ref[,ref]>
+```
+Seed a new spec from bounded delivery observation references. References must be absolute
+scheme-based identifiers without query strings, fragments, credentials, or embedded raw payloads;
+source release/deployment ledgers remain unchanged. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--source-spec` | string | Source spec owning the immutable delivery ledger. |
+| `--release` | string | Source release identity. |
+| `--deployment` | string | Source deployment identity. |
+| `--criterion` | string | Failed or observed health criterion. |
+| `--evidence-ref` | string | Comma-separated bounded external references. |
+
+```bash
+specd incident seed checkout-recovery --source-spec checkout --release rel-7 --deployment dep-4 --criterion availability --evidence-ref obs://health/42
+```
+
 ### `approve`
 ```
 specd approve <spec> <gate>
@@ -464,6 +484,7 @@ specd status --program
 ### `report`
 ```
 specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--trace|--proof|--format prometheus|event|otel]
+specd report --portfolio
 ```
 Render evidence-backed status, PR, history, trace, proof, and metrics reports. Deterministic —
 generated from `state.json` + task artifacts, never from an LLM. **Phases:** any.
@@ -475,6 +496,7 @@ generated from `state.json` + task artifacts, never from an LLM. **Phases:** any
 | `--efficiency` | bool | Emit deterministic context-efficiency data with explicit `unknown` measurements. |
 | `--rollup` | bool | Emit exact cross-spec economic totals, preserving missing telemetry separately from measured zero. |
 | `--delivery` | bool | Emit byte-stable deployment status with adapter and trust source labeled separately. |
+| `--portfolio` | bool | Emit deterministic cross-spec release/environment status and blockers from local ledgers. |
 | `--json` | bool | Emit machine-readable report (JSON Lines with `--history`). |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
@@ -490,6 +512,7 @@ specd report payments --proof
 specd report payments --efficiency
 specd report payments --rollup
 specd report payments --delivery
+specd report --portfolio
 specd report payments --format event
 specd report payments --format prometheus
 specd report payments --format otel

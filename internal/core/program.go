@@ -38,6 +38,63 @@ type ProgramEconomics struct {
 	Alerts       []EconomicDriftAlert `json:"alerts,omitempty"`
 }
 
+type PortfolioSpec struct {
+	SpecID      string
+	Complete    bool
+	Deployments []DeploymentV1
+}
+
+type PortfolioEnvironment struct {
+	SpecID      string           `json:"spec_id"`
+	Environment EnvironmentName  `json:"environment"`
+	ReleaseID   string           `json:"release_id"`
+	Status      DeploymentStatus `json:"status"`
+}
+
+type PortfolioBlocker struct {
+	SpecID    string   `json:"spec_id"`
+	BlockedBy []string `json:"blocked_by"`
+}
+
+type PortfolioView struct {
+	Environments []PortfolioEnvironment `json:"environments"`
+	Blockers     []PortfolioBlocker     `json:"blockers"`
+}
+
+// BuildPortfolioView projects only supplied local ledgers and program state.
+// Ledger order is authoritative; no discovery or network call occurs.
+func BuildPortfolioView(program Program, inputs []PortfolioSpec) (PortfolioView, error) {
+	rows := append([]PortfolioSpec(nil), inputs...)
+	sort.Slice(rows, func(i, j int) bool { return rows[i].SpecID < rows[j].SpecID })
+	complete := map[string]bool{}
+	var out PortfolioView
+	for i, row := range rows {
+		if !programDimension.MatchString(row.SpecID) || (i > 0 && rows[i-1].SpecID == row.SpecID) {
+			return PortfolioView{}, fmt.Errorf("invalid or duplicate portfolio spec %q", row.SpecID)
+		}
+		complete[row.SpecID] = row.Complete
+		latest := map[EnvironmentName]DeploymentV1{}
+		for _, deployment := range row.Deployments {
+			if !deployment.Environment.valid() || !deployment.Status.valid() || deployment.ReleaseID == "" {
+				return PortfolioView{}, fmt.Errorf("invalid deployment projection for %s", row.SpecID)
+			}
+			latest[deployment.Environment] = deployment
+		}
+		for _, env := range []EnvironmentName{EnvironmentDevelopment, EnvironmentStaging, EnvironmentProduction} {
+			if deployment, ok := latest[env]; ok {
+				out.Environments = append(out.Environments, PortfolioEnvironment{SpecID: row.SpecID, Environment: env, ReleaseID: deployment.ReleaseID, Status: deployment.Status})
+			}
+		}
+	}
+	for _, row := range rows {
+		blocked := program.IncompleteDeps(row.SpecID, func(slug string) bool { return complete[slug] })
+		if len(blocked) > 0 {
+			out.Blockers = append(out.Blockers, PortfolioBlocker{SpecID: row.SpecID, BlockedBy: blocked})
+		}
+	}
+	return out, nil
+}
+
 // RollupEconomics is a pure portfolio projection. Dimensions stay bounded to
 // spec IDs; missing telemetry remains distinct from a measured zero.
 func RollupEconomics(inputs []SpecEconomics, driftThreshold string) (ProgramEconomics, error) {

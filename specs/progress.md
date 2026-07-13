@@ -102,7 +102,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 08 W8 — `08i-deployment-adapter-envelope` (needs 08 W6, Domain 10 adapter)
 - [x] 08 W9 — `08j-canary-health-promotion-rollback` (needs 08 W7,W8, Domain 07 measurement)
 - [x] 08 W10 — `08k-ci-delivery-binding-and-attestation` (needs 08 W8, Domain 10 adapter)
-- [ ] 08 W11 — `08l-incident-portfolio-and-recovery-drills` (needs 08 W9,W10, Domain 09)
+- [x] 08 W11 — `08l-incident-portfolio-and-recovery-drills` (needs 08 W9,W10, Domain 09)
 - [ ] 09 W1 — `09b-successor-link-kinds` (needs 09 W0)
 - [ ] 09 W2 — `09c-typed-intake-provenance` (needs 09 W0)
 - [ ] 09 W3 — `09d-decision-exception-lifecycle` (needs 09 W0, Domain 06 authority)

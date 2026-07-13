@@ -232,7 +232,20 @@ fi
 
 need_cmd tar
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT INT TERM
+STAGED=
+PREVIOUS=
+BIN_MISSING_RECOVERY=0
+cleanup() {
+  if [ "$BIN_MISSING_RECOVERY" = "1" ] && [ ! -e "$BIN" ] && [ -e "$PREVIOUS" ]; then
+    run_privileged mv "$PREVIOUS" "$BIN" || true
+  fi
+  rm -rf "$tmp"
+}
+trap cleanup EXIT INT TERM
+
+checkpoint() {
+  [ "${SPECD_TEST_FAIL_AT:-}" != "$1" ] || die "injected failure at checkpoint $1"
+}
 
 download "$BASE_URL/$ARCHIVE" "$tmp/$ARCHIVE"
 download "$BASE_URL/checksums.txt" "$tmp/checksums.txt"
@@ -245,6 +258,7 @@ ensure_install_dir
 STAGED="$INSTALL_DIR/.specd-stage-$$"
 PREVIOUS="$INSTALL_DIR/specd.previous"
 run_privileged install -m 0755 "$tmp/specd" "$STAGED"
+checkpoint staged
 
 old_managed=
 new_managed=
@@ -263,16 +277,20 @@ had_previous=0
 if [ -e "$BIN" ]; then
   had_previous=1
   run_privileged rm -f "$PREVIOUS"
-  run_privileged mv "$BIN" "$PREVIOUS"
+  run_privileged cp -p "$BIN" "$PREVIOUS"
 fi
+checkpoint backed-up
 if ! run_privileged mv "$STAGED" "$BIN"; then
-  [ "$had_previous" = 0 ] || run_privileged mv "$PREVIOUS" "$BIN"
   die "atomic binary swap failed; previous binary restored"
 fi
+checkpoint swapped
 if ! smoke_binary "$BIN"; then
   run_privileged rm -f "$BIN"
+  BIN_MISSING_RECOVERY=1
   [ "$had_previous" = 0 ] || run_privileged mv "$PREVIOUS" "$BIN"
+  BIN_MISSING_RECOVERY=0
   die "post-install smoke failed; previous binary restored"
 fi
+checkpoint smoke-passed
 run_privileged rm -f "$PREVIOUS"
 printf 'Installed %s\n' "$BIN"

@@ -184,11 +184,11 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T52 | craftsman | new `internal/core/incident.go`; `internal/cmd/incident.go`; scaffold templates | T48 | `go test ./internal/cmd -run TestIncidentSeed -count=1` | R11.1 bounded refs seed spec; raw payload not loaded; ledgers immutable |
-| T53 | craftsman | `internal/core/program.go`; status/report renderers | T48 | `go test ./internal/core -run TestPortfolioView -count=2` | R11.2 per-env release view, no network |
-| T54 | craftsman | new `scripts/upgrade-matrix.sh`; scheduled workflow; versioned fixtures | T28 | `bash scripts/upgrade-matrix.sh` | R11.3 N-1→N preserves state/evidence; downgrade/future-schema fail |
-| T55 | craftsman | crash-boundary drill in `scripts/upgrade-matrix.sh` | T54 | `bash scripts/upgrade-matrix.sh --crash-drill` | R11.3 crash at each swap/checkpoint recovers old or new complete |
-| T56 | validator | 15 production validation scenarios end to end | T51,T52,T53,T55 | `go test ./... -race -count=1 && go test ./... -count=2` | release proof: all scenarios pass offline; full suite green |
+| [x] T52 | craftsman | new `internal/core/incident.go`; `internal/cmd/incident.go`; scaffold templates | T48 | `go test ./internal/cmd -run TestIncidentSeed -count=1` | R11.1 bounded refs seed spec; raw payload not loaded; ledgers immutable |
+| [x] T53 | craftsman | `internal/core/program.go`; status/report renderers | T48 | `go test ./internal/core -run TestPortfolioView -count=2` | R11.2 per-env release view, no network |
+| [x] T54 | craftsman | new `scripts/upgrade-matrix.sh`; scheduled workflow; versioned fixtures | T28 | `bash scripts/upgrade-matrix.sh` | R11.3 N-1→N preserves state/evidence; downgrade/future-schema fail |
+| [x] T55 | craftsman | crash-boundary drill in `scripts/upgrade-matrix.sh` | T54 | `bash scripts/upgrade-matrix.sh --crash-drill` | R11.3 crash at each swap/checkpoint recovers old or new complete |
+| [x] T56 | validator | 15 production validation scenarios end to end | T51,T52,T53,T55 | `go test ./... -race -count=1 && go test ./... -count=2` | release proof: all scenarios pass offline; full suite green |
 
 ## Cross-wave rules
 

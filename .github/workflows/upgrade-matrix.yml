@@ -1,0 +1,21 @@
+name: Upgrade matrix
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -o specd .
+      - run: ./scripts/upgrade-matrix.sh
+      - run: ./scripts/upgrade-matrix.sh --crash-drill
