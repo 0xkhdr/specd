@@ -2,6 +2,7 @@
 specd
 specd.exe
 dist/
+scripts/*.log
 
 # Go toolchain
 *.test
