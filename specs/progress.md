@@ -6,9 +6,11 @@ the **cross-domain sequencing** those specs only describe in prose, and tracks p
 status. Read this together with `specs/prompt.md` (the per-turn implementation protocol).
 
 This is the **flat DAG walk order**: work top to bottom, stage by stage; within a stage, waves
-listed are parallel-eligible unless a "needs" note says otherwise. Tick `[x]` only when the wave's
-own `tasks.md` rows are all `[x]`, its validator task is green (§ Definition of done), **and** the
-user has reviewed and confirmed the wave (see `specs/prompt.md`). The checkboxes in each domain's
+listed are dependency-eligible unless a "needs" note says otherwise. Execution is strictly serial:
+the coordinator dispatches exactly one subagent for one eligible wave, then waits for that subagent
+to verify, mark, and commit its wave before dispatching another. Tick `[x]` only when the wave's own
+`tasks.md` rows are all `[x]`, its validator task is green (§ Definition of done), and its commit
+exists (see `specs/prompt.md`). The checkboxes in each domain's
 `tasks.md` are the fine-grained truth; this file is the program rollup — keep both in sync.
 
 Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
@@ -42,7 +44,7 @@ Re-run `./scripts/regress-all.sh` after any wave flips to `[x]`.
 - [x] 10 W1 — envelope, identity, classification (10c freezes only after 04/05/07/08
       record P0 adapter field demands against 10 W0's inventory)
 
-**Exit P0:** all rows above `[x]` and confirmed by the user.
+**Exit P0:** all rows above `[x]`, verified, and committed one wave at a time.
 
 ---
 
@@ -103,7 +105,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 08 W9 — `08j-canary-health-promotion-rollback` (needs 08 W7,W8, Domain 07 measurement)
 - [x] 08 W10 — `08k-ci-delivery-binding-and-attestation` (needs 08 W8, Domain 10 adapter)
 - [x] 08 W11 — `08l-incident-portfolio-and-recovery-drills` (needs 08 W9,W10, Domain 09)
-- [ ] 09 W1 — `09b-successor-link-kinds` (needs 09 W0)
+- [x] 09 W1 — `09b-successor-link-kinds` (needs 09 W0)
 - [x] 09 W2 — `09c-typed-intake-provenance` (needs 09 W0)
 - [x] 09 W3 — `09d-decision-exception-lifecycle` (needs 09 W0, Domain 06 authority)
 - [x] 09 W4 — `09e-memory-provenance-and-aging` (needs 09 W0, Domain 02 context)
@@ -117,7 +119,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 10 W5 — release/feedback contract and proof (needs 10 W4, 08)
 
 **Exit P2 / program done:** every domain's final validator wave is green against a fresh
-release binary and confirmed by the user.
+release binary and committed.
 
 ---
 
@@ -131,8 +133,9 @@ A wave is `done` only when **all** hold:
 3. `gofmt -l .` empty, `go vet ./...` clean, `go mod tidy` no diff, `./scripts/docs-lint.sh` and
    `./scripts/test-lint.sh` green; `./scripts/regress-domains.sh` invariant holds.
 4. No previously `done` wave regressed (`./scripts/regress-all.sh`).
-5. The user has reviewed the implementation against best practices and explicitly confirmed —
-   only then is the row here and in `tasks.md` marked `[x]` (see `specs/prompt.md`).
+5. The assigned subagent has reviewed its diff against the wave acceptance IDs, marked the wave
+   here and in `tasks.md`, and committed the complete wave before returning control to the
+   coordinator (see `specs/prompt.md`).
 
 The domain is done when its final validator task is green against a fresh release binary and its
 README completion claim is fully demonstrated. The **program** is done when all ten domains are
@@ -142,8 +145,10 @@ done.
 
 ## How to use this file
 
-1. Pick the first unchecked row in stage order.
-2. Implement the wave fully, task-by-task, per `specs/prompt.md`.
-3. Stop and present the wave to the user for review — do not check any box yet.
-4. Only after the user confirms: check the row here, flip the domain's `tasks.md` rows `[x]`.
-5. Repeat until every row in every stage is checked.
+1. Coordinator picks the first eligible unchecked row in stage order.
+2. Coordinator dispatches exactly one subagent with that wave and `specs/prompt.md`.
+3. Subagent implements the wave fully, task-by-task, verifies it, updates both checklists, and
+   commits the wave before reporting completion.
+4. Coordinator confirms the commit and clean wave boundary. No second subagent may be dispatched
+   while the first is active or before its commit exists.
+5. Repeat without waiting for user approval until every row in every stage is checked.

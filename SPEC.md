@@ -60,3 +60,5 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B10 | 2026-07-13 | previously approved 06 W8 task rows were complete while program rollup checkbox drifted pending | restore rollup from domain truth; existing progress-order regression caught drift |
 | B11 | 2026-07-13 | 08l RED tests referenced incident and portfolio contracts before their planned implementation | expected TDD failure; no new invariant |
 | B12 | 2026-07-13 | 08l added public `incident` verb while W5 regression still pinned prior verb count 29 | update intentional surface tripwire to 30; V10 already applies |
+| B13 | 2026-07-13 | 09b RED test called a nonexistent setup helper before intended contract failures compiled | mechanical test typo; no new invariant |
+| B14 | 2026-07-13 | 09b approval marking first appended checkbox as an extra table cell instead of prefixing task id | mechanical formatting error; no new invariant |

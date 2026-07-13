@@ -1,17 +1,19 @@
 # prompt.md — single-wave implementation instruction
 
 Paste this as the standing instruction for any coding agent (fresh context) implementing the
-`specs/progress.md` build. It makes **every turn identical**: locate position → implement **exactly
-one** eligible wave completely, task-by-task, under TDD + evidence gates → verify green → **stop and
-ask the user to review and commit** → mark done only after the user confirms. Then stop; the next
-wave is a new turn.
+`specs/progress.md` build. It makes every dispatch identical: coordinator locates the next eligible
+wave → dispatches exactly one subagent → subagent implements exactly one wave completely,
+task-by-task, under TDD + evidence gates → verifies green → reviews, marks, and commits the wave →
+returns control. Coordinator then selects the next wave without waiting for user approval.
 
 `specs/progress.md` is the map; each `specs/0N-.../` is the territory; `CLAUDE.md` holds the
 invariants. Read all three before your first edit.
 
-**One wave per turn.** Implement a single stage wave — e.g. `09 W0 — 09a-maintenance-baseline` —
-present it, and wait for the user to review and commit **before** you touch the next wave
-(e.g. `10 W0 — baseline and boundary invariant`). Do not batch waves. Do not self-advance.
+**One subagent, one wave, one commit.** Coordinator may have only one implementation subagent
+active. Subagent implements one stage wave — e.g. `09 W1 — 09b-successor-link-kinds` — and must
+verify, mark, and commit it before returning. Only after coordinator confirms that commit may it
+dispatch a subagent for next eligible wave. Never batch waves or run implementation subagents in
+parallel.
 
 ---
 
@@ -27,10 +29,11 @@ present it, and wait for the user to review and commit **before** you touch the 
   with an actionable migration error — never silent reinterpretation. Zero new runtime deps
   (`go mod tidy` must stay clean). Never edit `reference/` (frozen v1 museum).
 - **Subtractive bias.** When unsure, cut or defer and record the decision in the spec's tasks.
-- **No unreviewed completion.** Never flip a `tasks.md` checkbox or a `progress.md` row to `[x]`
-  without the user's explicit confirmation for that one wave.
+- **Committed completion.** Never flip a `tasks.md` checkbox or a `progress.md` row to `[x]` until
+  wave verification is green. Never report wave complete or dispatch next subagent until current
+  wave is committed.
 
-## 1. Locate position (start of every turn)
+## 1. Coordinator: locate and dispatch
 
 1. Read `specs/progress.md` top to bottom for the first unchecked row.
 2. Determine the **current stage** (P0 → P1 → P2): the lowest stage with any unchecked row.
@@ -42,8 +45,11 @@ present it, and wait for the user to review and commit **before** you touch the 
    wave. Otherwise pick the first eligible unchecked row in `progress.md`'s order.
 5. If nothing is eligible, state the blocker (which cross-domain wave it needs) and stop.
 
-State your chosen wave in one sentence before editing: `Turn target: <spec>/<wave> — <result>`.
-Pick exactly one wave. Ignore every later wave until this one is confirmed and committed.
+State chosen wave in one sentence: `Dispatch target: <spec>/<wave> — <result>`. Pass that wave,
+its domain spec, `specs/progress.md`, this protocol, and relevant repository instructions to one
+subagent. Do not edit product code in coordinator while subagent runs. Do not dispatch any other
+implementation subagent until current one returns with a verified commit. Ignore every later wave
+until then.
 
 ## 2. Implement the wave completely (task by task, in DAG order)
 
@@ -86,38 +92,40 @@ go mod tidy && git diff --exit-code go.mod   # (no go.sum exists — zero deps)
 If the wave touched CLI verbs/flags, `docs/command-reference.md` and `docs/CHEATSHEET.md` must be
 updated **together** — `docs-lint.sh` requires them byte-identical (`cmp -s`).
 
-## 4. Stop, ask the user to review and commit — do not self-advance
+## 4. Review, mark, and commit before returning
 
-Once §3 is fully green:
+Once §3 is fully green, assigned subagent must:
 
-1. Summarize what the wave implemented, which files changed, and which acceptance IDs it covers
-   (3–6 lines: wave, files, acceptance IDs, gate results).
-2. Present it to the user and ask them to **review the implementation** against best practices.
-3. **Wait for explicit confirmation.** Do not check any box in `tasks.md` or `progress.md` yet,
-   and do not begin the next wave.
-4. If the user requests changes, apply them, re-run §3, and ask again.
-5. Only after the user confirms:
-   - Flip each completed row `[ ]` → `[x]` in the spec's `tasks.md`.
-   - Check the matching row in `specs/progress.md`.
-   - **Commit** this wave (branch first if on `main`), naming the wave and its acceptance IDs,
-     e.g. `09a: maintenance baseline (R1.1,R1.2)`, ending with the repo's required
-     `Co-Authored-By` trailer. Only commit/push if the user has authorized it for this session.
-6. **Then stop and end the turn.** The next eligible wave is a fresh turn — return to §1.
+1. Review its own diff against declared files, acceptance IDs, repository invariants, and best
+   practices. Fix findings and rerun §3 before continuing.
+2. Flip completed rows `[ ]` → `[x]` in domain `tasks.md` and check matching row in
+   `specs/progress.md`.
+3. Commit exactly this wave, naming wave and acceptance IDs, e.g.
+   `09b: successor link kinds (R2.1,R2.2)`, with repository-required trailer. Do not push unless
+   user separately requested pushing.
+4. Confirm commit exists and working tree contains no uncommitted wave changes.
+5. Return coordinator a 3–6 line report: wave, files, acceptance IDs, gate results, commit hash.
+
+Coordinator must validate returned commit and checklist state. If incomplete, send same subagent
+back to finish; do not dispatch another. When complete, coordinator may return to §1 and dispatch
+next eligible wave automatically. User approval is not a wave gate.
 
 ## 5. Leave nothing half-done (turn boundary rule)
 
-A turn ends **only** at a wave boundary — implemented, verified green, and either (a) awaiting the
-user's review, or (b) confirmed, marked, and committed. Never end a turn with:
+A subagent dispatch ends only at a committed wave boundary: implemented, verified green, reviewed,
+marked, and committed. Never end a dispatch with:
 
 - a written test that is still RED and no implementation,
 - a craftsman edit whose `verify` has not passed,
 - a failing lint/vet/format/regress gate,
-- boxes checked without the user having actually confirmed the wave,
+- boxes checked before verification is green,
 - an uncommitted mix of finished and unfinished work,
-- **the next wave already started before the current one was confirmed and committed.**
+- **the next wave started or another implementation subagent dispatched before current wave is
+  committed.**
 
-If you must stop mid-wave, stop at the last task whose `verify` passed, leave its row unchecked,
-and note in your turn summary exactly which task to resume next.
+If subagent is blocked mid-wave, it stops at last task whose `verify` passed, leaves row unchecked,
+and reports exact blocker and resume task. Coordinator must resume same wave with same subagent (or
+explicit replacement after it has stopped); it may not skip ahead.
 
 ## 6. Gotchas learned in flight (save yourself the debugging)
 
@@ -157,7 +165,7 @@ g. **Reading files in this environment:** a token-optimizing proxy may compress 
 
 Per wave and per domain, apply `specs/progress.md` § Definition of done verbatim. A wave is done
 only when its rows are all `[x]` (each backed by a passing verify record), its validator command is
-green on a fresh binary, the full §3 gate suite is green, the user has confirmed, and the wave is
-committed. A domain is done when its final validator task is green against a fresh release binary,
-its README completion claim is demonstrated, and the user has confirmed. The program is done when
-all ten domains are done — reached **one confirmed, committed wave at a time**.
+green on a fresh binary, the full §3 gate suite is green, and the wave is committed. A domain is
+done when its final validator task is green against a fresh release binary and its README completion
+claim is demonstrated. The program is done when all ten domains are done — reached **one subagent,
+one verified wave, one commit at a time**.
