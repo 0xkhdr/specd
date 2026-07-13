@@ -151,10 +151,10 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T36 | craftsman | new `internal/core/incident.go`; `internal/cmd/incident.go` | T24,T07 | `go test ./internal/cmd -run TestIncidentSeed -count=1` | R8.1 bounded redacted refs seed spec; raw payload not loaded |
-| T37 | craftsman | `internal/core/incident.go` (preventive-evidence + why-caught ref) | T36 | `go test ./internal/core -run TestPreventiveEvidence -count=1` | R8.2 closure can require regression test/eval |
-| T38 | craftsman | `internal/core/incident.go` (`caused_by`/`regresses` link, original immutable) | T36,T09 | `go test ./internal/core -run TestIncidentOriginalImmutable -count=1` | R8.3 original history/evidence unchanged |
-| T39 | validator | incident payload redaction/bounding | T36 | `go test ./internal/core -run TestIncidentRedaction -count=1` | R8.1 secrets/customer data bounded, never instruction |
+| [x] T36 | craftsman | new `internal/core/incident.go`; `internal/cmd/incident.go` | T24,T07 | `go test ./internal/cmd -run TestIncidentSeed -count=1` | R8.1 bounded redacted refs seed spec; raw payload not loaded |
+| [x] T37 | craftsman | `internal/core/incident.go` (preventive-evidence + why-caught ref) | T36 | `go test ./internal/core -run TestPreventiveEvidence -count=1` | R8.2 closure can require regression test/eval |
+| [x] T38 | craftsman | `internal/core/incident.go` (`caused_by`/`regresses` link, original immutable) | T36,T09 | `go test ./internal/core -run TestIncidentOriginalImmutable -count=1` | R8.3 original history/evidence unchanged |
+| [x] T39 | validator | incident payload redaction/bounding | T36 | `go test ./internal/core -run TestIncidentRedaction -count=1` | R8.1 secrets/customer data bounded, never instruction |
 
 ## W9 — `09j-portfolio-governance-status` (requires 09b,09d)
 
