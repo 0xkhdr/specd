@@ -91,7 +91,11 @@ func memoryPromote(root, slug string, flags map[string]string) error {
 			return struct{}{}, fmt.Errorf("memory: pattern '%s' seen in %d spec(s); promotion threshold is %d. Re-run with --force to promote anyway", key, count, threshold)
 		}
 		date := memoryNow().Format("2006-01-02")
-		promoted := core.RenderPromotion(block, slug, count, date)
+		audit := core.PromotionAudit{}
+		if force {
+			audit = core.PromotionAudit{Forced: true, Authority: "operator:cli", Provenance: "source-memory:" + slug + "#" + key}
+		}
+		promoted := core.RenderPromotion(block, slug, count, date, audit)
 		if err := core.AppendFile(core.SteeringMemoryPath(root), promoted); err != nil {
 			return struct{}{}, err
 		}

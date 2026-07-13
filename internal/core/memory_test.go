@@ -64,6 +64,32 @@ func TestMemoryProvenance(t *testing.T) {
 	}
 }
 
+func TestMemFieldsDecode(t *testing.T) {
+	doc := "# Memory\n\n## legacy\n**Pattern:** keep old files\n**Source:** review:r1\n**Criticality:** critical\n**Status:** active\n**Applies-To:** tags=go\n\n## aged\n**Pattern:** revalidate\n**Source:** evidence:sha256:abc\n**Criticality:** critical\n**Owner:** platform\n**Last-Validated-At:** 2026-01-02\n**Provenance:** evidence:sha256:def\n**Confidence:** high\n**Expires-At:** 2026-02-03\n**Supersedes:** legacy\n**Applies-To:** tags=go\n"
+	blocks, err := IndexMemBlocks(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(blocks) != 2 {
+		t.Fatalf("blocks = %+v", blocks)
+	}
+	legacy, aged := blocks[1], blocks[0]
+	if legacy.Owner != "" || legacy.ExpiresAt != "" {
+		t.Fatalf("legacy fields should remain unset: %+v", legacy)
+	}
+	if aged.Owner != "platform" || aged.LastValidatedAt != "2026-01-02" || aged.Provenance != "evidence:sha256:def" || aged.Confidence != "high" || aged.ExpiresAt != "2026-02-03" || aged.Supersedes != "legacy" {
+		t.Fatalf("aged fields = %+v", aged)
+	}
+}
+
+func TestForcedPromotionAudit(t *testing.T) {
+	normal := RenderPromotion("## k", "demo", 3, "2026-01-02", PromotionAudit{})
+	forced := RenderPromotion("## k", "demo", 1, "2026-01-02", PromotionAudit{Forced: true, Authority: "team:platform", Provenance: "review:PR-42"})
+	if strings.Contains(normal, "forced") || !strings.Contains(forced, "mode=forced") || !strings.Contains(forced, "authority=team:platform") || !strings.Contains(forced, "provenance=review:PR-42") {
+		t.Fatalf("promotion audit not distinguishable:\nnormal=%q\nforced=%q", normal, forced)
+	}
+}
+
 func TestSpecMemoryPath(t *testing.T) {
 	root := "/tmp/proj"
 	if got := SpecMemoryPath(root, "demo"); got != filepath.Join(root, ".specd/specs/demo/memory.md") {

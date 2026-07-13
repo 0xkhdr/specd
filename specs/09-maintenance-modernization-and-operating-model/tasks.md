@@ -90,10 +90,18 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T20 | craftsman | `internal/core/memory.go` (`MemFields` owner/validated/provenance/expiry/supersedes, back-compat) | T03 | `go test ./internal/core -run TestMemFieldsDecode -count=2` | R4.1 aging fields parse; old files still parse |
-| T21 | craftsman | `internal/context` builder (exclude invalid/expired critical + finding) | T20 | `go test ./internal/context -run TestExpiredMemoryExcluded -count=1` | R4.2 visible finding, not silent load/drop |
-| T22 | craftsman | `internal/context` builder (preserve stable non-expiring constraints) | T21 | `go test ./internal/context -run TestStableMemoryPreserved -count=1` | R4.2 stable constraints survive aging |
-| T23 | craftsman | `internal/core/memory.go` (forced promotion authority/provenance) | T20 | `go test ./internal/core -run TestForcedPromotionAudit -count=1` | R4.3 forced ≠ frequency; audit-distinguishable |
+| [x] T20 | craftsman | `internal/core/memory.go` (`MemFields` owner/validated/provenance/expiry/supersedes, back-compat) | T03 | `go test ./internal/core -run TestMemFieldsDecode -count=2` | R4.1 aging fields parse; old files still parse |
+| [x] T21 | craftsman | `internal/context` builder (exclude invalid/expired critical + finding) | T20 | `go test ./internal/context -run TestExpiredMemoryExcluded -count=1` | R4.2 visible finding, not silent load/drop |
+| [x] T22 | craftsman | `internal/context` builder (preserve stable non-expiring constraints) | T21 | `go test ./internal/context -run TestStableMemoryPreserved -count=1` | R4.2 stable constraints survive aging |
+| [x] T23 | craftsman | `internal/core/memory.go` (forced promotion authority/provenance) | T20 | `go test ./internal/core -run TestForcedPromotionAudit -count=1` | R4.3 forced ≠ frequency; audit-distinguishable |
+
+> **W4 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T20–T23 tests land in conventional companion files `internal/core/memory_test.go` and
+>   `internal/context/memory_test.go`.
+> - T21/T22 add caller-supplied `SelectionContext.AsOf` in `internal/context/steering.go`; explicit
+>   evaluation time keeps context aging deterministic and preserves zero-value legacy behavior.
+> - T23 wires the forced audit envelope in `internal/cmd/memory.go`, where promotion mode is known;
+>   core rendering remains pure and records deterministic authority/provenance.
 
 ## W5 — `09f-maintenance-templates` (requires 09b,09c)
 

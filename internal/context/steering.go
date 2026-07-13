@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -15,6 +16,9 @@ import (
 type SelectionContext struct {
 	Phase, Role, TaskID                     string
 	Tags, RequirementIDs, TaskFields, Files []string
+	// AsOf is caller-supplied aging authority. Zero preserves legacy selection
+	// and prevents wall-clock access inside deterministic context construction.
+	AsOf time.Time
 }
 
 type staticMetadata struct {

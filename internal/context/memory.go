@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -34,6 +35,17 @@ func SelectMemory(root, slug string, c SelectionContext) ([]ItemV2, []Omission, 
 			} // headings such as Rules are auditable prose, not selectable memory
 			source := filepath.ToSlash(relOS)
 			identity := source + "#" + block.Key
+			if strings.EqualFold(block.Criticality, "critical") && block.ExpiresAt != "" && !c.AsOf.IsZero() {
+				expires, parseErr := time.Parse("2006-01-02", block.ExpiresAt)
+				if parseErr != nil {
+					omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "invalid critical memory expiry; owner=" + ownerOrUnknown(block.Owner) + "; action=correct expiry and revalidate"})
+					continue
+				}
+				if !c.AsOf.UTC().Before(expires) {
+					omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "expired critical memory; owner=" + ownerOrUnknown(block.Owner) + "; action=revalidate or supersede"})
+					continue
+				}
+			}
 			if err := core.ValidateMemoryProvenance(block.Source); err != nil {
 				omissions = append(omissions, Omission{Kind: "memory", Source: identity, Reason: "untrusted provenance: " + err.Error()})
 				continue
@@ -75,4 +87,11 @@ func SelectMemory(root, slug string, c SelectionContext) ([]ItemV2, []Omission, 
 	m := ManifestV2{Items: items}
 	CanonicalizeV2(&m)
 	return m.Items, omissions, nil
+}
+
+func ownerOrUnknown(owner string) string {
+	if strings.TrimSpace(owner) == "" {
+		return "unknown"
+	}
+	return owner
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestMemorySelection(t *testing.T) {
@@ -35,6 +36,38 @@ func TestMemorySelection(t *testing.T) {
 		if omission.Source == ".specd/specs/demo/memory.md#replaced" && omission.Reason != "superseded by atomic" {
 			t.Fatalf("superseded omission = %+v", omission)
 		}
+	}
+}
+
+func TestExpiredMemoryExcluded(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".specd", "specs", "demo")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	doc := "# Memory\n\n## stale\n**Pattern:** old rule\n**Source:** review:r1\n**Criticality:** critical\n**Owner:** platform\n**Expires-At:** 2026-01-01\n**Status:** active\n**Applies-To:** tags=go\n"
+	if err := os.WriteFile(filepath.Join(dir, "memory.md"), []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	items, findings, err := SelectMemory(root, "demo", SelectionContext{Tags: []string{"go"}, AsOf: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)})
+	if err != nil || len(items) != 0 || len(findings) != 1 || findings[0].Reason != "expired critical memory; owner=platform; action=revalidate or supersede" {
+		t.Fatalf("selection = items=%+v findings=%+v err=%v", items, findings, err)
+	}
+}
+
+func TestStableMemoryPreserved(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".specd", "specs", "demo")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	doc := "# Memory\n\n## stable\n**Pattern:** atomic writes\n**Source:** evidence:sha256:abc\n**Criticality:** critical\n**Owner:** platform\n**Last-Validated-At:** 2020-01-01\n**Status:** active\n**Applies-To:** tags=go\n"
+	if err := os.WriteFile(filepath.Join(dir, "memory.md"), []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	items, findings, err := SelectMemory(root, "demo", SelectionContext{Tags: []string{"go"}, AsOf: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)})
+	if err != nil || len(items) != 1 || len(findings) != 0 || items[0].Selector != "memory:stable" {
+		t.Fatalf("selection = items=%+v findings=%+v err=%v", items, findings, err)
 	}
 }
 
