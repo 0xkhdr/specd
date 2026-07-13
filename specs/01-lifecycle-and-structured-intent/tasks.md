@@ -7,7 +7,7 @@
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | [x] T01 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go | | go test ./internal/core -run 'TestRequirements' | R1.1,R1.3 parser/model |
-| [x] T02 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go; internal/core/gates/ears.go; internal/core/gates/ears_test.go | T01 | go test ./internal/core ./internal/core/gates -run 'TestRequirements\|TestEARS' | R1.2 exact requirement findings |
+| [x] T02 | craftsman | internal/core/requirements.go; internal/core/requirements_test.go; internal/core/gates/ears.go; internal/core/gates/ears_test.go | T01 | `go test ./internal/core ./internal/core/gates -run 'TestRequirements|TestEARS'` | R1.2 exact requirement findings |
 | [x] T03 | craftsman | internal/core/state.go; internal/core/state_test.go; internal/core/io.go | T01 | go test ./internal/core -run 'TestState' | schema migration, CAS-safe records |
 | [x] T04 | craftsman | internal/core/gates/core.go; internal/core/gates/core_test.go; internal/core/roles.go | | go test ./internal/core ./internal/core/gates -run 'TestRoles' | R4.1 reject unknown role |
 | [x] T05 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T04 | go test ./internal/core ./internal/core/gates -run 'TestVerify' | R4.2 role-aware trivial verify policy |
@@ -23,8 +23,8 @@
 |---|---|---|---|---|---|
 | [x] T06 | craftsman | internal/core/design.go; internal/core/design_test.go; internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go | T02,T03 | go test ./internal/core ./internal/core/gates -run 'TestDesign' | R2.1 design contract/digest |
 | [x] T07 | craftsman | internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go | T06 | go test ./internal/core/gates ./internal/cmd -run 'TestDesign' | R2.2 approval refusal |
-| [x] T08 | craftsman | internal/core/commands.go; internal/core/commandmeta_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go | T04 | go test ./internal/core ./internal/cmd -run 'Test.*Guide\|TestCommand' | R6.1 legal action model |
-| [x] T09 | craftsman | internal/cmd/status.go; internal/cmd/status_test.go; internal/mcp; internal/core/commands.go | T08 | go test ./internal/cmd ./internal/mcp -run 'Test.*Guide\|Test.*Status' | R6.1 JSON CLI/MCP guidance |
+| [x] T08 | craftsman | internal/core/commands.go; internal/core/commandmeta_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go | T04 | `go test ./internal/core ./internal/cmd -run 'Test.*Guide|TestCommand'` | R6.1 legal action model |
+| [x] T09 | craftsman | internal/cmd/status.go; internal/cmd/status_test.go; internal/mcp; internal/core/commands.go | T08 | `go test ./internal/cmd ./internal/mcp -run 'Test.*Guide|Test.*Status'` | R6.1 JSON CLI/MCP guidance |
 | [x] T10 | craftsman | internal/core/embed_templates/AGENTS.md; internal/core/scaffold.go; internal/cmd/init_scaffold_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T09 | go test ./internal/cmd -run TestInitScaffold && ./scripts/docs-lint.sh | R6.2 scaffold command parity |
 
 **W1 cross-wave deviations (files edited beyond the declared lists, recorded per prompt.md §2):**
@@ -34,8 +34,8 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T11 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/core/tasksparser_fuzz_test.go | T02,T06 | go test ./internal/core -run 'TestTasks\|TestRewrite' | R3.1 backward-compatible task metadata |
-| [x] T12 | craftsman | internal/core/tasksparser.go; internal/core/dag.go; internal/core/dag_test.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T11 | go test ./internal/core ./internal/core/gates -run 'Test.*Trace\|TestDAG' | resolvable task refs/risk |
+| [x] T11 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/core/tasksparser_fuzz_test.go | T02,T06 | `go test ./internal/core -run 'TestTasks|TestRewrite'` | R3.1 backward-compatible task metadata |
+| [x] T12 | craftsman | internal/core/tasksparser.go; internal/core/dag.go; internal/core/dag_test.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T11 | `go test ./internal/core ./internal/core/gates -run 'Test.*Trace|TestDAG'` | resolvable task refs/risk |
 | [x] T13 | craftsman | internal/core/scaffold.go; internal/core/scaffold_test.go; docs/open-spec-format.md; docs/validation-gates.md | T12 | go test ./internal/core -run TestScaffold && ./scripts/docs-lint.sh | author format/docs migration guidance |
 
 **W2 cross-wave deviations (files edited beyond the declared lists, recorded per prompt.md §2):**
@@ -50,9 +50,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T14 | craftsman | internal/core/coverage.go; internal/core/coverage_test.go; internal/core/gates/criteria.go; internal/core/gates/criteria_test.go | T12 | go test ./internal/core ./internal/core/gates -run 'TestCoverage\|TestCriteria' | R3.2 requirement/design/task graph |
-| [x] T15 | craftsman | internal/core/evidence_policy.go; internal/core/evidence_policy_test.go; internal/core/gates/registry.go; internal/core/gates/registry_test.go | T14,T05 | go test ./internal/core ./internal/core/gates -run 'TestEvidencePolicy\|TestRegistry' | R3.3 deterministic boundary policy |
-| [x] T16 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/e2e_test.go | T14,T15 | go test ./internal/cmd -run 'TestLifecycle\|TestCoverage' | execution approval blocks coverage gap |
+| [x] T14 | craftsman | internal/core/coverage.go; internal/core/coverage_test.go; internal/core/gates/criteria.go; internal/core/gates/criteria_test.go | T12 | `go test ./internal/core ./internal/core/gates -run 'TestCoverage|TestCriteria'` | R3.2 requirement/design/task graph |
+| [x] T15 | craftsman | internal/core/evidence_policy.go; internal/core/evidence_policy_test.go; internal/core/gates/registry.go; internal/core/gates/registry_test.go | T14,T05 | `go test ./internal/core ./internal/core/gates -run 'TestEvidencePolicy|TestRegistry'` | R3.3 deterministic boundary policy |
+| [x] T16 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/e2e_test.go | T14,T15 | `go test ./internal/cmd -run 'TestLifecycle|TestCoverage'` | execution approval blocks coverage gap |
 
 ## W4 — Amendment staleness
 
@@ -60,9 +60,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T17 | craftsman | internal/core/amendment.go; internal/core/amendment_test.go; internal/core/state.go; internal/core/state_test.go | T03,T14 | go test ./internal/core -run 'TestAmendment\|TestState' | R5.1 append-only impact record |
-| [x] T18 | craftsman | internal/core/freshness.go; internal/core/freshness_test.go; internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go | T17,T15 | go test ./internal/core ./internal/core/gates -run 'TestFreshness\|TestApproval' | R5.2,R5.3 stale/current rules |
-| [x] T19 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go | T18 | go test ./internal/cmd -run 'TestMidreq\|TestDispatch' | unsafe dispatch pause, no rewind |
+| [x] T17 | craftsman | internal/core/amendment.go; internal/core/amendment_test.go; internal/core/state.go; internal/core/state_test.go | T03,T14 | `go test ./internal/core -run 'TestAmendment|TestState'` | R5.1 append-only impact record |
+| [x] T18 | craftsman | internal/core/freshness.go; internal/core/freshness_test.go; internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go | T17,T15 | `go test ./internal/core ./internal/core/gates -run 'TestFreshness|TestApproval'` | R5.2,R5.3 stale/current rules |
+| [x] T19 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go | T18 | `go test ./internal/cmd -run 'TestMidreq|TestDispatch'` | unsafe dispatch pause, no rewind |
 
 ## W5 — Production profile
 
@@ -77,8 +77,8 @@ were unchanged (no new CLI verb/flag; the `profile` knob is config-only).
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T20 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/handshake.go | T15,T18 | go test ./internal/core -run 'TestConfig\|TestHandshake' | R7.1,R7.2 profile/config digest |
-| [x] T21 | craftsman | internal/core/gates/criteria.go; internal/core/gates/review.go; internal/core/gates/criteria_test.go; internal/core/gates/review_test.go | T20 | go test ./internal/core/gates -run 'TestCriteria\|TestReview' | production current evidence/review |
+| [x] T20 | craftsman | internal/core/config_loader.go; internal/core/config_validate.go; internal/core/config_test.go; internal/core/handshake.go | T15,T18 | `go test ./internal/core -run 'TestConfig|TestHandshake'` | R7.1,R7.2 profile/config digest |
+| [x] T21 | craftsman | internal/core/gates/criteria.go; internal/core/gates/review.go; internal/core/gates/criteria_test.go; internal/core/gates/review_test.go | T20 | `go test ./internal/core/gates -run 'TestCriteria|TestReview'` | production current evidence/review |
 | [x] T22 | craftsman | docs/open-spec-format.md; docs/validation-gates.md; docs/command-reference.md; docs/CHEATSHEET.md; internal/core/embed_templates/project.yml | T20,T21 | ./scripts/docs-lint.sh && go test ./internal/core -run TestConfig | profile operator docs/template |
 
 ## W6 — Bounded spikes
@@ -98,8 +98,8 @@ a spike is a distinct `spike:` record kind that neither `CompleteTask` nor desig
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T24 | craftsman | internal/cmd/e2e_test.go; internal/cmd/integration_polish_test.go; scripts/regress-domains.sh; scripts/regress-lint.sh | T10,T16,T19,T21,T23 | go test ./internal/cmd -run 'TestLifecycleE2E\|TestIntegration' && ./scripts/regress-domains.sh | R8.1 fresh/restart/negative suite |
-| [x] T25 | craftsman | internal/core/report.go; internal/core/report_test.go; internal/cmd/report.go; internal/cmd/report_history_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T18,T21,T24 | go test ./internal/core ./internal/cmd -run 'TestReport\|TestHistory' && ./scripts/docs-lint.sh | R8.2 stable coverage/staleness report |
+| [x] T24 | craftsman | internal/cmd/e2e_test.go; internal/cmd/integration_polish_test.go; scripts/regress-domains.sh; scripts/regress-lint.sh | T10,T16,T19,T21,T23 | `go test ./internal/cmd -run 'TestLifecycleE2E|TestIntegration' && ./scripts/regress-domains.sh` | R8.1 fresh/restart/negative suite |
+| [x] T25 | craftsman | internal/core/report.go; internal/core/report_test.go; internal/cmd/report.go; internal/cmd/report_history_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T18,T21,T24 | `go test ./internal/core ./internal/cmd -run 'TestReport|TestHistory' && ./scripts/docs-lint.sh` | R8.2 stable coverage/staleness report |
 | [x] T26 | validator | SPEC.md; specs/01-lifecycle-and-structured-intent | T25 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | all R1-R8 release evidence |
 
 ## Deviations

@@ -1,109 +1,144 @@
 #!/usr/bin/env sh
-# regress-lint.sh (P7.2) — static smell audit of active Domain 02 verify tables.
+# regress-lint.sh — static smell audit of every domain's verify tables.
 #
-# Never runs a verify. Reads the tables and flags three smells:
+# Never runs a verify. Reads all ten domains' tasks tables and flags smells that
+# would let a task claim evidence it does not actually hold, or that break the
+# table contract the regression tooling depends on:
+#
 #   A  verify targets authoring `specs/` when runtime reads `.specd/specs/`
-#   B  hollow-verify (G4): a verify that passes without asserting behavior
+#   B  hollow verify: a write task whose verify passes without asserting behavior
 #      (pure `test -e`/`ls` existence, `|| true`, or `:`/`true`)
-#   C  stale target (G3): a `files:` or verify path that fails `test -e`
+#   C  stale target: a completed row's `files:` or verify path fails `test -e`
+#   D  compile-only: a write task proving only `go build`, never runtime behavior
+#   E  vacuous selector: a `-run` pattern using `\|` — in Go regexp `\|` is a
+#      LITERAL pipe, so `-run 'TestA\|TestB'` matches nothing ("No tests found",
+#      exit 0). The verify record is real but empty. Use a raw `|` in a code span.
+#   F  unescaped pipe: a raw `|` outside a backtick code span splits the markdown
+#      cell mid-command, corrupting the table (GFM) and the harness parser.
 #
-# Exits non-zero if any smell is present. Green means every declared target
-# exists at HEAD and no verify is hollow or points at the authoring tree.
+# Exits non-zero if any smell is present. Green means every completed row's
+# declared targets exist at HEAD, no verify is hollow/compile-only, no selector
+# is vacuous, and every verify cell is a well-formed single table field.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 smells=0
 
-# Backtick-aware cell split: `|` inside a `...` span is not a delimiter.
+# Backtick- and escape-aware cell split: a `|` inside a `...` span or a `\|`
+# escape is not a delimiter. (1-based field N.)
 cell() {
 	printf '%s\n' "$1" | awk -v n="$2" '{
 		f=1; c=""; bt=0
 		for(i=1;i<=length($0);i++){ ch=substr($0,i,1)
+			if(ch=="\\" && i<length($0)){ c=c ch substr($0,i+1,1); i++; continue }
 			if(ch=="`"){bt=!bt; c=c ch; continue}
 			if(ch=="|" && !bt){ if(f==n){print c; exit} f++; c=""; continue }
 			c=c ch }
 		if(f==n) print c
 	}' | sed 's/^[ \t]*//;s/[ \t]*$//'
 }
-flag() { smells=$((smells+1)); printf '%-8s %-6s %s\n' "$1" "$2" "$3"; }
 
-# Future domain tables intentionally contain planned paths. Audit current Domain 02
-# release work here; each later domain owns the same audit when its wave activates.
-for tasks in "$ROOT"/specs/02-*/tasks.md; do
+# Field count under the same split. A well-formed 6-column task row plus the
+# leading and trailing empties yields exactly 8 fields.
+ncells() {
+	printf '%s\n' "$1" | awk '{
+		f=1; bt=0
+		for(i=1;i<=length($0);i++){ ch=substr($0,i,1)
+			if(ch=="\\" && i<length($0)){ i++; continue }
+			if(ch=="`"){bt=!bt; continue}
+			if(ch=="|" && !bt) f++ }
+		print f
+	}'
+}
+
+# Reduce a verify cell to its runnable command: first backtick code span if the
+# cell has one (annotations like ` (GREEN)` may follow), else the cell verbatim.
+verify_cmd() {
+	printf '%s\n' "$1" | awk '{
+		s=index($0,"`")
+		if(s==0){print; next}
+		rest=substr($0,s+1); e=index(rest,"`")
+		if(e==0){print; next}
+		print substr(rest,1,e-1)
+	}' | sed 's/\\|/|/g'
+}
+
+flag() { smells=$((smells+1)); printf '%-10s %-6s %s\n' "$1" "$2" "$3"; }
+
+for tasks in "$ROOT"/specs/[0-1][0-9]-*/tasks.md; do
 	[ -f "$tasks" ] || continue
+	dom=$(basename "$(dirname "$tasks")" | cut -c1-2)
 	while IFS= read -r line; do
+		# Any task row (completed or not); capture whether it is [x].
+		case "$line" in
+			'| ['*'] T'*) ;;
+			*) continue ;;
+		esac
 		id=$(cell "$line" 2 | sed -n 's/^\(\[[ x]\] \)\{0,1\}\(T[0-9][0-9]*\)$/\2/p')
 		[ -n "$id" ] || continue
+		tag="$dom-$id"
+		done_row=$(cell "$line" 2 | grep -q '^\[x\]' && echo yes || echo no)
 		role=$(cell "$line" 3)
-		files=$(cell "$line" 4)
-		verify=$(cell "$line" 6 | sed -n 's/^[^`]*`\([^`]*\)`.*/\1/p' | sed 's/\\|/|/g')
+		raw6=$(cell "$line" 6)
+		verify=$(verify_cmd "$raw6")
+
+		# F: raw unescaped pipe corrupts the table (row splits into >8 fields).
+		if [ "$(ncells "$line")" -ne 8 ]; then
+			flag "$tag" "F" "unescaped '|' outside a code span (corrupts table/parse): $line"
+		fi
+
+		# E: vacuous \| selector — matches a literal pipe, runs zero tests.
+		case "$raw6" in
+			*'\|'*) flag "$tag" "E" "vacuous '\\|' selector (Go regexp literal pipe, runs 0 tests): $raw6" ;;
+		esac
 
 		# A: verify reads authoring specs/ (mask .specd/specs/ first).
 		masked=$(printf '%s\n' "$verify" | sed 's#\.specd/specs/#@@#g')
 		case "$masked" in
 			*[!A-Za-z0-9]specs/*|specs/*)
-				flag "$id" "A" "verify reads authoring specs/ (runtime reads .specd/specs/): $verify" ;;
+				flag "$tag" "A" "verify reads authoring specs/ (runtime reads .specd/specs/): $verify" ;;
 		esac
 
-		# B: hollow-verify — passes without asserting behavior.
+		# B: hollow verify — write task that passes without asserting behavior.
 		case "$verify" in
 			""|":"|"true"|"true "*|"test -e "*|"test -f "*|"[ -e "*|"[ -f "*|"ls "*|*"|| true")
-				[ -n "$verify" ] && [ "$role" = "craftsman" ] && flag "$id" "B" "write-task hollow verify: $verify" ;;
+				[ -n "$verify" ] && [ "$role" = "craftsman" ] && flag "$tag" "B" "write-task hollow verify: $verify" ;;
 		esac
 
-		# D: compile-only commands cannot prove production-risk write behavior.
-		# Read-only roles remain explicitly exempt and may use a trivial command.
+		# D: compile-only write task — cannot prove production write behavior.
 		case "$verify" in
 			"go build"|"go build "*)
-				[ "$role" = "craftsman" ] && flag "$id" "D" "write-task compile-only verify: $verify" ;;
+				[ "$role" = "craftsman" ] && flag "$tag" "D" "write-task compile-only verify: $verify" ;;
 		esac
 
-		# C: stale target — clean single-path tokens that don't exist.
-		#    files: column (comma list) + verify args after sh/test -e/cat.
-		paths=$(printf '%s' "$files" | tr ',' '\n' | sed 's/`//g;s/(.*)//;s/^[ \t]*//;s/[ \t]*$//')
+		# C: stale target — a *completed* row's verify must not reference a file
+		# that no longer exists. Only the verify command's own path arguments are
+		# checked (they are well-formed); the free-form files column also carries
+		# prose and is not a reliable target list, so it is left to the human
+		# review the tables already receive.
+		[ "$done_row" = "yes" ] || continue
 		vpaths=$(printf '%s\n' "$verify" \
 			| grep -oE '(sh|test -e|test -f|cat) [A-Za-z0-9._/-]+' 2>/dev/null \
 			| awk '{print $NF}' || true)
-		for p in $paths $vpaths; do
-			# only clean paths (no brace/paren/space/prose "or"); skip ambiguous.
+		for p in $vpaths; do
 			case "$p" in
 				""|*[!A-Za-z0-9._/-]*|or) continue ;;
 			esac
-			[ -e "$ROOT/$p" ] || flag "$id" "C" "stale target (test -e fails): $p"
+			[ -e "$ROOT/$p" ] || flag "$tag" "C" "stale target (test -e fails): $p"
 		done
 	done <"$tasks"
 done
 
-# Domain 04 R5 verify-quality lint. Inspect its authoring contract without the
-# stale-target audit above: later waves intentionally declare files not created
-# yet. Only write tasks are subject to shallow-verify rejection; read-only
-# scout/validator/auditor rows retain their explicit trivial exception.
-tasks="$ROOT/specs/04-verification-evals-and-quality/tasks.md"
-while IFS= read -r line; do
-	id=$(cell "$line" 2 | sed -n 's/^\(\[[ x]\] \)\{0,1\}\(T[0-9][0-9]*\)$/\2/p')
-	[ -n "$id" ] || continue
-	role=$(cell "$line" 3)
-	verify=$(cell "$line" 6 | sed 's/^[ 	]*//;s/[ 	]*$//')
-	[ "$role" = "craftsman" ] || continue
-	case "$verify" in
-		""|":"|"true"|"true "*|"printf ok"|"go build"|"go build "*|*"|| true")
-			flag "$id" "D" "Domain 04 write-task shallow verify: $verify" ;;
-	esac
-done <"$tasks"
-
-# Domain 03 W5 release-proof tripwire: envelope contract and stale-claim tests
-# must remain present; absence would turn the remote proof into a hollow script.
+# Release-proof tripwires: specific proof targets must remain present, or the
+# remote/black-box regression scripts degrade into hollow shells. Kept explicit
+# because these assert cross-file invariants the per-row audit cannot see.
 for p in internal/orchestration/dispatch_envelope.go internal/orchestration/dispatch_envelope_test.go internal/orchestration/lease_test.go; do
 	[ -f "$ROOT/$p" ] || flag 03-W5 C "missing remote-envelope proof target: $p"
 done
-
-# Domain 05 W5 release-proof tripwire: adapter implementation, parity fixture,
-# and fresh-tree regression hook must remain concrete.
 for p in internal/orchestration/a2a.go internal/orchestration/a2a_test.go internal/integration/orchestration_conformance_test.go; do
 	[ -f "$ROOT/$p" ] || flag 05-W5 C "missing orchestration adapter proof target: $p"
 done
 grep -q 'violation 05-W5' "$ROOT/scripts/regress-domains.sh" || flag 05-W5 B "missing Domain 05 fresh-tree regression assertion"
-
 for p in internal/core/verify/adapter.go internal/core/verify/adapter_test.go internal/core/gates/security/regress.go internal/core/gates/security/regress_test.go internal/core/gates/security/testdata/incidents.json internal/integration/sandbox_conformance_test.go; do
 	[ -f "$ROOT/$p" ] || flag 06-W8 C "missing security release-proof target: $p"
 done

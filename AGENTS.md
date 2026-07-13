@@ -9,8 +9,7 @@ dependencies, single static binary). It moves process enforcement out of the LLM
 window into a deterministic, local, tool-gated pipeline: requirements → design → tasks →
 evidence-gated execution. **The agent reasons; the harness enforces.**
 
-Module: `github.com/0xkhdr/specd`. Requires Go 1.22+ (declared min in `go.mod`; toolchain
-line pins 1.26).
+Module: `github.com/0xkhdr/specd`. Requires Go 1.26+ (the `go` directive in `go.mod`).
 
 ## Build, test, lint
 
@@ -100,7 +99,7 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
   real git HEAD). No bypass flag exists — do not add one.
 - **Structural invariants.** Atomic writes, CAS on `state.json` revision, reentrant per-spec
   lock, byte-stable tasks parser, `go:embed` templates, **zero runtime dependencies**
-  (keep `go.mod`/`go.sum` tidy — CI runs `go mod tidy` and fails on a diff).
+  (there is no `go.sum` — nothing to sum; CI runs `go mod tidy` and fails on any `go.mod` diff).
 - **Subtractive bias.** When unsure, cut or defer and record the decision.
 - **Docs sync.** If you touch CLI verbs or flags, update `docs/command-reference.md` **and**
   `docs/CHEATSHEET.md` together (`docs-lint.sh` enforces they match).
@@ -109,89 +108,3 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
 
 `reference/` is the frozen v1 implementation: a read-only museum. Never import, build, copy
 from, or edit it. Its `Makefile`, scripts, and docs describe the old system, not this one.
-
-<!-- specd:agents begin -->
-# specd — host integration guide
-
-**Agent = Model + Harness.** You (the model) supply reasoning. `specd` (the harness)
-makes the plan safely delegable: it owns state, gates, and evidence — deterministically,
-with no LLM in its decision path. Read this file before acting on a specd project.
-
-## The loop
-1. `specd status` — see the spec, phase, and current task frontier.
-2. `specd context <slug> <task>` — get the lean, cited context manifest for one task.
-3. Do the task under its **role** (below). Touch only the task's declared `files:`.
-4. `specd verify` — record evidence (exit code + git HEAD). This, not your say-so, is
-   what marks a task complete.
-5. `specd check` — run the readiness gates. `specd approve` advances the phase only if
-   they pass.
-
-## Roles (read `.specd/roles/<role>.md` before acting as one)
-- 🔍 **scout** — read-only explore & report. Never bound to a write task.
-- 🛠️ **craftsman** — write + verify. Exactly one atomic task per invocation.
-- 🧪 **validator** — read-only; runs the verify line and reports the record.
-- 🛡️ **auditor** — read-only; audits a diff/scope against acceptance.
-
-A task's `role:` determines what it may do. Read-only roles never write and never
-fabricate a passing check.
-
-## Guardrails (non-negotiable)
-- **Evidence integrity.** No task completes without a passing verify record (exit code 0
-  pinned to a real git HEAD). A read-only task carries a verify line it can pass
-  (e.g. `printf ok`); there is no flag that bypasses the evidence gate.
-- **Determinism.** Gates, DAG, and reports are pure functions of on-disk `.specd/` state.
-- **Scope.** Touch only a task's declared files. Record deviations via `specd decision`.
-- **Blocked means stop.** Retry once, then report `blocked` with the exact blocker.
-
-## On-disk surface
-- `.specd/specs/<slug>/{requirements.md,design.md,tasks.md,state.json,.lock}`
-- `.specd/roles/*.md`, `.specd/steering/*.md` — the role and steering constitutions.
-
-Steering files (`.specd/steering/`) carry the project's reasoning, workflow, product,
-tech, and structure rules. Load a steering file when its phase needs it.
-
-<!-- specd:agents end -->
-
-
-<!-- headroom:rtk-instructions -->
-# RTK (Rust Token Killer) - Token-Optimized Commands
-
-When running shell commands, **always prefix with `rtk`**. This reduces context
-usage by 60-90% with zero behavior change. If rtk has no filter for a command,
-it passes through unchanged — so it is always safe to use.
-
-## Key Commands
-```bash
-# Git (59-80% savings)
-rtk git status          rtk git diff            rtk git log
-
-# Files & Search (60-75% savings)
-rtk ls <path>           rtk read <file>         rtk grep <pattern>
-rtk find <pattern>      rtk diff <file>
-
-# Test (90-99% savings) — shows failures only
-rtk pytest tests/       rtk cargo test          rtk test <cmd>
-
-# Build & Lint (80-90% savings) — shows errors only
-rtk tsc                 rtk lint                rtk cargo build
-rtk prettier --check    rtk mypy                rtk ruff check
-
-# Analysis (70-90% savings)
-rtk err <cmd>           rtk log <file>          rtk json <file>
-rtk summary <cmd>       rtk deps                rtk env
-
-# GitHub (26-87% savings)
-rtk gh pr view <n>      rtk gh run list         rtk gh issue list
-
-# Infrastructure (85% savings)
-rtk docker ps           rtk kubectl get         rtk docker logs <c>
-
-# Package managers (70-90% savings)
-rtk pip list            rtk pnpm install        rtk npm run <script>
-```
-
-## Rules
-- In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
-- For debugging, use raw command without rtk prefix
-- `rtk proxy <cmd>` runs command without filtering but tracks usage
-<!-- /headroom:rtk-instructions -->

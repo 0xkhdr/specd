@@ -10,7 +10,7 @@ no network in core. Legacy ledgers must keep decoding.
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | [x] T01 | scout | docs/google-sdlc-alignment/README.md; docs/google-sdlc-alignment/07-observability-cost-and-operational-economics.md; specs/07-observability-cost-and-operational-economics | | printf ok | map R1-R9 to telemetry/evidence/acp/history/report_metrics/prometheus/manifest/budget/contextbudget/brakes/sense/brain_run surfaces and Domain 01/02/04/05/06/10 boundaries |
-| [x] T02 | craftsman | internal/core/telemetry_test.go; internal/core/history_test.go; internal/context/budget_test.go; internal/orchestration/brakes_test.go; internal/core/prometheus_test.go | T01 | go test ./internal/core ./internal/context ./internal/orchestration -run 'Test(Telemetry|History|Budget|Brake|Prometheus)' | failing fixtures: no run/span correlation, conflated `tokens`, cost-without-currency, dormant unset cost brake, underestimated context payload, unbounded label additions R1-R6 |
+| [x] T02 | craftsman | internal/core/telemetry_test.go; internal/core/history_test.go; internal/context/budget_test.go; internal/orchestration/brakes_test.go; internal/core/prometheus_test.go | T01 | `go test ./internal/core ./internal/context ./internal/orchestration -run 'Test(Telemetry|History|Budget|Brake|Prometheus)'` | failing fixtures: no run/span correlation, conflated `tokens`, cost-without-currency, dormant unset cost brake, underestimated context payload, unbounded label additions R1-R6 |
 | [x] T03 | craftsman | docs/observability.md; docs/open-spec-format.md; docs/command-reference.md; docs/CHEATSHEET.md | T01 | ./scripts/docs-lint.sh | correct wording: history is audit projection not full trace; telemetry is worker-reported not measured; cost brake dormant; budget does not prove sufficiency; name P0 route |
 
 > **W0 deviations.** T01 inventory already recorded in `w0-inventory.md` (R1–R9 → telemetry/evidence/
@@ -27,9 +27,9 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T04 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; internal/core/evidence_test.go | T02 | go test ./internal/core -run 'Test(Telemetry|Evidence)' | versioned envelope preserves legacy `Annotations`; old fixtures decode unchanged; new records round-trip byte-stably R1.1 |
-| [x] T05 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T04 | go test ./internal/core ./internal/orchestration -run 'Test(Telemetry|ACP)' | malformed decimal, negative unit, cost-without-currency, unknown required schema version fail closed; absent stays absent not zero R1.2 |
-| [x] T06 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T05 | go test ./internal/core ./internal/cmd -run 'Test(Telemetry|Report)' | `telemetry_source` provenance required; reports render worker values as reported not measured; attestation ref external/optional R1.3 |
+| [x] T04 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; internal/core/evidence_test.go | T02 | `go test ./internal/core -run 'Test(Telemetry|Evidence)'` | versioned envelope preserves legacy `Annotations`; old fixtures decode unchanged; new records round-trip byte-stably R1.1 |
+| [x] T05 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/orchestration/acp.go; internal/orchestration/acp_test.go | T04 | `go test ./internal/core ./internal/orchestration -run 'Test(Telemetry|ACP)'` | malformed decimal, negative unit, cost-without-currency, unknown required schema version fail closed; absent stays absent not zero R1.2 |
+| [x] T06 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T05 | `go test ./internal/core ./internal/cmd -run 'Test(Telemetry|Report)'` | `telemetry_source` provenance required; reports render worker values as reported not measured; attestation ref external/optional R1.3 |
 
 > **W1 deviations.** Envelope realized as omitempty fields on `Annotations`
 > (`telemetry_source`, `currency`, `attestation_ref`, `envelope_version`) rather
@@ -51,9 +51,9 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T07 | craftsman | internal/core/runledger.go; internal/core/runledger_test.go; internal/core/commands.go | T02 | go test ./internal/core -run 'Test(RunLedger|Run)' | deterministic `run_id`/monotonic `attempt` under spec lock; never provider trace ID as key; `runs.jsonl` append-only R2.1 |
-| [x] T08 | craftsman | internal/cmd/registry.go; internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/task_complete.go; internal/core/task_complete_test.go | T07 | go test ./internal/cmd ./internal/core -run 'Test(BrainReport|Complete|Run)' | manual + Brain runs share one allocator; two failures + one pass = three attempts one chain; evidence gate identical with ledger absent R2.2,R2.3 |
-| [x] T09 | craftsman | internal/orchestration/checkpoint.go; internal/orchestration/recover.go; internal/core/runledger.go; scripts/stress-acp.sh | T08 | go test ./internal/orchestration -run 'Test(Checkpoint|Recover|Run)' && ./scripts/stress-acp.sh | crash mid-append yields one complete record or prior; no partial line or duplicate run/mission; racing writers do not duplicate attempt R2.4 |
+| [x] T07 | craftsman | internal/core/runledger.go; internal/core/runledger_test.go; internal/core/commands.go | T02 | `go test ./internal/core -run 'Test(RunLedger|Run)'` | deterministic `run_id`/monotonic `attempt` under spec lock; never provider trace ID as key; `runs.jsonl` append-only R2.1 |
+| [x] T08 | craftsman | internal/cmd/registry.go; internal/cmd/brain_worker.go; internal/cmd/brain_report_test.go; internal/core/task_complete.go; internal/core/task_complete_test.go | T07 | `go test ./internal/cmd ./internal/core -run 'Test(BrainReport|Complete|Run)'` | manual + Brain runs share one allocator; two failures + one pass = three attempts one chain; evidence gate identical with ledger absent R2.2,R2.3 |
+| [x] T09 | craftsman | internal/orchestration/checkpoint.go; internal/orchestration/recover.go; internal/core/runledger.go; scripts/stress-acp.sh | T08 | `go test ./internal/orchestration -run 'Test(Checkpoint|Recover|Run)' && ./scripts/stress-acp.sh` | crash mid-append yields one complete record or prior; no partial line or duplicate run/mission; racing writers do not duplicate attempt R2.4 |
 
 > **W2 scope deviations (file list vs. actual edits, subtractive bias).**
 > - T07 `commands.go` **not edited**: run/attempt identity is a side effect of
@@ -78,9 +78,9 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T10 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/budget.go; internal/context/budget_test.go | T02, Domain 02 context | go test ./internal/context -run 'Test(Manifest|Budget)' | estimate covers bytes contract loads incl `design.md` + declared source files; repeated manifest byte-identical R3.1,R3.4 |
-| [x] T11 | craftsman | internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go; internal/context/manifest.go | T10 | go test ./internal/core/gates ./internal/context -run 'Test(ContextBudget|Manifest)' | required item never silently dropped; over-budget required set fails with concise remediation; safety rules cannot be budgeted out R3.2 |
-| [x] T12 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/perf_test.go; scripts/perf-gate.sh | T11 | go test ./internal/context -run 'Test(Manifest|Perf)' && ./scripts/perf-gate.sh | estimated/host-reported/provider-billed distinct fields; canonical `context_manifest_digest`; supplied vs omitted items+reasons; host ack recorded R3.3,R3.4 |
+| [x] T10 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/budget.go; internal/context/budget_test.go | T02, Domain 02 context | `go test ./internal/context -run 'Test(Manifest|Budget)'` | estimate covers bytes contract loads incl `design.md` + declared source files; repeated manifest byte-identical R3.1,R3.4 |
+| [x] T11 | craftsman | internal/core/gates/contextbudget.go; internal/core/gates/contextbudget_test.go; internal/context/manifest.go | T10 | `go test ./internal/core/gates ./internal/context -run 'Test(ContextBudget|Manifest)'` | required item never silently dropped; over-budget required set fails with concise remediation; safety rules cannot be budgeted out R3.2 |
+| [x] T12 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/perf_test.go; scripts/perf-gate.sh | T11 | `go test ./internal/context -run 'Test(Manifest|Perf)' && ./scripts/perf-gate.sh` | estimated/host-reported/provider-billed distinct fields; canonical `context_manifest_digest`; supplied vs omitted items+reasons; host ack recorded R3.3,R3.4 |
 
 > **W3 deviations (subtractive bias, backward-compat).**
 > - T10 `budget.go` **not edited**: the underestimate lived in `BuildManifest`,
@@ -116,9 +116,9 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T13 | craftsman | internal/orchestration/sense.go; internal/orchestration/sense_test.go; internal/orchestration/brakes.go; internal/orchestration/brakes_test.go | T04, Domain 05 dispatch | go test ./internal/orchestration -run 'Test(Sense|Brake)' | `Snapshot.Cost` populated only from accepted trusted telemetry; no test populates it in a way production cannot R4.1 |
+| [x] T13 | craftsman | internal/orchestration/sense.go; internal/orchestration/sense_test.go; internal/orchestration/brakes.go; internal/orchestration/brakes_test.go | T04, Domain 05 dispatch | `go test ./internal/orchestration -run 'Test(Sense|Brake)'` | `Snapshot.Cost` populated only from accepted trusted telemetry; no test populates it in a way production cannot R4.1 |
 | [x] T14 | craftsman | internal/cmd/brain_run.go; internal/cmd/brain_run_test.go; internal/core/commands.go; docs/command-reference.md; docs/CHEATSHEET.md | T13 | go test ./internal/cmd -run 'TestBrainRun' && ./scripts/docs-lint.sh | configured threshold halts only subsequent dispatch with exact reason, no lease, undoes nothing; without limits behavior matches today R4.2 |
-| [x] T15 | craftsman | internal/orchestration/brakes.go; internal/orchestration/brakes_test.go; internal/orchestration/sense.go | T13 | go test ./internal/orchestration -run 'Test(Brake|Sense)' | production requiring trusted telemetry fails closed when missing/malformed with one actionable message; untrusted-data brake labelled as such R4.3 |
+| [x] T15 | craftsman | internal/orchestration/brakes.go; internal/orchestration/brakes_test.go; internal/orchestration/sense.go | T13 | `go test ./internal/orchestration -run 'Test(Brake|Sense)'` | production requiring trusted telemetry fails closed when missing/malformed with one actionable message; untrusted-data brake labelled as such R4.3 |
 
 > **W4 deviations (subtractive bias, backward-compat).**
 > - The dishonest legacy brake was **removed**: `Snapshot.Cost int` /
@@ -150,9 +150,9 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T16 | craftsman | internal/core/prometheus.go; internal/core/prometheus_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T04 | go test ./internal/core -run 'Test(Prometheus|ReportMetrics)' | static contract test rejects label additions outside allowlist (`spec`,task/status); no run/mission/SHA/path/model/actor/error label R5.1 |
-| [x] T17 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; docs/telemetry-schema.md | T16, Domain 06 redaction | go test ./internal/core -run 'Test(Telemetry|Evidence|Redact)' | default fixtures metadata-only: no prompt/response/CoT/file content/raw output/secret/abs home path; central redaction before display R5.2,R5.4 |
-| [x] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; docs/observability.md; SECURITY.md | T17 | go test ./internal/core -run 'Test(Evidence|Ref)' && ./scripts/docs-lint.sh | `evidence_ref` workspace-relative/content-addressed only; traversal + URL rejected in core schema; policy documented R5.3,R5.4 |
+| [x] T16 | craftsman | internal/core/prometheus.go; internal/core/prometheus_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T04 | `go test ./internal/core -run 'Test(Prometheus|ReportMetrics)'` | static contract test rejects label additions outside allowlist (`spec`,task/status); no run/mission/SHA/path/model/actor/error label R5.1 |
+| [x] T17 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/evidence.go; docs/telemetry-schema.md | T16, Domain 06 redaction | `go test ./internal/core -run 'Test(Telemetry|Evidence|Redact)'` | default fixtures metadata-only: no prompt/response/CoT/file content/raw output/secret/abs home path; central redaction before display R5.2,R5.4 |
+| [x] T18 | craftsman | internal/core/evidence.go; internal/core/evidence_test.go; docs/observability.md; SECURITY.md | T17 | `go test ./internal/core -run 'Test(Evidence|Ref)' && ./scripts/docs-lint.sh` | `evidence_ref` workspace-relative/content-addressed only; traversal + URL rejected in core schema; policy documented R5.3,R5.4 |
 
 > **W5 deviations (subtractive bias, backward-compat).**
 > - T16 realized as an exported `MetricLabelAllowlist` (`spec`/`status`/`verdict`/
@@ -182,8 +182,8 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T19 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go; internal/core/commands.go | T06,T09,T17 | go test ./internal/core -run 'Test(RunSpan|Span)' | metadata-only spans for context/model/tool/edit/verify/eval/approval/dispatch; `kind` closed enum + extension; unknown critical kind fails parse R6.1 |
-| [x] T20 | craftsman | internal/cmd/report_trace.go; internal/cmd/report_trace_test.go; internal/core/history.go; internal/core/history_test.go | T19 | go test ./internal/cmd ./internal/core -run 'Test(ReportTrace|History)' | `report --trace --json` parent refs resolve, IDs unique, order stable on equal/missing ts, two exports byte-identical R6.2 |
+| [x] T19 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go; internal/core/commands.go | T06,T09,T17 | `go test ./internal/core -run 'Test(RunSpan|Span)'` | metadata-only spans for context/model/tool/edit/verify/eval/approval/dispatch; `kind` closed enum + extension; unknown critical kind fails parse R6.1 |
+| [x] T20 | craftsman | internal/cmd/report_trace.go; internal/cmd/report_trace_test.go; internal/core/history.go; internal/core/history_test.go | T19 | `go test ./internal/cmd ./internal/core -run 'Test(ReportTrace|History)'` | `report --trace --json` parent refs resolve, IDs unique, order stable on equal/missing ts, two exports byte-identical R6.2 |
 | [x] T21 | craftsman | internal/core/runspan.go; internal/core/runspan_test.go | T19 | go test ./internal/core -run 'TestRunSpan' | code-effect/completion span carries `git_head`; timestamps informational; no gate derives outcome from wall-clock order R6.3 |
 
 > **W6 deviations (subtractive bias, backward-compat).**
@@ -217,8 +217,8 @@ no network in core. Legacy ledgers must keep decoding.
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | [x] T22 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/commands.go; docs/command-reference.md; docs/CHEATSHEET.md | T05,T17 | go test ./internal/core -run 'TestTelemetry' && ./scripts/docs-lint.sh | optional input/output/cache tokens, provider/model, currency, pricing_ref, source, attestation_ref; legacy `tokens` retained R7.1 |
-| [x] T23 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T22 | go test ./internal/core -run 'Test(Telemetry|ReportMetrics)' | exact-decimal category aggregation golden tests; legacy total + category totals never silently contradict; cost needs currency+pricing_ref R7.2 |
-| [x] T24 | craftsman | internal/core/telemetry.go; internal/core/prometheus.go; internal/mcp/server_test.go | T22,T16 | go test ./internal/core ./internal/mcp -run 'Test(Telemetry|Prometheus|MCP)' | provider/model optional bounded, never required for valid evidence, never a metric label; MCP schema reflects new flags R7.3 |
+| [x] T23 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T22 | `go test ./internal/core -run 'Test(Telemetry|ReportMetrics)'` | exact-decimal category aggregation golden tests; legacy total + category totals never silently contradict; cost needs currency+pricing_ref R7.2 |
+| [x] T24 | craftsman | internal/core/telemetry.go; internal/core/prometheus.go; internal/mcp/server_test.go | T22,T16 | `go test ./internal/core ./internal/mcp -run 'Test(Telemetry|Prometheus|MCP)'` | provider/model optional bounded, never required for valid evidence, never a metric label; MCP schema reflects new flags R7.3 |
 
 > **W7 deviation.** T02 explicitly seeded `internal/core/history_test.go` as the token-conflation
 > characterization to flip when W7 lands. T22 therefore updates that test to assert category
@@ -228,18 +228,18 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T25 | craftsman | internal/core/event.go; internal/core/event_test.go; internal/cmd/registry.go; docs/adapters/telemetry.md | T20,T22, Domain 10 adapter | go test ./internal/core ./internal/cmd -run 'Test(Event|Report)' | versioned provider-neutral event schema renders offline; golden validates; core no network/no module dep R8.1 |
+| [x] T25 | craftsman | internal/core/event.go; internal/core/event_test.go; internal/cmd/registry.go; docs/adapters/telemetry.md | T20,T22, Domain 10 adapter | `go test ./internal/core ./internal/cmd -run 'Test(Event|Report)'` | versioned provider-neutral event schema renders offline; golden validates; core no network/no module dep R8.1 |
 | [x] T26 | craftsman | internal/core/event.go; internal/core/event_test.go; docs/adapters/telemetry.md | T25 | go test ./internal/core -run 'TestEvent' | adapter round-trip fixture preserves correlation + privacy fields; networking disabled in adapter tests R8.2 |
-| [x] T27 | craftsman | internal/cmd/report.go; internal/cmd/report_test.go; internal/context/efficiency.go; internal/context/efficiency_test.go | T12,T20 | go test ./internal/cmd ./internal/context -run 'Test(Report|Efficiency)' | context-efficiency report shows estimated/actual tokens, omitted items, retries, first-pass, duration, cost with explicit `unknown` not zero R8.3 |
+| [x] T27 | craftsman | internal/cmd/report.go; internal/cmd/report_test.go; internal/context/efficiency.go; internal/context/efficiency_test.go | T12,T20 | `go test ./internal/cmd ./internal/context -run 'Test(Report|Efficiency)'` | context-efficiency report shows estimated/actual tokens, omitted items, retries, first-pass, duration, cost with explicit `unknown` not zero R8.3 |
 
 ## W9 — attested ingestion, routing, roll-ups, release proof
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T28 | craftsman | internal/core/attestation.go; internal/core/attestation_test.go; internal/core/telemetry.go; docs/adapters/telemetry.md | T23, Domain 10 adapter | go test ./internal/core -run 'Test(Attestation|Telemetry)' | signed/hashed attested envelope from allowlisted key accepted; tampering rejected; all adapter tests offline R9.1 |
-| [x] T29 | craftsman | internal/core/config_loader.go; internal/core/config_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T10 | go test ./internal/core ./internal/context -run 'Test(Config|Manifest)' | routing recommendation is policy metadata; same task/config → same class; no provider contact; unavailable model cannot bypass evidence R9.2 |
-| [x] T30 | craftsman | internal/core/program.go; internal/core/program_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T23,T27 | go test ./internal/core ./internal/cmd -run 'Test(Program|Report)' | cross-spec roll-ups exact, stable, bounded-cardinality, missing≠zero; drift alert references source records, mutates no lifecycle state R9.3 |
-| [x] T31 | craftsman | internal/cmd/e2e_test.go; internal/integration/observability_conformance_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T14,T18,T21,T24,T27,T28 | go test ./internal/cmd ./internal/integration -run 'Test(ObservabilityE2E|ObservabilityConformance)' && ./scripts/docs-lint.sh | E2E: unannotated run, provider-annotated run, failed retry chain, crash mid-append, budget brake, missing attested accounting, context pressure, context drift, privacy, cardinality, offline, back-compat |
+| [x] T28 | craftsman | internal/core/attestation.go; internal/core/attestation_test.go; internal/core/telemetry.go; docs/adapters/telemetry.md | T23, Domain 10 adapter | `go test ./internal/core -run 'Test(Attestation|Telemetry)'` | signed/hashed attested envelope from allowlisted key accepted; tampering rejected; all adapter tests offline R9.1 |
+| [x] T29 | craftsman | internal/core/config_loader.go; internal/core/config_test.go; internal/context/manifest.go; internal/context/manifest_test.go | T10 | `go test ./internal/core ./internal/context -run 'Test(Config|Manifest)'` | routing recommendation is policy metadata; same task/config → same class; no provider contact; unavailable model cannot bypass evidence R9.2 |
+| [x] T30 | craftsman | internal/core/program.go; internal/core/program_test.go; internal/cmd/report.go; internal/cmd/report_test.go | T23,T27 | `go test ./internal/core ./internal/cmd -run 'Test(Program|Report)'` | cross-spec roll-ups exact, stable, bounded-cardinality, missing≠zero; drift alert references source records, mutates no lifecycle state R9.3 |
+| [x] T31 | craftsman | internal/cmd/e2e_test.go; internal/integration/observability_conformance_test.go; docs/command-reference.md; docs/CHEATSHEET.md | T14,T18,T21,T24,T27,T28 | `go test ./internal/cmd ./internal/integration -run 'Test(ObservabilityE2E|ObservabilityConformance)' && ./scripts/docs-lint.sh` | E2E: unannotated run, provider-annotated run, failed retry chain, crash mid-append, budget brake, missing attested accounting, context pressure, context drift, privacy, cardinality, offline, back-compat |
 | [x] T32 | validator | specs/07-observability-cost-and-operational-economics; internal/core; internal/cmd; internal/context; internal/orchestration; internal/integration | T29,T30,T31 | go test ./... -race -count=1 && go test ./... -count=2 && go vet ./... && gofmt -l . && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | full Domain 07 evidence; iteration-order stable; `go mod tidy` clean |
 
 > **W9 deviations (additive contract wiring).**

@@ -99,7 +99,7 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
   real git HEAD). No bypass flag exists — do not add one.
 - **Structural invariants.** Atomic writes, CAS on `state.json` revision, reentrant per-spec
   lock, byte-stable tasks parser, `go:embed` templates, **zero runtime dependencies**
-  (keep `go.mod`/`go.sum` tidy — CI runs `go mod tidy` and fails on a diff).
+  (there is no `go.sum` — nothing to sum; CI runs `go mod tidy` and fails on any `go.mod` diff).
 - **Subtractive bias.** When unsure, cut or defer and record the decision.
 - **Docs sync.** If you touch CLI verbs or flags, update `docs/command-reference.md` **and**
   `docs/CHEATSHEET.md` together (`docs-lint.sh` enforces they match).
