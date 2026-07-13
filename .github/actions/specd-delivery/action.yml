@@ -1,0 +1,97 @@
+name: "specd delivery binding"
+description: "Bind immutable source evidence to one artifact and deployment attempt."
+
+# No checkout, credential discovery, network call, or third-party action occurs
+# here. Callers explicitly provide identity and references from their trusted
+# release job. Production use must be environment-protected by the workflow.
+inputs:
+  artifact:
+    description: "Path to the already-built artifact."
+    required: true
+  artifact-digest:
+    description: "Candidate artifact digest (sha256:<hex>)."
+    required: true
+  source-evidence-digest:
+    description: "Candidate task evidence-set digest."
+    required: true
+  git-head:
+    description: "Candidate git HEAD."
+    required: true
+  sbom-ref:
+    description: "Immutable SBOM reference."
+    required: true
+  provenance-ref:
+    description: "Immutable provenance reference."
+    required: true
+  environment:
+    description: "Closed target environment name."
+    required: true
+  deployment-id:
+    description: "External deployment identity."
+    required: true
+  attempt:
+    description: "Positive deployment attempt."
+    required: true
+  production-credential-present:
+    description: "Set true only when caller supplied a production credential."
+    required: false
+    default: "false"
+
+outputs:
+  binding:
+    description: "Validated CI delivery binding JSON path."
+    value: ${{ steps.bind.outputs.binding }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Bind source evidence to artifact
+      id: bind
+      shell: bash
+      env:
+        ARTIFACT: ${{ inputs.artifact }}
+        EXPECTED_DIGEST: ${{ inputs.artifact-digest }}
+        SOURCE_EVIDENCE_DIGEST: ${{ inputs.source-evidence-digest }}
+        GIT_HEAD: ${{ inputs.git-head }}
+        SBOM_REF: ${{ inputs.sbom-ref }}
+        PROVENANCE_REF: ${{ inputs.provenance-ref }}
+        TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        DEPLOYMENT_ID: ${{ inputs.deployment-id }}
+        ATTEMPT: ${{ inputs.attempt }}
+        PRODUCTION_CREDENTIAL_PRESENT: ${{ inputs.production-credential-present }}
+        EVENT_NAME: ${{ github.event_name }}
+        FORK: ${{ github.event.pull_request.head.repo.fork || false }}
+      run: |
+        set -euo pipefail
+        for value in "$ARTIFACT" "$EXPECTED_DIGEST" "$SOURCE_EVIDENCE_DIGEST" "$GIT_HEAD" "$SBOM_REF" "$PROVENANCE_REF" "$DEPLOYMENT_ID"; do
+          if [ -z "$value" ]; then echo "CI delivery binding input missing" >&2; exit 2; fi
+        done
+        case "$EXPECTED_DIGEST" in sha256:[0-9a-f][0-9a-f]*) ;; *) echo "artifact-digest must use sha256:<hex>" >&2; exit 2;; esac
+        case "$TARGET_ENVIRONMENT" in development|staging|production) ;; *) echo "unknown environment: $TARGET_ENVIRONMENT" >&2; exit 2;; esac
+        case "$ATTEMPT" in ''|*[!0-9]*|0) echo "attempt must be positive" >&2; exit 2;; esac
+        if [ "$EVENT_NAME" = pull_request ] && [ "$TARGET_ENVIRONMENT" = production ]; then
+          echo "pull_request cannot authorize production delivery" >&2
+          exit 2
+        fi
+        if [ "$FORK" = true ] && [ "$PRODUCTION_CREDENTIAL_PRESENT" = true ]; then
+          echo "fork pull_request cannot receive production credentials" >&2
+          exit 2
+        fi
+        if command -v sha256sum >/dev/null 2>&1; then
+          HASH="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
+        else
+          HASH="$(shasum -a 256 "$ARTIFACT" | awk '{print $1}')"
+        fi
+        ACTUAL_DIGEST="sha256:$HASH"
+        if [ "$ACTUAL_DIGEST" != "$EXPECTED_DIGEST" ]; then
+          echo "CI delivery artifact digest mismatch" >&2
+          exit 2
+        fi
+        BINDING="$RUNNER_TEMP/specd-delivery-binding.json"
+        jq -n -S \
+          --arg source_evidence_digest "$SOURCE_EVIDENCE_DIGEST" --arg git_head "$GIT_HEAD" \
+          --arg artifact_digest "$ACTUAL_DIGEST" --arg sbom_ref "$SBOM_REF" \
+          --arg provenance_ref "$PROVENANCE_REF" --arg environment "$TARGET_ENVIRONMENT" \
+          --arg deployment_id "$DEPLOYMENT_ID" --argjson attempt "$ATTEMPT" \
+          '{source_evidence_digest:$source_evidence_digest,git_head:$git_head,artifact_digest:$artifact_digest,sbom_ref:$sbom_ref,provenance_ref:$provenance_ref,environment:$environment,deployment_id:$deployment_id,attempt:$attempt}' > "$BINDING"
+        echo "binding=$BINDING" >> "$GITHUB_OUTPUT"

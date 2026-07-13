@@ -176,9 +176,9 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T49 | craftsman | new `internal/core/attestation.go` | T40 | `go test ./internal/core -run TestAttestationOffline -count=1` | R10.3 offline stdlib-crypto verify; tamper/expiry/audience fail |
-| T50 | craftsman | new `.github/actions/specd-delivery`; `docs/github-action.md` | T39,T49 | `./scripts/docs-lint.sh` | R10.1 bind source evidence → artifact/env |
-| T51 | validator | artifact-swap + fork-PR fixtures | T50 | `go test ./internal/core -run TestCIDeliveryBinding -count=1` | R10.1,R10.2 swap fails digest; fork gets no prod creds |
+| [x] T49 | craftsman | new `internal/core/attestation.go` | T40 | `go test ./internal/core -run TestAttestationOffline -count=1` | R10.3 offline stdlib-crypto verify; tamper/expiry/audience fail |
+| [x] T50 | craftsman | new `.github/actions/specd-delivery`; `docs/github-action.md` | T39,T49 | `./scripts/docs-lint.sh` | R10.1 bind source evidence → artifact/env |
+| [x] T51 | validator | artifact-swap + fork-PR fixtures | T50 | `go test ./internal/core -run TestCIDeliveryBinding -count=1` | R10.1,R10.2 swap fails digest; fork gets no prod creds |
 
 ## W11 — `08l-incident-portfolio-and-recovery-drills` (requires 08j,08k, Domain 09 maintenance)
 
