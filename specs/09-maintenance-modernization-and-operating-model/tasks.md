@@ -139,10 +139,13 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T32 | craftsman | new `internal/core/recurring.go` (check = command + cadence, versioned) | T11 | `go test ./internal/core -run TestRecurringDefine -count=1` | R7.1 definition validated; specd is not a daemon |
-| T33 | craftsman | `internal/core/recurring.go` (append-only result under spec lock) | T32 | `go test ./internal/core -run TestRecurringAppendOnly -count=2` | R7.2 failing HEAD never overwrites last pass |
-| T34 | craftsman | `internal/cmd/recurring.go`; `internal/core/commands.go`; `.github/workflows` example | T32 | `go test ./internal/cmd -run TestRecurringRecord -count=1` | R7.1 external CI runs; specd validates/records |
-| T35 | craftsman | `internal/core/recurring.go` (opt-in successor scaffold on failure) | T33 | `go test ./internal/core -run TestRecurringSuccessorOptIn -count=1` | R7.3 no silent mutation of completed record |
+| [x] T32 | craftsman | new `internal/core/recurring.go` (check = command + cadence, versioned) | T11 | `go test ./internal/core -run TestRecurringDefine -count=1` | R7.1 definition validated; specd is not a daemon |
+| [x] T33 | craftsman | `internal/core/recurring.go` (append-only result under spec lock) | T32 | `go test ./internal/core -run TestRecurringAppendOnly -count=2` | R7.2 failing HEAD never overwrites last pass |
+| [x] T34 | craftsman | `internal/cmd/recurring.go`; `internal/core/commands.go`; `.github/workflows` example | T32 | `go test ./internal/cmd -run TestRecurringRecord -count=1` | R7.1 external CI runs; specd validates/records |
+| [x] T35 | craftsman | `internal/core/recurring.go` (opt-in successor scaffold on failure) | T33 | `go test ./internal/core -run TestRecurringSuccessorOptIn -count=1` | R7.3 no silent mutation of completed record |
+
+> W7 deviation: T34 also updates CLI reference/cheatsheet sync and
+> `scripts/regress-domains.sh`'s intentional verb-count tripwire from 31 to 32 for `recurring`.
 
 ## W8 — `09i-incident-successor-and-prevention` (requires 09b,09f, Domain 08 observation)
 

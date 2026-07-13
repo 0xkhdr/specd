@@ -245,6 +245,12 @@ var Commands = []Command{
 		Flags:         []Flag{{Name: "json", Type: "bool", Description: "Emit stable JSON Lines."}},
 	},
 	{
+		Name: "recurring", Usage: "specd recurring record <spec> --check <id> --head <sha> --release <id> --config <id> --verdict pass|fail --observed-at <RFC3339>",
+		Description: "Validate and append an externally executed recurring-check result.", AllowedPhases: anyPhase(), ExitCodes: stdCodes(),
+		Examples: []string{"specd recurring record payments --check api-health --head 0123456789012345678901234567890123456789 --release rel-7 --config prod-v3 --verdict pass --observed-at 2026-01-01T00:00:00Z"},
+		Flags:    []Flag{{Name: "check", TakesValue: true, Type: "string", Description: "Recurring check identity."}, {Name: "head", TakesValue: true, Type: "string", Description: "Tested git HEAD."}, {Name: "release", TakesValue: true, Type: "string", Description: "Tested release identity."}, {Name: "config", TakesValue: true, Type: "string", Description: "Tested configuration identity."}, {Name: "verdict", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Description: "Check verdict."}, {Name: "observed-at", TakesValue: true, Type: "string", Description: "Explicit RFC3339 observation time."}},
+	},
+	{
 		Name:          "spike",
 		Usage:         "specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]",
 		Description:   "Record a bounded exploratory spike (learning without a completion or approval bypass).",

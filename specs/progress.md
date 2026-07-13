@@ -109,7 +109,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 09 W4 — `09e-memory-provenance-and-aging` (needs 09 W0, Domain 02 context)
 - [x] 09 W5 — `09f-maintenance-templates` (needs 09 W1,W2)
 - [x] 09 W6 — `09g-drift-projection` (needs 09 W2,W3, Domain 04 evidence)
-- [ ] 09 W7 — `09h-recurring-invariants` (needs 09 W2, Domain 07 measurement)
+- [x] 09 W7 — `09h-recurring-invariants` (needs 09 W2, Domain 07 measurement)
 - [ ] 09 W8 — `09i-incident-successor-and-prevention` (needs 09 W1,W5, Domain 08 observation)
 - [ ] 09 W9 — `09j-portfolio-governance-status` (needs 09 W1,W3)
 - [ ] 09 W10 — `09k-memory-conflict-lint` (needs 09 W4)

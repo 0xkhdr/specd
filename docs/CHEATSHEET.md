@@ -177,6 +177,28 @@ spec. **Phases:** any.
 specd drift payments --json
 ```
 
+### `recurring`
+```
+specd recurring record <spec> --check <id> --head <sha> --release <id> --config <id> --verdict pass|fail --observed-at <RFC3339>
+```
+Append a validated result envelope produced by external CI or a scheduler. Results pin check,
+HEAD, release, configuration, verdict, and explicit observation time under the spec lock; later
+results never replace earlier passing records. `specd` validates and records only—it does not run,
+schedule, or poll checks. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--check` | string | Recurring check identity. |
+| `--head` | string | Tested git HEAD. |
+| `--release` | string | Tested release identity. |
+| `--config` | string | Tested configuration identity. |
+| `--verdict` | `pass` or `fail` | Check verdict. |
+| `--observed-at` | RFC3339 | Explicit observation time supplied by runner. |
+
+```bash
+specd recurring record payments --check api-health --head 0123456789012345678901234567890123456789 --release rel-7 --config prod-v3 --verdict pass --observed-at 2026-01-01T00:00:00Z
+```
+
 ### `spike`
 ```
 specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]
