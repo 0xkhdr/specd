@@ -202,6 +202,33 @@ func TestProgramAddIsIdempotentAndRemove(t *testing.T) {
 	}
 }
 
+func TestProgramFeedbackLinksSuccessorWithoutMutatingCompletedHistory(t *testing.T) {
+	p := Program{SchemaVersion: ProgramSchemaVersion, Links: []ProgramLink{{From: "checkout", To: "platform", Kind: LinkKindFollows}}}
+	before := append([]ProgramLink(nil), p.Links...)
+	complete := func(slug string) bool { return slug == "checkout" || slug == "platform" }
+	if err := p.AddFeedbackLink("checkout-fix", "checkout", "runtime feedback rel-7", complete); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Links) != 2 || p.Links[1].From != "checkout-fix" || p.Links[1].To != "checkout" || p.Links[1].Kind != LinkKindMaintains {
+		t.Fatalf("maintenance edge not created: %+v", p.Links)
+	}
+	if p.Links[0] != before[0] {
+		t.Fatalf("completed history mutated: before=%+v after=%+v", before, p.Links)
+	}
+}
+
+func TestProgramFeedbackFailsClosedForMutableSourceOrCycle(t *testing.T) {
+	complete := func(slug string) bool { return slug == "done" }
+	p := Program{SchemaVersion: ProgramSchemaVersion}
+	if err := p.AddFeedbackLink("fix", "active", "feedback", complete); err == nil {
+		t.Fatal("active source accepted")
+	}
+	p.Links = []ProgramLink{{From: "done", To: "fix", Kind: LinkKindFollows}}
+	if err := p.AddFeedbackLink("fix", "done", "feedback", complete); err == nil {
+		t.Fatal("cycle accepted")
+	}
+}
+
 func TestProgramFrontierAndIncompleteDeps(t *testing.T) {
 	var p Program
 	p.AddLink("a", "b") // a depends on b

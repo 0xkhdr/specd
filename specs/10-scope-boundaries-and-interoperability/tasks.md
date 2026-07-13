@@ -47,9 +47,9 @@ record deviation before edit. Cross-domain prerequisites live in `README.md` and
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T15 | craftsman | internal/adapter/feedback.go; internal/adapter/feedback_test.go; internal/core/program.go | T12 | go test ./internal/adapter ./internal/core -run 'TestFeedback|TestProgram' | R10.3 feedback links maintenance; cannot mutate completed history |
-| [ ] T16 | craftsman | docs/adapter-contract.md; docs/command-reference.md; docs/CHEATSHEET.md; internal/adapter/version_test.go | T13,T14,T15 | go test ./internal/adapter -run 'TestSchemaVersion' && ./scripts/docs-lint.sh | R10.4 adapter-schema versioning/negotiation policy documented |
-| [ ] T17 | validator | specs/10-scope-boundaries-and-interoperability; internal/adapter; internal/cmd | T16 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | all R1-R10 release evidence |
+| [x] T15 | craftsman | internal/adapter/feedback.go; internal/adapter/feedback_test.go; internal/core/program.go | T12 | go test ./internal/adapter ./internal/core -run 'TestFeedback|TestProgram' | R10.3 feedback links maintenance; cannot mutate completed history |
+| [x] T16 | craftsman | docs/adapter-contract.md; docs/command-reference.md; docs/CHEATSHEET.md; internal/adapter/version_test.go | T13,T14,T15 | go test ./internal/adapter -run 'TestSchemaVersion' && ./scripts/docs-lint.sh | R10.4 adapter-schema versioning/negotiation policy documented |
+| [x] T17 | validator | specs/10-scope-boundaries-and-interoperability; internal/adapter; internal/cmd | T16 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | all R1-R10 release evidence |
 
 ## Cross-wave rules
 

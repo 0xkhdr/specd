@@ -461,6 +461,31 @@ func (p *Program) AddTypedLink(from, to string, kind LinkKind, reason string) er
 	return nil
 }
 
+// AddFeedbackLink links successor-owned maintenance work to completed history.
+// It only appends a typed edge: runtime feedback cannot reopen, edit, or remove
+// source history. Completion authority stays with the caller's gate predicate.
+func (p *Program) AddFeedbackLink(successor, source, reason string, complete func(string) bool) error {
+	if err := ValidateSlug(successor); err != nil {
+		return fmt.Errorf("invalid feedback successor: %w", err)
+	}
+	if err := ValidateSlug(source); err != nil {
+		return fmt.Errorf("invalid feedback source: %w", err)
+	}
+	if reason == "" {
+		return errors.New("feedback provenance reason is required")
+	}
+	if complete == nil || !complete(source) {
+		return errors.New("feedback source must be completed; create maintenance work only after history is immutable")
+	}
+	if complete(successor) {
+		return errors.New("feedback successor must be new mutable maintenance work")
+	}
+	if cycle := p.WouldCycle(successor, source); len(cycle) != 0 {
+		return fmt.Errorf("feedback successor link would create cycle: %s", strings.Join(cycle, " -> "))
+	}
+	return p.AddTypedLink(successor, source, LinkKindMaintains, reason)
+}
+
 // RemoveLink deletes from→to and reports whether it existed.
 func (p *Program) RemoveLink(from, to string) bool {
 	for i, link := range p.Links {

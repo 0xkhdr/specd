@@ -50,3 +50,15 @@ Domains 04/05/07/08 and frozen once at `10c`.
 Every roadmap integration item in `docs/google-sdlc-alignment/*` maps to one row
 here or to a domain-owned extension of the frozen envelope. Adapter schema
 versions negotiate independently of the CLI and on-disk state schema (R10.4).
+
+## Adapter schema compatibility and negotiation
+
+Adapter-envelope and payload schemas are independent of CLI and on-disk state schemas.
+Before any side effect, caller and adapter must agree on an exact offered version and all required
+capabilities. Unknown versions fail closed; there is no implicit downgrade or fallback.
+
+An additive change may retain a version only when every previously valid message keeps its meaning
+and old strict decoders remain valid. Optional domain payloads use their own schema version. A
+breaking change—removing or renaming a field, changing meaning/defaults, or tightening a previously
+valid value—requires a new schema version offered explicitly alongside any still-supported version.
+CLI releases and state migrations neither select nor imply adapter compatibility.

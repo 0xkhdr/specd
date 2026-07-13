@@ -5,6 +5,10 @@
 > `docs/CHEATSHEET.md` is a byte-identical copy of this file; `scripts/docs-lint.sh`
 > fails CI if they drift. Edit this file, then copy it over the cheatsheet.
 
+Adapter compatibility is negotiated before execution against an exact offered adapter-envelope
+and payload schema version. It is independent of CLI/state versions; unknown versions fail closed
+with no implicit downgrade. See `docs/adapter-contract.md`.
+
 `specd <verb> [args] [flags]`. Run `specd help` for the live palette or
 `specd help <verb>` for one command. `specd help --json` emits the machine-readable
 palette (`schema_version` + `commands[]`) that dispatch, MCP, and role prompts pin against.
