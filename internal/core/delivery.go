@@ -80,26 +80,28 @@ type EnvironmentV1 struct {
 }
 
 type DeploymentV1 struct {
-	Schema          string           `json:"schema"`
-	DeploymentID    string           `json:"deployment_id"`
-	Attempt         int              `json:"attempt"`
-	ReleaseID       string           `json:"release_id"`
-	GitHead         string           `json:"git_head"`
-	ArtifactDigest  string           `json:"artifact_digest"`
-	Environment     EnvironmentName  `json:"environment"`
-	Status          DeploymentStatus `json:"status"`
-	Strategy        string           `json:"strategy"`
-	Population      string           `json:"population"`
-	Window          string           `json:"window"`
-	Adapter         string           `json:"adapter"`
-	Authority       string           `json:"authority"`
-	Actor           string           `json:"actor"`
-	IdempotencyKey  string           `json:"idempotency_key"`
-	StartedAt       string           `json:"started_at"`
-	FinishedAt      string           `json:"finished_at,omitempty"`
-	TelemetrySource string           `json:"telemetry_source"`
-	EvidenceRef     string           `json:"evidence_ref"`
-	AttestationRef  string           `json:"attestation_ref"`
+	Schema             string             `json:"schema"`
+	DeploymentID       string             `json:"deployment_id"`
+	Attempt            int                `json:"attempt"`
+	ReleaseID          string             `json:"release_id"`
+	GitHead            string             `json:"git_head"`
+	ArtifactDigest     string             `json:"artifact_digest"`
+	Environment        EnvironmentName    `json:"environment"`
+	Status             DeploymentStatus   `json:"status"`
+	Strategy           string             `json:"strategy"`
+	Population         string             `json:"population"`
+	Window             string             `json:"window"`
+	Adapter            string             `json:"adapter"`
+	Authority          string             `json:"authority"`
+	Actor              string             `json:"actor"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	StartedAt          string             `json:"started_at"`
+	FinishedAt         string             `json:"finished_at,omitempty"`
+	TelemetrySource    string             `json:"telemetry_source"`
+	EvidenceRef        string             `json:"evidence_ref"`
+	AttestationRef     string             `json:"attestation_ref"`
+	AdapterTrustSource AdapterTrustSource `json:"adapter_trust_source,omitempty"`
+	AdapterMessage     string             `json:"adapter_message,omitempty"`
 }
 
 type ObservationFreshness struct {
@@ -206,6 +208,12 @@ func ValidateDeployment(d DeploymentV1) error {
 	}
 	if d.Attempt < 1 {
 		return fmt.Errorf("deployment attempt must be positive")
+	}
+	if d.AdapterTrustSource != "" && !d.AdapterTrustSource.valid() {
+		return fmt.Errorf("deployment adapter trust_source %q is not allowlisted", d.AdapterTrustSource)
+	}
+	if len(d.AdapterMessage) > MaxDeploymentAdapterMessageBytes {
+		return fmt.Errorf("deployment adapter message exceeds %d bytes", MaxDeploymentAdapterMessageBytes)
 	}
 	if _, err := parseRFC3339("started_at", d.StartedAt); err != nil {
 		return err

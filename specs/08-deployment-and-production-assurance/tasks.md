@@ -144,10 +144,15 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T40 | craftsman | new `internal/core/adapter_envelope.go`; `docs/adapters/deployment.md` | T33 | `go test ./internal/core -run TestAdapterEnvelope -count=1` | R8.1 stdin/file, no implicit creds, zero new deps |
-| T41 | craftsman | `internal/core/adapter_envelope.go` (idempotency) | T40 | `go test ./internal/core -run TestIdempotencyKey -count=1` | R8.2 duplicate key = no-op/conflict |
-| T42 | craftsman | `internal/core/adapter_envelope.go` (reject malformed/untrusted) | T40 | `go test ./internal/core -run TestEnvelopeReject -count=1` | R8.3 hostile prose/cred stored bounded, never instruction |
-| T43 | validator | core deps unchanged | T40 | `go mod tidy && git diff --exit-code go.mod go.sum` | R8.1 zero new dependencies/network |
+| [x] T40 | craftsman | new `internal/core/adapter_envelope.go`; `docs/adapters/deployment.md` | T33 | `go test ./internal/core -run TestAdapterEnvelope -count=1` | R8.1 stdin/file, no implicit creds, zero new deps |
+| [x] T41 | craftsman | `internal/core/adapter_envelope.go` (idempotency) | T40 | `go test ./internal/core -run TestIdempotencyKey -count=1` | R8.2 duplicate key = no-op/conflict |
+| [x] T42 | craftsman | `internal/core/adapter_envelope.go` (reject malformed/untrusted) | T40 | `go test ./internal/core -run TestEnvelopeReject -count=1` | R8.3 hostile prose/cred stored bounded, never instruction |
+| [x] T43 | validator | core deps unchanged | T40 | `go mod tidy && git diff --exit-code go.mod go.sum` | R8.1 zero new dependencies/network |
+
+> **08i scope deviation:** R8.3 requires accepted trust source and bounded/redacted adapter prose to
+> remain visible in stored audit facts. T40–T42 therefore add backward-compatible optional
+> `adapter_trust_source`/`adapter_message` fields to `DeploymentV1` in `internal/core/delivery.go`,
+> and strict TDD adds `internal/core/adapter_envelope_test.go`. Existing ledger rows decode unchanged.
 
 ## W9 — `08j-canary-health-promotion-rollback` (requires 08h,08i, Domain 07 measurement)
 
