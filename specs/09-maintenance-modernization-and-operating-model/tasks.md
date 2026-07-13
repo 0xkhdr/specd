@@ -107,7 +107,7 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| [x] T24 | craftsman | new `internal/core/embed_templates/maintenance/{incident,dependency,migration,recurring}.md`; `roles.go`/`scaffold.go` | T07,T11 | `go test ./internal/core -run TestMaintenanceTemplates -count=1` | R5.1 source→req→task→evidence→learning |
+| [x] T24 | craftsman | new `internal/core/embed_templates/maintenance/{incident,dependency,migration,recurring}.md`; `internal/core/roles.go`; `internal/core/scaffold.go` | T07,T11 | `go test ./internal/core -run TestMaintenanceTemplates -count=1` | R5.1 source→req→task→evidence→learning |
 | [x] T25 | craftsman | `internal/core/scaffold.go` (refresh preserves project content) | T24 | `go test ./internal/core -run TestTemplateRefreshPreserves -count=1` | R5.2 inspectable schema/version; content survives refresh |
 | [x] T26 | craftsman | templates scaffold intake + successor links per source_type | T24,T12 | `go test ./internal/core -run TestTemplateReadinessPassable -count=1` | R5.3 instantiated spec starts readiness-passable |
 | [x] T27 | craftsman | `docs/command-reference.md`; `docs/CHEATSHEET.md` | T24 | `./scripts/docs-lint.sh` | R5.1 document templates |

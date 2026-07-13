@@ -107,13 +107,14 @@ sum; CI runs `go mod tidy` and fails on any `go.mod` diff."
 
 ## 3. Residual items (low severity, deliberately not auto-fixed)
 
-### R1 — Nine stale **file-column** declarations in completed rows · **LOW**
+### R1 — Nine stale **file-column** declarations in completed rows · **RESOLVED 2026-07-13**
 Generalizing the stale-target audit surfaced nine `[x]` rows whose `files:` column
 names a source file that has since been renamed or split. These are **not** evidence
 defects — the verify commands run and pass; the code exists under different names —
 so the lint intentionally does **not** flag the prose-heavy `files:` column (doing so
-produced false positives on legitimately-renamed files across domains 08/09). Left as
-optional documentation cleanup; the accurate mappings are:
+produced false positives on legitimately-renamed files across domains 08/09).
+**Applied 2026-07-13** — 7 rows corrected (7 ins / 7 del, `[x]` count 293 unchanged;
+`regress-all` still green at 284 executed / 0 fail). The mappings applied were:
 
 | Row | Declared (stale) | Now lives in |
 |-----|------------------|--------------|
@@ -128,13 +129,25 @@ To make this a lint-enforced invariant one would first need to standardize the
 is a larger, separate change than the tooling repair above — recorded here rather
 than smuggled in.
 
-### R2 — `regress-all` is serial and slow · **LOW**
+### R2 — `regress-all` is serial and slow · **PARTIALLY RESOLVED 2026-07-13**
 Re-running ~285 verifies sequentially takes minutes and several rows invoke
-`regress-domains.sh` (a full fresh-tree build) inside their own chain, so CI does
-redundant builds. It is correct and hermetic; parallelizing is a future optimization,
-not a defect. (During development, running it concurrently with other `go test`
-invocations caused spurious SIGKILL/`rc=152` failures from CPU/disk oversubscription
-— it must run without competing heavy load, which CI's dedicated job provides.)
+`regress-domains.sh` (a full fresh-tree build) inside their own chain, so CI did
+redundant builds.
+
+**Build-dedup applied 2026-07-13.** `run_row` now strips any trailing
+`&& ./scripts/regress-domains.sh` / `&& ./scripts/regress-lint.sh` link from a row's
+verify (each already runs as its own dedicated CI job) so the row's *own* test still
+runs but the duplicate fresh-tree build does not, and it skips a row that is *only* a
+bare `regress-domains` call. This removed the 5 redundant chained builds plus one bare
+row (08-T22); post-change run is green at 284 executed / 0 fail / 9 skip. The strip is
+deliberately narrow — an asserting row (e.g. the `grep -q 'input absent'` redaction
+check) is not a bare call and still runs in full.
+
+**Still deferred:** true parallelism. It is correct and hermetic; running rows
+concurrently is a future optimization, not a defect. (During development, running it
+concurrently with other `go test` invocations caused spurious SIGKILL/`rc=152` failures
+from CPU/disk oversubscription — it must run without competing heavy load, which CI's
+dedicated job provides.)
 
 ---
 

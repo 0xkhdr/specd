@@ -66,6 +66,16 @@ run_row() {
 			printf '%-8s %-6s %s\n' "$id" "SKIP" "(self-recursive: $cmd)" >>"$LOG"
 			return 0 ;;
 	esac
+	# ponytail: regress-domains and regress-lint each run as their own CI job (a
+	# full fresh-tree build); a row appending them after a real test just repeats
+	# that build. Strip those trailing links so the row's own test still runs, and
+	# skip a row that is *only* a bare regress-domains call (fully covered there).
+	cmd=$(printf '%s' "$cmd" | sed -E 's# *&& *\.?/?scripts/regress-(domains|lint)\.sh##g')
+	case "$cmd" in
+		*regress-domains.sh)
+			printf '%-8s %-6s %s\n' "$id" "SKIP" "(bare regress-domains, covered by its CI job)" >>"$LOG"
+			return 0 ;;
+	esac
 	ran=$((ran+1))
 	if (cd "$ROOT" && sh -c "$cmd") >/dev/null 2>&1; then
 		printf '%-8s %-6s rc=%-3s %s\n' "$id" "PASS" "0" "$cmd" >>"$LOG"

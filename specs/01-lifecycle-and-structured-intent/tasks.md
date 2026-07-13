@@ -35,7 +35,7 @@
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | [x] T11 | craftsman | internal/core/tasksparser.go; internal/core/tasksparser_test.go; internal/core/tasksparser_fuzz_test.go | T02,T06 | `go test ./internal/core -run 'TestTasks|TestRewrite'` | R3.1 backward-compatible task metadata |
-| [x] T12 | craftsman | internal/core/tasksparser.go; internal/core/dag.go; internal/core/dag_test.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T11 | `go test ./internal/core ./internal/core/gates -run 'Test.*Trace|TestDAG'` | resolvable task refs/risk |
+| [x] T12 | craftsman | internal/core/tasksparser.go; internal/core/dag.go; internal/core/tasksparser_test.go; internal/core/gates/core.go; internal/core/gates/core_test.go | T11 | `go test ./internal/core ./internal/core/gates -run 'Test.*Trace|TestDAG'` | resolvable task refs/risk |
 | [x] T13 | craftsman | internal/core/scaffold.go; internal/core/scaffold_test.go; docs/open-spec-format.md; docs/validation-gates.md | T12 | go test ./internal/core -run TestScaffold && ./scripts/docs-lint.sh | author format/docs migration guidance |
 
 **W2 cross-wave deviations (files edited beyond the declared lists, recorded per prompt.md §2):**
@@ -60,7 +60,7 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [x] T17 | craftsman | internal/core/amendment.go; internal/core/amendment_test.go; internal/core/state.go; internal/core/state_test.go | T03,T14 | `go test ./internal/core -run 'TestAmendment|TestState'` | R5.1 append-only impact record |
+| [x] T17 | craftsman | internal/core/amendment.go; internal/core/state_test.go; internal/core/state.go; internal/core/state_test.go | T03,T14 | `go test ./internal/core -run 'TestAmendment|TestState'` | R5.1 append-only impact record |
 | [x] T18 | craftsman | internal/core/freshness.go; internal/core/freshness_test.go; internal/core/gates/approval.go; internal/core/gates/approval_gate_test.go | T17,T15 | `go test ./internal/core ./internal/core/gates -run 'TestFreshness|TestApproval'` | R5.2,R5.3 stale/current rules |
 | [x] T19 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/dispatch.go; internal/cmd/dispatch_test.go | T18 | `go test ./internal/cmd -run 'TestMidreq|TestDispatch'` | unsafe dispatch pause, no rewind |
 
