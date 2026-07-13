@@ -46,6 +46,22 @@ go test ./internal/core/gates -run '^TestQualityGateVerifyStrengthAndReadOnlyExc
 }
 pass 04-W3 "quality gate rejects shallow writes and exempts read-only work"
 
+# Domain 05 W5 — orchestration release proof. Exercise lifecycle failure modes
+# and adapter parity in fresh copied source; transport metadata must not alter ACP.
+go test ./internal/cmd ./internal/orchestration ./internal/integration ./internal/mcp \
+	-run 'Test(BrainDispatchCreatesPendingMissionWithoutWorkerLease|BrainResumeRaceDispatchesExactlyOnce|BrainReportProductionScopeRejectsUndeclared|BrainRunHaltsOnConfiguredCostBrake|ConflictOverlappingWriteScopes|OrchestrationConformance|ParityA2A|A2A)' \
+	-count=1 >/dev/null 2>&1 || {
+	violation 05-W5 "orchestration lifecycle or adapter parity regressed"
+}
+pass 05-W5 "pending/race/stale/revoke/brake/conflict/A2A contracts hold"
+
+# Domain 06 W8 — adapter negotiation and incident attestations in fresh source.
+go test ./internal/core/verify ./internal/core/gates/security ./internal/integration \
+	-run 'Test(Adapter|SandboxConformance|Regress|SecurityConformance)' -count=1 >/dev/null 2>&1 || {
+	violation 06-W8 "sandbox adapter or security regression conformance regressed"
+}
+pass 06-W8 "adapter capability and incident attestation contracts hold"
+
 # W0 — honesty: progress.md must obey its own wave-ordering invariant. Prove
 # the advertised input exists and parses before evaluating it: absent and
 # unparseable are failures, not vacuous passes.
@@ -113,10 +129,10 @@ else
 fi
 
 # W5 — surface lock: the bare verb count is pinned as a tripwire, so adding or
-# removing a verb is a deliberate edit here. Current surface is 28 (16 original
+# removing a verb is a deliberate edit here. Current surface is 29 (16 original
 # + submit, review, link, unlink, program-era verbs, version, triage, the
 # delivery verbs release + deploy, adapters, and spike). Bump this only alongside an intended verb change.
-W5_EXPECT=28
+W5_EXPECT=29
 verbs=$("$SPECD" 2>&1 | sed -n 's/^  \([a-z][a-z]*\) .*/\1/p' | sort -u | wc -l | tr -d ' ')
 if [ "$verbs" -ne "$W5_EXPECT" ]; then
 	violation W5 "verb count is $verbs, expected $W5_EXPECT"

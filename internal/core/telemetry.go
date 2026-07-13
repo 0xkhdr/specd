@@ -37,9 +37,12 @@ const (
 // tokens/cost/duration) decodes unchanged and re-encodes byte-identically,
 // while a canonical record round-trips its version and provenance byte-stably.
 type Annotations struct {
-	Tokens     int    `json:"tokens,omitempty"`
-	Cost       string `json:"cost,omitempty"`
-	DurationMs int    `json:"duration_ms,omitempty"`
+	Tokens       int    `json:"tokens,omitempty"`
+	InputTokens  int    `json:"input_tokens,omitempty"`
+	OutputTokens int    `json:"output_tokens,omitempty"`
+	CachedTokens int    `json:"cached_tokens,omitempty"`
+	Cost         string `json:"cost,omitempty"`
+	DurationMs   int    `json:"duration_ms,omitempty"`
 
 	// Source is the trust provenance (worker|provider_adapter|operator, R1.3).
 	// Currency pairs with Cost on canonical records (R1.2). AttestationRef is an
@@ -47,6 +50,9 @@ type Annotations struct {
 	// EnvelopeVersion marks the schema; empty means legacy (grandfathered).
 	Source          string `json:"telemetry_source,omitempty"`
 	Currency        string `json:"currency,omitempty"`
+	PricingRef      string `json:"pricing_ref,omitempty"`
+	Provider        string `json:"provider,omitempty"`
+	Model           string `json:"model,omitempty"`
 	AttestationRef  string `json:"attestation_ref,omitempty"`
 	EnvelopeVersion string `json:"envelope_version,omitempty"`
 }
@@ -71,6 +77,13 @@ func ValidateAnnotations(a *Annotations) error {
 	if a.Tokens < 0 {
 		return fmt.Errorf("telemetry tokens %d is negative", a.Tokens)
 	}
+	if a.InputTokens < 0 || a.OutputTokens < 0 || a.CachedTokens < 0 {
+		return fmt.Errorf("telemetry token categories must be non-negative")
+	}
+	categoryTotal := a.InputTokens + a.OutputTokens + a.CachedTokens
+	if categoryTotal > 0 && a.Tokens > 0 && categoryTotal != a.Tokens {
+		return fmt.Errorf("telemetry tokens %d contradict category total %d", a.Tokens, categoryTotal)
+	}
 	if a.DurationMs < 0 {
 		return fmt.Errorf("telemetry duration_ms %d is negative", a.DurationMs)
 	}
@@ -87,6 +100,14 @@ func ValidateAnnotations(a *Annotations) error {
 	if a.Cost != "" && a.Currency == "" {
 		return fmt.Errorf("telemetry cost present without currency")
 	}
+	if a.Cost != "" && a.PricingRef == "" {
+		return fmt.Errorf("telemetry cost present without pricing_ref")
+	}
+	for name, value := range map[string]string{"provider": a.Provider, "model": a.Model} {
+		if value != "" && !boundedIdentifier.MatchString(value) {
+			return fmt.Errorf("telemetry %s %q is not a bounded identifier", name, value)
+		}
+	}
 	return nil
 }
 
@@ -94,6 +115,56 @@ func ValidateAnnotations(a *Annotations) error {
 // It deliberately rejects big.Rat's looser forms (fractions, exponents, signs)
 // so cost stays an honest money string.
 var decimalPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
+var boundedIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$`)
+
+// ParseAnnotationFlags parses the additive provider-neutral flag set. New
+// fields opt into canonical v1 validation; legacy-only flags retain old shape.
+func ParseAnnotationFlags(values map[string]string, present func(string) bool) (*Annotations, error) {
+	legacy, err := ParseAnnotations(values["tokens"], values["cost"], values["duration-ms"], present)
+	if err != nil {
+		return nil, err
+	}
+	newFields := []string{"input-tokens", "output-tokens", "cached-tokens", "provider", "model", "currency", "pricing-ref", "telemetry-source", "attestation-ref"}
+	hasNew := false
+	for _, name := range newFields {
+		if present(name) {
+			hasNew = true
+			break
+		}
+	}
+	if legacy == nil && !hasNew {
+		return nil, nil
+	}
+	if legacy == nil {
+		legacy = &Annotations{}
+	}
+	for flag, target := range map[string]*int{"input-tokens": &legacy.InputTokens, "output-tokens": &legacy.OutputTokens, "cached-tokens": &legacy.CachedTokens} {
+		if !present(flag) {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(values[flag]))
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("--%s must be a non-negative integer, got %q", flag, values[flag])
+		}
+		*target = n
+	}
+	if hasNew {
+		legacy.EnvelopeVersion = TelemetryEnvelopeV1
+		legacy.Source = strings.TrimSpace(values["telemetry-source"])
+		if legacy.Source == "" {
+			legacy.Source = TelemetrySourceWorker
+		}
+		legacy.Currency = strings.TrimSpace(values["currency"])
+		legacy.PricingRef = strings.TrimSpace(values["pricing-ref"])
+		legacy.Provider = strings.TrimSpace(values["provider"])
+		legacy.Model = strings.TrimSpace(values["model"])
+		legacy.AttestationRef = strings.TrimSpace(values["attestation-ref"])
+	}
+	if err := ValidateAnnotations(legacy); err != nil {
+		return nil, err
+	}
+	return legacy, nil
+}
 
 // ParseAnnotations reads the optional --tokens/--cost/--duration-ms flags. It
 // returns nil (no telemetry) when none are present, and a validation error when
@@ -135,10 +206,13 @@ func ParseAnnotations(tokens, cost, durationMs string, present func(string) bool
 // is explicit: HasTelemetry is false when no attempt carried annotations, so the
 // report shows missing data rather than imputing zero (R4).
 type TaskTelemetry struct {
-	TaskID   string        `json:"task_id"`
-	Attempts []Annotations `json:"attempts,omitempty"`
-	Tokens   int           `json:"tokens"`
-	Cost     string        `json:"cost"`
+	TaskID       string        `json:"task_id"`
+	Attempts     []Annotations `json:"attempts,omitempty"`
+	Tokens       int           `json:"tokens"`
+	InputTokens  int           `json:"input_tokens"`
+	OutputTokens int           `json:"output_tokens"`
+	CachedTokens int           `json:"cached_tokens"`
+	Cost         string        `json:"cost"`
 	// Source is the telemetry provenance surfaced so a report renders the values
 	// as reported, never as independently measured (spec 07 R1.3). A legacy
 	// attempt carries no explicit source and is reported as worker-reported.
@@ -151,11 +225,14 @@ type TaskTelemetry struct {
 // (integer sums for tokens/duration, rational sum for cost). Missing lists the
 // tasks with no telemetry at all.
 type TelemetryReport struct {
-	Tokens     int             `json:"tokens"`
-	Cost       string          `json:"cost"`
-	DurationMs int             `json:"duration_ms"`
-	Tasks      []TaskTelemetry `json:"tasks,omitempty"`
-	Missing    []string        `json:"missing,omitempty"`
+	Tokens       int             `json:"tokens"`
+	InputTokens  int             `json:"input_tokens"`
+	OutputTokens int             `json:"output_tokens"`
+	CachedTokens int             `json:"cached_tokens"`
+	Cost         string          `json:"cost"`
+	DurationMs   int             `json:"duration_ms"`
+	Tasks        []TaskTelemetry `json:"tasks,omitempty"`
+	Missing      []string        `json:"missing,omitempty"`
 }
 
 // AggregateTelemetry folds every evidence record's annotations into per-task and
@@ -205,6 +282,9 @@ func AggregateTelemetry(records []EvidenceRecord, taskOrder []string) TelemetryR
 		taskCost := new(big.Rat)
 		for _, ann := range attempts {
 			task.Tokens += ann.Tokens
+			task.InputTokens += ann.InputTokens
+			task.OutputTokens += ann.OutputTokens
+			task.CachedTokens += ann.CachedTokens
 			task.DurationMs += ann.DurationMs
 			if ann.Cost != "" {
 				if r, ok := new(big.Rat).SetString(ann.Cost); ok {
@@ -215,6 +295,9 @@ func AggregateTelemetry(records []EvidenceRecord, taskOrder []string) TelemetryR
 		}
 		task.Cost = formatRat(taskCost)
 		report.Tokens += task.Tokens
+		report.InputTokens += task.InputTokens
+		report.OutputTokens += task.OutputTokens
+		report.CachedTokens += task.CachedTokens
 		report.DurationMs += task.DurationMs
 		report.Tasks = append(report.Tasks, task)
 	}

@@ -23,6 +23,7 @@ type Options struct {
 	TimeoutSecs    int
 	Limits         Limits
 	Secrets        []string
+	Adapter        *SandboxAdapterV1
 }
 
 const (
@@ -61,6 +62,14 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	sandbox := opts.Sandbox || opts.RequireSandbox
 	if sandbox {
 		binary := opts.SandboxBinary
+		if opts.Adapter != nil {
+			if err := opts.Adapter.Validate(opts.RequireSandbox); err != nil {
+				return Result{ExitCode: 127}, fmt.Errorf("sandbox adapter refused: %w", err)
+			}
+			if opts.Adapter.Binary != "" {
+				binary = opts.Adapter.Binary
+			}
+		}
 		if binary == "" {
 			binary = "bwrap"
 		}

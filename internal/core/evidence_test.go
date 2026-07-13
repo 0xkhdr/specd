@@ -60,7 +60,7 @@ func TestEvidenceTelemetryEnvelope(t *testing.T) {
 	// Canonical v1 telemetry round-trips through append + load.
 	canon := filepath.Join(dir, "canon.jsonl")
 	rec := EvidenceRecord{TaskID: "T1", ExitCode: 0, GitHead: "abc",
-		Telemetry: &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "0.02", Currency: "USD"}}
+		Telemetry: &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "0.02", Currency: "USD", PricingRef: "pricing/v1"}}
 	if err := AppendEvidence(canon, rec); err != nil {
 		t.Fatalf("append canonical telemetry: %v", err)
 	}

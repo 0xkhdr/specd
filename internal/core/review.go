@@ -17,6 +17,58 @@ const (
 	ReviewNeedsChanges = "needs-changes"
 )
 
+// ReviewContract is the deterministic review envelope. Hard risks are always
+// visible to the auditor; required test evidence remains an independent gate.
+type ReviewContract struct {
+	TaskID          string
+	SubjectRevision string
+	RequiredTests   []string
+	HardRisks       []string
+}
+
+var hardReviewRisks = []string{"integration", "error", "concurrency", "rollback"}
+
+func BuildReviewContract(quality QualityContract, subjectRevision string, risks []string) ReviewContract {
+	contract := ReviewContract{TaskID: quality.TaskID, SubjectRevision: subjectRevision, HardRisks: append([]string(nil), hardReviewRisks...)}
+	for _, req := range quality.Required {
+		if req.EvidenceClass == EvidenceTest {
+			contract.RequiredTests = append(contract.RequiredTests, req.CheckID)
+		}
+	}
+	seen := map[string]bool{}
+	for _, risk := range contract.HardRisks {
+		seen[risk] = true
+	}
+	for _, risk := range risks {
+		if risk != "" && !seen[risk] {
+			contract.HardRisks = append(contract.HardRisks, risk)
+			seen[risk] = true
+		}
+	}
+	return contract
+}
+
+// ValidateReviewContract enforces test proof separately from human review.
+func ValidateReviewContract(contract ReviewContract, status QualityStatus) error {
+	missing := map[string]bool{}
+	for _, req := range status.Missing {
+		if req.EvidenceClass == EvidenceTest {
+			missing[req.CheckID] = true
+		}
+	}
+	for _, req := range status.Stale {
+		if req.EvidenceClass == EvidenceTest {
+			missing[req.CheckID] = true
+		}
+	}
+	for _, check := range contract.RequiredTests {
+		if missing[check] {
+			return fmt.Errorf("REVIEW_TEST_REQUIRED: %s", check)
+		}
+	}
+	return nil
+}
+
 // ReviewReport is the field-extraction result of a review_report.md. The report
 // is human-edited, so — unlike the tasks parser — the parser does not require
 // byte-stability or round-tripping; it extracts three load-bearing fields and

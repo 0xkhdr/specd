@@ -1,14 +1,19 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates"
+	"github.com/0xkhdr/specd/internal/core/verify"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 // TestLifecycleE2E drives init→new→check→approve→next→verify→report through a
@@ -201,6 +206,18 @@ func TestLifecycleE2E(t *testing.T) {
 	}
 }
 
+func TestSecurityE2EProductionBoundariesFailClosed(t *testing.T) {
+	if err := gates.CheckScope([]string{"declared.go", "credential.env"}, []string{"declared.go"}); err == nil || !strings.Contains(err.Error(), "outside_scope") {
+		t.Fatalf("scope outcome = %v", err)
+	}
+	_, err := verify.Run(context.Background(), verify.Options{Command: "true", Dir: t.TempDir(), RequireSandbox: true, Adapter: &verify.SandboxAdapterV1{
+		SchemaVersion: verify.SandboxAdapterSchemaV1, Name: "ci", Platform: "ci", Binary: "/bin/sh", Capabilities: []string{verify.CapabilityNetworkIsolation},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "missing required capability") {
+		t.Fatalf("adapter outcome = %v", err)
+	}
+}
+
 func TestLifecycleE2EHostSurfaceMarker(t *testing.T) {
 	// MCP and future hosts must drive CLI-owned lifecycle, with human approval
 	// and evidence kept as distinct outcomes.
@@ -208,6 +225,26 @@ func TestLifecycleE2EHostSurfaceMarker(t *testing.T) {
 		if outcome == "approved-by-agent" {
 			t.Fatalf("agent approval must never be a lifecycle outcome")
 		}
+	}
+}
+
+func TestLifecycleE2EOrchestrationReleaseEnvelope(t *testing.T) {
+	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
+	heartbeat := orchestration.HeartbeatV1{LeaseID: "lease", MissionID: "mission", WorkerID: "worker", Attempt: 1, At: now}
+	raw, err := orchestration.ExportA2A(orchestration.A2AKindHeartbeat, heartbeat, orchestration.A2ATransport{Adapter: "release-fixture", MessageID: "transport-only"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := orchestration.ImportA2A(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, err := orchestration.A2ASemanticACP(message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.Kind != orchestration.A2AKindHeartbeat || event.MissionID != heartbeat.MissionID || strings.Contains(event.Payload, "transport-only") {
+		t.Fatalf("release envelope changed semantics: %+v", event)
 	}
 }
 

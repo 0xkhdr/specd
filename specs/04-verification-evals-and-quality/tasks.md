@@ -54,20 +54,33 @@ before edit. Cross-domain links remain README program links, not local task ids.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T14 | craftsman | internal/cmd/eval.go; internal/cmd/eval_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go; internal/core/eval_import.go | T07,T11 | go test ./internal/cmd ./internal/core -run 'Test(Eval|Registry|EvalImport)' | local `eval import/status` contract; adapter absence does not network/downgrade gate R3,R6 |
-| [ ] T15 | craftsman | internal/core/eval_policy.go; internal/core/eval_policy_test.go; internal/core/eval_import.go; internal/core/eval_import_test.go | T11,T14 | go test ./internal/core -run 'Test(EvalPolicy|EvalImport)' | code/human/heuristic/LM metadata validation; fixed-run aggregation/critical-case/inadequate-sample deterministic R6 |
-| [ ] T16 | craftsman | internal/core/evalset.go; internal/core/evalset_test.go; internal/core/eval_policy.go; internal/core/eval_policy_test.go; docs/open-spec-format.md | T15 | go test ./internal/core -run 'Test(Evalset|EvalPolicy)' | owner/version/digest/cases/rubric/redaction/review schema; edits invalidate old evidence R6 |
+| [x] T14 | craftsman | internal/cmd/eval.go; internal/cmd/eval_test.go; internal/cmd/registry.go; internal/cmd/registry_test.go; internal/core/eval_import.go | T07,T11 | go test ./internal/cmd ./internal/core -run 'Test(Eval|Registry|EvalImport)' | local `eval import/status` contract; adapter absence does not network/downgrade gate R3,R6 |
+| [x] T15 | craftsman | internal/core/eval_policy.go; internal/core/eval_policy_test.go; internal/core/eval_import.go; internal/core/eval_import_test.go | T11,T14 | go test ./internal/core -run 'Test(EvalPolicy|EvalImport)' | code/human/heuristic/LM metadata validation; fixed-run aggregation/critical-case/inadequate-sample deterministic R6 |
+| [x] T16 | craftsman | internal/core/evalset.go; internal/core/evalset_test.go; internal/core/eval_policy.go; internal/core/eval_policy_test.go; docs/open-spec-format.md | T15 | go test ./internal/core -run 'Test(Evalset|EvalPolicy)' | owner/version/digest/cases/rubric/redaction/review schema; edits invalidate old evidence R6 |
+
+> **W4 deviation before T14.** T14 also edits `internal/core/commands.go`: registering the new
+> `eval` verb in the single command palette is required for dispatch, help, MCP, and registry
+> parity; no separate command surface is permitted.
+>
+> T14 also updates `docs/command-reference.md` and its byte-identical `docs/CHEATSHEET.md`;
+> CLI verb/flag documentation is a repository-wide synchronized contract.
+>
+> Backprop B5 also updates `internal/core/help_test.go`: V10 requires command-surface tests to
+> avoid stale literal palette counts while retaining non-empty/parity coverage.
+>
+> Regression surface lock also updates `scripts/regress-domains.sh` from 28 to 29: adding `eval`
+> is intentional and must remain an explicit tripwire change.
 
 ## W5 — quality packet, review, flywheel, release proof
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T17 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/hud.go; internal/context/hud_test.go; internal/core/quality_contract.go | T05,T12,T16 | go test ./internal/context ./internal/core -run 'Test(Manifest|HUD|QualityContract)' | compact labelled quality contract with refs/digests/freshness; no raw dataset/trace R7 |
-| [ ] T18 | craftsman | internal/core/review.go; internal/core/review_test.go; internal/core/embed_templates/roles/auditor.md; internal/context/manifest.go; internal/context/manifest_test.go | T12,T17 | go test ./internal/core ./internal/context -run 'Test(Review|Manifest)' | production review prompts/contracts hard-20% risks; review cannot bypass required test R7 |
-| [ ] T19 | craftsman | internal/core/quality_ledger.go; internal/core/quality_ledger_test.go; internal/core/report.go; internal/core/report_test.go | T15,T16 | go test ./internal/core -run 'Test(QualityLedger|Report)' | redacted append-only failure/promotion ledger; report separates proof/gap/stale/score R7 |
-| [ ] T20 | craftsman | internal/cmd/e2e_test.go; internal/core/gates/quality_test.go; internal/orchestration/trace_test.go; internal/context/manifest_test.go; scripts/regress-domains.sh | T13,T14,T17,T18,T19 | go test ./internal/cmd ./internal/core/gates ./internal/orchestration ./internal/context -run 'Test(LifecycleE2E|Quality|Trace|Manifest)' && ./scripts/regress-domains.sh | stale rubric, failed verify+high judge, missing trajectory, shallow verify, malformed adapter, outage black-box proof |
-| [ ] T21 | craftsman | docs/open-spec-format.md; docs/validation-gates.md; docs/command-reference.md; docs/CHEATSHEET.md; docs/contributor-guide.md; docs/agent-integration.md | T20 | ./scripts/docs-lint.sh && go test ./internal/cmd -run 'Test(Eval|Registry)' | operator/adapter/migration docs synchronized |
-| [ ] T22 | validator | specs/04-verification-evals-and-quality; internal/core; internal/core/gates; internal/cmd; internal/context; internal/orchestration | T21 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | full Domain 04 evidence |
+| [x] T17 | craftsman | internal/context/manifest.go; internal/context/manifest_test.go; internal/context/hud.go; internal/context/hud_test.go; internal/core/quality_contract.go | T05,T12,T16 | go test ./internal/context ./internal/core -run 'Test(Manifest|HUD|QualityContract)' | compact labelled quality contract with refs/digests/freshness; no raw dataset/trace R7 |
+| [x] T18 | craftsman | internal/core/review.go; internal/core/review_test.go; internal/core/embed_templates/roles/auditor.md; internal/context/manifest.go; internal/context/manifest_test.go | T12,T17 | go test ./internal/core ./internal/context -run 'Test(Review|Manifest)' | production review prompts/contracts hard-20% risks; review cannot bypass required test R7 |
+| [x] T19 | craftsman | internal/core/quality_ledger.go; internal/core/quality_ledger_test.go; internal/core/report.go; internal/core/report_test.go | T15,T16 | go test ./internal/core -run 'Test(QualityLedger|Report)' | redacted append-only failure/promotion ledger; report separates proof/gap/stale/score R7 |
+| [x] T20 | craftsman | internal/cmd/e2e_test.go; internal/core/gates/quality_test.go; internal/orchestration/trace_test.go; internal/context/manifest_test.go; scripts/regress-domains.sh | T13,T14,T17,T18,T19 | go test ./internal/cmd ./internal/core/gates ./internal/orchestration ./internal/context -run 'Test(LifecycleE2E|Quality|Trace|Manifest)' && ./scripts/regress-domains.sh | stale rubric, failed verify+high judge, missing trajectory, shallow verify, malformed adapter, outage black-box proof |
+| [x] T21 | craftsman | docs/open-spec-format.md; docs/validation-gates.md; docs/command-reference.md; docs/CHEATSHEET.md; docs/contributor-guide.md; docs/agent-integration.md | T20 | ./scripts/docs-lint.sh && go test ./internal/cmd -run 'Test(Eval|Registry)' | operator/adapter/migration docs synchronized |
+| [x] T22 | validator | specs/04-verification-evals-and-quality; internal/core; internal/core/gates; internal/cmd; internal/context; internal/orchestration | T21 | go test ./... -race -count=1 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-all.sh && ./scripts/regress-domains.sh | full Domain 04 evidence |
 
 ## Cross-wave rules
 

@@ -12,6 +12,10 @@ Tasks may use optional `evidence` and `checks` columns. `evidence` contains comm
 `verify` records mean `test` evidence only. Parser preserves author bytes—no companion file or
 silent rewrite is required.
 
+Quality context is reference-only: class/check IDs, verify command, artifact refs/digests,
+subject revision, freshness labels, and dataset/rubric/output/trace digests. It never embeds
+dataset cases, raw outputs, traces, prompts, or secrets.
+
 ## Layout
 
 ```

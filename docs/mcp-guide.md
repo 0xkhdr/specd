@@ -138,6 +138,16 @@ MCP `initialize` advertises `driverProtocolVersion`. The canonical `agents` tool
 positional `args`; call it with `["doctor"]` or `["guide", "<slug>"]` plus `json: true` for
 the same read-only driver projections exposed by CLI.
 
+### Orchestration transport parity
+
+When orchestration is enabled, local CLI and MCP hosts consume same canonical mission and worker
+lifecycle pins. External hosts may map those values through A2A protocol version `1` envelopes with
+kind `mission`, `claim`, `heartbeat`, `cancel`, or `report`. Adapter/message ids are declared
+transport metadata and do not participate in semantic ACP identity. Unknown versions, kinds, or
+fields fail closed. Envelopes contain bounded ids, refs, digests, status, and reasons only; raw
+prompts, source bodies, secrets, hidden reasoning, and tool output are refused. A2A mapping does not
+contact provider or grant work authority; normal claim/lease/report validation still applies.
+
 ---
 
 **See also:** [agent-integration.md](agent-integration.md) ·

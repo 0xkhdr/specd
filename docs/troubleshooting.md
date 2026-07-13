@@ -84,6 +84,23 @@ directory. If the sandbox binary is missing it **fails closed** (exit 127, "sand
 unavailable") rather than silently running unsandboxed. Install `bwrap`, or point
 `--sandbox-binary=<path>` at a bwrap-compatible wrapper, or drop `--sandbox` to run directly.
 
+### Production sandbox adapter refused
+
+Production verification validates a `sandbox-adapter/v1` declaration before resolving or running
+its binary. Supported platform classes are `linux`, `darwin`, and `ci`. Every production adapter
+must declare `credentials.hidden`, `network.isolated`, `resources.bounded`, `home.synthetic`, and
+`filesystem.write-bounded`.
+
+Absent, unknown, duplicate, or missing capabilities fail closed. Configure an adapter implementing
+the full contract; never retry production verification unsandboxed. Platform implementations may
+differ, but conformance requires identical accept/refuse policy outcomes.
+
+## Security regression corpus stale
+
+Promoted incidents use `security-regression/v1` fixtures with `redacted:` provenance, expected
+scanner/rule, and pinned policy digest. Policy changes invalidate the whole attestation. Re-run all
+fixtures under new deterministic policy, inspect changed findings, then publish a new corpus digest.
+
 ## Schema errors on load
 
 `state.json` is loaded with unknown fields disallowed and validated on every read. A malformed

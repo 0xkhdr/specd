@@ -97,6 +97,18 @@ for p in internal/orchestration/dispatch_envelope.go internal/orchestration/disp
 	[ -f "$ROOT/$p" ] || flag 03-W5 C "missing remote-envelope proof target: $p"
 done
 
+# Domain 05 W5 release-proof tripwire: adapter implementation, parity fixture,
+# and fresh-tree regression hook must remain concrete.
+for p in internal/orchestration/a2a.go internal/orchestration/a2a_test.go internal/integration/orchestration_conformance_test.go; do
+	[ -f "$ROOT/$p" ] || flag 05-W5 C "missing orchestration adapter proof target: $p"
+done
+grep -q 'violation 05-W5' "$ROOT/scripts/regress-domains.sh" || flag 05-W5 B "missing Domain 05 fresh-tree regression assertion"
+
+for p in internal/core/verify/adapter.go internal/core/verify/adapter_test.go internal/core/gates/security/regress.go internal/core/gates/security/regress_test.go internal/core/gates/security/testdata/incidents.json internal/integration/sandbox_conformance_test.go; do
+	[ -f "$ROOT/$p" ] || flag 06-W8 C "missing security release-proof target: $p"
+done
+grep -q 'violation 06-W8' "$ROOT/scripts/regress-domains.sh" || flag 06-W8 B "missing Domain 06 fresh-tree regression assertion"
+
 if [ "$smells" -eq 0 ]; then
 	echo "regress-lint: clean — no smells"
 else

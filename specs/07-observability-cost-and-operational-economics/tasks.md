@@ -216,9 +216,13 @@ no network in core. Legacy ledgers must keep decoding.
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T22 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/commands.go; docs/command-reference.md; docs/CHEATSHEET.md | T05,T17 | go test ./internal/core -run 'TestTelemetry' && ./scripts/docs-lint.sh | optional input/output/cache tokens, provider/model, currency, pricing_ref, source, attestation_ref; legacy `tokens` retained R7.1 |
-| [ ] T23 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T22 | go test ./internal/core -run 'Test(Telemetry|ReportMetrics)' | exact-decimal category aggregation golden tests; legacy total + category totals never silently contradict; cost needs currency+pricing_ref R7.2 |
-| [ ] T24 | craftsman | internal/core/telemetry.go; internal/core/prometheus.go; internal/mcp/server_test.go | T22,T16 | go test ./internal/core ./internal/mcp -run 'Test(Telemetry|Prometheus|MCP)' | provider/model optional bounded, never required for valid evidence, never a metric label; MCP schema reflects new flags R7.3 |
+| [x] T22 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/commands.go; docs/command-reference.md; docs/CHEATSHEET.md | T05,T17 | go test ./internal/core -run 'TestTelemetry' && ./scripts/docs-lint.sh | optional input/output/cache tokens, provider/model, currency, pricing_ref, source, attestation_ref; legacy `tokens` retained R7.1 |
+| [x] T23 | craftsman | internal/core/telemetry.go; internal/core/telemetry_test.go; internal/core/report_metrics.go; internal/core/report_metrics_test.go | T22 | go test ./internal/core -run 'Test(Telemetry|ReportMetrics)' | exact-decimal category aggregation golden tests; legacy total + category totals never silently contradict; cost needs currency+pricing_ref R7.2 |
+| [x] T24 | craftsman | internal/core/telemetry.go; internal/core/prometheus.go; internal/mcp/server_test.go | T22,T16 | go test ./internal/core ./internal/mcp -run 'Test(Telemetry|Prometheus|MCP)' | provider/model optional bounded, never required for valid evidence, never a metric label; MCP schema reflects new flags R7.3 |
+
+> **W7 deviation.** T02 explicitly seeded `internal/core/history_test.go` as the token-conflation
+> characterization to flip when W7 lands. T22 therefore updates that test to assert category
+> preservation. No history serialization or runtime behavior changes.
 
 ## W8 — neutral event schema and context efficiency
 

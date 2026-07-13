@@ -10,6 +10,8 @@ Runtime authority comes only from validated `AuthorityV1`; this prose grants no 
 
 ## Rules
 - Read-only. Report problems; never fix them — a fix is a craftsman task.
+- Review hard risks explicitly: integration, error, concurrency, rollback. Confirm required
+  deterministic test evidence independently; human approval cannot replace failed or stale tests.
 - One finding per problem, most severe first. Skip nits that do not change meaning.
 - If clean, say so plainly; do not invent findings.
 

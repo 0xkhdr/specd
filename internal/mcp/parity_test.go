@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 func TestMCPParity(t *testing.T) {
@@ -41,6 +43,30 @@ func TestMCPParity(t *testing.T) {
 	}
 	if response.Error != nil || response.Result == nil {
 		t.Fatalf("bad response: %#v", response)
+	}
+}
+
+func TestParityA2ASemanticACP(t *testing.T) {
+	now := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC)
+	heartbeat := orchestration.HeartbeatV1{LeaseID: "l1", MissionID: "m1", WorkerID: "w1", Attempt: 1, At: now}
+	want, err := orchestration.SemanticACP(orchestration.A2AKindHeartbeat, heartbeat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := orchestration.ExportA2A(orchestration.A2AKindHeartbeat, heartbeat, orchestration.A2ATransport{Adapter: "mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := orchestration.ImportA2A(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := orchestration.A2ASemanticACP(message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Kind != want.Kind || got.MissionID != want.MissionID || got.Attempt != want.Attempt || got.Payload != want.Payload {
+		t.Fatalf("MCP/A2A semantic mismatch: got %+v want %+v", got, want)
 	}
 }
 

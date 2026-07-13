@@ -54,6 +54,35 @@ func RenderHUDV2(m ManifestV2) string {
 	return b.String()
 }
 
+// RenderHUDQuality renders only quality metadata and proof labels. It is a
+// pure projection, suitable for operator context without leaking corpora or traces.
+func RenderHUDQuality(p QualityPacket) string {
+	return RenderQualityPacket(p)
+}
+
+func RenderQualityPacket(p QualityPacket) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "quality contract: task=%s freshness=%s revision=%s\n", p.TaskID, p.Freshness, p.Revision)
+	if p.Verify != "" {
+		fmt.Fprintf(&b, "verify: %s\n", p.Verify)
+	}
+	if len(p.Review.HardRisks) > 0 {
+		fmt.Fprintf(&b, "review risks: %s\n", strings.Join(p.Review.HardRisks, ","))
+	}
+	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "PROOF\tSTATUS\tREF\tDIGEST")
+	for _, req := range p.Required {
+		fmt.Fprintf(tw, "%s/%s\t%s\t%s\t%s\n", req.Class, req.Check, req.Status, req.ArtifactRef, req.Digest)
+	}
+	tw.Flush()
+	for _, item := range []struct{ name, value string }{{"dataset", p.Dataset}, {"rubric", p.Rubric}, {"output", p.Output}, {"trace", p.Trace}} {
+		if item.value != "" {
+			fmt.Fprintf(&b, "%s: %s\n", item.name, item.value)
+		}
+	}
+	return b.String()
+}
+
 // itemBytes is the payload the estimator counted for this item — the on-disk
 // file size for path-backed items (R3.1), else the metadata string length — so
 // tokens == (bytes+3)/4 holds by construction.

@@ -27,7 +27,7 @@ func aggregateTelemetry(root, slug string, model core.ReportModel) (core.Telemet
 // stores these verbatim and never computes them.
 func parseAnnotations(flags map[string]string) (*core.Annotations, error) {
 	present := func(name string) bool { _, ok := flags[name]; return ok }
-	ann, err := core.ParseAnnotations(flags["tokens"], flags["cost"], flags["duration-ms"], present)
+	ann, err := core.ParseAnnotationFlags(flags, present)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrUsage, err)
 	}

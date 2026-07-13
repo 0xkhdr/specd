@@ -28,3 +28,13 @@ func TestQualityContractLegacyAndMalformed(t *testing.T) {
 		}
 	}
 }
+
+func TestQualityContractCarriesVerifyCommand(t *testing.T) {
+	c, err := ParseQualityContract(TaskRow{ID: "T1", Verify: "go test ./...", Evidence: "test/unit"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Verify != "go test ./..." {
+		t.Fatalf("verify = %q", c.Verify)
+	}
+}

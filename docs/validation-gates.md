@@ -15,6 +15,11 @@ Quality declarations use optional task-table `evidence` and `checks` columns. Le
 evidence satisfies only class `test`; it never satisfies output, trajectory, or review proof.
 Quality gates stay offline and consume validated local records only.
 
+Quality packets and reports keep passed, missing, stale, score, and review labels separate.
+Review contracts expose integration, error, concurrency, and rollback risks; approval cannot
+replace required current test evidence. Learning records are redacted, append-only, and
+source-digest pinned.
+
 ## Severity & exit codes
 
 | Severity | Effect |

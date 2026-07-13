@@ -1,0 +1,18 @@
+{
+  "schema_version": "security-regression/v1",
+  "policy_digest": "policy-current",
+  "incidents": [
+    {
+      "id": "INC-001",
+      "provenance": "redacted:security-ticket-001",
+      "input": {"path": "scripts/cleanup.sh", "kind": "source", "trust": "untrusted_data", "content": "rm -rf /tmp/build"},
+      "expected": {"scanner": "dangerous", "rule": "destructive-shell"}
+    },
+    {
+      "id": "INC-002",
+      "provenance": "redacted:security-ticket-002",
+      "input": {"path": ".env", "kind": "untracked", "trust": "untrusted_data", "content": "placeholder"},
+      "expected": {"scanner": "dangerous", "rule": "generated-secret"}
+    }
+  ]
+}

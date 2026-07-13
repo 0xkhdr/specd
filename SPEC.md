@@ -28,6 +28,8 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 - V7: Default behavior remains explicit/backward compatible; production policy opt-in and digest-pinned.
 - V8: Guidance returns only legal actor-aware next actions for current phase.
 - V9: Managed-marker tests derive expected version from `TemplateVersion`; template bumps remain valid.
+- V10: Command palette, registry, help, and machine surfaces derive from one command set; adding a verb cannot require stale literal counts.
+- V11: Troubleshooting docs retain exact tested runtime error vocabulary and exit-code meanings when extended.
 
 ## §T
 
@@ -50,3 +52,9 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B2 | 2026-07-12 | schema-migration fixture used never-declared `build` mode; mode validation correctly exposed stale fixture | V7,R3.1 |
 | B3 | 2026-07-12 | 08d transition-table test assigned through an out-of-scope local identifier; compile failed before behavior ran | mechanical typo; no new invariant |
 | B4 | 2026-07-12 | 08d additive test guessed a nonexistent exported evidence-gate API instead of using package-local gate contract | align test with `evidence(CheckCtx)`; no new invariant |
+| B5 | 2026-07-13 | command palette growth broke hardcoded help-count fixture | V10 |
+| B6 | 2026-07-13 | W8 conformance test guessed injection rule label instead of asserting existing scanner vocabulary | mechanical test typo; no new invariant |
+| B7 | 2026-07-13 | new troubleshooting page documented W8 only and omitted pre-existing tested CAS/exit contracts | V11 |
+| B8 | 2026-07-13 | W7 MCP test assumed forbidden `task` command must be exposed as a tool | align test with legal derived palette; V10 already applies |
+| B9 | 2026-07-13 | W0 token-conflation characterization correctly failed when planned W7 expansion closed gap | flip seeded characterization to positive R7 contract; no new invariant |
+| B10 | 2026-07-13 | previously approved 06 W8 task rows were complete while program rollup checkbox drifted pending | restore rollup from domain truth; existing progress-order regression caught drift |

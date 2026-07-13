@@ -88,24 +88,20 @@ func TestHistorySpanKindMapping(t *testing.T) {
 	}
 }
 
-// TestHistoryTelemetryTokensAreConflated characterizes the W0 gap the later
-// token-split work closes: worker-reported tokens are a single scalar with no
-// input/output/cache breakdown. Proven on the aggregated telemetry report's
-// JSON surface, which history rendering draws from.
-func TestHistoryTelemetryTokensAreConflated(t *testing.T) {
-	records := []EvidenceRecord{{TaskID: "T1", Telemetry: &Annotations{Tokens: 100}}}
+// TestHistoryTelemetryTokenCategoriesPreserved flips W0's characterization
+// when W7 closes the gap: legacy total remains while provider-neutral token
+// categories survive the aggregated JSON surface.
+func TestHistoryTelemetryTokenCategoriesPreserved(t *testing.T) {
+	records := []EvidenceRecord{{TaskID: "T1", Telemetry: &Annotations{Tokens: 100, InputTokens: 60, OutputTokens: 30, CachedTokens: 10}}}
 	report := AggregateTelemetry(records, []string{"T1"})
 	blob, err := json.Marshal(report)
 	if err != nil {
 		t.Fatal(err)
 	}
 	js := string(blob)
-	for _, absent := range []string{"input_tokens", "output_tokens", "cache_tokens"} {
-		if strings.Contains(js, absent) {
-			t.Fatalf("W0 gap closed early: token breakdown %q present: %s", absent, js)
+	for _, want := range []string{`"tokens":100`, `"input_tokens":60`, `"output_tokens":30`, `"cached_tokens":10`} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("token breakdown %q missing: %s", want, js)
 		}
-	}
-	if !strings.Contains(js, `"tokens":100`) {
-		t.Fatalf("conflated tokens scalar missing: %s", js)
 	}
 }

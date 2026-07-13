@@ -31,6 +31,34 @@ func TestBuildManifest(t *testing.T) {
 	}
 }
 
+func TestBuildQualityPacketIsCompactAndFreshnessLabelled(t *testing.T) {
+	contract := core.QualityContract{
+		TaskID: "T1", Verify: "go test ./...",
+		Required: []core.EvidenceRequirement{{EvidenceClass: core.EvidenceOutputEval, CheckID: "quality"}, {EvidenceClass: core.EvidenceTest, CheckID: "unit"}},
+	}
+	subject := core.FreshnessSubject{Revision: "head", DatasetDigest: "dataset", RubricDigest: "rubric", OutputDigest: "output", TraceDigest: "trace"}
+	records := []core.EvidenceEnvelopeV1{
+		{TaskID: "T1", EvidenceClass: core.EvidenceTest, CheckID: "unit", Verdict: core.EvalPass, SubjectRevision: "head", DatasetDigest: "dataset", RubricDigest: "rubric", OutputDigest: "output", TraceDigest: "trace"},
+		{TaskID: "T1", EvidenceClass: core.EvidenceOutputEval, CheckID: "quality", Verdict: core.EvalPass, SubjectRevision: "old", DatasetDigest: "old", RubricDigest: "rubric", OutputDigest: "output"},
+	}
+	p := BuildQualityPacket(contract, records, subject)
+	if p.TaskID != "T1" || p.Verify != "go test ./..." || len(p.Required) != 2 {
+		t.Fatalf("packet = %+v", p)
+	}
+	if p.Required[0].Status != "stale" || p.Required[1].Status != "passed" {
+		t.Fatalf("statuses = %+v", p.Required)
+	}
+	rendered := RenderQualityPacket(p)
+	for _, want := range []string{"quality contract", "test/unit", "output_eval/quality", "freshness=stale", "dataset: dataset", "rubric: rubric", "output: output", "trace: trace"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("packet missing %q:\n%s", want, rendered)
+		}
+	}
+	if strings.Contains(rendered, "raw corpus") || strings.Contains(rendered, "secret payload") {
+		t.Fatalf("packet contains raw payload: %s", rendered)
+	}
+}
+
 func TestManifestItemsCarryStableMetadata(t *testing.T) {
 	root := t.TempDir()
 	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"main.go"}}}

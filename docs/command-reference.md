@@ -191,6 +191,15 @@ Show task details, clear an escalated task with a human override, or mark a task
 | `--tokens` | string | Optional worker-reported token count, stored verbatim (`task complete`). |
 | `--cost` | string | Optional worker-reported cost as a decimal string, stored verbatim (`task complete`). |
 | `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim (`task complete`). |
+| `--input-tokens` | string | Optional provider-neutral input token count. |
+| `--output-tokens` | string | Optional provider-neutral output token count. |
+| `--cached-tokens` | string | Optional provider-neutral cached token count. |
+| `--provider` | string | Optional bounded provider identifier; never a metric label. |
+| `--model` | string | Optional bounded model identifier; never a metric label. |
+| `--currency` | string | Currency unit required with canonical cost. |
+| `--pricing-ref` | string | Pricing reference required with canonical cost. |
+| `--telemetry-source` | `worker`\|`provider_adapter`\|`operator` | Telemetry provenance. |
+| `--attestation-ref` | string | Optional external attestation reference. |
 
 ```bash
 specd task T3 --json
@@ -236,6 +245,15 @@ record (`--criterion` mode). A task completes **only** against a passing verify 
 | `--tokens` | string | Optional worker-reported token count, stored verbatim. |
 | `--cost` | string | Optional worker-reported cost as a decimal string, stored verbatim. |
 | `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim. |
+| `--input-tokens` | string | Optional provider-neutral input token count. |
+| `--output-tokens` | string | Optional provider-neutral output token count. |
+| `--cached-tokens` | string | Optional provider-neutral cached token count. |
+| `--provider` | string | Optional bounded provider identifier; never a metric label. |
+| `--model` | string | Optional bounded model identifier; never a metric label. |
+| `--currency` | string | Currency unit required with canonical cost. |
+| `--pricing-ref` | string | Pricing reference required with canonical cost. |
+| `--telemetry-source` | `worker`\|`provider_adapter`\|`operator` | Telemetry provenance. |
+| `--attestation-ref` | string | Optional external attestation reference. |
 
 ```bash
 specd verify payments T3
@@ -255,6 +273,10 @@ identity, and driver route/capability identity. Unknown schema/item/trust values
 route mismatch, stale receipt, or required-budget overflow fail closed. Optional omissions carry a
 reason. Receipts contain digests/totals/provenance only; skills and memory remain untrusted
 advisory data and cannot widen authority.
+
+When task quality declarations exist, context also exposes compact class/check IDs, verify,
+artifact refs/digests, subject revision, freshness, and dataset/rubric/output/trace digests.
+Packet contains metadata only; raw datasets, outputs, and traces remain external.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -370,6 +392,24 @@ Inspect configured interoperability adapters read-only, distinguishing configure
 ```bash
 specd adapters
 specd adapters --json
+```
+
+### `eval`
+```
+specd eval <import|status> <spec> [artifact]
+```
+Import validated local adapter evidence or inspect stored eval evidence. Import never runs an
+adapter or contacts a provider. **Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit machine-readable JSON for status. |
+| `--task` | string | Expected task identity for import. |
+| `--check` | string | Expected check identity for import. |
+
+```bash
+specd eval import payments adapter.jsonl --task T1 --check rubric-v1
+specd eval status payments --json
 ```
 
 ### `help`
@@ -554,6 +594,12 @@ returns. It does **not** launch a worker, agent, model, or adapter. Workers expl
 pending mission, renew its typed lease with `heartbeat`, then `report` passing current evidence.
 Report validates mission/lease/worker/role/HEAD, derives the local diff and scope verdict, and calls
 normal task completion. Pending dispatch remains no proof of delivery or work.
+
+External delivery uses versioned A2A JSON envelopes for `mission`, `claim`, `heartbeat`, `cancel`,
+and `report`. Envelopes preserve required identity/digest pins, reject unknown versions, kinds, and
+fields, and keep adapter/message metadata outside semantic payloads. Export refuses secret markers,
+raw prompts/source, hidden reasoning, and unbounded tool output. A2A is a mapping contract only:
+core performs no network call, and imported transport data grants no authority.
 **Phases:** post-requirements.
 
 | Flag | Value | Description |
@@ -584,3 +630,13 @@ deferral notice and exits 0. **Phases:** any.
 ```bash
 specd triage payments
 ```
+
+---
+
+## Security release proof
+
+Production sandbox declarations use `sandbox-adapter/v1` and platform class `linux`, `darwin`, or
+`ci`. Production requires `credentials.hidden`, `network.isolated`, `resources.bounded`,
+`home.synthetic`, and `filesystem.write-bounded`; incomplete or unknown claims fail before process
+execution. Promoted incidents use deterministic `security-regression/v1` fixtures with redacted
+provenance and policy-digest-pinned attestations. See `docs/troubleshooting.md` for recovery.

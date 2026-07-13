@@ -102,3 +102,13 @@ func TestForbiddenTool(t *testing.T) {
 		t.Fatal("check should be allowed")
 	}
 }
+
+func TestQualityReportSeparatesProofGapStaleScoreAndReview(t *testing.T) {
+	q := QualityReport{Passed: []string{"test/unit"}, Missing: []string{"review/audit"}, Stale: []string{"output/quality"}, Scores: map[string]float64{"quality": 0.82}, Review: "approve"}
+	rendered := RenderQualityReport(q)
+	for _, want := range []string{"proof:\n  passed: test/unit", "gaps:\n  missing: review/audit", "stale:\n  stale: output/quality", "scores:\n  quality: 0.820", "review: approve"} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("report missing %q:\n%s", want, rendered)
+		}
+	}
+}

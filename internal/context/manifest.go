@@ -52,6 +52,68 @@ type Manifest struct {
 	Digest          string     `json:"digest,omitempty"`
 }
 
+// QualityPacket is the compact, reference-only quality contract carried with
+// task context. It deliberately stores labels and digests, never eval payloads.
+type QualityPacket struct {
+	TaskID    string
+	Verify    string
+	Required  []QualityRequirement
+	Revision  string
+	Freshness string
+	Dataset   string
+	Rubric    string
+	Output    string
+	Trace     string
+	Review    core.ReviewContract
+}
+
+type QualityRequirement struct {
+	Class       string
+	Check       string
+	Status      string
+	ArtifactRef string
+	Digest      string
+}
+
+// BuildQualityPacket projects local quality records into a deterministic
+// context packet. Evidence bodies stay outside context; only refs, digests,
+// and freshness labels cross this boundary.
+func BuildQualityPacket(contract core.QualityContract, records []core.EvidenceEnvelopeV1, subject core.FreshnessSubject) QualityPacket {
+	status := core.EvaluateQuality(contract, records, subject)
+	missing := make(map[string]bool, len(status.Missing))
+	stale := make(map[string]bool, len(status.Stale))
+	for _, req := range status.Missing {
+		missing[string(req.EvidenceClass)+"/"+req.CheckID] = true
+	}
+	for _, req := range status.Stale {
+		stale[string(req.EvidenceClass)+"/"+req.CheckID] = true
+	}
+	p := QualityPacket{TaskID: contract.TaskID, Verify: contract.Verify, Revision: subject.Revision, Freshness: "current", Dataset: subject.DatasetDigest, Rubric: subject.RubricDigest, Output: subject.OutputDigest, Trace: subject.TraceDigest, Review: core.BuildReviewContract(contract, subject.Revision, nil)}
+	if len(status.Stale) > 0 {
+		p.Freshness = "stale"
+	} else if len(status.Missing) > 0 {
+		p.Freshness = "incomplete"
+	}
+	for _, req := range contract.Required {
+		key := string(req.EvidenceClass) + "/" + req.CheckID
+		label := "passed"
+		if stale[key] {
+			label = "stale"
+		} else if missing[key] {
+			label = "missing"
+		}
+		entry := QualityRequirement{Class: string(req.EvidenceClass), Check: req.CheckID, Status: label}
+		for _, record := range records {
+			if record.TaskID == contract.TaskID && string(record.EvidenceClass) == entry.Class && record.CheckID == entry.Check && record.Verdict == core.EvalPass {
+				entry.ArtifactRef, entry.Digest = record.ArtifactRef, record.ArtifactDigest
+				break
+			}
+		}
+		p.Required = append(p.Required, entry)
+	}
+	return p
+}
+
 // BuildManifest assembles the context references for one task. The steering
 // constitution and memory (R4.3) enter as references + modes, never inlined
 // content, bounded against maxTokens: when over budget, memory drops before

@@ -12,12 +12,13 @@ type EvidenceRequirement struct {
 }
 type QualityContract struct {
 	TaskID   string                `json:"task_id"`
+	Verify   string                `json:"verify,omitempty"`
 	Required []EvidenceRequirement `json:"required"`
 	Checks   []string              `json:"checks,omitempty"`
 }
 
 func ParseQualityContract(task TaskRow) (QualityContract, error) {
-	c := QualityContract{TaskID: task.ID, Checks: splitTaskList(task.Checks)}
+	c := QualityContract{TaskID: task.ID, Verify: task.Verify, Checks: splitTaskList(task.Checks)}
 	seen := map[string]bool{}
 	for _, raw := range splitTaskList(task.Evidence) {
 		class, check, ok := strings.Cut(raw, "/")

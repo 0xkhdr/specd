@@ -66,3 +66,18 @@ func TestReviewParse(t *testing.T) {
 		}
 	}
 }
+
+func TestReviewContractHardRisksAndRequiredTest(t *testing.T) {
+	contract := BuildReviewContract(QualityContract{TaskID: "T1", Required: []EvidenceRequirement{{EvidenceClass: EvidenceTest, CheckID: "unit"}, {EvidenceClass: EvidenceReview, CheckID: "audit"}}}, "head", nil)
+	if contract.TaskID != "T1" || contract.SubjectRevision != "head" || len(contract.HardRisks) != 4 {
+		t.Fatalf("contract = %+v", contract)
+	}
+	missingTest := EvaluateQuality(QualityContract{TaskID: "T1", Required: []EvidenceRequirement{{EvidenceClass: EvidenceTest, CheckID: "unit"}}}, nil, FreshnessSubject{Revision: "head"})
+	if err := ValidateReviewContract(contract, missingTest); err == nil {
+		t.Fatal("review contract bypassed missing required test")
+	}
+	passed := EvaluateQuality(QualityContract{TaskID: "T1", Required: []EvidenceRequirement{{EvidenceClass: EvidenceTest, CheckID: "unit"}}}, []EvidenceEnvelopeV1{{TaskID: "T1", EvidenceClass: EvidenceTest, CheckID: "unit", Verdict: EvalPass, SubjectRevision: "head"}}, FreshnessSubject{Revision: "head"})
+	if err := ValidateReviewContract(contract, passed); err != nil {
+		t.Fatalf("valid review contract rejected: %v", err)
+	}
+}

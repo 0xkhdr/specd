@@ -78,3 +78,10 @@ func TestHUDV2MetadataIsCanonical(t *testing.T) {
 		}
 	}
 }
+
+func TestHUDQualityPacketIsDeterministic(t *testing.T) {
+	p := BuildQualityPacket(core.QualityContract{TaskID: "T1", Required: []core.EvidenceRequirement{{EvidenceClass: core.EvidenceTest, CheckID: "unit"}}}, nil, core.FreshnessSubject{})
+	if RenderHUDQuality(p) != RenderHUDQuality(p) || !strings.Contains(RenderHUDQuality(p), "quality contract") {
+		t.Fatal("quality HUD is not deterministic or labelled")
+	}
+}

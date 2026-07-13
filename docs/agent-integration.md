@@ -67,6 +67,11 @@ task — only the files that task needs, within the `context.max_tokens` budget 
 `specd next <slug> --dispatch` emits that manifest for the first frontier task — a ready-to-run
 dispatch packet for a worker.
 
+Quality declarations add compact packet metadata: class/check IDs, verify command, artifact
+refs/digests, freshness, and subject digests. Raw datasets, outputs, and traces stay external.
+Auditor review checks integration/error/concurrency/rollback risks; required test evidence stays
+mandatory.
+
 ## Orchestration: Brain / Pinky (opt-in)
 
 For hands-off execution, the deterministic **Brain** controller drives the wave loop:

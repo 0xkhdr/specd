@@ -14,8 +14,8 @@ import (
 // or raw worker output, so a default fixture is structurally metadata-only.
 func TestTelemetryMetadataOnly(t *testing.T) {
 	full := Annotations{
-		Tokens: 10, Cost: "0.01", DurationMs: 5,
-		Source: TelemetrySourceWorker, Currency: "USD",
+		Tokens: 10, InputTokens: 4, OutputTokens: 5, CachedTokens: 1, Cost: "0.01", DurationMs: 5,
+		Source: TelemetrySourceWorker, Currency: "USD", PricingRef: "pricing/v1", Provider: "acme", Model: "m1",
 		AttestationRef: "att/abc", EnvelopeVersion: TelemetryEnvelopeV1,
 	}
 	data, err := json.Marshal(full)
@@ -28,6 +28,8 @@ func TestTelemetryMetadataOnly(t *testing.T) {
 	}
 	allowed := map[string]bool{
 		"tokens": true, "cost": true, "duration_ms": true,
+		"input_tokens": true, "output_tokens": true, "cached_tokens": true,
+		"pricing_ref": true, "provider": true, "model": true,
 		"telemetry_source": true, "currency": true,
 		"attestation_ref": true, "envelope_version": true,
 	}
@@ -198,7 +200,7 @@ func TestValidateAnnotations(t *testing.T) {
 		{"nil", nil},
 		{"legacy_cost_without_currency", &Annotations{Cost: "0.01"}},
 		{"legacy_bare_tokens", &Annotations{Tokens: 100}},
-		{"canonical_worker", &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "1.50", Currency: "USD"}},
+		{"canonical_worker", &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "1.50", Currency: "USD", PricingRef: "pricing/v1"}},
 		{"canonical_no_cost_no_currency", &Annotations{EnvelopeVersion: "v1", Source: "operator"}},
 		{"canonical_adapter_attested", &Annotations{EnvelopeVersion: "v1", Source: "provider_adapter", AttestationRef: "att://x"}},
 	}
@@ -242,9 +244,78 @@ func TestTelemetrySourceProvenance(t *testing.T) {
 	}
 	// An adapter-sourced attempt surfaces its provenance.
 	adapter := AggregateTelemetry([]EvidenceRecord{
-		{TaskID: "T2", Telemetry: &Annotations{EnvelopeVersion: "v1", Source: TelemetrySourceAdapter, Cost: "0.02", Currency: "USD"}},
+		{TaskID: "T2", Telemetry: &Annotations{EnvelopeVersion: "v1", Source: TelemetrySourceAdapter, Cost: "0.02", Currency: "USD", PricingRef: "pricing/v1"}},
 	}, []string{"T2"})
 	if adapter.Tasks[0].Source != TelemetrySourceAdapter {
 		t.Fatalf("adapter provenance = %q, want provider_adapter", adapter.Tasks[0].Source)
+	}
+}
+
+func TestTelemetryProviderNeutralAnnotations(t *testing.T) {
+	ann, err := ParseAnnotationFlags(map[string]string{
+		"tokens": "100", "input-tokens": "60", "output-tokens": "30", "cached-tokens": "10",
+		"cost": "0.0125", "currency": "USD", "pricing-ref": "pricing/acme-v1",
+		"provider": "acme", "model": "reasoner-v2", "telemetry-source": "provider_adapter",
+		"attestation-ref": "attestations/run-1.json", "duration-ms": "9",
+	}, func(string) bool { return true })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ann.InputTokens != 60 || ann.OutputTokens != 30 || ann.CachedTokens != 10 || ann.Provider != "acme" || ann.Model != "reasoner-v2" {
+		t.Fatalf("provider-neutral fields lost: %+v", ann)
+	}
+	raw, err := json.Marshal(ann)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"input_tokens":60`, `"output_tokens":30`, `"cached_tokens":10`, `"pricing_ref":"pricing/acme-v1"`, `"provider":"acme"`, `"model":"reasoner-v2"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("annotation JSON missing %s: %s", want, raw)
+		}
+	}
+	legacy, err := json.Marshal(Annotations{Tokens: 7})
+	if err != nil || string(legacy) != `{"tokens":7}` {
+		t.Fatalf("legacy changed: %s %v", legacy, err)
+	}
+}
+
+func TestTelemetryCategoryConsistencyAndPricing(t *testing.T) {
+	bad := []*Annotations{
+		{EnvelopeVersion: "v1", Source: "worker", Tokens: 10, InputTokens: 4, OutputTokens: 5},
+		{EnvelopeVersion: "v1", Source: "worker", Cost: "1.0", Currency: "USD"},
+	}
+	for _, ann := range bad {
+		if err := ValidateAnnotations(ann); err == nil {
+			t.Fatalf("invalid annotation accepted: %+v", ann)
+		}
+	}
+	good := &Annotations{EnvelopeVersion: "v1", Source: "worker", Tokens: 10, InputTokens: 4, OutputTokens: 5, CachedTokens: 1, Cost: "1.0", Currency: "USD", PricingRef: "pricing/v1"}
+	if err := ValidateAnnotations(good); err != nil {
+		t.Fatal(err)
+	}
+	report := AggregateTelemetry([]EvidenceRecord{
+		{TaskID: "T1", Telemetry: &Annotations{Tokens: 10, InputTokens: 4, OutputTokens: 5, CachedTokens: 1, Cost: "0.1"}},
+		{TaskID: "T1", Telemetry: &Annotations{Tokens: 20, InputTokens: 8, OutputTokens: 10, CachedTokens: 2, Cost: "0.2"}},
+	}, []string{"T1"})
+	if report.Cost != "0.3" || report.InputTokens != 12 || report.OutputTokens != 15 || report.CachedTokens != 3 {
+		t.Fatalf("category aggregate = %+v", report)
+	}
+}
+
+func TestTelemetryProviderModelBounds(t *testing.T) {
+	for _, ann := range []*Annotations{
+		{EnvelopeVersion: "v1", Source: "worker", Provider: strings.Repeat("x", 65)},
+		{EnvelopeVersion: "v1", Source: "worker", Model: "bad model"},
+	} {
+		if err := ValidateAnnotations(ann); err == nil {
+			t.Fatalf("unbounded identifier accepted: %+v", ann)
+		}
+	}
+	if err := ValidateAnnotations(&Annotations{EnvelopeVersion: "v1", Source: "worker"}); err != nil {
+		t.Fatalf("provider/model became required: %v", err)
+	}
+	metrics := RenderTelemetry("demo", AggregateTelemetry([]EvidenceRecord{{TaskID: "T1", Telemetry: &Annotations{Provider: "secret-provider", Model: "secret-model"}}}, []string{"T1"}))
+	if strings.Contains(metrics, "secret-provider") || strings.Contains(metrics, "secret-model") {
+		t.Fatalf("provider/model leaked into metrics: %s", metrics)
 	}
 }

@@ -28,6 +28,41 @@ type ReportModel struct {
 	Tasks    []ReportTask `json:"tasks"`
 }
 
+type QualityReport struct {
+	Passed  []string           `json:"passed,omitempty"`
+	Missing []string           `json:"missing,omitempty"`
+	Stale   []string           `json:"stale,omitempty"`
+	Scores  map[string]float64 `json:"scores,omitempty"`
+	Review  string             `json:"review,omitempty"`
+}
+
+func RenderQualityReport(q QualityReport) string {
+	var b strings.Builder
+	b.WriteString("proof:\n")
+	for _, value := range q.Passed {
+		fmt.Fprintf(&b, "  passed: %s\n", value)
+	}
+	b.WriteString("gaps:\n")
+	for _, value := range q.Missing {
+		fmt.Fprintf(&b, "  missing: %s\n", value)
+	}
+	b.WriteString("stale:\n")
+	for _, value := range q.Stale {
+		fmt.Fprintf(&b, "  stale: %s\n", value)
+	}
+	b.WriteString("scores:\n")
+	keys := make([]string, 0, len(q.Scores))
+	for key := range q.Scores {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		fmt.Fprintf(&b, "  %s: %.3f\n", key, q.Scores[key])
+	}
+	fmt.Fprintf(&b, "review: %s\n", q.Review)
+	return b.String()
+}
+
 func BuildReportModel(slug string, tasks []TaskRow, status map[string]TaskRunStatus, evidence map[string]EvidenceRecord) ReportModel {
 	model := ReportModel{Slug: slug, Total: len(tasks), Tasks: make([]ReportTask, 0, len(tasks))}
 	for _, task := range tasks {
