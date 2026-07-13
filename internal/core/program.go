@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 var programDimension = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -59,6 +60,200 @@ type PortfolioBlocker struct {
 type PortfolioView struct {
 	Environments []PortfolioEnvironment `json:"environments"`
 	Blockers     []PortfolioBlocker     `json:"blockers"`
+}
+
+// PortfolioScaleLimit is the bounded, documented projection envelope. Callers
+// provide compact records only; BuildPortfolioGovernanceStatus never discovers
+// or loads spec prose, ledgers, or context.
+const PortfolioScaleLimit = 10000
+
+type RiskLevel string
+
+const (
+	RiskUnknown  RiskLevel = "unknown"
+	RiskLow      RiskLevel = "low"
+	RiskMedium   RiskLevel = "medium"
+	RiskHigh     RiskLevel = "high"
+	RiskCritical RiskLevel = "critical"
+)
+
+func (r RiskLevel) valid() bool {
+	switch r {
+	case RiskUnknown, RiskLow, RiskMedium, RiskHigh, RiskCritical:
+		return true
+	}
+	return false
+}
+
+type ProductionSignalStatus string
+
+const (
+	SignalUnknown    ProductionSignalStatus = "unknown"
+	SignalUnresolved ProductionSignalStatus = "unresolved"
+	SignalResolved   ProductionSignalStatus = "resolved"
+)
+
+type SharedOutcomeStatus string
+
+const (
+	OutcomeUnknown SharedOutcomeStatus = "unknown"
+	OutcomePending SharedOutcomeStatus = "pending"
+	OutcomePassed  SharedOutcomeStatus = "passed"
+	OutcomeFailed  SharedOutcomeStatus = "failed"
+)
+
+type GovernanceItem struct {
+	ID        string           `json:"id"`
+	Status    GovernanceStatus `json:"status"`
+	ReviewAt  string           `json:"review_at,omitempty"`
+	ExpiresAt string           `json:"expires_at,omitempty"`
+}
+type ProductionSignal struct {
+	ID     string                 `json:"id"`
+	Status ProductionSignalStatus `json:"status"`
+}
+type SharedOutcome struct {
+	ID          string              `json:"id"`
+	Status      SharedOutcomeStatus `json:"status"`
+	EvidenceRef string              `json:"evidence_ref,omitempty"`
+}
+type PortfolioGovernanceInput struct {
+	SpecID            string
+	Complete          bool
+	Risk              RiskLevel
+	Owner             string
+	Governance        []GovernanceItem
+	ProductionSignals []ProductionSignal
+	SharedOutcomes    []SharedOutcome
+}
+type PortfolioGovernanceSpec struct {
+	SpecID             string             `json:"spec_id"`
+	Complete           bool               `json:"complete"`
+	Risk               RiskLevel          `json:"risk"`
+	Owner              string             `json:"owner"`
+	StaleGovernance    []string           `json:"stale_governance,omitempty"`
+	ProductionSignals  []ProductionSignal `json:"production_signals,omitempty"`
+	SharedOutcomes     []SharedOutcome    `json:"shared_outcomes,omitempty"`
+	UnresolvedSignals  []string           `json:"unresolved_signals,omitempty"`
+	IncompleteOutcomes []string           `json:"incomplete_outcomes,omitempty"`
+}
+type PortfolioGovernanceEdge struct {
+	From  string    `json:"from"`
+	To    string    `json:"to"`
+	Kind  LinkKind  `json:"kind"`
+	Risk  RiskLevel `json:"risk"`
+	Owner string    `json:"owner"`
+}
+type PortfolioGovernanceStatus struct {
+	Specs    []PortfolioGovernanceSpec `json:"specs"`
+	Edges    []PortfolioGovernanceEdge `json:"edges"`
+	Blockers []PortfolioBlocker        `json:"blockers"`
+	Complete bool                      `json:"complete"`
+}
+
+// BuildPortfolioGovernanceStatus is a deterministic, read-only projection over
+// bounded caller-supplied metadata. Unknown remains explicit and never passes a
+// shared outcome. Ordering completion and outcome completion are independent.
+func BuildPortfolioGovernanceStatus(program Program, inputs []PortfolioGovernanceInput, asOf time.Time) (PortfolioGovernanceStatus, error) {
+	if len(inputs) > PortfolioScaleLimit {
+		return PortfolioGovernanceStatus{}, fmt.Errorf("portfolio exceeds scale limit %d", PortfolioScaleLimit)
+	}
+	rows := append([]PortfolioGovernanceInput(nil), inputs...)
+	sort.Slice(rows, func(i, j int) bool { return rows[i].SpecID < rows[j].SpecID })
+	complete := make(map[string]bool, len(rows))
+	meta := make(map[string]PortfolioGovernanceInput, len(rows))
+	out := PortfolioGovernanceStatus{Complete: true}
+	for i, row := range rows {
+		if !programDimension.MatchString(row.SpecID) || (i > 0 && rows[i-1].SpecID == row.SpecID) {
+			return PortfolioGovernanceStatus{}, fmt.Errorf("invalid or duplicate portfolio spec %q", row.SpecID)
+		}
+		if !row.Risk.valid() {
+			return PortfolioGovernanceStatus{}, fmt.Errorf("unknown risk %q for %s", row.Risk, row.SpecID)
+		}
+		if row.Owner == "" {
+			return PortfolioGovernanceStatus{}, fmt.Errorf("empty owner for %s", row.SpecID)
+		}
+		complete[row.SpecID], meta[row.SpecID] = row.Complete, row
+		projected := PortfolioGovernanceSpec{SpecID: row.SpecID, Complete: row.Complete, Risk: row.Risk, Owner: row.Owner}
+		seen := map[string]bool{}
+		for _, item := range row.Governance {
+			if item.ID == "" || seen[item.ID] || !validGovernanceStatus(item.Status) {
+				return PortfolioGovernanceStatus{}, fmt.Errorf("invalid governance item for %s", row.SpecID)
+			}
+			seen[item.ID] = true
+			stale := item.Status == GovernanceExpired
+			for _, raw := range []string{item.ReviewAt, item.ExpiresAt} {
+				if raw != "" {
+					at, err := time.Parse(time.RFC3339, raw)
+					if err != nil {
+						return PortfolioGovernanceStatus{}, fmt.Errorf("invalid governance date for %s: %w", row.SpecID, err)
+					}
+					stale = stale || (!asOf.IsZero() && !at.After(asOf))
+				}
+			}
+			if stale {
+				projected.StaleGovernance = append(projected.StaleGovernance, item.ID)
+			}
+		}
+		seen = map[string]bool{}
+		for _, signal := range row.ProductionSignals {
+			if signal.ID == "" || seen[signal.ID] || (signal.Status != SignalUnknown && signal.Status != SignalUnresolved && signal.Status != SignalResolved) {
+				return PortfolioGovernanceStatus{}, fmt.Errorf("invalid production signal for %s", row.SpecID)
+			}
+			seen[signal.ID] = true
+			projected.ProductionSignals = append(projected.ProductionSignals, signal)
+			if signal.Status != SignalResolved {
+				projected.UnresolvedSignals = append(projected.UnresolvedSignals, signal.ID)
+			}
+		}
+		seen = map[string]bool{}
+		for _, outcome := range row.SharedOutcomes {
+			if outcome.ID == "" || seen[outcome.ID] || (outcome.Status != OutcomeUnknown && outcome.Status != OutcomePending && outcome.Status != OutcomePassed && outcome.Status != OutcomeFailed) || ((outcome.Status == OutcomePassed || outcome.Status == OutcomeFailed) && outcome.EvidenceRef == "") {
+				return PortfolioGovernanceStatus{}, fmt.Errorf("invalid shared outcome for %s", row.SpecID)
+			}
+			seen[outcome.ID] = true
+			projected.SharedOutcomes = append(projected.SharedOutcomes, outcome)
+			if outcome.Status != OutcomePassed {
+				projected.IncompleteOutcomes = append(projected.IncompleteOutcomes, outcome.ID)
+			}
+		}
+		sort.Strings(projected.StaleGovernance)
+		sort.Slice(projected.ProductionSignals, func(i, j int) bool { return projected.ProductionSignals[i].ID < projected.ProductionSignals[j].ID })
+		sort.Slice(projected.SharedOutcomes, func(i, j int) bool { return projected.SharedOutcomes[i].ID < projected.SharedOutcomes[j].ID })
+		sort.Strings(projected.UnresolvedSignals)
+		sort.Strings(projected.IncompleteOutcomes)
+		if !row.Complete || len(projected.IncompleteOutcomes) > 0 {
+			out.Complete = false
+		}
+		out.Specs = append(out.Specs, projected)
+	}
+	links := append([]ProgramLink(nil), program.Links...)
+	sort.Slice(links, func(i, j int) bool {
+		if links[i].From != links[j].From {
+			return links[i].From < links[j].From
+		}
+		if links[i].To != links[j].To {
+			return links[i].To < links[j].To
+		}
+		return links[i].Kind < links[j].Kind
+	})
+	for _, link := range links {
+		from, ok := meta[link.From]
+		if !ok {
+			return PortfolioGovernanceStatus{}, fmt.Errorf("unknown portfolio link source %q", link.From)
+		}
+		if _, ok := meta[link.To]; !ok {
+			return PortfolioGovernanceStatus{}, fmt.Errorf("unknown portfolio link target %q", link.To)
+		}
+		out.Edges = append(out.Edges, PortfolioGovernanceEdge{From: link.From, To: link.To, Kind: link.Kind, Risk: from.Risk, Owner: from.Owner})
+	}
+	for _, row := range rows {
+		if blocked := program.IncompleteDeps(row.SpecID, func(id string) bool { return complete[id] }); len(blocked) > 0 {
+			out.Blockers = append(out.Blockers, PortfolioBlocker{SpecID: row.SpecID, BlockedBy: blocked})
+			out.Complete = false
+		}
+	}
+	return out, nil
 }
 
 // BuildPortfolioView projects only supplied local ledgers and program state.

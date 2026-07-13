@@ -1,11 +1,71 @@
 package core
 
 import (
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestPortfolioStatus(t *testing.T) {
+	now := time.Date(2026, 7, 13, 0, 0, 0, 0, time.UTC)
+	inputs := []PortfolioGovernanceInput{
+		{SpecID: "zeta", Complete: true, Risk: RiskUnknown, Owner: "unknown", Governance: []GovernanceItem{{ID: "d2", Status: GovernanceAccepted, ReviewAt: "2026-07-12T00:00:00Z"}}, ProductionSignals: []ProductionSignal{{ID: "sig-b", Status: SignalUnresolved}}},
+		{SpecID: "alpha", Risk: RiskHigh, Owner: "team-a", Governance: []GovernanceItem{{ID: "e1", Status: GovernanceExpired}, {ID: "d1", Status: GovernanceAccepted, ExpiresAt: "2026-07-12T00:00:00Z"}}},
+	}
+	got, err := BuildPortfolioGovernanceStatus(Program{}, inputs, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Specs) != 2 || got.Specs[0].SpecID != "alpha" || got.Specs[1].SpecID != "zeta" {
+		t.Fatalf("unstable specs: %+v", got.Specs)
+	}
+	if got.Specs[0].Risk != RiskHigh || got.Specs[1].Risk != RiskUnknown {
+		t.Fatalf("risk lost: %+v", got.Specs)
+	}
+	if !reflect.DeepEqual(got.Specs[0].StaleGovernance, []string{"d1", "e1"}) || !reflect.DeepEqual(got.Specs[1].StaleGovernance, []string{"d2"}) {
+		t.Fatalf("stale governance = %+v", got.Specs)
+	}
+	if !reflect.DeepEqual(got.Specs[1].UnresolvedSignals, []string{"sig-b"}) {
+		t.Fatalf("signals = %+v", got.Specs[1])
+	}
+	if inputs[0].SpecID != "zeta" {
+		t.Fatal("projection mutated input")
+	}
+}
+
+func TestSharedOutcome(t *testing.T) {
+	p := Program{Links: []ProgramLink{{From: "app", To: "api", Kind: LinkKindFollows}}}
+	got, err := BuildPortfolioGovernanceStatus(p, []PortfolioGovernanceInput{
+		{SpecID: "api", Complete: true, Risk: RiskLow, Owner: "api-team"},
+		{SpecID: "app", Complete: true, Risk: RiskLow, Owner: "app-team", SharedOutcomes: []SharedOutcome{{ID: "release-1", Status: OutcomeFailed, EvidenceRef: "evidence/release-1"}}},
+	}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Blockers) != 0 {
+		t.Fatalf("DAG should be satisfied: %+v", got.Blockers)
+	}
+	if got.Complete || len(got.Specs[1].IncompleteOutcomes) != 1 || got.Specs[1].IncompleteOutcomes[0] != "release-1" {
+		t.Fatalf("failed shared outcome hidden: %+v", got)
+	}
+}
+
+func TestPortfolioScale(t *testing.T) {
+	inputs := make([]PortfolioGovernanceInput, PortfolioScaleLimit)
+	for i := range inputs {
+		inputs[i] = PortfolioGovernanceInput{SpecID: fmt.Sprintf("spec-%05d", i), Complete: true, Risk: RiskUnknown, Owner: "unknown"}
+	}
+	got, err := BuildPortfolioGovernanceStatus(Program{}, inputs, time.Time{})
+	if err != nil || len(got.Specs) != PortfolioScaleLimit {
+		t.Fatalf("scale envelope: len=%d err=%v", len(got.Specs), err)
+	}
+	if _, err := BuildPortfolioGovernanceStatus(Program{}, append(inputs, PortfolioGovernanceInput{SpecID: "overflow", Risk: RiskUnknown, Owner: "unknown"}), time.Time{}); err == nil {
+		t.Fatal("unbounded portfolio accepted")
+	}
+}
 
 func TestProgramEconomicRollupExactStableMissingAndDriftSources(t *testing.T) {
 	inputs := []SpecEconomics{

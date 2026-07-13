@@ -160,9 +160,14 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T40 | craftsman | `internal/core/program.go` (status risk/owner/stale governance) | T07,T17 | `go test ./internal/core -run TestPortfolioStatus -count=2` | R9.1 deterministic risk/owner/stale surface |
-| T41 | craftsman | `internal/core/program.go` (shared-outcome criterion distinct from ordering) | T40 | `go test ./internal/core -run TestSharedOutcome -count=1` | R9.3 satisfied DAG + failed shared release visibly incomplete |
-| T42 | validator | large-program scale envelope | T40 | `go test ./internal/core -run TestPortfolioScale -count=1` | R9.2 within documented envelope; context not whole portfolio |
+| [x] T40 | craftsman | `internal/core/program.go` (status risk/owner/stale governance) | T07,T17 | `go test ./internal/core -run TestPortfolioStatus -count=2` | R9.1 deterministic risk/owner/stale surface |
+| [x] T41 | craftsman | `internal/core/program.go` (shared-outcome criterion distinct from ordering) | T40 | `go test ./internal/core -run TestSharedOutcome -count=1` | R9.3 satisfied DAG + failed shared release visibly incomplete |
+| [x] T42 | validator | large-program scale envelope | T40 | `go test ./internal/core -run TestPortfolioScale -count=1` | R9.2 within documented envelope; context not whole portfolio |
+
+> **W9 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T40–T42 tests land in conventional companion file `internal/core/program_test.go`.
+> - The 10,000-spec scale envelope is an exported core constant and API contract comment; W11/T49
+>   owns the user-facing scale-envelope documentation.
 
 ## W10 — `09k-memory-conflict-lint` (requires 09e)
 
