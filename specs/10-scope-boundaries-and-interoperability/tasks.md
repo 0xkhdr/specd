@@ -40,8 +40,8 @@ record deviation before edit. Cross-domain prerequisites live in `README.md` and
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T13 | craftsman | internal/adapter/a2a.go; internal/adapter/a2a_test.go; internal/mcp; internal/orchestration/acp.go | T06,T12 | go test ./internal/adapter ./internal/mcp ./internal/orchestration -run 'TestA2A|TestMCPMap' | R10.1 mission/tool round trip preserves authority/scope/evidence |
-| [ ] T14 | craftsman | internal/adapter/otel_export.go; internal/adapter/otel_export_test.go; internal/cmd/report.go | T07,T12 | go test ./internal/adapter ./internal/cmd -run 'TestOTel|TestTraceExport' | R10.2 OTel correlation preserved; raw source/prompt absent |
+| [x] T13 | craftsman | internal/adapter/a2a.go; internal/adapter/a2a_test.go; internal/mcp; internal/orchestration/acp.go | T06,T12 | go test ./internal/adapter ./internal/mcp ./internal/orchestration -run 'TestA2A|TestMCPMap' | R10.1 mission/tool round trip preserves authority/scope/evidence |
+| [x] T14 | craftsman | internal/adapter/otel_export.go; internal/adapter/otel_export_test.go; internal/cmd/report.go | T07,T12 | go test ./internal/adapter ./internal/cmd -run 'TestOTel|TestTraceExport' | R10.2 OTel correlation preserved; raw source/prompt absent |
 
 ## W5 — release/feedback contract and proof
 

@@ -699,7 +699,7 @@ func sortedKeys(m map[string]int) []string {
 
 func runReport(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--json|--history|--proof|--format prometheus]")
+		return errors.New("usage: report slug [--pr|--metrics|--json|--history|--proof|--trace|--format prometheus|otel]")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
@@ -761,8 +761,18 @@ func runReport(root string, args []string, flags map[string]string) error {
 		fmt.Fprint(os.Stdout, core.RenderPrometheus(metrics))
 		return nil
 	}
+	// --format otel maps the spec's local observable-event traces to
+	// OpenTelemetry-compatible spans via the external adapter (spec 10 R10.2).
+	if flags["format"] == "otel" {
+		out, err := runOTelExport(root, args[0])
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
 	if format, ok := flags["format"]; ok && format != "" {
-		return fmt.Errorf("%w: unsupported --format %q (only prometheus)", ErrUsage, format)
+		return fmt.Errorf("%w: unsupported --format %q (only prometheus, otel)", ErrUsage, format)
 	}
 	coverage, err := criterionCoverage(root, args[0])
 	if err != nil {

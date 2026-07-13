@@ -409,18 +409,18 @@ var Commands = []Command{
 	},
 	{
 		Name:          "report",
-		Usage:         "specd report <spec> [--pr|--metrics|--json|--history|--trace|--format prometheus]",
+		Usage:         "specd report <spec> [--pr|--metrics|--json|--history|--trace|--format prometheus|otel]",
 		Description:   "Render evidence-backed status, PR, history, trace, and metrics reports.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --trace", "specd report payments --format prometheus"},
+		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --trace", "specd report payments --format prometheus", "specd report payments --format otel"},
 		Flags: []Flag{
 			{Name: "pr", Type: "bool", Description: "Emit PR-oriented report."},
 			{Name: "metrics", Type: "bool", Description: "Emit metrics summary."},
 			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
 			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
 			{Name: "trace", Type: "bool", Description: "Export the metadata-only run trace as stable JSON Lines."},
-			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus"}, Description: "Alternate output format; prometheus emits textfile-collector metrics."},
+			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus", "otel"}, Description: "Alternate output format; prometheus emits textfile-collector metrics, otel emits OpenTelemetry-compatible spans."},
 		},
 	},
 	{

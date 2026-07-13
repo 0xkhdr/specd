@@ -463,7 +463,7 @@ specd status --program
 
 ### `report`
 ```
-specd report <spec> [--pr|--metrics|--json|--history|--trace|--proof|--format prometheus]
+specd report <spec> [--pr|--metrics|--json|--history|--trace|--proof|--format prometheus|otel]
 ```
 Render evidence-backed status, PR, history, trace, proof, and metrics reports. Deterministic —
 generated from `state.json` + task artifacts, never from an LLM. **Phases:** any.
@@ -476,7 +476,7 @@ generated from `state.json` + task artifacts, never from an LLM. **Phases:** any
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
 | `--proof` | bool | Emit the lifecycle proof: coverage, stale records, amendments, escaped-defect links. |
-| `--format` | `prometheus` | Alternate output format; prometheus emits textfile-collector metrics. |
+| `--format` | `prometheus`, `otel` | Alternate output format; prometheus emits textfile-collector metrics, otel emits OpenTelemetry-compatible spans. |
 
 ```bash
 specd report payments --pr
@@ -485,6 +485,7 @@ specd report payments --history
 specd report payments --trace
 specd report payments --proof
 specd report payments --format prometheus
+specd report payments --format otel
 ```
 
 ---

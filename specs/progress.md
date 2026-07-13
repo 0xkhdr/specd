@@ -96,6 +96,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 05 W5 — adapters and release proof (needs 05 W3,W4, 10)
 - [x] 06 W8 — cross-platform adapters and release proof (needs 06 W7, 10)
 - [x] 07 W7 — provider-neutral annotation expansion (needs 07 W6)
+- [x] 10 W4 — ecosystem mappings (needs 10 W3)
 - [ ] 07 W8 — neutral event schema and context efficiency (needs 07 W7, 10)
 - [ ] 07 W9 — attested ingestion, routing, roll-ups, release proof (needs 07 W8, 10)
 - [ ] 08 W8 — `08i-deployment-adapter-envelope` (needs 08 W6, Domain 10 adapter)
@@ -113,7 +114,6 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [ ] 09 W9 — `09j-portfolio-governance-status` (needs 09 W1,W3)
 - [ ] 09 W10 — `09k-memory-conflict-lint` (needs 09 W4)
 - [ ] 09 W11 — `09l-org-adoption-and-archive` (needs 09 W8,W9,W10, Domain 10 boundary)
-- [ ] 10 W4 — ecosystem mappings (needs 10 W3)
 - [ ] 10 W5 — release/feedback contract and proof (needs 10 W4, 08)
 
 **Exit P2 / program done:** every domain's final validator wave is green against a fresh
