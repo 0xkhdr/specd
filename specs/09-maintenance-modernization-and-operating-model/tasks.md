@@ -171,10 +171,19 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 ## W10 — `09k-memory-conflict-lint` (requires 09e)
 
+> **W10 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T43's pure, shared conflict analyzer lands in `internal/core/memory.go`; both the gate and
+>   context selector need it, and importing `gates` from `internal/context` would create a cycle.
+> - T43/T44 tests land in conventional companion files `internal/core/gates/memorylint_test.go`
+>   and `internal/context/memory_lint_test.go`; T44 wires the pre-selection call in
+>   `internal/context/memory.go`.
+> - T43 updates registry-order and gate-count documentation. T44 also wires production-profile
+>   preflight in `internal/cmd/registry.go`, where context construction is invoked.
+
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T43 | craftsman | new `internal/core/gates/memorylint.go`; gates registry | T20 | `go test ./internal/core/gates -run TestMemoryConflictLint -count=1` | R4.2 dup keys / contradictory critical / unowned force are findings |
-| T44 | validator | lint runs before context construction | T43 | `go test ./internal/context -run TestLintBeforeBuild -count=1` | R4.2 findings surface pre-build |
+| [x] T43 | craftsman | new `internal/core/gates/memorylint.go`; gates registry | T20 | `go test ./internal/core/gates -run TestMemoryConflictLint -count=1` | R4.2 dup keys / contradictory critical / unowned force are findings |
+| [x] T44 | validator | lint runs before context construction | T43 | `go test ./internal/context -run TestLintBeforeBuild -count=1` | R4.2 findings surface pre-build |
 
 ## W11 — `09l-org-adoption-and-archive` (requires 09i,09j,09k, Domain 10 boundary)
 

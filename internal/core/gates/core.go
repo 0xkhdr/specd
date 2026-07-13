@@ -113,6 +113,10 @@ type CheckCtx struct {
 	Decisions           []core.DecisionV1
 	Exceptions          []core.ExceptionV1
 	GovernanceError     string
+	MemoryLintRequired  bool
+	MemoryBlocks        []core.MemBlock
+	MemoryAsOf          time.Time
+	MemoryLintError     string
 }
 
 func CoreRegistry() Registry {
@@ -136,6 +140,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "evidence-policy", run: evidencePolicyGate})
 	registry.Register(gateFunc{name: "intake", run: intakeReadiness})
 	registry.Register(gateFunc{name: "governance", run: governanceGate})
+	registry.Register(gateFunc{name: "memory-lint", run: memoryConflictLint})
 	return registry
 }
 

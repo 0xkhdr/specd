@@ -34,7 +34,7 @@ evidence-gated execution**.
   flag, exit code, and allowed phase, generated to match `internal/core/commands.go`.
 - 🗂️ **[CHEATSHEET.md](CHEATSHEET.md)** — a byte-identical mirror of the command reference
   (`scripts/docs-lint.sh` enforces the match).
-- ✅ **[validation-gates.md](validation-gates.md)** — the 19 core gates plus the opt-in security
+- ✅ **[validation-gates.md](validation-gates.md)** — the 20 core gates plus the opt-in security
   gates: what each checks, when it fires, how to fix a failure.
 - 🤖 **[agent-integration.md](agent-integration.md)** — the `AGENTS.md` loop, the four roles,
   steering, the context manifest, dispatch packets, Brain/Pinky orchestration, cross-spec

@@ -6,7 +6,98 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
+
+type MemoryLintFinding struct{ Key, Message string }
+
+// AnalyzeMemoryConflicts finds only deterministic, explicit conflicts. Unknown
+// confidence is never treated as evidence; stale/superseded records are ignored.
+func AnalyzeMemoryConflicts(blocks []MemBlock, asOf time.Time) []MemoryLintFinding {
+	blocks = append([]MemBlock(nil), blocks...)
+	sort.SliceStable(blocks, func(i, j int) bool {
+		a, b := normalizeMemoryText(blocks[i].Key), normalizeMemoryText(blocks[j].Key)
+		if a != b {
+			return a < b
+		}
+		return blocks[i].Source < blocks[j].Source
+	})
+	var out []MemoryLintFinding
+	seen := map[string]MemBlock{}
+	type constraint struct {
+		negative bool
+		block    MemBlock
+	}
+	constraints := map[string]constraint{}
+	for _, b := range blocks {
+		if !activeMemoryAt(b, asOf) {
+			continue
+		}
+		key := normalizeMemoryText(b.Key)
+		if prior, ok := seen[key]; ok {
+			out = append(out, MemoryLintFinding{"duplicate:" + key, fmt.Sprintf("duplicate normalized memory key %q: %q (%s) and %q (%s)", key, prior.Key, memoryProvenance(prior), b.Key, memoryProvenance(b))})
+		} else {
+			seen[key] = b
+		}
+		if strings.Contains(strings.ToLower(b.Raw), "mode=forced") && (strings.TrimSpace(b.Owner) == "" || !strings.Contains(b.Raw, "authority=") || !strings.Contains(b.Raw, "provenance=")) {
+			out = append(out, MemoryLintFinding{"forced:" + key, fmt.Sprintf("forced memory promotion %q requires owner, authority, and provenance", b.Key)})
+		}
+		if !strings.EqualFold(strings.TrimSpace(b.Criticality), "critical") {
+			continue
+		}
+		subject, negative, explicit := memoryConstraint(b.Pattern)
+		if !explicit {
+			continue
+		}
+		if prior, ok := constraints[subject]; ok && prior.negative != negative {
+			out = append(out, MemoryLintFinding{"conflict:" + subject, fmt.Sprintf("contradictory active critical memory %q: %q (%s) conflicts with %q (%s)", subject, prior.block.Key, memoryProvenance(prior.block), b.Key, memoryProvenance(b))})
+		} else if !ok {
+			constraints[subject] = constraint{negative, b}
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+func normalizeMemoryText(s string) string {
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(s))), " ")
+}
+func activeMemoryAt(b MemBlock, asOf time.Time) bool {
+	if b.Status != "" && !strings.EqualFold(b.Status, "active") {
+		return false
+	}
+	if strings.TrimSpace(b.SupersededBy) != "" {
+		return false
+	}
+	if b.ExpiresAt == "" || asOf.IsZero() {
+		return true
+	}
+	expires, err := time.Parse("2006-01-02", b.ExpiresAt)
+	return err == nil && asOf.UTC().Before(expires)
+}
+func memoryConstraint(pattern string) (string, bool, bool) {
+	p := normalizeMemoryText(pattern)
+	for _, prefix := range []string{"must not ", "never "} {
+		if strings.HasPrefix(p, prefix) {
+			return strings.TrimPrefix(p, prefix), true, true
+		}
+	}
+	for _, prefix := range []string{"must ", "always "} {
+		if strings.HasPrefix(p, prefix) {
+			return strings.TrimPrefix(p, prefix), false, true
+		}
+	}
+	return "", false, false
+}
+func memoryProvenance(b MemBlock) string {
+	if p := strings.TrimSpace(b.Provenance); p != "" {
+		return p
+	}
+	if p := strings.TrimSpace(b.Source); p != "" {
+		return p
+	}
+	return "provenance=unknown"
+}
 
 // memBlockRE matches a markdown H2 heading, the boundary between memory blocks.
 var memBlockRE = regexp.MustCompile(`(?m)^##\s+`)

@@ -388,6 +388,9 @@ func runContext(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	if err := checkMemoryBeforeContext(root, args[0]); err != nil {
+		return err
+	}
 	manifest, err := speccontext.BuildManifest(root, args[0], spec.Tasks, args[1], contextBudget(root))
 	if err != nil {
 		return err
@@ -413,6 +416,33 @@ func runContext(root string, args []string, flags map[string]string) error {
 		if item.Path != "" {
 			fmt.Fprintln(os.Stdout, item.Path)
 		}
+	}
+	return nil
+}
+
+func checkMemoryBeforeContext(root, slug string) error {
+	cfg := loadSpecConfig(root)
+	if !cfg.ProductionProfile() {
+		return nil
+	}
+	var blocks []core.MemBlock
+	for _, path := range []string{filepath.Join(core.SpecdDir(root), "steering", "memory.md"), core.SpecMemoryPath(root, slug)} {
+		raw, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		parsed, err := core.IndexMemBlocks(string(raw))
+		if err != nil {
+			return fmt.Errorf("memory lint before context: %w", err)
+		}
+		blocks = append(blocks, parsed...)
+	}
+	findings := core.AnalyzeMemoryConflicts(blocks, core.Clock())
+	if len(findings) > 0 {
+		return errors.New("memory lint before context: " + findings[0].Message)
 	}
 	return nil
 }
@@ -1069,6 +1099,24 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 		ctx.Provenance = provenance
 	}
 	if cfg.ProductionProfile() {
+		ctx.MemoryLintRequired = true
+		ctx.MemoryAsOf = core.Clock()
+		for _, path := range []string{filepath.Join(core.SpecdDir(root), "steering", "memory.md"), core.SpecMemoryPath(root, slug)} {
+			raw, readErr := os.ReadFile(path)
+			if os.IsNotExist(readErr) {
+				continue
+			}
+			if readErr != nil {
+				ctx.MemoryLintError = readErr.Error()
+				break
+			}
+			blocks, parseErr := core.IndexMemBlocks(string(raw))
+			if parseErr != nil {
+				ctx.MemoryLintError = parseErr.Error()
+				break
+			}
+			ctx.MemoryBlocks = append(ctx.MemoryBlocks, blocks...)
+		}
 		decisions, decisionErr := core.LoadDecisions(core.DecisionPath(root, slug))
 		exceptions, exceptionErr := core.LoadGovernanceExceptions(core.ExceptionPath(root, slug))
 		if decisionErr != nil {

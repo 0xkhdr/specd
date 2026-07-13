@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 19 core gates
+## The 20 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -57,6 +57,7 @@ Registered by `CoreRegistry()` in the order they run:
 | 17 | `evidence-policy` | *(opt-in)* Declared integration boundaries carry required integration and negative-path evidence. |
 | 18 | `intake` | *(opt-in)* `provenance.json` supplies every configured typed-intake field; empty and `unknown` both fail readiness. |
 | 19 | `governance` | *(opt-in)* Required decisions are accepted and active; expired blocking exceptions fail closed with owner/review action. |
+| 20 | `memory-lint` | *(production profile)* Active memory has no duplicate normalized keys, explicit critical contradictions, or unowned forced promotions. |
 
 ### Notes on individual gates
 

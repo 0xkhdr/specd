@@ -28,6 +28,15 @@ func SelectMemory(root, slug string, c SelectionContext) ([]ItemV2, []Omission, 
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: %w", filepath.ToSlash(relOS), err)
 		}
+		if c.MemoryLintRequired {
+			conflicts := core.AnalyzeMemoryConflicts(blocks, c.AsOf)
+			if len(conflicts) > 0 {
+				for _, conflict := range conflicts {
+					omissions = append(omissions, Omission{Kind: "memory", Source: filepath.ToSlash(relOS), Reason: "memory lint: " + conflict.Message})
+				}
+				continue
+			}
+		}
 		sourceDigest := core.Digest(raw)
 		for _, block := range blocks {
 			if block.AppliesTo == "" {

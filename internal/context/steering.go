@@ -18,7 +18,8 @@ type SelectionContext struct {
 	Tags, RequirementIDs, TaskFields, Files []string
 	// AsOf is caller-supplied aging authority. Zero preserves legacy selection
 	// and prevents wall-clock access inside deterministic context construction.
-	AsOf time.Time
+	AsOf               time.Time
+	MemoryLintRequired bool
 }
 
 type staticMetadata struct {
