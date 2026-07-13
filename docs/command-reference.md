@@ -463,7 +463,7 @@ specd status --program
 
 ### `report`
 ```
-specd report <spec> [--pr|--metrics|--efficiency|--rollup|--json|--history|--trace|--proof|--format prometheus|event|otel]
+specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--trace|--proof|--format prometheus|event|otel]
 ```
 Render evidence-backed status, PR, history, trace, proof, and metrics reports. Deterministic —
 generated from `state.json` + task artifacts, never from an LLM. **Phases:** any.
@@ -474,6 +474,7 @@ generated from `state.json` + task artifacts, never from an LLM. **Phases:** any
 | `--metrics` | bool | Emit metrics summary. |
 | `--efficiency` | bool | Emit deterministic context-efficiency data with explicit `unknown` measurements. |
 | `--rollup` | bool | Emit exact cross-spec economic totals, preserving missing telemetry separately from measured zero. |
+| `--delivery` | bool | Emit byte-stable deployment status with adapter and trust source labeled separately. |
 | `--json` | bool | Emit machine-readable report (JSON Lines with `--history`). |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
@@ -488,6 +489,7 @@ specd report payments --trace
 specd report payments --proof
 specd report payments --efficiency
 specd report payments --rollup
+specd report payments --delivery
 specd report payments --format event
 specd report payments --format prometheus
 specd report payments --format otel

@@ -1,6 +1,8 @@
 package gates
 
 import (
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -17,6 +19,56 @@ type DeliveryInput struct {
 	Deployment   core.DeploymentV1
 	Observations []core.HealthObservationV1
 	Now          time.Time
+}
+
+type CanaryVerdictResult struct {
+	Healthy      bool
+	EvidenceRefs []string
+	Findings     []string
+}
+
+func CanaryVerdict(in DeliveryInput, allowedSources []string) CanaryVerdictResult {
+	result := CanaryVerdictResult{}
+	if err := core.ValidateCanaryWindow(in.Deployment, in.Observations, in.Now); err != nil {
+		result.Findings = append(result.Findings, err.Error())
+	}
+	allowed := make(map[string]bool, len(allowedSources))
+	for _, source := range allowedSources {
+		allowed[source] = true
+	}
+	byCriterion := make(map[string]core.HealthObservationV1)
+	for _, observation := range in.Observations {
+		if !allowed[observation.Source] {
+			result.Findings = append(result.Findings, "criterion "+observation.CriterionID+" source is not allowlisted")
+			continue
+		}
+		observed, err := time.Parse(time.RFC3339, observation.Freshness.ObservedAt)
+		maxAge, maxErr := time.ParseDuration(observation.Freshness.MaxAge)
+		policyAge, policyErr := time.ParseDuration(in.Policy.Freshness)
+		if err != nil || maxErr != nil || policyErr != nil || observed.After(in.Now) || in.Now.Sub(observed) > maxAge || in.Now.Sub(observed) > policyAge {
+			result.Findings = append(result.Findings, "criterion "+observation.CriterionID+" observation is stale or malformed")
+			continue
+		}
+		if observation.Observation != "pass" {
+			result.Findings = append(result.Findings, "criterion "+observation.CriterionID+" failed")
+			continue
+		}
+		byCriterion[observation.CriterionID] = observation
+	}
+	criteria := append([]string(nil), in.Policy.HealthCriteria...)
+	sort.Strings(criteria)
+	for _, criterion := range criteria {
+		o, ok := byCriterion[criterion]
+		if !ok {
+			result.Findings = append(result.Findings, "criterion "+criterion+" missing passing observation")
+			continue
+		}
+		result.EvidenceRefs = append(result.EvidenceRefs, fmt.Sprintf("health:%s:%s:%s", o.DeploymentID, o.CriterionID, o.Freshness.ObservedAt))
+	}
+	sort.Strings(result.EvidenceRefs)
+	sort.Strings(result.Findings)
+	result.Healthy = len(result.Findings) == 0
+	return result
 }
 
 // delivery is the pure, offline delivery gate. It returns findings in a fixed

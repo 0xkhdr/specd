@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	contextpkg "github.com/0xkhdr/specd/internal/context"
@@ -13,6 +14,21 @@ import (
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
+
+func renderDeliveryReport(records []core.DeploymentV1) string {
+	rows := append([]core.DeploymentV1(nil), records...)
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].DeploymentID != rows[j].DeploymentID {
+			return rows[i].DeploymentID < rows[j].DeploymentID
+		}
+		return rows[i].Attempt < rows[j].Attempt
+	})
+	var b strings.Builder
+	for _, row := range rows {
+		fmt.Fprintf(&b, "deployment=%s attempt=%d release=%s environment=%s status=%s adapter=%s source=%s\n", row.DeploymentID, row.Attempt, row.ReleaseID, row.Environment, row.Status, row.Adapter, row.AdapterTrustSource)
+	}
+	return b.String()
+}
 
 func gatherProgramEconomics(root string) (core.ProgramEconomics, error) {
 	dir := filepath.Join(core.SpecdDir(root), "specs")
@@ -342,6 +358,16 @@ func gatherPrometheus(root, slug string, model core.ReportModel) (core.Prometheu
 	metrics.Tokens = telemetry.Tokens
 	metrics.Cost = telemetry.Cost
 	metrics.DurationMs = telemetry.DurationMs
+	deployments, err := core.ReadDeployments(core.DeploymentLedgerPath(root, slug))
+	if err != nil {
+		return core.PrometheusMetrics{}, err
+	}
+	if len(deployments) > 0 {
+		metrics.DeliveryBySource = make(map[string]int)
+		for _, deployment := range deployments {
+			metrics.DeliveryBySource[string(deployment.AdapterTrustSource)]++
+		}
+	}
 
 	return metrics, nil
 }

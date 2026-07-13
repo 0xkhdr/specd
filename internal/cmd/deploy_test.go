@@ -121,3 +121,28 @@ func TestDeployFailsClosed(t *testing.T) {
 		t.Fatal("unknown release must fail closed")
 	}
 }
+
+func TestPromote(t *testing.T) {
+	deployment := core.DeploymentV1{Schema: core.DeploymentSchemaV1, DeploymentID: "dep-1", Attempt: 1,
+		ReleaseID: "rel-1", GitHead: "head", ArtifactDigest: "sha256:a", Environment: core.EnvironmentProduction,
+		Status: core.StatusObserving, Strategy: "canary", Population: "10%", Window: "10m", Adapter: "deploy/v1",
+		Authority: "release-manager", Actor: "operator", IdempotencyKey: "key", StartedAt: "2026-07-13T11:50:00Z"}
+	promotion, err := promotionRecord(deployment, "baseline:prod", []string{"obs:health", "obs:latency"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if promotion.Status != core.StatusHealthy || promotion.Promotion == nil || len(promotion.Promotion.EvidenceRefs) != 2 {
+		t.Fatalf("promotion audit missing: %+v", promotion)
+	}
+	if _, err := promotionRecord(deployment, "baseline:prod", nil, ""); err == nil {
+		t.Fatal("promotion without evidence accepted")
+	}
+	failed := deployment
+	failed.Status = core.StatusFailed
+	if _, err := promotionRecord(failed, "", nil, "EX-7"); err != nil {
+		t.Fatalf("governed exception rejected: %v", err)
+	}
+	if _, err := promotionRecord(failed, "", nil, ""); err == nil {
+		t.Fatal("failed canary accepted without exception or rollback")
+	}
+}

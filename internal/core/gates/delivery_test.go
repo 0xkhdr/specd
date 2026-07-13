@@ -102,3 +102,37 @@ func TestArtifactSubstitution(t *testing.T) {
 		t.Fatalf("no artifact digest finding: %#v", findings)
 	}
 }
+
+func TestObservationStale(t *testing.T) {
+	in := deliveryFixture()
+	in.Policy.HealthCriteria = []string{"health", "latency"}
+	in.Deployment.StartedAt = in.Now.Add(-10 * time.Minute).Format(time.RFC3339)
+	in.Deployment.Window = "10m"
+	in.Deployment.DeploymentID = "dep-1"
+	in.Observations[0].Schema = core.HealthObservationSchemaV1
+	in.Observations[0].DeploymentID = in.Deployment.DeploymentID
+	in.Observations[0].CriterionID = "health"
+	in.Observations[0].HealthCheck = "http"
+	in.Observations[0].Threshold = "pass"
+	in.Observations[0].Observation = "pass"
+	in.Observations[0].Source = "reference"
+	in.Observations[0].Freshness.WindowStartedAt = in.Now.Add(-10 * time.Minute).Format(time.RFC3339)
+	verdict := CanaryVerdict(in, []string{"reference"})
+	if verdict.Healthy || len(verdict.Findings) == 0 {
+		t.Fatal("missing criterion promoted")
+	}
+	in.Observations = append(in.Observations, in.Observations[0])
+	in.Observations[1].CriterionID = "latency"
+	if got := CanaryVerdict(in, []string{"reference"}); !got.Healthy {
+		t.Fatalf("complete observations failed: %#v", got)
+	}
+	in.Observations[1].Freshness.ObservedAt = in.Now.Add(-6 * time.Minute).Format(time.RFC3339)
+	if CanaryVerdict(in, []string{"reference"}).Healthy {
+		t.Fatal("stale observation promoted")
+	}
+	in.Observations[1].Freshness.ObservedAt = in.Now.Add(-1 * time.Minute).Format(time.RFC3339)
+	in.Observations[1].Source = "prompt"
+	if CanaryVerdict(in, []string{"reference"}).Healthy {
+		t.Fatal("unallowlisted source promoted")
+	}
+}

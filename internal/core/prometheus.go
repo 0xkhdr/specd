@@ -17,6 +17,7 @@ import (
 // TestPrometheusLabelAllowlist.
 var MetricLabelAllowlist = map[string]bool{
 	"spec":    true,
+	"source":  true,
 	"status":  true,
 	"verdict": true,
 	"task":    true,
@@ -67,16 +68,17 @@ func MetricLabelNames(exposition string) []string {
 // churn. All names carry the `specd_` prefix, snake_case, with `_total` on
 // monotonic counters and `_seconds` on durations, per Prometheus conventions.
 type PrometheusMetrics struct {
-	Slug            string
-	TasksByStatus   map[string]int
-	VerifyAttempts  int
-	VerifyFailures  int
-	CriteriaPassing int
-	CriteriaTotal   int
-	EscalatedTasks  int
-	Tokens          int
-	Cost            string // exact decimal string; "" renders as 0
-	DurationMs      int
+	Slug             string
+	TasksByStatus    map[string]int
+	VerifyAttempts   int
+	VerifyFailures   int
+	CriteriaPassing  int
+	CriteriaTotal    int
+	EscalatedTasks   int
+	Tokens           int
+	Cost             string // exact decimal string; "" renders as 0
+	DurationMs       int
+	DeliveryBySource map[string]int
 }
 
 // RenderPrometheus emits node_exporter textfile-collector-compatible output:
@@ -96,6 +98,13 @@ func RenderPrometheus(m PrometheusMetrics) string {
 
 	writeCounter(&b, "specd_verify_attempts_total", "Total verify attempts recorded in the evidence ledger.", spec, m.VerifyAttempts)
 	writeCounter(&b, "specd_verify_failures_total", "Verify attempts that exited non-zero.", spec, m.VerifyFailures)
+	if m.DeliveryBySource != nil {
+		b.WriteString("# HELP specd_delivery_records Delivery ledger records by bounded trust source.\n")
+		b.WriteString("# TYPE specd_delivery_records gauge\n")
+		for _, source := range sortedKeys(m.DeliveryBySource) {
+			fmt.Fprintf(&b, "specd_delivery_records{%s,%s} %d\n", spec, promLabel("source", source), m.DeliveryBySource[source])
+		}
+	}
 
 	// Acceptance-criterion coverage (spec 04) as a gauge with a verdict label.
 	b.WriteString("# HELP specd_criteria Acceptance criteria by verdict (passing vs. total declared).\n")

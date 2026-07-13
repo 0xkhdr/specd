@@ -705,6 +705,14 @@ func runReport(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	if flagEnabled(flags, "delivery") {
+		records, err := core.ReadDeployments(core.DeploymentLedgerPath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, renderDeliveryReport(records))
+		return nil
+	}
 	if flagEnabled(flags, "rollup") {
 		rollup, err := gatherProgramEconomics(root)
 		if err != nil {

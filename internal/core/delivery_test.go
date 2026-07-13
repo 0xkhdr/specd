@@ -123,3 +123,46 @@ func validHealthObservation() HealthObservationV1 {
 	r := validReleaseCandidate()
 	return HealthObservationV1{Schema: HealthObservationSchemaV1, DeploymentID: "dep-1", CriterionID: "http_5xx", HealthCheck: "rate", Threshold: "<0.01", Observation: "0.002", Freshness: ObservationFreshness{ObservedAt: "2026-07-11T09:20:00Z", MaxAge: "5m"}, ReleaseIdentity: DeliveryIdentity{ReleaseID: r.ReleaseID, ArtifactDigest: r.ArtifactDigest, Environment: EnvironmentStaging}, Source: "metrics"}
 }
+
+func TestCanaryWindow(t *testing.T) {
+	now := time.Date(2026, 7, 13, 12, 0, 0, 0, time.UTC)
+	deployment := validDeployment()
+	deployment.Status = StatusObserving
+	deployment.StartedAt = now.Add(-10 * time.Minute).Format(time.RFC3339)
+	deployment.Window = "10m"
+	observations := []HealthObservationV1{validHealthObservation()}
+	observations[0].Freshness.ObservedAt = now.Add(-9 * time.Minute).Format(time.RFC3339)
+	observations[0].Freshness.MaxAge = "15m"
+	observations[0].Freshness.WindowStartedAt = now.Add(-10 * time.Minute).Format(time.RFC3339)
+	if err := ValidateCanaryWindow(deployment, observations, now); err != nil {
+		t.Fatalf("full window rejected: %v", err)
+	}
+	deployment.StartedAt = now.Add(-9 * time.Minute).Format(time.RFC3339)
+	if err := ValidateCanaryWindow(deployment, observations, now); err == nil {
+		t.Fatal("partial window accepted")
+	}
+	deployment.StartedAt = now.Add(-10 * time.Minute).Format(time.RFC3339)
+	observations[0].ReleaseIdentity.ArtifactDigest = "sha256:wrong"
+	if err := ValidateCanaryWindow(deployment, observations, now); err == nil {
+		t.Fatal("wrong-artifact observation accepted")
+	}
+}
+
+func TestRollbackComplete(t *testing.T) {
+	r := RollbackV1{Schema: RollbackSchemaV2, DeploymentID: "dep-1", FailedReleaseID: "rel-bad",
+		RollbackTarget: "rel-good", Reason: "error budget", Adapter: "deploy/v1", AdapterIdentity: "attested:ci",
+		ActionResult: "succeeded", CapabilityClass: RollbackCapabilityAutomatic,
+		PostRollbackHealth: RollbackHealth{CriterionID: "health", Observation: "pass", ObservedAt: "2026-07-13T12:00:00Z"}}
+	if err := ValidateRollback(r); err != nil {
+		t.Fatalf("complete rollback rejected: %v", err)
+	}
+	r.PostRollbackHealth = RollbackHealth{}
+	if err := ValidateRollback(r); err == nil {
+		t.Fatal("rollback completed without target health")
+	}
+	r.CapabilityClass = RollbackCapabilityHumanRequired
+	r.HumanRequired = false
+	if err := ValidateRollback(r); err == nil {
+		t.Fatal("human-required strategy accepted without human requirement")
+	}
+}

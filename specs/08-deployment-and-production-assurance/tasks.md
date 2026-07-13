@@ -158,11 +158,19 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T44 | craftsman | `internal/core/delivery.go` (canary observation window) | T38,T40 | `go test ./internal/core -run TestCanaryWindow -count=1` | R9.1 observing until full fresh window, exact artifact/env |
-| T45 | craftsman | `internal/core/gates/delivery.go` (freshness/staleness) | T44 | `go test ./internal/core/gates -run TestObservationStale -count=1` | R9.1 missing/stale/wrong-release fails, never healthy-by-timeout |
-| T46 | craftsman | `internal/cmd/deploy.go` (promotion records baseline+refs) | T44 | `go test ./internal/cmd -run TestPromote -count=1` | R9.2 promotion or governed exception |
-| T47 | craftsman | `internal/core/delivery.go` (rollback record + post-health) | T44 | `go test ./internal/core -run TestRollbackComplete -count=1` | R9.3 complete only after target health; capability class |
-| T48 | craftsman | `internal/cmd/report.go`; `internal/core/prometheus.go` | T46,T47 | `go test ./internal/cmd -run TestDeliveryReportStable -count=2` | R9.3 repeated reports byte-identical; label source separately |
+| [x] T44 | craftsman | `internal/core/delivery.go` (canary observation window) | T38,T40 | `go test ./internal/core -run TestCanaryWindow -count=1` | R9.1 observing until full fresh window, exact artifact/env |
+| [x] T45 | craftsman | `internal/core/gates/delivery.go` (freshness/staleness) | T44 | `go test ./internal/core/gates -run TestObservationStale -count=1` | R9.1 missing/stale/wrong-release fails, never healthy-by-timeout |
+| [x] T46 | craftsman | `internal/cmd/deploy.go` (promotion records baseline+refs) | T44 | `go test ./internal/cmd -run TestPromote -count=1` | R9.2 promotion or governed exception |
+| [x] T47 | craftsman | `internal/core/delivery.go` (rollback record + post-health) | T44 | `go test ./internal/core -run TestRollbackComplete -count=1` | R9.3 complete only after target health; capability class |
+| [x] T48 | craftsman | `internal/cmd/report.go`; `internal/core/prometheus.go` | T46,T47 | `go test ./internal/cmd -run TestDeliveryReportStable -count=2` | R9.3 repeated reports byte-identical; label source separately |
+
+> **08j scope deviations:** strict TDD extends `internal/core/delivery_test.go`,
+> `internal/core/gates/delivery_test.go`, and `internal/cmd/deploy_test.go`, and adds
+> `internal/cmd/delivery_report_test.go`. T48 adds its bounded trust-source metric to
+> `internal/core/prometheus.go`. Exposing T48's report requires the canonical `report
+> --delivery` declaration/dispatch in `internal/core/commands.go` and `internal/cmd/registry.go`,
+> plus mirrored `docs/command-reference.md` and `docs/CHEATSHEET.md`. Rollback V2 is additive so
+> existing RollbackV1 ledger fixtures remain readable.
 
 ## W10 — `08k-ci-delivery-binding-and-attestation` (requires 08i, Domain 10 adapter)
 

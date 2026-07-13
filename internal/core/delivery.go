@@ -12,6 +12,7 @@ const (
 	DeploymentSchemaV1        = "DeploymentV1"
 	HealthObservationSchemaV1 = "HealthObservationV1"
 	RollbackSchemaV1          = "RollbackV1"
+	RollbackSchemaV2          = "RollbackV2"
 )
 
 type EnvironmentName string
@@ -102,11 +103,21 @@ type DeploymentV1 struct {
 	AttestationRef     string             `json:"attestation_ref"`
 	AdapterTrustSource AdapterTrustSource `json:"adapter_trust_source,omitempty"`
 	AdapterMessage     string             `json:"adapter_message,omitempty"`
+	Promotion          *PromotionV1       `json:"promotion,omitempty"`
+	ExceptionRef       string             `json:"exception_ref,omitempty"`
 }
 
 type ObservationFreshness struct {
-	ObservedAt string `json:"observed_at"`
-	MaxAge     string `json:"max_age"`
+	ObservedAt      string `json:"observed_at"`
+	MaxAge          string `json:"max_age"`
+	WindowStartedAt string `json:"window_started_at,omitempty"`
+}
+
+// PromotionV1 preserves exact health evidence and comparison baseline used by
+// a promotion. References remain external; no raw telemetry enters the ledger.
+type PromotionV1 struct {
+	Baseline     string   `json:"baseline"`
+	EvidenceRefs []string `json:"evidence_refs"`
 }
 
 type DeliveryIdentity struct {
@@ -136,14 +147,21 @@ type RollbackHealth struct {
 type RollbackV1 struct {
 	Schema             string         `json:"schema"`
 	DeploymentID       string         `json:"deployment_id"`
+	FailedReleaseID    string         `json:"failed_release_id"`
 	RollbackTarget     string         `json:"rollback_target"`
 	Reason             string         `json:"reason"`
 	Adapter            string         `json:"adapter"`
+	AdapterIdentity    string         `json:"adapter_identity"`
 	ActionResult       string         `json:"action_result"`
 	PostRollbackHealth RollbackHealth `json:"post_rollback_health"`
 	CapabilityClass    string         `json:"capability_class"`
 	HumanRequired      bool           `json:"human_required"`
 }
+
+const (
+	RollbackCapabilityAutomatic     = "automatic"
+	RollbackCapabilityHumanRequired = "human_required"
+)
 
 func ValidateReleaseCandidate(r ReleaseCandidateV1) error {
 	if r.Schema != ReleaseCandidateSchemaV1 {
@@ -247,15 +265,80 @@ func ValidateHealthObservation(h HealthObservationV1) error {
 	if _, err := time.ParseDuration(h.Freshness.MaxAge); err != nil {
 		return fmt.Errorf("invalid max_age: %w", err)
 	}
+	if h.Freshness.WindowStartedAt != "" {
+		if _, err := parseRFC3339("window_started_at", h.Freshness.WindowStartedAt); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func ValidateRollback(r RollbackV1) error {
-	if r.Schema != RollbackSchemaV1 {
+	if r.Schema != RollbackSchemaV1 && r.Schema != RollbackSchemaV2 {
 		return fmt.Errorf("unknown rollback schema %q", r.Schema)
 	}
-	if missing := firstEmpty("deployment_id", r.DeploymentID, "rollback_target", r.RollbackTarget, "reason", r.Reason, "adapter", r.Adapter, "action_result", r.ActionResult, "capability_class", r.CapabilityClass); missing != "" {
+	if r.Schema == RollbackSchemaV1 {
+		if missing := firstEmpty("deployment_id", r.DeploymentID, "rollback_target", r.RollbackTarget, "reason", r.Reason, "adapter", r.Adapter, "action_result", r.ActionResult, "capability_class", r.CapabilityClass); missing != "" {
+			return fmt.Errorf("rollback missing %s", missing)
+		}
+		return nil
+	}
+	if missing := firstEmpty("deployment_id", r.DeploymentID, "failed_release_id", r.FailedReleaseID, "rollback_target", r.RollbackTarget, "reason", r.Reason, "adapter", r.Adapter, "adapter_identity", r.AdapterIdentity, "action_result", r.ActionResult, "capability_class", r.CapabilityClass); missing != "" {
 		return fmt.Errorf("rollback missing %s", missing)
+	}
+	if r.CapabilityClass != RollbackCapabilityAutomatic && r.CapabilityClass != RollbackCapabilityHumanRequired {
+		return fmt.Errorf("unknown rollback capability_class %q", r.CapabilityClass)
+	}
+	if r.CapabilityClass == RollbackCapabilityHumanRequired && !r.HumanRequired {
+		return fmt.Errorf("human_required capability requires human_required=true")
+	}
+	if missing := firstEmpty("post_rollback_health.criterion_id", r.PostRollbackHealth.CriterionID, "post_rollback_health.observation", r.PostRollbackHealth.Observation, "post_rollback_health.observed_at", r.PostRollbackHealth.ObservedAt); missing != "" {
+		return fmt.Errorf("rollback incomplete: missing %s", missing)
+	}
+	if _, err := parseRFC3339("post_rollback_health.observed_at", r.PostRollbackHealth.ObservedAt); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateCanaryWindow proves observation lasted for the declared duration and
+// every supplied fact binds the exact deployment/release/artifact/environment.
+func ValidateCanaryWindow(d DeploymentV1, observations []HealthObservationV1, now time.Time) error {
+	if d.Status != StatusObserving {
+		return fmt.Errorf("canary must be observing, got %s", d.Status)
+	}
+	if now.IsZero() {
+		return fmt.Errorf("canary verdict time required")
+	}
+	started, err := parseRFC3339("started_at", d.StartedAt)
+	if err != nil {
+		return err
+	}
+	window, err := time.ParseDuration(d.Window)
+	if err != nil || window <= 0 {
+		return fmt.Errorf("invalid canary window %q", d.Window)
+	}
+	windowStart := now.Add(-window)
+	if started.After(windowStart) {
+		return fmt.Errorf("canary observation window incomplete")
+	}
+	if len(observations) == 0 {
+		return fmt.Errorf("canary missing observations")
+	}
+	for _, o := range observations {
+		if err := ValidateHealthObservation(o); err != nil {
+			return err
+		}
+		if o.DeploymentID != d.DeploymentID || o.ReleaseIdentity.ReleaseID != d.ReleaseID || o.ReleaseIdentity.ArtifactDigest != d.ArtifactDigest || o.ReleaseIdentity.Environment != d.Environment {
+			return fmt.Errorf("health observation identity mismatch")
+		}
+		if o.Freshness.WindowStartedAt == "" {
+			return fmt.Errorf("health observation missing window_started_at")
+		}
+		observedStart, _ := time.Parse(time.RFC3339, o.Freshness.WindowStartedAt)
+		if observedStart.After(windowStart) {
+			return fmt.Errorf("health observation does not cover full window")
+		}
 	}
 	return nil
 }

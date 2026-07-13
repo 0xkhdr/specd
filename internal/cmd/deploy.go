@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -67,6 +68,32 @@ func runDeploy(root string, args []string, flags map[string]string) error {
 	}
 	fmt.Printf("deployment %s attempt %d recorded for %s (%s)\n", attempt.DeploymentID, attempt.Attempt, slug, env)
 	return nil
+}
+
+func promotionRecord(deployment core.DeploymentV1, baseline string, evidenceRefs []string, exceptionRef string) (core.DeploymentV1, error) {
+	if deployment.Status == core.StatusFailed {
+		if strings.TrimSpace(exceptionRef) == "" {
+			return core.DeploymentV1{}, fmt.Errorf("failed canary requires governed exception or rollback")
+		}
+		deployment.ExceptionRef = exceptionRef
+		return deployment, nil
+	}
+	if deployment.Status != core.StatusObserving {
+		return core.DeploymentV1{}, fmt.Errorf("only observing canary may promote")
+	}
+	if strings.TrimSpace(baseline) == "" || len(evidenceRefs) == 0 {
+		return core.DeploymentV1{}, fmt.Errorf("promotion requires baseline and evidence references")
+	}
+	refs := append([]string(nil), evidenceRefs...)
+	for _, ref := range refs {
+		if strings.TrimSpace(ref) == "" {
+			return core.DeploymentV1{}, fmt.Errorf("promotion evidence reference is empty")
+		}
+	}
+	sort.Strings(refs)
+	deployment.Status = core.StatusHealthy
+	deployment.Promotion = &core.PromotionV1{Baseline: baseline, EvidenceRefs: refs}
+	return deployment, nil
 }
 
 // deploymentID is the deterministic identity of a (spec, release, environment)
