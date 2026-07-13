@@ -18,6 +18,13 @@ func runIncident(root string, args []string, flags map[string]string) error {
 	slug := args[1]
 	refs := strings.Split(flags["evidence-ref"], ",")
 	seed := core.IncidentSeed{SourceSpec: flags["source-spec"], ReleaseID: flags["release"], DeploymentID: flags["deployment"], CriterionID: flags["criterion"], EvidenceRefs: refs}
+	sourceState, err := core.LoadState(core.StatePath(root, seed.SourceSpec))
+	if err != nil {
+		return fmt.Errorf("incident source %q does not exist: %w", seed.SourceSpec, err)
+	}
+	if sourceState.Status != core.StatusComplete {
+		return fmt.Errorf("incident source %q must be complete", seed.SourceSpec)
+	}
 	plan, err := core.PlanIncidentSuccessor(slug, seed)
 	if err != nil {
 		return err

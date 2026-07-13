@@ -20,9 +20,19 @@ func TestIncidentSeed(t *testing.T) {
 	if err := os.WriteFile(sourcePath, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	state := core.InitialState("checkout")
+	state.Status, state.Phase = core.StatusComplete, core.PhaseReflect
+	if err := core.SaveState(core.StatePath(root, "checkout"), state); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(core.EvidencePath(root, "checkout"), []byte("source-evidence-bytes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stateBefore, _ := os.ReadFile(core.StatePath(root, "checkout"))
+	evidenceBefore, _ := os.ReadFile(core.EvidencePath(root, "checkout"))
 	if err := runIncident(root, []string{"seed", "checkout-recovery"}, map[string]string{
 		"source-spec": "checkout", "release": "rel-7", "deployment": "dep-4",
-		"criterion": "availability", "evidence-ref": "obs://health/42,runbook://rollback/7",
+		"criterion": "availability", "evidence-ref": "obs://health/42,artifact://rollback/7",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +42,7 @@ func TestIncidentSeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(requirements)
-	for _, want := range []string{"rel-7", "dep-4", "availability", "obs://health/42", "runbook://rollback/7"} {
+	for _, want := range []string{"rel-7", "dep-4", "availability", "obs://health/42", "artifact://rollback/7"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("requirements missing %q: %s", want, text)
 		}
@@ -54,6 +64,11 @@ func TestIncidentSeed(t *testing.T) {
 	gotOriginal, err := os.ReadFile(sourcePath)
 	if err != nil || string(gotOriginal) != original {
 		t.Fatalf("source mutated: %q, err=%v", gotOriginal, err)
+	}
+	stateAfter, _ := os.ReadFile(core.StatePath(root, "checkout"))
+	evidenceAfter, _ := os.ReadFile(core.EvidencePath(root, "checkout"))
+	if string(stateAfter) != string(stateBefore) || string(evidenceAfter) != string(evidenceBefore) {
+		t.Fatal("incident mutated source state or evidence bytes")
 	}
 	if err := runIncident(root, []string{"seed", "bad"}, map[string]string{
 		"source-spec": "checkout", "release": "rel-7", "deployment": "dep-4",

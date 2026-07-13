@@ -22,6 +22,11 @@ func runArchive(root string, args []string, flags map[string]string) error {
 		return fmt.Errorf("archive successor %q is not an active spec", req.SuccessorID)
 	}
 	record, err := core.WithSpecLock(root, func() (core.ArchiveRecord, error) {
+		_, archiveStatErr := os.Stat(core.ArchiveRecordPath(root, req.SpecID))
+		archiveAlreadyExists := archiveStatErr == nil
+		if archiveStatErr != nil && !errors.Is(archiveStatErr, os.ErrNotExist) {
+			return core.ArchiveRecord{}, archiveStatErr
+		}
 		program, err := core.LoadProgram(core.ProgramPath(root))
 		if err != nil {
 			return core.ArchiveRecord{}, err
@@ -32,10 +37,20 @@ func runArchive(root string, args []string, flags map[string]string) error {
 		if err := program.AddTypedLink(req.SuccessorID, req.SpecID, core.LinkKindSupersedes, "archived predecessor"); err != nil {
 			return core.ArchiveRecord{}, err
 		}
-		if err := core.SaveProgram(core.ProgramPath(root), program); err != nil {
+		record, err := core.ArchiveSpec(root, req)
+		if err != nil {
 			return core.ArchiveRecord{}, err
 		}
-		return core.ArchiveSpec(root, req)
+		if err := core.SaveProgram(core.ProgramPath(root), program); err != nil {
+			if archiveAlreadyExists {
+				return core.ArchiveRecord{}, err
+			}
+			if rollbackErr := core.RestoreArchive(root, req.SpecID); rollbackErr != nil {
+				return core.ArchiveRecord{}, fmt.Errorf("save program: %v; archive rollback: %w", err, rollbackErr)
+			}
+			return core.ArchiveRecord{}, err
+		}
+		return record, nil
 	})
 	if err != nil {
 		return err

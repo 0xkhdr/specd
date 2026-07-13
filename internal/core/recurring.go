@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,6 +16,10 @@ import (
 const RecurringSchemaV1 = 1
 
 var recurringID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+
+// Recurring definitions are untrusted commands executed only by external CI.
+// This allowlist constrains contract shape; it is not a sandbox guarantee.
+var recurringExecutable = map[string]bool{"go": true, "specd": true}
 
 type RecurringCheckV1 struct {
 	SchemaVersion int    `json:"schema_version"`
@@ -35,9 +40,13 @@ func (c RecurringCheckV1) Validate() error {
 	if command == "" || len(command) > 4096 || strings.ContainsAny(command, "\x00\r\n") {
 		return errors.New("recurring command must be a bounded single line")
 	}
-	first := strings.Fields(command)[0]
-	if first == "curl" || first == "wget" || first == "nc" || first == "ssh" {
-		return fmt.Errorf("recurring command %q requires network; core checks must be offline", first)
+	fields := strings.Fields(command)
+	first := fields[0]
+	if strings.ContainsAny(command, ";&|`$<>") || strings.Contains(first, "/") || !recurringExecutable[first] {
+		return fmt.Errorf("recurring executable %q is not in definition allowlist", first)
+	}
+	if len(fields) < 2 || (first == "go" && fields[1] != "test") || (first == "specd" && fields[1] != "check" && fields[1] != "status" && fields[1] != "drift" && fields[1] != "report") {
+		return fmt.Errorf("recurring command %q is not an allowed read-only invocation", command)
 	}
 	if strings.TrimSpace(c.Cadence) == "" && strings.TrimSpace(c.Trigger) == "" {
 		return errors.New("recurring check requires cadence or trigger metadata")
@@ -98,6 +107,9 @@ func RecordRecurringResult(root, slug string, result RecurringResultV1) error {
 	if err := result.Validate(); err != nil {
 		return err
 	}
+	if err := ResolveGitCommit(root, result.GitHead); err != nil {
+		return fmt.Errorf("recurring result git_head: %w", err)
+	}
 	result.SchemaVersion = RecurringSchemaV1
 	line, err := json.Marshal(result)
 	if err != nil {
@@ -107,6 +119,17 @@ func RecordRecurringResult(root, slug string, result RecurringResultV1) error {
 		return struct{}{}, AppendFile(RecurringResultsPath(root, slug), string(line)+"\n")
 	})
 	return err
+}
+
+func ResolveGitCommit(root, revision string) error {
+	if !HeadPinned(revision) {
+		return errors.New("commit is not pinned")
+	}
+	cmd := exec.Command("git", "-C", root, "cat-file", "-e", revision+"^{commit}")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cannot resolve commit %q", revision)
+	}
+	return nil
 }
 
 func LoadRecurringResults(path string) ([]RecurringResultV1, error) {

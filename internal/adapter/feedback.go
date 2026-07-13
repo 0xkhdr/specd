@@ -55,12 +55,21 @@ func validateFeedback(f ReleaseFeedbackV1) error {
 	seen := map[string]bool{}
 	for _, ref := range f.EvidenceRefs {
 		u, err := url.Parse(ref)
-		if err != nil || u.Scheme == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || len(ref) > 256 || strings.ContainsAny(ref, "\x00\r\n") || seen[ref] {
+		allowed := err == nil && (u.Scheme == "artifact" || u.Scheme == "obs" || u.Scheme == "verify" || u.Scheme == "eval" || u.Scheme == "sha256")
+		if !allowed || u.User != nil || u.RawQuery != "" || u.Fragment != "" || len(ref) > 256 || strings.ContainsAny(ref, "\x00\r\n") || seen[ref] {
 			return newFinding(ErrInvalidValue, "evidence_refs", "feedback evidence reference is unsafe or duplicate")
 		}
 		seen[ref] = true
 	}
 	return nil
+}
+
+// ValidateFeedbackCommit resolves untrusted feedback identity at import boundary.
+func ValidateFeedbackCommit(root string, f ReleaseFeedbackV1) error {
+	if err := validateFeedback(f); err != nil {
+		return err
+	}
+	return core.ResolveGitCommit(root, f.GitHead)
 }
 
 // FeedbackRequest wraps runtime feedback in the common boundary envelope.

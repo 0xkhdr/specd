@@ -19,9 +19,9 @@ func TestRecurringDefine(t *testing.T) {
 
 func TestRecurringAppendOnly(t *testing.T) {
 	root := t.TempDir()
-	pass := RecurringResultV1{SchemaVersion: 1, CheckID: "api-health", GitHead: strings.Repeat("a", 40), ReleaseID: "r1", ConfigID: "prod-v1", Verdict: RecurringPass, ObservedAt: "2026-01-01T00:00:00Z"}
+	head := archiveGitRepo(t, root)
+	pass := RecurringResultV1{SchemaVersion: 1, CheckID: "api-health", GitHead: head, ReleaseID: "r1", ConfigID: "prod-v1", Verdict: RecurringPass, ObservedAt: "2026-01-01T00:00:00Z"}
 	fail := pass
-	fail.GitHead = strings.Repeat("b", 40)
 	fail.Verdict = RecurringFail
 	fail.ObservedAt = "2026-01-02T00:00:00Z"
 	if err := RecordRecurringResult(root, "demo", pass); err != nil {
@@ -36,6 +36,20 @@ func TestRecurringAppendOnly(t *testing.T) {
 	}
 	if len(records) != 2 || records[0].Verdict != RecurringPass || records[1].GitHead != fail.GitHead {
 		t.Fatalf("records = %+v", records)
+	}
+}
+
+func TestRecurringRejectsShellNetworkBypassesAndFakeHead(t *testing.T) {
+	for _, command := range []string{"env curl https://example.test", "/usr/bin/curl https://example.test", "sh -c curl", "go test ./...; curl x", "go test ./... | nc host 9", "$(curl x)"} {
+		if err := (RecurringCheckV1{ID: "x", Command: command, Cadence: "daily"}).Validate(); err == nil {
+			t.Fatalf("accepted command %q", command)
+		}
+	}
+	root := t.TempDir()
+	archiveGitRepo(t, root)
+	result := RecurringResultV1{CheckID: "x", GitHead: strings.Repeat("a", 40), ReleaseID: "r", ConfigID: "c", Verdict: RecurringPass, ObservedAt: "2026-01-01T00:00:00Z"}
+	if err := RecordRecurringResult(root, "demo", result); err == nil {
+		t.Fatal("accepted non-existent commit")
 	}
 }
 

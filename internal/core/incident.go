@@ -155,6 +155,11 @@ func validateIncidentRef(label, ref string) error {
 	if err != nil || u.Scheme == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
 		return fmt.Errorf("unsafe %s reference %q", label, ref)
 	}
+	switch u.Scheme {
+	case "artifact", "obs", "verify", "eval", "decision", "sha256":
+	default:
+		return fmt.Errorf("unsafe %s reference scheme %q", label, u.Scheme)
+	}
 	return nil
 }
 

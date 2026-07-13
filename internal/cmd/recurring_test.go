@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -9,7 +8,8 @@ import (
 
 func TestRecurringRecord(t *testing.T) {
 	root := t.TempDir()
-	flags := map[string]string{"check": "api-health", "head": strings.Repeat("a", 40), "release": "rel-1", "config": "prod-v1", "verdict": "pass", "observed-at": "2026-01-01T00:00:00Z"}
+	gitInitRepo(t, root)
+	flags := map[string]string{"check": "api-health", "head": gitHead(root), "release": "rel-1", "config": "prod-v1", "verdict": "pass", "observed-at": "2026-01-01T00:00:00Z"}
 	if err := runRecurring(root, []string{"record", "demo"}, flags); err != nil {
 		t.Fatal(err)
 	}

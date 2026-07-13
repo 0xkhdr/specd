@@ -2,6 +2,8 @@ package adapter
 
 import (
 	"encoding/json"
+	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +31,24 @@ func TestFeedbackRoundTripPreservesReleaseProvenance(t *testing.T) {
 	}
 	if req.Subject.ReleaseID != feedback.ReleaseID || req.Subject.Environment != feedback.Environment || req.Subject.GitHead != feedback.GitHead || req.Subject.SpecSlug != feedback.SourceSpec {
 		t.Fatalf("release identity not pinned in envelope: %+v", req.Subject)
+	}
+}
+
+func TestFeedbackCommitMustResolveAtImportBoundary(t *testing.T) {
+	root := t.TempDir()
+	for _, args := range [][]string{{"init"}, {"config", "user.email", "test@example.test"}, {"config", "user.name", "Test"}, {"commit", "--allow-empty", "-m", "fixture"}} {
+		if out, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git: %v %s", err, out)
+		}
+	}
+	out, _ := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
+	f := ReleaseFeedbackV1{SchemaVersion: FeedbackSchemaV1, SourceSpec: "source", SuccessorSpec: "repair", ReleaseID: "r1", Environment: "production", GitHead: strings.TrimSpace(string(out)), ObservedAt: "2026-01-01T00:00:00Z", EvidenceRefs: []string{"artifact://run/1"}}
+	if err := ValidateFeedbackCommit(root, f); err != nil {
+		t.Fatal(err)
+	}
+	f.GitHead = strings.Repeat("a", 40)
+	if err := ValidateFeedbackCommit(root, f); err == nil {
+		t.Fatal("unresolvable feedback commit accepted")
 	}
 }
 

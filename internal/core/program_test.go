@@ -67,6 +67,24 @@ func TestPortfolioScale(t *testing.T) {
 	}
 }
 
+func TestPortfolioCardinalityBounds(t *testing.T) {
+	items := make([]GovernanceItem, PortfolioItemLimit+1)
+	for i := range items {
+		items[i] = GovernanceItem{ID: fmt.Sprintf("g-%d", i), Status: GovernanceAccepted}
+	}
+	_, err := BuildPortfolioGovernanceStatus(Program{}, []PortfolioGovernanceInput{{SpecID: "demo", Risk: RiskLow, Owner: "team", Governance: items}}, time.Time{})
+	if err == nil {
+		t.Fatal("unbounded governance cardinality accepted")
+	}
+	rows := make([]PortfolioSpec, PortfolioScaleLimit+1)
+	for i := range rows {
+		rows[i].SpecID = fmt.Sprintf("spec-%05d", i)
+	}
+	if _, err := BuildPortfolioView(Program{}, rows); err == nil {
+		t.Fatal("unbounded portfolio view accepted")
+	}
+}
+
 func TestProgramEconomicRollupExactStableMissingAndDriftSources(t *testing.T) {
 	inputs := []SpecEconomics{
 		{SpecID: "zeta", Telemetry: &TelemetryReport{Cost: "0.20", InputTokens: 3}, SourceRefs: []string{"evidence:zeta:2"}},
@@ -226,6 +244,19 @@ func TestProgramFeedbackFailsClosedForMutableSourceOrCycle(t *testing.T) {
 	p.Links = []ProgramLink{{From: "done", To: "fix", Kind: LinkKindFollows}}
 	if err := p.AddFeedbackLink("fix", "done", "feedback", complete); err == nil {
 		t.Fatal("cycle accepted")
+	}
+}
+
+func TestTypedLinkReplayConflict(t *testing.T) {
+	p := Program{}
+	if err := p.AddTypedLink("repair", "source", LinkKindMaintains, "same"); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.AddTypedLink("repair", "source", LinkKindMaintains, "same"); err != nil || len(p.Links) != 1 {
+		t.Fatalf("exact replay: %v %+v", err, p.Links)
+	}
+	if err := p.AddTypedLink("repair", "source", LinkKindRegresses, "different"); err == nil {
+		t.Fatal("metadata mismatch accepted")
 	}
 }
 

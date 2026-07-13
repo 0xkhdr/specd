@@ -66,6 +66,9 @@ type PortfolioView struct {
 // provide compact records only; BuildPortfolioGovernanceStatus never discovers
 // or loads spec prose, ledgers, or context.
 const PortfolioScaleLimit = 10000
+const PortfolioItemLimit = 1000
+const ProgramLinkLimit = 100000
+const ProgramLinksPerSpecLimit = 1000
 
 type RiskLevel string
 
@@ -173,6 +176,9 @@ func BuildPortfolioGovernanceStatus(program Program, inputs []PortfolioGovernanc
 		if row.Owner == "" {
 			return PortfolioGovernanceStatus{}, fmt.Errorf("empty owner for %s", row.SpecID)
 		}
+		if len(row.Governance) > PortfolioItemLimit || len(row.ProductionSignals) > PortfolioItemLimit || len(row.SharedOutcomes) > PortfolioItemLimit {
+			return PortfolioGovernanceStatus{}, fmt.Errorf("portfolio spec %s exceeds item limit %d", row.SpecID, PortfolioItemLimit)
+		}
 		complete[row.SpecID], meta[row.SpecID] = row.Complete, row
 		projected := PortfolioGovernanceSpec{SpecID: row.SpecID, Complete: row.Complete, Risk: row.Risk, Owner: row.Owner}
 		seen := map[string]bool{}
@@ -259,6 +265,9 @@ func BuildPortfolioGovernanceStatus(program Program, inputs []PortfolioGovernanc
 // BuildPortfolioView projects only supplied local ledgers and program state.
 // Ledger order is authoritative; no discovery or network call occurs.
 func BuildPortfolioView(program Program, inputs []PortfolioSpec) (PortfolioView, error) {
+	if len(inputs) > PortfolioScaleLimit {
+		return PortfolioView{}, fmt.Errorf("portfolio exceeds scale limit %d", PortfolioScaleLimit)
+	}
 	rows := append([]PortfolioSpec(nil), inputs...)
 	sort.Slice(rows, func(i, j int) bool { return rows[i].SpecID < rows[j].SpecID })
 	complete := map[string]bool{}
@@ -420,6 +429,12 @@ func LoadProgram(path string) (Program, error) {
 			return Program{}, fmt.Errorf("unknown link kind %q", program.Links[i].Kind)
 		}
 	}
+	validated := Program{SchemaVersion: ProgramSchemaVersion}
+	for _, link := range program.Links {
+		if err := validated.AddTypedLink(link.From, link.To, link.Kind, link.Reason); err != nil {
+			return Program{}, fmt.Errorf("invalid program link: %w", err)
+		}
+	}
 	program.SchemaVersion = ProgramSchemaVersion
 	return program, nil
 }
@@ -452,12 +467,36 @@ func (p *Program) AddLink(from, to string) {
 // AddTypedLink records a validated, traceable dependency edge. Link kinds are
 // metadata: every kind preserves the existing cycle and ordering semantics.
 func (p *Program) AddTypedLink(from, to string, kind LinkKind, reason string) error {
+	if err := ValidateSlug(from); err != nil {
+		return fmt.Errorf("invalid link source: %w", err)
+	}
+	if err := ValidateSlug(to); err != nil {
+		return fmt.Errorf("invalid link target: %w", err)
+	}
 	if !kind.Valid() {
 		return fmt.Errorf("unknown link kind %q", kind)
 	}
-	if !p.HasLink(from, to) {
-		p.Links = append(p.Links, ProgramLink{From: from, To: to, Kind: kind, Reason: reason})
+	for _, link := range p.Links {
+		if link.From == from && link.To == to {
+			if link.Kind == kind && link.Reason == reason {
+				return nil
+			}
+			return fmt.Errorf("link conflict for %s -> %s: existing kind/reason differs", from, to)
+		}
 	}
+	if len(p.Links) >= ProgramLinkLimit {
+		return fmt.Errorf("program exceeds link limit %d", ProgramLinkLimit)
+	}
+	count := 0
+	for _, link := range p.Links {
+		if link.From == from {
+			count++
+		}
+	}
+	if count >= ProgramLinksPerSpecLimit {
+		return fmt.Errorf("spec %s exceeds link limit %d", from, ProgramLinksPerSpecLimit)
+	}
+	p.Links = append(p.Links, ProgramLink{From: from, To: to, Kind: kind, Reason: reason})
 	return nil
 }
 
