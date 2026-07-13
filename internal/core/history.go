@@ -2,10 +2,180 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
+
+// GovernanceStatus is shared by decisions and exceptions. Values are closed;
+// unknown values fail validation instead of being silently reinterpreted.
+type GovernanceStatus string
+
+const (
+	GovernanceProposed   GovernanceStatus = "proposed"
+	GovernanceAccepted   GovernanceStatus = "accepted"
+	GovernanceSuperseded GovernanceStatus = "superseded"
+	GovernanceExpired    GovernanceStatus = "expired"
+	GovernanceRevoked    GovernanceStatus = "revoked"
+)
+
+// DecisionV1 is one immutable governance assertion. Supersession is expressed
+// by a later record's Supersedes link; EffectiveDecisionStatus projects the old
+// record as superseded without rewriting history.
+type DecisionV1 struct {
+	ID                 string           `json:"id"`
+	Status             GovernanceStatus `json:"status"`
+	Owner              string           `json:"owner"`
+	CreatedAt          string           `json:"created_at"`
+	ReviewAt           string           `json:"review_at"`
+	ExpiresAt          string           `json:"expires_at"`
+	Supersedes         string           `json:"supersedes,omitempty"`
+	AffectedInvariants []string         `json:"affected_invariants,omitempty"`
+}
+
+func DecisionPath(root, slug string) string {
+	return filepath.Join(SpecdDir(root), "specs", slug, "decisions.json")
+}
+
+// LoadDecisions decodes immutable records in append order. Missing file means
+// governance is unconfigured; malformed or invalid content fails closed.
+func LoadDecisions(path string) ([]DecisionV1, error) {
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var records []DecisionV1
+	if err := json.Unmarshal(raw, &records); err != nil {
+		return nil, fmt.Errorf("decode decisions: %w", err)
+	}
+	var checked []DecisionV1
+	for _, record := range records {
+		var appendErr error
+		checked, appendErr = AppendDecision(checked, record)
+		if appendErr != nil {
+			return nil, appendErr
+		}
+	}
+	return checked, nil
+}
+
+func validGovernanceStatus(s GovernanceStatus) bool {
+	switch s {
+	case GovernanceProposed, GovernanceAccepted, GovernanceSuperseded, GovernanceExpired, GovernanceRevoked:
+		return true
+	}
+	return false
+}
+
+func ValidateGovernanceOwner(owner string) error {
+	o := strings.ToLower(strings.TrimSpace(owner))
+	if o == "" {
+		return errors.New("governance owner must identify a human or team")
+	}
+	if IsKnownRole(o) || o == "agent" || strings.HasPrefix(o, "agent:") || strings.HasPrefix(o, "worker:") || strings.HasPrefix(o, "model/") {
+		return fmt.Errorf("governance owner %q must identify a human or team, not an agent", owner)
+	}
+	return nil
+}
+
+func (d DecisionV1) Validate() error {
+	if strings.TrimSpace(d.ID) == "" {
+		return errors.New("decision id is required")
+	}
+	if !validGovernanceStatus(d.Status) {
+		return fmt.Errorf("decision %s has invalid status %q", d.ID, d.Status)
+	}
+	if err := ValidateGovernanceOwner(d.Owner); err != nil {
+		return err
+	}
+	return validateGovernanceDates("decision "+d.ID, d.CreatedAt, d.ReviewAt, d.ExpiresAt)
+}
+
+func validateGovernanceDates(label, created, review, expires string) error {
+	var parsed []time.Time
+	for _, pair := range []struct{ name, value string }{{"created_at", created}, {"review_at", review}, {"expires_at", expires}} {
+		v, err := time.Parse(time.RFC3339, pair.value)
+		if err != nil {
+			return fmt.Errorf("%s %s must be RFC3339: %w", label, pair.name, err)
+		}
+		parsed = append(parsed, v)
+	}
+	if parsed[1].Before(parsed[0]) || parsed[2].Before(parsed[0]) {
+		return fmt.Errorf("%s review_at/expires_at precede created_at", label)
+	}
+	return nil
+}
+
+func AppendDecision(records []DecisionV1, next DecisionV1) ([]DecisionV1, error) {
+	if err := next.Validate(); err != nil {
+		return records, err
+	}
+	seen, superseded := false, false
+	for _, record := range records {
+		if record.ID == next.ID {
+			return records, fmt.Errorf("decision id %q already exists", next.ID)
+		}
+		if record.ID == next.Supersedes {
+			seen = true
+		}
+		if record.Supersedes == next.Supersedes && next.Supersedes != "" {
+			superseded = true
+		}
+	}
+	if next.Supersedes != "" && (!seen || superseded) {
+		return records, fmt.Errorf("decision %s supersedes unknown or already superseded decision %q", next.ID, next.Supersedes)
+	}
+	return append(append([]DecisionV1(nil), records...), next), nil
+}
+
+func EffectiveDecisionStatus(records []DecisionV1, id string) GovernanceStatus {
+	for _, record := range records {
+		if record.Supersedes == id {
+			return GovernanceSuperseded
+		}
+	}
+	for _, record := range records {
+		if record.ID == id {
+			return record.Status
+		}
+	}
+	return ""
+}
+
+func DecisionChain(records []DecisionV1, id string) []DecisionV1 {
+	byID := make(map[string]DecisionV1, len(records))
+	for _, r := range records {
+		byID[r.ID] = r
+	}
+	var reverse []DecisionV1
+	for id != "" {
+		r, ok := byID[id]
+		if !ok {
+			break
+		}
+		reverse = append(reverse, r)
+		id = r.Supersedes
+	}
+	for i, j := 0, len(reverse)-1; i < j; i, j = i+1, j-1 {
+		reverse[i], reverse[j] = reverse[j], reverse[i]
+	}
+	return reverse
+}
+
+func (d DecisionV1) ActiveAt(now time.Time) bool {
+	if d.Status != GovernanceAccepted {
+		return false
+	}
+	expires, err := time.Parse(time.RFC3339, d.ExpiresAt)
+	return err == nil && now.Before(expires)
+}
 
 // HistoryEvent is one replayed line of a spec's audit trail (spec 13 R1). It is
 // projected from records that already exist on disk — approvals/decisions in

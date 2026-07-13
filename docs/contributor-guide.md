@@ -54,7 +54,7 @@ verbs print a deferral notice and exit 0.
 | **DAG & execution** | `dag.go`, `frontier.go` | Acyclic task DAG; the concurrent runnable frontier (waves). |
 | **Tasks parser** | `tasksparser.go` (+ fuzz) | Byte-stable round-trip parse of `tasks.md`. |
 | **Evidence & verify** | `evidence.go`, `task_complete.go`, `verify/exec.go`, `criteria.go` | Verify records (exit code + git HEAD); task completion; per-criterion evidence. |
-| **Gates** | `internal/core/gates/` + `gates/security/` | The 18 core gates + opt-in security gate. |
+| **Gates** | `internal/core/gates/` + `gates/security/` | The 19 core gates + opt-in security gate. |
 | **Templates & scaffold** | `internal/core/embed_templates/`, `roles.go`, `scaffold.go`, `managed.go` | `init`/`new` scaffolding; managed-region repair/refresh; `AGENTS.md` emission. |
 | **Config** | `config_loader.go`, `config_validate.go` | Effective config, digests (handshake). |
 | **Memory** | `memory.go` | Append/promote steering-memory patterns. |

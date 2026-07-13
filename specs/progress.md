@@ -105,7 +105,7 @@ fail closed; reference adapters pass the conformance suite; core stays green wit
 - [x] 08 W11 — `08l-incident-portfolio-and-recovery-drills` (needs 08 W9,W10, Domain 09)
 - [ ] 09 W1 — `09b-successor-link-kinds` (needs 09 W0)
 - [x] 09 W2 — `09c-typed-intake-provenance` (needs 09 W0)
-- [ ] 09 W3 — `09d-decision-exception-lifecycle` (needs 09 W0, Domain 06 authority)
+- [x] 09 W3 — `09d-decision-exception-lifecycle` (needs 09 W0, Domain 06 authority)
 - [ ] 09 W4 — `09e-memory-provenance-and-aging` (needs 09 W0, Domain 02 context)
 - [ ] 09 W5 — `09f-maintenance-templates` (needs 09 W1,W2)
 - [ ] 09 W6 — `09g-drift-projection` (needs 09 W2,W3, Domain 04 evidence)

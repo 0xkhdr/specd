@@ -162,6 +162,11 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 		items[i].Digest = itemDigest(root, items[i])
 	}
 	items = append(items, steeringItems(root, slug)...)
+	decisionItems, err := loadActiveDecisionItems(root, slug, core.Clock())
+	if err != nil {
+		return Manifest{}, fmt.Errorf("load decisions: %w", err)
+	}
+	items = append(items, decisionItems...)
 	for i := range items {
 		if items[i].Digest == "" {
 			items[i].Digest = itemDigest(root, items[i])

@@ -1066,6 +1066,21 @@ func buildCheckCtx(root, slug string, spec specData, approveTarget string) gates
 	} else {
 		ctx.Provenance = provenance
 	}
+	if cfg.ProductionProfile() {
+		decisions, decisionErr := core.LoadDecisions(core.DecisionPath(root, slug))
+		exceptions, exceptionErr := core.LoadGovernanceExceptions(core.ExceptionPath(root, slug))
+		if decisionErr != nil {
+			ctx.GovernanceError = decisionErr.Error()
+		} else if exceptionErr != nil {
+			ctx.GovernanceError = exceptionErr.Error()
+		}
+		ctx.Decisions, ctx.Exceptions = decisions, exceptions
+		ctx.GovernanceRequired = len(decisions) > 0 || len(exceptions) > 0 || ctx.GovernanceError != ""
+		for _, decision := range decisions {
+			ctx.RequiredDecisionIDs = append(ctx.RequiredDecisionIDs, decision.ID)
+		}
+		ctx.GovernanceNow = core.Clock()
+	}
 	if b, err := os.ReadFile(filepath.Join(dir, "design.md")); err == nil {
 		ctx.DesignDoc = string(b)
 		if approveTarget == string(core.StatusExecuting) && core.HasTaskTrace(ctx.Tasks) {

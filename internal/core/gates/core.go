@@ -3,6 +3,7 @@ package gates
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -103,6 +104,15 @@ type CheckCtx struct {
 	// callers own disk reads and supply this immutable snapshot.
 	Provenance      *core.ProvenanceV1
 	ProvenanceError string
+
+	// Governance snapshots are caller-loaded, immutable inputs. Zero value is
+	// unconfigured and preserves legacy behavior.
+	GovernanceRequired  bool
+	GovernanceNow       time.Time
+	RequiredDecisionIDs []string
+	Decisions           []core.DecisionV1
+	Exceptions          []core.ExceptionV1
+	GovernanceError     string
 }
 
 func CoreRegistry() Registry {
@@ -125,6 +135,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "coverage", run: coverageGate})
 	registry.Register(gateFunc{name: "evidence-policy", run: evidencePolicyGate})
 	registry.Register(gateFunc{name: "intake", run: intakeReadiness})
+	registry.Register(gateFunc{name: "governance", run: governanceGate})
 	return registry
 }
 

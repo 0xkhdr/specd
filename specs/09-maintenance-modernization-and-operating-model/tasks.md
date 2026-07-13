@@ -68,13 +68,23 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 ## W3 — `09d-decision-exception-lifecycle` (requires 09a, Domain 06 authority)
 
+> **W3 deviations (recorded per prompt.md §2 cross-wave rule):**
+> - T15–T19 tests land in conventional companion files `internal/core/history_lifecycle_test.go`,
+>   `internal/core/exception_test.go`, `internal/core/gates/governance_test.go`, and
+>   `internal/context/decision_test.go`.
+> - T17 also wires immutable governance snapshots in `internal/core/gates/core.go` and updates
+>   `internal/cmd/registry.go`, then updates registry-order/gate-count documentation; a registered
+>   pure gate needs typed `CheckCtx` inputs loaded by its caller.
+> - T18 adds `internal/context/decision.go`, keeping lifecycle filtering separate from generic
+>   manifest assembly and available to both manifest versions in later integration work.
+
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T15 | craftsman | `internal/core/history.go` (id/status/owner/dates/supersedes/affected) | T03 | `go test ./internal/core -run TestDecisionLifecycle -count=1` | R3.1 identity + append-only supersession |
-| T16 | craftsman | new `internal/core/exception.go` (time-bound governed deviation) | T15 | `go test ./internal/core -run TestException -count=1` | R3.1 exception id/status/owner/expiry |
-| T17 | craftsman | new `internal/core/gates/governance.go`; gates registry | T15,T16 | `go test ./internal/core/gates -run TestGovernanceExpiry -count=1` | R3.2 expired blocking exception fails closed |
-| T18 | craftsman | `internal/context` builder (active-only load) | T15 | `go test ./internal/context -run TestActiveDecisionsOnly -count=2` | R3.3 only active records in routine context |
-| T19 | validator | agents cannot be recordable owners | T15 | `go test ./internal/core -run TestOwnerNotAgent -count=1` | R3.2 owner is human/team |
+| [x] T15 | craftsman | `internal/core/history.go` (id/status/owner/dates/supersedes/affected) | T03 | `go test ./internal/core -run TestDecisionLifecycle -count=1` | R3.1 identity + append-only supersession |
+| [x] T16 | craftsman | new `internal/core/exception.go` (time-bound governed deviation) | T15 | `go test ./internal/core -run TestException -count=1` | R3.1 exception id/status/owner/expiry |
+| [x] T17 | craftsman | new `internal/core/gates/governance.go`; gates registry | T15,T16 | `go test ./internal/core/gates -run TestGovernanceExpiry -count=1` | R3.2 expired blocking exception fails closed |
+| [x] T18 | craftsman | `internal/context` builder (active-only load) | T15 | `go test ./internal/context -run TestActiveDecisionsOnly -count=2` | R3.3 only active records in routine context |
+| [x] T19 | validator | agents cannot be recordable owners | T15 | `go test ./internal/core -run TestOwnerNotAgent -count=1` | R3.2 owner is human/team |
 
 ## W4 — `09e-memory-provenance-and-aging` (requires 09a, Domain 02 context)
 

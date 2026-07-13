@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 18 core gates
+## The 19 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -56,6 +56,7 @@ Registered by `CoreRegistry()` in the order they run:
 | 16 | `coverage` | *(opt-in)* Requirements, design, and task acceptance coverage has no configured gap. |
 | 17 | `evidence-policy` | *(opt-in)* Declared integration boundaries carry required integration and negative-path evidence. |
 | 18 | `intake` | *(opt-in)* `provenance.json` supplies every configured typed-intake field; empty and `unknown` both fail readiness. |
+| 19 | `governance` | *(opt-in)* Required decisions are accepted and active; expired blocking exceptions fail closed with owner/review action. |
 
 ### Notes on individual gates
 
@@ -77,6 +78,9 @@ Registered by `CoreRegistry()` in the order they run:
 - **`intake` (18)** is armed by a non-empty `required_fields` list in versioned
   `provenance.json`. Missing files and empty policies preserve legacy feature-spec behavior;
   malformed provenance and configured fields whose value is empty or `unknown` fail closed.
+- **`governance` (19)** is armed only when governance policy is configured. It rejects missing or
+  proposed required decisions and expired blocking exceptions, naming owner and review action;
+  unconfigured projects remain unchanged.
 - **`criteria` (13)** is armed by `config.criteria.required = true` or the production lifecycle
   profile (`config.profile = production`). Until then it is dormant. Record criterion evidence
   with `specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>`.
