@@ -9,6 +9,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/adapter"
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/mcp"
 )
 
 // mangleFirstManagedAsset corrupts the managed region of the first role/steering
@@ -198,6 +199,49 @@ func TestHandshakeMismatchExits(t *testing.T) {
 	}
 	if err := Run(root, "handshake", []string{"bootstrap", "demo"}, map[string]string{"expect-managed-digest": hs.ManagedDigest}); err != nil {
 		t.Fatalf("matching managed digest: %v", err)
+	}
+}
+
+func TestIntegrationApproveHandoffParity(t *testing.T) {
+	root := newDemoSpec(t)
+	out, err := captureStdout(t, func() error {
+		return Run(root, "agents", []string{"guide", "demo"}, map[string]string{"json": "true"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var guide core.DriverGuideV1
+	if err := json.Unmarshal([]byte(out), &guide); err != nil {
+		t.Fatal(err)
+	}
+	var approve *core.NextAction
+	for i := range guide.NextActions {
+		if guide.NextActions[i].Command == "approve" {
+			approve = &guide.NextActions[i]
+			break
+		}
+	}
+	if approve == nil {
+		t.Fatal("driver guide omitted approve handoff")
+	}
+	raw, err := json.Marshal(map[string]any{"name": "approve", "arguments": map[string]any{"args": approve.Args}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	resp := mcp.Dispatch(mcp.Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: raw}, mcp.CoreTools(), func(string, []string, map[string]string) (string, error) {
+		called = true
+		return "", nil
+	})
+	if called {
+		t.Fatal("MCP human handoff executed approval")
+	}
+	if resp.Error == nil || resp.Error.Code != mcp.MCPHandoffRequiredCode {
+		t.Fatalf("MCP response = %+v", resp)
+	}
+	handoff, ok := resp.Error.Data.(mcp.Handoff)
+	if !ok || handoff.Command != "specd approve demo" || handoff.Actor != approve.Actor {
+		t.Fatalf("driver/MCP handoff mismatch: action=%+v handoff=%+v", approve, handoff)
 	}
 }
 

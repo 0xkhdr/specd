@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestDriverCanonicalDigest(t *testing.T) {
 	a := BootstrapV1{ProtocolVersion: DriverProtocolVersion, Root: "/repo", Specs: []string{"z", "a"}, PaletteDigest: "p", ConfigDigest: "c", GuidanceDigest: "g", ContextSchemaDigest: "x", Findings: []DriverFinding{{Code: "Z", Severity: "error", RecoveryAction: "fix z"}, {Code: "A", Severity: "warning", RecoveryAction: "fix a"}}}
@@ -69,4 +72,21 @@ func TestDriverProjectsPaletteAndHumanAuthority(t *testing.T) {
 			t.Fatalf("human action agent-authorized: %+v", action)
 		}
 	}
+}
+
+func TestDriverApproveUsesSimpleHumanHandoff(t *testing.T) {
+	g := ProjectDriverGuide("/repo", "demo", StatusRequirements, nil, nil, nil)
+	for _, action := range g.NextActions {
+		if action.Command != "approve" {
+			continue
+		}
+		if action.Actor != "human" || !action.AuthorityRequired || action.SideEffect != "approval" {
+			t.Fatalf("approve action authority = %+v", action)
+		}
+		if want := []string{"demo"}; !reflect.DeepEqual(action.Args, want) {
+			t.Fatalf("approve args = %v, want %v", action.Args, want)
+		}
+		return
+	}
+	t.Fatal("driver omitted human approval handoff")
 }

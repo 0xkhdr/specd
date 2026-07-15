@@ -172,7 +172,7 @@ func ProjectDriverGuide(root, slug string, status Status, approvals, frontier []
 		add("30-verify", "verify", []string{slug, frontier[0]}, "agent", "write", "record task evidence")
 	}
 	if next := NextStatus(status); next != "" {
-		add("90-approve", "approve", []string{slug, string(next)}, "human", "approval", "advance only after gates pass")
+		add("90-approve", "approve", []string{slug}, "human", "approval", "advance exactly one lifecycle step after gates pass")
 	}
 	CanonicalizeDriverGuide(&g)
 	return g

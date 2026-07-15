@@ -52,7 +52,7 @@ func TestForbiddenToolsDeniedOnCall(t *testing.T) {
 
 func TestTypedHumanHandoffHasNoSideEffect(t *testing.T) {
 	called := false
-	resp := Dispatch(Request{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: []byte(`{"name":"approve","arguments":{"args":["demo","design"]}}`)}, CoreTools(), func(string, []string, map[string]string) (string, error) {
+	resp := Dispatch(Request{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: []byte(`{"name":"approve","arguments":{"args":["demo"]}}`)}, CoreTools(), func(string, []string, map[string]string) (string, error) {
 		called = true
 		return "unexpected", nil
 	})
@@ -67,7 +67,7 @@ func TestTypedHumanHandoffHasNoSideEffect(t *testing.T) {
 	if err := json.Unmarshal(raw, &handoff); err != nil {
 		t.Fatal(err)
 	}
-	if handoff.Code != "MCP_HANDOFF_REQUIRED" || handoff.Actor != "human" || handoff.Command != "specd approve demo design" {
+	if handoff.Code != "MCP_HANDOFF_REQUIRED" || handoff.Actor != "human" || handoff.Command != "specd approve demo" {
 		t.Fatalf("handoff = %+v", handoff)
 	}
 	if !strings.Contains(resp.Error.Message, "MCP_HANDOFF_REQUIRED") {
