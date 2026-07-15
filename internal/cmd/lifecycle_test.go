@@ -29,10 +29,10 @@ func newDemoSpec(t *testing.T) string {
 
 func TestLifecycleContextMissingDesignFailsClosed(t *testing.T) {
 	root := newDemoSpec(t)
-	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	design := filepath.Join(core.SpecdDir(root), "specs", "demo", "design.md")
@@ -130,8 +130,15 @@ func TestApproveGatesE2E(t *testing.T) {
 	if state.Status != core.StatusDesign {
 		t.Fatalf("status = %q, want design", state.Status)
 	}
-	if _, ok := state.Records["approval:design"]; !ok {
+	if _, ok := state.Records["approval:requirements"]; !ok {
 		t.Fatal("approval record not written")
+	}
+	var approval core.Record
+	if err := json.Unmarshal(state.Records["approval:requirements"], &approval); err != nil {
+		t.Fatal(err)
+	}
+	if approval.Gate != "requirements" || approval.Text != "requirements → design" {
+		t.Fatalf("approval transition = %+v", approval)
 	}
 
 	// Red readiness: a dangling dependency makes the dag gate error; approve
@@ -324,10 +331,10 @@ func TestStatusNextVerifyOnRealSpec(t *testing.T) {
 			t.Fatalf("%s: %v", verb.name, err)
 		}
 	}
-	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
-		t.Fatalf("approve requirements: %v", err)
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("approve next: %v", err)
 	}
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve design: %v", err)
 	}
 	// context is an execution verb: gated out of the requirements (perceive)
@@ -372,10 +379,10 @@ func TestBrainDispatchesFrontierViaCLI(t *testing.T) {
 
 	// brain is an execution verb: advance past the requirements (perceive)
 	// phase before stepping the controller (spec 03 R2).
-	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
-		t.Fatalf("approve requirements: %v", err)
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("approve next: %v", err)
 	}
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve design: %v", err)
 	}
 
@@ -420,20 +427,19 @@ func TestDesignApprovalRefusesUnknownRef(t *testing.T) {
 		}
 	}
 	write("requirements.md", "# Requirements — demo\n\n### R1 — Thing\n\n- R1.1: When x runs, the system shall y.\n")
-	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve requirements: %v", err)
 	}
-
 	// Design traces to a requirement that does not exist → refused.
 	write("design.md", "# Design — demo\n\n## Modules\nThe module runs gates.\n\n- references: R9\n")
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {
 		t.Fatal("approve design accepted an unknown requirement reference")
 	}
 
 	// Design tracing to a real requirement → accepted, digest pinned.
 	good := "# Design — demo\n\n## Modules\nThe module runs gates.\n\n- references: R1.1\n"
 	write("design.md", good)
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve design (known ref): %v", err)
 	}
 	state, err := core.LoadState(core.StatePath(root, "demo"))

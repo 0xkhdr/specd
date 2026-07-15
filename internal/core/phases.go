@@ -78,12 +78,12 @@ func AdvanceStatus(current, next Status) (Phase, error) {
 	if !ValidStatus(current) {
 		return "", fmt.Errorf("invalid current status %q", current)
 	}
-	if !ValidStatus(next) {
-		return "", fmt.Errorf("invalid target status %q", next)
-	}
 	currentIndex := statusIndex(current)
 	if currentIndex < 0 || currentIndex+1 >= len(statusOrder) {
 		return "", fmt.Errorf("status %q has no lifecycle successor", current)
+	}
+	if !ValidStatus(next) {
+		return "", fmt.Errorf("invalid target status %q", next)
 	}
 	if !CanAdvanceStatus(current, next) {
 		return "", fmt.Errorf("lifecycle approval from %q requires exact successor %q, got %q", current, statusOrder[currentIndex+1], next)

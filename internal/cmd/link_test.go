@@ -22,9 +22,9 @@ func newSpecInProject(t *testing.T, root, slug string) {
 // gates, a passing verify, and task completion.
 func completeSpec(t *testing.T, root, slug string) {
 	t.Helper()
-	for _, gate := range []string{"requirements", "design", "executing"} {
-		if err := Run(root, "approve", []string{slug, gate}, nil); err != nil {
-			t.Fatalf("approve %s %s: %v", slug, gate, err)
+	for range 3 {
+		if err := Run(root, "approve", []string{slug}, nil); err != nil {
+			t.Fatalf("approve next %s: %v", slug, err)
 		}
 	}
 	if err := Run(root, "verify", []string{slug, "T1"}, nil); err != nil {
@@ -74,7 +74,12 @@ func TestLinkCycleRefusedAndEnforced(t *testing.T) {
 	}
 
 	// R5: a cannot advance into execution while b is incomplete.
-	err = Run(root, "approve", []string{"a", "executing"}, nil)
+	for range 2 {
+		if err := Run(root, "approve", []string{"a"}, nil); err != nil {
+			t.Fatalf("prepare a for execution approval: %v", err)
+		}
+	}
+	err = Run(root, "approve", []string{"a"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "b") {
 		t.Fatalf("approve a executing should be blocked naming b, got %v", err)
 	}
@@ -82,7 +87,7 @@ func TestLinkCycleRefusedAndEnforced(t *testing.T) {
 	// Completing the dependency chain unblocks a.
 	completeSpec(t, root, "c")
 	completeSpec(t, root, "b")
-	if err := Run(root, "approve", []string{"a", "executing"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"a"}, nil); err != nil {
 		t.Fatalf("approve a executing after deps complete: %v", err)
 	}
 }
@@ -121,15 +126,20 @@ func TestUnlinkRemovesEnforcement(t *testing.T) {
 	if err := Run(root, "link", []string{"a", "b"}, nil); err != nil {
 		t.Fatalf("link: %v", err)
 	}
+	for range 2 {
+		if err := Run(root, "approve", []string{"a"}, nil); err != nil {
+			t.Fatalf("prepare a for execution approval: %v", err)
+		}
+	}
 	// Blocked while b is incomplete.
-	if err := Run(root, "approve", []string{"a", "executing"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"a"}, nil); err == nil {
 		t.Fatal("a should be blocked by b")
 	}
 	// R3: unlink removes the enforcement; a may now execute.
 	if err := Run(root, "unlink", []string{"a", "b"}, nil); err != nil {
 		t.Fatalf("unlink: %v", err)
 	}
-	if err := Run(root, "approve", []string{"a", "executing"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"a"}, nil); err != nil {
 		t.Fatalf("approve after unlink: %v", err)
 	}
 	// R3: removing a nonexistent link fails closed.

@@ -65,23 +65,41 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	if err := core.ValidateSlug(slug); err != nil {
 		return err
 	}
-	var approvedTarget core.Status
+	var approvedFrom, approvedTarget core.Status
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {
 		statePath := core.StatePath(root, slug)
 		state, err := core.LoadState(statePath)
 		if err != nil {
 			return struct{}{}, err
 		}
-		target := core.NextStatus(state.Status)
+		current := state.Status
+		target := core.NextStatus(current)
 		if len(args) == 2 {
 			target = core.Status(args[1])
 		}
-		phase, err := core.AdvanceStatus(state.Status, target)
+		phase, err := core.AdvanceStatus(current, target)
 		if err != nil {
 			return struct{}{}, err
 		}
-		approvedTarget = target
-		gate := string(target)
+		if len(args) == 2 {
+			fmt.Fprintf(os.Stderr, "warning: explicit approve target is deprecated; use `specd approve %s`\n", slug)
+		}
+		approvedFrom, approvedTarget = current, target
+		gate := string(current)
+		readinessGate := gate
+		switch current {
+		case core.StatusRequirements, core.StatusDesign:
+			// Approve the artifact being left before entering its authoring
+			// successor (requirements→design, design→tasks).
+		default:
+			// Later transitions gate the destination contract (especially
+			// executing and complete), while tasks remains the recorded source
+			// approval used by worker authority.
+			readinessGate = string(target)
+		}
+		if target == core.StatusComplete {
+			gate = string(target)
+		}
 		spec, err := loadSpec(root, slug)
 		if err != nil {
 			return struct{}{}, err
@@ -90,7 +108,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return struct{}{}, err
 		}
-		findings := registry.Run(buildCheckCtx(root, slug, spec, gate))
+		findings := registry.Run(buildCheckCtx(root, slug, spec, readinessGate))
 		if gates.HasErrors(findings) {
 			for _, finding := range findings {
 				if finding.Severity == gates.Error {
@@ -114,7 +132,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		}
 		state.Status = target
 		state.Phase = phase
-		rec := core.Record{Kind: "approval", Gate: gate, ApprovedRevision: state.Revision}
+		rec := core.Record{Kind: "approval", Gate: gate, Text: fmt.Sprintf("%s → %s", current, target), ApprovedRevision: state.Revision}
 		// Pin the approved artifact's source digest so a later amendment can
 		// detect drift (spec 01 R2.1 "and digest", R5 staleness).
 		if artifact := approvalArtifact(gate); artifact != "" {
@@ -130,7 +148,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "approved %s → %s\n", slug, approvedTarget)
+	fmt.Fprintf(os.Stdout, "approved %s: %s → %s\n", slug, approvedFrom, approvedTarget)
 	return nil
 }
 

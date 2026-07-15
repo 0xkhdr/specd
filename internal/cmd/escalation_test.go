@@ -20,15 +20,14 @@ func failVerify(t *testing.T, root, slug, taskID string, n int) {
 	}
 }
 
-// advancePastRequirements approves requirements+design so execution verbs like
-// `verify` are permitted by the phase gate.
+// advancePastRequirements approves requirements and design so execution verbs
+// like `verify` pass both lifecycle and approval gates.
 func advancePastRequirements(t *testing.T, root, slug string) {
 	t.Helper()
-	if err := Run(root, "approve", []string{slug, "requirements"}, nil); err != nil {
-		t.Fatalf("approve requirements: %v", err)
-	}
-	if err := Run(root, "approve", []string{slug, "design"}, nil); err != nil {
-		t.Fatalf("approve design: %v", err)
+	for range 2 {
+		if err := Run(root, "approve", []string{slug}, nil); err != nil {
+			t.Fatalf("approve next: %v", err)
+		}
 	}
 }
 

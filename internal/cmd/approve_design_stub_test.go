@@ -22,6 +22,9 @@ func TestApproveDesignStub(t *testing.T) {
 	}
 	// Real requirements so the requirements gate passes.
 	write("requirements.md", "# Requirements — demo\n\n- **R1** When x runs, the system shall y.\n")
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("approve requirements: %v", err)
+	}
 
 	// Design is still the scaffold stub → refused.
 	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {

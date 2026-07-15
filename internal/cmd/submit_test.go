@@ -32,9 +32,9 @@ func gitInitRepo(t *testing.T, root string) {
 // execute phase, where the terminal submit verb is valid (R6).
 func advanceToExecuting(t *testing.T, root string) {
 	t.Helper()
-	for _, gate := range []string{"requirements", "design", "executing"} {
-		if err := Run(root, "approve", []string{"demo", gate}, nil); err != nil {
-			t.Fatalf("approve %s: %v", gate, err)
+	for range 3 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("approve next: %v", err)
 		}
 	}
 }

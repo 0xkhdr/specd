@@ -59,8 +59,10 @@ func TestAdvanceStatusExactSuccessorMatrix(t *testing.T) {
 }
 
 func TestAdvanceStatusTerminalRefusalNamesMissingSuccessor(t *testing.T) {
-	_, err := AdvanceStatus(StatusComplete, StatusComplete)
-	if err == nil || !strings.Contains(err.Error(), "no lifecycle successor") {
-		t.Fatalf("terminal advance error = %v; want missing-successor refusal", err)
+	for _, target := range []Status{StatusComplete, ""} {
+		_, err := AdvanceStatus(StatusComplete, target)
+		if err == nil || !strings.Contains(err.Error(), "no lifecycle successor") {
+			t.Errorf("terminal advance to %q error = %v; want missing-successor refusal", target, err)
+		}
 	}
 }

@@ -54,8 +54,10 @@ func TestDispatchPhase(t *testing.T) {
 
 func TestDispatchPausesOnAmendmentWithoutRewind(t *testing.T) {
 	root := newDemoSpec(t)
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
-		t.Fatalf("approve design: %v", err)
+	for range 2 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("approve next: %v", err)
+		}
 	}
 	before, err := core.LoadState(core.StatePath(root, "demo"))
 	if err != nil {

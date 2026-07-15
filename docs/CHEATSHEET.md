@@ -135,20 +135,39 @@ specd archive payments-v1 --successor payments-v2 --owner platform --evidence re
 
 ### `approve`
 ```
-specd approve <spec> <gate>
+specd approve <spec>
 ```
-Record human approval for a lifecycle gate. Advances a phase only when the gate registry
-passes. The `orchestrated` gate enters orchestrated mode through a state CAS when
-`orchestration.enabled: true`; it does not change lifecycle status. **Phases:** any.
-
-`specd approve exception <approve|revoke> <finding> [governed exception fields]` appends an
-immutable governed exception lifecycle record. Every field is required; evidence integrity and
-worker authority cannot be waived.
+Record human approval and advance exactly from the current lifecycle status to its immediate
+successor when readiness gates pass. Same, skipped, backward, unknown, and terminal transitions
+fail before gate evaluation or mutation. A deprecated explicit target is accepted only when it
+equals the computed successor. **Phases:** any. **Human only.**
 
 ```bash
-specd approve payments requirements
-specd approve payments design
-specd approve payments orchestrated
+specd approve payments
+```
+
+### `mode`
+```
+specd mode <spec> orchestrated
+```
+Record the separate human-approved transition into orchestrated mode. Requires
+`orchestration.enabled: true`, changes mode through state CAS, and never impersonates lifecycle
+approval or changes lifecycle status. **Phases:** any. **Human only.**
+
+```bash
+specd mode payments orchestrated
+```
+
+### `exception`
+```
+specd exception <approve|revoke> <finding> [governed exception fields]
+```
+Append an immutable governed security-exception lifecycle record. Every governed field is
+required; evidence integrity and worker authority cannot be waived. This operation never changes
+lifecycle status. **Phases:** any. **Human only.**
+
+```bash
+specd exception approve scanner-false-positive --reason 'reviewed false positive'
 ```
 
 ### `midreq`

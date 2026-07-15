@@ -82,11 +82,11 @@ func TestLifecycleE2E(t *testing.T) {
 	if _, code := run("check", "demo"); code != 0 {
 		t.Fatalf("check: code=%d", code)
 	}
-	if _, code := run("approve", "demo", "requirements"); code != 0 {
+	if _, code := run("approve", "demo"); code != 0 {
 		t.Fatal("approve requirements failed")
 	}
-	if _, code := run("approve", "demo", "design"); code != 0 {
-		t.Fatal("approve failed")
+	if _, code := run("approve", "demo"); code != 0 {
+		t.Fatal("approve design failed")
 	}
 	if out, _ := run("status", "demo"); !strings.Contains(out, "demo") {
 		t.Fatalf("status missing spec: %s", out)

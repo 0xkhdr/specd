@@ -35,10 +35,10 @@ func newCriterionSpec(t *testing.T) string {
 		t.Fatal(err)
 	}
 	writeTasks(t, root, "demo", "| T1 | scout | spec.md | - | true | ok |")
-	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve requirements: %v", err)
 	}
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve design: %v", err)
 	}
 	return root
@@ -77,14 +77,14 @@ func TestCriteriaRequiredCompletionGate(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("criteria.required: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, gate := range []string{"tasks", "executing", "verifying"} {
-		if err := Run(root, "approve", []string{"demo", gate}, nil); err != nil {
-			t.Fatalf("approve %s: %v", gate, err)
+	for range 2 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("approve next: %v", err)
 		}
 	}
 
 	// With criteria.required on and no passing records, completion is refused.
-	if err := Run(root, "approve", []string{"demo", "complete"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {
 		t.Fatal("completion should refuse while criteria unmet")
 	}
 
@@ -94,7 +94,7 @@ func TestCriteriaRequiredCompletionGate(t *testing.T) {
 			t.Fatalf("record %s: %v", id, err)
 		}
 	}
-	if err := Run(root, "approve", []string{"demo", "complete"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("completion should pass once all criteria met: %v", err)
 	}
 }

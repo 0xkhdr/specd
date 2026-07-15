@@ -46,10 +46,12 @@ func TestReviewGateCompletion(t *testing.T) {
 	if err := Run(root, "task", []string{"complete", "demo", "T1"}, nil); err != nil {
 		t.Fatalf("task complete: %v", err)
 	}
-
 	// Gate on, no approve report ⇒ completion refused (R3/R5 fail closed).
 	writeProjectConfig(t, root, "review:\n  required: true\n")
-	if err := Run(root, "approve", []string{"demo", "complete"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("advance to verifying: %v", err)
+	}
+	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {
 		t.Fatal("completion should refuse without an approve review report")
 	}
 
@@ -59,7 +61,7 @@ func TestReviewGateCompletion(t *testing.T) {
 	if err := os.WriteFile(core.ReviewReportPath(root, "demo"), []byte(report), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := captureStdout(t, func() error { return Run(root, "approve", []string{"demo", "complete"}, nil) }); err != nil {
+	if _, err := captureStdout(t, func() error { return Run(root, "approve", []string{"demo"}, nil) }); err != nil {
 		t.Fatalf("completion with fresh approve report should succeed: %v", err)
 	}
 }
