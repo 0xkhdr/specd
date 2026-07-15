@@ -1,0 +1,475 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specd.dev/schema/v1.json",
+  "title": "specd open spec format",
+  "description": "Versioned, machine-readable description of the specd on-disk artifacts. The Go types in internal/core are the single source of truth; this schema mirrors them and a conformance test fails CI on drift.",
+  "specdSchemaVersion": "1",
+  "stateSchemaVersion": 6,
+  "type": "object",
+  "$ref": "#/$defs/State",
+  "$defs": {
+    "State": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "revision",
+        "spec",
+        "title",
+        "status",
+        "phase",
+        "gate",
+        "turn",
+        "createdAt",
+        "updatedAt",
+        "tasks",
+        "blockers"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 6 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "spec": { "type": "string" },
+        "title": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["requirements", "design", "tasks", "executing", "verifying", "complete", "blocked"]
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["perceive", "analyze", "plan", "execute", "verify", "reflect"]
+        },
+        "gate": {
+          "type": "string",
+          "enum": ["none", "awaiting-approval"]
+        },
+        "turn": { "type": "integer", "minimum": 0 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "tasks": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/TaskState" }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Blocker" }
+        },
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/CriterionRecord" }
+        },
+        "evals": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/EvalSummary" }
+        },
+        "routing": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/RoutingStamp" }
+        },
+        "conductor": { "$ref": "#/$defs/ConductorSession" },
+        "prototype": { "$ref": "#/$defs/PrototypeState" },
+        "escalation": { "$ref": "#/$defs/EscalationRecord" },
+        "security": { "$ref": "#/$defs/SecurityScan" },
+        "review": { "$ref": "#/$defs/ReviewRecord" },
+        "deploy": { "$ref": "#/$defs/DeployRecord" },
+        "deployApproval": { "$ref": "#/$defs/DeployApproval" },
+        "ingest": { "$ref": "#/$defs/IngestRecord" },
+        "prompt": { "type": "string" },
+        "executionMode": { "type": "string", "enum": ["simple", "orchestrated", "conductor"] },
+        "modeOrigin": { "type": "string", "enum": ["default", "user", "recommended-accepted"] }
+      }
+    },
+    "TaskState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "role", "wave", "depends", "requirements", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^T[0-9]+$" },
+        "title": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"]
+        },
+        "wave": { "type": "integer", "minimum": 1 },
+        "depends": { "type": "array", "items": { "type": "string" } },
+        "requirements": { "type": "array", "items": { "type": "integer" } },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "complete", "blocked"]
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "finishedAt": { "type": "string", "format": "date-time" },
+        "evidence": { "type": "string" },
+        "verification": { "$ref": "#/$defs/VerificationRecord" },
+        "blocker": { "type": "string" },
+        "telemetry": { "$ref": "#/$defs/Telemetry" }
+      }
+    },
+    "Telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "durationMs": { "type": "integer" },
+        "verifyDurationMs": { "type": "integer" },
+        "retries": { "type": "integer" },
+        "verifyFails": { "type": "integer" },
+        "tokens": { "type": "integer" },
+        "cost": { "type": "string" }
+      }
+    },
+    "VerificationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "exitCode", "verified", "timedOut", "stdoutTail", "stderrTail", "durationMs", "ranAt"],
+      "properties": {
+        "command": { "type": "string" },
+        "exitCode": { "type": "integer" },
+        "verified": { "type": "boolean" },
+        "timedOut": { "type": "boolean" },
+        "stdoutTail": { "type": "string" },
+        "stderrTail": { "type": "string" },
+        "durationMs": { "type": "integer" },
+        "ranAt": { "type": "string", "format": "date-time" },
+        "gitHead": { "type": "string" },
+        "changedFiles": { "type": "array", "items": { "type": "string" } },
+        "coverage": { "type": "string" },
+        "sandbox": { "type": "string" },
+        "reverted": { "type": "boolean" },
+        "stashRef": { "type": "string" }
+      }
+    },
+    "CriterionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement", "criterion", "status", "evidence", "ranAt"],
+      "properties": {
+        "requirement": { "type": "integer", "minimum": 1 },
+        "criterion": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "evidence": { "type": "string" },
+        "ranAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EvalSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "score", "minScore", "pass", "seq", "time"],
+      "properties": {
+        "suite": { "type": "string" },
+        "score": { "type": "number" },
+        "minScore": { "type": "number" },
+        "pass": { "type": "boolean" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PrototypeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "promotedAt": { "type": "string", "format": "date-time" },
+        "evalReport": { "type": "string" },
+        "evalDigest": { "type": "string" },
+        "evidence": { "type": "string" },
+        "promotedScore": { "type": "string" }
+      }
+    },
+    "RoutingStamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budgetUSD", "ruleIndex"],
+      "properties": {
+        "tier": { "type": "string" },
+        "budgetUSD": { "type": "number", "minimum": 0 },
+        "ruleIndex": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ConductorSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sessionID", "task", "micro", "startedAt"],
+      "properties": {
+        "sessionID": { "type": "string" },
+        "task": { "type": "string" },
+        "micro": { "type": "string" },
+        "startedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EscalationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "rule", "facts", "time"],
+      "properties": {
+        "task": { "type": "string" },
+        "rule": { "type": "string" },
+        "facts": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "SecurityScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findings", "blocking", "time"],
+      "properties": {
+        "findings": { "type": "integer" },
+        "blocking": { "type": "integer" },
+        "byScanner": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ReviewRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "fresh", "time"],
+      "properties": {
+        "verdict": { "type": "string" },
+        "fresh": { "type": "boolean" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DeployRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "outcome", "steps", "approved", "time"],
+      "properties": {
+        "env": { "type": "string" },
+        "outcome": { "type": "string" },
+        "steps": { "type": "integer" },
+        "approved": { "type": "boolean" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "DeployApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "time"],
+      "properties": {
+        "env": { "type": "string" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "IngestRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "time"],
+      "properties": {
+        "files": { "type": "integer" },
+        "time": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task", "reason", "since"],
+      "properties": {
+        "task": { "type": "string" },
+        "reason": { "type": "string" },
+        "since": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ACPEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "messageId", "sessionId", "sequence", "createdAt", "expiresAt", "type", "from", "to", "spec", "attempt", "payload"],
+      "properties": {
+        "version": { "type": "string", "const": "1" },
+        "messageId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "sessionId": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "type": {
+          "type": "string",
+          "enum": ["mission", "accepted", "heartbeat", "progress", "evidence", "blocker", "query", "directive", "cancelled"]
+        },
+        "from": { "type": "string", "pattern": "^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$" },
+        "to": { "type": "string", "pattern": "^(brain|pinky-[a-z0-9][a-z0-9-]{0,62})$" },
+        "spec": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "task": { "type": "string", "pattern": "^T[0-9]+$" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "inReplyTo": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/$defs/ACPMissionPayload" },
+            { "$ref": "#/$defs/ACPAcceptedPayload" },
+            { "$ref": "#/$defs/ACPHeartbeatPayload" },
+            { "$ref": "#/$defs/ACPProgressPayload" },
+            { "$ref": "#/$defs/ACPEvidencePayload" },
+            { "$ref": "#/$defs/ACPBlockerPayload" },
+            { "$ref": "#/$defs/ACPQueryPayload" },
+            { "$ref": "#/$defs/ACPDirectivePayload" },
+            { "$ref": "#/$defs/ACPCancelledPayload" }
+          ]
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "ACPAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readOnly", "allowedActions"],
+      "properties": {
+        "readOnly": { "type": "boolean" },
+        "allowedActions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": { "type": "string", "enum": ["retry", "cancel", "reassign", "escalate", "continue"] }
+        }
+      }
+    },
+    "MissionContextManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "softTokenCeiling", "strategy", "role", "items"],
+      "properties": {
+        "version": { "type": "integer", "const": 1 },
+        "softTokenCeiling": { "type": "integer", "minimum": 1000, "maximum": 200000 },
+        "strategy": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "role": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
+        "items": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/MissionContextItem" } },
+        "estimatedTokens": { "type": "integer", "minimum": 0, "maximum": 200000 },
+        "budget": { "type": "integer", "minimum": 0, "maximum": 200000 },
+        "overBudget": { "type": "boolean" },
+        "budgetActions": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+      }
+    },
+    "MissionContextItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "kind", "mode", "required", "rationale"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "kind": { "type": "string", "enum": ["role", "skill", "steering", "phase-skill", "handshake-policy", "command-schema", "spec-context", "scope-file", "source-artifact"] },
+        "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "command": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "mode": { "type": "string", "enum": ["read-full", "run-command", "read-targeted", "reference-if-needed"] },
+        "required": { "type": "boolean" },
+        "tokenHint": { "type": "integer", "minimum": 0, "maximum": 200000 },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "selector": { "$ref": "#/$defs/ContextSelector" }
+      }
+    },
+    "ContextSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "taskID": { "type": "string", "pattern": "^[TA][0-9]+$" },
+        "requirements": { "type": "array", "maxItems": 128, "items": { "type": "integer", "minimum": 1 } },
+        "designHeadings": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "artifact": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "ACPMissionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dispatchDigest", "role", "contextCommand", "contract", "files", "acceptance", "verifyCommand", "dependencies", "authority"],
+      "properties": {
+        "dispatchDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "role": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
+        "contextCommand": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "contextManifest": { "$ref": "#/$defs/MissionContextManifest" },
+        "contract": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "files": { "type": "array", "maxItems": 128, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } },
+        "acceptance": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "verifyCommand": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "dependencies": { "type": "array", "maxItems": 128, "items": { "type": "string", "pattern": "^[TA][0-9]+$" } },
+        "authority": { "$ref": "#/$defs/ACPAuthority" },
+        "tier": { "type": "string", "maxLength": 64 },
+        "handoff": { "$ref": "#/$defs/ACPHandoff" }
+      }
+    },
+    "ACPHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "reason"],
+      "properties": {
+        "from": { "type": "string", "enum": ["scout", "researcher", "auditor", "architect", "craftsman", "tester", "documenter", "validator"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "artifacts": { "type": "array", "maxItems": 128, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+      }
+    },
+    "ACPAcceptedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workerId"],
+      "properties": {
+        "workerId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" }
+      }
+    },
+    "ACPHeartbeatPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workerId", "status"],
+      "properties": {
+        "workerId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+        "status": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      }
+    },
+    "ACPProgressPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["percent", "message"],
+      "properties": {
+        "percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "lastReport": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ACPEvidencePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verificationRef", "summary", "changedFiles"],
+      "properties": {
+        "verificationRef": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "changedFiles": { "type": "array", "maxItems": 128, "items": { "type": "string", "minLength": 1, "maxLength": 1024 } },
+        "gitHead": { "type": "string", "maxLength": 16384 },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "hostTokens": { "type": "integer", "minimum": 0 },
+        "hostCost": { "type": "string", "maxLength": 16384 }
+      }
+    },
+    "ACPBlockerPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      }
+    },
+    "ACPQueryPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      }
+    },
+    "ACPDirectivePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reason"],
+      "properties": {
+        "action": { "type": "string", "enum": ["retry", "cancel", "reassign", "escalate", "continue"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      }
+    },
+    "ACPCancelledPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason"],
+      "properties": {
+        "reason": { "type": "string", "minLength": 1, "maxLength": 16384 }
+      }
+    }
+  }
+}

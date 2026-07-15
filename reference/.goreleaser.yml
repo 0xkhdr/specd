@@ -1,0 +1,59 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: .
+    binary: specd
+    # Reproducible builds: pin embedded file timestamps to the commit time so
+    # the same source produces byte-identical binaries.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "specd_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  # Must match the filename install.sh expects.
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+# Generate a CycloneDX SBOM per archive (requires `syft` on the release runner).
+# Artifact signing remains a documented deferral until signing-key management is
+# in place.
+# Provenance attestation rides GitHub release permissions (`attestations` +
+# `id-token`) in the release workflow.
+sboms:
+  - artifacts: archive
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^ci:"
+
+release:
+  github:
+    owner: 0xkhdr
+    name: specd
+  name_template: "{{.Tag}}"

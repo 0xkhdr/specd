@@ -1,0 +1,4 @@
+# specd runtime state — machine-local orchestration data. Do not commit.
+# Sessions, leases, cursors, events, and missions are per-machine and ephemeral.
+*
+!.gitignore

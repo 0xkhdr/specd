@@ -1,0 +1,51 @@
+name: Release
+
+# PR + push checks live in ci.yml. This workflow only cuts releases on tags.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+# Force all JavaScript actions onto the Node 24 runtime. Node 20 is deprecated
+# on GitHub-hosted runners and forced off by default starting 2026-06-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # Gate the release on the full CI suite (lint + race + order-dependence +
+      # coverage floor + stress) even though ci.yml already ran it on the commit
+      # — a tag should never publish an unverified tree (R4.3).
+      - name: make ci
+        run: make ci
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

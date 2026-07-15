@@ -1,0 +1,247 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Force all JavaScript actions onto the Node 24 runtime. Node 20 is deprecated
+# on GitHub-hosted runners and forced off by default starting 2026-06-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: gofmt (fail on unformatted)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::these files are not gofmt-clean:"; echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: test-suite structural lint
+        # spec.md §7: no banned file suffixes, no space-separated subtest names,
+        # no duplicate helpers. Fails the lint job on re-introduced drift.
+        run: ./scripts/test-lint.sh
+
+      - name: shellcheck
+        # Pinned (R4.2): no floating @master. Dependabot bumps this ref.
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: scripts
+
+      - name: docs-lint (cheat-sheet ↔ command-reference sync)
+        # Gate cheat-sheet drift on PRs, not only at release (make ci). Asserts
+        # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
+        run: ./scripts/docs-lint.sh
+
+  analyze:
+    name: Static analysis & vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: go mod tidy check
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      # staticcheck (and friends) via golangci-lint, governed by .golangci.yml.
+      - name: staticcheck (golangci-lint)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.1.6
+
+      # Fail the build on known vulnerabilities in our deps/stdlib usage.
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+  test:
+    name: Test (${{ matrix.os }}, go ${{ matrix.go }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # Declared minimum (go.mod) + the current stable toolchain.
+        go: ["1.22", "stable"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+
+      - name: go test -race (with coverage)
+        run: go test ./... -race -count=1 -coverprofile=coverage.out
+
+      # F4: a second run catches order/iteration-order dependence in goldens.
+      - name: go test -count=2 (order-dependence)
+        run: go test ./... -count=2
+
+      # A4: measured perf gate — disabled-mode context manifest does no work.
+      - name: perf-gate
+        run: make perf-gate
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+        continue-on-error: true
+
+  coverage-floor:
+    name: Coverage floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Enforce coverage floor
+        run: ./scripts/coverage-check.sh
+
+  stress:
+    name: Concurrency stress (cross-process)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Cross-process contention on one spec
+        run: ./scripts/stress.sh
+
+  stress-acp:
+    name: ACP ledger stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: ACP append/replay contention
+        run: ./scripts/stress-acp.sh
+
+  stress-orchestration:
+    name: Orchestration stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Brain/Pinky orchestration contention
+        run: ./scripts/stress-orchestration.sh
+
+  stress-program:
+    name: Program scheduler stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Cross-spec program scheduling contention
+        run: ./scripts/stress-program.sh
+
+  stress-brain-recovery:
+    name: Brain recovery stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Brain recovery retry/reclaim paths
+        run: ./scripts/stress-brain-recovery.sh
+
+  stress-checkpoint-fault:
+    name: Checkpoint fault-injection stress
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Crash mid-checkpoint; assert no double-claim / no orphaned lease
+        run: ./scripts/stress-checkpoint-fault.sh
+
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # F3: Windows builds to guard cross-platform compilation. `specd update`
+      # self-replacement is known-limited on Windows (see TESTING.md); the
+      # binary still builds and all non-self-update commands work.
+      - name: Build binary
+        run: go build -ldflags "-s -w -X main.version=ci" -o specd .
+
+      - name: Cross-compile linux/arm64
+        if: matrix.os == 'ubuntu-latest'
+        run: GOOS=linux GOARCH=arm64 go build ./...
+
+      - name: Cross-compile darwin/arm64
+        if: matrix.os == 'ubuntu-latest'
+        run: GOOS=darwin GOARCH=arm64 go build ./...
+
+      - name: Cross-compile windows/amd64
+        if: matrix.os == 'ubuntu-latest'
+        run: GOOS=windows GOARCH=amd64 go build ./...
