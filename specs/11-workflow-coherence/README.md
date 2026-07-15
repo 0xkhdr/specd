@@ -23,6 +23,20 @@ guardrails, and observable production workflow.
 | Truth | normative docs, typed doctor result, rollup parity | Domains 03/08/09 projections |
 | Proof | fresh default and production golden workflows | Domains 04-10 specialized contracts |
 
+## Baseline traceability
+
+| Finding | Requirement | Current code/test baseline | Closing tasks |
+|---|---|---|---|
+| F1 lifecycle permits same/skip approval | R1, R8 | `internal/core/phases.go`; `TestPhaseRatchet` | T02, T04, T19-T21 |
+| F2 approval examples name wrong target | R2, R8 | `internal/core/commands.go`; `docs/user-guide.md`; command example tests | T05-T06, T18-T21 |
+| F3 mutable operations project as read | R3, R8 | `internal/core/manifest_tools.go`; `TestManifestToolContractMutationGapsBaseline` | T02, T07-T09, T19-T21 |
+| F4 generated loop cannot reach completion | R4, R8 | embedded `AGENTS.md`; `ForbiddenTool("task")`; lifecycle task-complete tests | T02, T10-T12, T19-T21 |
+| F5 fresh scaffold ships no usable skills | R5, R8 | `internal/core/scaffold.go`; scaffold/context skill tests | T02, T13, T15, T19-T21 |
+| F6 fresh stubs teach legacy/minimal schema | R6, R8 | `internal/cmd/lifecycle.go`; init/lifecycle scaffold tests | T02, T14-T15, T19-T21 |
+| F7 historical diagnosis reads as current truth | R7 | alignment docs and command/doc parity tests | T18, T21 |
+| F8 program rollup disagrees with task rows | R7 | `specs/progress.md`; regression scripts | T17, T21 |
+| F9 clean doctor JSON is `null` | R7, R8 | `internal/core/doctor.go`; agents doctor tests | T16, T19-T21 |
+
 ## Waves
 
 | Wave | Result | Requires |
