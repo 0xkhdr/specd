@@ -69,3 +69,41 @@ func TestInitScaffoldGuidanceParity(t *testing.T) {
 		t.Fatalf("scaffold must mark approval human-only and forbid self-approval:\n%s", agents)
 	}
 }
+
+func TestWorkflowCoherenceBaselineScaffoldGaps(t *testing.T) {
+	root := t.TempDir()
+	if err := runInit(root, nil, map[string]string{}); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	skills, err := filepath.Glob(filepath.Join(root, ".specd", "skills", "*", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 0 {
+		t.Fatalf("W0 baseline unexpectedly contains shipped skills: %v", skills)
+	}
+
+	if _, err := captureStdout(t, func() error { return runNew(root, []string{"demo"}, nil) }); err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	specDir := filepath.Join(root, ".specd", "specs", "demo")
+	requirements, err := os.ReadFile(filepath.Join(specDir, "requirements.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	design, err := os.ReadFile(filepath.Join(specDir, "design.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tasks, err := os.ReadFile(filepath.Join(specDir, "tasks.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(requirements), "owner:") || strings.Contains(string(design), "## Failure") {
+		t.Fatal("W0 baseline unexpectedly contains production-shaped authoring guidance")
+	}
+	if !strings.Contains(string(tasks), "scaffolded read-only placeholder") || strings.Contains(string(tasks), "| refs | kind | risk |") {
+		t.Fatalf("W0 task-stub gap changed:\n%s", tasks)
+	}
+}
