@@ -1,5 +1,17 @@
 # progress.md — flat wave-by-wave execution checklist
 
+## Next program — Workflow Coherence
+
+- [ ] 11 W0 — baseline and contract
+- [ ] 11 W1 — exact lifecycle and approval (needs W0)
+- [ ] 11 W2 — canonical operation effects (needs W1)
+- [ ] 11 W3 — executable task completion loop (needs W2)
+- [ ] 11 W4 — progressive skills and templates (needs W3)
+- [ ] 11 W5 — documentation, diagnostics, and rollup truth (needs W4)
+- [ ] 11 W6 — fresh-project release proof (needs W5)
+
+Use `specs/11-workflow-coherence/prompt.md`. Execute exactly one wave per turn.
+
 Single source of truth for **build order across all ten domains**. Each domain spec
 (`specs/0N-.../tasks.md`) owns its own wave DAG and evidence-gated tasks; this file coordinates
 the **cross-domain sequencing** those specs only describe in prose, and tracks program-level

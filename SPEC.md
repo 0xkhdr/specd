@@ -30,6 +30,12 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 - V9: Managed-marker tests derive expected version from `TemplateVersion`; template bumps remain valid.
 - V10: Command palette, registry, help, and machine surfaces derive from one command set; adding a verb cannot require stale literal counts.
 - V11: Troubleshooting docs retain exact tested runtime error vocabulary and exit-code meanings when extended.
+- V12: Lifecycle approval advances exactly one status; same-status, skipped, backward, and unknown targets fail before mutation.
+- V13: Every public operation declares actor, side effect, phase, authority, and scope semantics once; mutating operation never projects as read-only.
+- V14: Generated agent guidance exposes complete executable task loop; verify evidence and task completion stay distinct, narrow, and no-bypass.
+- V15: Fresh scaffold ships progressively loaded current-schema skills and production-shaped authoring templates; prose never widens authority.
+- V16: Normative docs, command examples, machine guidance, and runtime behavior agree and are black-box tested from fresh init.
+- V17: Program rollup derives from domain task truth; clean machine diagnostics return typed empty success, never ambiguous null.
 
 ## §T
 
@@ -43,6 +49,12 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | T6 | . | coverage gate spec | V1,V3,I1 |
 | T7 | . | amendment/staleness spec | V2,V4,I1,I2 |
 | T8 | . | production profile/spike/conformance specs | V1,V4,V6,V7,V8,I1,I2 |
+| T9 | . | exact lifecycle and approval contract | V12,V16,I1,I2 |
+| T10 | . | canonical operation effect/authority contract | V13,V16,I2 |
+| T11 | . | executable evidence-to-completion agent loop | V14,V16,I2 |
+| T12 | . | progressive skills and production authoring templates | V15,V16,I1 |
+| T13 | . | documentation, diagnostics, and rollup truth | V16,V17,I1,I2 |
+| T14 | . | fresh-project workflow coherence release proof | V12,V13,V14,V15,V16,V17,I1,I2 |
 
 ## §B
 
