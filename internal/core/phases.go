@@ -71,18 +71,22 @@ func ValidPhase(phase Phase) bool {
 func CanAdvanceStatus(from, to Status) bool {
 	fromIndex := statusIndex(from)
 	toIndex := statusIndex(to)
-	return fromIndex >= 0 && toIndex >= 0 && toIndex >= fromIndex
+	return fromIndex >= 0 && toIndex == fromIndex+1
 }
 
 func AdvanceStatus(current, next Status) (Phase, error) {
+	if !ValidStatus(current) {
+		return "", fmt.Errorf("invalid current status %q", current)
+	}
 	if !ValidStatus(next) {
 		return "", fmt.Errorf("invalid target status %q", next)
 	}
-	if current == StatusComplete && next != StatusComplete {
-		return "", fmt.Errorf("completed spec is immutable; create a linked successor instead of moving status from %q to %q", current, next)
+	currentIndex := statusIndex(current)
+	if currentIndex < 0 || currentIndex+1 >= len(statusOrder) {
+		return "", fmt.Errorf("status %q has no lifecycle successor", current)
 	}
 	if !CanAdvanceStatus(current, next) {
-		return "", fmt.Errorf("cannot move status backward from %q to %q", current, next)
+		return "", fmt.Errorf("lifecycle approval from %q requires exact successor %q, got %q", current, statusOrder[currentIndex+1], next)
 	}
 	return PhaseForStatus(next), nil
 }

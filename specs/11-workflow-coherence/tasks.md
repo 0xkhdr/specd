@@ -14,7 +14,7 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T04 | craftsman | internal/core/phases.go; internal/core/phases_test.go | T02 | `go test ./internal/core -run 'TestPhase|TestAdvance'` | R1 exact successor matrix; same/skip/backward/unknown fail |
+| [x] T04 | craftsman | internal/core/phases.go; internal/core/phases_test.go | T02 | `go test ./internal/core -run 'TestPhase|TestAdvance'` | R1 exact successor matrix; same/skip/backward/unknown fail |
 | [ ] T05 | craftsman | internal/core/commands.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/registry.go | T04 | `go test ./internal/core ./internal/cmd -run 'TestApprove|TestCommand'` | R2 simple one-step approval; separate mode/exception operations |
 | [ ] T06 | craftsman | internal/mcp; internal/core/driver.go; internal/core/driver_test.go; internal/cmd/integration_polish_test.go | T05 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'TestApprove|TestDriver|TestIntegration'` | R2 human handoff and next action parity |
 
