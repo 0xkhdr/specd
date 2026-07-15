@@ -6,9 +6,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T01 | scout | docs/sdlc-paper-current-reference-analysis.md; specs/11-workflow-coherence | - | printf ok | map F1-F9 to R1-R8 and current code/tests |
-| [ ] T02 | craftsman | internal/cmd/workflow_coherence_test.go; internal/core/phases_test.go; internal/core/manifest_tools_test.go; internal/cmd/init_scaffold_test.go | T01 | `go test ./internal/core ./internal/cmd -run 'TestWorkflowCoherenceBaseline|TestPhaseRatchet|TestManifestTool'` | characterize skip, wrong effect, incomplete agent loop, missing skills/stub gaps |
-| [ ] T03 | auditor | specs/11-workflow-coherence/requirements.md; specs/11-workflow-coherence/design.md; specs/11-workflow-coherence/tasks.md | T02 | printf ok | confirm every report finding and release scenario has task coverage |
+| [x] T01 | scout | docs/sdlc-paper-current-reference-analysis.md; specs/11-workflow-coherence | - | printf ok | map F1-F9 to R1-R8 and current code/tests |
+| [x] T02 | craftsman | internal/cmd/workflow_coherence_test.go; internal/core/phases_test.go; internal/core/manifest_tools_test.go; internal/cmd/init_scaffold_test.go | T01 | `go test ./internal/core ./internal/cmd -run 'TestWorkflowCoherenceBaseline|TestPhaseRatchet|TestManifestTool'` | characterize skip, wrong effect, incomplete agent loop, missing skills/stub gaps |
+| [x] T03 | auditor | specs/11-workflow-coherence/requirements.md; specs/11-workflow-coherence/design.md; specs/11-workflow-coherence/tasks.md | T02 | printf ok | confirm every report finding and release scenario has task coverage |
 
 ## W1 — Exact lifecycle and approval
 

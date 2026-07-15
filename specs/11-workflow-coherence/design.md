@@ -71,6 +71,21 @@ enforcement. Commented examples replace fake T1. Managed markers preserve user-o
 5. Black-box production: authority/scope/sandbox/security/quality/review and negative paths.
 6. Regression: race, repeated order, docs/test/regress scripts, zero dependency.
 
+## Coverage audit
+
+| Contract/report finding | Implementation tasks | Release proof |
+|---|---|---|
+| R1 / F1 exact lifecycle | T04-T06 | T19-T21 |
+| R2 / F2 approval UX | T05-T06, T18 | T19-T21 |
+| R3 / F3 operation effects | T07-T09 | T19-T21 |
+| R4 / F4 completion loop | T10-T12 | T19-T21 |
+| R5 / F5 shipped skills | T13, T15 | T19-T21 |
+| R6 / F6 authoring templates | T14-T15 | T19-T21 |
+| R7 / F7-F9 documentation, rollup, doctor | T16-T18 | T21 |
+| R8.1 fresh default workflow | T19 | T21 |
+| R8.2 production workflow | T20 | T21 |
+| R8.3 CLI/MCP parity | T08-T09, T12, T19-T20 | T21 |
+
 ## Migration
 
 Keep explicit target-form approve temporarily only if compatibility requires it; accept only exact
