@@ -36,7 +36,7 @@ func init() { Registry = buildRegistry() }
 var ErrUnknownCommand = errors.New("unknown command")
 
 var executable = map[string]Handler{
-	"approve":   runApproveOrException,
+	"approve":   runApprove,
 	"archive":   runArchive,
 	"adapters":  runAdapters,
 	"agents":    runAgents,
@@ -54,12 +54,14 @@ var executable = map[string]Handler{
 	"version":   runVersion,
 	"memory":    runMemory,
 	"midreq":    runMidreq,
+	"mode":      runMode,
 	"new":       runNew,
 	"next":      runNext,
 	"release":   runRelease,
 	"recurring": runRecurring,
 	"deploy":    runDeploy,
 	"eval":      runEval,
+	"exception": runSecurityException,
 	"report":    runReport,
 	"review":    runReview,
 	"spike":     runSpike,
@@ -68,13 +70,6 @@ var executable = map[string]Handler{
 	"task":      runTask,
 	"unlink":    runUnlink,
 	"verify":    runVerify,
-}
-
-func runApproveOrException(root string, args []string, flags map[string]string) error {
-	if len(args) > 0 && args[0] == "exception" {
-		return runSecurityException(root, args[1:], flags)
-	}
-	return runApprove(root, args, flags)
 }
 
 func runSecurityException(root string, args []string, flags map[string]string) error {

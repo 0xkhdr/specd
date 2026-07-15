@@ -44,7 +44,7 @@ func TestLifecycleContextMissingDesignFailsClosed(t *testing.T) {
 	}
 }
 
-func TestEnterOrchestratedCAS(t *testing.T) {
+func TestApproveModeOperationIsSeparate(t *testing.T) {
 	root := newDemoSpec(t)
 	statePath := core.StatePath(root, "demo")
 	before, err := core.LoadState(statePath)
@@ -52,7 +52,7 @@ func TestEnterOrchestratedCAS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runApprove(root, []string{"demo", "orchestrated"}, nil); err == nil || !strings.Contains(err.Error(), "orchestration.enabled") {
+	if err := Run(root, "mode", []string{"demo", "orchestrated"}, nil); err == nil || !strings.Contains(err.Error(), "orchestration.enabled") {
 		t.Fatalf("disabled transition error = %v", err)
 	}
 	unchanged, err := core.LoadState(statePath)
@@ -66,8 +66,8 @@ func TestEnterOrchestratedCAS(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("orchestration:\n  enabled: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := runApprove(root, []string{"demo", "orchestrated"}, nil); err != nil {
-		t.Fatalf("approve orchestrated: %v", err)
+	if err := Run(root, "mode", []string{"demo", "orchestrated"}, nil); err != nil {
+		t.Fatalf("mode orchestrated: %v", err)
 	}
 	after, err := core.LoadState(statePath)
 	if err != nil {
@@ -118,8 +118,9 @@ func TestApproveGatesE2E(t *testing.T) {
 	root := newDemoSpec(t)
 	statePath := core.StatePath(root, "demo")
 
-	// Green readiness: approve ratchets to design and records approval.
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	// Green readiness: caller names only the spec; approve computes the exact
+	// successor, ratchets to design, and records the actual target.
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve (green): %v", err)
 	}
 	state, err := core.LoadState(statePath)
@@ -137,12 +138,62 @@ func TestApproveGatesE2E(t *testing.T) {
 	// must refuse and leave state unchanged.
 	writeTasks(t, root, "demo", "| T1 | scout | spec.md | T9 | true | ok |")
 	before, _ := core.LoadState(statePath)
-	if err := Run(root, "approve", []string{"demo", "tasks"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {
 		t.Fatal("approve should refuse on red readiness gates")
 	}
 	after, _ := core.LoadState(statePath)
 	if after.Status != before.Status || after.Revision != before.Revision {
 		t.Fatalf("state mutated on refused approve: %+v -> %+v", before, after)
+	}
+}
+
+func TestApproveRejectsRedundantOrSkippedTargetBeforeMutation(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	before, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, target := range []string{"requirements", "tasks", "complete"} {
+		err := Run(root, "approve", []string{"demo", target}, nil)
+		if err == nil || !strings.Contains(err.Error(), "requires exact successor") {
+			t.Errorf("approve target %q error = %v; want preflight exact-successor refusal", target, err)
+		}
+	}
+	after, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Revision != before.Revision || after.Status != before.Status || len(after.Records) != len(before.Records) {
+		t.Fatalf("refused explicit targets mutated state: before=%+v after=%+v", before, after)
+	}
+}
+
+func TestCommandApprovalOperationsAreSeparate(t *testing.T) {
+	approve, ok := core.CommandByName("approve")
+	if !ok || approve.Usage != "specd approve <spec>" {
+		t.Fatalf("approve metadata = %+v, found=%v", approve, ok)
+	}
+	for _, name := range []string{"mode", "exception"} {
+		command, ok := core.CommandByName(name)
+		if !ok || !command.HumanOnly {
+			t.Errorf("%s metadata = %+v, found=%v; want separate human-only operation", name, command, ok)
+		}
+	}
+}
+
+func TestApproveLegacyExactSuccessorCompatibility(t *testing.T) {
+	root := newDemoSpec(t)
+	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+		t.Fatalf("legacy exact successor: %v", err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Status != core.StatusDesign {
+		t.Fatalf("status = %q, want design", state.Status)
 	}
 }
 

@@ -22,22 +22,19 @@ func TestApproveDesignStub(t *testing.T) {
 	}
 	// Real requirements so the requirements gate passes.
 	write("requirements.md", "# Requirements — demo\n\n- **R1** When x runs, the system shall y.\n")
-	if err := Run(root, "approve", []string{"demo", "requirements"}, nil); err != nil {
-		t.Fatalf("approve requirements: %v", err)
-	}
 
 	// Design is still the scaffold stub → refused.
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {
 		t.Fatal("approve design accepted an unedited stub")
 	}
 	// Empty sections → still refused.
 	write("design.md", "# Design — demo\n\n## Modules\n\n## Invariants\n")
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err == nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err == nil {
 		t.Fatal("approve design accepted empty sections")
 	}
 	// Filled sections → accepted.
 	write("design.md", "# Design — demo\n\n## Modules\nThe module runs gates.\n")
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
 		t.Fatalf("approve design (filled): %v", err)
 	}
 }

@@ -58,26 +58,30 @@ func runNew(root string, args []string, flags map[string]string) error {
 // leaves state untouched; on green it ratchets the phase and appends an
 // approval record via CAS (R13.4).
 func runApprove(root string, args []string, flags map[string]string) error {
-	if len(args) != 2 {
-		return errors.New("usage: specd approve <spec> <gate>")
+	if len(args) < 1 || len(args) > 2 {
+		return errors.New("usage: specd approve <spec>")
 	}
-	slug, gate := args[0], args[1]
+	slug := args[0]
 	if err := core.ValidateSlug(slug); err != nil {
 		return err
 	}
-	if gate == string(core.ModeOrchestrated) {
-		return runApproveOrchestrated(root, slug)
-	}
-	target := core.Status(gate)
-	if !core.ValidStatus(target) {
-		return fmt.Errorf("invalid gate %q", gate)
-	}
+	var approvedTarget core.Status
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {
 		statePath := core.StatePath(root, slug)
 		state, err := core.LoadState(statePath)
 		if err != nil {
 			return struct{}{}, err
 		}
+		target := core.NextStatus(state.Status)
+		if len(args) == 2 {
+			target = core.Status(args[1])
+		}
+		phase, err := core.AdvanceStatus(state.Status, target)
+		if err != nil {
+			return struct{}{}, err
+		}
+		approvedTarget = target
+		gate := string(target)
 		spec, err := loadSpec(root, slug)
 		if err != nil {
 			return struct{}{}, err
@@ -108,10 +112,6 @@ func runApprove(root string, args []string, flags map[string]string) error {
 				return struct{}{}, fmt.Errorf("approve refused: %s blocked by incomplete dependencies: %s", slug, strings.Join(blocking, ", "))
 			}
 		}
-		phase, err := core.AdvanceStatus(state.Status, target)
-		if err != nil {
-			return struct{}{}, err
-		}
 		state.Status = target
 		state.Phase = phase
 		rec := core.Record{Kind: "approval", Gate: gate, ApprovedRevision: state.Revision}
@@ -130,8 +130,18 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "approved %s → %s\n", slug, gate)
+	fmt.Fprintf(os.Stdout, "approved %s → %s\n", slug, approvedTarget)
 	return nil
+}
+
+func runMode(root string, args []string, flags map[string]string) error {
+	if len(args) != 2 || args[1] != string(core.ModeOrchestrated) {
+		return errors.New("usage: specd mode <spec> orchestrated")
+	}
+	if err := core.ValidateSlug(args[0]); err != nil {
+		return err
+	}
+	return runApproveOrchestrated(root, args[0])
 }
 
 // runApproveOrchestrated is the supported human-only transition into the

@@ -15,7 +15,7 @@
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | [x] T04 | craftsman | internal/core/phases.go; internal/core/phases_test.go | T02 | `go test ./internal/core -run 'TestPhase|TestAdvance'` | R1 exact successor matrix; same/skip/backward/unknown fail |
-| [ ] T05 | craftsman | internal/core/commands.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/registry.go | T04 | `go test ./internal/core ./internal/cmd -run 'TestApprove|TestCommand'` | R2 simple one-step approval; separate mode/exception operations |
+| [x] T05 | craftsman | internal/core/commands.go; internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/registry.go | T04 | `go test ./internal/core ./internal/cmd -run 'TestApprove|TestCommand'` | R2 simple one-step approval; separate mode/exception operations |
 | [ ] T06 | craftsman | internal/mcp; internal/core/driver.go; internal/core/driver_test.go; internal/cmd/integration_polish_test.go | T05 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'TestApprove|TestDriver|TestIntegration'` | R2 human handoff and next action parity |
 
 ## W2 — Canonical operation effects
@@ -61,6 +61,7 @@
 ## Cross-wave rules
 
 - If required file is absent from row, record deviation here before editing.
+- W1/T05 compatibility deviation: update existing approval call-site tests and the command-reference/CHEATSHEET mirror outside the row file list; the public one-step command and separate mode/exception verbs otherwise leave stale tested examples and fail docs sync.
 - CLI/flag change updates command reference and CHEATSHEET together.
 - New public contract starts RED and ends with black-box/conformance proof.
 - One wave only per turn; do not start next wave after current turns green.
