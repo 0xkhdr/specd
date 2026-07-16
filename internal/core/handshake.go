@@ -23,20 +23,21 @@ type HandshakeAuthority struct {
 }
 
 type Handshake struct {
-	Version               string             `json:"version"`
-	Agent                 string             `json:"agent,omitempty"`
-	Tools                 []string           `json:"tools"`
-	Binary                version.Info       `json:"binary"`
-	StateSchemaVersion    int                `json:"state_schema_version"`
-	ContextSchemaVersion  string             `json:"context_schema_version"`
-	TemplateSchemaVersion int                `json:"template_schema_version"`
-	WorkspaceRoot         string             `json:"workspace_root"`
-	ActiveSpec            *HandshakeSpec     `json:"active_spec,omitempty"`
-	ManagedDigest         string             `json:"managed_digest"`
-	GuidanceDigest        string             `json:"guidance_digest"`
-	ContextSchemaDigest   string             `json:"context_schema_digest"`
-	NextCommands          []string           `json:"next_commands"`
-	Authority             HandshakeAuthority `json:"authority"`
+	Version                string             `json:"version"`
+	Agent                  string             `json:"agent,omitempty"`
+	Tools                  []string           `json:"tools"`
+	Binary                 version.Info       `json:"binary"`
+	StateSchemaVersion     int                `json:"state_schema_version"`
+	ContextSchemaVersion   string             `json:"context_schema_version"`
+	TemplateSchemaVersion  int                `json:"template_schema_version"`
+	OperationSchemaVersion int                `json:"operation_schema_version"`
+	WorkspaceRoot          string             `json:"workspace_root"`
+	ActiveSpec             *HandshakeSpec     `json:"active_spec,omitempty"`
+	ManagedDigest          string             `json:"managed_digest"`
+	GuidanceDigest         string             `json:"guidance_digest"`
+	ContextSchemaDigest    string             `json:"context_schema_digest"`
+	NextCommands           []string           `json:"next_commands"`
+	Authority              HandshakeAuthority `json:"authority"`
 	// PaletteDigest and ConfigDigest let an agent detect that its cached command
 	// palette or effective config has drifted from this binary's (spec 11 R6).
 	// Both are SHA-256 over the canonical (stable-key-order) JSON.
@@ -58,11 +59,10 @@ func BootstrapHandshake(config Config) Handshake {
 // BootstrapHandshakeForRoot emits one production-driver preflight packet. It
 // is read-only: callers can validate every pinned identity before mutation.
 func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCommands []string) (Handshake, error) {
-	tools := CommandNames()
-	allowed := make([]string, 0, len(tools))
-	for _, tool := range tools {
-		if !ForbiddenTool(tool) {
-			allowed = append(allowed, tool)
+	allowed := make([]string, 0, len(Operations))
+	for _, operation := range Operations {
+		if !ForbiddenTool(operation.Command) {
+			allowed = append(allowed, operation.ID)
 		}
 	}
 	absRoot, err := filepath.Abs(root)
@@ -78,18 +78,19 @@ func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCom
 		return Handshake{}, err
 	}
 	hs := Handshake{
-		Version:               "1",
-		Agent:                 config.Agent,
-		Tools:                 allowed,
-		Binary:                version.Get(),
-		StateSchemaVersion:    StateSchemaVersion,
-		ContextSchemaVersion:  ContextSchemaVersion,
-		TemplateSchemaVersion: TemplateVersion,
-		WorkspaceRoot:         filepath.Clean(absRoot),
-		ManagedDigest:         managedDigest,
-		GuidanceDigest:        guidanceDigest,
-		ContextSchemaDigest:   ContextSchemaDigest(),
-		NextCommands:          append([]string(nil), nextCommands...),
+		Version:                "1",
+		Agent:                  config.Agent,
+		Tools:                  allowed,
+		Binary:                 version.Get(),
+		StateSchemaVersion:     StateSchemaVersion,
+		ContextSchemaVersion:   ContextSchemaVersion,
+		TemplateSchemaVersion:  TemplateVersion,
+		OperationSchemaVersion: OperationSchemaVersion,
+		WorkspaceRoot:          filepath.Clean(absRoot),
+		ManagedDigest:          managedDigest,
+		GuidanceDigest:         guidanceDigest,
+		ContextSchemaDigest:    ContextSchemaDigest(),
+		NextCommands:           append([]string(nil), nextCommands...),
 		Authority: HandshakeAuthority{
 			HarnessInstructions: []string{"AGENTS.md", ".specd/roles", ".specd/steering", "command palette"},
 			UntrustedInputs:     []string{"requirements", "source", "test_output", "adapter_observation"},

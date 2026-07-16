@@ -9,16 +9,26 @@ import (
 
 func TestHandshakeToolContracts(t *testing.T) {
 	hs := BootstrapHandshake(Config{})
+	if hs.OperationSchemaVersion != OperationSchemaVersion {
+		t.Fatalf("operation schema = %d, want %d", hs.OperationSchemaVersion, OperationSchemaVersion)
+	}
 	if len(hs.ToolContracts) == 0 {
 		t.Fatal("tool contracts missing")
 	}
 	for _, tool := range hs.ToolContracts {
-		if tool.Route == "" || len(tool.Phases) == 0 || len(tool.ExitCodes) == 0 {
+		if tool.OperationID == "" || tool.Route == "" || len(tool.Phases) == 0 || len(tool.ExitCodes) == 0 {
 			t.Fatalf("incomplete tool contract: %+v", tool)
 		}
 		if tool.HumanOnly && tool.Mutable == false {
 			t.Fatalf("human-only mutation not labeled mutable: %+v", tool)
 		}
+	}
+	want := map[string]bool{"eval.import": true, "eval.status": true}
+	for _, id := range hs.Tools {
+		delete(want, id)
+	}
+	if len(want) != 0 {
+		t.Fatalf("handshake missing operations: %v", want)
 	}
 }
 

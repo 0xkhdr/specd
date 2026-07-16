@@ -23,12 +23,12 @@ func TestMCPParity(t *testing.T) {
 			t.Fatalf("forbidden tool exposed: %s", tool.Name)
 		}
 	}
-	for _, command := range core.CommandNames() {
-		if core.ForbiddenTool(command) {
+	for _, operation := range core.Operations {
+		if core.ForbiddenTool(operation.Command) {
 			continue
 		}
-		if !seen[command] {
-			t.Fatalf("command missing from MCP tools: %s", command)
+		if !seen[operation.ID] {
+			t.Fatalf("operation missing from MCP tools: %s", operation.ID)
 		}
 	}
 
@@ -43,6 +43,25 @@ func TestMCPParity(t *testing.T) {
 	}
 	if response.Error != nil || response.Result == nil {
 		t.Fatalf("bad response: %#v", response)
+	}
+}
+
+func TestOperationEffectParity(t *testing.T) {
+	tools := map[string]Tool{}
+	for _, tool := range CoreTools() {
+		tools[tool.Name] = tool
+	}
+	for _, id := range []string{"eval.import", "archive", "link", "new", "recurring.record", "spike", "unlink"} {
+		tool, ok := tools[id]
+		if !ok {
+			t.Fatalf("operation %q missing", id)
+		}
+		if tool.Effect == core.EffectRead || !tool.Mutable {
+			t.Fatalf("operation %q falsely read-only: %+v", id, tool)
+		}
+	}
+	if tool := tools["eval.status"]; tool.Effect != core.EffectRead || tool.Mutable {
+		t.Fatalf("eval.status effect mismatch: %+v", tool)
 	}
 }
 
@@ -71,17 +90,20 @@ func TestParityA2ASemanticACP(t *testing.T) {
 }
 
 func TestParityAgentsGuideDoctorRoute(t *testing.T) {
+	seen := map[string]bool{}
 	for _, tool := range CoreTools() {
-		if tool.Name != "agents" {
+		if tool.Name != "agents.guide" && tool.Name != "agents.doctor" {
 			continue
 		}
 		props := tool.InputSchema["properties"].(map[string]any)
 		if _, ok := props["args"]; !ok {
-			t.Fatal("agents MCP tool lacks positional guide/doctor route")
+			t.Fatalf("%s MCP tool lacks positional route", tool.Name)
 		}
-		return
+		seen[tool.Name] = true
 	}
-	t.Fatal("agents MCP tool missing")
+	if !seen["agents.guide"] || !seen["agents.doctor"] {
+		t.Fatalf("agents MCP operations missing: %v", seen)
+	}
 }
 
 // TestDenyList pins the MCP deny list itself (R2.1): the named human-gate and

@@ -3,9 +3,15 @@ package mcp
 import "github.com/0xkhdr/specd/internal/core"
 
 type Tool struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	InputSchema map[string]any `json:"inputSchema"`
+	Name              string               `json:"name"`
+	Command           string               `json:"command"`
+	Actor             core.OperationActor  `json:"actor"`
+	Effect            core.OperationEffect `json:"effect"`
+	Mutable           bool                 `json:"mutable"`
+	AuthorityRequired bool                 `json:"authority_required"`
+	TaskRequired      bool                 `json:"task_required"`
+	Description       string               `json:"description"`
+	InputSchema       map[string]any       `json:"inputSchema"`
 }
 
 // CoreTools derives the MCP tool palette entirely from core.Command metadata —
@@ -13,15 +19,20 @@ type Tool struct {
 // is one source of truth and no drift (spec 03 R5, C.8). Flag enums map to JSON
 // Schema `enum` and declared defaults to `default`.
 func CoreTools() []Tool {
-	tools := make([]Tool, 0, len(core.Commands))
-	for _, command := range core.Commands {
-		if core.ForbiddenTool(command.Name) {
+	tools := make([]Tool, 0, len(core.Operations))
+	for _, operation := range core.Operations {
+		if core.ForbiddenTool(operation.Command) {
+			continue
+		}
+		command, ok := core.CommandByName(operation.Command)
+		if !ok {
 			continue
 		}
 		tools = append(tools, Tool{
-			Name:        command.Name,
-			Description: command.Description,
-			InputSchema: inputSchema(command),
+			Name: operation.ID, Command: operation.Command, Actor: operation.Actor,
+			Effect: operation.Effect, Mutable: operation.Effect != core.EffectRead,
+			AuthorityRequired: operation.AuthorityRequired, TaskRequired: operation.TaskRequired,
+			Description: command.Description, InputSchema: inputSchema(command),
 		})
 	}
 	return tools

@@ -34,7 +34,7 @@ func TestMCPUnknownToolDefaultDenied(t *testing.T) {
 }
 
 func TestMCPTelemetryAnnotationFlags(t *testing.T) {
-	for _, toolName := range []string{"verify"} {
+	for _, toolName := range []string{"verify.task"} {
 		tools := CoreTools()
 		var found *Tool
 		for i := range tools {

@@ -23,7 +23,7 @@
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
 | [x] T07 | craftsman | internal/core/commands.go; internal/core/commandmeta_test.go; internal/core/manifest_tools.go; internal/core/manifest_tools_test.go | T06 | `go test ./internal/core -run 'TestCommand|TestOperation|TestManifestTool'` | R3 versioned per-operation actor/effect/authority schema |
-| [ ] T08 | craftsman | internal/cmd/registry.go; internal/cmd/registry_test.go; internal/mcp; internal/core/handshake.go; internal/core/handshake_test.go | T07 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'TestOperation|TestRegistry|TestHandshake|TestParity'` | R3 all renderers derive same operations; mutation never read |
+| [x] T08 | craftsman | internal/cmd/registry.go; internal/cmd/registry_test.go; internal/mcp; internal/core/handshake.go; internal/core/handshake_test.go | T07 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'TestOperation|TestRegistry|TestHandshake|TestParity'` | R3 all renderers derive same operations; mutation never read |
 | [ ] T09 | validator | internal/core; internal/cmd; internal/mcp | T08 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'Test.*Operation|Test.*Effect|Test.*Parity' -count=2` | mixed subcommands and forbidden/human operations fail closed |
 
 ## W3 — Executable task completion loop
@@ -62,6 +62,7 @@
 
 - If required file is absent from row, record deviation here before editing.
 - W1/T05 compatibility deviation: update existing approval call-site tests and the command-reference/CHEATSHEET mirror outside the row file list; the public one-step command and separate mode/exception verbs otherwise leave stale tested examples and fail docs sync.
+- W2/T08 parity deviation: update existing MCP derivation/server fixtures outside the row file list and record the verification failure in SPEC.md §B; operation projection intentionally replaces command-keyed MCP identity and V13/V16 already cover recurrence.
 - CLI/flag change updates command reference and CHEATSHEET together.
 - New public contract starts RED and ends with black-box/conformance proof.
 - One wave only per turn; do not start next wave after current turns green.

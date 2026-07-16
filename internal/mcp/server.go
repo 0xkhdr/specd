@@ -134,29 +134,19 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 				delete(params.Arguments, "authority")
 			}
 		}
-		if core.ForbiddenTool(params.Name) {
-			resp.Error = &ResponseError{Code: -32001, Message: "tool denied by policy"}
-			return resp
-		}
-		known := false
-		mutable := false
-		for _, tool := range tools {
-			if tool.Name == params.Name {
-				known = true
+		var selected *Tool
+		for i := range tools {
+			if tools[i].Name == params.Name {
+				selected = &tools[i]
 				break
 			}
 		}
-		for _, tool := range core.ManifestToolContracts() {
-			if tool.Name == params.Name {
-				mutable = tool.Mutable
-			}
-		}
-		if !known {
+		if selected == nil || core.ForbiddenTool(selected.Command) {
 			resp.Error = &ResponseError{Code: -32001, Message: "tool denied by policy"}
 			return resp
 		}
 		if authority != nil {
-			if err := core.AuthorizeTool(*authority, params.Name, nil, now, phase, mutable); err != nil {
+			if err := core.AuthorizeTool(*authority, params.Name, nil, now, phase, selected.Mutable); err != nil {
 				resp.Error = &ResponseError{Code: -32001, Message: "tool denied by authority"}
 				return resp
 			}
@@ -166,7 +156,10 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 			return resp
 		}
 		args, flags := splitArguments(params.Arguments)
-		out, err := exec(params.Name, args, flags)
+		if operation, ok := core.OperationByID(params.Name); ok && operation.Subcommand != "" && (len(args) == 0 || args[0] != operation.Subcommand) {
+			args = append([]string{operation.Subcommand}, args...)
+		}
+		out, err := exec(selected.Command, args, flags)
 		if err != nil {
 			// A verb failure (non-zero exit, gate/usage rejection) is a tool-level
 			// error, not a JSON-RPC protocol error: report it in the result with

@@ -32,6 +32,10 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 	}
 	meta, hasMeta := core.CommandByName(name)
 	if hasMeta {
+		operation, ok := core.ResolveOperation(name, args, flags)
+		if !ok {
+			return fmt.Errorf("%w: unknown operation for command %q", ErrUsage, name)
+		}
 		if err := checkFlagEnums(meta, flags); err != nil {
 			return err
 		}
@@ -42,16 +46,11 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 			return err
 		}
 		cfg := loadSpecConfig(root)
-		if cfg.Security.Profile == "production" && meta.RequiresTask && authority == nil {
+		if cfg.Security.Profile == "production" && operation.TaskRequired && authority == nil {
 			return fmt.Errorf("authority denied: production task command requires AuthorityV1 packet")
 		}
 		if authority != nil {
-			mutable := name == "task" || name == "submit" || name == "review"
-			for _, tool := range core.ManifestToolContracts() {
-				if tool.Name == name {
-					mutable = tool.Mutable
-				}
-			}
+			mutable := operation.Effect != core.EffectRead
 			phase := string(authority.Phase)
 			if err := core.AuthorizeTool(*authority, name, changedPaths, now, phase, mutable); err != nil {
 				_ = orchestration.RecordAuthorityDenial(root, *authority, name, "denied", now)
@@ -64,7 +63,7 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 			if name == "task" {
 				taskArg = 2
 			}
-			if meta.RequiresTask && len(args) > taskArg && authority.TaskID != args[taskArg] {
+			if operation.TaskRequired && len(args) > taskArg && authority.TaskID != args[taskArg] {
 				return fmt.Errorf("authority denied: task mismatch")
 			}
 		}

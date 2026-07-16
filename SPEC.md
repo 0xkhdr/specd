@@ -74,3 +74,4 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B12 | 2026-07-13 | 08l added public `incident` verb while W5 regression still pinned prior verb count 29 | update intentional surface tripwire to 30; V10 already applies |
 | B13 | 2026-07-13 | 09b RED test called a nonexistent setup helper before intended contract failures compiled | mechanical test typo; no new invariant |
 | B14 | 2026-07-13 | 09b approval marking first appended checkbox as an extra table cell instead of prefixing task id | mechanical formatting error; no new invariant |
+| B15 | 2026-07-16 | W2 operation projection changed MCP identity while command-keyed derivation and telemetry fixtures remained stale | align fixtures with operation IDs; V13/V16 already apply |

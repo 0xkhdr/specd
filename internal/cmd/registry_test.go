@@ -50,6 +50,42 @@ func TestEveryCommandHasHandler(t *testing.T) {
 	}
 }
 
+func TestRegistryEveryOperationHasHandler(t *testing.T) {
+	for _, operation := range core.Operations {
+		command, ok := core.CommandByName(operation.Command)
+		if !ok {
+			t.Errorf("operation %q has unknown command %q", operation.ID, operation.Command)
+			continue
+		}
+		if !command.Deferred && executable[operation.Command] == nil {
+			t.Errorf("operation %q has no handler", operation.ID)
+		}
+	}
+}
+
+func TestOperationResolutionFailsClosed(t *testing.T) {
+	tests := []struct {
+		command string
+		args    []string
+		flags   map[string]string
+		want    string
+	}{
+		{"eval", []string{"import", "demo", "eval.jsonl"}, nil, "eval.import"},
+		{"eval", []string{"status", "demo"}, nil, "eval.status"},
+		{"task", []string{"T1"}, map[string]string{"override": "", "reason": "human"}, "task.override"},
+		{"task", []string{"complete", "demo", "T1"}, nil, "task.complete"},
+	}
+	for _, tt := range tests {
+		op, ok := core.ResolveOperation(tt.command, tt.args, tt.flags)
+		if !ok || op.ID != tt.want {
+			t.Errorf("ResolveOperation(%q, %v) = %q, %t; want %q", tt.command, tt.args, op.ID, ok, tt.want)
+		}
+	}
+	if _, ok := core.ResolveOperation("eval", []string{"erase", "demo"}, nil); ok {
+		t.Fatal("unknown eval operation resolved instead of failing closed")
+	}
+}
+
 // TestUnknownCommandFailsClosed guards R13.1: an unregistered verb returns
 // ErrUnknownCommand so the dispatcher can exit 2 instead of 0.
 func TestUnknownCommandFailsClosed(t *testing.T) {

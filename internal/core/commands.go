@@ -792,6 +792,65 @@ func OperationsForCommand(command string) []Operation {
 	return operations
 }
 
+// ResolveOperation maps one concrete CLI invocation to its canonical public
+// operation. Mixed-command unknown subcommands fail closed before dispatch.
+func ResolveOperation(command string, args []string, flags map[string]string) (Operation, bool) {
+	id := command
+	first := ""
+	if len(args) > 0 {
+		first = args[0]
+	}
+	switch command {
+	case "agents":
+		switch first {
+		case "":
+			id = "agents.inspect"
+		case "doctor", "guide":
+			id = "agents." + first
+		default:
+			return Operation{}, false
+		}
+	case "eval", "exception", "brain":
+		if first == "" {
+			return Operation{}, false
+		}
+		id = command + "." + first
+	case "incident":
+		if first != "seed" {
+			return Operation{}, false
+		}
+		id = "incident.seed"
+	case "recurring":
+		if first != "record" {
+			return Operation{}, false
+		}
+		id = "recurring.record"
+	case "task":
+		switch {
+		case first == "complete":
+			id = "task.complete"
+		case flagSet(flags, "override"):
+			id = "task.override"
+		default:
+			id = "task.show"
+		}
+	case "verify":
+		if flagSet(flags, "criterion") {
+			id = "verify.criterion"
+		} else {
+			id = "verify.task"
+		}
+	case "report":
+		id = "report.render"
+	}
+	return OperationByID(id)
+}
+
+func flagSet(flags map[string]string, name string) bool {
+	_, ok := flags[name]
+	return ok
+}
+
 // CommandNames returns command names in help order.
 func CommandNames() []string {
 	names := make([]string, len(Commands))
