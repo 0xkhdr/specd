@@ -53,7 +53,7 @@ type initializeParams struct {
 // by the caller (internal/cmd) so the mcp package never imports the dispatcher —
 // that back-edge would be an import cycle, which is why tool execution lived
 // behind the injection seam rather than inside this package.
-type Executor func(name string, args []string, flags map[string]string) (string, error)
+type Executor func(name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time) (string, error)
 
 func Serve(r io.Reader, w io.Writer, tools []Tool, exec Executor) error {
 	scanner := bufio.NewScanner(r)
@@ -146,7 +146,7 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 			return resp
 		}
 		if authority != nil {
-			if err := core.AuthorizeTool(*authority, params.Name, nil, now, phase, selected.Mutable); err != nil {
+			if err := core.AuthorizeTool(*authority, selected.Command, nil, now, phase, selected.Mutable); err != nil {
 				resp.Error = &ResponseError{Code: -32001, Message: "tool denied by authority"}
 				return resp
 			}
@@ -159,7 +159,7 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 		if operation, ok := core.OperationByID(params.Name); ok && operation.Subcommand != "" && (len(args) == 0 || args[0] != operation.Subcommand) {
 			args = append([]string{operation.Subcommand}, args...)
 		}
-		out, err := exec(selected.Command, args, flags)
+		out, err := exec(selected.Command, args, flags, authority, now)
 		if err != nil {
 			// A verb failure (non-zero exit, gate/usage rejection) is a tool-level
 			// error, not a JSON-RPC protocol error: report it in the result with

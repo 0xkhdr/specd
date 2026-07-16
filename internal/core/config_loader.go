@@ -134,6 +134,13 @@ func (c Config) ProductionProfile() bool {
 	return c.Profile == ProfileProduction
 }
 
+// ProductionTaskAuthorityRequired is the canonical compatibility predicate for
+// task authority and mission-derived scope. The lifecycle profile is normative;
+// security.profile=production remains armed for existing projects.
+func (c Config) ProductionTaskAuthorityRequired() bool {
+	return c.ProductionProfile() || c.Security.Profile == ProfileProduction
+}
+
 // CriteriaGateArmed reports whether the per-criterion evidence ratchet must run:
 // either the explicit criteria.required switch, or the production profile
 // (which requires current criterion evidence, R7.2).

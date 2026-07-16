@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/adapter"
 	"github.com/0xkhdr/specd/internal/core"
@@ -229,7 +230,7 @@ func TestIntegrationApproveHandoffParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	called := false
-	resp := mcp.Dispatch(mcp.Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: raw}, mcp.CoreTools(), func(string, []string, map[string]string) (string, error) {
+	resp := mcp.Dispatch(mcp.Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: raw}, mcp.CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
 		called = true
 		return "", nil
 	})

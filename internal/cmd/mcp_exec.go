@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"time"
 
+	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/mcp"
 )
 
@@ -13,8 +15,13 @@ import (
 // reverse edge is an import cycle). Injecting the executor is how the MCP server
 // runs verbs without that cycle.
 func mcpExecutor(root string) mcp.Executor {
-	return func(name string, args []string, flags map[string]string) (string, error) {
-		return captureRunOutput(func() error { return Run(root, name, args, flags) })
+	return func(name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time) (string, error) {
+		return captureRunOutput(func() error {
+			if authority != nil {
+				return RunAuthorized(root, name, args, flags, *authority, nil, now)
+			}
+			return Run(root, name, args, flags)
+		})
 	}
 }
 

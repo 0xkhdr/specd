@@ -3,6 +3,9 @@ package mcp
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // TestToolsCallExecutes pins that tools/call routes the MCP arguments object to
@@ -14,7 +17,7 @@ func TestToolsCallExecutes(t *testing.T) {
 	var gotName string
 	var gotArgs []string
 	var gotFlags map[string]string
-	exec := func(name string, args []string, flags map[string]string) (string, error) {
+	exec := func(name string, args []string, flags map[string]string, _ *core.AuthorityV1, _ time.Time) (string, error) {
 		gotName, gotArgs, gotFlags = name, args, flags
 		return "frontier:\nT1\n", nil
 	}
@@ -44,7 +47,7 @@ func TestToolsCallExecutes(t *testing.T) {
 // TestToolsCallVerbErrorIsToolError pins that a verb failure surfaces as a
 // tool-level error (isError=true in the result), not a JSON-RPC protocol error.
 func TestToolsCallVerbErrorIsToolError(t *testing.T) {
-	exec := func(string, []string, map[string]string) (string, error) {
+	exec := func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
 		return "", errVerbFailed
 	}
 	resp := Dispatch(Request{

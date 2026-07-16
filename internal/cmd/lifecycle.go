@@ -13,6 +13,8 @@ import (
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
+var taskCompleteAtomicWrite = core.AtomicWrite
+
 // runNew creates a spec workspace: requirements.md, design.md, tasks.md, and state.json at
 // revision 0 (R13.3). Creation is a fresh write under the per-spec lock, not a
 // compare-and-swap; SaveStateCAS with expected revision 0 would ratchet to 1.
@@ -259,7 +261,7 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 			return struct{}{}, err
 		}
 		cfg := loadSpecConfig(root)
-		if cfg.Security.Profile == "production" {
+		if cfg.ProductionTaskAuthorityRequired() {
 			sessionPath := filepath.Join(core.SpecdDir(root), "specs", slug, "session.json")
 			session, err := orchestration.LoadSession(sessionPath)
 			if err != nil {
@@ -295,6 +297,10 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if err != nil {
 			return struct{}{}, err
 		}
+		rollbackState, err := core.LoadState(statePath)
+		if err != nil {
+			return struct{}{}, err
+		}
 		if state.TaskStatus == nil {
 			state.TaskStatus = map[string]core.TaskRunStatus{}
 		}
@@ -302,8 +308,12 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if err := core.SaveStateCAS(statePath, state.Revision, state); err != nil {
 			return struct{}{}, err
 		}
-		if err := core.AtomicWrite(tasksPath, string(updated)); err != nil {
-			return struct{}{}, err
+		if err := taskCompleteAtomicWrite(tasksPath, string(updated)); err != nil {
+			writeErr := err
+			if rollbackErr := core.SaveStateCAS(statePath, state.Revision+1, rollbackState); rollbackErr != nil {
+				return struct{}{}, fmt.Errorf("completion tasks write failed: %v; state rollback failed: %w", writeErr, rollbackErr)
+			}
+			return struct{}{}, writeErr
 		}
 		// Optional telemetry (spec 10 R1): completion carries the worker's
 		// verbatim cost as a supplementary evidence record. CompleteTask already

@@ -90,3 +90,7 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B28 | 2026-07-16 | W6 production fixture referenced R1.1 from a legacy requirement bullet that declared no structured criterion ID | author production requirement with explicit heading and EARS criterion; V15 already applies |
 | B29 | 2026-07-16 | W6 fixture asserted lifecycle phase through human task-status output, which intentionally omits lifecycle status | assert typed machine guide status; V16 already applies |
 | B30 | 2026-07-16 | W6 review edit targeted stale placeholder spellings and left generated verdict unresolved | replace exact current reviewer/verdict/findings placeholders; V15,V16 already apply |
+| B31 | 2026-07-16 | production task authority checked only legacy security profile and MCP execution discarded its validated packet | route canonical production predicate and AuthorityV1 through dispatch; V13,V14 already apply |
+| B32 | 2026-07-16 | task completion persisted state before tasks.md and did not recover when second atomic write failed | rollback state under lock/CAS on tasks write failure; V14 already applies |
+| B33 | 2026-07-16 | driver actions hand-built actor, effect, authority, and source instead of projecting canonical operations | project every emitted action from Operation; V13 already applies |
+| B34 | 2026-07-16 | doctor swallowed managed-repair planning errors and could report an unreadable managed tree healthy | emit typed unhealthy repair finding; V17 already applies |

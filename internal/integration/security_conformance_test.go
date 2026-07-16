@@ -67,7 +67,7 @@ func TestSecurityConformanceProductionFailureMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := mcp.Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"review","arguments":{"args":["demo"]}}`)}
-	resp := mcp.DispatchAuthorized(req, mcp.CoreTools(), func(string, []string, map[string]string) (string, error) {
+	resp := mcp.DispatchAuthorized(req, mcp.CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
 		t.Fatal("denied executor called")
 		return "", nil
 	}, &authority, now, "execute")

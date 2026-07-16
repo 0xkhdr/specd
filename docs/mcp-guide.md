@@ -29,6 +29,12 @@ as a JSON-RPC protocol error. State-changing or session verbs (`init`, `approve`
 `task`, `mcp`) are **refused by policy** (`-32001`) — drive those from the CLI, where phase and
 evidence gates apply with a human in the loop.
 
+Task tools advertise an optional `authority` object. Under top-level `profile: production` (and
+legacy `security.profile: production`), every task operation requires the claimed mission's
+digest-pinned `AuthorityV1` packet. MCP validates it, forwards it unchanged to command dispatch,
+and dispatch derives changed paths from the mission baseline; missing, expired, wrong-spec,
+wrong-task, wrong-role, or out-of-scope packets fail closed.
+
 ## Run the server
 
 ```bash

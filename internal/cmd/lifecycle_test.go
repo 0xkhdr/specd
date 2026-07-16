@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -425,6 +426,50 @@ func TestTaskCompleteNarrowRouteKeepsVerifySeparate(t *testing.T) {
 	}
 	if err := Run(root, "task", []string{"complete", "demo", "T1"}, nil); err == nil {
 		t.Fatal("broad task command still exposes completion")
+	}
+}
+
+func TestTaskCompleteRollsBackStateWhenTasksWriteFails(t *testing.T) {
+	root := newDemoSpec(t)
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "specd@example.test")
+	runGit(t, root, "config", "user.name", "specd")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "commit", "-m", "fixture")
+	for range 2 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	tasksPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "tasks.md")
+	beforeTasks, err := os.ReadFile(tasksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := taskCompleteAtomicWrite
+	taskCompleteAtomicWrite = func(string, string) error { return errors.New("injected tasks write failure") }
+	t.Cleanup(func() { taskCompleteAtomicWrite = original })
+
+	err = Run(root, "complete-task", []string{"demo", "T1"}, nil)
+	if err == nil || !strings.Contains(err.Error(), "injected tasks write failure") {
+		t.Fatalf("completion error = %v", err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.TaskStatus["T1"] == core.TaskComplete {
+		t.Fatalf("failed completion left state complete: %+v", state.TaskStatus)
+	}
+	afterTasks, err := os.ReadFile(tasksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(afterTasks) != string(beforeTasks) {
+		t.Fatal("failed completion changed tasks.md")
 	}
 }
 

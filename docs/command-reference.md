@@ -309,6 +309,9 @@ Complete one task by consuming current passing evidence through the gated comple
 Verify records evidence only; it never changes task status. Completion requires evidence pinned to
 current `HEAD`, declared fresh quality evidence, production authority/scope/security controls, and
 the locked state CAS. No bypass or human override is available. **Phases:** post-requirements.
+With top-level `profile: production` (or legacy `security.profile: production`), raw task
+operations are refused; an MCP caller supplies the claimed mission's digest-pinned `AuthorityV1`
+packet, and dispatch derives changed-path scope from that mission baseline.
 
 Completion accepts optional telemetry flags: `--tokens`, `--cost`, `--duration-ms`,
 `--input-tokens`, `--output-tokens`, `--cached-tokens`, `--provider`, `--model`, `--currency`,

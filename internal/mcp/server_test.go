@@ -19,7 +19,10 @@ func TestMCPAuthorityDeniesValidatorWrite(t *testing.T) {
 	a.Digest = ""
 	core.FinalizeAuthority(&a)
 	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"review","arguments":{"args":["demo"]}}`)}
-	resp := DispatchAuthorized(req, CoreTools(), func(string, []string, map[string]string) (string, error) { t.Fatal("executor called"); return "", nil }, &a, now, "execute")
+	resp := DispatchAuthorized(req, CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
+		t.Fatal("executor called")
+		return "", nil
+	}, &a, now, "execute")
 	if resp.Error == nil || resp.Error.Code != -32001 {
 		t.Fatalf("response=%+v", resp)
 	}
@@ -27,7 +30,9 @@ func TestMCPAuthorityDeniesValidatorWrite(t *testing.T) {
 
 func TestMCPUnknownToolDefaultDenied(t *testing.T) {
 	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"invented"}`)}
-	resp := Dispatch(req, CoreTools(), func(string, []string, map[string]string) (string, error) { return "", nil })
+	resp := Dispatch(req, CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
+		return "", nil
+	})
 	if resp.Error == nil || resp.Error.Code != -32001 {
 		t.Fatalf("response=%+v", resp)
 	}
@@ -67,10 +72,13 @@ func TestMCPCompleteTaskUsesNarrowAuthorizedRoute(t *testing.T) {
 	}
 	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"complete-task","arguments":{"args":["demo","T1"]}}`)}
 	called := false
-	resp := DispatchAuthorized(req, CoreTools(), func(command string, args []string, flags map[string]string) (string, error) {
+	resp := DispatchAuthorized(req, CoreTools(), func(command string, args []string, flags map[string]string, got *core.AuthorityV1, gotNow time.Time) (string, error) {
 		called = true
 		if command != "complete-task" || len(args) != 2 || args[0] != "demo" || args[1] != "T1" {
 			t.Fatalf("route = %q %v", command, args)
+		}
+		if got == nil || got.Digest != a.Digest || !gotNow.Equal(now) {
+			t.Fatalf("authority not forwarded: %+v %s", got, gotNow)
 		}
 		return "completed demo T1\n", nil
 	}, &a, now, "execute")
@@ -81,5 +89,28 @@ func TestMCPCompleteTaskUsesNarrowAuthorizedRoute(t *testing.T) {
 		if tool.Name == "task.complete" {
 			t.Fatal("legacy broad task completion operation exposed")
 		}
+		if tool.Name == "complete-task" {
+			properties := tool.InputSchema["properties"].(map[string]any)
+			if _, ok := properties["authority"]; !ok {
+				t.Fatal("production task authority packet absent from MCP schema")
+			}
+		}
+	}
+}
+
+func TestMCPTaskOperationAuthorizesCanonicalCommand(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a, err := core.BuildAuthority(core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go"}}, "controller", "w", "demo", "execute", "abc", "policy", "required", now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"verify.task","arguments":{"args":["demo","T1"]}}`)}
+	resp := DispatchAuthorized(req, CoreTools(), func(command string, _ []string, _ map[string]string, _ *core.AuthorityV1, _ time.Time) (string, error) {
+		called = command == "verify"
+		return "", nil
+	}, &a, now, "execute")
+	if resp.Error != nil || !called {
+		t.Fatalf("canonical verify authority route = %+v, called=%v", resp, called)
 	}
 }

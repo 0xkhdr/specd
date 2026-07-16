@@ -139,7 +139,6 @@ func CanonicalizeDriverGuide(g *DriverGuideV1) {
 	sort.Strings(g.Frontier)
 	sort.Strings(g.EvidenceRefs)
 	sort.Slice(g.Blockers, func(i, j int) bool { return g.Blockers[i].Code < g.Blockers[j].Code })
-	sort.Slice(g.NextActions, func(i, j int) bool { return g.NextActions[i].ID < g.NextActions[j].ID })
 }
 
 func DriverDigest(v any) string {
@@ -159,23 +158,33 @@ func DriverDigest(v any) string {
 func ProjectDriverGuide(root, slug string, status Status, approvals, frontier []string, blockers []DriverFinding) DriverGuideV1 {
 	phase := PhaseForStatus(status)
 	g := DriverGuideV1{ProtocolVersion: DriverProtocolVersion, Root: root, SpecSlug: slug, Phase: phase, Status: status, Approvals: append([]string(nil), approvals...), Frontier: append([]string(nil), frontier...), Blockers: append([]DriverFinding(nil), blockers...), Compatibility: "v1"}
-	add := func(id, name string, args []string, actor, effect, reason string) {
-		command, ok := CommandByName(name)
-		if !ok || command.Deferred || !command.AllowsPhase(phase) {
+	add := func(operationID string, args []string, reason string) {
+		operation, ok := OperationByID(operationID)
+		command, commandOK := CommandByName(operation.Command)
+		if !ok || !commandOK || command.Deferred || !containsPhase(operation.AllowedPhases, phase) {
 			return
 		}
-		g.NextActions = append(g.NextActions, NextAction{ID: id, Command: name, Args: args, Actor: actor, SideEffect: effect, AuthorityRequired: actor == "human" || effect != "read", AllowedPhases: append([]Phase(nil), command.AllowedPhases...), SourceRef: "core.Commands/" + name, Reason: reason})
+		g.NextActions = append(g.NextActions, NextAction{ID: operation.ID, Command: operation.Command, Args: args, Actor: string(operation.Actor), SideEffect: string(operation.Effect), AuthorityRequired: operation.AuthorityRequired, AllowedPhases: append([]Phase(nil), operation.AllowedPhases...), SourceRef: "core.Operations/" + operation.ID, Reason: reason})
 	}
-	add("10-status", "status", []string{slug, "--guide", "--json"}, "agent", "read", "inspect deterministic guidance")
+	add("status", []string{slug, "--guide", "--json"}, "inspect deterministic guidance")
 	if len(frontier) > 0 {
-		add("20-context", "context", []string{slug, frontier[0], "--json"}, "agent", "read", "load required task context")
-		add("30-verify", "verify", []string{slug, frontier[0]}, "agent", "write", "record task evidence")
-		add("40-complete", "complete-task", []string{slug, frontier[0]}, "agent", string(EffectStateWrite), "consume current passing evidence and complete task")
+		add("context", []string{slug, frontier[0], "--json"}, "load required task context")
+		add("verify.task", []string{slug, frontier[0]}, "record task evidence")
+		add("complete-task", []string{slug, frontier[0]}, "consume current passing evidence and complete task")
 	}
-	add("50-check", "check", []string{slug}, "agent", "read", "check artifact and state coherence")
+	add("check", []string{slug}, "check artifact and state coherence")
 	if next := NextStatus(status); next != "" {
-		add("90-approve", "approve", []string{slug}, "human", "approval", "advance exactly one lifecycle step after gates pass")
+		add("approve", []string{slug}, "advance exactly one lifecycle step after gates pass")
 	}
 	CanonicalizeDriverGuide(&g)
 	return g
+}
+
+func containsPhase(phases []Phase, phase Phase) bool {
+	for _, allowed := range phases {
+		if allowed == PhaseAny || allowed == phase {
+			return true
+		}
+	}
+	return false
 }

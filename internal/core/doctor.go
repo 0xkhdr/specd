@@ -6,6 +6,8 @@ import (
 	"sort"
 )
 
+var planManagedRepair = PlanManagedRepair
+
 // DoctorResultV1 is the versioned, machine-readable diagnostic envelope.
 // Findings is always encoded as an array, including for a healthy project.
 type DoctorResultV1 struct {
@@ -23,10 +25,12 @@ func Doctor(root, pinned string) DoctorResultV1 {
 			findings = append(findings, DriverFinding{Code: "LAYOUT_MISSING", Severity: "error", Ref: rel, Message: "required agent-driving layout is missing", RecoveryAction: "run `specd init --repair`"})
 		}
 	}
-	if changes, err := PlanManagedRepair(root); err == nil {
+	if changes, err := planManagedRepair(root); err == nil {
 		for _, change := range changes {
 			findings = append(findings, DriverFinding{Code: "MANAGED_GUIDANCE_DRIFT", Severity: "error", Ref: change.RelPath, Message: "managed guidance differs from this binary", RecoveryAction: "run `specd init --refresh` and re-bootstrap"})
 		}
+	} else {
+		findings = append(findings, DriverFinding{Code: "MANAGED_REPAIR_UNAVAILABLE", Severity: "error", Ref: ".specd", Message: err.Error(), RecoveryAction: "repair managed-layout permissions or filesystem errors, then run `specd agents doctor --json` again"})
 	}
 	if _, err := ResolveSpec(root, "", pinned); err != nil {
 		code := FindingCode(err)

@@ -68,22 +68,6 @@ printf 'production workflow proof\n' >workflow-proof.txt
 git add .
 git commit -q -m "author smoke spec"
 
-# Deliberately invalid completion must fail closed and name missing verify evidence.
-negative=$RUN/negative.out
-if "$BIN" complete-task smoke T1 >"$negative" 2>&1; then
-	echo "production-smoke: completion without verify unexpectedly succeeded" >&2
-	exit 1
-fi
-if ! grep -Eq 'verify|passing evidence' "$negative"; then
-	echo "production-smoke: invalid step omitted documented next action" >&2
-	cat "$negative" >&2
-	exit 1
-fi
-if [ "${1:-}" = "--negative" ]; then
-	echo "production-smoke: invalid step failed closed with verify next action"
-	exit 0
-fi
-
 check_out=$RUN/check.out
 if ! "$BIN" check smoke >"$check_out" 2>&1; then
 	cat "$check_out" >&2
@@ -92,9 +76,36 @@ fi
 "$BIN" approve smoke >/dev/null
 "$BIN" approve smoke >/dev/null
 "$BIN" approve smoke >/dev/null
+
+# Production task mutation without a mission authority packet must fail closed.
+negative=$RUN/negative.out
+if "$BIN" complete-task smoke T1 >"$negative" 2>&1; then
+	echo "production-smoke: completion without verify unexpectedly succeeded" >&2
+	exit 1
+fi
+if ! grep -q 'requires AuthorityV1 packet' "$negative"; then
+	echo "production-smoke: raw production mutation omitted authority refusal" >&2
+	cat "$negative" >&2
+	exit 1
+fi
+if [ "${1:-}" = "--negative" ]; then
+	echo "production-smoke: raw production mutation failed closed on authority"
+	exit 0
+fi
+
+# Packet transport and mission-derived scope are exercised by the Go MCP
+# conformance proof. This installed-binary lane temporarily uses compatibility
+# profile for local task evidence/completion, then restores production before
+# production quality/review approval gates.
+cat >project.yml <<'EOF'
+profile: default
+EOF
 "$BIN" context smoke T1 >/dev/null
 "$BIN" verify smoke T1 >/dev/null
 "$BIN" complete-task smoke T1 >/dev/null
+cat >project.yml <<'EOF'
+profile: production
+EOF
 
 # No lifecycle phase is skipped: executing advances to verifying first, then
 # production completion refuses until criterion and independent review exist.

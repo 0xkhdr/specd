@@ -1,10 +1,28 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestDoctorReportsManagedRepairFailure(t *testing.T) {
+	original := planManagedRepair
+	planManagedRepair = func(string) ([]AssetChange, error) { return nil, errors.New("injected repair failure") }
+	t.Cleanup(func() { planManagedRepair = original })
+
+	result := Doctor(t.TempDir(), "")
+	if result.Healthy || result.Findings == nil {
+		t.Fatalf("repair failure reported healthy: %+v", result)
+	}
+	for _, finding := range result.Findings {
+		if finding.Code == "MANAGED_REPAIR_UNAVAILABLE" && finding.Ref == ".specd" && finding.RecoveryAction != "" {
+			return
+		}
+	}
+	t.Fatalf("typed repair failure missing: %+v", result.Findings)
+}
 
 func TestDoctorCleanAndReadOnly(t *testing.T) {
 	root := t.TempDir()

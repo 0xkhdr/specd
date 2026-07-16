@@ -3,6 +3,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,12 +48,25 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 			return err
 		}
 		cfg := loadSpecConfig(root)
-		if cfg.Security.Profile == "production" && operation.TaskRequired && authority == nil {
+		productionTask := cfg.ProductionTaskAuthorityRequired() && operation.TaskRequired
+		if productionTask && authority == nil {
 			return fmt.Errorf("authority denied: production task command requires AuthorityV1 packet")
 		}
 		if authority != nil {
 			mutable := operation.Effect != core.EffectRead
-			phase := string(authority.Phase)
+			phase := authority.Phase
+			if meta.SpecSlugArg != nil && *meta.SpecSlugArg < len(args) {
+				if state, err := core.LoadState(core.StatePath(root, args[*meta.SpecSlugArg])); err == nil {
+					phase = string(state.Phase)
+				}
+			}
+			if productionTask {
+				paths, err := productionMissionScope(root, operation, args, *authority)
+				if err != nil {
+					return fmt.Errorf("authority denied: %w", err)
+				}
+				changedPaths = paths
+			}
 			if err := core.AuthorizeTool(*authority, name, changedPaths, now, phase, mutable); err != nil {
 				_ = orchestration.RecordAuthorityDenial(root, *authority, name, "denied", now)
 				return fmt.Errorf("authority denied: %w", err)
@@ -69,6 +84,90 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		}
 	}
 	return handler(root, args, flags)
+}
+
+func productionMissionScope(root string, operation core.Operation, args []string, authority core.AuthorityV1) ([]string, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("task identity missing")
+	}
+	slug, taskID := args[0], args[1]
+	if operation.Command == "task" {
+		if len(args) < 3 {
+			return nil, fmt.Errorf("task identity missing")
+		}
+		slug, taskID = args[1], args[2]
+	}
+	if authority.SpecID != slug {
+		return nil, fmt.Errorf("spec mismatch")
+	}
+	if authority.TaskID != taskID {
+		return nil, fmt.Errorf("task mismatch")
+	}
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return nil, err
+	}
+	var task *core.TaskRow
+	for i := range spec.Tasks {
+		if spec.Tasks[i].ID == taskID {
+			task = &spec.Tasks[i]
+			break
+		}
+	}
+	if task == nil {
+		return nil, fmt.Errorf("task %s not found", taskID)
+	}
+	if authority.Role != task.Role {
+		return nil, fmt.Errorf("role mismatch")
+	}
+	session, err := orchestration.LoadSession(filepath.Join(core.SpecdDir(root), "specs", slug, "session.json"))
+	if err != nil {
+		return nil, err
+	}
+	missionID := ""
+	for _, lease := range session.Leases {
+		if lease.TaskID == taskID && lease.Authority.Digest == authority.Digest {
+			missionID = lease.MissionID
+		}
+	}
+	if missionID == "" {
+		return nil, fmt.Errorf("fresh authority lease not found")
+	}
+	var mission *orchestration.MissionV1
+	for i := range session.Missions {
+		if session.Missions[i].MissionID == missionID {
+			mission = &session.Missions[i]
+		}
+	}
+	if mission == nil {
+		return nil, fmt.Errorf("fresh mission not found")
+	}
+	if mission.Role != task.Role || mission.SubjectHead != authority.BaselineRevision {
+		return nil, fmt.Errorf("mission binding mismatch")
+	}
+	if !samePaths(mission.DeclaredFiles, task.DeclaredFiles) || !samePaths(authority.DeclaredWritePaths, mission.DeclaredFiles) {
+		return nil, fmt.Errorf("mission scope binding mismatch")
+	}
+	diff, err := core.DeriveDiff(root, mission.SubjectHead)
+	if err != nil {
+		return nil, err
+	}
+	return diff.Paths, nil
+}
+
+func samePaths(a, b []string) bool {
+	left, right := append([]string(nil), a...), append([]string(nil), b...)
+	sort.Strings(left)
+	sort.Strings(right)
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func checkFreshDispatch(root, name string, args []string) error {

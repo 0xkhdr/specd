@@ -53,8 +53,8 @@ func TestDispatchDigestPinsSemanticFields(t *testing.T) {
 func TestDriverGuideCanonicalActions(t *testing.T) {
 	g := DriverGuideV1{ProtocolVersion: DriverProtocolVersion, Root: "/repo", SpecSlug: "demo", Phase: PhaseExecute, Status: StatusTasks, NextActions: []NextAction{{ID: "z", Command: "verify", Actor: "agent", SideEffect: "write", SourceRef: "palette"}, {ID: "a", Command: "status", Actor: "agent", SideEffect: "read", SourceRef: "palette"}}}
 	CanonicalizeDriverGuide(&g)
-	if g.NextActions[0].ID != "a" {
-		t.Fatalf("actions not canonical: %+v", g.NextActions)
+	if g.NextActions[0].ID != "z" {
+		t.Fatalf("workflow action order changed: %+v", g.NextActions)
 	}
 }
 
@@ -80,7 +80,7 @@ func TestDriverApproveUsesSimpleHumanHandoff(t *testing.T) {
 		if action.Command != "approve" {
 			continue
 		}
-		if action.Actor != "human" || !action.AuthorityRequired || action.SideEffect != "approval" {
+		if action.Actor != "human" || !action.AuthorityRequired || action.SideEffect != string(EffectStateWrite) {
 			t.Fatalf("approve action authority = %+v", action)
 		}
 		if want := []string{"demo"}; !reflect.DeepEqual(action.Args, want) {
@@ -109,5 +109,20 @@ func TestDriverCompleteLoopUsesNarrowOperation(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("completion loop = %v, want %v", got, want)
+	}
+}
+
+func TestDriverActionsProjectCanonicalOperations(t *testing.T) {
+	g := ProjectDriverGuide("/repo", "demo", StatusTasks, nil, []string{"T1"}, nil)
+	for _, action := range g.NextActions {
+		op, ok := ResolveOperation(action.Command, action.Args, nil)
+		if !ok {
+			t.Fatalf("action has no canonical operation: %+v", action)
+		}
+		if action.ID != op.ID || action.Command != op.Command || action.Actor != string(op.Actor) ||
+			action.SideEffect != string(op.Effect) || action.AuthorityRequired != op.AuthorityRequired ||
+			!reflect.DeepEqual(action.AllowedPhases, op.AllowedPhases) || action.SourceRef != "core.Operations/"+op.ID {
+			t.Errorf("action drifted from operation\naction=%+v\noperation=%+v", action, op)
+		}
 	}
 }

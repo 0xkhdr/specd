@@ -32,7 +32,7 @@ func CoreTools() []Tool {
 			Name: operation.ID, Command: operation.Command, Actor: operation.Actor,
 			Effect: operation.Effect, Mutable: operation.Effect != core.EffectRead,
 			AuthorityRequired: operation.AuthorityRequired, TaskRequired: operation.TaskRequired,
-			Description: command.Description, InputSchema: inputSchema(command),
+			Description: command.Description, InputSchema: inputSchema(command, operation),
 		})
 	}
 	return tools
@@ -40,7 +40,7 @@ func CoreTools() []Tool {
 
 // inputSchema builds a JSON Schema object for a command's flags. Each flag is a
 // property; enums and defaults flow through from the command metadata.
-func inputSchema(command core.Command) map[string]any {
+func inputSchema(command core.Command, operation core.Operation) map[string]any {
 	properties := make(map[string]any, len(command.Flags)+1)
 	// Positional operands (spec slug, task id, …) travel under the reserved
 	// "args" key as an ordered array; splitArguments maps it back to the
@@ -49,6 +49,12 @@ func inputSchema(command core.Command) map[string]any {
 		"type":        "array",
 		"items":       map[string]any{"type": "string"},
 		"description": "Positional arguments (e.g. spec slug, task id), in order.",
+	}
+	if operation.TaskRequired {
+		properties["authority"] = map[string]any{
+			"type":        "object",
+			"description": "Digest-pinned AuthorityV1 packet required for production task operations.",
+		}
 	}
 	for _, flag := range command.Flags {
 		property := map[string]any{

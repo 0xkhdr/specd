@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 // TestDispatchPhase pins spec 03 R2: an execution verb invoked against a spec
@@ -49,6 +50,83 @@ func TestDispatchPhase(t *testing.T) {
 	}
 	if string(before) != string(after) {
 		t.Fatal("state.json mutated on a rejected out-of-phase dispatch")
+	}
+}
+
+func TestProductionTaskAuthorityUsesLifecycleProfileAndMissionScope(t *testing.T) {
+	root := newDemoSpec(t)
+	writeTasks(t, root, "demo", "| T1 | craftsman | spec.md | - | true | ok |")
+	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("profile: production\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Status, state.Phase = core.StatusTasks, core.PhaseForStatus(core.StatusTasks)
+	if err := core.SaveStateCAS(core.StatePath(root, "demo"), state.Revision, state); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err == nil || !strings.Contains(err.Error(), "requires AuthorityV1") {
+		t.Fatalf("raw production completion error = %v", err)
+	}
+
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "specd@example.test")
+	runGit(t, root, "config", "user.name", "specd")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "commit", "-m", "fixture")
+	now := time.Now().UTC()
+	head := gitHead(root)
+	task := core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"spec.md"}}
+	authority, err := core.BuildAuthority(task, "controller", "worker", "demo", string(core.PhaseForStatus(core.StatusTasks)), head, "policy", "required", now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mission := orchestration.MissionV1{MissionID: "mission-1", SpecSlug: "demo", TaskID: "T1", Role: "craftsman", SubjectHead: head, DeclaredFiles: []string{"spec.md"}}
+	lease := orchestration.Lease{MissionID: mission.MissionID, TaskID: "T1", Authority: authority}
+	sessionPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "session.json")
+	if err := orchestration.SaveSessionCAS(root, sessionPath, 0, orchestration.Session{Missions: []orchestration.MissionV1{mission}, Leases: []orchestration.Lease{lease}}); err != nil {
+		t.Fatal(err)
+	}
+	err = RunAuthorized(root, "complete-task", []string{"demo", "T1"}, nil, authority, nil, now)
+	if err == nil || strings.Contains(err.Error(), "authority denied") || !strings.Contains(err.Error(), "requires passing evidence") {
+		t.Fatalf("authorized route did not reach evidence gate: %v", err)
+	}
+	if _, err := mcpExecutor(root)("complete-task", []string{"demo", "T1"}, nil, &authority, now); err == nil || strings.Contains(err.Error(), "requires AuthorityV1") || !strings.Contains(err.Error(), "requires passing evidence") {
+		t.Fatalf("MCP executor dropped authority packet: %v", err)
+	}
+	outside := filepath.Join(root, "outside.go")
+	if err := os.WriteFile(outside, []byte("package outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := RunAuthorized(root, "complete-task", []string{"demo", "T1"}, nil, authority, nil, now); err == nil || !strings.Contains(err.Error(), "PATH_WRITE_DENIED: outside.go") {
+		t.Fatalf("mission-derived scope accepted outside path: %v", err)
+	}
+	if err := os.Remove(outside); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mutate := range map[string]func(*core.AuthorityV1){
+		"stale": func(a *core.AuthorityV1) { a.ExpiresAt = now },
+		"spec":  func(a *core.AuthorityV1) { a.SpecID = "other" },
+		"task":  func(a *core.AuthorityV1) { a.TaskID = "T2" },
+		"role":  func(a *core.AuthorityV1) { a.Role, a.Mode = "validator", "read_only" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			bad := authority
+			mutate(&bad)
+			if name != "stale" {
+				bad.Digest = ""
+				if err := core.FinalizeAuthority(&bad); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err := RunAuthorized(root, "complete-task", []string{"demo", "T1"}, nil, bad, nil, now)
+			if err == nil || !strings.Contains(err.Error(), "authority denied") {
+				t.Fatalf("%s mismatch accepted: %v", name, err)
+			}
+		})
 	}
 }
 

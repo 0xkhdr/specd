@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
@@ -52,7 +53,7 @@ func TestForbiddenToolsDeniedOnCall(t *testing.T) {
 
 func TestTypedHumanHandoffHasNoSideEffect(t *testing.T) {
 	called := false
-	resp := Dispatch(Request{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: []byte(`{"name":"approve","arguments":{"args":["demo"]}}`)}, CoreTools(), func(string, []string, map[string]string) (string, error) {
+	resp := Dispatch(Request{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: []byte(`{"name":"approve","arguments":{"args":["demo"]}}`)}, CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
 		called = true
 		return "unexpected", nil
 	})

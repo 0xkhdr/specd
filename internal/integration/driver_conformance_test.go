@@ -67,7 +67,7 @@ func TestDriverConformanceCLIMCPEquivalence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			response := mcp.Dispatch(mcp.Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: params}, mcp.CoreTools(), func(op string, opArgs []string, flags map[string]string) (string, error) {
+			response := mcp.Dispatch(mcp.Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: params}, mcp.CoreTools(), func(op string, opArgs []string, flags map[string]string, _ *core.AuthorityV1, _ time.Time) (string, error) {
 				return "", cmd.Run(root, op, opArgs, flags)
 			})
 			if response.Error != nil {
