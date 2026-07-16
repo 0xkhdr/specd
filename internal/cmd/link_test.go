@@ -30,7 +30,7 @@ func completeSpec(t *testing.T, root, slug string) {
 	if err := Run(root, "verify", []string{slug, "T1"}, nil); err != nil {
 		t.Fatalf("verify %s: %v", slug, err)
 	}
-	if err := Run(root, "task", []string{"complete", slug, "T1"}, nil); err != nil {
+	if err := Run(root, "complete-task", []string{slug, "T1"}, nil); err != nil {
 		t.Fatalf("complete %s: %v", slug, err)
 	}
 }

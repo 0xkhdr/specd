@@ -58,3 +58,28 @@ func TestMCPTelemetryAnnotationFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestMCPCompleteTaskUsesNarrowAuthorizedRoute(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a, err := core.BuildAuthority(core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go"}}, "controller", "w", "demo", "execute", "abc", "policy", "required", now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"complete-task","arguments":{"args":["demo","T1"]}}`)}
+	called := false
+	resp := DispatchAuthorized(req, CoreTools(), func(command string, args []string, flags map[string]string) (string, error) {
+		called = true
+		if command != "complete-task" || len(args) != 2 || args[0] != "demo" || args[1] != "T1" {
+			t.Fatalf("route = %q %v", command, args)
+		}
+		return "completed demo T1\n", nil
+	}, &a, now, "execute")
+	if resp.Error != nil || !called {
+		t.Fatalf("response = %+v, called=%v", resp, called)
+	}
+	for _, tool := range CoreTools() {
+		if tool.Name == "task.complete" {
+			t.Fatal("legacy broad task completion operation exposed")
+		}
+	}
+}

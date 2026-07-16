@@ -96,7 +96,7 @@ func TestOperationMixedCommandEffects(t *testing.T) {
 		{"eval.status", core.EffectRead, core.ActorAgent},
 		{"task.show", core.EffectRead, core.ActorAgent},
 		{"task.override", core.EffectStateWrite, core.ActorHuman},
-		{"task.complete", core.EffectStateWrite, core.ActorAgent},
+		{"complete-task", core.EffectStateWrite, core.ActorAgent},
 		{"report.render", core.EffectRead, core.ActorAgent},
 	}
 	for _, tt := range tests {

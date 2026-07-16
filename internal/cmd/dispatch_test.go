@@ -88,16 +88,16 @@ func TestDispatchAuthorityDeniesReadOnlyWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.AllowedTools = append(a.AllowedTools, core.ToolAuthority{ID: "task"})
+	a.AllowedTools = append(a.AllowedTools, core.ToolAuthority{ID: "complete-task"})
 	a.Digest = ""
 	core.FinalizeAuthority(&a)
 	root := t.TempDir()
-	err = RunAuthorized(root, "task", []string{"complete", "demo", "T1"}, nil, a, nil, now)
+	err = RunAuthorized(root, "complete-task", []string{"demo", "T1"}, nil, a, nil, now)
 	if err == nil || (!strings.Contains(err.Error(), "ROLE_WRITE_DENIED") && !strings.Contains(err.Error(), "authority denied")) {
 		t.Fatalf("err=%v", err)
 	}
 	raw, readErr := os.ReadFile(filepath.Join(root, ".specd/specs/demo/authority-denials.jsonl"))
-	if readErr != nil || strings.Contains(string(raw), "complete") {
+	if readErr != nil || !strings.Contains(string(raw), `"tool_id":"complete-task"`) {
 		t.Fatalf("denial record=%q err=%v", raw, readErr)
 	}
 }

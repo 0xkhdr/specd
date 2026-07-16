@@ -90,3 +90,24 @@ func TestDriverApproveUsesSimpleHumanHandoff(t *testing.T) {
 	}
 	t.Fatal("driver omitted human approval handoff")
 }
+
+func TestDriverCompleteLoopUsesNarrowOperation(t *testing.T) {
+	g := ProjectDriverGuide("/repo", "demo", StatusTasks, []string{"requirements", "design"}, []string{"T1"}, nil)
+	want := []string{"status", "context", "verify", "complete-task", "check", "approve"}
+	got := make([]string, 0, len(g.NextActions))
+	for _, action := range g.NextActions {
+		got = append(got, action.Command)
+		if action.Command == "complete-task" {
+			if action.Actor != "agent" || action.SideEffect != string(EffectStateWrite) || !action.AuthorityRequired {
+				t.Fatalf("complete-task action = %+v", action)
+			}
+			op, ok := OperationByID("complete-task")
+			if !ok || op.Command != action.Command || !op.TaskRequired || op.ScopeSource != "task" {
+				t.Fatalf("complete-task operation = %+v, found %v", op, ok)
+			}
+		}
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("completion loop = %v, want %v", got, want)
+	}
+}

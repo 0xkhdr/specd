@@ -101,8 +101,8 @@ func TestSubmitDryRunAndLedger(t *testing.T) {
 	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if err := Run(root, "task", []string{"complete", "demo", "T1"}, nil); err != nil {
-		t.Fatalf("task complete: %v", err)
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err != nil {
+		t.Fatalf("complete-task: %v", err)
 	}
 
 	// R3: no submit.command configured ⇒ print summary to stdout, exit 0.

@@ -284,33 +284,36 @@ specd next payments --json
 
 ### `task`
 ```
-specd task <id> [--override --reason <text>] | specd task complete <spec> <id>
+specd task <id> [--override --reason <text>]
 ```
-Show task details, clear an escalated task with a human override, or mark a task complete
-(requires passing evidence). **Phases:** any.
+Show task details or clear an escalated task with a human override. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--json` | bool | Emit machine-readable task row. |
 | `--override` | bool | Clear an escalated task (resets the verify-failure ratchet; does not complete it). Requires `--reason`. |
 | `--reason` | string | Human justification for `--override` (required, non-empty). |
-| `--tokens` | string | Optional worker-reported token count, stored verbatim (`task complete`). |
-| `--cost` | string | Optional worker-reported cost as a decimal string, stored verbatim (`task complete`). |
-| `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim (`task complete`). |
-| `--input-tokens` | string | Optional provider-neutral input token count. |
-| `--output-tokens` | string | Optional provider-neutral output token count. |
-| `--cached-tokens` | string | Optional provider-neutral cached token count. |
-| `--provider` | string | Optional bounded provider identifier; never a metric label. |
-| `--model` | string | Optional bounded model identifier; never a metric label. |
-| `--currency` | string | Currency unit required with canonical cost. |
-| `--pricing-ref` | string | Pricing reference required with canonical cost. |
-| `--telemetry-source` | `worker`\|`provider_adapter`\|`operator` | Telemetry provenance. |
-| `--attestation-ref` | string | Optional external attestation reference. |
 
 ```bash
 specd task T3 --json
 specd task T3 --override --reason 'flaky infra, verified manually'
-specd task complete payments T3
+```
+
+### `complete-task`
+```
+specd complete-task <spec> <id>
+```
+Complete one task by consuming current passing evidence through the gated completion transaction.
+Verify records evidence only; it never changes task status. Completion requires evidence pinned to
+current `HEAD`, declared fresh quality evidence, production authority/scope/security controls, and
+the locked state CAS. No bypass or human override is available. **Phases:** post-requirements.
+
+Completion accepts optional telemetry flags: `--tokens`, `--cost`, `--duration-ms`,
+`--input-tokens`, `--output-tokens`, `--cached-tokens`, `--provider`, `--model`, `--currency`,
+`--pricing-ref`, `--telemetry-source`, and `--attestation-ref`.
+
+```bash
+specd complete-task payments T3
 ```
 
 ### `check`

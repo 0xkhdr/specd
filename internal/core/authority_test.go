@@ -45,3 +45,17 @@ func TestAuthorityToolPolicy(t *testing.T) {
 		t.Fatal("read-only write accepted")
 	}
 }
+
+func TestAuthorityGrantsNarrowTaskCompletion(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	a, err := BuildAuthority(TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go"}}, "controller", "w1", "demo", "execute", "abc", "policy", "production", now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := AuthorizeTool(a, "complete-task", []string{"a.go"}, now, "execute", true); err != nil {
+		t.Fatalf("complete-task denied: %v", err)
+	}
+	if err := AuthorizeTool(a, "task", []string{"a.go"}, now, "execute", true); err == nil {
+		t.Fatal("broad task mutation authorized")
+	}
+}

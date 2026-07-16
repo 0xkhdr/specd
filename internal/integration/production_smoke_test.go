@@ -21,7 +21,7 @@ func TestProductionSmokeLane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{"init", "new", "approve", "context", "verify", "task complete", "review", "submit"} {
+	for _, command := range []string{"init", "new", "approve", "context", "verify", "complete-task", "review", "submit"} {
 		if !strings.Contains(string(script), command) {
 			t.Errorf("production smoke does not exercise %q", command)
 		}

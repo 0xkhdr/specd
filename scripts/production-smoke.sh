@@ -53,7 +53,7 @@ git commit -q -m "author smoke spec"
 
 # Deliberately invalid completion must fail closed and name missing verify evidence.
 negative=$RUN/negative.out
-if "$BIN" task complete smoke T1 >"$negative" 2>&1; then
+if "$BIN" complete-task smoke T1 >"$negative" 2>&1; then
 	echo "production-smoke: completion without verify unexpectedly succeeded" >&2
 	exit 1
 fi
@@ -73,7 +73,7 @@ fi
 "$BIN" approve smoke executing >/dev/null
 "$BIN" context smoke T1 >/dev/null
 "$BIN" verify smoke T1 >/dev/null
-"$BIN" task complete smoke T1 >/dev/null
+"$BIN" complete-task smoke T1 >/dev/null
 "$BIN" review smoke >/dev/null
 "$BIN" submit smoke >/dev/null
 

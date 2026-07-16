@@ -36,40 +36,41 @@ func init() { Registry = buildRegistry() }
 var ErrUnknownCommand = errors.New("unknown command")
 
 var executable = map[string]Handler{
-	"approve":   runApprove,
-	"archive":   runArchive,
-	"adapters":  runAdapters,
-	"agents":    runAgents,
-	"brain":     runBrain,
-	"check":     runCheck,
-	"context":   runContext,
-	"decision":  runDecision,
-	"drift":     runDrift,
-	"handshake": runHandshake,
-	"help":      runHelp,
-	"init":      runInit,
-	"incident":  runIncident,
-	"link":      runLink,
-	"mcp":       runMCP,
-	"version":   runVersion,
-	"memory":    runMemory,
-	"midreq":    runMidreq,
-	"mode":      runMode,
-	"new":       runNew,
-	"next":      runNext,
-	"release":   runRelease,
-	"recurring": runRecurring,
-	"deploy":    runDeploy,
-	"eval":      runEval,
-	"exception": runSecurityException,
-	"report":    runReport,
-	"review":    runReview,
-	"spike":     runSpike,
-	"status":    runStatus,
-	"submit":    runSubmit,
-	"task":      runTask,
-	"unlink":    runUnlink,
-	"verify":    runVerify,
+	"approve":       runApprove,
+	"archive":       runArchive,
+	"adapters":      runAdapters,
+	"agents":        runAgents,
+	"brain":         runBrain,
+	"check":         runCheck,
+	"complete-task": runTaskComplete,
+	"context":       runContext,
+	"decision":      runDecision,
+	"drift":         runDrift,
+	"handshake":     runHandshake,
+	"help":          runHelp,
+	"init":          runInit,
+	"incident":      runIncident,
+	"link":          runLink,
+	"mcp":           runMCP,
+	"version":       runVersion,
+	"memory":        runMemory,
+	"midreq":        runMidreq,
+	"mode":          runMode,
+	"new":           runNew,
+	"next":          runNext,
+	"release":       runRelease,
+	"recurring":     runRecurring,
+	"deploy":        runDeploy,
+	"eval":          runEval,
+	"exception":     runSecurityException,
+	"report":        runReport,
+	"review":        runReview,
+	"spike":         runSpike,
+	"status":        runStatus,
+	"submit":        runSubmit,
+	"task":          runTask,
+	"unlink":        runUnlink,
+	"verify":        runVerify,
 }
 
 func runSecurityException(root string, args []string, flags map[string]string) error {
@@ -1029,7 +1030,7 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	}
 	head := gitHead(root)
 	if !core.HeadPinned(head) {
-		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this evidence cannot pin to a commit and will not count toward `task complete`\n", head)
+		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this evidence cannot pin to a commit and will not count toward `complete-task`\n", head)
 	}
 	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head, Telemetry: annotations}
 	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil && err == nil {
@@ -1054,6 +1055,7 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	if result.ExitCode != 0 {
 		return fmt.Errorf("verify failed with exit code %d", result.ExitCode)
 	}
+	fmt.Fprintf(os.Stdout, "evidence recorded for %s %s; task not complete; run `specd complete-task %s %s`\n", slug, taskID, slug, taskID)
 	return nil
 }
 

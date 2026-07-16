@@ -77,7 +77,7 @@ func AppendEvidence(path string, record EvidenceRecord) error {
 	if err := validateContextReceiptDigest(record.ContextReceiptDigest); err != nil {
 		return err
 	}
-	// Stamp provenance centrally so every writer (verify and task complete) gets
+	// Stamp provenance centrally so every writer (verify and complete-task) gets
 	// an ordering-safe timestamp/actor without threading it through call sites.
 	// A caller that already stamped (tests, replay fixtures) is left untouched.
 	if record.Timestamp == "" {

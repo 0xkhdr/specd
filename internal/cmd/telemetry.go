@@ -22,7 +22,7 @@ func aggregateTelemetry(root, slug string, model core.ReportModel) (core.Telemet
 }
 
 // parseAnnotations reads the optional --tokens/--cost/--duration-ms flags shared
-// by `verify` and `task complete`. It returns nil when none are supplied and a
+// by `verify` and `complete-task`. It returns nil when none are supplied and a
 // fail-closed usage error (exit 2) on any malformed value (spec 10 R2). specd
 // stores these verbatim and never computes them.
 func parseAnnotations(flags map[string]string) (*core.Annotations, error) {

@@ -147,7 +147,7 @@ func BuildAuthority(task TaskRow, actor, worker, slug, phase, baseline, policyDi
 	tools := []string{"status", "context", "check"}
 	if IsWriteRole(task.Role) {
 		mode = "write"
-		tools = append(tools, "verify", "task")
+		tools = append(tools, "verify", "complete-task")
 	} else if task.Role == "validator" {
 		tools = append(tools, "verify")
 	} else if task.Role == "auditor" {

@@ -367,18 +367,30 @@ var Commands = []Command{
 	},
 	{
 		Name:          "task",
-		Usage:         "specd task <id> [--override --reason <text>] | specd task complete <spec> <id>",
-		Description:   "Show task details, clear an escalated task with a human override, or mark a task complete (requires passing evidence).",
+		Usage:         "specd task <id> [--override --reason <text>]",
+		Description:   "Show task details or clear an escalated task with a human override.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd task T3 --json", "specd task T3 --override --reason 'flaky infra, verified manually'", "specd task complete payments T3"},
+		Examples:      []string{"specd task T3 --json", "specd task T3 --override --reason 'flaky infra, verified manually'"},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable task row."},
 			{Name: "override", Type: "bool", Description: "Clear an escalated task (resets the verify-failure ratchet; does not complete it). Requires --reason."},
 			{Name: "reason", TakesValue: true, Type: "string", Description: "Human justification for --override (required, non-empty)."},
-			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim (task complete)."},
-			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim (task complete)."},
-			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim (task complete)."},
+		},
+	},
+	{
+		Name:          "complete-task",
+		Usage:         "specd complete-task <spec> <id>",
+		Description:   "Complete one task by consuming current passing evidence through the gated completion transaction.",
+		AllowedPhases: postRequirementsPhases(),
+		SpecSlugArg:   argAt(0),
+		RequiresTask:  true,
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd complete-task payments T3"},
+		Flags: []Flag{
+			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim."},
+			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim."},
+			{Name: "duration-ms", TakesValue: true, Type: "string", Description: "Optional worker-reported wall-clock milliseconds, stored verbatim."},
 			{Name: "input-tokens", TakesValue: true, Type: "string", Description: "Optional provider-neutral input token count."},
 			{Name: "output-tokens", TakesValue: true, Type: "string", Description: "Optional provider-neutral output token count."},
 			{Name: "cached-tokens", TakesValue: true, Type: "string", Description: "Optional provider-neutral cached token count."},
@@ -635,6 +647,7 @@ type operationDefinition struct {
 // narrower identity than their top-level verb. Single-operation commands are
 // materialized from their Command declaration by buildOperations.
 var operationDefinitions = map[string][]operationDefinition{
+	"complete-task": {{id: "complete-task", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"}},
 	"agents": {
 		{id: "agents.inspect", effect: EffectRead, scopeSource: "workspace"},
 		{id: "agents.doctor", subcommand: "doctor", effect: EffectRead, scopeSource: "workspace"},
@@ -654,7 +667,6 @@ var operationDefinitions = map[string][]operationDefinition{
 	"task": {
 		{id: "task.show", effect: EffectRead, scopeSource: "task"},
 		{id: "task.override", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
-		{id: "task.complete", subcommand: "complete", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
 	},
 	"verify": {
 		{id: "verify.task", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
@@ -828,7 +840,7 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 	case "task":
 		switch {
 		case first == "complete":
-			id = "task.complete"
+			return Operation{}, false
 		case flagSet(flags, "override"):
 			id = "task.override"
 		default:

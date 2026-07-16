@@ -71,6 +71,9 @@ func TestBrainReportProductionScopeRejectsUndeclared(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.WriteFile(filepath.Join(root, "outside.go"), []byte("x"), 0o644)
+	if err := core.AppendEvidence(core.EvidencePath(root, "demo"), core.EvidenceRecord{TaskID: "T1", Command: "printf ok", ExitCode: 0, GitHead: gitHead(root)}); err != nil {
+		t.Fatal(err)
+	}
 	err := runTaskComplete(root, []string{"demo", "T1"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "outside_scope") {
 		t.Fatalf("err=%v", err)

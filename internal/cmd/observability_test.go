@@ -37,11 +37,11 @@ func TestContextHUDRendersAndExitDiscipline(t *testing.T) {
 		t.Fatalf("unsupported --format must wrap ErrUsage (exit 2), got %v", err)
 	}
 
-	// Exit 1: task complete without a passing verify record is a real gate
+	// Exit 1: complete-task without a passing verify record is a real gate
 	// failure — an error that must NOT wrap ErrUsage/ErrUnknownCommand.
-	err = Run(root, "task", []string{"complete", "demo", "T1"}, nil)
+	err = Run(root, "complete-task", []string{"demo", "T1"}, nil)
 	if err == nil {
-		t.Fatal("task complete without evidence must fail")
+		t.Fatal("complete-task without evidence must fail")
 	}
 	if errors.Is(err, ErrUsage) || errors.Is(err, ErrUnknownCommand) {
 		t.Fatalf("gate failure must map to exit 1, not 2: %v", err)

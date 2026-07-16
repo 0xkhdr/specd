@@ -359,6 +359,80 @@ func TestStatusNextVerifyOnRealSpec(t *testing.T) {
 	}
 }
 
+func TestTaskCompleteNarrowRouteKeepsVerifySeparate(t *testing.T) {
+	root := newDemoSpec(t)
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "specd@example.test")
+	runGit(t, root, "config", "user.name", "specd")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "commit", "-m", "fixture")
+	for range 2 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("approve: %v", err)
+		}
+	}
+	out, err := captureStdout(t, func() error { return Run(root, "verify", []string{"demo", "T1"}, nil) })
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if !strings.Contains(out, "evidence recorded") || !strings.Contains(out, "task not complete") {
+		t.Fatalf("verify output did not distinguish evidence from completion: %q", out)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.TaskStatus["T1"] == core.TaskComplete {
+		t.Fatal("verify completed task")
+	}
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err != nil {
+		t.Fatalf("complete-task: %v", err)
+	}
+	state, err = core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.TaskStatus["T1"] != core.TaskComplete {
+		t.Fatalf("task status = %q", state.TaskStatus["T1"])
+	}
+	if err := Run(root, "task", []string{"complete", "demo", "T1"}, nil); err == nil {
+		t.Fatal("broad task command still exposes completion")
+	}
+}
+
+func TestTaskCompleteEnforcesQualityEvidence(t *testing.T) {
+	root := newDemoSpec(t)
+	dir := filepath.Join(core.SpecdDir(root), "specs", "demo")
+	tasks := "# Tasks\n\n| id | role | files | depends-on | verify | acceptance | evidence | checks |\n|---|---|---|---|---|---|---|---|\n| T1 | craftsman | spec.md | - | go test ./... | ok | output_eval/rubric-v1 | rubric-v1 |\n"
+	if err := os.WriteFile(filepath.Join(dir, "tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "specd@example.test")
+	runGit(t, root, "config", "user.name", "specd")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "commit", "-m", "fixture")
+	for range 2 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("approve: %v", err)
+		}
+	}
+	head := gitHead(root)
+	if err := core.AppendEvidence(core.EvidencePath(root, "demo"), core.EvidenceRecord{TaskID: "T1", Command: "go test ./...", ExitCode: 0, GitHead: head}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err == nil || !strings.Contains(err.Error(), "EVIDENCE_MISSING") {
+		t.Fatalf("missing quality evidence error = %v", err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.TaskStatus["T1"] == core.TaskComplete {
+		t.Fatal("quality refusal completed task")
+	}
+}
+
 func TestTaskShowsDetails(t *testing.T) {
 	root := newDemoSpec(t)
 	out, err := captureStdout(t, func() error { return Run(root, "task", []string{"T1"}, nil) })

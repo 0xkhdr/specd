@@ -153,10 +153,10 @@ func TestLifecycleE2E(t *testing.T) {
 		t.Fatalf("evidence carries unresolved head:\n%s", ledger)
 	}
 
-	// P4.2 close-the-loop: task complete writes the ✅ marker and state.json
+	// P4.2 close-the-loop: complete-task writes the ✅ marker and state.json
 	// status atomically, and the Sync gate stays green because they agree.
-	if out, code := run("task", "complete", "demo", "T1"); code != 0 || !strings.Contains(out, "completed") {
-		t.Fatalf("task complete: code=%d out=%q", code, out)
+	if out, code := run("complete-task", "demo", "T1"); code != 0 || !strings.Contains(out, "completed") {
+		t.Fatalf("complete-task: code=%d out=%q", code, out)
 	}
 	final, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))
 	if err != nil {

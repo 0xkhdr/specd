@@ -73,7 +73,7 @@ func TestOperationResolutionFailsClosed(t *testing.T) {
 		{"eval", []string{"import", "demo", "eval.jsonl"}, nil, "eval.import"},
 		{"eval", []string{"status", "demo"}, nil, "eval.status"},
 		{"task", []string{"T1"}, map[string]string{"override": "", "reason": "human"}, "task.override"},
-		{"task", []string{"complete", "demo", "T1"}, nil, "task.complete"},
+		{"complete-task", []string{"demo", "T1"}, nil, "complete-task"},
 	}
 	for _, tt := range tests {
 		op, ok := core.ResolveOperation(tt.command, tt.args, tt.flags)

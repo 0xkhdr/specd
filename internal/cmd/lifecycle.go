@@ -200,13 +200,13 @@ func runApproveOrchestrated(root, slug string) error {
 	return nil
 }
 
-// runTaskComplete marks a task complete: it requires a passing evidence record
-// pinned to a real commit (core.CompleteTask), then writes the ✅ marker to
+// runTaskComplete marks a task complete: it requires a current passing evidence
+// record pinned to HEAD, then writes the ✅ marker to
 // tasks.md and the machine-truth status to state.json under one lock+CAS so the
 // two never drift (the Sync gate enforces that agreement).
 func runTaskComplete(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 {
-		return errors.New("usage: specd task complete <spec> <id>")
+		return errors.New("usage: specd complete-task <spec> <id>")
 	}
 	slug, id := args[0], args[1]
 	if err := core.ValidateSlug(slug); err != nil {
@@ -231,19 +231,35 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if err != nil {
 			return struct{}{}, err
 		}
+		var task core.TaskRow
+		found := false
+		for _, row := range spec.Tasks {
+			if row.ID == id {
+				task, found = row, true
+				break
+			}
+		}
+		if !found {
+			return struct{}{}, fmt.Errorf("task %s not found", id)
+		}
+		evidence, ok := spec.Evidence[id]
+		if !ok || !core.HeadPinned(evidence.GitHead) {
+			return struct{}{}, fmt.Errorf("task %s requires passing evidence pinned to current HEAD", id)
+		}
+		currentHead := gitHead(root)
+		if !core.HeadPinned(currentHead) || evidence.GitHead != currentHead {
+			return struct{}{}, fmt.Errorf("task %s evidence is stale: verified %s, current HEAD %s; re-run `specd verify %s %s`", id, evidence.GitHead, currentHead, slug, id)
+		}
+		contract, err := core.ParseQualityContract(task)
+		if err != nil {
+			return struct{}{}, err
+		}
+		evals, err := core.LoadEvals(core.EvalStorePath(root, slug))
+		if err != nil {
+			return struct{}{}, err
+		}
 		cfg := loadSpecConfig(root)
 		if cfg.Security.Profile == "production" {
-			var task core.TaskRow
-			found := false
-			for _, row := range spec.Tasks {
-				if row.ID == id {
-					task, found = row, true
-					break
-				}
-			}
-			if !found {
-				return struct{}{}, fmt.Errorf("task %s not found", id)
-			}
 			sessionPath := filepath.Join(core.SpecdDir(root), "specs", slug, "session.json")
 			session, err := orchestration.LoadSession(sessionPath)
 			if err != nil {
@@ -275,7 +291,7 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		} else if core.IsEscalated(count, escalationMaxFails(root)) {
 			return struct{}{}, fmt.Errorf("task %s is escalated after %d consecutive verify failures; clear it with `specd task %s --override --reason <text>` first", id, count, id)
 		}
-		updated, err := core.CompleteTask(raw, id, spec.Evidence)
+		updated, err := core.CompleteTaskWithQuality(raw, id, spec.Evidence, contract, evals, core.FreshnessSubject{Revision: currentHead})
 		if err != nil {
 			return struct{}{}, err
 		}
@@ -294,7 +310,7 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		// required a passing verify record above, so this record only annotates —
 		// it never manufactures passing evidence.
 		if annotations != nil {
-			rec := core.EvidenceRecord{TaskID: id, Command: "task complete", ExitCode: 0, GitHead: gitHead(root), Telemetry: annotations}
+			rec := core.EvidenceRecord{TaskID: id, Command: "complete-task", ExitCode: 0, GitHead: currentHead, Telemetry: annotations}
 			if err := core.AppendEvidence(core.EvidencePath(root, slug), rec); err != nil {
 				return struct{}{}, err
 			}
@@ -464,11 +480,8 @@ func runHelp(root string, args []string, flags map[string]string) error {
 // runTask prints the parsed task row matching id across the project's specs
 // (R13.9).
 func runTask(root string, args []string, flags map[string]string) error {
-	if len(args) >= 1 && args[0] == "complete" {
-		return runTaskComplete(root, args[1:], flags)
-	}
 	if len(args) != 1 {
-		return errors.New("usage: specd task <id> | specd task complete <spec> <id>")
+		return errors.New("usage: specd task <id> [--override --reason <text>]")
 	}
 	id := args[0]
 	if flagEnabled(flags, "override") {

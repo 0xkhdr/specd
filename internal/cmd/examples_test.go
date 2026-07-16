@@ -30,7 +30,7 @@ func TestDocumentedExamplesRun(t *testing.T) {
 	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
 		t.Fatalf("verify T1: %v", err)
 	}
-	if err := Run(root, "task", []string{"complete", "demo", "T1"}, nil); err != nil {
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err != nil {
 		t.Fatalf("complete T1: %v", err)
 	}
 

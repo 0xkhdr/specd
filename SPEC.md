@@ -75,3 +75,4 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B13 | 2026-07-13 | 09b RED test called a nonexistent setup helper before intended contract failures compiled | mechanical test typo; no new invariant |
 | B14 | 2026-07-13 | 09b approval marking first appended checkbox as an extra table cell instead of prefixing task id | mechanical formatting error; no new invariant |
 | B15 | 2026-07-16 | W2 operation projection changed MCP identity while command-keyed derivation and telemetry fixtures remained stale | align fixtures with operation IDs; V13/V16 already apply |
+| B16 | 2026-07-16 | hyphenated `complete-task` exposed docs parity regex and production fixtures pinned to legacy completion route | widen parser and migrate executable fixtures; V10,V14,V16 already apply |

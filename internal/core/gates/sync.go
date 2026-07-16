@@ -8,7 +8,7 @@ import (
 
 // syncGate is ADR-1 Gate 6: the tasks.md marker (ctx.Status) must agree with
 // the machine truth in state.json (ctx.StateTaskStatus). A marker changed by
-// hand — bypassing `task complete` — leaves state behind and is caught here.
+// hand — bypassing `complete-task` — leaves state behind and is caught here.
 // Fires only when the caller loaded state (StateLoaded); a task absent from
 // either side reads as pending. Severity pinned error.
 func syncGate(ctx CheckCtx) []Finding {

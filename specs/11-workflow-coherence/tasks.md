@@ -30,9 +30,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T10 | craftsman | internal/core/commands.go; internal/core/authority.go; internal/core/authority_test.go; internal/core/driver.go; internal/core/driver_test.go | T08 | `go test ./internal/core -run 'TestAuthority|TestDriver|TestComplete'` | R4 narrow complete-task operation authorized after verify |
-| [ ] T11 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/registry.go; internal/cmd/e2e_test.go | T10 | `go test ./internal/cmd -run 'TestTaskComplete|TestLifecycle|TestWorkflow'` | R4 verify records only; completion enforces all current gates and CAS |
-| [ ] T12 | craftsman | internal/mcp; internal/orchestration; internal/integration/driver_conformance_test.go | T11 | `go test ./internal/mcp ./internal/orchestration ./internal/integration -run 'Test.*Complete|TestDriverConformance'` | R4 CLI/MCP/orchestrated completion semantics equivalent |
+| [x] T10 | craftsman | internal/core/commands.go; internal/core/authority.go; internal/core/authority_test.go; internal/core/driver.go; internal/core/driver_test.go | T08 | `go test ./internal/core -run 'TestAuthority|TestDriver|TestComplete'` | R4 narrow complete-task operation authorized after verify |
+| [x] T11 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/cmd/registry.go; internal/cmd/e2e_test.go | T10 | `go test ./internal/cmd -run 'TestTaskComplete|TestLifecycle|TestWorkflow'` | R4 verify records only; completion enforces all current gates and CAS |
+| [x] T12 | craftsman | internal/mcp; internal/orchestration; internal/integration/driver_conformance_test.go | T11 | `go test ./internal/mcp ./internal/orchestration ./internal/integration -run 'Test.*Complete|TestDriverConformance'` | R4 CLI/MCP/orchestrated completion semantics equivalent |
 
 ## W4 — Progressive skills and templates
 
@@ -63,6 +63,8 @@
 - If required file is absent from row, record deviation here before editing.
 - W1/T05 compatibility deviation: update existing approval call-site tests and the command-reference/CHEATSHEET mirror outside the row file list; the public one-step command and separate mode/exception verbs otherwise leave stale tested examples and fail docs sync.
 - W2/T08 parity deviation: update existing MCP derivation/server fixtures outside the row file list and record the verification failure in SPEC.md §B; operation projection intentionally replaces command-keyed MCP identity and V13/V16 already cover recurrence.
+- W3/T11 completion-route deviation: update command-reference/CHEATSHEET and existing `task complete` call-site tests/scripts outside the row file list; the public narrow `complete-task` verb otherwise leaves stale executable contracts and violates docs sync.
+- W3/T12 conformance deviation: update `internal/integration/snippet.go` outside the row file list; every host adapter derives its executable completion loop from this shared snippet, so transport parity cannot be repaired in the conformance test alone.
 - CLI/flag change updates command reference and CHEATSHEET together.
 - New public contract starts RED and ends with black-box/conformance proof.
 - One wave only per turn; do not start next wave after current turns green.

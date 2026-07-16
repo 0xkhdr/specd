@@ -43,8 +43,8 @@ func TestReviewGateCompletion(t *testing.T) {
 	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if err := Run(root, "task", []string{"complete", "demo", "T1"}, nil); err != nil {
-		t.Fatalf("task complete: %v", err)
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err != nil {
+		t.Fatalf("complete-task: %v", err)
 	}
 	// Gate on, no approve report ⇒ completion refused (R3/R5 fail closed).
 	writeProjectConfig(t, root, "review:\n  required: true\n")

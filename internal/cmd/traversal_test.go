@@ -38,7 +38,7 @@ func TestSlugTraversalRejected(t *testing.T) {
 		{"decision", []string{esc}},
 		{"link", []string{esc, "other"}},
 		{"link", []string{"other", esc}},
-		{"task", []string{"complete", esc, "T1"}},
+		{"complete-task", []string{esc, "T1"}},
 	}
 	for _, tc := range cases {
 		err := Run(root, tc.verb, tc.args, map[string]string{"text": "x"})

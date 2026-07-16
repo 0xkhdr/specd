@@ -170,7 +170,9 @@ func ProjectDriverGuide(root, slug string, status Status, approvals, frontier []
 	if len(frontier) > 0 {
 		add("20-context", "context", []string{slug, frontier[0], "--json"}, "agent", "read", "load required task context")
 		add("30-verify", "verify", []string{slug, frontier[0]}, "agent", "write", "record task evidence")
+		add("40-complete", "complete-task", []string{slug, frontier[0]}, "agent", string(EffectStateWrite), "consume current passing evidence and complete task")
 	}
+	add("50-check", "check", []string{slug}, "agent", "read", "check artifact and state coherence")
 	if next := NextStatus(status); next != "" {
 		add("90-approve", "approve", []string{slug}, "human", "approval", "advance exactly one lifecycle step after gates pass")
 	}
