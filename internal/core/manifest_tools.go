@@ -7,31 +7,37 @@ import (
 )
 
 type ToolContract struct {
-	Name       string     `json:"name"`
-	Route      string     `json:"route"`
-	Phases     []Phase    `json:"phases"`
-	Capability string     `json:"capability"`
-	Mutable    bool       `json:"mutable"`
-	HumanOnly  bool       `json:"human_only"`
-	ExitCodes  []ExitCode `json:"exit_codes"`
+	OperationID       string     `json:"operation_id"`
+	Name              string     `json:"name"`
+	Route             string     `json:"route"`
+	Phases            []Phase    `json:"phases"`
+	Capability        string     `json:"capability"`
+	Mutable           bool       `json:"mutable"`
+	HumanOnly         bool       `json:"human_only"`
+	AuthorityRequired bool       `json:"authority_required"`
+	TaskRequired      bool       `json:"task_required"`
+	ScopeSource       string     `json:"scope_source"`
+	NetworkClass      string     `json:"network_class"`
+	ExitCodes         []ExitCode `json:"exit_codes"`
 }
 
-// ManifestToolContracts derives driver routes from canonical Commands.
+// ManifestToolContracts derives driver routes from canonical Operations.
 func ManifestToolContracts() []ToolContract {
-	out := make([]ToolContract, 0, len(Commands))
-	for _, command := range Commands {
-		if ForbiddenTool(command.Name) {
+	out := make([]ToolContract, 0, len(Operations))
+	for _, operation := range Operations {
+		if ForbiddenTool(operation.Command) {
 			continue
 		}
-		mutable := command.RequiresTask || command.Name == "verify" || command.Name == "submit" || command.Name == "review"
+		mutable := operation.Effect != EffectRead
 		capability := "read"
 		if mutable {
 			capability = "write"
 		}
-		if command.HumanOnly {
+		humanOnly := operation.Actor == ActorHuman
+		if humanOnly {
 			capability, mutable = "human", true
 		}
-		out = append(out, ToolContract{Name: command.Name, Route: "cli:" + command.Name, Phases: append([]Phase(nil), command.AllowedPhases...), Capability: capability, Mutable: mutable, HumanOnly: command.HumanOnly, ExitCodes: append([]ExitCode(nil), command.ExitCodes...)})
+		out = append(out, ToolContract{OperationID: operation.ID, Name: operation.Command, Route: "cli:" + operation.ID, Phases: append([]Phase(nil), operation.AllowedPhases...), Capability: capability, Mutable: mutable, HumanOnly: humanOnly, AuthorityRequired: operation.AuthorityRequired, TaskRequired: operation.TaskRequired, ScopeSource: operation.ScopeSource, NetworkClass: operation.NetworkClass, ExitCodes: append([]ExitCode(nil), operation.ExitCodes...)})
 	}
 	return out
 }

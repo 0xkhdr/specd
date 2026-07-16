@@ -60,6 +60,57 @@ func TestCommandByName(t *testing.T) {
 	}
 }
 
+func TestOperationMetadataIsVersionedCompleteAndUnique(t *testing.T) {
+	if core.OperationSchemaVersion != 1 {
+		t.Fatalf("operation schema version = %d, want 1", core.OperationSchemaVersion)
+	}
+	seen := map[string]bool{}
+	covered := map[string]bool{}
+	for _, op := range core.Operations {
+		if op.ID == "" || op.Command == "" || op.Usage == "" || op.Actor == "" || op.Effect == "" || len(op.AllowedPhases) == 0 || op.ScopeSource == "" || op.NetworkClass == "" || len(op.ExitCodes) == 0 || len(op.Examples) == 0 {
+			t.Fatalf("incomplete operation metadata: %#v", op)
+		}
+		if seen[op.ID] {
+			t.Fatalf("duplicate operation id %q", op.ID)
+		}
+		seen[op.ID] = true
+		covered[op.Command] = true
+		if _, ok := core.CommandByName(op.Command); !ok {
+			t.Fatalf("operation %q names unknown command %q", op.ID, op.Command)
+		}
+	}
+	for _, command := range core.Commands {
+		if !covered[command.Name] {
+			t.Errorf("command %q has no operation", command.Name)
+		}
+	}
+}
+
+func TestOperationMixedCommandEffects(t *testing.T) {
+	tests := []struct {
+		id     string
+		effect core.OperationEffect
+		actor  core.OperationActor
+	}{
+		{"eval.import", core.EffectStateWrite, core.ActorAgent},
+		{"eval.status", core.EffectRead, core.ActorAgent},
+		{"task.show", core.EffectRead, core.ActorAgent},
+		{"task.override", core.EffectStateWrite, core.ActorHuman},
+		{"task.complete", core.EffectStateWrite, core.ActorAgent},
+		{"report.render", core.EffectRead, core.ActorAgent},
+	}
+	for _, tt := range tests {
+		op, ok := core.OperationByID(tt.id)
+		if !ok {
+			t.Errorf("operation %q missing", tt.id)
+			continue
+		}
+		if op.Effect != tt.effect || op.Actor != tt.actor {
+			t.Errorf("%s = effect %q actor %q, want %q/%q", tt.id, op.Effect, op.Actor, tt.effect, tt.actor)
+		}
+	}
+}
+
 // TestGuideModel pins spec 01 R6.1: driving guidance for a phase separates the
 // machine-legal commands from the human-only actions (so an agent never treats
 // approval as self-serve), and names the artifact the phase must produce.

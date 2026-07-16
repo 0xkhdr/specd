@@ -22,7 +22,7 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T07 | craftsman | internal/core/commands.go; internal/core/commandmeta_test.go; internal/core/manifest_tools.go; internal/core/manifest_tools_test.go | T06 | `go test ./internal/core -run 'TestCommand|TestOperation|TestManifestTool'` | R3 versioned per-operation actor/effect/authority schema |
+| [x] T07 | craftsman | internal/core/commands.go; internal/core/commandmeta_test.go; internal/core/manifest_tools.go; internal/core/manifest_tools_test.go | T06 | `go test ./internal/core -run 'TestCommand|TestOperation|TestManifestTool'` | R3 versioned per-operation actor/effect/authority schema |
 | [ ] T08 | craftsman | internal/cmd/registry.go; internal/cmd/registry_test.go; internal/mcp; internal/core/handshake.go; internal/core/handshake_test.go | T07 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'TestOperation|TestRegistry|TestHandshake|TestParity'` | R3 all renderers derive same operations; mutation never read |
 | [ ] T09 | validator | internal/core; internal/cmd; internal/mcp | T08 | `go test ./internal/core ./internal/cmd ./internal/mcp -run 'Test.*Operation|Test.*Effect|Test.*Parity' -count=2` | mixed subcommands and forbidden/human operations fail closed |
 

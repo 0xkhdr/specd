@@ -6,6 +6,47 @@ package core
 // 03 R4, pairs with the state-schema discipline of spec 02).
 const HelpSchemaVersion = 1
 
+// OperationSchemaVersion versions the canonical per-operation metadata. An
+// operation is narrower than a command: mixed commands such as eval and task
+// expose distinct read and write contracts instead of inheriting one verb-wide
+// guess.
+const OperationSchemaVersion = 1
+
+type OperationActor string
+
+const (
+	ActorAgent    OperationActor = "agent"
+	ActorHuman    OperationActor = "human"
+	ActorOperator OperationActor = "operator"
+)
+
+type OperationEffect string
+
+const (
+	EffectRead           OperationEffect = "read"
+	EffectWorkspaceWrite OperationEffect = "workspace-write"
+	EffectStateWrite     OperationEffect = "state-write"
+	EffectExternal       OperationEffect = "external"
+)
+
+// Operation is the single public-operation contract projected into dispatch,
+// help, MCP, handshakes, manifests, and driver guidance (spec 11 R3/V13).
+type Operation struct {
+	ID                string          `json:"id"`
+	Command           string          `json:"command"`
+	Subcommand        string          `json:"subcommand,omitempty"`
+	Usage             string          `json:"usage"`
+	Actor             OperationActor  `json:"actor"`
+	Effect            OperationEffect `json:"effect"`
+	AllowedPhases     []Phase         `json:"phases"`
+	AuthorityRequired bool            `json:"authority_required"`
+	TaskRequired      bool            `json:"task_required"`
+	ScopeSource       string          `json:"scope_source"`
+	NetworkClass      string          `json:"network_class"`
+	ExitCodes         []ExitCode      `json:"exit_codes"`
+	Examples          []string        `json:"examples"`
+}
+
 // Flag describes one command-line flag surfaced by help metadata. Enum and
 // Default make the flag a machine-readable contract: dispatch validates values
 // against Enum (spec 03 R3) and MCP maps Enum/Default into JSON Schema.
@@ -577,6 +618,178 @@ var Commands = []Command{
 			{Name: "idempotency-key", TakesValue: true, Type: "string", Description: "Caller-supplied idempotency key for the attempt."},
 		},
 	},
+}
+
+type operationDefinition struct {
+	id, subcommand       string
+	usage                string
+	actor                OperationActor
+	effect               OperationEffect
+	authorityRequired    bool
+	taskRequired         bool
+	scopeSource, network string
+	examples             []string
+}
+
+// operationDefinitions contains only commands whose public operations need a
+// narrower identity than their top-level verb. Single-operation commands are
+// materialized from their Command declaration by buildOperations.
+var operationDefinitions = map[string][]operationDefinition{
+	"agents": {
+		{id: "agents.inspect", effect: EffectRead, scopeSource: "workspace"},
+		{id: "agents.doctor", subcommand: "doctor", effect: EffectRead, scopeSource: "workspace"},
+		{id: "agents.guide", subcommand: "guide", effect: EffectRead, scopeSource: "spec"},
+	},
+	"eval": {
+		{id: "eval.import", subcommand: "import", effect: EffectStateWrite, scopeSource: "spec"},
+		{id: "eval.status", subcommand: "status", effect: EffectRead, scopeSource: "spec"},
+	},
+	"incident": {{id: "incident.seed", subcommand: "seed", actor: ActorOperator, effect: EffectWorkspaceWrite, authorityRequired: true, scopeSource: "spec"}},
+	"exception": {
+		{id: "exception.approve", subcommand: "approve", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "governed-exception"},
+		{id: "exception.revoke", subcommand: "revoke", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "governed-exception"},
+	},
+	"recurring": {{id: "recurring.record", subcommand: "record", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
+	"report":    {{id: "report.render", effect: EffectRead, scopeSource: "arguments"}},
+	"task": {
+		{id: "task.show", effect: EffectRead, scopeSource: "task"},
+		{id: "task.override", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
+		{id: "task.complete", subcommand: "complete", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
+	},
+	"verify": {
+		{id: "verify.task", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
+		{id: "verify.criterion", effect: EffectStateWrite, authorityRequired: true, scopeSource: "criterion"},
+	},
+	"brain": {
+		{id: "brain.start", subcommand: "start", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "brain.step", subcommand: "step", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "brain.run", subcommand: "run", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "brain.status", subcommand: "status", actor: ActorOperator, effect: EffectRead, scopeSource: "spec"},
+		{id: "brain.cancel", subcommand: "cancel", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "brain.resume", subcommand: "resume", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "brain.claim", subcommand: "claim", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "authority"},
+		{id: "brain.heartbeat", subcommand: "heartbeat", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "authority"},
+		{id: "brain.report", subcommand: "report", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "authority"},
+	},
+}
+
+// Operations is stable in command order, then declaration order.
+var Operations = buildOperations()
+
+func buildOperations() []Operation {
+	var operations []Operation
+	for _, command := range Commands {
+		definitions := operationDefinitions[command.Name]
+		if len(definitions) == 0 {
+			definitions = []operationDefinition{{id: command.Name, actor: defaultOperationActor(command), effect: defaultOperationEffect(command.Name), authorityRequired: defaultAuthorityRequired(command.Name), taskRequired: command.RequiresTask, scopeSource: defaultScopeSource(command.Name), network: defaultNetworkClass(command.Name)}}
+		}
+		for _, definition := range definitions {
+			actor := definition.actor
+			if actor == "" {
+				actor = defaultOperationActor(command)
+			}
+			usage := definition.usage
+			if usage == "" {
+				usage = command.Usage
+			}
+			examples := definition.examples
+			if len(examples) == 0 {
+				examples = command.Examples
+			}
+			network := definition.network
+			if network == "" {
+				network = defaultNetworkClass(command.Name)
+			}
+			operations = append(operations, Operation{
+				ID: definition.id, Command: command.Name, Subcommand: definition.subcommand,
+				Usage: usage, Actor: actor, Effect: definition.effect,
+				AllowedPhases:     append([]Phase(nil), command.AllowedPhases...),
+				AuthorityRequired: definition.authorityRequired, TaskRequired: definition.taskRequired,
+				ScopeSource: definition.scopeSource, NetworkClass: network,
+				ExitCodes: append([]ExitCode(nil), command.ExitCodes...), Examples: append([]string(nil), examples...),
+			})
+		}
+	}
+	return operations
+}
+
+func defaultOperationActor(command Command) OperationActor {
+	if command.HumanOnly {
+		return ActorHuman
+	}
+	switch command.Name {
+	case "deploy", "recurring", "release", "submit":
+		return ActorOperator
+	default:
+		return ActorAgent
+	}
+}
+
+func defaultOperationEffect(command string) OperationEffect {
+	switch command {
+	case "help", "version", "agents", "adapters", "drift", "next", "status", "context", "handshake", "report", "triage", "mcp":
+		return EffectRead
+	case "init", "new", "incident", "review":
+		return EffectWorkspaceWrite
+	case "submit":
+		return EffectExternal
+	default:
+		return EffectStateWrite
+	}
+}
+
+func defaultAuthorityRequired(command string) bool {
+	switch command {
+	case "approve", "mode", "midreq", "decision", "deploy", "release", "recurring", "submit":
+		return true
+	default:
+		return false
+	}
+}
+
+func defaultScopeSource(command string) string {
+	switch command {
+	case "help", "version", "mcp":
+		return "none"
+	case "init", "agents", "adapters", "new":
+		return "workspace"
+	case "link", "unlink":
+		return "spec-pair"
+	case "status", "report":
+		return "arguments"
+	default:
+		return "spec"
+	}
+}
+
+func defaultNetworkClass(command string) string {
+	switch command {
+	case "mcp":
+		return "stdio"
+	case "submit":
+		return "operator-configured"
+	default:
+		return "none"
+	}
+}
+
+func OperationByID(id string) (Operation, bool) {
+	for _, operation := range Operations {
+		if operation.ID == id {
+			return operation, true
+		}
+	}
+	return Operation{}, false
+}
+
+func OperationsForCommand(command string) []Operation {
+	var operations []Operation
+	for _, operation := range Operations {
+		if operation.Command == command {
+			operations = append(operations, operation)
+		}
+	}
+	return operations
 }
 
 // CommandNames returns command names in help order.

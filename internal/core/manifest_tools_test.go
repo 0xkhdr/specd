@@ -33,23 +33,23 @@ func TestLoadToolPolicyNeverAllowsForbiddenTools(t *testing.T) {
 	}
 }
 
-func TestManifestToolContractMutationGapsBaseline(t *testing.T) {
+func TestManifestToolContractsUseOperationEffects(t *testing.T) {
 	contracts := ManifestToolContracts()
 	byName := make(map[string]ToolContract, len(contracts))
 	for _, contract := range contracts {
-		byName[contract.Name] = contract
+		byName[contract.OperationID] = contract
 	}
 
-	// W0 characterization: each command has a mutating operation, but current
-	// command-level inference projects the whole command as read-only. W2
-	// replaces this assertion with per-operation effect truth.
-	for _, name := range []string{"archive", "eval", "link", "new", "recurring", "spike", "unlink"} {
+	for _, name := range []string{"archive", "eval.import", "link", "new", "recurring.record", "spike", "unlink"} {
 		contract, ok := byName[name]
 		if !ok {
 			t.Fatalf("%q missing from manifest contracts", name)
 		}
-		if contract.Mutable || contract.Capability != "read" {
-			t.Fatalf("%q baseline = mutable %t, capability %q; update W0 characterization when W2 closes gap", name, contract.Mutable, contract.Capability)
+		if !contract.Mutable || contract.Capability != "write" {
+			t.Fatalf("%q = mutable %t, capability %q", name, contract.Mutable, contract.Capability)
 		}
+	}
+	if got := byName["eval.status"]; got.Mutable || got.Capability != "read" {
+		t.Fatalf("eval.status = mutable %t, capability %q", got.Mutable, got.Capability)
 	}
 }
