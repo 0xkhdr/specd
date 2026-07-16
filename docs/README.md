@@ -22,7 +22,6 @@ evidence-gated execution**.
 | See what specd reports & how metrics surface | [observability.md](observability.md) |
 | Read the on-disk `.specd/` format | [open-spec-format.md](open-spec-format.md) |
 | Gate pull requests in CI | [github-action.md](github-action.md) |
-| Review alignment with Google's SDLC paper | [google-sdlc-alignment/](google-sdlc-alignment/) |
 | Fix a blocked task / gate / lock error | [troubleshooting.md](troubleshooting.md) |
 | Hack on the codebase | [contributor-guide.md](contributor-guide.md) |
 
@@ -61,9 +60,6 @@ evidence-gated execution**.
   loop, house rules).
 - 🏷️ **[versioning-policy.md](versioning-policy.md)** — SemVer, the Go floor, and how releases are
   cut. Changes are logged in **[../CHANGELOG.md](../CHANGELOG.md)**.
-- 🧭 **[google-sdlc-alignment/](google-sdlc-alignment/)** — domain-by-domain comparison with
-  Google's “The New SDLC With Vibe Coding,” current gaps, production checks, and proposed
-  P0/P1/P2 implementation plans. These are analysis/roadmap documents, not implemented claims.
 - 🔐 **[../SECURITY.md](../SECURITY.md)** — threat model, verify isolation contract, and
   vulnerability-disclosure policy.
 

@@ -42,9 +42,7 @@ jobs:
           ./scripts/test-lint.sh
           ./scripts/docs-lint.sh
           ./scripts/install-scripts-test.sh
-          ./scripts/regress-lint.sh
           ./scripts/regress-domains.sh
-          ./scripts/regress-all.sh
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0

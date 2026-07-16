@@ -101,11 +101,9 @@ a daemon.
 
 ## Fixture plan — 9 validation scenarios
 
-Each scenario in `docs/google-sdlc-alignment/09-maintenance-modernization-and-operating-model.md`
-§Production validation scenarios (see `specs/09-.../w0-inventory.md`) gets a deterministic offline
-fixture. `09a` lands the four canonical record fixtures below; the remaining scenario fixtures are
-planned for the wave that implements the rule they exercise. Auditor task 09a/T05 confirms this
-mapping is complete.
+Each validation scenario gets a deterministic offline fixture; the four canonical record
+fixtures below are landed, and each remaining scenario fixture lands with the rule it
+exercises.
 
 | # | scenario | pinned by | landing wave |
 |---|---|---|---|

@@ -47,9 +47,9 @@ Domains 04/05/07/08 and frozen once at `10c`.
 | CI/CD provider integration | external only | Domain 08 | vendor system outside repo |
 | Runtime-feedback → maintenance link | adapter contract | Domain 09 | cannot mutate completed history |
 
-Every roadmap integration item in `docs/google-sdlc-alignment/*` maps to one row
-here or to a domain-owned extension of the frozen envelope. Adapter schema
-versions negotiate independently of the CLI and on-disk state schema (R10.4).
+Every roadmap integration item maps to one row here or to a domain-owned
+extension of the frozen envelope. Adapter schema versions negotiate
+independently of the CLI and on-disk state schema (R10.4).
 
 ## Adapter schema compatibility and negotiation
 

@@ -35,13 +35,11 @@ go vet ./...
 # CI also runs gofmt, go vet, go mod tidy check, and the scripts above.
 ```
 
-Regression harnesses (`scripts/`) re-run every task's `verify:` line and re-assert
-each wave's invariant against a freshly built binary in a throwaway tree:
+The regression harness (`scripts/regress-domains.sh`) re-asserts each domain's
+invariant black-box against a freshly built binary in a throwaway tree:
 
 ```bash
-./scripts/regress-all.sh      # re-run every task verify, aggregate by exit code
 ./scripts/regress-domains.sh  # per-domain black-box invariant checks
-./scripts/regress-lint.sh     # static smell audit of verify tables
 ```
 
 ## Architecture
@@ -81,9 +79,8 @@ Other layers:
 ## Runtime surface (in a specd-managed project)
 
 `.specd/specs/<slug>/{requirements.md,design.md,tasks.md,state.json,.lock}` plus
-`.specd/roles/*.md` and `.specd/steering/*.md`. **Note the split:** runtime reads
-`.specd/specs/`; this repo's own in-flight planning artifacts live in top-level `specs/`.
-`regress-lint.sh` smell "A" exists to catch verify lines that target the wrong one.
+`.specd/roles/*.md` and `.specd/steering/*.md`. Runtime state always lives under
+`.specd/` inside the managed project — never in this repository's own tree.
 
 Roles constrain what an agent may do: **scout** (read-only explore), **craftsman** (write +
 verify, exactly one atomic task per invocation), **validator** (read-only, runs verify line),

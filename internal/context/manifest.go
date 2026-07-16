@@ -19,8 +19,7 @@ import (
 // added as the authoritative machine contract and will extend the accepted
 // version set explicitly. Neither renderer silently reinterprets the other:
 // ValidateManifest fails closed on any unknown or unsupported version, so the
-// migration is versioned and published rather than inferred. See
-// specs/02-context-knowledge-and-skills/design.md ("ManifestVersion").
+// migration is versioned and published rather than inferred.
 const ManifestVersion = "1"
 
 type Item struct {

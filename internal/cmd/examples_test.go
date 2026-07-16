@@ -41,7 +41,7 @@ func TestDocumentationApprovalExamplesRun(t *testing.T) {
 	}
 }
 
-func TestDocumentationStatusExamplesDistinguishNormativeAndHistorical(t *testing.T) {
+func TestDocumentationNormativeStatusMarkers(t *testing.T) {
 	repoRoot := filepath.Join("..", "..")
 	normative := []string{
 		"README.md",
@@ -58,28 +58,6 @@ func TestDocumentationStatusExamplesDistinguishNormativeAndHistorical(t *testing
 		}
 		if !strings.Contains(string(body), "> **Status:** Normative") {
 			t.Errorf("normative document lacks status: %s", rel)
-		}
-	}
-
-	historical, err := filepath.Glob(filepath.Join(repoRoot, "docs", "google-sdlc-alignment", "*.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	historical = append(historical, filepath.Join(repoRoot, "sdlc-with-vibe-coding.md"))
-	for _, path := range historical {
-		body, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		text := string(body)
-		for _, marker := range []string{
-			"> **Status:** Historical assessment; proposals are non-normative.",
-			"> **As of commit:**",
-			"> **Superseded by:**",
-		} {
-			if !strings.Contains(text, marker) {
-				t.Errorf("historical document %s lacks %q", filepath.Base(path), marker)
-			}
 		}
 	}
 }

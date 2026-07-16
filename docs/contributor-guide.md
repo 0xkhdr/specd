@@ -27,13 +27,11 @@ go mod tidy             # must produce no diff (zero runtime deps)
 ./scripts/docs-lint.sh  # asserts docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim
 ```
 
-Regression harnesses re-run every task's `verify:` line and re-assert each wave's invariant
-against a freshly built binary in a throwaway tree:
+The regression harness re-asserts each domain's invariant black-box against a freshly built
+binary in a throwaway tree:
 
 ```bash
-./scripts/regress-all.sh      # re-run every task verify, aggregate by exit code
 ./scripts/regress-domains.sh  # per-domain black-box invariant checks
-./scripts/regress-lint.sh     # static smell audit of verify tables
 ```
 
 ## Architecture
@@ -81,12 +79,10 @@ Host capability negotiation is deterministic and explicit. `initialize` reports 
 behavior, while missing sandbox refuses mutable execution with recovery guidance. Do not add a
 host path that silently omits an unsupported capability.
 
-### The two `specs/` directories
+### Runtime `specs/` location
 
-- **Runtime** reads `.specd/specs/` inside a managed project.
-- **This repo's own** in-flight planning artifacts live in top-level `specs/`.
-
-`regress-lint.sh` smell "A" catches verify lines that target the wrong one.
+**Runtime** reads `.specd/specs/` inside a managed project — runtime state never
+lives in this repository's own tree.
 
 ## Non-negotiable invariants
 

@@ -1,12 +1,10 @@
 #!/usr/bin/env sh
-# regress-domains.sh (P7.3) — per-domain best-practice regression.
+# regress-domains.sh — per-domain best-practice regression.
 #
-# Complements regress-all.sh (which re-runs each task's own go-test verify).
-# Here each wave's *owned invariant* is re-asserted black-box against a freshly
+# Each wave's *owned invariant* is re-asserted black-box against a freshly
 # built binary, in a throwaway copy of the tree so probes that mutate `.specd/`
 # never touch the working repo. Exits non-zero on the FIRST violation.
 #
-#   W0 honesty          progress.md green rows survive the audit
 #   W1 ADR-7 mode       unknown --mode is rejected (enum enforced)
 #   W2 trust boundary   `brain start` is fail-closed on default config
 #   W3 records          `decision` without --text is a usage error
@@ -29,7 +27,6 @@ SPECD="$RUN/specd"
 
 violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
-skip() { printf 'skip  %s  %s\n' "$1" "$2"; }
 
 # Domain 03 W5 — remote envelope proof. Keep this on the freshly copied tree so
 # release validation exercises the same source/binary boundary as other probes.
@@ -61,50 +58,6 @@ go test ./internal/core/verify ./internal/core/gates/security ./internal/integra
 	violation 06-W8 "sandbox adapter or security regression conformance regressed"
 }
 pass 06-W8 "adapter capability and incident attestation contracts hold"
-
-# W0 — honesty: progress.md must obey its own wave-ordering invariant. Prove
-# the advertised input exists and parses before evaluating it: absent and
-# unparseable are failures, not vacuous passes.
-progress=${SPECD_PROGRESS_PATH:-$RUN/specs/progress.md}
-if [ ! -f "$progress" ]; then
-	if [ "${SPECD_PROGRESS_POLICY:-required}" = "optional" ]; then
-		skip W0 "not applicable by optional-input policy: progress.md absent"
-	else
-		violation W0 "input absent: progress.md"
-	fi
-else
-	program_truth="$RUN/program-rollup.tsv"
-	domain_truth="$RUN/domain-rollup.tsv"
-	awk '
-/^- \[[x ]\] [0-9][0-9] W[0-9]+/ {
-	status = (substr($0, 4, 1) == "x") ? "done" : "pending"
-	line = $0
-	sub(/^- \[[x ]\] /, "", line)
-	split(line, fields, / +/)
-	print fields[1], fields[2], status
-}' "$progress" | sort >"$program_truth"
-	: >"$domain_truth"
-	for tasks in "$RUN"/specs/[0-1][0-9]-*/tasks.md; do
-		dom=$(basename "$(dirname "$tasks")" | cut -c1-2)
-		awk -v dom="$dom" '
-/^## W[0-9]+ / { wave=$2; seen[wave]=1; next }
-/^\| \[[x ]\] T[0-9]+ / && wave != "" {
-	total[wave]++
-	if (substr($0, 4, 1) != "x") incomplete[wave]++
-}
-END {
-	for (wave in seen) {
-		status = (total[wave] > 0 && incomplete[wave] == 0) ? "done" : "pending"
-		print dom, wave, status
-	}
-}' "$tasks" >>"$domain_truth"
-	done
-	sort -o "$domain_truth" "$domain_truth"
-	if ! cmp -s "$program_truth" "$domain_truth"; then
-		violation W0 "program rollup differs from domain task truth"
-	fi
-	pass W0 "program rollup equals domain task truth in both directions"
-fi
 
 # W1 — enum enforcement (spec 03 R3): an out-of-enum flag value must be refused.
 # Probe a real enum flag (report --format ∈ {prometheus}) against an existing

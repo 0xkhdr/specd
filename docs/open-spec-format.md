@@ -32,10 +32,8 @@ dataset cases, raw outputs, traces, prompts, or secrets.
 AGENTS.md                     # host integration guide (written by init)
 ```
 
-**The `.specd/specs/` vs. top-level `specs/` split:** a *managed project's* runtime state lives
-in `.specd/specs/`. This repository's own in-flight planning artifacts live in a top-level
-`specs/` — different tree, different purpose. (`regress-lint.sh` smell "A" catches verify lines
-that target the wrong one.)
+A *managed project's* runtime state always lives in `.specd/specs/` — the format described
+here never applies outside that tree.
 
 ## Authoring artifacts
 

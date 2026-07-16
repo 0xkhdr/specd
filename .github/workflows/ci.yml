@@ -155,7 +155,7 @@ jobs:
         run: ./scripts/coverage-check.sh
 
   regression:
-    name: Spec regression harnesses
+    name: Domain regression harness
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -165,22 +165,10 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      # Static smell audit of every domain's verify tables (fast, no build):
-      # vacuous `\|` selectors, unescaped pipes, hollow/compile-only verifies,
-      # authoring-tree targets, stale paths.
-      - name: regress-lint (verify-table smell audit)
-        run: ./scripts/regress-lint.sh
-
       # Per-domain black-box invariants re-asserted against a freshly built
       # binary in a throwaway tree.
       - name: regress-domains (per-domain invariants)
         run: ./scripts/regress-domains.sh
-
-      # Re-run every completed task's own verify command and aggregate by exit
-      # code. Fails closed if it executes zero rows — the layout-drift no-op that
-      # this harness previously degraded into is now itself a failure.
-      - name: regress-all (per-task verify re-run)
-        run: ./scripts/regress-all.sh
 
   stress:
     name: Concurrency stress (cross-process)

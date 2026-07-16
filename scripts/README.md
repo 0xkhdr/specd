@@ -1,47 +1,29 @@
-# scripts/ — CI keep-vs-delete decision log (SPEC-01 T-01-01)
+# scripts/ — repository tooling inventory
 
-`.github/workflows/ci.yml` referenced eight tooling paths that did not exist in
-the repository. SPEC-01 owns the final keep-vs-delete call for each. The working
-assumption (analysis plan, Cross-Cutting Concern 1) is that these are **drift to
-reconcile** — author the missing script — not an intentional teardown.
+Every script here is wired into a workflow, a release gate, or the documented
+install path. Nothing in this directory is stage-only scaffolding.
 
-Decision: **author all eight** (none deleted). Every stress job maps to a real,
-distinct subsystem invariant that SPEC-06 (crash-safety) will deepen; deleting
-them would force SPEC-06 to recreate them.
+| Script | Purpose | Wired into |
+|--------|---------|------------|
+| `install.sh` | End-user install (release binary or `go build` fallback) | README, docs/user-guide.md, release assets |
+| `uninstall.sh` | End-user uninstall | README, docs/user-guide.md |
+| `install-scripts-test.sh` | Black-box tests of install/uninstall | CI lint job, release gate |
+| `test-lint.sh` | Test-suite structural lint (banned suffixes, subtest names, dup helpers) | CI lint job, release gate |
+| `docs-lint.sh` | Asserts `docs/CHEATSHEET.md` mirrors `docs/command-reference.md` | CI lint job, release gate |
+| `coverage-check.sh` | Enforces the total-coverage floor | CI coverage job |
+| `perf-gate.sh` | A4: disabled-mode context budget does no work | CI |
+| `regress-domains.sh` | Per-domain black-box invariants against a fresh binary in a throwaway tree | CI regression job, release gate |
+| `adapter-conformance.sh` | Adapter envelope conformance probes | `regress-domains.sh` |
+| `production-smoke.sh` | End-to-end production smoke of a fresh scaffold | CI |
+| `release-smoke.sh` | Smoke-tests published release artifacts | release workflow |
+| `upgrade-matrix.sh` | Upgrade-path matrix across released versions | upgrade-matrix workflow |
+| `dep-evidence.sh` | Offline `dep-evidence/v1` producer for the opt-in security gate (`security.ScanDepEvidence`) | operator-run, out of band |
+| `stress.sh` | One-spec state CAS/lock: no lost update (`records == revision`) | CI stress job |
+| `stress-acp.sh` | ACP ledger line integrity: no torn line, no duplicate seq | CI stress job |
+| `stress-orchestration.sh` | Session-revision CAS advances; one winner | CI stress job |
+| `stress-program.sh` | Per-spec isolation across concurrent multi-spec recovery | CI stress job |
+| `stress-brain-recovery.sh` | Crash recovery re-issues the mission exactly once | CI stress job |
+| `stress-checkpoint-fault.sh` | Crash mid-checkpoint: no double-claim, no orphaned lease | CI stress job |
 
-| ci.yml invocation | Decision | Script | Invariant asserted |
-|-------------------|----------|--------|--------------------|
-| `make perf-gate` | **replace** with script (no root Makefile) | `perf-gate.sh` | A4: disabled-mode context budget does no work |
-| `./scripts/coverage-check.sh` | author | `coverage-check.sh` | total coverage ≥ provisional floor (74.0%) |
-| `./scripts/stress.sh` | author | `stress.sh` | one-spec state CAS/lock: no lost update (`records == revision`) |
-| `./scripts/stress-acp.sh` | author | `stress-acp.sh` | ACP ledger line integrity: no torn line, no duplicate seq |
-| `./scripts/stress-orchestration.sh` | author | `stress-orchestration.sh` | session-revision CAS advances; one winner |
-| `./scripts/stress-program.sh` | author | `stress-program.sh` | per-spec isolation across concurrent multi-spec recovery |
-| `./scripts/stress-brain-recovery.sh` | author | `stress-brain-recovery.sh` | crash recovery re-issues the mission exactly once |
-| `./scripts/stress-checkpoint-fault.sh` | author | `stress-checkpoint-fault.sh` | crash mid-checkpoint: no double-claim, no orphaned lease |
-
-## Provisional values SPEC-01 sets (downstream ratchets)
-
-- **Coverage floor:** 74.0% (measured total on the SPEC-01 HEAD: 74.8%). SPEC-05
-  owns the coverage policy and ratchets `FLOOR` in `coverage-check.sh` up.
-- **`govulncheck` pin:** `v1.5.0` at `ci.yml` (was `@latest`). SPEC-04 owns the
-  version rationale.
-
-## Dead-script sweep (SPEC-07 T-07-02)
-
-Audit of scripts no workflow references. Decision per script:
-
-| Script | Decision | Rationale |
-|--------|----------|-----------|
-| `stress-brain.sh` | **removed** | Duplicated the wired `stress-brain-recovery.sh` invariant (racing `brain resume` → exactly one dispatch); now also pinned deterministically by the Go test `TestBrainResumeRaceDispatchesExactlyOnce` (SPEC-06 T-06-04). Redundant. |
-| `verify-progress.sh` | **removed** | Ran a hand-picked subset of `internal/cmd` integration tests; the CI `go test ./... -race` leg already runs all of them (`TestLifecycleE2E` et al.). Redundant. |
-| `regress-all.sh` / `regress-domains.sh` / `regress-lint.sh` | **kept, cadence-run** | Not wired to CI by design — they exercise the planning `specs/` verify tables, not product behavior. Run before closing a wave / cutting a release; owner = maintainer. See [TESTING.md](../TESTING.md). |
-
-## Known blocker (see SPEC-01 spec.md → "Blockers Discovered")
-
-The five orchestration stress scripts (`stress-acp`, `stress-orchestration`,
-`stress-brain-recovery`, `stress-checkpoint-fault`, `stress-program`) currently
-flake (~7%) on a genuine **double-dispatch race in `brain resume`** — a
-crash-safety defect owned by SPEC-06, not fixable within SPEC-01's scope. The
-scripts are authored and correct; they are the tripwire that exposed the bug.
-`perf-gate.sh`, `coverage-check.sh`, and `stress.sh` are deterministic and green.
+Coverage floor policy: the `FLOOR` value lives in `coverage-check.sh` and only
+ratchets up. `govulncheck` is version-pinned in `ci.yml`.

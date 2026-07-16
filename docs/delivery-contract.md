@@ -95,10 +95,9 @@ absent. No delivery record retroactively changes a task's `complete`. Source com
 
 ## Fixture plan — 15 production validation scenarios
 
-Each scenario in `docs/google-sdlc-alignment/08-deployment-and-production-assurance.md` §Production
-validation scenarios gets a deterministic offline fixture. `08a` lands the four canonical envelope
-fixtures; the remaining scenario fixtures are planned for the wave that implements the rule they
-exercise. Auditor task 08a/T05 confirms this mapping is complete.
+Each production validation scenario gets a deterministic offline fixture; the four canonical
+envelope fixtures are landed, and each remaining scenario fixture lands with the rule it
+exercises.
 
 | # | scenario | planned fixture | landing wave |
 |---|---|---|---|

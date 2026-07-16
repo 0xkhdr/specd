@@ -25,11 +25,6 @@ documented next gate. Use `SPECD_BIN=/absolute/path/to/specd` to test an already
 otherwise the script builds one from the current checkout. `--negative` stops after proving the
 fail-closed step.
 
-Regression prerequisites are required by default. `scripts/regress-domains.sh` reports three states
-distinctly: `input absent` or `input unparseable` fails; a parsed invariant prints `ok`; an absent
-input explicitly declared optional with `SPECD_PROGRESS_POLICY=optional` prints `skip` and
-`not applicable`. The optional policy is for distributions that intentionally omit planning specs;
-repository wave and release gates use required policy and may not set it.
 
 ### The `-count=2` leg (order-dependence)
 
@@ -76,26 +71,17 @@ Agent-facing surfaces — the MCP contract (`internal/mcp/`), the help palette (
 and the gate registry — are all above the floor and pinned by contract tests (`TestSplitArgumentsContract`,
 `TestHelpJSON`, the `gates` parity/conformance suites).
 
-## Regression harnesses (`scripts/regress-*.sh`)
+## Regression harness (`scripts/regress-domains.sh`)
 
-Three harnesses re-run the initiative's own verify tables and wave invariants against a freshly
-built binary in a throwaway tree:
+One harness re-asserts each domain's owned invariant black-box against a freshly built binary in
+a throwaway copy of the tree, so probes that mutate `.specd/` never touch the working repo:
 
 ```bash
-./scripts/regress-all.sh       # re-run every task verify; aggregate by exit code
 ./scripts/regress-domains.sh   # per-domain black-box invariant checks
-./scripts/regress-lint.sh      # static smell audit of the verify tables
 ```
 
-**These are NOT wired into the CI matrix** (SPEC-05 T-05-04 decision). They exercise the planning
-`specs/` tables, not product behavior — the product logic they touch is already covered by the Go
-suite and the stress jobs, so running them on every PR would be redundant cost. Instead they run on
-a **cadence**:
-
-- **When:** before closing a wave and before cutting a release.
-- **Owner:** the repository maintainer (release cutter) runs all three and confirms green.
-
-If a task's verify line changes, run `regress-lint.sh` locally in the same change.
+It runs in CI (the `regression` job) and again as a release input gate before GoReleaser
+publishes a tag.
 
 ## Stress / crash-safety jobs
 
