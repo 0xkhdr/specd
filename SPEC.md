@@ -80,3 +80,13 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B18 | 2026-07-16 | W4 role-route test incorrectly required read-only validator to call state-writing `complete-task` | narrow expected route by role; V13 already covers actor/effect authority |
 | B19 | 2026-07-16 | approval-gate test relied on scaffold's fake runnable T1 after R6 removed it | author real task in fixture; V15 |
 | B20 | 2026-07-16 | W0 scaffold-gap characterizations failed when W4 intentionally shipped skills, rich stubs, and truthful completion guidance | flip seeded characterizations to positive V14/V15 contracts |
+| B21 | 2026-07-16 | W6 release fixtures guessed nonexistent handshake/task-status fields and indexed map-shaped evidence as a slice | align tests with typed APIs; no new invariant |
+| B22 | 2026-07-16 | W6 fixture expected doctor in minimal AGENTS bootstrap and tried host-only init/new through MCP | align proof with generated status-guide route and declared MCP policy boundary; V13,V16 already apply |
+| B23 | 2026-07-16 | W6 fixture treated task files as spec-relative and MCP tools as command-keyed after operation identity migration | use workspace-relative source and canonical operation IDs; V13,V16 already apply |
+| B24 | 2026-07-16 | W6 fixture guessed top-level context authority instead of typed guardrail/role/scope fields | assert actual bounded context authority projection; V13 already applies |
+| B25 | 2026-07-16 | W6 positive security fixture used an uninitialized directory, so production input enumeration correctly failed closed | initialize fixture repository before clean-scan assertion; existing security fail-closed invariant applies |
+| B26 | 2026-07-16 | W6 smoke-source assertion expected rendered review text although script edits the generated template at runtime | assert independent reviewer and verdict substitution commands; no new invariant |
+| B27 | 2026-07-16 | W6 integration test changed cwd while retaining a package-relative smoke-script path | resolve repository root before subprocess execution; no new invariant |
+| B28 | 2026-07-16 | W6 production fixture referenced R1.1 from a legacy requirement bullet that declared no structured criterion ID | author production requirement with explicit heading and EARS criterion; V15 already applies |
+| B29 | 2026-07-16 | W6 fixture asserted lifecycle phase through human task-status output, which intentionally omits lifecycle status | assert typed machine guide status; V16 already applies |
+| B30 | 2026-07-16 | W6 review edit targeted stale placeholder spellings and left generated verdict unresolved | replace exact current reviewer/verdict/findings placeholders; V15,V16 already apply |

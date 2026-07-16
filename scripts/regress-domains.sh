@@ -146,12 +146,16 @@ go test ./internal/core ./internal/cmd -run 'Test(Command|Registry|Help)' -count
 }
 pass W5 "command registry/help derive from canonical surface"
 
-# W6 — release: the `version` verb (spec 01) prints a non-empty build stamp.
-if "$SPECD" version 2>/dev/null | grep -qE '.'; then
-	pass W6 "version prints a stamp"
-else
+# W6 — release: retain the build stamp and run the fresh-project generated
+# workflow plus CLI/MCP semantic parity proofs against copied source.
+if ! "$SPECD" version 2>/dev/null | grep -qE '.'; then
 	violation W6 "version prints nothing"
 fi
+go test ./internal/cmd ./internal/integration \
+	-run 'TestWorkflowCoherence(Default|Production)|TestDriverConformance|Test.*Conformance' -count=1 >/dev/null 2>&1 || {
+	violation W6 "fresh default/production workflow or conformance parity regressed"
+}
+pass W6 "version, fresh default/production workflow, and conformance parity hold"
 
 # W7 — conformance: `report --proof` (spec 01 R8.2) is a deterministic projection
 # of on-disk state. Two consecutive runs against a scaffolded spec must be

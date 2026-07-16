@@ -8,7 +8,7 @@
 - [x] 11 W3 — executable task completion loop (needs W2)
 - [x] 11 W4 — progressive skills and templates (needs W3)
 - [x] 11 W5 — documentation, diagnostics, and rollup truth (needs W4)
-- [ ] 11 W6 — fresh-project release proof (needs W5)
+- [x] 11 W6 — fresh-project release proof (needs W5)
 
 Use `specs/11-workflow-coherence/prompt.md`. Execute exactly one wave per turn.
 

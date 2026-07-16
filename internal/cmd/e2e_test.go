@@ -206,6 +206,171 @@ func TestLifecycleE2E(t *testing.T) {
 	}
 }
 
+// TestWorkflowCoherenceDefault is the release proof for the generated default
+// workflow. It intentionally treats the freshly built binary and files emitted
+// by init/new as the only driver contract: no package-internal lifecycle helper
+// chooses an action for the fixture.
+func TestWorkflowCoherenceDefault(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds the binary; skipped in -short")
+	}
+	repoRoot, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(t.TempDir(), "specd")
+	build := exec.Command("go", "build", "-o", bin, ".")
+	build.Dir = repoRoot
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build specd: %v\n%s", err, out)
+	}
+
+	repo := t.TempDir()
+	mustGit(t, repo, "init")
+	mustGit(t, repo, "commit", "--allow-empty", "-m", "root", "--no-gpg-sign")
+	run := func(args ...string) (string, int) {
+		t.Helper()
+		command := exec.Command(bin, args...)
+		command.Dir = repo
+		out, err := command.CombinedOutput()
+		if err == nil {
+			return string(out), 0
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return string(out), exitErr.ExitCode()
+		}
+		t.Fatalf("run %v: %v", args, err)
+		return "", -1
+	}
+	mustRun := func(args ...string) string {
+		t.Helper()
+		out, code := run(args...)
+		if code != 0 {
+			t.Fatalf("specd %s: code=%d\n%s", strings.Join(args, " "), code, out)
+		}
+		return out
+	}
+
+	mustRun("init")
+	agentsRaw, err := os.ReadFile(filepath.Join(repo, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, route := range []string{"specd handshake bootstrap <slug> --json", "specd status <slug> --guide", "specd context <slug> <task> --json", "specd verify <slug> <task>", "specd complete-task <slug> <task>"} {
+		if !strings.Contains(string(agentsRaw), route) {
+			t.Fatalf("generated AGENTS.md omitted bootstrap route %q", route)
+		}
+	}
+	help := mustRun("help")
+	for _, verb := range []string{"handshake", "agents", "context", "verify", "complete-task", "check", "approve"} {
+		if !strings.Contains(help, verb) {
+			t.Fatalf("generated help omitted workflow verb %q", verb)
+		}
+	}
+	mustRun("new", "demo")
+
+	// Authoring is user work between harness actions. Shapes come from the
+	// generated stubs; this fixture replaces comments/placeholders with one real
+	// requirement, design, and read-only task without inventing another schema.
+	writeReal := func(name, body string) {
+		t.Helper()
+		path := filepath.Join(repo, ".specd/specs/demo", name)
+		stub, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, field := range []string{"id", "role", "files", "depends-on", "verify", "acceptance"} {
+			if name == "tasks.md" && !strings.Contains(string(stub), field) {
+				t.Fatalf("generated tasks stub omitted %q", field)
+			}
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeReal("requirements.md", "# Requirements — demo\n\n- **R1** When release proof runs, the system shall complete one generated workflow task.\n")
+	writeReal("design.md", "# Design — demo\n\n## Modules\nThe generated workflow drives the CLI.\n\n## On-disk contracts\nState and evidence stay under the spec directory.\n\n## Invariants\nCompletion requires passing evidence.\n")
+	writeReal("tasks.md", "# Tasks — demo\n\n| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | scout | workflow-proof.txt | - | printf ok | R1 |\n")
+	if err := os.WriteFile(filepath.Join(repo, "workflow-proof.txt"), []byte("generated workflow proof\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mustGit(t, repo, "add", ".")
+	mustGit(t, repo, "commit", "-m", "author demo", "--no-gpg-sign")
+
+	var handshake core.Handshake
+	if err := json.Unmarshal([]byte(mustRun("handshake", "bootstrap", "demo", "--json")), &handshake); err != nil {
+		t.Fatalf("generated handshake is not typed JSON: %v", err)
+	}
+	if handshake.PaletteDigest == "" || handshake.ConfigDigest == "" || handshake.ActiveSpec == nil || handshake.ActiveSpec.Slug != "demo" {
+		t.Fatalf("incomplete handshake: %+v", handshake)
+	}
+	doctor := mustRun("agents", "doctor", "--json")
+	if !strings.Contains(doctor, `"healthy": true`) || !strings.Contains(doctor, `"findings": []`) {
+		t.Fatalf("generated doctor contract not healthy/typed:\n%s", doctor)
+	}
+
+	guide := func() core.DriverGuideV1 {
+		t.Helper()
+		var result core.DriverGuideV1
+		if err := json.Unmarshal([]byte(mustRun("agents", "guide", "demo", "--json")), &result); err != nil {
+			t.Fatalf("guide JSON: %v", err)
+		}
+		return result
+	}
+	hasAction := func(g core.DriverGuideV1, command string) bool {
+		for _, action := range g.NextActions {
+			if action.Command == command {
+				return true
+			}
+		}
+		return false
+	}
+	if g := guide(); !hasAction(g, "check") {
+		t.Fatalf("initial generated guide omitted check: %+v", g.NextActions)
+	}
+	mustRun("check", "demo")
+
+	wantStatuses := []core.Status{core.StatusRequirements, core.StatusDesign, core.StatusTasks, core.StatusExecuting}
+	for i := 1; i < len(wantStatuses); i++ {
+		g := guide()
+		if !hasAction(g, "approve") {
+			t.Fatalf("guide omitted human approval at step %d: %+v", i, g.NextActions)
+		}
+		mustRun("approve", "demo")
+		state, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state.Status != wantStatuses[i] {
+			t.Fatalf("approval skipped phase: got %s want %s", state.Status, wantStatuses[i])
+		}
+	}
+
+	contextOut := mustRun("context", "demo", "T1", "--json")
+	for _, want := range []string{`"selected_task"`, `"kind": "guardrails"`, `"authority_limit": "role=scout; phase=execute; human-only tools forbidden"`, `"route": "cli:`, `"palette_digest"`} {
+		if !strings.Contains(contextOut, want) {
+			t.Fatalf("generated context omitted %s:\n%s", want, contextOut)
+		}
+	}
+	if _, code := run("complete-task", "demo", "T1"); code == 0 {
+		t.Fatal("completion without verify evidence succeeded")
+	}
+	mustRun("verify", "demo", "T1")
+	mustRun("complete-task", "demo", "T1")
+	mustRun("check", "demo")
+	state, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.TaskStatus["T1"] != core.TaskComplete {
+		t.Fatalf("task not complete: %+v", state.TaskStatus)
+	}
+	ledger, err := os.ReadFile(filepath.Join(repo, ".specd/specs/demo/evidence.jsonl"))
+	if err != nil || !strings.Contains(string(ledger), `"exit_code":0`) || !strings.Contains(string(ledger), `"task_id":"T1"`) {
+		t.Fatalf("passing evidence missing or malformed: err=%v\n%s", err, ledger)
+	}
+}
+
 func TestSecurityE2EProductionBoundariesFailClosed(t *testing.T) {
 	if err := gates.CheckScope([]string{"declared.go", "credential.env"}, []string{"declared.go"}); err == nil || !strings.Contains(err.Error(), "outside_scope") {
 		t.Fatalf("scope outcome = %v", err)

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,7 +10,9 @@ import (
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates"
 	"github.com/0xkhdr/specd/internal/core/gates/security"
+	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 	"github.com/0xkhdr/specd/internal/mcp"
 )
 
@@ -70,5 +73,43 @@ func TestSecurityConformanceProductionFailureMatrix(t *testing.T) {
 	}, &authority, now, "execute")
 	if resp.Error == nil || !strings.Contains(resp.Error.Message, "denied") {
 		t.Fatalf("scout write response = %+v", resp)
+	}
+}
+
+func TestSecurityConformanceProductionPositiveMatrix(t *testing.T) {
+	root := t.TempDir()
+	git := exec.Command("git", "init")
+	git.Dir = root
+	if out, err := git.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	if result := security.Analyze(root, core.SecurityConfig{Profile: "production", Secrets: "error", Injection: "error", Slopsquat: "error"}); len(result.Findings) != 0 {
+		t.Fatalf("clean production fixture findings = %+v", result.Findings)
+	}
+	if err := gates.CheckScope([]string{"internal/a.go"}, []string{"internal/a.go", "internal/b.go"}); err != nil {
+		t.Fatalf("declared scope rejected: %v", err)
+	}
+	adapter := verifyexec.SandboxAdapterV1{
+		SchemaVersion: verifyexec.SandboxAdapterSchemaV1,
+		Name:          "production-ci",
+		Platform:      "ci",
+		Capabilities:  append([]string(nil), verifyexec.RequiredSandboxCapabilities...),
+	}
+	if err := adapter.Validate(true); err != nil {
+		t.Fatalf("complete production sandbox contract rejected: %v", err)
+	}
+	missing := adapter
+	missing.Capabilities = missing.Capabilities[:len(missing.Capabilities)-1]
+	if _, err := verifyexec.Run(context.Background(), verifyexec.Options{Command: "printf must-not-run", Dir: root, RequireSandbox: true, Adapter: &missing}); err == nil || !strings.Contains(err.Error(), "missing required capability") {
+		t.Fatalf("incomplete production sandbox ran: %v", err)
+	}
+
+	now := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
+	authority, err := core.BuildAuthority(core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"internal/a.go"}}, "actor", "worker", "demo", "execute", "head", "policy", "required", now, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.AuthorizeTool(authority, "complete-task", []string{"internal/a.go"}, now, "execute", true); err != nil {
+		t.Fatalf("craftsman completion authority rejected: %v", err)
 	}
 }

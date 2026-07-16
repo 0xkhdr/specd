@@ -54,9 +54,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T19 | craftsman | internal/cmd/e2e_test.go; internal/integration/driver_conformance_test.go; scripts/regress-domains.sh | T18 | `go test ./internal/cmd ./internal/integration -run 'TestWorkflowCoherenceDefault|TestDriverConformance'` | R8 fresh default workflow driven only by generated surfaces |
-| [ ] T20 | craftsman | internal/integration/production_smoke_test.go; internal/integration/security_conformance_test.go; internal/integration/orchestration_conformance_test.go | T19 | `go test ./internal/integration -run 'TestWorkflowCoherenceProduction|Test.*Conformance'` | R8 production authority/scope/sandbox/security/quality/review proof |
-| [ ] T21 | validator | SPEC.md; specs/11-workflow-coherence; internal; docs; scripts | T20 | `go test ./... -race -count=1 && go test ./... -count=2 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-lint.sh && ./scripts/regress-domains.sh && ./scripts/regress-all.sh` | R1-R8 full release evidence; zero runtime deps; reference untouched |
+| [x] T19 | craftsman | internal/cmd/e2e_test.go; internal/integration/driver_conformance_test.go; scripts/regress-domains.sh | T18 | `go test ./internal/cmd ./internal/integration -run 'TestWorkflowCoherenceDefault|TestDriverConformance'` | R8 fresh default workflow driven only by generated surfaces |
+| [x] T20 | craftsman | internal/integration/production_smoke_test.go; internal/integration/security_conformance_test.go; internal/integration/orchestration_conformance_test.go | T19 | `go test ./internal/integration -run 'TestWorkflowCoherenceProduction|Test.*Conformance'` | R8 production authority/scope/sandbox/security/quality/review proof |
+| [x] T21 | validator | SPEC.md; specs/11-workflow-coherence; internal; docs; scripts | T20 | `go test ./... -race -count=1 && go test ./... -count=2 && go vet ./... && ./scripts/test-lint.sh && ./scripts/docs-lint.sh && ./scripts/regress-lint.sh && ./scripts/regress-domains.sh && ./scripts/regress-all.sh` | R1-R8 full release evidence; zero runtime deps; reference untouched |
 
 ## Cross-wave rules
 
@@ -70,6 +70,10 @@
 - W5/T18 docs-conformance deviation: update `internal/cmd/examples_test.go` outside the row file list; approval examples and assessment-status metadata must be executable/tested, not prose-only claims.
 - W5/T18 rollup deviation: update `specs/progress.md` outside the row file list only after T18 is green; V17 requires the W5 program checkbox to match its completed task rows.
 - W5 full-regression deviation: update `scripts/production-smoke.sh` outside row lists; full verification exposed three stale targeted `approve` calls that contradict the one-step normative workflow.
+- W6/T19 backprop deviation: record fixture failures in `SPEC.md` §B21-B24 outside the T19 row file list; tests guessed typed API shapes, context/source resolution, and MCP/AGENTS policy boundaries, while existing V13/V16 contracts already prevent product drift.
+- W6/T20 production-smoke deviation: update `scripts/production-smoke.sh` outside the T20 row file list; named production proof must arm the production lifecycle and exercise criterion/review negative and positive paths.
+- W6/T20 backprop deviation: record production fixture failures in `SPEC.md` §B25-B30 outside the T20 row file list; scanning requires a git repository, review approval renders from exact current placeholders, subprocess paths resolve before cwd changes, production trace uses structured criterion IDs, and lifecycle status comes from machine guide; existing invariants cover product behavior.
+- W6/T21 rollup deviation: update `specs/progress.md` outside the T21 row directory after T21 turns green; V17 requires W6 program truth to match completed task rows.
 - CLI/flag change updates command reference and CHEATSHEET together.
 - New public contract starts RED and ends with black-box/conformance proof.
 - One wave only per turn; do not start next wave after current turns green.
