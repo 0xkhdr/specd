@@ -76,3 +76,7 @@ Make `specd` prove intent → design → task → evidence linkage; preserve hum
 | B14 | 2026-07-13 | 09b approval marking first appended checkbox as an extra table cell instead of prefixing task id | mechanical formatting error; no new invariant |
 | B15 | 2026-07-16 | W2 operation projection changed MCP identity while command-keyed derivation and telemetry fixtures remained stale | align fixtures with operation IDs; V13/V16 already apply |
 | B16 | 2026-07-16 | hyphenated `complete-task` exposed docs parity regex and production fixtures pinned to legacy completion route | widen parser and migrate executable fixtures; V10,V14,V16 already apply |
+| B17 | 2026-07-16 | W4 fresh-scaffold manifest test declared `main.go` but omitted its required source fixture | align fixture with declared context; V2 already covers required-source identity |
+| B18 | 2026-07-16 | W4 role-route test incorrectly required read-only validator to call state-writing `complete-task` | narrow expected route by role; V13 already covers actor/effect authority |
+| B19 | 2026-07-16 | approval-gate test relied on scaffold's fake runnable T1 after R6 removed it | author real task in fixture; V15 |
+| B20 | 2026-07-16 | W0 scaffold-gap characterizations failed when W4 intentionally shipped skills, rich stubs, and truthful completion guidance | flip seeded characterizations to positive V14/V15 contracts |

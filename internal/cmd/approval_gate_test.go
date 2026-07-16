@@ -29,6 +29,7 @@ func TestNextGatedOnApproval(t *testing.T) {
 		t.Fatalf("new: %v", err)
 	}
 	authorDemoSpec(t, root, "demo")
+	writeTasks(t, root, "demo", "| T1 | scout | requirements.md | - | printf ok | approval-gated fixture |")
 
 	// In the requirements (perceive) phase the coarse phase gate fails closed:
 	// next/verify are execution verbs with no approved DAG to act on, so they

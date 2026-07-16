@@ -40,6 +40,22 @@ func TestScaffoldCarriesFormatGuidance(t *testing.T) {
 	}
 }
 
+func TestScaffoldExplainsProductionTaskColumns(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(root, ".specd", "steering", "structure.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"refs", "kind", "risk", "complexity", "capabilities", "context", "evidence", "checks", "backward compatible"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("structure guidance missing %q", want)
+		}
+	}
+}
+
 func TestScaffoldCommandsUseExplicitPlaceholders(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteScaffold(root); err != nil {
@@ -66,6 +82,27 @@ func TestScaffoldCreatesPortableSkillsRoot(t *testing.T) {
 	for _, want := range []string{"SKILL.md", "specd-skill", "provenance", "capabilities", "advisory"} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("skills scaffold missing %q:\n%s", want, raw)
+		}
+	}
+}
+
+func TestScaffoldShipsProgressiveSkillPack(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"foundation", "steering", "requirements", "design", "tasks", "execute", "quality", "review", "orchestration", "delivery", "maintenance"}
+	for _, id := range want {
+		path := filepath.Join(root, ".specd", "skills", id, "SKILL.md")
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("skill %s not scaffolded: %v", id, err)
+			continue
+		}
+		for _, marker := range []string{"<!-- specd-skill", "id: " + id, "version: 1.0.0", "provenance: bundled:specd@", "required: false", "budget:", "## Instructions", "## Examples", "## Checks"} {
+			if !strings.Contains(string(body), marker) {
+				t.Errorf("skill %s missing %q", id, marker)
+			}
 		}
 	}
 }

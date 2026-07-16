@@ -44,6 +44,34 @@ func TestLifecycleContextMissingDesignFailsClosed(t *testing.T) {
 	}
 }
 
+func TestStubProductionAuthoringContract(t *testing.T) {
+	requirements := requirementsStub("demo")
+	for _, want := range []string{"R1.1", "owner:", "priority:", "risk:", "EARS", "Edge and failure", "Non-goals"} {
+		if !strings.Contains(requirements, want) {
+			t.Errorf("requirements stub missing %q", want)
+		}
+	}
+	design := designStub("demo")
+	for _, want := range []string{"references:", "## Boundaries", "## Interfaces", "## Invariants", "## Failure", "## Integration", "## Alternatives", "disposition:", "owner:", "## Verification", "## Deployment", "## Rollback"} {
+		if !strings.Contains(design, want) {
+			t.Errorf("design stub missing %q", want)
+		}
+	}
+	tasks := tasksStub("demo")
+	for _, want := range []string{"refs", "kind", "risk", "complexity", "capabilities", "context", "evidence", "checks", "backward compatible"} {
+		if !strings.Contains(tasks, want) {
+			t.Errorf("tasks stub missing %q", want)
+		}
+	}
+	parsed, err := core.ParseTasksMd([]byte(tasks))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Tasks) != 0 {
+		t.Fatalf("fresh task stub contains fake runnable tasks: %+v", parsed.Tasks)
+	}
+}
+
 func TestApproveModeOperationIsSeparate(t *testing.T) {
 	root := newDemoSpec(t)
 	statePath := core.StatePath(root, "demo")

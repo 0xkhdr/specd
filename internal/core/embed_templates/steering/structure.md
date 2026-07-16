@@ -17,6 +17,6 @@
   `integration:`, `alternatives:`, `disposition:`, and `owner:`. An unknown
   reference is always refused; the full contract is required under the production
   profile.
-- `tasks.md` optional trace/risk columns: `refs`, `kind`, `risk`, `context`,
-  `evidence`, `checks`. Legacy six-column tables keep working (backward compatible);
+- `tasks.md` optional trace/risk columns: `refs`, `kind`, `risk`, `complexity`,
+  `capabilities`, `context`, `evidence`, `checks`. Legacy six-column tables keep working (backward compatible);
   the production planning profile requires the full set.

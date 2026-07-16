@@ -106,6 +106,40 @@ func TestSkillsConformanceMarksHostileInstructionsAdvisory(t *testing.T) {
 	}
 }
 
+func TestSkillsFreshScaffoldPackValidAndLazy(t *testing.T) {
+	root := t.TempDir()
+	if err := core.WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	packages, err := LoadSkills(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(packages) != 11 {
+		t.Fatalf("packages = %d, want 11: %+v", len(packages), packages)
+	}
+	for _, pkg := range packages {
+		if pkg.Version != "1.0.0" || pkg.Required || pkg.Budget <= 0 || pkg.Provenance == "" || pkg.Digest == "" {
+			t.Errorf("invalid bundled metadata: %+v", pkg)
+		}
+	}
+	items, _, err := SelectSkills(root, SkillSelectionContext{
+		SelectionContext: SelectionContext{Phase: "execute", Role: "craftsman"},
+		Capabilities:     []string{"read", "write"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) == 0 || len(items) >= len(packages) {
+		t.Fatalf("selection not progressive: selected=%d packages=%d", len(items), len(packages))
+	}
+	for _, item := range items {
+		if item.LoadMode != "lazy" || item.SourceDigest == "" || item.EstimatedTokens <= 0 || item.AuthorityLimit != SkillAuthorityLimit {
+			t.Errorf("skill item lacks lazy digest/budget/authority: %+v", item)
+		}
+	}
+}
+
 func writeSkill(t *testing.T, root, dir, body string) {
 	t.Helper()
 	path := filepath.Join(root, ".specd", "skills", dir)

@@ -70,7 +70,54 @@ func TestInitScaffoldGuidanceParity(t *testing.T) {
 	}
 }
 
-func TestWorkflowCoherenceBaselineScaffoldGaps(t *testing.T) {
+func TestInitScaffoldCompactProgressiveGuide(t *testing.T) {
+	root := t.TempDir()
+	if err := runInit(root, nil, map[string]string{}); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	guide := string(body)
+	if len(body) > 2200 {
+		t.Fatalf("always-on guide too large: %d bytes", len(body))
+	}
+	for _, want := range []string{"specd handshake bootstrap <slug> --json", "specd status <slug> --guide", "specd context <slug> <task> --json", "specd verify <slug> <task>", "specd complete-task <slug> <task>", "specd check <slug>", "human-only", "state.json", ".specd/skills/<id>/SKILL.md", "foundation", "maintenance"} {
+		if !strings.Contains(guide, want) {
+			t.Errorf("guide missing %q", want)
+		}
+	}
+	if strings.Contains(guide, "verify record is the evidence. This, not your say-so, is\n   what marks a task complete") {
+		t.Fatal("guide still claims verify alone completes task")
+	}
+}
+
+func TestManagedCommandRolesUseExecutableOperands(t *testing.T) {
+	root := t.TempDir()
+	if err := runInit(root, nil, map[string]string{}); err != nil {
+		t.Fatal(err)
+	}
+	for role, routes := range map[string][]string{
+		"craftsman": {"specd verify <slug> <task>", "specd complete-task <slug> <task>"},
+		"validator": {"specd verify <slug> <task>"},
+	} {
+		body, err := os.ReadFile(filepath.Join(root, ".specd", "roles", role+".md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, route := range routes {
+			if !strings.Contains(string(body), route) {
+				t.Errorf("%s role missing %q", role, route)
+			}
+		}
+		if role == "validator" && !strings.Contains(string(body), "Never call `specd complete-task`") {
+			t.Error("validator role must explicitly refuse state-writing completion route")
+		}
+	}
+}
+
+func TestWorkflowCoherenceScaffoldContracts(t *testing.T) {
 	root := t.TempDir()
 	if err := runInit(root, nil, map[string]string{}); err != nil {
 		t.Fatalf("init: %v", err)
@@ -80,8 +127,8 @@ func TestWorkflowCoherenceBaselineScaffoldGaps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 0 {
-		t.Fatalf("W0 baseline unexpectedly contains shipped skills: %v", skills)
+	if len(skills) != 11 {
+		t.Fatalf("shipped skills = %d, want 11: %v", len(skills), skills)
 	}
 
 	if _, err := captureStdout(t, func() error { return runNew(root, []string{"demo"}, nil) }); err != nil {
@@ -100,10 +147,14 @@ func TestWorkflowCoherenceBaselineScaffoldGaps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(requirements), "owner:") || strings.Contains(string(design), "## Failure") {
-		t.Fatal("W0 baseline unexpectedly contains production-shaped authoring guidance")
+	if !strings.Contains(string(requirements), "owner:") || !strings.Contains(string(design), "## Failure") {
+		t.Fatal("production-shaped authoring guidance missing")
 	}
-	if !strings.Contains(string(tasks), "scaffolded read-only placeholder") || strings.Contains(string(tasks), "| refs | kind | risk |") {
-		t.Fatalf("W0 task-stub gap changed:\n%s", tasks)
+	parsed, err := core.ParseTasksMd(tasks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(tasks), "scaffolded read-only placeholder") || !strings.Contains(string(tasks), "capabilities") || len(parsed.Tasks) != 0 {
+		t.Fatalf("task scaffold not production-shaped and empty:\n%s", tasks)
 	}
 }

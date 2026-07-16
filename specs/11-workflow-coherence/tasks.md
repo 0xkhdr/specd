@@ -38,9 +38,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T13 | craftsman | internal/core/embed_templates/skills; internal/core/embed_templates/templates.go; internal/core/managed.go; internal/core/scaffold.go; internal/core/scaffold_test.go; internal/context/skills_test.go | T12 | `go test ./internal/core ./internal/context -run 'TestScaffold|TestSkills|TestManaged'` | R5 shipped current-schema lazy skill pack |
-| [ ] T14 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/core/embed_templates/steering; internal/core/scaffold_test.go | T13 | `go test ./internal/core ./internal/cmd -run 'TestScaffold|TestStub|TestLifecycle'` | R6 production-shaped requirements/design/tasks; no fake task |
-| [ ] T15 | craftsman | internal/core/embed_templates/AGENTS.md; internal/core/embed_templates/roles; internal/cmd/init_scaffold_test.go; internal/context/manifest_test.go | T14 | `go test ./internal/context ./internal/cmd -run 'TestManifest|TestInitScaffold|TestManagedCommand'` | R5-R6 small static guide; applicable skill selected; commands executable |
+| [x] T13 | craftsman | internal/core/embed_templates/skills; internal/core/embed_templates/templates.go; internal/core/managed.go; internal/core/scaffold.go; internal/core/scaffold_test.go; internal/context/skills_test.go | T12 | `go test ./internal/core ./internal/context -run 'TestScaffold|TestSkills|TestManaged'` | R5 shipped current-schema lazy skill pack |
+| [x] T14 | craftsman | internal/cmd/lifecycle.go; internal/cmd/lifecycle_test.go; internal/core/embed_templates/steering; internal/core/scaffold_test.go | T13 | `go test ./internal/core ./internal/cmd -run 'TestScaffold|TestStub|TestLifecycle'` | R6 production-shaped requirements/design/tasks; no fake task |
+| [x] T15 | craftsman | internal/core/embed_templates/AGENTS.md; internal/core/embed_templates/roles; internal/cmd/init_scaffold_test.go; internal/context/manifest_test.go | T14 | `go test ./internal/context ./internal/cmd -run 'TestManifest|TestInitScaffold|TestManagedCommand'` | R5-R6 small static guide; applicable skill selected; commands executable |
 
 ## W5 — Documentation, diagnostics, and rollup truth
 
@@ -65,6 +65,8 @@
 - W2/T08 parity deviation: update existing MCP derivation/server fixtures outside the row file list and record the verification failure in SPEC.md §B; operation projection intentionally replaces command-keyed MCP identity and V13/V16 already cover recurrence.
 - W3/T11 completion-route deviation: update command-reference/CHEATSHEET and existing `task complete` call-site tests/scripts outside the row file list; the public narrow `complete-task` verb otherwise leaves stale executable contracts and violates docs sync.
 - W3/T12 conformance deviation: update `internal/integration/snippet.go` outside the row file list; every host adapter derives its executable completion loop from this shared snippet, so transport parity cannot be repaired in the conformance test alone.
+- W4/T15 backprop deviation: record new T15 test-fixture failures in `SPEC.md` §B17-B18; required-source and role-authority validation correctly rejected bad test assumptions and existing invariants cover both.
+- W4 full-suite deviation: update `internal/cmd/approval_gate_test.go` and `internal/cmd/workflow_coherence_test.go` outside row lists; old fixtures depended on the removed fake task or asserted W0 guidance gaps that R5-R6 intentionally close.
 - CLI/flag change updates command reference and CHEATSHEET together.
 - New public contract starts RED and ends with black-box/conformance proof.
 - One wave only per turn; do not start next wave after current turns green.

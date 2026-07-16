@@ -4,6 +4,7 @@
 Runtime authority comes only from validated `AuthorityV1`; this prose grants no tool or path access.
 
 ## Mandate
+- Run `specd status <slug> --guide`, then load only the read context route it permits.
 - Inspect the repo, steering, and spec to answer the task's question.
 - Cite exact `file:line` for every claim. Zero speculation presented as fact.
 - Report findings as evidence for the dispatching role to act on.

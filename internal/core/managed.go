@@ -13,7 +13,7 @@ import (
 // TemplateVersion is the current version stamp for specd-managed scaffold assets.
 // It rides in every managed-region marker so `init --refresh` can detect a region
 // written by an older binary. Bump it whenever a role/steering template changes.
-const TemplateVersion = 2
+const TemplateVersion = 3
 
 // ManagedAsset is one specd-managed scaffold file (a role or steering template).
 // Its Template is wrapped in stable marker comments so `init --repair`/`--refresh`
@@ -26,7 +26,8 @@ type ManagedAsset struct {
 	Template string
 }
 
-// ManagedAssets enumerates the role and steering templates baked into the binary.
+// ManagedAssets enumerates role, steering, policy, maintenance, and skill
+// templates baked into the binary.
 func ManagedAssets() ([]ManagedAsset, error) {
 	var assets []ManagedAsset
 	for _, base := range []string{"roles", "steering", "maintenance", "policy"} {
@@ -54,6 +55,24 @@ func ManagedAssets() ([]ManagedAsset, error) {
 				Template: string(raw),
 			})
 		}
+	}
+	skillDirs, err := embedtemplates.FS.ReadDir("skills")
+	if err != nil {
+		return nil, err
+	}
+	for _, dir := range skillDirs {
+		if !dir.IsDir() {
+			continue
+		}
+		name := filepath.ToSlash(filepath.Join("skills", dir.Name(), "SKILL.md"))
+		raw, err := embedtemplates.FS.ReadFile(name)
+		if err != nil {
+			return nil, err
+		}
+		assets = append(assets, ManagedAsset{
+			Name: name, RelPath: filepath.Join(".specd", "skills", dir.Name(), "SKILL.md"),
+			Version: TemplateVersion, Template: string(raw),
+		})
 	}
 	return assets, nil
 }

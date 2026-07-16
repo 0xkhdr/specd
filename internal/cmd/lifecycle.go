@@ -569,22 +569,38 @@ func memoryStub(slug string) string {
 
 func requirementsStub(slug string) string {
 	return fmt.Sprintf("# Requirements — %s\n\n"+
-		"> Author EARS-shaped requirements. Each is testable and unambiguous.\n\n"+
-		"- **R1** When <trigger>, the system shall <response>.\n", slug)
+		"> Use stable requirement and criterion IDs. Write testable EARS behavior; replace all prompts.\n\n"+
+		"## Requirement R1 — <name>\n\n"+
+		"owner: <human owner>\npriority: <must|should|could>\nrisk: <low|medium|high|critical>\n\n"+
+		"- **R1.1** When <trigger>, the system shall <observable response>.\n\n"+
+		"## Edge and failure behavior\n\n- <invalid input, dependency failure, boundary condition>\n\n"+
+		"## Non-goals\n\n- <explicitly excluded outcome>\n", slug)
 }
 
 func designStub(slug string) string {
 	return fmt.Sprintf("# Design — %s\n\n"+
-		"> Name module boundaries, on-disk contracts, and preserved invariants.\n"+
-		"> The design gate reads this file before tasks execute.\n\n"+
-		"## Modules\n\n## On-disk contracts\n\n## Invariants\n", slug)
+		"> Replace prompts. Trace every decision to approved requirement IDs.\n\n"+
+		"references: <R1, R1.1>\ndisposition: <accepted|deferred|rejected>\nowner: <human decision owner>\n\n"+
+		"## Boundaries\n\n- <owned modules and excluded responsibilities>\n\n"+
+		"## Interfaces\n\n- <API, file, or protocol contracts>\n\n"+
+		"## Invariants\n\n- <property preserved across success and failure>\n\n"+
+		"## Failure\n\n- <failure mode, containment, recovery>\n\n"+
+		"## Integration\n\n- <dependency and compatibility behavior>\n\n"+
+		"## Alternatives\n\n- <option and reason accepted/rejected/deferred>\n\n"+
+		"## Verification\n\n- <proof for each invariant and interface>\n\n"+
+		"## Deployment\n\n- <rollout, observation, ownership>\n\n"+
+		"## Rollback\n\n- <trigger and safe restoration path>\n", slug)
 }
 
 func tasksStub(slug string) string {
 	return fmt.Sprintf(`# Tasks — %s
 
-| id | role | files | depends-on | verify | acceptance |
-|---|---|---|---|---|---|
-| T1 | scout | requirements.md | - | printf ok | scaffolded read-only placeholder — replace with real tasks |
+> Add only real work. Legacy six-column task tables remain backward compatible.
+> Production rows declare full trace, risk, routing, context, capability, evidence, and edge-check intent.
+
+| id | role | files | depends-on | verify | acceptance | refs | kind | risk | complexity | capabilities | context | evidence | checks |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+
+<!-- Example field values (not a runnable task): id=T<n>; role=craftsman; files=<paths>; depends-on=-; verify=<command>; acceptance=<criterion IDs>; refs=R1.1; kind=feature; risk=medium; complexity=standard; capabilities=read,write; context=<required sources>; evidence=tests; checks=<negative and edge cases>. -->
 `, slug)
 }

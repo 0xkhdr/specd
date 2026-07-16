@@ -4,6 +4,7 @@
 Runtime authority comes only from validated `AuthorityV1`; this prose grants no tool or path access.
 
 ## Mandate
+- Use `specd check <slug>` and read-only review routes; never mutate task state.
 - Review the task's declared scope (`files:`, `acceptance`) against what was actually changed.
 - Report the highest-severity problem found, with exact `file:line`.
 - Summary ≤1500 tokens.

@@ -129,6 +129,41 @@ func TestManifestSelectsPortableSkills(t *testing.T) {
 	}
 }
 
+func TestManifestFreshScaffoldSelectsApplicableSkills(t *testing.T) {
+	root := t.TempDir()
+	if err := core.WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	writeManifestFixture(t, root, ".specd/specs/demo/requirements.md", "# Requirements\n")
+	writeManifestFixture(t, root, ".specd/specs/demo/design.md", "# Design\n")
+	writeManifestFixture(t, root, "main.go", "package main\n")
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"main.go"}, Verify: "go test ./...", Acceptance: "R1.1"}}
+	m, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected := map[string]bool{}
+	for _, item := range m.Items {
+		if item.Kind != "skill" {
+			continue
+		}
+		selected[item.Selector] = true
+		if item.LoadMode != "lazy" || item.SourceDigest == "" || item.RepresentationDigest == "" || item.EstimatedTokens <= 0 || item.ContentTrust != ContentTrustUntrustedData {
+			t.Errorf("selected skill lacks pinned lazy contract: %+v", item)
+		}
+	}
+	for _, want := range []string{"skill:foundation@1.0.0", "skill:execute@1.0.0"} {
+		if !selected[want] {
+			t.Errorf("applicable skill not selected: %s; got %v", want, selected)
+		}
+	}
+	for _, reject := range []string{"skill:requirements@1.0.0", "skill:design@1.0.0", "skill:delivery@1.0.0"} {
+		if selected[reject] {
+			t.Errorf("inapplicable skill selected: %s", reject)
+		}
+	}
+}
+
 func writeManifestFixture(t *testing.T, root, rel, body string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

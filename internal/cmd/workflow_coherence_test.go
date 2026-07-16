@@ -9,7 +9,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-func TestWorkflowCoherenceBaselineAgentCompletionGap(t *testing.T) {
+func TestWorkflowCoherenceAgentCompletionGuidance(t *testing.T) {
 	root := t.TempDir()
 	if err := runInit(root, nil, map[string]string{}); err != nil {
 		t.Fatalf("init: %v", err)
@@ -18,10 +18,10 @@ func TestWorkflowCoherenceBaselineAgentCompletionGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(body), "what marks a task complete") {
-		t.Fatalf("W0 baseline no longer claims verify completes tasks:\n%s", body)
+	if !strings.Contains(string(body), "verify alone does not complete task") || !strings.Contains(string(body), "specd complete-task <slug> <task>") {
+		t.Fatalf("completion guidance is not truthful/executable:\n%s", body)
 	}
 	if !core.ForbiddenTool("task") {
-		t.Fatal("W0 baseline unexpectedly exposes task completion through tool contracts")
+		t.Fatal("broad task command unexpectedly exposed through tool contracts")
 	}
 }
