@@ -68,9 +68,9 @@ if [ "${1:-}" = "--negative" ]; then
 fi
 
 "$BIN" check smoke >/dev/null
-"$BIN" approve smoke requirements >/dev/null
-"$BIN" approve smoke design >/dev/null
-"$BIN" approve smoke executing >/dev/null
+"$BIN" approve smoke >/dev/null
+"$BIN" approve smoke >/dev/null
+"$BIN" approve smoke >/dev/null
 "$BIN" context smoke T1 >/dev/null
 "$BIN" verify smoke T1 >/dev/null
 "$BIN" complete-task smoke T1 >/dev/null

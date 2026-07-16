@@ -1,5 +1,9 @@
 # Domain 08 — Deployment and Production Assurance
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Define how a `specd`-managed change graduates from evidence-backed source work to an identifiable,

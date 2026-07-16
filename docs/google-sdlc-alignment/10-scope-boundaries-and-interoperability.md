@@ -1,5 +1,9 @@
 # Domain 10 — Scope Boundaries and Interoperability
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Define what `specd` must own to align with the paper, what it should describe through stable contracts, and what must remain in external model hosts, CI/CD systems, eval services, production runtimes, and organizational platforms.

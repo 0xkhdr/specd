@@ -1,5 +1,7 @@
 # specd — Concepts
 
+> **Status:** Normative documentation for current `specd` behavior.
+
 > **The agent reasons. The harness enforces.**
 
 `specd` is a **spec-driven coding harness CLI** — Go, standard library only, zero runtime

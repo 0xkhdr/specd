@@ -1,12 +1,88 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+func TestDocumentationApprovalExamplesRun(t *testing.T) {
+	repoRoot := filepath.Join("..", "..")
+	body, err := os.ReadFile(filepath.Join(repoRoot, "docs", "user-guide.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, stale := range []string{
+		"specd approve payments requirements",
+		"specd approve payments design",
+		"specd approve payments tasks",
+	} {
+		if strings.Contains(text, stale) {
+			t.Fatalf("user guide contains non-executable approval form %q", stale)
+		}
+	}
+	if strings.Count(text, "specd approve payments") < 3 {
+		t.Fatal("user guide does not show one-step approval at each planning boundary")
+	}
+	if strings.Contains(text, "specd task complete") || !strings.Contains(text, "specd complete-task payments T3") {
+		t.Fatal("user guide does not use narrow executable completion route")
+	}
+
+	root := newDemoSpec(t)
+	for step := 1; step <= 3; step++ {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("documented approval step %d failed: %v", step, err)
+		}
+	}
+}
+
+func TestDocumentationStatusExamplesDistinguishNormativeAndHistorical(t *testing.T) {
+	repoRoot := filepath.Join("..", "..")
+	normative := []string{
+		"README.md",
+		"docs/README.md",
+		"docs/user-guide.md",
+		"docs/concepts.md",
+		"docs/agent-integration.md",
+		"docs/command-reference.md",
+	}
+	for _, rel := range normative {
+		body, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), "> **Status:** Normative") {
+			t.Errorf("normative document lacks status: %s", rel)
+		}
+	}
+
+	historical, err := filepath.Glob(filepath.Join(repoRoot, "docs", "google-sdlc-alignment", "*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	historical = append(historical, filepath.Join(repoRoot, "sdlc-with-vibe-coding.md"))
+	for _, path := range historical {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(body)
+		for _, marker := range []string{
+			"> **Status:** Historical assessment; proposals are non-normative.",
+			"> **As of commit:**",
+			"> **Superseded by:**",
+		} {
+			if !strings.Contains(text, marker) {
+				t.Errorf("historical document %s lacks %q", filepath.Base(path), marker)
+			}
+		}
+	}
+}
 
 // readOnlyVerbs are the queryable verbs whose documented examples must run green
 // verbatim against a real, executing spec. Mutating/lifecycle examples (init,

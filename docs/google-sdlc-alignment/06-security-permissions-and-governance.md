@@ -1,5 +1,9 @@
 # Domain 06 — Security, Permissions, and Governance
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Define the production security domain for a coding agent that drives `specd` through every lifecycle phase. The desired outcome is least-authority tool use, enforceable task scope, safe context ingestion, isolated command execution, dependency and secret controls, and accountable exceptions—without placing an LLM in a trust decision or breaking the existing requirements-to-evidence flow.

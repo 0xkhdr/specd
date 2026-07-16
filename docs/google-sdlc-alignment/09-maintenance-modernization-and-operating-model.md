@@ -1,5 +1,9 @@
 # Domain 09 — Maintenance, Modernization, and the Operating Model
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Extend the value of structured agentic engineering beyond a feature spec reaching `complete`: recurring maintenance, incidents, migrations, architecture drift, durable learning, portfolio coordination, team ownership, and safe human–agent operating practices.

@@ -1,5 +1,7 @@
 # specd — User Guide
 
+> **Status:** Normative documentation for current `specd` behavior.
+
 A walkthrough of running a spec from empty workspace to submitted PR. For the *why*, read
 [concepts.md](concepts.md); for every flag, [command-reference.md](command-reference.md).
 
@@ -105,7 +107,7 @@ Check and approve:
 
 ```bash
 specd check payments
-specd approve payments requirements
+specd approve payments
 ```
 
 ### 2. Design (analyze)
@@ -114,7 +116,7 @@ Fill `design.md` past its scaffold stub. The `design` gate compares against the 
 fails closed while it is still boilerplate.
 
 ```bash
-specd approve payments design
+specd approve payments
 ```
 
 ### 3. Tasks (plan)
@@ -126,7 +128,7 @@ check this file. Read-only tasks still carry a trivially-passing verify line (e.
 
 ```bash
 specd check payments          # all planning gates must pass
-specd approve payments tasks
+specd approve payments
 ```
 
 The spec is now `executing`.
@@ -147,7 +149,7 @@ specd verify payments T3
 #    → runs the verify line, captures exit code + git HEAD as an evidence record.
 
 # 4. Complete the task — only succeeds if a passing verify record exists:
-specd task complete payments T3
+specd complete-task payments T3
 ```
 
 If `specd verify` exits non-zero, the task does **not** complete. There is no bypass flag.

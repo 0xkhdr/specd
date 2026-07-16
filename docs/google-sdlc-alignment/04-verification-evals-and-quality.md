@@ -1,5 +1,9 @@
 # Domain 04 — Verification, Evals, and Quality
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Define the verification domain needed for `specd` to satisfy the paper's boundary between vibe coding and agentic engineering. The goal is not to replace `specd verify`; it is to preserve its deterministic, no-bypass evidence contract while adding the missing contracts for output quality, observable agent trajectory, rubric and dataset provenance, and production regression evaluation.

@@ -1,5 +1,7 @@
 # specd — Agent Integration
 
+> **Status:** Normative documentation for current `specd` behavior.
+
 How an AI coding agent (or an MCP client, or a custom harness) drives specd. specd is
 **agent-agnostic**: it constrains *capability* through roles, not *identity*. Anything that
 can run a command can drive it.

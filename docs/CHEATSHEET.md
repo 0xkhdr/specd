@@ -1,5 +1,7 @@
 # specd — Command Reference
 
+> **Status:** Normative documentation for current `specd` behavior.
+
 > **Source of truth.** Every verb, flag, exit code, and allowed phase on this page is
 > generated to match `internal/core/commands.go` (`var Commands`, `HelpSchemaVersion 1`).
 > `docs/CHEATSHEET.md` is a byte-identical copy of this file; `scripts/docs-lint.sh`

@@ -23,6 +23,8 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 smells=0
+ROLLUP_RUN=$(mktemp -d)
+trap 'rm -rf "$ROLLUP_RUN"' EXIT
 
 # Backtick- and escape-aware cell split: a `|` inside a `...` span or a `\|`
 # escape is not a delimiter. (1-based field N.)
@@ -143,6 +145,40 @@ for p in internal/core/verify/adapter.go internal/core/verify/adapter_test.go in
 	[ -f "$ROOT/$p" ] || flag 06-W8 C "missing security release-proof target: $p"
 done
 grep -q 'violation 06-W8' "$ROOT/scripts/regress-domains.sh" || flag 06-W8 B "missing Domain 06 fresh-tree regression assertion"
+
+# G: program rollup and domain task rows are duplicate projections of one
+# completion truth. Compare complete key sets and status, catching a mismatch
+# whether it originates in progress.md or a domain task table.
+program_truth="$ROLLUP_RUN/program.tsv"
+domain_truth="$ROLLUP_RUN/domain.tsv"
+awk '
+/^- \[[x ]\] [0-9][0-9] W[0-9]+/ {
+	status = (substr($0, 4, 1) == "x") ? "done" : "pending"
+	line = $0
+	sub(/^- \[[x ]\] /, "", line)
+	split(line, fields, / +/)
+	print fields[1], fields[2], status
+}' "$ROOT/specs/progress.md" | sort >"$program_truth"
+: >"$domain_truth"
+for tasks in "$ROOT"/specs/[0-1][0-9]-*/tasks.md; do
+	dom=$(basename "$(dirname "$tasks")" | cut -c1-2)
+	awk -v dom="$dom" '
+/^## W[0-9]+ / { wave=$2; seen[wave]=1; next }
+/^\| \[[x ]\] T[0-9]+ / && wave != "" {
+	total[wave]++
+	if (substr($0, 4, 1) != "x") incomplete[wave]++
+}
+END {
+	for (wave in seen) {
+		status = (total[wave] > 0 && incomplete[wave] == 0) ? "done" : "pending"
+		print dom, wave, status
+	}
+}' "$tasks" >>"$domain_truth"
+done
+sort -o "$domain_truth" "$domain_truth"
+if ! cmp -s "$program_truth" "$domain_truth"; then
+	flag program G "progress.md rollup differs from domain task truth"
+fi
 
 if [ "$smells" -eq 0 ]; then
 	echo "regress-lint: clean — no smells"

@@ -6,9 +6,18 @@ import (
 	"sort"
 )
 
+// DoctorResultV1 is the versioned, machine-readable diagnostic envelope.
+// Findings is always encoded as an array, including for a healthy project.
+type DoctorResultV1 struct {
+	ProtocolVersion string          `json:"protocol_version"`
+	Healthy         bool            `json:"healthy"`
+	Findings        []DriverFinding `json:"findings"`
+	NextAction      string          `json:"next_action"`
+}
+
 // Doctor inspects agent-driving prerequisites and writes nothing.
-func Doctor(root, pinned string) []DriverFinding {
-	var findings []DriverFinding
+func Doctor(root, pinned string) DoctorResultV1 {
+	findings := make([]DriverFinding, 0)
 	for _, rel := range []string{".specd", ".specd/roles", ".specd/steering", ".specd/specs", "AGENTS.md"} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err != nil {
 			findings = append(findings, DriverFinding{Code: "LAYOUT_MISSING", Severity: "error", Ref: rel, Message: "required agent-driving layout is missing", RecoveryAction: "run `specd init --repair`"})
@@ -31,5 +40,14 @@ func Doctor(root, pinned string) []DriverFinding {
 		}
 		return findings[i].Ref < findings[j].Ref
 	})
-	return findings
+	nextAction := "repair findings, then run `specd agents doctor --json` again"
+	if len(findings) == 0 {
+		nextAction = "run `specd agents guide <slug> --json`"
+	}
+	return DoctorResultV1{
+		ProtocolVersion: DriverProtocolVersion,
+		Healthy:         len(findings) == 0,
+		Findings:        findings,
+		NextAction:      nextAction,
+	}
 }

@@ -1,5 +1,9 @@
 # Comparative Analysis: `specd` vs. Google's "The New SDLC With Vibe Coding"
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `39a2d1cae1d002261917b966a1ccc1d298c6f981` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](specs/11-workflow-coherence/README.md) and current normative docs.
+
 Source basis:
 - `specd` local repository at `/var/www/html/rai/up/specd`, inspected July 10, 2026.
 - Google paper text extracted in the previous version of this file. The binary PDF was not present in the workspace; paper citations therefore use extracted line references plus the paper's own table-of-contents page markers.

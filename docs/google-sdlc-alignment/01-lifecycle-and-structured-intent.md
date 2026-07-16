@@ -1,5 +1,9 @@
 # Domain 01 — Lifecycle and Structured Intent
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Define the shared lifecycle contract between `specd` and the Google SDLC paper as represented

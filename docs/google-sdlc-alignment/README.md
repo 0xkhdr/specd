@@ -1,5 +1,9 @@
 # Google SDLC Paper Alignment — Domain Analysis
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose and conclusion
 
 This directory decomposes `sdlc-with-vibe-coding.md` into implementation domains that can be hardened independently while preserving `specd`'s central invariants: deterministic gates, evidence integrity, human approval, atomic/CAS state, bounded context, zero runtime dependencies, and subtractive scope.

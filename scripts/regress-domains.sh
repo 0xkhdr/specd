@@ -73,27 +73,37 @@ if [ ! -f "$progress" ]; then
 		violation W0 "input absent: progress.md"
 	fi
 else
-w0_seen_incomplete=0
-w0_bad=0
-w0_rows=$(awk '
-/^- \[[x ]\] / {
-	if (substr($0, 4, 1) == "x") print "done"
-	else print "pending"
-}' "$progress")
-[ -n "$w0_rows" ] || violation W0 "input unparseable: progress.md has no wave rows"
-while IFS= read -r st; do
-	case "$st" in
-		pending|in-progress) w0_seen_incomplete=1 ;;
-		done) [ "$w0_seen_incomplete" -eq 1 ] && w0_bad=1 ;;
-	esac
-done <<EOF
-$w0_rows
-EOF
-if [ "$w0_bad" -ne 0 ]; then
-	violation W0 "progress.md marks a later wave done while an earlier wave is pending"
-else
-	pass W0 "input parsed; progress.md wave ordering honest"
-fi
+	program_truth="$RUN/program-rollup.tsv"
+	domain_truth="$RUN/domain-rollup.tsv"
+	awk '
+/^- \[[x ]\] [0-9][0-9] W[0-9]+/ {
+	status = (substr($0, 4, 1) == "x") ? "done" : "pending"
+	line = $0
+	sub(/^- \[[x ]\] /, "", line)
+	split(line, fields, / +/)
+	print fields[1], fields[2], status
+}' "$progress" | sort >"$program_truth"
+	: >"$domain_truth"
+	for tasks in "$RUN"/specs/[0-1][0-9]-*/tasks.md; do
+		dom=$(basename "$(dirname "$tasks")" | cut -c1-2)
+		awk -v dom="$dom" '
+/^## W[0-9]+ / { wave=$2; seen[wave]=1; next }
+/^\| \[[x ]\] T[0-9]+ / && wave != "" {
+	total[wave]++
+	if (substr($0, 4, 1) != "x") incomplete[wave]++
+}
+END {
+	for (wave in seen) {
+		status = (total[wave] > 0 && incomplete[wave] == 0) ? "done" : "pending"
+		print dom, wave, status
+	}
+}' "$tasks" >>"$domain_truth"
+	done
+	sort -o "$domain_truth" "$domain_truth"
+	if ! cmp -s "$program_truth" "$domain_truth"; then
+		violation W0 "program rollup differs from domain task truth"
+	fi
+	pass W0 "program rollup equals domain task truth in both directions"
 fi
 
 # W1 — enum enforcement (spec 03 R3): an out-of-enum flag value must be refused.
@@ -128,16 +138,13 @@ else
 	pass W4 "check rejects placeholder EARS"
 fi
 
-# W5 — surface lock: the bare verb count is pinned as a tripwire, so adding or
-# removing a verb is a deliberate edit here. Archive is the Domain 09
-# non-destructive retirement verb. Bump this only alongside an intended verb change.
-W5_EXPECT=33
-verbs=$("$SPECD" 2>&1 | sed -n 's/^  \([a-z][a-z]*\) .*/\1/p' | sort -u | wc -l | tr -d ' ')
-if [ "$verbs" -ne "$W5_EXPECT" ]; then
-	violation W5 "verb count is $verbs, expected $W5_EXPECT"
-else
-	pass W5 "verb count == $W5_EXPECT"
-fi
+# W5 — surface coherence derives from the canonical command set. Registry,
+# help, and command metadata parity tests catch additions/removals without a
+# second hardcoded verb count that drifts whenever the canonical set changes.
+go test ./internal/core ./internal/cmd -run 'Test(Command|Registry|Help)' -count=1 >/dev/null 2>&1 || {
+	violation W5 "command registry/help parity regressed"
+}
+pass W5 "command registry/help derive from canonical surface"
 
 # W6 — release: the `version` verb (spec 01) prints a non-empty build stamp.
 if "$SPECD" version 2>/dev/null | grep -qE '.'; then

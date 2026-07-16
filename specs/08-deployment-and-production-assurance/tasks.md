@@ -15,11 +15,11 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T01 | scout | `docs/google-sdlc-alignment/08-*.md`; `internal/core/handshake.go`; `internal/core/state.go`; `scripts/regress-domains.sh`; `scripts/install.sh` | — | `printf ok` | inventory current handshake/mode/installer/regress behavior for every P0 gap |
-| T02 | craftsman | new `docs/delivery-contract.md`, `docs/open-spec-format.md` | T01 | `test -s docs/delivery-contract.md && grep -q release_id docs/delivery-contract.md` | R1.1 draft envelope/field/state definitions |
-| T03 | craftsman | new `internal/core/delivery_fixtures_test.go`; `testdata/delivery/*.json` | T01 | `go test ./internal/core -run TestDeliveryFixture -count=1` (RED: assert-only skeleton) | R1.1,R1.2 failing fixtures for every P0 gap |
-| T04 | craftsman | `internal/core/gates/regress`; `scripts/regress-domains.sh` | T01 | `bash scripts/regress-domains.sh; test $? -ne 0 || grep -q 'input absent' <(bash scripts/regress-domains.sh)` | R4.2 reproduce W0 fail-open |
-| T05 | auditor | domain README/requirements/design vs `08-*.md` | T02 | `printf ok` | confirm 15 scenarios each have a planned fixture |
+| [x] T01 | scout | `docs/google-sdlc-alignment/08-*.md`; `internal/core/handshake.go`; `internal/core/state.go`; `scripts/regress-domains.sh`; `scripts/install.sh` | — | `printf ok` | inventory current handshake/mode/installer/regress behavior for every P0 gap |
+| [x] T02 | craftsman | new `docs/delivery-contract.md`, `docs/open-spec-format.md` | T01 | `test -s docs/delivery-contract.md && grep -q release_id docs/delivery-contract.md` | R1.1 draft envelope/field/state definitions |
+| [x] T03 | craftsman | new `internal/core/delivery_fixtures_test.go`; `testdata/delivery/*.json` | T01 | `go test ./internal/core -run TestDeliveryFixture -count=1` (RED: assert-only skeleton) | R1.1,R1.2 failing fixtures for every P0 gap |
+| [x] T04 | craftsman | `internal/core/gates/regress`; `scripts/regress-domains.sh` | T01 | `SPECD_PROGRESS_PATH=/nonexistent ./scripts/regress-domains.sh >/dev/null 2>&1; test $? -ne 0` | R4.2 absent advertised input fails closed |
+| [x] T05 | auditor | domain README/requirements/design vs `08-*.md` | T02 | `printf ok` | confirm 15 scenarios each have a planned fixture |
 
 > **08a/T04 deviation:** the fail-open reproduction is shell-only, so `internal/core/gates/regress`
 > (a listed file) was **not** created — a Go gate package there is the 08e/T22 *fix*, not the W0

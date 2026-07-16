@@ -46,9 +46,9 @@
 
 | id | role | files | depends-on | verify | acceptance |
 |---|---|---|---|---|---|
-| [ ] T16 | craftsman | internal/core/doctor.go; internal/core/doctor_test.go; internal/cmd/agents.go; internal/cmd/agents_test.go | T15 | `go test ./internal/core ./internal/cmd -run 'TestDoctor|TestAgents'` | R7 typed healthy empty result and defective findings |
-| [ ] T17 | craftsman | scripts/regress-domains.sh; scripts/regress-lint.sh; specs/progress.md; specs/08-deployment-and-production-assurance/tasks.md; specs/09-maintenance-modernization-and-operating-model/tasks.md | T16 | `./scripts/regress-domains.sh && ./scripts/regress-lint.sh` | R7 rollup/task equality; existing W0 drift repaired |
-| [ ] T18 | craftsman | README.md; docs/README.md; docs/user-guide.md; docs/concepts.md; docs/agent-integration.md; docs/command-reference.md; docs/CHEATSHEET.md; docs/google-sdlc-alignment; sdlc-with-vibe-coding.md | T17 | `./scripts/docs-lint.sh && go test ./internal/cmd -run 'Test.*Example|TestIntegration'` | R2,R7 normative commands correct; historical analyses labeled |
+| [x] T16 | craftsman | internal/core/doctor.go; internal/core/doctor_test.go; internal/cmd/agents.go; internal/cmd/agents_test.go | T15 | `go test ./internal/core ./internal/cmd -run 'TestDoctor|TestAgents'` | R7 typed healthy empty result and defective findings |
+| [x] T17 | craftsman | scripts/regress-domains.sh; scripts/regress-lint.sh; specs/progress.md; specs/08-deployment-and-production-assurance/tasks.md; specs/09-maintenance-modernization-and-operating-model/tasks.md | T16 | `./scripts/regress-domains.sh && ./scripts/regress-lint.sh` | R7 rollup/task equality; existing W0 drift repaired |
+| [x] T18 | craftsman | README.md; docs/README.md; docs/user-guide.md; docs/concepts.md; docs/agent-integration.md; docs/command-reference.md; docs/CHEATSHEET.md; docs/google-sdlc-alignment; sdlc-with-vibe-coding.md | T17 | `./scripts/docs-lint.sh && go test ./internal/cmd -run 'Test.*Example|TestIntegration'` | R2,R7 normative commands correct; historical analyses labeled |
 
 ## W6 — Fresh-project release proof
 
@@ -67,6 +67,9 @@
 - W3/T12 conformance deviation: update `internal/integration/snippet.go` outside the row file list; every host adapter derives its executable completion loop from this shared snippet, so transport parity cannot be repaired in the conformance test alone.
 - W4/T15 backprop deviation: record new T15 test-fixture failures in `SPEC.md` §B17-B18; required-source and role-authority validation correctly rejected bad test assumptions and existing invariants cover both.
 - W4 full-suite deviation: update `internal/cmd/approval_gate_test.go` and `internal/cmd/workflow_coherence_test.go` outside row lists; old fixtures depended on the removed fake task or asserted W0 guidance gaps that R5-R6 intentionally close.
+- W5/T18 docs-conformance deviation: update `internal/cmd/examples_test.go` outside the row file list; approval examples and assessment-status metadata must be executable/tested, not prose-only claims.
+- W5/T18 rollup deviation: update `specs/progress.md` outside the row file list only after T18 is green; V17 requires the W5 program checkbox to match its completed task rows.
+- W5 full-regression deviation: update `scripts/production-smoke.sh` outside row lists; full verification exposed three stale targeted `approve` calls that contradict the one-step normative workflow.
 - CLI/flag change updates command reference and CHEATSHEET together.
 - New public contract starts RED and ends with black-box/conformance proof.
 - One wave only per turn; do not start next wave after current turns green.

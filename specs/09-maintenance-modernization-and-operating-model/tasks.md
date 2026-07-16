@@ -16,11 +16,11 @@ auditor=read-only audit diff}. **deps** are task IDs (and cross-domain notes). *
 
 | id | role | files | deps | verify | req |
 |---|---|---|---|---|---|
-| T01 | scout | `docs/google-sdlc-alignment/09-*.md`; `internal/core/program.go`; `internal/core/memory.go`; `internal/core/history.go`; `internal/cmd/report.go` | — | `printf ok` | inventory current link/memory/decision/report behavior for every P0 gap |
-| T02 | craftsman | new `docs/operating-model-contract.md` | T01 | `test -s docs/operating-model-contract.md && grep -q supersedes docs/operating-model-contract.md` | R1,R3 draft link-kind/lifecycle/provenance field definitions |
-| T03 | craftsman | new `internal/core/maintenance_fixtures_test.go`; `testdata/maintenance/*.json` | T01 | `go test ./internal/core -run TestMaintenanceFixture -count=1` (RED: assert-only skeleton) | R1.2,R2.1,R3.1,R4.1 failing fixtures for every P0 gap |
-| T04 | craftsman | `internal/core/program.go` (reopen guard reproduction) | T01 | `go test ./internal/core -run TestReopenRejected -count=1` (RED) | R1.1 reproduce absence of a completed-spec reopen guard |
-| T05 | auditor | domain README/requirements/design vs `09-*.md` | T02 | `printf ok` | confirm 9 validation scenarios each have a planned fixture |
+| [x] T01 | scout | `docs/google-sdlc-alignment/09-*.md`; `internal/core/program.go`; `internal/core/memory.go`; `internal/core/history.go`; `internal/cmd/report.go` | — | `printf ok` | inventory current link/memory/decision/report behavior for every P0 gap |
+| [x] T02 | craftsman | new `docs/operating-model-contract.md` | T01 | `test -s docs/operating-model-contract.md && grep -q supersedes docs/operating-model-contract.md` | R1,R3 draft link-kind/lifecycle/provenance field definitions |
+| [x] T03 | craftsman | new `internal/core/maintenance_fixtures_test.go`; `testdata/maintenance/*.json` | T01 | `go test ./internal/core -run TestMaintenanceFixture -count=1` (RED: assert-only skeleton) | R1.2,R2.1,R3.1,R4.1 failing fixtures for every P0 gap |
+| [x] T04 | craftsman | `internal/core/program.go` (reopen guard reproduction) | T01 | `go test ./internal/core -run TestReopenRejected -count=1` (RED) | R1.1 reproduce absence of a completed-spec reopen guard |
+| [x] T05 | auditor | domain README/requirements/design vs `09-*.md` | T02 | `printf ok` | confirm 9 validation scenarios each have a planned fixture |
 
 > **W0 deviations (recorded per prompt.md §2 cross-wave rule):**
 > - T04's reproduction test `TestReopenRejected` lands in `internal/core/program_test.go` (the

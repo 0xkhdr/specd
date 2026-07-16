@@ -1,5 +1,7 @@
 # specd — Spec-Driven Coding Harness
 
+> **Status:** Normative documentation for current `specd` behavior.
+
 `specd` is a **spec-driven coding harness CLI** that fuses structured spec workflows
 (requirements → design → tasks → evidence-gated execution) with rigid thinking discipline
 for AI coding agents. It shifts process enforcement from the LLM's non-deterministic

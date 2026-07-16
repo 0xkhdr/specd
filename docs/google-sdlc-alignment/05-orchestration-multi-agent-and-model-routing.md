@@ -1,5 +1,9 @@
 # Domain 05 — Orchestration, Multi-Agent Work, and Model Routing
 
+> **Status:** Historical assessment; proposals are non-normative.
+> **As of commit:** `f62f16f44f92de5fa59a9304b8b10b0721564eaa` (2026-07-10).
+> **Superseded by:** [`specs/11-workflow-coherence`](../../specs/11-workflow-coherence/README.md) and current normative docs.
+
 ## Purpose
 
 Define how `specd` should coordinate one or more coding agents, preserve role and evidence boundaries across handoffs, and support cost/complexity-aware model selection without placing an LLM inside the deterministic decision path.

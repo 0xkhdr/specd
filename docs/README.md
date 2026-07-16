@@ -1,5 +1,7 @@
 # specd — Documentation
 
+> **Status:** Normative documentation for current `specd` behavior.
+
 `specd` is a **spec-driven coding harness CLI** — Go, standard library only, zero runtime
 dependencies, one static binary. It moves process enforcement out of the LLM's context window
 into a deterministic, local, tool-gated pipeline: **requirements → design → tasks →
