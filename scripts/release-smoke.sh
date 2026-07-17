@@ -26,8 +26,9 @@ printf '%s' "$identity" | grep -q '"version"' || {
   exit 1
 }
 if [ -n "${SPECD_EXPECT_COMMIT:-}" ]; then
-  printf '%s' "$identity" | grep -q '"commit":"'"$SPECD_EXPECT_COMMIT"'"' || {
-    printf 'release-smoke: commit identity mismatch\n' >&2
+  # Normalize whitespace so both compact and indented JSON output match.
+  printf '%s' "$identity" | tr -d ' \n\t' | grep -q '"commit":"'"$SPECD_EXPECT_COMMIT"'"' || {
+    printf 'release-smoke: commit identity mismatch (want %s, got: %s)\n' "$SPECD_EXPECT_COMMIT" "$identity" >&2
     exit 1
   }
 fi
