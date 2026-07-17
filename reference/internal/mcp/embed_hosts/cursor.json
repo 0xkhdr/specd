@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "specd": {
-      "command": "specd",
-      "args": ["mcp", "--root", "/path/to/your/project"]
-    }
-  }
-}
