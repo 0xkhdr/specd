@@ -42,13 +42,15 @@ func CoreTools() []Tool {
 // property; enums and defaults flow through from the command metadata.
 func inputSchema(command core.Command, operation core.Operation) map[string]any {
 	properties := make(map[string]any, len(command.Flags)+1)
-	// Positional operands (spec slug, task id, …) travel under the reserved
-	// "args" key as an ordered array; splitArguments maps it back to the
-	// dispatcher's positional slice.
+	// Positional operands (subcommand, spec slug, task id, …) travel under the
+	// reserved "args" key as an ordered array; splitArguments maps it back to
+	// the dispatcher's positional slice. The description carries the command's
+	// exact usage signature so required operands are documented per-tool and
+	// never drift from dispatch (spec 03 R5, C.8).
 	properties["args"] = map[string]any{
 		"type":        "array",
 		"items":       map[string]any{"type": "string"},
-		"description": "Positional arguments (e.g. spec slug, task id), in order.",
+		"description": argsDescription(command, operation),
 	}
 	if operation.TaskRequired {
 		properties["authority"] = map[string]any{
@@ -74,6 +76,19 @@ func inputSchema(command core.Command, operation core.Operation) map[string]any 
 		"properties":           properties,
 		"additionalProperties": true,
 	}
+}
+
+// argsDescription documents the ordered positional operands for a tool by
+// projecting the command's exact usage signature (the single source of truth
+// in core.Command) into the "args" schema. Missing or wrong operands then fail
+// against dispatch's own arg validation, and the agent sees the required shape
+// up front — e.g. handshake surfaces `usage: handshake bootstrap <spec>`.
+func argsDescription(command core.Command, operation core.Operation) string {
+	description := "Positional arguments, in order. usage: " + command.Usage
+	if len(operation.Examples) > 0 {
+		description += " — example: " + operation.Examples[0]
+	}
+	return description
 }
 
 // jsonType maps a flag's declared type to a JSON Schema scalar type. A flag
