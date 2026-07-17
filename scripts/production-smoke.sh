@@ -122,7 +122,9 @@ grep -Eq 'criterion|review' "$quality_negative"
 
 "$BIN" verify smoke --criterion 1.1 --status pass --evidence 'fresh production smoke evidence' >/dev/null
 "$BIN" review smoke >/dev/null
-sed -i 's/<your identity — required>/independent-auditor/; s/<approve | reject | needs-changes>/approve/; s/<Required when the verdict is reject or needs-changes: what must change and why./Reviewed scope, evidence, error handling, and rollback./; s/For an approve verdict, note what you checked.>//' .specd/specs/smoke/review_report.md
+# -i.bak (not bare -i) keeps this portable across GNU and BSD sed.
+sed -i.bak 's/<your identity — required>/independent-auditor/; s/<approve | reject | needs-changes>/approve/; s/<Required when the verdict is reject or needs-changes: what must change and why./Reviewed scope, evidence, error handling, and rollback./; s/For an approve verdict, note what you checked.>//' .specd/specs/smoke/review_report.md
+rm -f .specd/specs/smoke/review_report.md.bak
 "$BIN" approve smoke >/dev/null
 "$BIN" status smoke --guide --json >"$status_out"
 grep -q '"status": "complete"' "$status_out" || { cat "$status_out" >&2; exit 1; }

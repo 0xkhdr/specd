@@ -48,10 +48,16 @@ func TestSelectorRequiredLanes(t *testing.T) {
 
 func TestSelectorNamesMissingRequiredSource(t *testing.T) {
 	root := t.TempDir()
-	os.MkdirAll(filepath.Join(root, ".specd/specs/demo"), 0o755)
-	os.MkdirAll(filepath.Join(root, ".specd/roles"), 0o755)
-	os.WriteFile(filepath.Join(root, ".specd/specs/demo/requirements.md"), []byte("r"), 0o644)
-	os.WriteFile(filepath.Join(root, ".specd/roles/craftsman.md"), []byte("r"), 0o644)
+	for _, dir := range []string{".specd/specs/demo", ".specd/roles"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, file := range []string{".specd/specs/demo/requirements.md", ".specd/roles/craftsman.md"} {
+		if err := os.WriteFile(filepath.Join(root, file), []byte("r"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	_, err := SelectRequiredLanes(root, "demo", core.TaskRow{ID: "T1", Role: "craftsman"})
 	if err == nil || !strings.Contains(err.Error(), ".specd/specs/demo/design.md") || !strings.Contains(err.Error(), "missing") {
 		t.Fatalf("error = %v", err)

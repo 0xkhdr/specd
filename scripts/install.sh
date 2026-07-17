@@ -139,7 +139,8 @@ binary_identity() {
   identity=$($candidate version --json 2>/dev/null) || return 1
   printf '%s' "$identity" | grep -q '"version"' || return 1
   if [ -n "${SPECD_EXPECT_COMMIT:-}" ]; then
-    printf '%s' "$identity" | grep -q '"commit":"'"$SPECD_EXPECT_COMMIT"'"' || \
+    # version --json is indented, so tolerate whitespace after the colon.
+    printf '%s' "$identity" | grep -Eq '"commit": *"'"$SPECD_EXPECT_COMMIT"'"' || \
       return 1
   fi
 }
@@ -158,7 +159,7 @@ managed_digest() {
   candidate=$1
   [ -n "${SPECD_SMOKE_ROOT:-}" ] || return 1
   output=$(cd "$SPECD_SMOKE_ROOT" && "$candidate" handshake bootstrap --json 2>/dev/null) || return 1
-  printf '%s' "$output" | awk -F'"managed_digest":"' 'NF > 1 {split($2, a, "\""); print a[1]; exit}'
+  printf '%s' "$output" | awk -F'"managed_digest": *"' 'NF > 1 {split($2, a, "\""); print a[1]; exit}'
 }
 
 VERSION=${SPECD_VERSION:-}

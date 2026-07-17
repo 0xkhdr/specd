@@ -113,12 +113,16 @@ func TestConfigSecurityProfile(t *testing.T) {
 	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "project.yml")
-	os.WriteFile(path, []byte("security:\n  profile: production\n"), 0o644)
+	if err := os.WriteFile(path, []byte("security:\n  profile: production\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cfg, diags := LoadConfig(ConfigPaths{Project: path}, nil)
 	if len(diags) != 0 || cfg.Security.Profile != "production" {
 		t.Fatalf("cfg=%+v diags=%v", cfg.Security, diags)
 	}
-	os.WriteFile(path, []byte("security:\n  profile: unsafe\n"), 0o644)
+	if err := os.WriteFile(path, []byte("security:\n  profile: unsafe\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	_, diags = LoadConfig(ConfigPaths{Project: path}, nil)
 	if len(diags) != 1 {
 		t.Fatalf("invalid profile diagnostics=%v", diags)
@@ -311,7 +315,8 @@ func TestConfigProfileArmsPerSwitch(t *testing.T) {
 // so an approval pinned to it goes stale exactly when the policy moves.
 func TestHandshakePolicyDigest(t *testing.T) {
 	base := DefaultConfig
-	if PolicyDigest(base) != PolicyDigest(base) {
+	baseDigest, again := PolicyDigest(base), PolicyDigest(base)
+	if baseDigest != again {
 		t.Fatal("policy digest not stable for identical config")
 	}
 	prod := DefaultConfig

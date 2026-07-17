@@ -168,7 +168,9 @@ func TestDispatchAuthorityDeniesReadOnlyWrite(t *testing.T) {
 	}
 	a.AllowedTools = append(a.AllowedTools, core.ToolAuthority{ID: "complete-task"})
 	a.Digest = ""
-	core.FinalizeAuthority(&a)
+	if err := core.FinalizeAuthority(&a); err != nil {
+		t.Fatal(err)
+	}
 	root := t.TempDir()
 	err = RunAuthorized(root, "complete-task", []string{"demo", "T1"}, nil, a, nil, now)
 	if err == nil || (!strings.Contains(err.Error(), "ROLE_WRITE_DENIED") && !strings.Contains(err.Error(), "authority denied")) {

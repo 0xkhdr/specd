@@ -8,14 +8,15 @@ import "testing"
 // generated input schema so an agent can request guidance without a bespoke
 // tool.
 func TestStatusToolExposesGuide(t *testing.T) {
-	var status *Tool
-	for i := range CoreTools() {
-		if tool := CoreTools()[i]; tool.Name == "status" {
-			status = &tool
+	var status Tool
+	foundStatus := false
+	for _, tool := range CoreTools() {
+		if tool.Name == "status" {
+			status, foundStatus = tool, true
 			break
 		}
 	}
-	if status == nil {
+	if !foundStatus {
 		t.Fatal("status tool not found")
 	}
 	props, ok := status.InputSchema["properties"].(map[string]any)

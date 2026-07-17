@@ -27,7 +27,9 @@ func TestACPTelemetryEnvelope(t *testing.T) {
 	}
 
 	decode := filepath.Join(dir, "decode.jsonl")
-	os.WriteFile(decode, []byte(`{"kind":"report","task_id":"T1","telemetry":{"envelope_version":"v2"}}`+"\n"), 0o644)
+	if err := os.WriteFile(decode, []byte(`{"kind":"report","task_id":"T1","telemetry":{"envelope_version":"v2"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := ReadACP(decode); err == nil {
 		t.Fatal("unknown envelope version accepted on decode")
 	}

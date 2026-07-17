@@ -29,7 +29,9 @@ func TestDoctorCleanAndReadOnly(t *testing.T) {
 	if err := WriteScaffold(root); err != nil {
 		t.Fatal(err)
 	}
-	os.MkdirAll(filepath.Join(root, ".specd/specs/demo"), 0o755)
+	if err := os.MkdirAll(filepath.Join(root, ".specd/specs/demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	before, _ := os.ReadFile(filepath.Join(root, "AGENTS.md"))
 	result := Doctor(root, "demo")
 	if result.ProtocolVersion != DriverProtocolVersion || !result.Healthy {

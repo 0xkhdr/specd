@@ -59,8 +59,12 @@ func TestBrainFakeHostLifecycleE2E(t *testing.T) {
 func TestBrainReportProductionScopeRejectsUndeclared(t *testing.T) {
 	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\nprofile: production\n")
 	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"
-	os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644)
-	os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	gitInitRepo(t, root)
 	execGit(t, root, "add", ".")
 	execGit(t, root, "commit", "-m", "tracked")
@@ -70,7 +74,9 @@ func TestBrainReportProductionScopeRejectsUndeclared(t *testing.T) {
 	if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(root, "outside.go"), []byte("x"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "outside.go"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := core.AppendEvidence(core.EvidencePath(root, "demo"), core.EvidenceRecord{TaskID: "T1", Command: "printf ok", ExitCode: 0, GitHead: gitHead(root)}); err != nil {
 		t.Fatal(err)
 	}

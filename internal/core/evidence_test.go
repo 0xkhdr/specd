@@ -37,7 +37,9 @@ func TestEvidenceQualityMinimalBaseline(t *testing.T) {
 
 func TestEvidenceMalformedBaseline(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "evidence.jsonl")
-	os.WriteFile(path, []byte("{truncated\n"), 0o644)
+	if err := os.WriteFile(path, []byte("{truncated\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := LoadEvidence(path); err == nil {
 		t.Fatal("malformed evidence accepted")
 	}
@@ -52,7 +54,9 @@ func TestEvidenceTelemetryEnvelope(t *testing.T) {
 
 	// Telemetry without the v1 envelope (bare cost, no version) fails closed.
 	bare := filepath.Join(dir, "bare.jsonl")
-	os.WriteFile(bare, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","telemetry":{"cost":"0.01"}}`+"\n"), 0o644)
+	if err := os.WriteFile(bare, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","telemetry":{"cost":"0.01"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := LoadEvidenceRecords(bare); err == nil {
 		t.Fatal("telemetry without v1 envelope accepted")
 	}
@@ -74,7 +78,9 @@ func TestEvidenceTelemetryEnvelope(t *testing.T) {
 
 	// Malformed canonical telemetry (cost without currency) fails closed.
 	bad := filepath.Join(dir, "bad.jsonl")
-	os.WriteFile(bad, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","telemetry":{"envelope_version":"v1","telemetry_source":"worker","cost":"0.02"}}`+"\n"), 0o644)
+	if err := os.WriteFile(bad, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","telemetry":{"envelope_version":"v1","telemetry_source":"worker","cost":"0.02"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := LoadEvidenceRecords(bad); err == nil {
 		t.Fatal("malformed canonical telemetry accepted on decode")
 	}
@@ -114,7 +120,9 @@ func TestEvidenceRefRejectsUnsafe(t *testing.T) {
 
 	// A ledger line carrying an unsafe ref fails closed on decode.
 	tampered := filepath.Join(dir, "tampered.jsonl")
-	os.WriteFile(tampered, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","evidence_ref":"/etc/passwd"}`+"\n"), 0o644)
+	if err := os.WriteFile(tampered, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","evidence_ref":"/etc/passwd"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := LoadEvidenceRecords(tampered); err == nil {
 		t.Fatal("unsafe evidence_ref accepted on decode")
 	}

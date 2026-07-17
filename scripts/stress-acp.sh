@@ -61,7 +61,7 @@ fi
 # crash mid-append must leave no partial line. Race concurrent `specd verify`,
 # each of which allocates one run/attempt under the spec lock, then assert the
 # ledger is well-formed with a single run_id and no duplicate attempt.
-printf '{"schema_version":2,"slug":"demo","mode":"default","status":"tasks","phase":"plan","revision":0,"records":{}}\n' > "$spec/state.json"
+printf '{"schema_version":1,"slug":"demo","mode":"default","status":"tasks","phase":"plan","revision":0,"records":{}}\n' > "$spec/state.json"
 printf '| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n' > "$spec/tasks.md"
 
 i=0

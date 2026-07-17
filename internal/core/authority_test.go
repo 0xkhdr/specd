@@ -40,7 +40,9 @@ func TestAuthorityToolPolicy(t *testing.T) {
 	a.Role = "validator"
 	a.AllowedTools = append(a.AllowedTools, ToolAuthority{ID: "review"})
 	a.Digest = ""
-	FinalizeAuthority(&a)
+	if err := FinalizeAuthority(&a); err != nil {
+		t.Fatal(err)
+	}
 	if err := AuthorizeTool(a, "review", nil, a.IssuedAt, "execute", true); err == nil {
 		t.Fatal("read-only write accepted")
 	}

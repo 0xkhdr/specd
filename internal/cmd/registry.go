@@ -528,9 +528,10 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	for _, precondition := range preconditions {
 		if expected, ok := flags["expect-"+precondition.flag]; ok && expected != precondition.current {
 			hint := ""
-			if precondition.flag == "palette-digest" {
+			switch precondition.flag {
+			case "palette-digest":
 				hint = " (palette digest drift)"
-			} else if precondition.flag == "config-digest" {
+			case "config-digest":
 				hint = " (config digest drift)"
 			}
 			return fmt.Errorf("precondition %s mismatch: expected %s, current %s%s", precondition.flag, expected, precondition.current, hint)

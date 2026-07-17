@@ -215,14 +215,15 @@ func TestIntegrationApproveHandoffParity(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &guide); err != nil {
 		t.Fatal(err)
 	}
-	var approve *core.NextAction
-	for i := range guide.NextActions {
-		if guide.NextActions[i].Command == "approve" {
-			approve = &guide.NextActions[i]
+	var approve core.NextAction
+	foundApprove := false
+	for _, action := range guide.NextActions {
+		if action.Command == "approve" {
+			approve, foundApprove = action, true
 			break
 		}
 	}
-	if approve == nil {
+	if !foundApprove {
 		t.Fatal("driver guide omitted approve handoff")
 	}
 	raw, err := json.Marshal(map[string]any{"name": "approve", "arguments": map[string]any{"args": approve.Args}})

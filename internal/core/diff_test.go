@@ -20,12 +20,18 @@ func TestDiffDerivesTrackedAndUntracked(t *testing.T) {
 		return string(out)
 	}
 	runGit("init")
-	os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	runGit("add", ".")
 	runGit("commit", "-m", "base")
 	head := strings.TrimSpace(runGit("rev-parse", "HEAD"))
-	os.WriteFile(filepath.Join(root, "a.go"), []byte("b"), 0o644)
-	os.WriteFile(filepath.Join(root, "b.go"), []byte("b"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "b.go"), []byte("b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	d, err := DeriveDiff(root, head)
 	if err != nil {
 		t.Fatal(err)
@@ -47,12 +53,18 @@ func TestDiffExcludesHarnessMetadata(t *testing.T) {
 		return string(out)
 	}
 	runGit("init")
-	os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	runGit("add", ".")
 	runGit("commit", "-m", "base")
 	head := strings.TrimSpace(runGit("rev-parse", "HEAD"))
-	os.MkdirAll(filepath.Join(root, ".specd/specs/demo"), 0o755)
-	os.WriteFile(filepath.Join(root, ".specd/specs/demo/acp.jsonl"), []byte("event"), 0o644)
+	if err := os.MkdirAll(filepath.Join(root, ".specd/specs/demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/acp.jsonl"), []byte("event"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	d, err := DeriveDiff(root, head)
 	if err != nil {
 		t.Fatal(err)

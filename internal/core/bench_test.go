@@ -82,8 +82,17 @@ func TestFrontierScalesSubQuadratically(t *testing.T) {
 		})
 		return time.Duration(r.NsPerOp())
 	}
-	small := bench(500)
-	large := bench(2000) // 4x the tasks
+	// Best-of-two per size damps shared-runner and coverage-instrumentation
+	// noise: a scheduling stall inflates one sample, rarely both.
+	best := func(n int) time.Duration {
+		a, b := bench(n), bench(n)
+		if b < a {
+			return b
+		}
+		return a
+	}
+	small := best(500)
+	large := best(2000) // 4x the tasks
 	if small <= 0 {
 		t.Skip("benchmark produced non-positive baseline; timing unavailable")
 	}

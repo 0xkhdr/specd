@@ -17,7 +17,9 @@ func TestMCPAuthorityDeniesValidatorWrite(t *testing.T) {
 	}
 	a.AllowedTools = append(a.AllowedTools, core.ToolAuthority{ID: "review"})
 	a.Digest = ""
-	core.FinalizeAuthority(&a)
+	if err := core.FinalizeAuthority(&a); err != nil {
+		t.Fatal(err)
+	}
 	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"review","arguments":{"args":["demo"]}}`)}
 	resp := DispatchAuthorized(req, CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
 		t.Fatal("executor called")
@@ -41,16 +43,17 @@ func TestMCPUnknownToolDefaultDenied(t *testing.T) {
 func TestMCPTelemetryAnnotationFlags(t *testing.T) {
 	for _, toolName := range []string{"verify.task"} {
 		tools := CoreTools()
-		var found *Tool
+		idx := -1
 		for i := range tools {
 			if tools[i].Name == toolName {
-				found = &tools[i]
+				idx = i
 				break
 			}
 		}
-		if found == nil {
+		if idx == -1 {
 			t.Fatalf("tool %s absent", toolName)
 		}
+		found := tools[idx]
 		encoded, err := json.Marshal(found.InputSchema)
 		if err != nil {
 			t.Fatal(err)

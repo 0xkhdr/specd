@@ -20,14 +20,24 @@ func TestDiffRenameDeleteUntracked(t *testing.T) {
 		return string(o)
 	}
 	git("init")
-	os.WriteFile(filepath.Join(root, "a"), []byte("a"), 0o644)
-	os.WriteFile(filepath.Join(root, "gone"), []byte("x"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "a"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gone"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	git("add", ".")
 	git("commit", "-m", "base")
 	head := strings.TrimSpace(git("rev-parse", "HEAD"))
-	os.Rename(filepath.Join(root, "a"), filepath.Join(root, "b"))
-	os.Remove(filepath.Join(root, "gone"))
-	os.WriteFile(filepath.Join(root, "new"), []byte("n"), 0o644)
+	if err := os.Rename(filepath.Join(root, "a"), filepath.Join(root, "b")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, "gone")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "new"), []byte("n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	d, err := Derive(root, head)
 	if err != nil {
 		t.Fatal(err)
