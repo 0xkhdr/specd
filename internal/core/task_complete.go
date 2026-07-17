@@ -46,7 +46,7 @@ func CompleteTask(rawTasks []byte, taskID string, records map[string]EvidenceRec
 // have a fresh passing record for the current subject (spec 04 R3.3, R3.4). A
 // missing required record refuses with EVIDENCE_MISSING; a passing-but-stale
 // one with EVIDENCE_STALE. A contract with no requirements degrades to
-// CompleteTask, so legacy tasks stay unaffected.
+// CompleteTask, so tasks without them stay unaffected.
 func CompleteTaskWithQuality(rawTasks []byte, taskID string, records map[string]EvidenceRecord, c QualityContract, evals []EvidenceEnvelopeV1, subject FreshnessSubject) ([]byte, error) {
 	if err := verifyEvidenceReady(taskID, records); err != nil {
 		return nil, err

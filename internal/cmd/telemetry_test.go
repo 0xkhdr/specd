@@ -26,7 +26,7 @@ func TestTaskTelemetry(t *testing.T) {
 	}
 
 	// Verify with valid telemetry stores it verbatim on the evidence record (R1).
-	if err := Run(root, "verify", []string{"demo", "T1"}, map[string]string{"tokens": "1200", "cost": "0.034", "duration-ms": "45000"}); err != nil {
+	if err := Run(root, "verify", []string{"demo", "T1"}, map[string]string{"tokens": "1200", "cost": "0.034", "currency": "USD", "pricing-ref": "pricing/v1", "duration-ms": "45000"}); err != nil {
 		t.Fatalf("verify with telemetry: %v", err)
 	}
 	records, err := core.LoadEvidenceRecords(core.EvidencePath(root, "demo"))
@@ -54,7 +54,7 @@ func TestReportMetrics(t *testing.T) {
 	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if err := Run(root, "complete-task", []string{"demo", "T1"}, map[string]string{"tokens": "300", "cost": "0.3", "duration-ms": "30"}); err != nil {
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, map[string]string{"tokens": "300", "cost": "0.3", "currency": "USD", "pricing-ref": "pricing/v1", "duration-ms": "30"}); err != nil {
 		t.Fatalf("complete-task with telemetry: %v", err)
 	}
 

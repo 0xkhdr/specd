@@ -32,7 +32,7 @@ func TestSteeringSelection(t *testing.T) {
 		t.Fatalf("omissions = %+v", omissions)
 	}
 	items2, omissions2, err := SelectSteering(root, SelectionContext{Phase: "execute", Role: "craftsman", Tags: []string{"go"}, Files: []string{"internal/x.go"}})
-	if err != nil || ManifestV2Digest(ManifestV2{Items: items}) != ManifestV2Digest(ManifestV2{Items: items2}) || len(omissions2) != 1 {
+	if err != nil || MachineManifestDigest(MachineManifest{Items: items}) != MachineManifestDigest(MachineManifest{Items: items2}) || len(omissions2) != 1 {
 		t.Fatal("selection must be deterministic")
 	}
 }

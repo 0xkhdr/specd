@@ -9,12 +9,9 @@ import (
 	"strings"
 )
 
-// Telemetry envelope schema versions (spec 07 R1.1). An empty EnvelopeVersion
-// marks a legacy, pre-envelope record: it decodes and re-encodes byte-for-byte
-// unchanged and is validated leniently for backward compatibility. A canonical
-// record carries TelemetryEnvelopeV1 and is held to the strict v1 contract
-// (R1.2/R1.3). Any other, unrecognized version is a *required* schema mismatch
-// and fails closed.
+// Telemetry envelope schema version (spec 07 R1.1). A canonical record carries
+// TelemetryEnvelopeV1 and is held to the strict v1 contract (R1.2/R1.3). Any
+// other version is a *required* schema mismatch and fails closed.
 const TelemetryEnvelopeV1 = "v1"
 
 // Telemetry provenance (spec 07 R1.3): who reported the measured values. specd
@@ -33,9 +30,8 @@ const (
 // produces valid records. Cost is a decimal string with currency-agnostic
 // semantics; aggregation uses exact rational math, never float64 (R6).
 //
-// The envelope fields (spec 07 R1) are all omitempty so a legacy record (bare
-// tokens/cost/duration) decodes unchanged and re-encodes byte-identically,
-// while a canonical record round-trips its version and provenance byte-stably.
+// The envelope fields (spec 07 R1) are all omitempty; a canonical record
+// round-trips its version and provenance byte-stably.
 type Annotations struct {
 	Tokens       int    `json:"tokens,omitempty"`
 	InputTokens  int    `json:"input_tokens,omitempty"`
@@ -47,7 +43,7 @@ type Annotations struct {
 	// Source is the trust provenance (worker|provider_adapter|operator, R1.3).
 	// Currency pairs with Cost on canonical records (R1.2). AttestationRef is an
 	// external, always-optional pointer to a provider attestation (R1.3).
-	// EnvelopeVersion marks the schema; empty means legacy (grandfathered).
+	// EnvelopeVersion marks the schema; every persisted record carries v1.
 	Source          string `json:"telemetry_source,omitempty"`
 	Currency        string `json:"currency,omitempty"`
 	PricingRef      string `json:"pricing_ref,omitempty"`
@@ -58,17 +54,15 @@ type Annotations struct {
 }
 
 // ValidateAnnotations enforces the telemetry envelope's decode/persist rules
-// (spec 07 R1.2). A nil record is valid (absence is honest, never zero). A
-// legacy record (no EnvelopeVersion) is grandfathered so old ledgers keep
-// decoding (R1.1) — only an outright malformed decimal or negative unit is
-// rejected. A canonical v1 record is held to the full contract: a known
-// provenance, and cost paired with a currency. Any unrecognized required
-// version fails closed. Optional fields left absent stay absent.
+// (spec 07 R1.2). A nil record is valid (absence is honest, never zero). Every
+// present record is held to the full v1 contract: the v1 envelope version, a
+// known provenance, and cost paired with a currency. Any other version fails
+// closed. Optional fields left absent stay absent.
 func ValidateAnnotations(a *Annotations) error {
 	if a == nil {
 		return nil
 	}
-	if a.EnvelopeVersion != "" && a.EnvelopeVersion != TelemetryEnvelopeV1 {
+	if a.EnvelopeVersion != TelemetryEnvelopeV1 {
 		return fmt.Errorf("unknown telemetry envelope version %q", a.EnvelopeVersion)
 	}
 	if a.Cost != "" && !decimalPattern.MatchString(a.Cost) {
@@ -86,9 +80,6 @@ func ValidateAnnotations(a *Annotations) error {
 	}
 	if a.DurationMs < 0 {
 		return fmt.Errorf("telemetry duration_ms %d is negative", a.DurationMs)
-	}
-	if a.EnvelopeVersion == "" {
-		return nil // legacy: grandfathered, no v1 strictness
 	}
 	switch a.Source {
 	case TelemetrySourceWorker, TelemetrySourceAdapter, TelemetrySourceOperator:
@@ -117,28 +108,28 @@ func ValidateAnnotations(a *Annotations) error {
 var decimalPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 var boundedIdentifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$`)
 
-// ParseAnnotationFlags parses the additive provider-neutral flag set. New
-// fields opt into canonical v1 validation; legacy-only flags retain old shape.
+// ParseAnnotationFlags parses the provider-neutral flag set. Every resulting
+// record is a canonical v1 envelope; there is no laxer shape.
 func ParseAnnotationFlags(values map[string]string, present func(string) bool) (*Annotations, error) {
-	legacy, err := ParseAnnotations(values["tokens"], values["cost"], values["duration-ms"], present)
+	ann, err := ParseAnnotations(values["tokens"], values["cost"], values["duration-ms"], present)
 	if err != nil {
 		return nil, err
 	}
-	newFields := []string{"input-tokens", "output-tokens", "cached-tokens", "provider", "model", "currency", "pricing-ref", "telemetry-source", "attestation-ref"}
-	hasNew := false
-	for _, name := range newFields {
+	extraFields := []string{"input-tokens", "output-tokens", "cached-tokens", "provider", "model", "currency", "pricing-ref", "telemetry-source", "attestation-ref"}
+	hasExtra := false
+	for _, name := range extraFields {
 		if present(name) {
-			hasNew = true
+			hasExtra = true
 			break
 		}
 	}
-	if legacy == nil && !hasNew {
+	if ann == nil && !hasExtra {
 		return nil, nil
 	}
-	if legacy == nil {
-		legacy = &Annotations{}
+	if ann == nil {
+		ann = &Annotations{}
 	}
-	for flag, target := range map[string]*int{"input-tokens": &legacy.InputTokens, "output-tokens": &legacy.OutputTokens, "cached-tokens": &legacy.CachedTokens} {
+	for flag, target := range map[string]*int{"input-tokens": &ann.InputTokens, "output-tokens": &ann.OutputTokens, "cached-tokens": &ann.CachedTokens} {
 		if !present(flag) {
 			continue
 		}
@@ -148,22 +139,20 @@ func ParseAnnotationFlags(values map[string]string, present func(string) bool) (
 		}
 		*target = n
 	}
-	if hasNew {
-		legacy.EnvelopeVersion = TelemetryEnvelopeV1
-		legacy.Source = strings.TrimSpace(values["telemetry-source"])
-		if legacy.Source == "" {
-			legacy.Source = TelemetrySourceWorker
-		}
-		legacy.Currency = strings.TrimSpace(values["currency"])
-		legacy.PricingRef = strings.TrimSpace(values["pricing-ref"])
-		legacy.Provider = strings.TrimSpace(values["provider"])
-		legacy.Model = strings.TrimSpace(values["model"])
-		legacy.AttestationRef = strings.TrimSpace(values["attestation-ref"])
+	ann.EnvelopeVersion = TelemetryEnvelopeV1
+	ann.Source = strings.TrimSpace(values["telemetry-source"])
+	if ann.Source == "" {
+		ann.Source = TelemetrySourceWorker
 	}
-	if err := ValidateAnnotations(legacy); err != nil {
+	ann.Currency = strings.TrimSpace(values["currency"])
+	ann.PricingRef = strings.TrimSpace(values["pricing-ref"])
+	ann.Provider = strings.TrimSpace(values["provider"])
+	ann.Model = strings.TrimSpace(values["model"])
+	ann.AttestationRef = strings.TrimSpace(values["attestation-ref"])
+	if err := ValidateAnnotations(ann); err != nil {
 		return nil, err
 	}
-	return legacy, nil
+	return ann, nil
 }
 
 // ParseAnnotations reads the optional --tokens/--cost/--duration-ms flags. It
@@ -214,8 +203,7 @@ type TaskTelemetry struct {
 	CachedTokens int           `json:"cached_tokens"`
 	Cost         string        `json:"cost"`
 	// Source is the telemetry provenance surfaced so a report renders the values
-	// as reported, never as independently measured (spec 07 R1.3). A legacy
-	// attempt carries no explicit source and is reported as worker-reported.
+	// as reported, never as independently measured (spec 07 R1.3).
 	Source       string `json:"telemetry_source,omitempty"`
 	DurationMs   int    `json:"duration_ms"`
 	HasTelemetry bool   `json:"has_telemetry"`
@@ -307,7 +295,7 @@ func AggregateTelemetry(records []EvidenceRecord, taskOrder []string) TelemetryR
 
 // telemetrySource reports the provenance of a task's telemetry (spec 07 R1.3):
 // the explicit source when every annotated attempt agrees, "mixed" when they
-// diverge, and "worker" when none is set (legacy attempts are worker-reported).
+// diverge, and "worker" when none is set.
 func telemetrySource(attempts []Annotations) string {
 	src := ""
 	for _, a := range attempts {

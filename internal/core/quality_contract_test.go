@@ -17,10 +17,10 @@ func TestQualityContractExactClassAndCheck(t *testing.T) {
 	}
 }
 
-func TestQualityContractLegacyAndMalformed(t *testing.T) {
+func TestQualityContractMinimalAndMalformed(t *testing.T) {
 	c, err := ParseQualityContract(TaskRow{ID: "T1", Verify: "go test ./..."})
 	if err != nil || len(c.Required) != 0 {
-		t.Fatalf("legacy = %+v, %v", c, err)
+		t.Fatalf("minimal = %+v, %v", c, err)
 	}
 	for _, value := range []string{"vibes/x", "test", "test/"} {
 		if _, err := ParseQualityContract(TaskRow{ID: "T1", Evidence: value}); err == nil {

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const StateSchemaVersion = 2
+const StateSchemaVersion = 1
 
 // PreflightStateSchema checks compatibility without decoding or mutating state.
 // Installers use it before replacing a binary so future state cannot be opened
@@ -54,8 +54,7 @@ type Record struct {
 	// structured-intent metadata (spec 01 R1/R5): SourceDigest pins the approved
 	// requirements/design source bytes via core.Digest so a later amendment can
 	// detect drift; CriteriaIDs records which criterion IDs the record covers.
-	// Both are additive and omitempty — records written by an older specd load
-	// unchanged (backward compatible, no schema bump required).
+	// Both are omitempty: records without structured-intent metadata are valid.
 	SourceDigest string   `json:"source_digest,omitempty"`
 	CriteriaIDs  []string `json:"criteria_ids,omitempty"`
 	Timestamp    string   `json:"timestamp"`
@@ -146,28 +145,13 @@ func LoadState(path string) (State, error) {
 	if err := dec.Decode(&state); err != nil {
 		return State{}, fmt.Errorf("decode %s: %w", path, err)
 	}
-	state, err = MigrateState(state)
-	if err != nil {
-		return State{}, err
+	if state.SchemaVersion != StateSchemaVersion {
+		return State{}, fmt.Errorf("unsupported state schema %d (specd v1 requires schema %d)", state.SchemaVersion, StateSchemaVersion)
 	}
 	if state.Records == nil {
 		state.Records = map[string]json.RawMessage{}
 	}
 	return state, state.Validate()
-}
-
-func MigrateState(state State) (State, error) {
-	switch state.SchemaVersion {
-	case 0:
-		state.SchemaVersion = 1
-		return MigrateState(state)
-	case 1:
-		state.SchemaVersion = StateSchemaVersion
-	case StateSchemaVersion:
-	default:
-		return State{}, fmt.Errorf("unsupported state schema %d", state.SchemaVersion)
-	}
-	return state, nil
 }
 
 func SaveState(path string, state State) error {

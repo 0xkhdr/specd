@@ -89,7 +89,7 @@ func TestHistorySpanKindMapping(t *testing.T) {
 }
 
 // TestHistoryTelemetryTokenCategoriesPreserved flips W0's characterization
-// when W7 closes the gap: legacy total remains while provider-neutral token
+// when W7 closes the gap: the aggregate total remains while provider-neutral token
 // categories survive the aggregated JSON surface.
 func TestHistoryTelemetryTokenCategoriesPreserved(t *testing.T) {
 	records := []EvidenceRecord{{TaskID: "T1", Telemetry: &Annotations{Tokens: 100, InputTokens: 60, OutputTokens: 30, CachedTokens: 10}}}

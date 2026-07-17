@@ -28,7 +28,7 @@ func TestACPRigor(t *testing.T) {
 		GitHead:      "abc123",
 		ChangedFiles: []string{"a.go", "b.go"},
 		VerifyRef:    "evidence.jsonl#T1",
-		Telemetry:    &core.Annotations{Tokens: 500, Cost: "0.01"},
+		Telemetry:    &core.Annotations{EnvelopeVersion: core.TelemetryEnvelopeV1, Source: core.TelemetrySourceWorker, Tokens: 500, Cost: "0.01", Currency: "USD", PricingRef: "pricing/v1"},
 	}
 	if err := AppendClaim(path, claim); err != nil {
 		t.Fatalf("claim 2: %v", err)

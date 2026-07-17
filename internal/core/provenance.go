@@ -43,7 +43,7 @@ type ProvenanceV1 struct {
 }
 
 // ProvenanceLink traces intake to a prior spec without mutating that spec.
-// String-form legacy entries decode as a follows link to that spec.
+// An entry without an explicit kind decodes as a follows link.
 type ProvenanceLink struct {
 	From      string   `json:"from,omitempty"`
 	To        string   `json:"to"`
@@ -53,11 +53,6 @@ type ProvenanceLink struct {
 }
 
 func (l *ProvenanceLink) UnmarshalJSON(raw []byte) error {
-	var legacy string
-	if err := json.Unmarshal(raw, &legacy); err == nil {
-		l.To, l.Kind = legacy, LinkKindFollows
-		return nil
-	}
 	type plain ProvenanceLink
 	var decoded plain
 	if err := json.Unmarshal(raw, &decoded); err != nil {
@@ -79,7 +74,10 @@ func DecodeProvenance(raw []byte) (ProvenanceV1, error) {
 		return ProvenanceV1{}, fmt.Errorf("decode provenance: %w", err)
 	}
 	if p.SchemaVersion == 0 {
-		p.SchemaVersion = ProvenanceSchemaV1
+		p.SchemaVersion = ProvenanceSchemaV1 // absent field defaults to the sole v1 schema
+	}
+	if p.SchemaVersion != ProvenanceSchemaV1 {
+		return ProvenanceV1{}, fmt.Errorf("unsupported provenance schema %d (specd v1 requires schema %d)", p.SchemaVersion, ProvenanceSchemaV1)
 	}
 	if p.SourceType != "" {
 		if _, ok := provenanceSourceTypes[p.SourceType]; !ok {
@@ -89,8 +87,8 @@ func DecodeProvenance(raw []byte) (ProvenanceV1, error) {
 	return p, nil
 }
 
-// LoadProvenance returns nil for an absent file: intake is opt-in and legacy
-// feature specs must retain their existing behavior.
+// LoadProvenance returns nil for an absent file: intake is opt-in and specs
+// without a provenance file keep their existing behavior.
 func LoadProvenance(path string) (*ProvenanceV1, error) {
 	raw, err := os.ReadFile(path)
 	if os.IsNotExist(err) {

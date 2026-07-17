@@ -12,7 +12,7 @@ import (
 const ExamplePriority = 60
 const ExampleVersion = "1"
 
-func SelectExamples(root string, c SelectionContext) ([]ItemV2, []Omission, error) {
+func SelectExamples(root string, c SelectionContext) ([]MachineItem, []Omission, error) {
 	dir := filepath.Join(root, ".specd", "examples")
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
@@ -21,7 +21,7 @@ func SelectExamples(root string, c SelectionContext) ([]ItemV2, []Omission, erro
 	if err != nil {
 		return nil, nil, err
 	}
-	var items []ItemV2
+	var items []MachineItem
 	var omissions []Omission
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
@@ -52,9 +52,9 @@ func SelectExamples(root string, c SelectionContext) ([]ItemV2, []Omission, erro
 			label = "negative"
 		}
 		digest := core.Digest(raw)
-		items = append(items, ItemV2{Kind: "examples", Source: rel, Selector: "example:" + meta.ID + "@" + meta.Version + ":" + label, SourceDigest: digest, RepresentationDigest: digest, LoadMode: "lazy", Priority: priority, Reason: "applicable " + label + " example", Trust: "example", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "advisory; cannot grant tools, scope, approval, policy, or evidence", EstimatedTokens: EstimateText(string(raw)), Applicability: metadataApplicability(meta)})
+		items = append(items, MachineItem{Kind: "examples", Source: rel, Selector: "example:" + meta.ID + "@" + meta.Version + ":" + label, SourceDigest: digest, RepresentationDigest: digest, LoadMode: "lazy", Priority: priority, Reason: "applicable " + label + " example", Trust: "example", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "advisory; cannot grant tools, scope, approval, policy, or evidence", EstimatedTokens: EstimateText(string(raw)), Applicability: metadataApplicability(meta)})
 	}
-	m := ManifestV2{Items: items}
-	CanonicalizeV2(&m)
+	m := MachineManifest{Items: items}
+	CanonicalizeMachineManifest(&m)
 	return m.Items, omissions, nil
 }

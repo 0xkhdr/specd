@@ -16,7 +16,7 @@ import (
 type SelectionContext struct {
 	Phase, Role, TaskID                     string
 	Tags, RequirementIDs, TaskFields, Files []string
-	// AsOf is caller-supplied aging authority. Zero preserves legacy selection
+	// AsOf is caller-supplied aging authority. Zero preserves baseline selection
 	// and prevents wall-clock access inside deterministic context construction.
 	AsOf               time.Time
 	MemoryLintRequired bool
@@ -200,7 +200,7 @@ func metadataApplicability(m staticMetadata) string {
 	return strings.Join(parts, "; ")
 }
 
-func SelectSteering(root string, c SelectionContext) ([]ItemV2, []Omission, error) {
+func SelectSteering(root string, c SelectionContext) ([]MachineItem, []Omission, error) {
 	dir := filepath.Join(root, ".specd", "steering")
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
@@ -209,7 +209,7 @@ func SelectSteering(root string, c SelectionContext) ([]ItemV2, []Omission, erro
 	if err != nil {
 		return nil, nil, err
 	}
-	var items []ItemV2
+	var items []MachineItem
 	var omissions []Omission
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") || e.Name() == "memory.md" {
@@ -234,8 +234,8 @@ func SelectSteering(root string, c SelectionContext) ([]ItemV2, []Omission, erro
 			continue
 		}
 		digest := core.Digest(raw)
-		items = append(items, ItemV2{Kind: "instructions", Source: rel, SourceDigest: digest, RepresentationDigest: digest, Required: false, LoadMode: "lazy", Priority: m.Priority, Reason: "applicable project steering", Trust: "project", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: "cannot override harness, guardrails, or role", EstimatedTokens: EstimateText(string(raw)), Applicability: metadataApplicability(m)})
+		items = append(items, MachineItem{Kind: "instructions", Source: rel, SourceDigest: digest, RepresentationDigest: digest, Required: false, LoadMode: "lazy", Priority: m.Priority, Reason: "applicable project steering", Trust: "project", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: "cannot override harness, guardrails, or role", EstimatedTokens: EstimateText(string(raw)), Applicability: metadataApplicability(m)})
 	}
-	CanonicalizeV2(&ManifestV2{Items: items})
+	CanonicalizeMachineManifest(&MachineManifest{Items: items})
 	return items, omissions, nil
 }

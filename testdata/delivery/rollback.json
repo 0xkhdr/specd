@@ -1,15 +1,17 @@
 {
   "schema": "RollbackV1",
   "deployment_id": "dep-01H8X9",
+  "failed_release_id": "specd-0.7.5-1a2b3c4d",
   "rollback_target": "specd-0.7.4-9f8e7d6c",
   "reason": "http_5xx_rate breached threshold during observation window",
   "adapter": "github-actions",
+  "adapter_identity": "attested:github-actions",
   "action_result": "issued",
   "post_rollback_health": {
     "criterion_id": "http_5xx_rate",
     "observation": "0.001",
     "observed_at": "2026-07-11T09:35:00Z"
   },
-  "capability_class": "reversible",
+  "capability_class": "automatic",
   "human_required": false
 }

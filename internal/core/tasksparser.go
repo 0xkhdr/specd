@@ -20,8 +20,8 @@ type TaskRow struct {
 	Verify        string
 	Acceptance    string
 	// Trace/risk planning metadata (spec 01 R3.1). Parsed from optional named
-	// columns; absent columns yield zero values so legacy 6-column tasks.md
-	// files parse unchanged (backward compatible). The task-trace gate requires
+	// columns; absent columns yield zero values so a minimal 6-column tasks.md
+	// file parses unchanged. The task-trace gate requires
 	// them only under the production planning profile.
 	Refs         []string // requirement/design references this task implements
 	Kind         string   // work kind (e.g. feature, fix, refactor, docs)
@@ -181,7 +181,7 @@ type TaskTraceFinding struct {
 // planning profile (spec 01 R7.2) — every task must additionally declare its
 // references, work kind, risk tier, required context, evidence classes, and
 // negative/edge checks (R3.1); under the default profile these are optional so
-// legacy tasks.md files keep planning (R7.1). Design-component references (ids
+// minimal tasks.md files keep planning (R7.1). Design-component references (ids
 // that are not R<n> shaped) are accepted here; resolving them against a design
 // component registry is deferred to a later wave. Pure: no disk, no clock.
 func ValidateTaskTrace(tasks []TaskRow, knownReqIDs map[string]bool, requireTrace bool) []TaskTraceFinding {

@@ -18,5 +18,5 @@
   reference is always refused; the full contract is required under the production
   profile.
 - `tasks.md` optional trace/risk columns: `refs`, `kind`, `risk`, `complexity`,
-  `capabilities`, `context`, `evidence`, `checks`. Legacy six-column tables keep working (backward compatible);
+  `capabilities`, `context`, `evidence`, `checks`. The six required columns alone are a valid table; the rest may be omitted —
   the production planning profile requires the full set.

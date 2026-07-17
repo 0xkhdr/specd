@@ -87,7 +87,7 @@ type CheckCtx struct {
 
 	// QualityPolicyRequired arms Domain 04 production coverage enforcement.
 	// Callers supply parsed policy/criterion registries; the gate stays pure and
-	// offline. Zero values preserve compatibility with legacy/default projects.
+	// offline. Zero values leave default projects unchanged.
 	QualityPolicyRequired bool
 	QualityPolicies       map[string]core.QualityPolicy
 	KnownCriteria         map[string]bool
@@ -100,13 +100,13 @@ type CheckCtx struct {
 	StaleRecords          []string
 
 	// Provenance is operator-recorded typed intake. A nil record or empty
-	// RequiredFields leaves legacy/default projects unchanged. The gate is pure:
+	// RequiredFields leaves default projects unchanged. The gate is pure:
 	// callers own disk reads and supply this immutable snapshot.
 	Provenance      *core.ProvenanceV1
 	ProvenanceError string
 
 	// Governance snapshots are caller-loaded, immutable inputs. Zero value is
-	// unconfigured and preserves legacy behavior.
+	// unconfigured and changes nothing.
 	GovernanceRequired  bool
 	GovernanceNow       time.Time
 	RequiredDecisionIDs []string

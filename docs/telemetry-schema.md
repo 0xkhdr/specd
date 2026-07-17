@@ -13,7 +13,7 @@ response, a chain-of-thought, file contents, or raw worker output:
 | `telemetry_source` | enum | `worker` \| `provider_adapter` \| `operator` (trust provenance) |
 | `currency` | string | ISO currency paired with `cost` on canonical records |
 | `attestation_ref` | string | optional pointer to an external provider attestation |
-| `envelope_version` | string | `v1` for canonical records; empty = grandfathered legacy |
+| `envelope_version` | string | `v1`, required on every record; any other value fails closed |
 
 A default fixture is therefore metadata-only: none of prompt / response /
 chain-of-thought / file content / raw output / secret / absolute home path can

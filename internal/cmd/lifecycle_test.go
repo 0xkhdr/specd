@@ -59,7 +59,7 @@ func TestStubProductionAuthoringContract(t *testing.T) {
 		}
 	}
 	tasks := tasksStub("demo")
-	for _, want := range []string{"refs", "kind", "risk", "complexity", "capabilities", "context", "evidence", "checks", "backward compatible"} {
+	for _, want := range []string{"refs", "kind", "risk", "complexity", "capabilities", "context", "evidence", "checks", "may be omitted"} {
 		if !strings.Contains(tasks, want) {
 			t.Errorf("tasks stub missing %q", want)
 		}
@@ -183,29 +183,6 @@ func TestApproveGatesE2E(t *testing.T) {
 	}
 }
 
-func TestApproveRejectsRedundantOrSkippedTargetBeforeMutation(t *testing.T) {
-	root := newDemoSpec(t)
-	statePath := core.StatePath(root, "demo")
-	before, err := core.LoadState(statePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, target := range []string{"requirements", "tasks", "complete"} {
-		err := Run(root, "approve", []string{"demo", target}, nil)
-		if err == nil || !strings.Contains(err.Error(), "requires exact successor") {
-			t.Errorf("approve target %q error = %v; want preflight exact-successor refusal", target, err)
-		}
-	}
-	after, err := core.LoadState(statePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if after.Revision != before.Revision || after.Status != before.Status || len(after.Records) != len(before.Records) {
-		t.Fatalf("refused explicit targets mutated state: before=%+v after=%+v", before, after)
-	}
-}
-
 func TestCommandApprovalOperationsAreSeparate(t *testing.T) {
 	approve, ok := core.CommandByName("approve")
 	if !ok || approve.Usage != "specd approve <spec>" {
@@ -216,20 +193,6 @@ func TestCommandApprovalOperationsAreSeparate(t *testing.T) {
 		if !ok || !command.HumanOnly {
 			t.Errorf("%s metadata = %+v, found=%v; want separate human-only operation", name, command, ok)
 		}
-	}
-}
-
-func TestApproveLegacyExactSuccessorCompatibility(t *testing.T) {
-	root := newDemoSpec(t)
-	if err := Run(root, "approve", []string{"demo", "design"}, nil); err != nil {
-		t.Fatalf("legacy exact successor: %v", err)
-	}
-	state, err := core.LoadState(core.StatePath(root, "demo"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if state.Status != core.StatusDesign {
-		t.Fatalf("status = %q, want design", state.Status)
 	}
 }
 
@@ -599,5 +562,14 @@ func TestDesignApprovalRefusesUnknownRef(t *testing.T) {
 	}
 	if rec.SourceDigest != core.Digest([]byte(good)) {
 		t.Fatalf("design approval did not pin the source digest: %q", rec.SourceDigest)
+	}
+}
+
+func TestApproveRejectsExplicitTarget(t *testing.T) {
+	root := newDemoSpec(t)
+	for _, target := range []string{"design", "tasks", "complete"} {
+		if err := Run(root, "approve", []string{"demo", target}, nil); err == nil {
+			t.Errorf("approve with explicit target %q accepted; want usage error", target)
+		}
 	}
 }

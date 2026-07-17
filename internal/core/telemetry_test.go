@@ -49,6 +49,7 @@ func TestTelemetryAttestationRefRedacted(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "evidence.jsonl")
 	secret := "leaked-secret-token-value"
 	rec := EvidenceRecord{TaskID: "T1", GitHead: "abc", Telemetry: &Annotations{
+		EnvelopeVersion: TelemetryEnvelopeV1, Source: TelemetrySourceWorker,
 		AttestationRef: "api_key=" + secret + " at /home/alice/.specd/att",
 	}}
 	if err := AppendEvidence(path, rec); err != nil {
@@ -141,27 +142,27 @@ func TestTelemetryAggregateExactDecimal(t *testing.T) {
 	}
 }
 
-// TestTelemetryEnvelopeCanonicalAndLegacy pins the W1 versioned envelope
-// (R1.1). A legacy record (bare tokens/cost/duration) round-trips byte-for-byte
+// TestTelemetryEnvelopeCanonical pins the versioned envelope
+// (R1.1). A bare record (tokens/cost/duration only) round-trips byte-for-byte
 // with no envelope fields injected, so old fixtures decode unchanged. A
 // canonical v1 record carries its version, provenance, and currency and
 // round-trips byte-stably. (Run/attempt correlation is Domain 07 W2/W6, not W1.)
-func TestTelemetryEnvelopeCanonicalAndLegacy(t *testing.T) {
-	legacy := `{"tokens":10,"cost":"1.50","duration_ms":5}`
+func TestTelemetryEnvelopeCanonical(t *testing.T) {
+	bare := `{"tokens":10,"cost":"1.50","duration_ms":5}`
 	var ann Annotations
-	if err := json.Unmarshal([]byte(legacy), &ann); err != nil {
+	if err := json.Unmarshal([]byte(bare), &ann); err != nil {
 		t.Fatal(err)
 	}
 	blob, err := json.Marshal(&ann)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(blob) != legacy {
-		t.Fatalf("legacy record not byte-stable: got %s want %s", blob, legacy)
+	if string(blob) != bare {
+		t.Fatalf("bare record not byte-stable: got %s want %s", blob, bare)
 	}
 	for _, injected := range []string{"telemetry_source", "currency", "envelope_version"} {
 		if strings.Contains(string(blob), injected) {
-			t.Fatalf("legacy record silently gained %q: %s", injected, blob)
+			t.Fatalf("bare record silently gained %q: %s", injected, blob)
 		}
 	}
 
@@ -198,8 +199,6 @@ func TestValidateAnnotations(t *testing.T) {
 		ann  *Annotations
 	}{
 		{"nil", nil},
-		{"legacy_cost_without_currency", &Annotations{Cost: "0.01"}},
-		{"legacy_bare_tokens", &Annotations{Tokens: 100}},
 		{"canonical_worker", &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "1.50", Currency: "USD", PricingRef: "pricing/v1"}},
 		{"canonical_no_cost_no_currency", &Annotations{EnvelopeVersion: "v1", Source: "operator"}},
 		{"canonical_adapter_attested", &Annotations{EnvelopeVersion: "v1", Source: "provider_adapter", AttestationRef: "att://x"}},
@@ -217,6 +216,8 @@ func TestValidateAnnotations(t *testing.T) {
 		{"malformed_decimal", &Annotations{Cost: "1,00"}},
 		{"negative_tokens", &Annotations{Tokens: -1}},
 		{"negative_duration", &Annotations{DurationMs: -5}},
+		{"missing_version", &Annotations{Tokens: 100}},
+		{"cost_without_currency", &Annotations{Cost: "0.01"}},
 		{"unknown_version", &Annotations{EnvelopeVersion: "v2"}},
 		{"canonical_cost_without_currency", &Annotations{EnvelopeVersion: "v1", Source: "worker", Cost: "1.50"}},
 		{"canonical_missing_source", &Annotations{EnvelopeVersion: "v1", Cost: "1.50", Currency: "USD"}},
@@ -230,13 +231,13 @@ func TestValidateAnnotations(t *testing.T) {
 }
 
 func TestTelemetrySourceProvenance(t *testing.T) {
-	// A legacy attempt (no explicit source) is reported as worker-reported; the
+	// An attempt with no explicit source is reported as worker-reported; the
 	// render marks values as reported, never independently measured (R1.3).
 	report := AggregateTelemetry([]EvidenceRecord{
 		{TaskID: "T1", Telemetry: &Annotations{Tokens: 5, Cost: "0.01"}},
 	}, []string{"T1"})
 	if report.Tasks[0].Source != TelemetrySourceWorker {
-		t.Fatalf("legacy attempt provenance = %q, want worker", report.Tasks[0].Source)
+		t.Fatalf("sourceless attempt provenance = %q, want worker", report.Tasks[0].Source)
 	}
 	out := RenderTelemetry("demo", report)
 	if !strings.Contains(out, "worker-reported, not independently measured") {
@@ -273,9 +274,9 @@ func TestTelemetryProviderNeutralAnnotations(t *testing.T) {
 			t.Errorf("annotation JSON missing %s: %s", want, raw)
 		}
 	}
-	legacy, err := json.Marshal(Annotations{Tokens: 7})
-	if err != nil || string(legacy) != `{"tokens":7}` {
-		t.Fatalf("legacy changed: %s %v", legacy, err)
+	bare, err := json.Marshal(Annotations{Tokens: 7})
+	if err != nil || string(bare) != `{"tokens":7}` {
+		t.Fatalf("bare shape changed: %s %v", bare, err)
 	}
 }
 

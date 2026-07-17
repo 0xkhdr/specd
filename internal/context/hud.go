@@ -29,12 +29,12 @@ func RenderHUD(m Manifest) string {
 	return b.String()
 }
 
-// RenderHUDV2 renders typed context metadata in canonical order. It exposes
+// RenderMachineHUD renders typed context metadata in canonical order. It exposes
 // references and status only; payload bytes remain outside the HUD.
-func RenderHUDV2(m ManifestV2) string {
+func RenderMachineHUD(m MachineManifest) string {
 	copyManifest := m
-	copyManifest.Items = append([]ItemV2(nil), m.Items...)
-	CanonicalizeV2(&copyManifest)
+	copyManifest.Items = append([]MachineItem(nil), m.Items...)
+	CanonicalizeMachineManifest(&copyManifest)
 	var b strings.Builder
 	fmt.Fprintf(&b, "schema: %s  spec: %s  task: %s\n\n", copyManifest.SchemaVersion, copyManifest.Slug, copyManifest.TaskID)
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)

@@ -23,7 +23,7 @@ func earsGate(ctx CheckCtx) []Finding {
 		return []Finding{{Severity: Error, Message: "requirements.md is the unedited scaffold stub"}}
 	}
 	// Structured `### R<n>` / `- R<n>.<m>:` docs get exact addressable findings
-	// (spec 01 R1.2). Legacy bullet docs (no structured requirements parsed) fall
+	// (spec 01 R1.2). Plain bullet docs (no structured requirements parsed) fall
 	// back to the "shall" shape heuristic below so older projects keep passing.
 	if doc, err := core.ParseRequirements([]byte(ctx.RequirementsDoc)); err == nil && len(doc.Requirements) > 0 {
 		var findings []Finding

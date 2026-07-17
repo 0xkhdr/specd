@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-// RunEnvelopeV1 is the run-ledger schema version (spec 07 R2). An empty version
-// on decode is grandfathered; any other non-empty value is an unknown *required*
-// schema and fails closed, mirroring the telemetry envelope (R1.2).
+// RunEnvelopeV1 is the run-ledger schema version (spec 07 R2). Any other value
+// is an unknown *required* schema and fails closed, mirroring the telemetry
+// envelope (R1.2).
 const RunEnvelopeV1 = "v1"
 
 // RunV1 is one attempt in a task's run chain (spec 07 R2.1). run_id is a
@@ -77,7 +77,7 @@ func ReadRuns(path string) ([]RunV1, error) {
 			}
 			return nil, fmt.Errorf("decode run ledger line %d: %w", i+1, err)
 		}
-		if run.EnvelopeVersion != "" && run.EnvelopeVersion != RunEnvelopeV1 {
+		if run.EnvelopeVersion != RunEnvelopeV1 {
 			return nil, fmt.Errorf("unknown run envelope version %q", run.EnvelopeVersion)
 		}
 		runs = append(runs, run)

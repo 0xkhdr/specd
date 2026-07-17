@@ -115,7 +115,7 @@ func (s manifestScanner) scanLockfile(file ScanInputV1, sev string) []Finding {
 }
 
 // registryAllowed reports whether dep matches any allowed module path prefix.
-// An empty allowlist disables the host check (backward compatible default).
+// An empty allowlist disables the host check (opt-in default).
 func registryAllowed(dep string, allowlist []string) bool {
 	if len(allowlist) == 0 {
 		return true

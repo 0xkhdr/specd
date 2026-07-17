@@ -54,7 +54,7 @@ func designGate(ctx CheckCtx) []Finding {
 	// that does not exist is always refused (R2.2); the full decision-metadata
 	// contract is required only under the production design profile
 	// (DesignContractRequired), keeping default-profile design.md files
-	// backward compatible (R7.1).
+	// opt-in (R7.1).
 	design := core.ParseDesign([]byte(ctx.DesignDoc))
 	known := core.RequirementIDSet(ctx.RequirementsDoc)
 	var findings []Finding

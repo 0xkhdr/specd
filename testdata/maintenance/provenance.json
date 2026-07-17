@@ -10,7 +10,7 @@
   "owner": "a.okafor",
   "prior_links": [
     {
-      "schema": "ProgramLinkV2",
+      "schema": "ProgramLinkV1",
       "from": "payments-hotfix",
       "to": "payments-checkout",
       "kind": "regresses",

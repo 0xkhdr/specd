@@ -60,7 +60,7 @@ func runNew(root string, args []string, flags map[string]string) error {
 // leaves state untouched; on green it ratchets the phase and appends an
 // approval record via CAS (R13.4).
 func runApprove(root string, args []string, flags map[string]string) error {
-	if len(args) < 1 || len(args) > 2 {
+	if len(args) != 1 {
 		return errors.New("usage: specd approve <spec>")
 	}
 	slug := args[0]
@@ -76,15 +76,9 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		}
 		current := state.Status
 		target := core.NextStatus(current)
-		if len(args) == 2 {
-			target = core.Status(args[1])
-		}
 		phase, err := core.AdvanceStatus(current, target)
 		if err != nil {
 			return struct{}{}, err
-		}
-		if len(args) == 2 {
-			fmt.Fprintf(os.Stderr, "warning: explicit approve target is deprecated; use `specd approve %s`\n", slug)
 		}
 		approvedFrom, approvedTarget = current, target
 		gate := string(current)
@@ -605,7 +599,7 @@ func designStub(slug string) string {
 func tasksStub(slug string) string {
 	return fmt.Sprintf(`# Tasks — %s
 
-> Add only real work. Legacy six-column task tables remain backward compatible.
+> Add only real work. The optional columns beyond the six required ones may be omitted.
 > Production rows declare full trace, risk, routing, context, capability, evidence, and edge-check intent.
 
 | id | role | files | depends-on | verify | acceptance | refs | kind | risk | complexity | capabilities | context | evidence | checks |

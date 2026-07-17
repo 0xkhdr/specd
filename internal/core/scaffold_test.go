@@ -10,7 +10,7 @@ import (
 // TestScaffoldCarriesFormatGuidance pins spec 01 R3.1/R2.1 authoring migration
 // guidance: a scaffolded project's structure steering documents the design
 // decision contract and the optional task trace/risk columns, and states that
-// legacy tables stay backward compatible.
+// minimal six-column tables stay valid.
 func TestScaffoldCarriesFormatGuidance(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteScaffold(root); err != nil {
@@ -33,7 +33,7 @@ func TestScaffoldCarriesFormatGuidance(t *testing.T) {
 	if body == "" {
 		t.Fatal("structure steering not scaffolded")
 	}
-	for _, want := range []string{"references:", "boundaries:", "risk", "refs", "backward compatible"} {
+	for _, want := range []string{"references:", "boundaries:", "risk", "refs", "may be omitted"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("scaffold authoring guidance missing %q:\n%s", want, body)
 		}
@@ -49,7 +49,7 @@ func TestScaffoldExplainsProductionTaskColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"refs", "kind", "risk", "complexity", "capabilities", "context", "evidence", "checks", "backward compatible"} {
+	for _, want := range []string{"refs", "kind", "risk", "complexity", "capabilities", "context", "evidence", "checks", "may be omitted"} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("structure guidance missing %q", want)
 		}

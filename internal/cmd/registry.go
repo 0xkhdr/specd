@@ -238,7 +238,7 @@ func recordSecurity(root, slug string, policy security.PolicyV1, result security
 }
 
 func driverGuideForSpec(root, slug string) (core.DriverGuideV1, error) {
-	legacy, err := guidanceForSpec(root, slug)
+	guidance, err := guidanceForSpec(root, slug)
 	if err != nil {
 		return core.DriverGuideV1{}, err
 	}
@@ -265,7 +265,7 @@ func driverGuideForSpec(root, slug string) (core.DriverGuideV1, error) {
 		}
 	}
 	var blockers []core.DriverFinding
-	for i, message := range legacy.Blockers {
+	for i, message := range guidance.Blockers {
 		blockers = append(blockers, core.DriverFinding{Code: fmt.Sprintf("GATE_BLOCKER_%03d", i+1), Severity: "error", Ref: slug, Message: message, RecoveryAction: "fix artifact and run `specd check " + slug + "`"})
 	}
 	return core.ProjectDriverGuide(filepath.Clean(root), slug, state.Status, approvals, frontier, blockers), nil
@@ -356,7 +356,7 @@ func runContext(root string, args []string, flags map[string]string) error {
 	}
 	if asJSON {
 		config, _ := core.LoadConfig(configPaths(root), getenv())
-		machine, err := speccontext.BuildManifestV2(root, args[0], spec.Tasks, args[1], "context", "execute", contextBudget(root), core.BootstrapHandshake(config))
+		machine, err := speccontext.BuildMachineManifest(root, args[0], spec.Tasks, args[1], "context", "execute", contextBudget(root), core.BootstrapHandshake(config))
 		if err != nil {
 			return err
 		}
@@ -438,7 +438,7 @@ func runNext(root string, args []string, flags map[string]string) error {
 			return writeJSON(map[string]any{"items": nil})
 		}
 		config, _ := core.LoadConfig(configPaths(root), getenv())
-		manifest, err := speccontext.BuildManifestV2(root, args[0], spec.Tasks, frontier[0].ID, "dispatch", "execute", contextBudget(root), core.BootstrapHandshake(config))
+		manifest, err := speccontext.BuildMachineManifest(root, args[0], spec.Tasks, frontier[0].ID, "dispatch", "execute", contextBudget(root), core.BootstrapHandshake(config))
 		if err != nil {
 			return err
 		}
@@ -527,13 +527,13 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	}
 	for _, precondition := range preconditions {
 		if expected, ok := flags["expect-"+precondition.flag]; ok && expected != precondition.current {
-			legacy := ""
+			hint := ""
 			if precondition.flag == "palette-digest" {
-				legacy = " (palette digest drift)"
+				hint = " (palette digest drift)"
 			} else if precondition.flag == "config-digest" {
-				legacy = " (config digest drift)"
+				hint = " (config digest drift)"
 			}
-			return fmt.Errorf("precondition %s mismatch: expected %s, current %s%s", precondition.flag, expected, precondition.current, legacy)
+			return fmt.Errorf("precondition %s mismatch: expected %s, current %s%s", precondition.flag, expected, precondition.current, hint)
 		}
 	}
 

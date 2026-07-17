@@ -18,7 +18,7 @@ func TestTruncateEvidenceOutputReportsLimit(t *testing.T) {
 	}
 }
 
-func TestEvidenceQualityLegacyBaseline(t *testing.T) {
+func TestEvidenceQualityMinimalBaseline(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "evidence.jsonl")
 	if err := os.WriteFile(path, []byte(`{"task_id":"T1","command":"go test ./...","exit_code":0,"git_head":"abc"}`+"\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestEvidenceQualityLegacyBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !HasPassingEvidence(records, "T1") {
-		t.Fatal("legacy verify lost test compatibility")
+		t.Fatal("minimal verify record lost test compatibility")
 	}
 	if _, ok := records["T2"]; ok {
 		t.Fatal("wrong-task evidence selected")
@@ -43,18 +43,18 @@ func TestEvidenceMalformedBaseline(t *testing.T) {
 	}
 }
 
-// TestEvidenceTelemetryEnvelope pins the W1 versioned envelope on evidence
-// records (spec 07 R1.1/R1.2): a legacy telemetry line decodes unchanged, a
-// canonical v1 record round-trips through disk, and a malformed canonical
-// telemetry line fails closed on decode.
+// TestEvidenceTelemetryEnvelope pins the versioned envelope on evidence
+// records (spec 07 R1.1/R1.2): a telemetry line without the v1 envelope fails
+// closed, a canonical v1 record round-trips through disk, and a malformed
+// canonical telemetry line fails closed on decode.
 func TestEvidenceTelemetryEnvelope(t *testing.T) {
 	dir := t.TempDir()
 
-	// Legacy telemetry (bare cost, no currency/version) still decodes.
-	legacy := filepath.Join(dir, "legacy.jsonl")
-	os.WriteFile(legacy, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","telemetry":{"cost":"0.01"}}`+"\n"), 0o644)
-	if _, err := LoadEvidenceRecords(legacy); err != nil {
-		t.Fatalf("legacy telemetry rejected: %v", err)
+	// Telemetry without the v1 envelope (bare cost, no version) fails closed.
+	bare := filepath.Join(dir, "bare.jsonl")
+	os.WriteFile(bare, []byte(`{"task_id":"T1","exit_code":0,"git_head":"abc","telemetry":{"cost":"0.01"}}`+"\n"), 0o644)
+	if _, err := LoadEvidenceRecords(bare); err == nil {
+		t.Fatal("telemetry without v1 envelope accepted")
 	}
 
 	// Canonical v1 telemetry round-trips through append + load.
@@ -152,11 +152,11 @@ func TestEvidencePinsContextReceipt(t *testing.T) {
 		t.Fatal("invalid context receipt digest accepted")
 	}
 
-	legacy := filepath.Join(t.TempDir(), "legacy.jsonl")
-	if err := os.WriteFile(legacy, []byte(`{"task_id":"T0","git_head":"abc"}`+"\n"), 0o644); err != nil {
+	minimal := filepath.Join(t.TempDir(), "minimal.jsonl")
+	if err := os.WriteFile(minimal, []byte(`{"task_id":"T0","git_head":"abc"}`+"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := LoadEvidenceRecords(legacy); err != nil || len(got) != 1 || got[0].ContextReceiptDigest != "" {
-		t.Fatalf("legacy evidence unreadable: %+v %v", got, err)
+	if got, err := LoadEvidenceRecords(minimal); err != nil || len(got) != 1 || got[0].ContextReceiptDigest != "" {
+		t.Fatalf("minimal evidence unreadable: %+v %v", got, err)
 	}
 }

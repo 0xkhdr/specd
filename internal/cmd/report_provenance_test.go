@@ -10,7 +10,7 @@ import (
 
 func TestProvenanceHistory(t *testing.T) {
 	root := newHistoryDemo(t)
-	raw := []byte(`{"schema_version":1,"source_type":"incident","source_ref":"INC-42","systems":["api"],"severity":"high","owner":"sre","prior_links":["payments"]}`)
+	raw := []byte(`{"schema_version":1,"source_type":"incident","source_ref":"INC-42","systems":["api"],"severity":"high","owner":"sre","prior_links":[{"to":"payments"}]}`)
 	if err := os.WriteFile(core.ProvenancePath(root, "demo"), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}

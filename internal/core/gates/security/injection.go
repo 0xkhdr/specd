@@ -12,7 +12,7 @@ type injectionScanner struct{}
 func (injectionScanner) Name() string { return "injection" }
 
 func (injectionScanner) Exclude(input ScanInputV1) bool {
-	return excludedScannerPath(input.Path, "testdata", "reference", "vendor", ".git", ".specd/security")
+	return excludedScannerPath(input.Path, "testdata", "vendor", ".git", ".specd/security")
 }
 
 // Scannable text extensions. Injection payloads hide in prose, not binaries.

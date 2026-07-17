@@ -65,7 +65,7 @@ func TestMemoryProvenance(t *testing.T) {
 }
 
 func TestMemFieldsDecode(t *testing.T) {
-	doc := "# Memory\n\n## legacy\n**Pattern:** keep old files\n**Source:** review:r1\n**Criticality:** critical\n**Status:** active\n**Applies-To:** tags=go\n\n## aged\n**Pattern:** revalidate\n**Source:** evidence:sha256:abc\n**Criticality:** critical\n**Owner:** platform\n**Last-Validated-At:** 2026-01-02\n**Provenance:** evidence:sha256:def\n**Confidence:** high\n**Expires-At:** 2026-02-03\n**Supersedes:** legacy\n**Applies-To:** tags=go\n"
+	doc := "# Memory\n\n## sparse\n**Pattern:** keep old files\n**Source:** review:r1\n**Criticality:** critical\n**Status:** active\n**Applies-To:** tags=go\n\n## aged\n**Pattern:** revalidate\n**Source:** evidence:sha256:abc\n**Criticality:** critical\n**Owner:** platform\n**Last-Validated-At:** 2026-01-02\n**Provenance:** evidence:sha256:def\n**Confidence:** high\n**Expires-At:** 2026-02-03\n**Supersedes:** sparse\n**Applies-To:** tags=go\n"
 	blocks, err := IndexMemBlocks(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -73,11 +73,11 @@ func TestMemFieldsDecode(t *testing.T) {
 	if len(blocks) != 2 {
 		t.Fatalf("blocks = %+v", blocks)
 	}
-	legacy, aged := blocks[1], blocks[0]
-	if legacy.Owner != "" || legacy.ExpiresAt != "" {
-		t.Fatalf("legacy fields should remain unset: %+v", legacy)
+	sparse, aged := blocks[1], blocks[0]
+	if sparse.Owner != "" || sparse.ExpiresAt != "" {
+		t.Fatalf("sparse fields should remain unset: %+v", sparse)
 	}
-	if aged.Owner != "platform" || aged.LastValidatedAt != "2026-01-02" || aged.Provenance != "evidence:sha256:def" || aged.Confidence != "high" || aged.ExpiresAt != "2026-02-03" || aged.Supersedes != "legacy" {
+	if aged.Owner != "platform" || aged.LastValidatedAt != "2026-01-02" || aged.Provenance != "evidence:sha256:def" || aged.Confidence != "high" || aged.ExpiresAt != "2026-02-03" || aged.Supersedes != "sparse" {
 		t.Fatalf("aged fields = %+v", aged)
 	}
 }

@@ -78,25 +78,25 @@ func TestStateRecordDigestRoundTrip(t *testing.T) {
 	}
 }
 
-func TestStateLoadsLegacyRecordWithoutDigest(t *testing.T) {
-	// A record written by an older specd (no source_digest/criteria_ids) must
-	// still load — the new fields are additive and omitempty (backward compat).
+func TestStateLoadsRecordWithoutDigest(t *testing.T) {
+	// A record without structured-intent metadata (no source_digest/criteria_ids)
+	// must still load — the fields are optional and omitempty.
 	path := filepath.Join(t.TempDir(), "state.json")
-	raw := `{"schema_version":2,"slug":"demo","mode":"default","status":"requirements","phase":"perceive","revision":1,` +
+	raw := `{"schema_version":1,"slug":"demo","mode":"default","status":"requirements","phase":"perceive","revision":1,` +
 		`"records":{"approval:requirements":{"kind":"approval","gate":"requirements","timestamp":"t","git_head":"h","actor":"a"}}}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
-		t.Fatalf("write legacy state: %v", err)
+		t.Fatalf("write state: %v", err)
 	}
 	st, err := LoadState(path)
 	if err != nil {
-		t.Fatalf("legacy record should load: %v", err)
+		t.Fatalf("record without digest should load: %v", err)
 	}
 	var rec Record
 	if err := json.Unmarshal(st.Records["approval:requirements"], &rec); err != nil {
-		t.Fatalf("unmarshal legacy record: %v", err)
+		t.Fatalf("unmarshal record: %v", err)
 	}
 	if rec.SourceDigest != "" || rec.CriteriaIDs != nil {
-		t.Fatalf("legacy record gained fields: %+v", rec)
+		t.Fatalf("record gained fields: %+v", rec)
 	}
 }
 
@@ -173,7 +173,7 @@ func TestStateCAS(t *testing.T) {
 	}
 }
 
-func TestLoadStateMigratesV1ToCurrentSchema(t *testing.T) {
+func TestLoadStateAcceptsCurrentSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	raw := `{"schema_version":1,"slug":"demo","mode":"agent","status":"requirements","phase":"perceive","revision":1}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
@@ -188,9 +188,20 @@ func TestLoadStateMigratesV1ToCurrentSchema(t *testing.T) {
 	}
 }
 
+func TestLoadStateRejectsNonV1Schema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	raw := `{"schema_version":2,"slug":"demo","mode":"agent","status":"requirements","phase":"perceive","revision":1}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write state: %v", err)
+	}
+	if _, err := LoadState(path); err == nil {
+		t.Fatal("LoadState accepted non-v1 schema")
+	}
+}
+
 func TestLoadStateRejectsUnknownFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	raw := `{"schema_version":2,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1,"unexpected":true}`
+	raw := `{"schema_version":1,"slug":"demo","mode":"build","status":"requirements","phase":"perceive","revision":1,"unexpected":true}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write state: %v", err)
 	}
@@ -215,8 +226,7 @@ func TestSchemaPreflight(t *testing.T) {
 		raw     string
 		wantErr string
 	}{
-		{name: "current", raw: `{"schema_version":2}`},
-		{name: "legacy_upgrade", raw: `{"schema_version":1}`},
+		{name: "current", raw: `{"schema_version":1}`},
 		{name: "future_unsafe_downgrade", raw: `{"schema_version":99}`, wantErr: "unsafe downgrade"},
 		{name: "missing", raw: `{}`, wantErr: "schema_version"},
 	} {

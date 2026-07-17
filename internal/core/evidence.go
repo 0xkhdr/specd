@@ -45,7 +45,7 @@ type EvidenceRecord struct {
 	GitHead     string `json:"git_head"`
 	EvidenceRef string `json:"evidence_ref,omitempty"`
 	// ContextReceiptDigest pins context identity used for this attempt. It is
-	// optional for backward compatibility and never substitutes for exit-code
+	// optional and never substitutes for exit-code
 	// evidence or a resolvable Git HEAD.
 	ContextReceiptDigest string `json:"context_receipt_digest,omitempty"`
 	// Timestamp and Actor stamp the attempt so `report --history` (spec 13) can

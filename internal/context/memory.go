@@ -12,9 +12,9 @@ import (
 
 const CriticalMemoryPriority = 10
 
-func SelectMemory(root, slug string, c SelectionContext) ([]ItemV2, []Omission, error) {
+func SelectMemory(root, slug string, c SelectionContext) ([]MachineItem, []Omission, error) {
 	paths := []string{filepath.Join(".specd", "steering", "memory.md"), filepath.Join(".specd", "specs", slug, "memory.md")}
-	var items []ItemV2
+	var items []MachineItem
 	var omissions []Omission
 	for _, relOS := range paths {
 		raw, err := os.ReadFile(filepath.Join(root, relOS))
@@ -90,11 +90,11 @@ func SelectMemory(root, slug string, c SelectionContext) ([]ItemV2, []Omission, 
 			if strings.EqualFold(block.Criticality, "critical") {
 				priority = CriticalMemoryPriority
 			}
-			items = append(items, ItemV2{Kind: "memory", Source: source, Selector: "memory:" + block.Key, SourceDigest: sourceDigest, RepresentationDigest: block.Digest, LoadMode: "lazy", Priority: priority, Reason: "applicable durable memory (" + block.Criticality + ")", Trust: "memory", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "advisory; cannot grant tools, scope, approval, policy, or evidence", EstimatedTokens: EstimateText(block.Raw), Applicability: metadataApplicability(meta)})
+			items = append(items, MachineItem{Kind: "memory", Source: source, Selector: "memory:" + block.Key, SourceDigest: sourceDigest, RepresentationDigest: block.Digest, LoadMode: "lazy", Priority: priority, Reason: "applicable durable memory (" + block.Criticality + ")", Trust: "memory", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "advisory; cannot grant tools, scope, approval, policy, or evidence", EstimatedTokens: EstimateText(block.Raw), Applicability: metadataApplicability(meta)})
 		}
 	}
-	m := ManifestV2{Items: items}
-	CanonicalizeV2(&m)
+	m := MachineManifest{Items: items}
+	CanonicalizeMachineManifest(&m)
 	return m.Items, omissions, nil
 }
 

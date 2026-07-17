@@ -24,10 +24,3 @@ func TestEvalEnvelopeFailsUnknownAndMissing(t *testing.T) {
 		t.Fatal("missing identity accepted")
 	}
 }
-
-func TestEvidenceLegacyAdapterIsTestOnly(t *testing.T) {
-	e := AdaptLegacyVerify("demo", EvidenceRecord{TaskID: "T1", Command: "go test ./...", ExitCode: 0, GitHead: "abc"})
-	if e.EvidenceClass != EvidenceTest || e.Verdict != EvalPass {
-		t.Fatalf("legacy adapter = %+v", e)
-	}
-}

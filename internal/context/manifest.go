@@ -11,15 +11,10 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// ManifestVersion is the on-wire schema version for the context manifest.
-//
-// W0 V1/V2 compatibility decision (R1.3, R8.2): V1 stays the default
-// compatibility renderer — existing plain-path/JSON output is preserved and old
-// `.specd/` consumers keep working. The typed V2 contract (Domain 02 W1) is
-// added as the authoritative machine contract and will extend the accepted
-// version set explicitly. Neither renderer silently reinterprets the other:
-// ValidateManifest fails closed on any unknown or unsupported version, so the
-// migration is versioned and published rather than inferred.
+// ManifestVersion is the on-wire schema version for the human-readable context
+// manifest. The typed machine contract is a separate schema (see MachineManifest,
+// distinguished by its `kind` field); neither renderer reinterprets the other,
+// and ValidateManifest fails closed on any unknown or unsupported version.
 const ManifestVersion = "1"
 
 type Item struct {
@@ -434,23 +429,23 @@ func (a *ContextAccountingV1) RecordHostAck(ack HostAck) {
 	a.HostReportedInputTokens = &tokens
 }
 
-// --- Typed manifest V2 (Domain 02 W1) ----------------------------------------
+// --- Typed machine manifest ---------------------------------------------------
 //
-// V2 is the authoritative machine contract: typed lanes with per-item trust,
-// load mode, reason, and digests, plus a canonical whole-manifest digest for
-// freshness. It is built and validated alongside V1, which stays the default
-// renderer until the migration wave switches the default (see ManifestVersion).
+// The machine manifest is the authoritative machine contract: typed lanes with
+// per-item trust, load mode, reason, and digests, plus a canonical
+// whole-manifest digest for freshness. It is built and validated alongside the
+// human-readable manifest, which stays the default renderer (see ManifestVersion).
 
 const (
-	ManifestVersionV2              = "2"
-	manifestKindV2                 = "context_manifest"
+	MachineManifestVersion         = "1"
+	machineManifestKind            = "context_manifest"
 	ContentTrustTrustedInstruction = "trusted_instruction"
 	ContentTrustUntrustedData      = "untrusted_data"
 )
 
-// ItemV2 is one typed context reference. Fields mirror design.md ("Item"): the
+// MachineItem is one typed context reference. Fields mirror design.md ("Item"): the
 // harness emits references and compact metadata, never inlined content.
-type ItemV2 struct {
+type MachineItem struct {
 	Kind                 string `json:"kind"`
 	Source               string `json:"source,omitempty"`
 	Selector             string `json:"selector,omitempty"`
@@ -479,31 +474,31 @@ type Omission struct {
 	Reason string `json:"reason"`
 }
 
-// ManifestV2 is the versioned typed context manifest (design.md "ManifestV2").
-type ManifestV2 struct {
-	SchemaVersion  string            `json:"schema_version"`
-	Kind           string            `json:"kind"`
-	Root           string            `json:"root"`
-	Slug           string            `json:"slug"`
-	Action         string            `json:"action"`
-	Phase          string            `json:"phase"`
-	TaskID         string            `json:"task_id"`
-	SelectedTask   SelectedTaskV2    `json:"selected_task"`
-	Authority      *core.AuthorityV1 `json:"authority,omitempty"`
-	ConfigDigest   string            `json:"config_digest,omitempty"`
-	PaletteDigest  string            `json:"palette_digest,omitempty"`
-	Items          []ItemV2          `json:"items"`
-	RequiredTokens int               `json:"required_tokens"`
-	OptionalTokens int               `json:"optional_tokens"`
-	Budget         int               `json:"budget"`
-	Omissions      []Omission        `json:"omissions,omitempty"`
-	Provenance     string            `json:"provenance,omitempty"`
-	ManifestDigest string            `json:"manifest_digest,omitempty"`
+// MachineManifest is the versioned typed context manifest (design.md "MachineManifest").
+type MachineManifest struct {
+	SchemaVersion  string              `json:"schema_version"`
+	Kind           string              `json:"kind"`
+	Root           string              `json:"root"`
+	Slug           string              `json:"slug"`
+	Action         string              `json:"action"`
+	Phase          string              `json:"phase"`
+	TaskID         string              `json:"task_id"`
+	SelectedTask   MachineSelectedTask `json:"selected_task"`
+	Authority      *core.AuthorityV1   `json:"authority,omitempty"`
+	ConfigDigest   string              `json:"config_digest,omitempty"`
+	PaletteDigest  string              `json:"palette_digest,omitempty"`
+	Items          []MachineItem       `json:"items"`
+	RequiredTokens int                 `json:"required_tokens"`
+	OptionalTokens int                 `json:"optional_tokens"`
+	Budget         int                 `json:"budget"`
+	Omissions      []Omission          `json:"omissions,omitempty"`
+	Provenance     string              `json:"provenance,omitempty"`
+	ManifestDigest string              `json:"manifest_digest,omitempty"`
 }
 
-// SelectedTaskV2 carries exact machine-readable task scope. DeclaredFiles is
+// MachineSelectedTask carries exact machine-readable task scope. DeclaredFiles is
 // normalized by the byte-stable tasks parser; raw Markdown remains untouched.
-type SelectedTaskV2 struct {
+type MachineSelectedTask struct {
 	ID            string   `json:"id"`
 	Role          string   `json:"role"`
 	DeclaredFiles []string `json:"declared_files"`
@@ -514,7 +509,7 @@ type SelectedTaskV2 struct {
 // Known enum values. Unknown values fail closed (R1.3) — the manifest never
 // silently reinterprets an unrecognized lane, load mode, or trust class.
 var (
-	knownKindsV2 = map[string]bool{
+	knownMachineKinds = map[string]bool{
 		// R2.1 required action lanes:
 		"task": true, "requirements": true, "design": true, "role": true,
 		"source": true, "test": true,
@@ -522,24 +517,24 @@ var (
 		"instructions": true, "guardrails": true, "knowledge": true,
 		"memory": true, "examples": true, "tools": true, "skill": true,
 	}
-	knownLoadModesV2 = map[string]bool{"eager": true, "lazy": true, "reference": true}
+	knownMachineLoadModes = map[string]bool{"eager": true, "lazy": true, "reference": true}
 	// Trust precedence chain (design "Authority and trust"), strongest first.
-	knownTrustV2 = map[string]bool{
+	knownMachineTrust = map[string]bool{
 		"harness": true, "guardrail": true, "role": true, "project": true,
 		"knowledge": true, "example": true, "memory": true, "external": true,
 	}
-	knownSensitivityV2  = map[string]bool{"public": true, "internal": true, "secret": true}
-	knownContentTrustV2 = map[string]bool{ContentTrustTrustedInstruction: true, ContentTrustUntrustedData: true}
+	knownMachineSensitivity  = map[string]bool{"public": true, "internal": true, "secret": true}
+	knownMachineContentTrust = map[string]bool{ContentTrustTrustedInstruction: true, ContentTrustUntrustedData: true}
 )
 
-// ValidateManifestV2 fails closed on an unknown required version, kind, field
+// ValidateMachineManifest fails closed on an unknown required version, kind, field
 // value, or invalid item (R1.3). A required item may never carry an omission
 // reason, and no item may promote itself past its trust class into policy.
-func ValidateManifestV2(m ManifestV2) error {
-	if m.SchemaVersion != ManifestVersionV2 {
+func ValidateMachineManifest(m MachineManifest) error {
+	if m.SchemaVersion != MachineManifestVersion {
 		return fmt.Errorf("unsupported manifest schema_version %q", m.SchemaVersion)
 	}
-	if m.Kind != manifestKindV2 {
+	if m.Kind != machineManifestKind {
 		return fmt.Errorf("unexpected manifest kind %q", m.Kind)
 	}
 	if m.Root == "" || m.Slug == "" || m.Action == "" || m.Phase == "" || m.TaskID == "" {
@@ -568,22 +563,22 @@ func ValidateManifestV2(m ManifestV2) error {
 		}
 	}
 	for i, it := range m.Items {
-		if !knownKindsV2[it.Kind] {
+		if !knownMachineKinds[it.Kind] {
 			return fmt.Errorf("item %d: unknown kind %q", i, it.Kind)
 		}
-		if !knownLoadModesV2[it.LoadMode] {
+		if !knownMachineLoadModes[it.LoadMode] {
 			return fmt.Errorf("item %d (%s): unknown load_mode %q", i, it.Kind, it.LoadMode)
 		}
-		if !knownTrustV2[it.Trust] {
+		if !knownMachineTrust[it.Trust] {
 			return fmt.Errorf("item %d (%s): unknown trust %q", i, it.Kind, it.Trust)
 		}
-		if !knownContentTrustV2[it.ContentTrust] {
+		if !knownMachineContentTrust[it.ContentTrust] {
 			return fmt.Errorf("item %d (%s): unknown content_trust %q", i, it.Kind, it.ContentTrust)
 		}
 		if it.SourceDigest == "" {
 			return fmt.Errorf("item %d (%s): source_digest is required", i, it.Kind)
 		}
-		if it.Sensitivity != "" && !knownSensitivityV2[it.Sensitivity] {
+		if it.Sensitivity != "" && !knownMachineSensitivity[it.Sensitivity] {
 			return fmt.Errorf("item %d (%s): unknown sensitivity %q", i, it.Kind, it.Sensitivity)
 		}
 		if it.Reason == "" {
@@ -596,9 +591,9 @@ func ValidateManifestV2(m ManifestV2) error {
 	return nil
 }
 
-// CanonicalizeV2 sorts items into a deterministic total order so identical
+// CanonicalizeMachineManifest sorts items into a deterministic total order so identical
 // inputs render byte-identically (R1.4): priority, then kind, source, selector.
-func CanonicalizeV2(m *ManifestV2) {
+func CanonicalizeMachineManifest(m *MachineManifest) {
 	sort.SliceStable(m.Items, func(i, j int) bool {
 		a, b := m.Items[i], m.Items[j]
 		if a.Priority != b.Priority {
@@ -626,14 +621,14 @@ func (e BudgetError) Error() string {
 	return fmt.Sprintf("required context %d tokens exceeds budget %d — decompose the task or narrow declared files", e.RequiredTokens, e.Budget)
 }
 
-// EnforceBudgetV2 fits items within budget truthfully (R3): the required total
+// EnforceMachineBudget fits items within budget truthfully (R3): the required total
 // is measured and, if it alone exceeds budget, the build fails closed
 // (BudgetError) without truncating any required item. Optional items then shed
 // in deterministic priority order — least important first — until the total
 // fits, each drop recorded as an Omission naming item and reason (R3.3). A
 // budget <= 0 disables enforcement. Returns surviving items, omissions, and the
 // required/optional token split.
-func EnforceBudgetV2(items []ItemV2, budget int) (kept []ItemV2, omissions []Omission, requiredTokens, optionalTokens int, err error) {
+func EnforceMachineBudget(items []MachineItem, budget int) (kept []MachineItem, omissions []Omission, requiredTokens, optionalTokens int, err error) {
 	total := 0
 	for _, it := range items {
 		total += it.EstimatedTokens
@@ -670,7 +665,7 @@ func EnforceBudgetV2(items []ItemV2, budget int) (kept []ItemV2, omissions []Omi
 // leastImportantOptional returns the index of the optional item to shed first:
 // the highest priority number (least important), ties broken by (kind, source)
 // descending for a deterministic order. Returns -1 when no optional item remains.
-func leastImportantOptional(items []ItemV2) int {
+func leastImportantOptional(items []MachineItem) int {
 	best := -1
 	for i, it := range items {
 		if it.Required {
@@ -697,75 +692,75 @@ func leastImportantOptional(items []ItemV2) int {
 	return best
 }
 
-// ManifestV2Digest is the stable SHA-256 over the canonical manifest, computed
+// MachineManifestDigest is the stable SHA-256 over the canonical manifest, computed
 // with the manifest_digest field itself excluded so it never self-references.
-// Callers should CanonicalizeV2 first; this also sorts a copy defensively.
-func ManifestV2Digest(m ManifestV2) string {
+// Callers should CanonicalizeMachineManifest first; this also sorts a copy defensively.
+func MachineManifestDigest(m MachineManifest) string {
 	m.ManifestDigest = ""
-	items := make([]ItemV2, len(m.Items))
+	items := make([]MachineItem, len(m.Items))
 	copy(items, m.Items)
 	m.Items = items
-	CanonicalizeV2(&m)
+	CanonicalizeMachineManifest(&m)
 	raw, _ := json.Marshal(m)
 	return core.Digest(raw)
 }
 
 // DriverItems projects guardrail and palette metadata before mutable action.
-func DriverItems(handshake core.Handshake, phase, role string) []ItemV2 {
-	items := []ItemV2{{Kind: "guardrails", Source: "inline:driver-policy", SourceDigest: handshake.ConfigDigest, Required: true, LoadMode: "eager", Priority: 0, Reason: "driver authority and drift contract", Trust: "guardrail", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: "role=" + role + "; phase=" + phase + "; human-only tools forbidden", EstimatedTokens: 1}}
+func DriverItems(handshake core.Handshake, phase, role string) []MachineItem {
+	items := []MachineItem{{Kind: "guardrails", Source: "inline:driver-policy", SourceDigest: handshake.ConfigDigest, Required: true, LoadMode: "eager", Priority: 0, Reason: "driver authority and drift contract", Trust: "guardrail", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: "role=" + role + "; phase=" + phase + "; human-only tools forbidden", EstimatedTokens: 1}}
 	for _, tool := range handshake.ToolContracts {
-		items = append(items, ItemV2{Kind: "tools", Source: "inline:tool/" + tool.Name, SourceDigest: handshake.PaletteDigest, Required: true, LoadMode: "eager", Priority: 1, Reason: "canonical command palette route", Trust: "harness", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: fmt.Sprintf("mutable=%t; human_only=%t; exit_semantics=declared", tool.Mutable, tool.HumanOnly), EstimatedTokens: 1, Applicability: phase, Route: tool.Route, Capability: tool.Capability})
+		items = append(items, MachineItem{Kind: "tools", Source: "inline:tool/" + tool.Name, SourceDigest: handshake.PaletteDigest, Required: true, LoadMode: "eager", Priority: 1, Reason: "canonical command palette route", Trust: "harness", ContentTrust: ContentTrustTrustedInstruction, Sensitivity: "internal", AuthorityLimit: fmt.Sprintf("mutable=%t; human_only=%t; exit_semantics=declared", tool.Mutable, tool.HumanOnly), EstimatedTokens: 1, Applicability: phase, Route: tool.Route, Capability: tool.Capability})
 	}
 	return items
 }
 
-// BuildManifestV2 assembles required action knowledge and driver lanes into the
+// BuildMachineManifest assembles required action knowledge and driver lanes into the
 // authoritative machine contract. Plain V1 rendering remains separate.
-func BuildManifestV2(root, slug string, tasks []core.TaskRow, taskID, action, phase string, budget int, handshake core.Handshake) (ManifestV2, error) {
+func BuildMachineManifest(root, slug string, tasks []core.TaskRow, taskID, action, phase string, budget int, handshake core.Handshake) (MachineManifest, error) {
 	task, ok := findTask(tasks, taskID)
 	if !ok {
-		return ManifestV2{}, fmt.Errorf("task %s not found", taskID)
+		return MachineManifest{}, fmt.Errorf("task %s not found", taskID)
 	}
 	items, err := SelectRequiredLanes(root, slug, task)
 	if err != nil {
-		return ManifestV2{}, err
+		return MachineManifest{}, err
 	}
 	items = append(items, DriverItems(handshake, phase, task.Role)...)
 	selection := SelectionContext{Phase: phase, Role: task.Role, TaskID: task.ID, RequirementIDs: splitStaticValues(task.Acceptance), TaskFields: []string{action}, Files: append([]string(nil), task.DeclaredFiles...)}
 	steering, steeringOmissions, err := SelectSteering(root, selection)
 	if err != nil {
-		return ManifestV2{}, err
+		return MachineManifest{}, err
 	}
 	memory, memoryOmissions, err := SelectMemory(root, slug, selection)
 	if err != nil {
-		return ManifestV2{}, err
+		return MachineManifest{}, err
 	}
 	examples, exampleOmissions, err := SelectExamples(root, selection)
 	if err != nil {
-		return ManifestV2{}, err
+		return MachineManifest{}, err
 	}
 	skills, skillOmissions, err := SelectSkills(root, SkillSelectionContext{
 		SelectionContext: selection,
 		Capabilities:     core.SupportedToolCapabilities(handshake.ToolContracts, core.Phase(phase)),
 	})
 	if err != nil {
-		return ManifestV2{}, err
+		return MachineManifest{}, err
 	}
 	items = append(items, steering...)
 	items = append(items, memory...)
 	items = append(items, examples...)
 	items = append(items, skills...)
-	kept, omissions, required, optional, err := EnforceBudgetV2(items, budget)
+	kept, omissions, required, optional, err := EnforceMachineBudget(items, budget)
 	if err != nil {
-		return ManifestV2{}, err
+		return MachineManifest{}, err
 	}
 	omissions = append(append(append(append(steeringOmissions, memoryOmissions...), exampleOmissions...), skillOmissions...), omissions...)
-	m := ManifestV2{SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: SelectedTaskV2{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection"}
-	CanonicalizeV2(&m)
-	if err := ValidateManifestV2(m); err != nil {
-		return ManifestV2{}, err
+	m := MachineManifest{SchemaVersion: MachineManifestVersion, Kind: machineManifestKind, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: MachineSelectedTask{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection"}
+	CanonicalizeMachineManifest(&m)
+	if err := ValidateMachineManifest(m); err != nil {
+		return MachineManifest{}, err
 	}
-	m.ManifestDigest = ManifestV2Digest(m)
+	m.ManifestDigest = MachineManifestDigest(m)
 	return m, nil
 }
 
@@ -775,12 +770,12 @@ func splitStaticValues(raw string) []string {
 	return fields
 }
 
-func AttachAuthority(m ManifestV2, authority core.AuthorityV1) (ManifestV2, error) {
+func AttachAuthority(m MachineManifest, authority core.AuthorityV1) (MachineManifest, error) {
 	m.Authority = &authority
 	m.ManifestDigest = ""
-	if err := ValidateManifestV2(m); err != nil {
-		return ManifestV2{}, err
+	if err := ValidateMachineManifest(m); err != nil {
+		return MachineManifest{}, err
 	}
-	m.ManifestDigest = ManifestV2Digest(m)
+	m.ManifestDigest = MachineManifestDigest(m)
 	return m, nil
 }

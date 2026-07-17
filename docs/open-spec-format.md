@@ -8,7 +8,7 @@ This page documents the on-disk surface so integrators can read it directly.
 
 Tasks may use optional `evidence` and `checks` columns. `evidence` contains comma-separated
 `<class>/<check-id>` requirements; classes are `test`, `output_eval`, `trajectory_eval`, or
-`review`. `checks` lists stable check IDs. Legacy tables omitting both remain valid; existing
+`review`. `checks` lists stable check IDs. Tables omitting both remain valid; existing
 `verify` records mean `test` evidence only. Parser preserves author bytes—no companion file or
 silent rewrite is required.
 
@@ -56,7 +56,7 @@ shape (`internal/core/state.go`, `type State`):
 
 | Field | Type | Meaning |
 |---|---|---|
-| `schema_version` | int | On-disk schema (currently **2**; older versions migrate forward on load). |
+| `schema_version` | int | On-disk schema (**1**; any other value fails closed on load). |
 | `slug` | string | Spec slug. |
 | `mode` | `default` \| `agent` | Execution mode. |
 | `status` | string | `requirements → design → tasks → executing → verifying → complete` (+ `blocked`). |
@@ -87,7 +87,7 @@ integrators can read spec state without linking against specd.
 
 ## Decision contract & task trace/risk metadata (spec 01)
 
-Both extensions are **additive and backward compatible** — existing `design.md` and
+Both extensions are **additive and optional** — existing `design.md` and
 `tasks.md` files parse unchanged, and the stricter checks arm only under the production
 profile. That profile is a single project-config switch, `profile: production` in
 `project.yml` (spec 01 R7): it arms the design-contract and task-trace completeness checks
@@ -112,7 +112,7 @@ A `references:` entry that names an unknown requirement is **always** refused. T
 contract is required only when the production design profile is on.
 
 **`tasks.md` optional trace/risk columns.** Add any of `refs`, `kind`, `risk`, `context`,
-`evidence`, `checks` to the table header — columns are matched by name, so a legacy
+`evidence`, `checks` to the table header — columns are matched by name, so a minimal
 six-column table keeps working:
 
 ```markdown
@@ -123,13 +123,14 @@ A declared `refs` requirement that does not resolve, or an unknown `risk` tier
 (`low`/`medium`/`high`/`critical`), is always refused. Declaring the full set on every task
 is required only under the production planning profile.
 
-## Context manifest V2 and receipts
+## Machine context manifest and receipts
 
-Context V2 is additive. Hosts that understand V2 consume `schema_version: "2"`; older hosts
-continue using the V1 renderer. Unknown versions, item kinds, routes, trust labels, and missing
-required lanes fail closed rather than being reinterpreted. V2 requires canonical item ordering,
-source digests, selected-task identity, driver route/capability metadata, and explicit omission
-records. Required context overflow is an error; only optional items may be shed under budget.
+The machine manifest (`kind: context_manifest`, `schema_version: "1"`) is the typed machine
+contract; the human-readable renderer remains the default output. Unknown versions, item kinds,
+routes, trust labels, and missing required lanes fail closed rather than being reinterpreted.
+The machine manifest requires canonical item ordering, source digests, selected-task identity,
+driver route/capability metadata, and explicit omission records. Required context overflow is
+an error; only optional items may be shed under budget.
 
 A receipt contains digests, token totals, and provenance only—never source bytes, prompts, or
 secrets. Compare config, palette, required-context, and selected-skill digests before trusting a

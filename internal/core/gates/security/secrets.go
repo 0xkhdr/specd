@@ -15,7 +15,7 @@ type secretsScanner struct{}
 func (secretsScanner) Name() string { return "secrets" }
 
 func (secretsScanner) Exclude(input ScanInputV1) bool {
-	return excludedScannerPath(input.Path, "testdata", "reference", "vendor", ".git", ".specd/security")
+	return excludedScannerPath(input.Path, "testdata", "vendor", ".git", ".specd/security")
 }
 
 // Format rules: prefix + length + charset. Kept intentionally strict.

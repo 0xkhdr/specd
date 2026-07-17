@@ -9,16 +9,16 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// TestACPTelemetryEnvelope pins the W1 fail-closed rules on ACP telemetry
-// (spec 07 R1.2). Legacy worker telemetry (bare cost) is grandfathered; a
-// malformed canonical envelope is rejected on both append and decode.
+// TestACPTelemetryEnvelope pins the fail-closed rules on ACP telemetry
+// (spec 07 R1.2). Telemetry without the v1 envelope is rejected; a malformed
+// canonical envelope is rejected on both append and decode.
 func TestACPTelemetryEnvelope(t *testing.T) {
 	dir := t.TempDir()
 
-	legacy := filepath.Join(dir, "legacy.jsonl")
-	if err := AppendACP(legacy, ACPEvent{Kind: ACPKindReport, TaskID: "T1",
-		Telemetry: &core.Annotations{Cost: "0.01"}}); err != nil {
-		t.Fatalf("legacy telemetry rejected: %v", err)
+	bare := filepath.Join(dir, "bare.jsonl")
+	if err := AppendACP(bare, ACPEvent{Kind: ACPKindReport, TaskID: "T1",
+		Telemetry: &core.Annotations{Cost: "0.01"}}); err == nil {
+		t.Fatal("telemetry without v1 envelope accepted")
 	}
 
 	if err := AppendACP(filepath.Join(dir, "bad.jsonl"), ACPEvent{Kind: ACPKindReport, TaskID: "T1",

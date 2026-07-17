@@ -141,8 +141,8 @@ specd approve <spec>
 ```
 Record human approval and advance exactly from the current lifecycle status to its immediate
 successor when readiness gates pass. Same, skipped, backward, unknown, and terminal transitions
-fail before gate evaluation or mutation. A deprecated explicit target is accepted only when it
-equals the computed successor. **Phases:** any. **Human only.**
+fail before gate evaluation or mutation. The command takes the spec slug only; an explicit
+target argument is rejected. **Phases:** any. **Human only.**
 
 ```bash
 specd approve payments
@@ -309,7 +309,7 @@ Complete one task by consuming current passing evidence through the gated comple
 Verify records evidence only; it never changes task status. Completion requires evidence pinned to
 current `HEAD`, declared fresh quality evidence, production authority/scope/security controls, and
 the locked state CAS. No bypass or human override is available. **Phases:** post-requirements.
-With top-level `profile: production` (or legacy `security.profile: production`), raw task
+With top-level `profile: production`, raw task
 operations are refused; an MCP caller supplies the claimed mission's digest-pinned `AuthorityV1`
 packet, and dispatch derives changed-path scope from that mission baseline.
 
@@ -381,7 +381,8 @@ specd context <slug> <task-id> [--json|--hud]
 ```
 Build the bounded context manifest for a task. **Phases:** post-requirements.
 
-Manifest schema **v1** remains compatibility output; hosts opt into typed **v2** additively. V2
+The human-readable manifest remains the default output; hosts opt into the typed machine
+manifest (`--json`) additively. The machine manifest
 requires requirements/design/role/source lanes, canonical ordering, source digests, selected-task
 identity, and driver route/capability identity. Unknown schema/item/trust values, missing lanes,
 route mismatch, stale receipt, or required-budget overflow fail closed. Optional omissions carry a

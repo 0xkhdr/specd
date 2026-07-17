@@ -33,7 +33,7 @@ func TestSlugTraversalRejected(t *testing.T) {
 		{"context", []string{esc, "T1"}},
 		{"review", []string{esc}},
 		{"submit", []string{esc}},
-		{"approve", []string{esc, "design"}},
+		{"approve", []string{esc}},
 		{"midreq", []string{esc}},
 		{"decision", []string{esc}},
 		{"link", []string{esc, "other"}},

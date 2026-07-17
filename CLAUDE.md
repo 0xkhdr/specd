@@ -13,8 +13,7 @@ Module: `github.com/0xkhdr/specd`. Requires Go 1.26+ (the `go` directive in `go.
 
 ## Build, test, lint
 
-There is **no root Makefile** (the one under `reference/` belongs to the frozen v1 museum —
-see below). Build and test directly:
+There is **no Makefile**. Build and test directly:
 
 ```bash
 go build -o specd .            # single static binary
@@ -101,7 +100,3 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
 - **Docs sync.** If you touch CLI verbs or flags, update `docs/command-reference.md` **and**
   `docs/CHEATSHEET.md` together (`docs-lint.sh` enforces they match).
 
-## `reference/` — do not touch
-
-`reference/` is the frozen v1 implementation: a read-only museum. Never import, build, copy
-from, or edit it. Its `Makefile`, scripts, and docs describe the old system, not this one.

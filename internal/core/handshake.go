@@ -9,7 +9,7 @@ import (
 	"github.com/0xkhdr/specd/internal/version"
 )
 
-const ContextSchemaVersion = "2"
+const ContextSchemaVersion = "1"
 
 type HandshakeSpec struct {
 	Slug     string `json:"slug"`

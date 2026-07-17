@@ -11,7 +11,7 @@ findings), so opt-in gates stay dormant until their config arms them.
 `specd approve <spec> <gate>` advances a lifecycle phase **only** when the relevant gates
 pass. `specd submit` runs every gate before streaming a PR.
 
-Quality declarations use optional task-table `evidence` and `checks` columns. Legacy `verify`
+Quality declarations use optional task-table `evidence` and `checks` columns. Plain `verify`
 evidence satisfies only class `test`; it never satisfies output, trajectory, or review proof.
 Quality gates stay offline and consume validated local records only.
 
@@ -75,9 +75,9 @@ Registered by `CoreRegistry()` in the order they run:
   disposition/owner) is required only under the production design profile.
 - **`task-trace` (15)** always refuses an unresolvable requirement reference or an unknown
   risk tier declared on a task; the full trace/risk contract is required only under the
-  production planning profile, so legacy six-column `tasks.md` tables keep planning.
+  production planning profile, so minimal six-column `tasks.md` tables keep planning.
 - **`intake` (18)** is armed by a non-empty `required_fields` list in versioned
-  `provenance.json`. Missing files and empty policies preserve legacy feature-spec behavior;
+  `provenance.json`. Missing files and empty policies leave feature-spec behavior unchanged;
   malformed provenance and configured fields whose value is empty or `unknown` fail closed.
 - **`governance` (19)** is armed only when governance policy is configured. It rejects missing or
   proposed required decisions and expired blocking exceptions, naming owner and review action;
@@ -91,7 +91,7 @@ Registered by `CoreRegistry()` in the order they run:
 - **Production profile.** `config.profile = production` (spec 01 R7.2) is the single switch that
   raises the whole bar: it arms the `criteria` and `review` ratchets and the integration /
   negative-path evidence policy together, so each need not be enabled by hand. `default` (R7.1)
-  keeps every one of them opt-in for backward compatibility. The effective policy is surfaced as
+  keeps every one of them opt-in. The effective policy is surfaced as
   a `policy_digest` on the bootstrap handshake so a later approval can detect that the judgment
   policy has moved.
 - **program links** — when approving the execution transition, incomplete cross-spec
@@ -128,7 +128,7 @@ your build:
 - Dependency checksum manifests: `go.sum`, `package-lock.json`, `yarn.lock`,
   `pnpm-lock.yaml`, `Cargo.lock`.
 - Directories: `testdata/` (synthetic fixtures), `.specd/` (the harness's own runtime state,
-  which stores fingerprints/digests), `reference/` (frozen v1 museum), `vendor/`, `.git/`.
+  which stores fingerprints/digests), `vendor/`, `.git/`.
 
 ---
 

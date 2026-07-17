@@ -23,7 +23,10 @@ func TestDeliveryEnvelope(t *testing.T) {
 	if err := ValidateHealthObservation(health); err != nil {
 		t.Fatalf("health: %v", err)
 	}
-	rollback := RollbackV1{Schema: RollbackSchemaV1, DeploymentID: deployment.DeploymentID, RollbackTarget: "release-old", Reason: "failed criterion", Adapter: "ci", ActionResult: "issued", CapabilityClass: "reversible"}
+	rollback := RollbackV1{Schema: RollbackSchemaV1, DeploymentID: deployment.DeploymentID, FailedReleaseID: "rel-bad",
+		RollbackTarget: "release-old", Reason: "failed criterion", Adapter: "ci", AdapterIdentity: "attested:ci",
+		ActionResult: "issued", CapabilityClass: RollbackCapabilityAutomatic,
+		PostRollbackHealth: RollbackHealth{CriterionID: "health", Observation: "pass", ObservedAt: "2026-07-13T12:00:00Z"}}
 	if err := ValidateRollback(rollback); err != nil {
 		t.Fatalf("rollback: %v", err)
 	}
@@ -149,7 +152,7 @@ func TestCanaryWindow(t *testing.T) {
 }
 
 func TestRollbackComplete(t *testing.T) {
-	r := RollbackV1{Schema: RollbackSchemaV2, DeploymentID: "dep-1", FailedReleaseID: "rel-bad",
+	r := RollbackV1{Schema: RollbackSchemaV1, DeploymentID: "dep-1", FailedReleaseID: "rel-bad",
 		RollbackTarget: "rel-good", Reason: "error budget", Adapter: "deploy/v1", AdapterIdentity: "attested:ci",
 		ActionResult: "succeeded", CapabilityClass: RollbackCapabilityAutomatic,
 		PostRollbackHealth: RollbackHealth{CriterionID: "health", Observation: "pass", ObservedAt: "2026-07-13T12:00:00Z"}}

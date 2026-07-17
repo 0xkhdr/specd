@@ -12,7 +12,6 @@ const (
 	DeploymentSchemaV1        = "DeploymentV1"
 	HealthObservationSchemaV1 = "HealthObservationV1"
 	RollbackSchemaV1          = "RollbackV1"
-	RollbackSchemaV2          = "RollbackV2"
 )
 
 type EnvironmentName string
@@ -274,14 +273,8 @@ func ValidateHealthObservation(h HealthObservationV1) error {
 }
 
 func ValidateRollback(r RollbackV1) error {
-	if r.Schema != RollbackSchemaV1 && r.Schema != RollbackSchemaV2 {
+	if r.Schema != RollbackSchemaV1 {
 		return fmt.Errorf("unknown rollback schema %q", r.Schema)
-	}
-	if r.Schema == RollbackSchemaV1 {
-		if missing := firstEmpty("deployment_id", r.DeploymentID, "rollback_target", r.RollbackTarget, "reason", r.Reason, "adapter", r.Adapter, "action_result", r.ActionResult, "capability_class", r.CapabilityClass); missing != "" {
-			return fmt.Errorf("rollback missing %s", missing)
-		}
-		return nil
 	}
 	if missing := firstEmpty("deployment_id", r.DeploymentID, "failed_release_id", r.FailedReleaseID, "rollback_target", r.RollbackTarget, "reason", r.Reason, "adapter", r.Adapter, "adapter_identity", r.AdapterIdentity, "action_result", r.ActionResult, "capability_class", r.CapabilityClass); missing != "" {
 		return fmt.Errorf("rollback missing %s", missing)

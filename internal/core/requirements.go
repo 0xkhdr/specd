@@ -125,7 +125,7 @@ type ReqFinding struct {
 // requirements doc. It is pure: no disk, no clock. Callers with an unstructured
 // doc (len(Requirements) == 0 and content present) get a single "no
 // requirements found" finding, which the EARS gate suppresses for docs that use
-// the legacy bullet shape.
+// the plain bullet shape.
 func ValidateRequirements(doc RequirementsDoc) []ReqFinding {
 	var findings []ReqFinding
 	if len(doc.Requirements) == 0 {

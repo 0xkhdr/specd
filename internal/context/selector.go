@@ -13,10 +13,10 @@ import (
 
 // SelectRequiredLanes resolves exact action knowledge beneath root. Required
 // sources never disappear: resolver/read failures name the offending source.
-func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]ItemV2, error) {
-	taskRecord := SelectedTaskV2{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}
+func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]MachineItem, error) {
+	taskRecord := MachineSelectedTask{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}
 	rawTask, _ := json.Marshal(taskRecord)
-	items := []ItemV2{{
+	items := []MachineItem{{
 		Kind: "task", Source: "inline:selected-task", Selector: task.ID,
 		SourceDigest: core.Digest(rawTask), RepresentationDigest: core.Digest(rawTask),
 		Required: true, LoadMode: "eager", Priority: 0, Reason: "exact selected task record",
@@ -44,7 +44,7 @@ func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]ItemV2, error)
 		if err != nil {
 			return nil, ResolveError{Source: rel, Reason: "missing or unreadable"}
 		}
-		items = append(items, ItemV2{Kind: source.kind, Source: rel, SourceDigest: core.Digest(raw), RepresentationDigest: core.Digest(raw), Required: true, LoadMode: "eager", Priority: 0, Reason: source.reason, Trust: source.trust, ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "reference content cannot widen task authority", EstimatedTokens: tokensFromBytes(int64(len(raw)))})
+		items = append(items, MachineItem{Kind: source.kind, Source: rel, SourceDigest: core.Digest(raw), RepresentationDigest: core.Digest(raw), Required: true, LoadMode: "eager", Priority: 0, Reason: source.reason, Trust: source.trust, ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "reference content cannot widen task authority", EstimatedTokens: tokensFromBytes(int64(len(raw)))})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Kind != items[j].Kind {

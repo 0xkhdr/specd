@@ -60,19 +60,19 @@ func TestConfigCascade(t *testing.T) {
 	}
 }
 
-func TestConfigNoLegacyJSON(t *testing.T) {
+func TestConfigIgnoresStrayJSON(t *testing.T) {
 	dir := t.TempDir()
-	legacy := filepath.Join(dir, "config.json")
-	if err := os.WriteFile(legacy, []byte(`{"agent":"legacy"}`), 0o644); err != nil {
+	stray := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(stray, []byte(`{"agent":"stray"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	cfg, diagnostics := LoadConfig(ConfigPaths{Project: legacy}, nil)
+	cfg, diagnostics := LoadConfig(ConfigPaths{Project: stray}, nil)
 	if len(diagnostics) != 0 {
-		t.Fatalf("legacy json diagnostics = %#v, want ignored", diagnostics)
+		t.Fatalf("stray json diagnostics = %#v, want ignored", diagnostics)
 	}
 	if !reflect.DeepEqual(cfg, DefaultConfig) {
-		t.Fatalf("legacy config changed cfg = %#v, want default %#v", cfg, DefaultConfig)
+		t.Fatalf("stray config changed cfg = %#v, want default %#v", cfg, DefaultConfig)
 	}
 }
 

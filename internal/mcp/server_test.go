@@ -87,7 +87,7 @@ func TestMCPCompleteTaskUsesNarrowAuthorizedRoute(t *testing.T) {
 	}
 	for _, tool := range CoreTools() {
 		if tool.Name == "task.complete" {
-			t.Fatal("legacy broad task completion operation exposed")
+			t.Fatal("broad task completion operation exposed")
 		}
 		if tool.Name == "complete-task" {
 			properties := tool.InputSchema["properties"].(map[string]any)

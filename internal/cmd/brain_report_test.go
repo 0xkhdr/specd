@@ -57,7 +57,7 @@ func TestBrainFakeHostLifecycleE2E(t *testing.T) {
 }
 
 func TestBrainReportProductionScopeRejectsUndeclared(t *testing.T) {
-	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\nsecurity:\n  profile: production\n")
+	root := newBrainTestRoot(t, "orchestrated", "orchestration:\n  enabled: true\nprofile: production\n")
 	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"
 	os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644)
 	os.WriteFile(filepath.Join(root, "a.go"), []byte("a"), 0o644)

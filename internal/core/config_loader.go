@@ -13,7 +13,7 @@ type Config struct {
 	Version string
 	Agent   string
 	// Profile is the lifecycle strictness profile (spec 01 R7). "default" keeps
-	// the backward-compatible policy where new completeness checks are opt-in
+	// the default policy where new completeness checks are opt-in
 	// per-flag (R7.1). "production" raises the whole bar: it arms the criterion,
 	// review, and integration/negative-path evidence gates together (R7.2),
 	// regardless of the individual criteria.required / review.required switches.
@@ -120,7 +120,7 @@ type SubmitConfig struct {
 const SubmitDefaultTimeoutSecs = 120
 
 // Lifecycle strictness profiles (spec 01 R7). ProfileDefault keeps every new
-// completeness check opt-in (backward compatible, R7.1); ProfileProduction
+// completeness check opt-in (R7.1); ProfileProduction
 // arms the risk-proportionate criterion/review/integration/negative-path
 // evidence gates together (R7.2).
 const (
@@ -134,11 +134,10 @@ func (c Config) ProductionProfile() bool {
 	return c.Profile == ProfileProduction
 }
 
-// ProductionTaskAuthorityRequired is the canonical compatibility predicate for
-// task authority and mission-derived scope. The lifecycle profile is normative;
-// security.profile=production remains armed for existing projects.
+// ProductionTaskAuthorityRequired is the canonical predicate for task
+// authority and mission-derived scope. The lifecycle profile is normative.
 func (c Config) ProductionTaskAuthorityRequired() bool {
-	return c.ProductionProfile() || c.Security.Profile == ProfileProduction
+	return c.ProductionProfile()
 }
 
 // CriteriaGateArmed reports whether the per-criterion evidence ratchet must run:
@@ -157,10 +156,9 @@ func (c Config) ReviewGateArmed() bool {
 
 // IntegrationPolicyArmed reports whether declared external/integration
 // boundaries must carry error-path and integration evidence planning (R3.3).
-// The production lifecycle profile arms it; security.profile=production keeps
-// arming it for backward compatibility.
+// The production lifecycle profile arms it.
 func (c Config) IntegrationPolicyArmed() bool {
-	return c.ProductionProfile() || c.Security.Profile == ProfileProduction
+	return c.ProductionProfile()
 }
 
 // CriteriaConfig is the opt-in per-acceptance-criterion evidence ratchet. When

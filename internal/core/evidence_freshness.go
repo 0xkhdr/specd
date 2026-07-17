@@ -4,7 +4,7 @@ package core
 // must match to still count as proof (spec 04 R3.3). Revision is the subject
 // commit; the digest fields are the configured current subject digests the
 // completion policy pins. A zero field means "not configured": that dimension
-// is not checked, so an empty subject verifies nothing (parity — legacy specs
+// is not checked, so an empty subject verifies nothing (parity — specs
 // with no quality policy keep completing on verify alone).
 type FreshnessSubject struct {
 	Revision      string

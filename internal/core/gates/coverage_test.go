@@ -28,13 +28,13 @@ func TestCoverageGateRefusesExecutionWithCriterionGap(t *testing.T) {
 	}
 }
 
-func TestCoverageGateKeepsLegacyTasksCompatible(t *testing.T) {
+func TestCoverageGateKeepsMinimalTasksCompatible(t *testing.T) {
 	ctx := CheckCtx{
 		ApproveTarget:   string(core.StatusExecuting),
 		RequirementsDoc: "### R1 — demo\n\n- R1.1: When x, the system shall y.\n",
 		Tasks:           []core.TaskRow{{ID: "T1"}},
 	}
 	if findings := coverageGate(ctx); len(findings) != 0 {
-		t.Fatalf("legacy task table should remain compatible: %+v", findings)
+		t.Fatalf("minimal task table should remain compatible: %+v", findings)
 	}
 }

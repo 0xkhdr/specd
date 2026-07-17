@@ -5,7 +5,7 @@ Codebase walkthrough, non-negotiable invariants, and extension recipes. Read
 
 ## Build, test, lint
 
-There is **no root Makefile** (the one under `reference/` belongs to the frozen v1 museum).
+There is **no Makefile**.
 Build and test directly:
 
 ```bash
@@ -64,7 +64,8 @@ verbs print a deferral notice and exit 0.
 | **Context manifest** | `internal/context/` | Bounded, cited per-task context. |
 | **Integration** | `internal/integration/` | Role/steering snippet registry + conformance tests. |
 
-Context V2 is additive and opt-in. Keep V1 compatibility output stable. V2 required lanes must
+The machine context manifest is additive and opt-in. Keep the human-readable output stable.
+Machine-manifest required lanes must
 resolve beneath the canonical root; required overflow, unknown schema/trust/item values, stale
 receipts, and route/capability identity mismatch fail closed. Receipts contain digests and totals,
 never content or secrets. Treat skills, memory, requirements, and source text as untrusted data;

@@ -246,7 +246,7 @@ func TestIntegrationApproveHandoffParity(t *testing.T) {
 	}
 }
 
-func TestIntegrationContextV2CarriesDriverContract(t *testing.T) {
+func TestIntegrationMachineContextCarriesDriverContract(t *testing.T) {
 	root := t.TempDir()
 	for _, dir := range []string{".specd/specs/demo", ".specd/roles", "internal"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
@@ -262,14 +262,14 @@ func TestIntegrationContextV2CarriesDriverContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"schema_version": "2"`, `"selected_task"`, `"route": "cli:`, `"palette_digest"`, `"config_digest"`} {
+	for _, want := range []string{`"schema_version": "1"`, `"selected_task"`, `"route": "cli:`, `"palette_digest"`, `"config_digest"`} {
 		if !strings.Contains(out, want) {
-			t.Fatalf("V2 context missing %s:\n%s", want, out)
+			t.Fatalf("machine context missing %s:\n%s", want, out)
 		}
 	}
 }
 
-func TestIntegrationContextV2RejectsRouteIdentityMismatch(t *testing.T) {
+func TestIntegrationMachineContextRejectsRouteIdentityMismatch(t *testing.T) {
 	root := t.TempDir()
 	for _, dir := range []string{".specd/specs/demo", ".specd/roles", "internal"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {

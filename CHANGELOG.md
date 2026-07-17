@@ -7,44 +7,33 @@ All notable changes to `specd` are recorded here. The format follows
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-07-09
+## [1.0.0] - 2026-07-17
 
-Production-readiness hardening initiative (no behaviour change to the harness contract:
-determinism, evidence integrity, and zero runtime dependencies are preserved throughout).
-Verified end-to-end by an all-green hosted CI run (PR #38, 16/16 checks).
+First public release. Every on-disk contract ships at schema version 1 with no
+earlier versions to migrate from: unknown or mismatched schema versions fail
+closed everywhere.
 
-### Added
-- CI/CD pipeline: `gofmt`/`vet`/`go mod tidy` gates, `-race` + `-count=2` test legs across
-  `{ubuntu, macos} × {go 1.26.x, stable}`, `golangci-lint` v2, pinned `govulncheck`, cross-process
-  stress and crash-fault jobs, and an enforced coverage floor (`scripts/coverage-check.sh`).
-- Reproducible release packaging via `.goreleaser.yml` (static build, checksums, SBOM).
-- `SECURITY.md`, `TESTING.md`, `docs/observability.md`, `docs/scale-envelope.md`,
-  `docs/versioning-policy.md`, and this changelog.
-- Observability test coverage: Prometheus exposition validity, history ordering + JSON schema
-  stability, HUD render, and an exit-code/error-message drift guard against `troubleshooting.md`.
-- MCP tool-call marshaling contract tests and a documented-example runnability check.
-- `docs-lint.sh` drift guard: the gate count and the Go-version floor are now lint-enforced from
-  their single authoritative sources (`internal/core/gates/core.go`, `go.mod`).
+- The spec-driven pipeline: requirements → design → tasks → evidence-gated
+  execution, with deterministic validation gates and no LLM in any gate, DAG,
+  or report path.
+- Evidence integrity: a task completes only against a passing verify record
+  (exit 0 pinned to a resolvable git HEAD); no bypass flag exists.
+- Base and orchestrated execution models, including the opt-in deterministic
+  Brain controller (leases, decisions, ACP ledger) and wave-based frontiers.
+- Typed machine context manifest (`kind: context_manifest`,
+  `schema_version: "1"`) alongside the default human-readable renderer;
+  bounded, cited context with receipts.
+- Canonical v1 telemetry envelope required on every persisted record; run
+  ledger, provenance, program, state, rollback, and release-candidate schemas
+  all pinned to v1 and fail-closed.
+- MCP server exposing the command palette; roles (scout, craftsman, validator,
+  auditor) and steering scaffolding via `specd init`.
+- CI/CD pipeline: `gofmt`/`vet`/`go mod tidy` gates, `-race` + `-count=2` test
+  legs across `{ubuntu, macos} × {go 1.26.x, stable}`, `golangci-lint`, pinned
+  `govulncheck`, cross-process stress and crash-fault jobs, an enforced
+  coverage floor, and reproducible release packaging via `.goreleaser.yml`
+  (static build, checksums, SBOM).
+- Zero runtime dependencies: standard library only, single static binary.
 
-### Changed
-- Coverage floor ratcheted 74.0% → 75.0% (policy target; measured 75.7%).
-- Go floor documented consistently as 1.26+ (matches the `go` directive in `go.mod`).
-- Gate count normalised to 14 everywhere.
-
-### Removed
-- Orphan scripts `stress-brain.sh` and `verify-progress.sh` (redundant with wired CI jobs / the
-  Go suite; see `scripts/README.md` for the per-script decision).
-
-## [0.2.0]
-
-- Iteration on the harness surface and orchestration.
-
-## [0.1.0]
-
-- Initial public release: the spec-driven pipeline (requirements → design → tasks →
-  evidence-gated execution), the validation gates, and the base + orchestrated execution models.
-
-[Unreleased]: https://github.com/0xkhdr/specd/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/0xkhdr/specd/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/0xkhdr/specd/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/0xkhdr/specd/releases/tag/v0.1.0
+[Unreleased]: https://github.com/0xkhdr/specd/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/0xkhdr/specd/releases/tag/v1.0.0

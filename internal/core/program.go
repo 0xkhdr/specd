@@ -353,10 +353,9 @@ func RollupEconomics(inputs []SpecEconomics, driftThreshold string) (ProgramEcon
 	return out, nil
 }
 
-// ProgramSchemaVersion versions the program.json shape, following the same
-// forward-migration discipline as state.json (spec 02). Bump it when the shape
-// changes and add a migration in LoadProgram.
-const ProgramSchemaVersion = 2
+// ProgramSchemaVersion versions the program.json shape. Any other version is
+// rejected fail-closed in LoadProgram.
+const ProgramSchemaVersion = 1
 
 type LinkKind string
 
@@ -401,8 +400,8 @@ func ProgramPath(root string) string {
 }
 
 // LoadProgram reads program.json. A missing file is an empty program at the
-// current schema version. An unknown (future) schema is an error — fail closed
-// rather than silently misread newer state.
+// current schema version. Any other schema is an error — fail closed rather
+// than silently misread state this binary does not understand.
 func LoadProgram(path string) (Program, error) {
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -415,11 +414,8 @@ func LoadProgram(path string) (Program, error) {
 	if err := json.Unmarshal(raw, &program); err != nil {
 		return Program{}, err
 	}
-	if program.SchemaVersion == 0 {
-		program.SchemaVersion = ProgramSchemaVersion // pre-versioned files migrate forward
-	}
-	if program.SchemaVersion > ProgramSchemaVersion {
-		return Program{}, errors.New("program.json schema is newer than this binary supports")
+	if program.SchemaVersion != ProgramSchemaVersion {
+		return Program{}, fmt.Errorf("unsupported program.json schema %d (specd v1 requires schema %d)", program.SchemaVersion, ProgramSchemaVersion)
 	}
 	for i := range program.Links {
 		if program.Links[i].Kind == "" {

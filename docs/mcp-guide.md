@@ -29,8 +29,8 @@ as a JSON-RPC protocol error. State-changing or session verbs (`init`, `approve`
 `task`, `mcp`) are **refused by policy** (`-32001`) — drive those from the CLI, where phase and
 evidence gates apply with a human in the loop.
 
-Task tools advertise an optional `authority` object. Under top-level `profile: production` (and
-legacy `security.profile: production`), every task operation requires the claimed mission's
+Task tools advertise an optional `authority` object. Under top-level `profile: production`,
+every task operation requires the claimed mission's
 digest-pinned `AuthorityV1` packet. MCP validates it, forwards it unchanged to command dispatch,
 and dispatch derives changed paths from the mission baseline; missing, expired, wrong-spec,
 wrong-task, wrong-role, or out-of-scope packets fail closed.
@@ -126,13 +126,14 @@ prompt or CI step to make "am I still driving the harness I was built for?" a de
 check rather than a hope.
 
 `specd context <slug> <task> --json` and `specd next <slug> --dispatch` carry those same
-digests in context manifest V2, alongside canonical tool routes, capabilities, mutability,
+digests in the machine context manifest, alongside canonical tool routes, capabilities, mutability,
 human-only boundaries, and exit semantics. Compare handshake expectations before any mutable
 route; digest drift fails closed instead of dispatching against stale authority.
 
-### Context V2 host contract
+### Machine context host contract
 
-V2 is additive: V1 remains compatibility output until a host opts into V2. Hosts must reject
+The machine manifest is additive: the human-readable output remains the default until a host
+opts into the machine contract. Hosts must reject
 unknown schema/item/trust values, missing required requirements/design/role/source lanes, route or
 capability identity mismatches, and required-budget overflow. Optional context may be omitted only
 with a recorded reason. Receipts carry digests and totals, not content; config, palette, required

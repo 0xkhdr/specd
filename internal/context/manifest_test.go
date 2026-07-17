@@ -93,11 +93,11 @@ func TestManifestSelectsPortableSkills(t *testing.T) {
 		{Name: "status", Phases: []core.Phase{core.PhaseExecute}, Capability: "read"},
 		{Name: "verify", Phases: []core.Phase{core.PhaseExecute}, Capability: "write"},
 	}}
-	m, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
+	m, err := BuildMachineManifest(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var skill ItemV2
+	var skill MachineItem
 	for _, item := range m.Items {
 		if item.Kind == "skill" {
 			skill = item
@@ -106,10 +106,10 @@ func TestManifestSelectsPortableSkills(t *testing.T) {
 	if skill.Source != ".specd/skills/go-test/SKILL.md" || skill.SourceDigest == "" || skill.EstimatedTokens != 120 {
 		t.Fatalf("skill = %+v", skill)
 	}
-	if m.ManifestDigest == "" || m.ManifestDigest != ManifestV2Digest(m) || m.OptionalTokens < 120 {
+	if m.ManifestDigest == "" || m.ManifestDigest != MachineManifestDigest(m) || m.OptionalTokens < 120 {
 		t.Fatalf("manifest digest/totals = %+v", m)
 	}
-	again, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", m.RequiredTokens, hs)
+	again, err := BuildMachineManifest(root, "demo", tasks, "T1", "execute", "execute", m.RequiredTokens, hs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestManifestFreshScaffoldSelectsApplicableSkills(t *testing.T) {
 	writeManifestFixture(t, root, ".specd/specs/demo/design.md", "# Design\n")
 	writeManifestFixture(t, root, "main.go", "package main\n")
 	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"main.go"}, Verify: "go test ./...", Acceptance: "R1.1"}}
-	m, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
+	m, err := BuildMachineManifest(root, "demo", tasks, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,70 +206,70 @@ func TestManifestCarriesRoutingRecommendationMetadata(t *testing.T) {
 	}
 }
 
-// TestManifestVersionFailsClosed (R1.3/R8.2) pins the W0 V1/V2 migration
+// TestManifestVersionFailsClosed (R1.3/R8.2) pins the manifest-version
 // decision: V1 stays the compatibility renderer, and any unknown/unsupported
 // manifest version is rejected rather than silently reinterpreted. When the
-// typed V2 contract lands (W1) it must extend the accepted version set
+// human manifest schema ever changes it must extend the accepted version set
 // explicitly — this test then documents both accepted versions.
 func TestManifestVersionFailsClosed(t *testing.T) {
-	full := `{"version":"2","mode":"craftsman","slug":"demo","task_id":"T1","items":[{"kind":"a"},{"kind":"b"},{"kind":"c"},{"kind":"d"}]}`
+	full := `{"version":"99","mode":"craftsman","slug":"demo","task_id":"T1","items":[{"kind":"a"},{"kind":"b"},{"kind":"c"},{"kind":"d"}]}`
 	if err := ValidateManifest([]byte(full)); err == nil {
-		t.Fatal("unknown manifest version 2 must fail closed until V2 lands")
+		t.Fatal("unknown manifest version must fail closed")
 	}
 	if err := ValidateManifest([]byte(`{"version":"9"}`)); err == nil {
 		t.Fatal("unsupported version must be rejected, not reinterpreted")
 	}
 }
 
-// --- W1 T04 typed V2 schema, canonical order + digest (R1) -------------------
+// --- Typed machine manifest schema, canonical order + digest (R1) ------------
 
-func validV2() ManifestV2 {
-	return ManifestV2{
-		SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: ".", Slug: "demo",
+func validMachineManifest() MachineManifest {
+	return MachineManifest{
+		SchemaVersion: MachineManifestVersion, Kind: machineManifestKind, Root: ".", Slug: "demo",
 		Action: "implement", Phase: "post-design", TaskID: "T1",
-		Items: []ItemV2{
+		Items: []MachineItem{
 			{Kind: "guardrails", Source: ".specd/steering/product.md", SourceDigest: "guardrail-digest", Required: true, LoadMode: "eager", Trust: "guardrail", ContentTrust: ContentTrustUntrustedData, Sensitivity: "public", Reason: "harness constitution", EstimatedTokens: 3},
 			{Kind: "task", Selector: "T1", SourceDigest: "task-digest", Required: true, LoadMode: "eager", Trust: "harness", ContentTrust: ContentTrustUntrustedData, Sensitivity: "public", Reason: "selected task record", EstimatedTokens: 5},
 		},
 	}
 }
 
-// TestManifestV2ValidateFailsClosed (R1.3): unknown version, kind, load_mode, or
+// TestMachineManifestValidateFailsClosed (R1.3): unknown version, kind, load_mode, or
 // trust — or a missing required field — is rejected, never reinterpreted.
-func TestManifestV2ValidateFailsClosed(t *testing.T) {
-	if err := ValidateManifestV2(validV2()); err != nil {
+func TestMachineManifestValidateFailsClosed(t *testing.T) {
+	if err := ValidateMachineManifest(validMachineManifest()); err != nil {
 		t.Fatalf("valid v2 manifest rejected: %v", err)
 	}
-	mut := []func(m *ManifestV2){
-		func(m *ManifestV2) { m.SchemaVersion = "3" },
-		func(m *ManifestV2) { m.Kind = "other" },
-		func(m *ManifestV2) { m.TaskID = "" },
-		func(m *ManifestV2) { m.Items[0].Kind = "wat" },
-		func(m *ManifestV2) { m.Items[0].LoadMode = "sometimes" },
-		func(m *ManifestV2) { m.Items[0].Trust = "vibes" },
-		func(m *ManifestV2) { m.Items[0].ContentTrust = "trusted_by_claim" },
-		func(m *ManifestV2) { m.Items[0].Reason = "" },
-		func(m *ManifestV2) { m.Items = nil },
+	mut := []func(m *MachineManifest){
+		func(m *MachineManifest) { m.SchemaVersion = "3" },
+		func(m *MachineManifest) { m.Kind = "other" },
+		func(m *MachineManifest) { m.TaskID = "" },
+		func(m *MachineManifest) { m.Items[0].Kind = "wat" },
+		func(m *MachineManifest) { m.Items[0].LoadMode = "sometimes" },
+		func(m *MachineManifest) { m.Items[0].Trust = "vibes" },
+		func(m *MachineManifest) { m.Items[0].ContentTrust = "trusted_by_claim" },
+		func(m *MachineManifest) { m.Items[0].Reason = "" },
+		func(m *MachineManifest) { m.Items = nil },
 	}
 	for i, f := range mut {
-		m := validV2()
+		m := validMachineManifest()
 		f(&m)
-		if err := ValidateManifestV2(m); err == nil {
+		if err := ValidateMachineManifest(m); err == nil {
 			t.Fatalf("mutation %d must fail closed", i)
 		}
 	}
 }
 
-// TestManifestV2CanonicalDigest (R1.4): identical inputs yield byte-identical
+// TestMachineManifestCanonicalDigest (R1.4): identical inputs yield byte-identical
 // item ordering and a stable manifest digest, independent of input item order,
 // and the digest excludes itself.
-func TestManifestV2CanonicalDigest(t *testing.T) {
-	a := validV2()
-	b := validV2()
+func TestMachineManifestCanonicalDigest(t *testing.T) {
+	a := validMachineManifest()
+	b := validMachineManifest()
 	b.Items[0], b.Items[1] = b.Items[1], b.Items[0] // shuffled input
-	CanonicalizeV2(&a)
-	CanonicalizeV2(&b)
-	da, db := ManifestV2Digest(a), ManifestV2Digest(b)
+	CanonicalizeMachineManifest(&a)
+	CanonicalizeMachineManifest(&b)
+	da, db := MachineManifestDigest(a), MachineManifestDigest(b)
 	if da != db {
 		t.Fatalf("digest not order-independent: %s vs %s", da, db)
 	}
@@ -278,25 +278,25 @@ func TestManifestV2CanonicalDigest(t *testing.T) {
 	}
 	// Digest excludes the digest field itself (no self-reference).
 	a.ManifestDigest = "deadbeef"
-	if ManifestV2Digest(a) != da {
+	if MachineManifestDigest(a) != da {
 		t.Fatal("digest must not depend on the manifest_digest field")
 	}
 }
 
-func TestManifestV2SelectedTaskRecord(t *testing.T) {
-	m := validV2()
-	m.SelectedTask = SelectedTaskV2{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go", "a_test.go"}, Verify: "go test ./...", Acceptance: "R2.1"}
-	if err := ValidateManifestV2(m); err != nil {
+func TestMachineManifestSelectedTaskRecord(t *testing.T) {
+	m := validMachineManifest()
+	m.SelectedTask = MachineSelectedTask{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go", "a_test.go"}, Verify: "go test ./...", Acceptance: "R2.1"}
+	if err := ValidateMachineManifest(m); err != nil {
 		t.Fatalf("structured selected task rejected: %v", err)
 	}
 	m.SelectedTask.DeclaredFiles = []string{"../escape"}
-	if err := ValidateManifestV2(m); err == nil {
+	if err := ValidateMachineManifest(m); err == nil {
 		t.Fatal("unsafe declared file accepted")
 	}
 }
 
 func TestManifestAuthorityPacket(t *testing.T) {
-	m := validV2()
+	m := validMachineManifest()
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	a, err := core.BuildAuthority(core.TaskRow{ID: m.TaskID, Role: "craftsman", DeclaredFiles: []string{"a.go"}}, "controller", "w", m.Slug, m.Phase, "abc", "policy", "required", now, now.Add(time.Hour))
 	if err != nil {
@@ -344,7 +344,7 @@ func TestManifestConformanceFailureMatrix(t *testing.T) {
 	writeManifestFixture(t, root, ".specd/specs/demo/requirements.md", "# Requirements\n")
 	writeManifestFixture(t, root, ".specd/roles/craftsman.md", "# Role\n")
 	task := core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"internal/main.go"}}
-	_, err := BuildManifestV2(root, "demo", []core.TaskRow{task}, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
+	_, err := BuildMachineManifest(root, "demo", []core.TaskRow{task}, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
 	if err == nil || !strings.Contains(err.Error(), ".specd/specs/demo/design.md") {
 		t.Fatalf("missing required design must be named: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestManifestConformanceFailureMatrix(t *testing.T) {
 	if _, err := ResolveSource(root, ".specd/specs/demo/../../../../etc/passwd"); err == nil {
 		t.Fatal("wrong-root traversal accepted")
 	}
-	if _, _, _, _, err := EnforceBudgetV2([]ItemV2{{Kind: "task", Required: true, EstimatedTokens: 10, Reason: "task"}}, 1); err == nil {
+	if _, _, _, _, err := EnforceMachineBudget([]MachineItem{{Kind: "task", Required: true, EstimatedTokens: 10, Reason: "task"}}, 1); err == nil {
 		t.Fatal("required overflow accepted")
 	}
 
@@ -362,7 +362,7 @@ func TestManifestConformanceFailureMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.Items[0].RepresentationDigest = strings.Repeat("f", 64)
-	m.ManifestDigest = ManifestV2Digest(m)
+	m.ManifestDigest = MachineManifestDigest(m)
 	if stale := ReceiptStaleness(r, m); len(stale) == 0 {
 		t.Fatal("changed required context did not stale receipt")
 	}

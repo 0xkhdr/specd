@@ -176,13 +176,13 @@ func validSkillVersion(v string) bool {
 	return true
 }
 
-func SelectSkills(root string, c SkillSelectionContext) ([]ItemV2, []Omission, error) {
+func SelectSkills(root string, c SkillSelectionContext) ([]MachineItem, []Omission, error) {
 	packages, err := LoadSkills(root)
 	if err != nil {
 		return nil, nil, err
 	}
 	available := makeSet(c.Capabilities)
-	var items []ItemV2
+	var items []MachineItem
 	var omissions []Omission
 	for _, pkg := range packages {
 		if !containsOrAny(pkg.Phases, c.Phase) || !containsOrAny(pkg.Roles, c.Role) {
@@ -206,10 +206,10 @@ func SelectSkills(root string, c SkillSelectionContext) ([]ItemV2, []Omission, e
 			omissions = append(omissions, Omission{Kind: "skill", Source: pkg.Source, Reason: reason})
 			continue
 		}
-		items = append(items, ItemV2{Kind: "skill", Source: pkg.Source, Selector: "skill:" + pkg.ID + "@" + pkg.Version, SourceDigest: pkg.Digest, RepresentationDigest: pkg.Digest, Required: pkg.Required, LoadMode: "lazy", Priority: SkillPriority, Reason: pkg.Trigger, Trust: "knowledge", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: SkillAuthorityLimit, EstimatedTokens: pkg.Budget, Applicability: "phases=" + strings.Join(pkg.Phases, ",") + "; roles=" + strings.Join(pkg.Roles, ","), Capability: strings.Join(pkg.Capabilities, ",")})
+		items = append(items, MachineItem{Kind: "skill", Source: pkg.Source, Selector: "skill:" + pkg.ID + "@" + pkg.Version, SourceDigest: pkg.Digest, RepresentationDigest: pkg.Digest, Required: pkg.Required, LoadMode: "lazy", Priority: SkillPriority, Reason: pkg.Trigger, Trust: "knowledge", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: SkillAuthorityLimit, EstimatedTokens: pkg.Budget, Applicability: "phases=" + strings.Join(pkg.Phases, ",") + "; roles=" + strings.Join(pkg.Roles, ","), Capability: strings.Join(pkg.Capabilities, ",")})
 	}
-	m := ManifestV2{Items: items}
-	CanonicalizeV2(&m)
+	m := MachineManifest{Items: items}
+	CanonicalizeMachineManifest(&m)
 	return m.Items, omissions, nil
 }
 

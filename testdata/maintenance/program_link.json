@@ -1,5 +1,5 @@
 {
-  "schema": "ProgramLinkV2",
+  "schema": "ProgramLinkV1",
   "from": "payments-hotfix",
   "to": "payments-checkout",
   "kind": "supersedes",

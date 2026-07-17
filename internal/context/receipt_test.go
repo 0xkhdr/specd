@@ -43,9 +43,9 @@ func TestReceiptFreshnessAndHistoricalDecode(t *testing.T) {
 		t.Fatalf("fresh receipt reported stale: %v", stale)
 	}
 	changed := m
-	changed.Items = append([]ItemV2(nil), m.Items...)
+	changed.Items = append([]MachineItem(nil), m.Items...)
 	changed.Items[0].RepresentationDigest = strings.Repeat("d", 64)
-	changed.ManifestDigest = ManifestV2Digest(changed)
+	changed.ManifestDigest = MachineManifestDigest(changed)
 	stale := ReceiptStaleness(r, changed)
 	if len(stale) == 0 || stale[0] != "required context digests changed" {
 		t.Fatalf("staleness = %v", stale)
@@ -63,18 +63,18 @@ func TestReceiptFreshnessAndHistoricalDecode(t *testing.T) {
 	}
 }
 
-func receiptManifest() ManifestV2 {
-	m := ManifestV2{
-		SchemaVersion: ManifestVersionV2, Kind: manifestKindV2, Root: "/repo", Slug: "demo",
+func receiptManifest() MachineManifest {
+	m := MachineManifest{
+		SchemaVersion: MachineManifestVersion, Kind: machineManifestKind, Root: "/repo", Slug: "demo",
 		Action: "execute", Phase: "execute", TaskID: "T1", ConfigDigest: strings.Repeat("a", 64),
 		PaletteDigest: strings.Repeat("b", 64), RequiredTokens: 3, OptionalTokens: 5,
-		Items: []ItemV2{
+		Items: []MachineItem{
 			{Kind: "knowledge", Source: ".specd/secret.md", SourceDigest: strings.Repeat("c", 64), RepresentationDigest: strings.Repeat("c", 64), Required: true, LoadMode: "eager", Reason: "super-secret-content", Trust: "knowledge", ContentTrust: ContentTrustUntrustedData, EstimatedTokens: 3},
 			{Kind: "skill", Source: ".specd/skills/x/SKILL.md", SourceDigest: strings.Repeat("e", 64), RepresentationDigest: strings.Repeat("e", 64), LoadMode: "lazy", Reason: "skill", Trust: "knowledge", ContentTrust: ContentTrustUntrustedData, EstimatedTokens: 5},
 		},
 		Provenance: "local deterministic selection",
 	}
-	CanonicalizeV2(&m)
-	m.ManifestDigest = ManifestV2Digest(m)
+	CanonicalizeMachineManifest(&m)
+	m.ManifestDigest = MachineManifestDigest(m)
 	return m
 }

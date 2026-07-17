@@ -30,11 +30,11 @@ type Receipt struct {
 	ReceiptDigest          string   `json:"receipt_digest"`
 }
 
-func BuildReceipt(m ManifestV2) (Receipt, error) {
-	if err := ValidateManifestV2(m); err != nil {
+func BuildReceipt(m MachineManifest) (Receipt, error) {
+	if err := ValidateMachineManifest(m); err != nil {
 		return Receipt{}, err
 	}
-	if m.ManifestDigest == "" || m.ManifestDigest != ManifestV2Digest(m) {
+	if m.ManifestDigest == "" || m.ManifestDigest != MachineManifestDigest(m) {
 		return Receipt{}, fmt.Errorf("manifest_digest is missing or stale")
 	}
 	r := Receipt{
@@ -102,7 +102,7 @@ func ValidateReceipt(r Receipt) error {
 // ReceiptStaleness reports governing identity changes while preserving the
 // old receipt for audit. Optional non-skill context may change without making
 // evidence stale; required context and selected skills may not.
-func ReceiptStaleness(r Receipt, current ManifestV2) []string {
+func ReceiptStaleness(r Receipt, current MachineManifest) []string {
 	if err := ValidateReceipt(r); err != nil {
 		return []string{"historical receipt invalid: " + err.Error()}
 	}
@@ -138,7 +138,7 @@ func isSHA256(value string) bool {
 	return true
 }
 
-func selectedDigest(item ItemV2) string {
+func selectedDigest(item MachineItem) string {
 	if item.RepresentationDigest != "" {
 		return item.RepresentationDigest
 	}

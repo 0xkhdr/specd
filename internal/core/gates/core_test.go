@@ -22,14 +22,14 @@ func TestTaskTraceGate(t *testing.T) {
 		t.Fatalf("unknown risk tier should refuse, got %+v", f)
 	}
 
-	// Legacy task (no trace columns) passes under the default profile (R7.1).
-	legacy := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./..."}}
-	if f := taskTrace(CheckCtx{Tasks: legacy, RequirementsDoc: reqs}); len(f) != 0 {
-		t.Fatalf("legacy task should pass default profile, got %+v", f)
+	// Minimal task (no trace columns) passes under the default profile (R7.1).
+	minimal := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./..."}}
+	if f := taskTrace(CheckCtx{Tasks: minimal, RequirementsDoc: reqs}); len(f) != 0 {
+		t.Fatalf("minimal task should pass default profile, got %+v", f)
 	}
 
 	// Production planning profile demands the full contract (R3.1).
-	if f := taskTrace(CheckCtx{Tasks: legacy, RequirementsDoc: reqs, TaskTraceRequired: true}); !HasErrors(f) {
+	if f := taskTrace(CheckCtx{Tasks: minimal, RequirementsDoc: reqs, TaskTraceRequired: true}); !HasErrors(f) {
 		t.Fatalf("production profile should require the trace contract, got %+v", f)
 	}
 

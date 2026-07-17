@@ -115,7 +115,7 @@ func TestManifestProgressiveStaticLanes(t *testing.T) {
 	write(".specd/examples/go.md", "<!-- specd-example\nid: go\nversion: 1\nphases: execute\nroles: craftsman\n-->\n# Example\n")
 	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"internal/x.go"}, Acceptance: "R6"}}
 	hs := core.Handshake{ConfigDigest: "config", PaletteDigest: "palette"}
-	m, err := BuildManifestV2(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
+	m, err := BuildMachineManifest(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
 	if err != nil {
 		t.Fatal(err)
 	}

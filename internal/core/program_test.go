@@ -140,16 +140,16 @@ func TestReopenRejected(t *testing.T) {
 
 func TestLinkKindDecode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "program.json")
-	legacy := `{"schema_version":1,"links":[{"from":"next","to":"original"}]}` + "\n"
-	if err := AtomicWrite(path, legacy); err != nil {
+	kindless := `{"schema_version":1,"links":[{"from":"next","to":"original"}]}` + "\n"
+	if err := AtomicWrite(path, kindless); err != nil {
 		t.Fatal(err)
 	}
 	program, err := LoadProgram(path)
 	if err != nil {
-		t.Fatalf("load legacy program: %v", err)
+		t.Fatalf("load program: %v", err)
 	}
 	if len(program.Links) != 1 || program.Links[0].Kind != LinkKindFollows {
-		t.Fatalf("legacy link did not decode as follows: %+v", program.Links)
+		t.Fatalf("kindless link did not decode as follows: %+v", program.Links)
 	}
 	for _, kind := range []LinkKind{LinkKindFollows, LinkKindRegresses, LinkKindMaintains, LinkKindSupersedes} {
 		if !kind.Valid() {
@@ -157,7 +157,7 @@ func TestLinkKindDecode(t *testing.T) {
 		}
 	}
 
-	bad := `{"schema_version":2,"links":[{"from":"next","to":"original","kind":"unknown"}]}` + "\n"
+	bad := `{"schema_version":1,"links":[{"from":"next","to":"original","kind":"unknown"}]}` + "\n"
 	if err := AtomicWrite(path, bad); err != nil {
 		t.Fatal(err)
 	}

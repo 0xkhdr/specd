@@ -87,19 +87,3 @@ func EvidenceEnvelopeDigest(e EvidenceEnvelopeV1) string {
 	raw, _ := json.Marshal(e)
 	return Digest(raw)
 }
-
-func AdaptLegacyVerify(slug string, r EvidenceRecord) EvidenceEnvelopeV1 {
-	verdict := EvalFail
-	if r.ExitCode == 0 {
-		verdict = EvalPass
-	}
-	created := r.Timestamp
-	if created == "" {
-		created = time.Unix(0, 0).UTC().Format(time.RFC3339)
-	}
-	actor := r.Actor
-	if actor == "" {
-		actor = "legacy-verify"
-	}
-	return EvidenceEnvelopeV1{SchemaVersion: EvalSchemaVersion, EvidenceID: "legacy:" + r.TaskID + ":" + r.GitHead, EvidenceClass: EvidenceTest, SpecSlug: slug, TaskID: r.TaskID, RunID: "legacy:" + r.TaskID, Attempt: 1, SubjectRevision: r.GitHead, Producer: "specd-verify", ProducerVersion: "legacy", ConfigDigest: Digest(nil), CheckID: "verify", Verdict: verdict, CreatedAt: created, Actor: actor, ArtifactRef: r.EvidenceRef, ArtifactDigest: Digest([]byte(r.Command))}
-}

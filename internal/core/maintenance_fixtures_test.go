@@ -17,7 +17,7 @@ import (
 func TestMaintenanceFixture(t *testing.T) {
 	// required[schema] = contract fields that must be present and non-empty.
 	required := map[string][]string{
-		"ProgramLinkV2": {"from", "to", "kind", "reason", "created_at"},
+		"ProgramLinkV1": {"from", "to", "kind", "reason", "created_at"},
 		"ProvenanceV1":  {"schema_version", "source_type", "source_ref", "systems", "severity", "owner"},
 		"DecisionV1":    {"id", "status", "owner", "created_at", "review_at", "expires_at"},
 		"MemoryEntryV1": {"key", "owner", "last_validated_at", "provenance", "confidence", "expires_at"},
@@ -65,7 +65,7 @@ func TestMaintenanceFixture(t *testing.T) {
 			}
 		}
 		switch schema {
-		case "ProgramLinkV2":
+		case "ProgramLinkV1":
 			if k, _ := fields["kind"].(string); !linkKinds[k] {
 				t.Errorf("%s: link kind %q not in closed set", e.Name(), k)
 			}

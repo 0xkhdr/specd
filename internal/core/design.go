@@ -40,9 +40,9 @@ var (
 // ParseDesign parses design.md bytes into a normalized decision contract. It
 // never rewrites the author's bytes; completeness is judged by ValidateDesign,
 // not here. Labels match case-insensitively. Requirement references are read
-// only from an explicit `references:` bullet, so legacy design.md prose that
+// only from an explicit `references:` bullet, so design.md prose that
 // merely contains an `R<n>` token is never misread as a trace (keeps default
-// design.md files backward compatible).
+// design.md files without them valid).
 func ParseDesign(raw []byte) DesignDoc {
 	doc := DesignDoc{Raw: append([]byte(nil), raw...), Fields: map[string]string{}}
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -81,7 +81,7 @@ type DesignFinding struct {
 // production design profile (spec 01 R7.2) — the design must additionally
 // declare every decision-metadata field and at least one resolvable requirement
 // reference; under the default profile the contract fields are optional so
-// legacy design.md files keep approving (R7.1). Pure: no disk, no clock.
+// minimal design.md files keep approving (R7.1). Pure: no disk, no clock.
 func ValidateDesign(doc DesignDoc, knownReqIDs map[string]bool, requireContract bool) []DesignFinding {
 	var findings []DesignFinding
 	for _, ref := range doc.Refs {

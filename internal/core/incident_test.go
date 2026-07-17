@@ -20,7 +20,7 @@ func TestPreventiveEvidence(t *testing.T) {
 				t.Fatal("required prevention accepted incomplete record")
 			}
 			if err := ValidatePreventiveEvidence(record, false); err != nil {
-				t.Fatalf("default profile lost backward compatibility: %v", err)
+				t.Fatalf("default profile rejected minimal record: %v", err)
 			}
 		})
 	}

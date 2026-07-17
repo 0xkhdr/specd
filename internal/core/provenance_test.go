@@ -9,7 +9,7 @@ import (
 
 func TestProvenanceDecode(t *testing.T) {
 	t.Run("typed", func(t *testing.T) {
-		raw := []byte(`{"schema_version":1,"source_type":"incident","source_ref":"INC-42","systems":["api"],"affected_specs":["payments"],"severity":"high","risk":"customer-impact","owner":"sre","prior_links":["payments"]}`)
+		raw := []byte(`{"schema_version":1,"source_type":"incident","source_ref":"INC-42","systems":["api"],"affected_specs":["payments"],"severity":"high","risk":"customer-impact","owner":"sre","prior_links":[{"to":"payments"}]}`)
 		got, err := DecodeProvenance(raw)
 		if err != nil {
 			t.Fatal(err)
@@ -22,13 +22,13 @@ func TestProvenanceDecode(t *testing.T) {
 		}
 	})
 
-	t.Run("legacy-unversioned", func(t *testing.T) {
+	t.Run("unversioned-defaults", func(t *testing.T) {
 		got, err := DecodeProvenance([]byte(`{"source_type":"feature","source_ref":"roadmap","owner":"product"}`))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if got.SchemaVersion != ProvenanceSchemaV1 || got.SourceType != SourceFeature {
-			t.Fatalf("legacy decode = %+v", got)
+			t.Fatalf("unversioned decode = %+v", got)
 		}
 	})
 

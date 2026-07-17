@@ -17,7 +17,7 @@ Every record is versioned (a `schema` or `schema_version` field) so an older bin
 unknown schema before mutation rather than silently reinterpreting it. A missing field on an older
 on-disk record decodes as unset (back-compat), never as invalid.
 
-### ProgramLinkV2 → `program.json` (R1)
+### ProgramLinkV1 → `program.json` (R1)
 
 `ProgramLink` gains a typed `kind`; pre-versioned untyped links decode forward to the default
 ordering kind (`follows`) and keep existing cycle-detection and ordering semantics. A `supersedes`
@@ -49,7 +49,7 @@ as today.
 | `systems`, `affected_specs` | impacted systems and prior specs |
 | `severity`, `risk` | severity / risk classification |
 | `owner` | recordable human owner (an agent is never a recordable owner) |
-| `prior_links` | typed links to source specs (see ProgramLinkV2) |
+| `prior_links` | typed links to source specs (see ProgramLinkV1) |
 
 ### DecisionV1 → decision/exception records (R3)
 
@@ -73,7 +73,7 @@ is unaffected.
 
 ### MemoryEntryV1 → promoted memory (R4)
 
-`MemFields` grows aging fields, added backward-compatibly so existing steering files still parse.
+`MemFields` includes optional aging fields; steering files that omit them still parse.
 The context builder excludes an invalid or expired **critical** memory and emits a visible finding
 naming the owner and required revalidation action, rather than silently loading or silently
 dropping it. Stable non-expiring constraints (no `expires_at`) are preserved. A forced promotion

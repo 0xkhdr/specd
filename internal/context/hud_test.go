@@ -64,17 +64,17 @@ func TestHUDMatchesJSON(t *testing.T) {
 	}
 }
 
-func TestHUDV2MetadataIsCanonical(t *testing.T) {
-	a := validV2()
-	b := validV2()
+func TestMachineHUDMetadataIsCanonical(t *testing.T) {
+	a := validMachineManifest()
+	b := validMachineManifest()
 	b.Items[0], b.Items[1] = b.Items[1], b.Items[0]
-	first, second := RenderHUDV2(a), RenderHUDV2(b)
+	first, second := RenderMachineHUD(a), RenderMachineHUD(b)
 	if first != second {
-		t.Fatalf("HUD V2 not byte-stable:\n%s\n%s", first, second)
+		t.Fatalf("machine HUD not byte-stable:\n%s\n%s", first, second)
 	}
 	for _, want := range []string{"PATH", "REASON", "PRIORITY", "DIGEST", "REQUIRED", "task", "selected task record"} {
 		if !strings.Contains(first, want) {
-			t.Fatalf("HUD V2 missing %q:\n%s", want, first)
+			t.Fatalf("machine HUD missing %q:\n%s", want, first)
 		}
 	}
 }

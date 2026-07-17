@@ -105,7 +105,7 @@ func TestCompleteTaskWithQualityMissingStaleAndTestNoBypass(t *testing.T) {
 	}
 }
 
-func TestCompleteTaskLegacySubjectFreshnessBaseline(t *testing.T) {
+func TestCompleteTaskEmptySubjectFreshnessBaseline(t *testing.T) {
 	raw := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok |\n")
 	// Current API has no expected subject input, so any pinned historical head
 	// passes. W2 replaces this baseline with explicit freshness refusal.

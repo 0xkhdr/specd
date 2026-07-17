@@ -90,14 +90,13 @@ func TestSingleLineRewrite(t *testing.T) {
 }
 
 func TestTasksTraceMetadata(t *testing.T) {
-	// Legacy 6-column tables carry no trace metadata and still parse (spec 01
-	// R3.1 backward compatible).
-	legacy, err := ParseTasksMd([]byte(sampleTasksMd))
+	// Minimal 6-column tables carry no trace metadata and still parse (spec 01 R3.1).
+	minimal, err := ParseTasksMd([]byte(sampleTasksMd))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if legacy.Tasks[0].Risk != "" || len(legacy.Tasks[0].Refs) != 0 {
-		t.Fatalf("legacy task carried unexpected metadata: %+v", legacy.Tasks[0])
+	if minimal.Tasks[0].Risk != "" || len(minimal.Tasks[0].Refs) != 0 {
+		t.Fatalf("minimal task carried unexpected metadata: %+v", minimal.Tasks[0])
 	}
 
 	// A table that declares the optional columns parses the trace/risk metadata.
