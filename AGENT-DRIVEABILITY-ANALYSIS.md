@@ -1,5 +1,11 @@
 # specd Agent-Driveability Analysis & Remediation Plan
 
+> **Historical document — not current operating guidance.** This analysis is
+> scoped to commit `2ccd2a6`; its paths, producer claims, and recommendations
+> describe the pre-remediation CLI. Use `specd help --json` and
+> `docs/command-reference.md` for the current contract. Findings remain
+> unchanged below as an audit record.
+
 Analysis of the failures recorded in `SPECD-FIELD-NOTES.md` and
 `AGENTS_specd_investigation_plan.md`, traced to their causes in the specd
 codebase, with concrete recommendations so a coding agent (Claude Code, codex,
