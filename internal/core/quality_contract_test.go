@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestQualityContractExactClassAndCheck(t *testing.T) {
 	c, err := ParseQualityContract(TaskRow{ID: "T1", Verify: "go test ./...", Evidence: "test/unit, output_eval/rubric-v1"})
@@ -23,8 +26,16 @@ func TestQualityContractMinimalAndMalformed(t *testing.T) {
 		t.Fatalf("minimal = %+v, %v", c, err)
 	}
 	for _, value := range []string{"vibes/x", "test", "test/"} {
-		if _, err := ParseQualityContract(TaskRow{ID: "T1", Evidence: value}); err == nil {
+		_, err := ParseQualityContract(TaskRow{ID: "T1", Evidence: value})
+		if err == nil {
 			t.Fatalf("accepted %q", value)
+		}
+		// R1.3: every parse error is self-documenting — it lists the full class
+		// enum and the class/check-id format with an example.
+		for _, want := range []string{"test, output_eval, trajectory_eval, review", "class/check-id", "test/unit-auth"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error for %q missing %q: %v", value, want, err)
+			}
 		}
 	}
 }

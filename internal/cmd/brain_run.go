@@ -155,6 +155,7 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	limits := orchestration.DecisionLimitsForAuthority(authority, orchestration.DecisionLimits{
 		MaxRetries: config.Routing.MaxRetries, MaxCostMicros: config.Routing.MaxCostMicros,
 		MaxTokens: config.Routing.MaxTokens, RequireTelemetry: !config.Routing.AllowUnknownTelemetry,
+		Workers: core.WorkerDefinitions{Root: root, Harness: config.Agent},
 	})
 	if config.Routing.DeadlineSeconds > 0 {
 		limits.Deadline = now.Add(time.Duration(config.Routing.DeadlineSeconds) * time.Second)

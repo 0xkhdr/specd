@@ -484,6 +484,9 @@ func TestTaskShowsDetails(t *testing.T) {
 
 func TestBrainDispatchesFrontierViaCLI(t *testing.T) {
 	root := newDemoSpec(t)
+	if err := core.WriteScaffold(root, "pinky"); err != nil {
+		t.Fatal(err)
+	}
 	sessionPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "session.json")
 	acpPath := filepath.Join(core.SpecdDir(root), "specs", "demo", "acp.jsonl")
 

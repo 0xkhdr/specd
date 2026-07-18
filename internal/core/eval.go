@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -79,6 +81,65 @@ func ValidateEvidenceEnvelope(e EvidenceEnvelopeV1) error {
 		return fmt.Errorf("EVAL_TRACE_DIGEST_REQUIRED")
 	}
 	return nil
+}
+
+// VerifyProducer is the producer identity stamped on envelopes `specd verify`
+// writes for declared test/* checks (spec R2.1). Every other evidence class
+// keeps `specd eval import` as its only producer (R2.2).
+const VerifyProducer = "specd-verify"
+
+// VerifyStamp carries the provenance of one passing `specd verify` run so it
+// can be re-recorded as class-tagged evidence. SubjectRevision is the same
+// pinned git HEAD written to evidence.jsonl; RunID/Attempt come from the shared
+// run allocator, keeping both schemas on one attempt chain.
+type VerifyStamp struct {
+	SpecSlug        string
+	TaskID          string
+	RunID           string
+	Attempt         int
+	SubjectRevision string
+	ProducerVersion string
+	ConfigDigest    string
+	ArtifactRef     string
+	ArtifactDigest  string
+	CreatedAt       time.Time
+}
+
+// BuildVerifyEnvelopes projects a passing verify run into one passing
+// EvidenceEnvelopeV1 per declared `test/<check-id>` requirement (spec R2.1),
+// closing the verify → complete-task loop for test-class contracts. Non-test
+// requirements (output_eval, trajectory_eval, review) yield nothing: a verify
+// run cannot attest to them, so external import stays their only producer
+// (R2.2). This is a pure projection — it records the same exit-0 + pinned-HEAD
+// fact in a second schema and never weakens the evidence gate.
+func BuildVerifyEnvelopes(c QualityContract, stamp VerifyStamp) []EvidenceEnvelopeV1 {
+	var envelopes []EvidenceEnvelopeV1
+	for _, req := range c.Required {
+		if req.EvidenceClass != EvidenceTest {
+			continue
+		}
+		identity := strings.Join([]string{stamp.SpecSlug, stamp.TaskID, req.CheckID, stamp.RunID, strconv.Itoa(stamp.Attempt), stamp.SubjectRevision}, "\x00")
+		envelopes = append(envelopes, EvidenceEnvelopeV1{
+			SchemaVersion:   EvalSchemaVersion,
+			EvidenceID:      Digest([]byte(identity))[:16],
+			EvidenceClass:   EvidenceTest,
+			SpecSlug:        stamp.SpecSlug,
+			TaskID:          stamp.TaskID,
+			RunID:           stamp.RunID,
+			Attempt:         stamp.Attempt,
+			SubjectRevision: stamp.SubjectRevision,
+			Producer:        VerifyProducer,
+			ProducerVersion: stamp.ProducerVersion,
+			ConfigDigest:    stamp.ConfigDigest,
+			CheckID:         req.CheckID,
+			Verdict:         EvalPass,
+			CreatedAt:       stamp.CreatedAt.Format(time.RFC3339),
+			Actor:           VerifyProducer,
+			ArtifactRef:     stamp.ArtifactRef,
+			ArtifactDigest:  stamp.ArtifactDigest,
+		})
+	}
+	return envelopes
 }
 
 func EvidenceEnvelopeDigest(e EvidenceEnvelopeV1) string {

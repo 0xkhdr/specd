@@ -8,6 +8,16 @@ if ! cmp -s "$root/docs/command-reference.md" "$root/docs/CHEATSHEET.md"; then
 	exit 1
 fi
 
+# Historical agent-facing audits intentionally preserve obsolete claims. Keep
+# their scope warning prominent so agents do not treat them as live contracts.
+historical_agent_doc="$root/AGENT-DRIVEABILITY-ANALYSIS.md"
+if ! sed -n '1,12p' "$historical_agent_doc" | grep -Fq 'Historical document — not current operating guidance.' ||
+	! sed -n '1,12p' "$historical_agent_doc" | grep -Fq 'scoped to commit `2ccd2a6`' ||
+	! sed -n '1,12p' "$historical_agent_doc" | grep -Fq 'specd help --json'; then
+	echo "docs-lint: historical agent analysis must identify its commit scope and current guidance" >&2
+	exit 1
+fi
+
 # --- Drift guard (SPEC-07 T-07-05): gate count + Go version from one source ---
 # Two facts drift because they live in prose in many docs. Pin each to its single
 # authoritative on-disk source and fail the lint when a doc disagrees.

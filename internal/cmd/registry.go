@@ -18,6 +18,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 	"github.com/0xkhdr/specd/internal/mcp"
+	"github.com/0xkhdr/specd/internal/version"
 )
 
 type Handler func(root string, args []string, flags map[string]string) error
@@ -998,7 +999,8 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	// allocator (spec 07 R2.1/R2.2): a manual verify accrues an attempt on the
 	// task's run chain, monotonic through the fail/fail/pass loop. The ledger is
 	// additive — an allocation failure never blocks the verify record above.
-	if _, allocErr := core.AllocateRun(root, slug, taskID, head, "", "", core.TelemetrySourceWorker); allocErr != nil && err == nil {
+	runRecord, allocErr := core.AllocateRun(root, slug, taskID, head, "", "", core.TelemetrySourceWorker)
+	if allocErr != nil && err == nil {
 		err = allocErr
 	}
 	if result.Stdout != "" {
@@ -1012,6 +1014,63 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	}
 	if result.ExitCode != 0 {
 		return fmt.Errorf("verify failed with exit code %d", result.ExitCode)
+	}
+	// Evidence-envelope stamping (spec R2.1): a passing verify on a task that
+	// declares test/<check-id> re-records the same exit-0 + pinned-HEAD fact as
+	// a class-tagged envelope in the eval store, closing the verify →
+	// complete-task loop for test/* without an external import. Non-test
+	// classes are never stamped (R2.2) and an unpinned HEAD stamps nothing —
+	// stamping only adds evidence, it never weakens the completion gate.
+	var outstanding []core.EvidenceRequirement
+	if allocErr == nil && core.HeadPinned(head) {
+		if contract, contractErr := core.ParseQualityContract(task); contractErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: evidence declaration not stamped: %v\n", contractErr)
+		} else {
+			storedRecords, loadErr := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+			if loadErr != nil {
+				return loadErr
+			}
+			if len(storedRecords) == 0 {
+				return errors.New("passing verify record was not persisted")
+			}
+			storedRecord := storedRecords[len(storedRecords)-1]
+			recordRaw, _ := json.Marshal(storedRecord)
+			stamp := core.VerifyStamp{
+				SpecSlug:        slug,
+				TaskID:          taskID,
+				RunID:           runRecord.RunID,
+				Attempt:         runRecord.Attempt,
+				SubjectRevision: head,
+				ProducerVersion: version.Get().Version,
+				ConfigDigest:    core.Digest([]byte(task.Verify)),
+				ArtifactRef:     ".specd/specs/" + slug + "/evidence.jsonl#" + taskID,
+				ArtifactDigest:  core.Digest(recordRaw),
+				CreatedAt:       core.Clock(),
+			}
+			for _, envelope := range core.BuildVerifyEnvelopes(contract, stamp) {
+				if stampErr := core.AppendEval(core.EvalStorePath(root, slug), envelope); stampErr != nil {
+					return stampErr
+				}
+			}
+			// Spec R2.4: name what this verify run could not satisfy. After
+			// stamping, any remaining requirement needs an external producer,
+			// so an unconditional complete-task hint would mislead.
+			evals, evalErr := core.LoadEvals(core.EvalStorePath(root, slug))
+			if evalErr != nil {
+				return evalErr
+			}
+			st := core.EvaluateQuality(contract, evals, core.FreshnessSubject{Revision: head})
+			outstanding = append(append(outstanding, st.Missing...), st.Stale...)
+		}
+	}
+	if len(outstanding) > 0 {
+		fmt.Fprintf(os.Stdout, "evidence recorded for %s %s; task not complete; outstanding evidence contract %s cannot be satisfied by `specd verify` (producer: `specd eval import`)",
+			slug, taskID, core.FormatRequirements(outstanding))
+		for _, requirement := range outstanding {
+			fmt.Fprintf(os.Stdout, "; import %s/%s with `specd eval import %s <file> --task %s --check %s`", requirement.EvidenceClass, requirement.CheckID, slug, taskID, requirement.CheckID)
+		}
+		fmt.Fprintln(os.Stdout)
+		return nil
 	}
 	fmt.Fprintf(os.Stdout, "evidence recorded for %s %s; task not complete; run `specd complete-task %s %s`\n", slug, taskID, slug, taskID)
 	return nil

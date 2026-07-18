@@ -56,15 +56,37 @@ func CompleteTaskWithQuality(rawTasks []byte, taskID string, records map[string]
 	}
 	st := EvaluateQuality(c, evals, subject)
 	if len(st.Missing) > 0 {
-		return nil, fmt.Errorf("EVIDENCE_MISSING: task %s lacks passing evidence for %s", taskID, formatRequirements(st.Missing))
+		return nil, fmt.Errorf("%s", missingEvidenceMessage(taskID, st.Missing))
 	}
 	if len(st.Stale) > 0 {
-		return nil, fmt.Errorf("EVIDENCE_STALE: task %s evidence not current for %s", taskID, formatRequirements(st.Stale))
+		return nil, fmt.Errorf("EVIDENCE_STALE: task %s evidence not current for %s", taskID, FormatRequirements(st.Stale))
 	}
 	return RewriteTaskStatusLine(rawTasks, taskID, "✅")
 }
 
-func formatRequirements(reqs []EvidenceRequirement) string {
+// missingEvidenceMessage makes an EVIDENCE_MISSING refusal self-unblocking
+// (spec R2.3): it names each declared class/check-id, states that a plain
+// verify record carries no evidence class (so it can never satisfy a non-test
+// declaration), and prints the exact `specd eval import` command — or the
+// option to remove the declaration — per outstanding requirement. Test-class
+// gaps name re-verify instead: a passing `specd verify` stamps them (R2.1).
+func missingEvidenceMessage(taskID string, missing []EvidenceRequirement) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "EVIDENCE_MISSING: task %s lacks passing evidence for %s", taskID, FormatRequirements(missing))
+	for _, r := range missing {
+		if r.EvidenceClass == EvidenceTest {
+			fmt.Fprintf(&b, "; %s/%s: re-run `specd verify` — a passing run stamps this test-class envelope", r.EvidenceClass, r.CheckID)
+			continue
+		}
+		fmt.Fprintf(&b, "; %s/%s: a plain `specd verify` record carries no evidence class and cannot satisfy it — import external evidence with `specd eval import <slug> <file> --task %s --check %s`, or remove the declaration from the task's evidence cell", r.EvidenceClass, r.CheckID, taskID, r.CheckID)
+	}
+	return b.String()
+}
+
+// FormatRequirements renders class/check-id requirements for refusals and the
+// verify-time outstanding-contract notice, so both surfaces name a contract
+// identically.
+func FormatRequirements(reqs []EvidenceRequirement) string {
 	parts := make([]string, len(reqs))
 	for i, r := range reqs {
 		parts[i] = string(r.EvidenceClass) + "/" + r.CheckID

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
@@ -72,6 +73,29 @@ func TestBrainDispatchCreatesPendingMissionWithoutWorkerLease(t *testing.T) {
 	}
 	if len(events) != 1 || !strings.Contains(events[0].Payload, `"status":"pending"`) {
 		t.Fatalf("ACP = %+v", events)
+	}
+}
+
+func TestBrainWaitsWhenActiveHarnessHasNoWorker(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	writeBrainSingleTask(t, root)
+	if err := os.Remove(filepath.Join(root, ".codex", "agents", "pinky-craftsman.toml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	out, err := captureStdout(t, func() error {
+		return runBrain(root, []string{"step", "demo"}, map[string]string{"authority": "true"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, orchestration.ReasonWaitNoWorker) {
+		t.Fatalf("brain no-worker output = %q", out)
+	}
+	if got := loadBrainSession(t, root).PendingMissions; len(got) != 0 {
+		t.Fatalf("brain dispatched without active-harness worker: %+v", got)
 	}
 }
 
@@ -215,6 +239,9 @@ func writeBrainSingleTask(t *testing.T, root string) {
 func newBrainTestRoot(t *testing.T, mode, projectConfig string) string {
 	t.Helper()
 	root := t.TempDir()
+	if err := core.WriteScaffold(root, "pinky"); err != nil {
+		t.Fatal(err)
+	}
 	specDir := filepath.Join(root, ".specd", "specs", "demo")
 	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatal(err)

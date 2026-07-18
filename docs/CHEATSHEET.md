@@ -67,9 +67,9 @@ specd init --refresh
 
 ### `agents`
 ```
-specd agents [doctor | guide <slug>] [--json]
+specd agents [inspect | doctor | guide <slug>] [--json]
 ```
-Inspect installed agent artifacts, run read-only diagnostics with `doctor`, or emit deterministic driver actions with `guide`. **Phases:** any.
+Inspect installed agent artifacts, run read-only diagnostics with `doctor`, or emit deterministic driver actions with `guide`. `agents inspect` is an alias of bare `agents`. With orchestration enabled, `doctor` verifies that the active handshake harness has all required Pinky worker definitions (`.claude/agents/pinky-*.md` or `.codex/agents/pinky-*.toml`) and that Codex registration is consistent; failures name `specd init --repair`. Running this multi-operation verb with `--help` prints its operation palette and exits 0. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -77,6 +77,7 @@ Inspect installed agent artifacts, run read-only diagnostics with `doctor`, or e
 
 ```bash
 specd agents
+specd agents inspect --json
 specd agents doctor --json
 specd agents guide payments --json
 ```
@@ -142,7 +143,10 @@ specd approve <spec>
 Record human approval and advance exactly from the current lifecycle status to its immediate
 successor when readiness gates pass. Same, skipped, backward, unknown, and terminal transitions
 fail before gate evaluation or mutation. The command takes the spec slug only; an explicit
-target argument is rejected. **Phases:** any. **Human only.**
+target argument is rejected. Tasks-phase approval validates every non-empty task `evidence` cell
+and reports requirement/criterion coverage gaps against the tasks.md `refs` column as warnings;
+executing-phase approval blocks on the same gaps and names both fixes: add IDs to `refs`, or mark
+the task `kind: deferred`. **Phases:** any. **Human only.**
 
 ```bash
 specd approve payments
@@ -309,6 +313,10 @@ Complete one task by consuming current passing evidence through the gated comple
 Verify records evidence only; it never changes task status. Completion requires evidence pinned to
 current `HEAD`, declared fresh quality evidence, production authority/scope/security controls, and
 the locked state CAS. No bypass or human override is available. **Phases:** post-requirements.
+Missing declared evidence is reported as `EVIDENCE_MISSING` with the exact `class/check-id`.
+For `test/*`, re-run `specd verify`; for `output_eval`, `trajectory_eval`, or `review`, import the
+external envelope with `specd eval import <slug> <file> --task <id> --check <check-id>`, or remove
+the declaration. Plain verify records carry no evidence class for those non-test contracts.
 With top-level `profile: production`, raw task
 operations are refused; an MCP caller supplies the claimed mission's digest-pinned `AuthorityV1`
 packet, and dispatch derives changed-path scope from that mission baseline.
@@ -325,7 +333,11 @@ specd complete-task payments T3
 ```
 specd check <spec> [--security] [--json]
 ```
-Run the validation gate registry against a spec. **Phases:** any.
+Run the validation gate registry against a spec. Every non-empty task `evidence` cell is parsed
+early as `class/check-id`; valid classes are `test`, `output_eval`, `trajectory_eval`, and
+`review` (example: `test/unit`). Malformed declarations are blockers. Verify lines using
+interactive job control (`kill %N`) or ending in `&` without capturing `$!` are deterministic
+warnings. Coverage matching uses only the tasks.md `refs` column. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -346,7 +358,11 @@ specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>
 ```
 Run and record task verification (task mode), or record a per-acceptance-criterion evidence
 record (`--criterion` mode). A task completes **only** against a passing verify record
-(exit 0 pinned to a resolvable git HEAD). **Phases:** post-requirements.
+(exit 0 pinned to a resolvable git HEAD). A passing task verify stamps an `EvidenceEnvelopeV1`
+for each declared `test/<check-id>` at the same HEAD with producer `specd-verify`; non-test
+classes remain external and are never stamped. If non-test evidence remains outstanding, success
+names its contract and exact `eval import` command instead of suggesting `complete-task`.
+**Phases:** post-requirements.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -514,13 +530,16 @@ specd adapters --json
 specd eval <import|status> <spec> [artifact]
 ```
 Import validated local adapter evidence or inspect stored eval evidence. Import never runs an
-adapter or contacts a provider. **Phases:** any.
+adapter or contacts a provider. Declared evidence uses `class/check-id`, where class is one of
+`test`, `output_eval`, `trajectory_eval`, or `review`; `--check` is the check-id from that
+declaration. Running `eval --help` (or bare `eval`) prints its operation palette and exits 0.
+**Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--json` | bool | Emit machine-readable JSON for status. |
 | `--task` | string | Expected task identity for import. |
-| `--check` | string | Expected check identity for import. |
+| `--check` | string | Check-id from the task's declared `class/check-id` evidence cell. |
 
 ```bash
 specd eval import payments adapter.jsonl --task T1 --check rubric-v1
@@ -531,7 +550,10 @@ specd eval status payments --json
 ```
 specd help [command] [--json]
 ```
-Show command help. **Phases:** any.
+Show command help. `help --json` includes each flag's enum plus optional `values` shape or
+provenance (for example `pass|fail`, evidence classes, and where brain mission IDs come from).
+Multi-operation verbs `brain`, `eval`, `exception`, and `agents` also accept `--help`, render
+their palette usage/flags/examples, and exit 0. **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
@@ -648,6 +670,9 @@ specd memory payments add --key 'atomic writes' --pattern 'use AtomicWrite'
 specd mcp | specd mcp --config <host> [--root <path>] [--spec <slug>]
 ```
 Serve the MCP integration surface over stdio, or print a host config snippet. **Phases:** any.
+Tool-call flags are JSON properties, not positional `args`: any `args` element beginning with
+`--` is rejected and the error names both the offending element and the working property spelling
+(for example, pass `guide: true`, not `"--guide"` inside `args`).
 
 | Flag | Value | Description |
 |---|---|---|
@@ -733,6 +758,11 @@ returns. It does **not** launch a worker, agent, model, or adapter. Workers expl
 pending mission, renew its typed lease with `heartbeat`, then `report` passing current evidence.
 Report validates mission/lease/worker/role/HEAD, derives the local diff and scope verdict, and calls
 normal task completion. Pending dispatch remains no proof of delivery or work.
+Mission IDs are minted by brain dispatch and listed by `specd brain status`; workers must not
+invent them. Dispatch authority is absent by default and is granted per run with `--authority`.
+Wait output distinguishes: absent authority (`specd brain run <slug> --authority`), empty frontier
+(`specd status <slug> --guide`), and missing active-harness worker definitions
+(`specd init --repair`). Running `brain --help` (or bare `brain`) prints all operations and exits 0.
 
 External delivery uses versioned A2A JSON envelopes for `mission`, `claim`, `heartbeat`, `cancel`,
 and `report`. Envelopes preserve required identity/digest pins, reject unknown versions, kinds, and

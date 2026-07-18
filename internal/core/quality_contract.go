@@ -17,19 +17,27 @@ type QualityContract struct {
 	Checks   []string              `json:"checks,omitempty"`
 }
 
+// qualityDeclarationHint makes every quality-declaration parse error
+// self-documenting (spec R1.3): the same text reaches complete-task, check,
+// and approval, so an agent can repair the cell without further lookup.
+func qualityDeclarationHint() string {
+	classes := []string{string(EvidenceTest), string(EvidenceOutputEval), string(EvidenceTrajectoryEval), string(EvidenceReview)}
+	return fmt.Sprintf("valid classes: %s; expected format: class/check-id (example: test/unit-auth)", strings.Join(classes, ", "))
+}
+
 func ParseQualityContract(task TaskRow) (QualityContract, error) {
 	c := QualityContract{TaskID: task.ID, Verify: task.Verify, Checks: splitTaskList(task.Checks)}
 	seen := map[string]bool{}
 	for _, raw := range splitTaskList(task.Evidence) {
 		class, check, ok := strings.Cut(raw, "/")
 		if !ok || check == "" {
-			return QualityContract{}, fmt.Errorf("QUALITY_DECLARATION_INVALID: %q must be class/check-id", raw)
+			return QualityContract{}, fmt.Errorf("QUALITY_DECLARATION_INVALID: %q must be class/check-id (%s)", raw, qualityDeclarationHint())
 		}
 		req := EvidenceRequirement{EvidenceClass: EvidenceClass(class), CheckID: check}
 		switch req.EvidenceClass {
 		case EvidenceTest, EvidenceOutputEval, EvidenceTrajectoryEval, EvidenceReview:
 		default:
-			return QualityContract{}, fmt.Errorf("QUALITY_CLASS_UNKNOWN: %q", class)
+			return QualityContract{}, fmt.Errorf("QUALITY_CLASS_UNKNOWN: %q (%s)", class, qualityDeclarationHint())
 		}
 		key := class + "/" + check
 		if seen[key] {

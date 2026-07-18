@@ -35,6 +35,58 @@ func TestDecidePure(t *testing.T) {
 	}
 }
 
+// TestDecideWaitReasons pins spec R3.1/R3.2: the two wait conditions carry
+// distinct reasons, each naming its unblock command exactly.
+func TestDecideWaitReasons(t *testing.T) {
+	frontier := []core.FrontierTask{{ID: "T1", Role: "craftsman"}}
+	cases := []struct {
+		name     string
+		snapshot Snapshot
+		limits   DecisionLimits
+		want     string
+	}{
+		{
+			name:     "authority-absent",
+			snapshot: Snapshot{Frontier: frontier},
+			limits:   DecisionLimits{AllowDispatch: false},
+			want:     "waiting: dispatch authority absent; grant it with `specd brain run <slug> --authority`",
+		},
+		{
+			name:     "authority-absent-and-frontier-empty",
+			snapshot: Snapshot{},
+			limits:   DecisionLimits{AllowDispatch: false},
+			want:     "waiting: dispatch authority absent; grant it with `specd brain run <slug> --authority`",
+		},
+		{
+			name:     "frontier-empty",
+			snapshot: Snapshot{},
+			limits:   DecisionLimits{AllowDispatch: true},
+			want:     "waiting: frontier empty (no task has all dependencies resolved); inspect with `specd status <slug> --guide`",
+		},
+		{
+			name:     "worker-absent",
+			snapshot: Snapshot{Frontier: frontier},
+			limits:   DecisionLimits{AllowDispatch: true, Workers: workerPresence(false)},
+			want:     "waiting: no worker definition for active harness; repair with `specd init --repair`",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			decision := Decide(tc.snapshot, tc.limits)
+			if decision.Action != ActionWait {
+				t.Fatalf("Decide() = %#v, want wait", decision)
+			}
+			if decision.Reason != tc.want {
+				t.Fatalf("reason = %q, want %q", decision.Reason, tc.want)
+			}
+		})
+	}
+}
+
+type workerPresence bool
+
+func (present workerPresence) WorkerAvailable() bool { return bool(present) }
+
 func TestSense(t *testing.T) {
 	now := time.Unix(200, 0).UTC()
 	state := core.State{Revision: 7, Phase: "tasks", Records: map[string]json.RawMessage{"x": []byte(`{"ok":true}`)}}
