@@ -12,6 +12,7 @@
 #   W5 surface          bare verb count == 33 (ADR-scoped surface)
 #   W6 release          `--version` prints a stamp
 #   W7 conformance      `report --proof` is a deterministic lifecycle projection
+#   AD driveability     authoring gates, evidence close path, actionable waits/help/MCP
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -27,6 +28,146 @@ SPECD="$RUN/specd"
 
 violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
+
+# Agent-driveability probes use only public CLI/MCP surfaces. Fixtures are
+# authored through `new` plus normal spec artifacts; lifecycle state advances
+# only through `approve`/`mode` (never by editing state.json).
+author_ad_spec() {
+	slug=$1
+	task_row=$2
+	"$SPECD" new "$slug" >/dev/null 2>&1 || violation AD "could not scaffold $slug"
+	cat >".specd/specs/$slug/requirements.md" <<EOF
+# Requirements — $slug
+
+## R1 — Driveability probe
+
+- owner: test
+- priority: must
+- risk: low
+
+- R1.1: When a probe runs, the system shall expose deterministic guidance.
+EOF
+	cat >".specd/specs/$slug/design.md" <<EOF
+# Design — $slug
+
+- references: R1, R1.1
+
+## Modules
+The probe uses public commands.
+
+## On-disk contracts
+Spec artifacts remain authoritative.
+
+## Invariants
+Output is deterministic.
+EOF
+	cat >".specd/specs/$slug/tasks.md" <<EOF
+# Tasks — $slug
+
+| id | role | files | depends-on | verify | acceptance | refs | kind | risk | complexity | evidence |
+|---|---|---|---|---|---|---|---|---|---|---|
+$task_row
+EOF
+}
+
+approve_ad_to_tasks() {
+	slug=$1
+	"$SPECD" approve "$slug" >/dev/null 2>&1 || violation AD "requirements approval failed for $slug"
+	"$SPECD" approve "$slug" >/dev/null 2>&1 || violation AD "design approval failed for $slug"
+}
+
+git init -q
+git config user.email specd-regress@example.test
+git config user.name specd-regress
+git add .
+git commit -qm 'regression fixture'
+
+# R1 — malformed quality declarations fail during `check`, with enum + format
+# guidance available before execution/completion.
+author_ad_spec ad-quality '| T1 | scout | requirements.md | - | true | R1.1 | R1, R1.1 | feature | low | low | tests |'
+if quality_out=$("$SPECD" check ad-quality 2>&1); then
+	violation AD-R1 "check accepted malformed evidence declaration"
+fi
+for expected in 'QUALITY_DECLARATION_INVALID' 'test, output_eval, trajectory_eval, review' 'class/check-id'; do
+	printf '%s\n' "$quality_out" | grep -Fq "$expected" || violation AD-R1 "quality refusal missing $expected"
+done
+pass AD-R1 "check rejects malformed evidence with enum/format guidance"
+
+# R2 — normal verify stamps test-class EvidenceEnvelopeV1 at current HEAD and
+# that envelope closes completion without an external eval import.
+author_ad_spec ad-evidence '| T1 | scout | requirements.md | - | true | R1.1 | R1, R1.1 | feature | low | low | test/unit |'
+approve_ad_to_tasks ad-evidence
+"$SPECD" approve ad-evidence >/dev/null 2>&1 || violation AD-R2 "tasks approval failed for evidence probe"
+verify_out=$("$SPECD" verify ad-evidence T1 2>&1) || violation AD-R2 "passing task verify failed"
+printf '%s\n' "$verify_out" | grep -Fq 'specd complete-task ad-evidence T1' || violation AD-R2 "satisfied test contract lacked completion hint"
+eval_line=$("$SPECD" eval status ad-evidence --json 2>&1) || violation AD-R2 "eval status failed"
+for expected in '"schema_version"[[:space:]]*:[[:space:]]*"1"' '"evidence_class"[[:space:]]*:[[:space:]]*"test"' '"check_id"[[:space:]]*:[[:space:]]*"unit"' '"producer"[[:space:]]*:[[:space:]]*"specd-verify"'; do
+	printf '%s\n' "$eval_line" | grep -Eq "$expected" || violation AD-R2 "stamped envelope missing $expected"
+done
+"$SPECD" complete-task ad-evidence T1 >/dev/null 2>&1 || violation AD-R2 "stamped test envelope did not permit completion"
+pass AD-R2 "passing test/* verify stamps envelope and completes"
+
+# R3 — controller wait reasons are mutually distinct and each names its remedy.
+cat >project.yml <<'EOF'
+version: 1
+agent: claude
+verify:
+  timeout_seconds: 600
+orchestration:
+  enabled: true
+EOF
+author_ad_spec ad-wait-auth '| T1 | craftsman | requirements.md | - | go test ./... | R1.1 | R1, R1.1 | feature | low | low |  |'
+approve_ad_to_tasks ad-wait-auth
+"$SPECD" mode ad-wait-auth orchestrated >/dev/null 2>&1 || violation AD-R3 "could not enable auth-wait orchestration"
+"$SPECD" brain start ad-wait-auth >/dev/null 2>&1 || violation AD-R3 "could not start auth-wait brain"
+auth_wait=$("$SPECD" brain step ad-wait-auth 2>&1) || violation AD-R3 "authority wait step failed"
+printf '%s\n' "$auth_wait" | grep -Fq 'dispatch authority absent' || violation AD-R3 "authority wait reason conflated"
+printf '%s\n' "$auth_wait" | grep -Fq 'specd brain run <slug> --authority' || violation AD-R3 "authority wait remedy absent"
+
+author_ad_spec ad-wait-frontier ''
+approve_ad_to_tasks ad-wait-frontier
+"$SPECD" mode ad-wait-frontier orchestrated >/dev/null 2>&1 || violation AD-R3 "could not enable frontier-wait orchestration"
+"$SPECD" brain start ad-wait-frontier >/dev/null 2>&1 || violation AD-R3 "could not start frontier-wait brain"
+frontier_wait=$("$SPECD" brain step ad-wait-frontier --authority 2>&1) || violation AD-R3 "frontier wait step failed"
+printf '%s\n' "$frontier_wait" | grep -Fq 'frontier empty' || violation AD-R3 "frontier wait reason conflated"
+printf '%s\n' "$frontier_wait" | grep -Fq 'specd status <slug> --guide' || violation AD-R3 "frontier wait remedy absent"
+
+author_ad_spec ad-wait-worker '| T1 | craftsman | requirements.md | - | go test ./... | R1.1 | R1, R1.1 | feature | low | low |  |'
+approve_ad_to_tasks ad-wait-worker
+"$SPECD" mode ad-wait-worker orchestrated >/dev/null 2>&1 || violation AD-R3 "could not enable worker-wait orchestration"
+"$SPECD" brain start ad-wait-worker >/dev/null 2>&1 || violation AD-R3 "could not start worker-wait brain"
+mv .claude/agents/pinky-craftsman.md .claude/agents/pinky-craftsman.md.regress
+worker_wait=$("$SPECD" brain step ad-wait-worker --authority 2>&1) || violation AD-R3 "worker wait step failed"
+mv .claude/agents/pinky-craftsman.md.regress .claude/agents/pinky-craftsman.md
+printf '%s\n' "$worker_wait" | grep -Fq 'no worker definition for active harness' || violation AD-R3 "worker wait reason conflated"
+printf '%s\n' "$worker_wait" | grep -Fq 'specd init --repair' || violation AD-R3 "worker wait remedy absent"
+pass AD-R3 "brain wait reasons distinguish authority/frontier/worker"
+
+# R4 — multi-operation help is discoverable and exits successfully.
+brain_help=$("$SPECD" brain --help 2>&1) || violation AD-R4 "brain --help failed"
+for expected in 'brain.start' 'brain.run' 'brain.status' 'brain.report'; do
+	printf '%s\n' "$brain_help" | grep -Fq "$expected" || violation AD-R4 "brain help missing $expected"
+done
+pass AD-R4 "brain --help exits 0 with operation palette"
+
+# R5 — executing-phase coverage refusal teaches the exact refs-column contract.
+author_ad_spec ad-coverage '| T1 | scout | requirements.md | - | true | unrelated | R1 | feature | low | low |  |'
+approve_ad_to_tasks ad-coverage
+if coverage_out=$("$SPECD" approve ad-coverage 2>&1); then
+	violation AD-R5 "executing approval accepted uncovered R1.1"
+fi
+for expected in 'tasks.md `refs` column' 'R1.1' "add each id to an implementing task's \`refs\` column" 'kind: deferred'; do
+	printf '%s\n' "$coverage_out" | grep -Fq "$expected" || violation AD-R5 "coverage refusal missing $expected"
+done
+pass AD-R5 "coverage refusal names refs, gaps, and both fixes"
+
+# R7 — MCP rejects flag-shaped positional args and teaches property spelling.
+mcp_request='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"status","arguments":{"args":["ad-quality","--guide"]}}}'
+mcp_out=$(printf '%s\n' "$mcp_request" | "$SPECD" mcp 2>&1) || violation AD-R7 "MCP flag-guard probe failed"
+for expected in 'invalid `args` element \"--guide\"' '`guide: true`' 'not inside `args`'; do
+	printf '%s\n' "$mcp_out" | grep -Fq "$expected" || violation AD-R7 "MCP refusal missing $expected"
+done
+pass AD-R7 "MCP rejects --flag in args with property remedy"
 
 # Domain 03 W5 — remote envelope proof. Keep this on the freshly copied tree so
 # release validation exercises the same source/binary boundary as other probes.

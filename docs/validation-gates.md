@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 20 core gates
+## The 22 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
