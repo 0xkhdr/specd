@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	command "github.com/0xkhdr/specd/internal/cmd"
@@ -37,6 +38,32 @@ func TestRegistryMatchesHelp(t *testing.T) {
 	}
 	if !reflect.DeepEqual(command.RegisteredCommandNames(), helpNames) {
 		t.Fatalf("registry help order = %v, want %v", command.RegisteredCommandNames(), helpNames)
+	}
+}
+
+func TestCommandsFlagValueShapes(t *testing.T) {
+	commands := map[string]core.Command{}
+	for _, command := range core.Commands {
+		commands[command.Name] = command
+	}
+	findFlag := func(command, name string) core.Flag {
+		t.Helper()
+		for _, flag := range commands[command].Flags {
+			if flag.Name == name {
+				return flag
+			}
+		}
+		t.Fatalf("%s missing --%s", command, name)
+		return core.Flag{}
+	}
+	if values := findFlag("eval", "check").Values; !strings.Contains(values, "test|output_eval|trajectory_eval|review") {
+		t.Fatalf("eval --check values omit evidence-class enum: %q", values)
+	}
+	if values := findFlag("verify", "status").Values; values != "pass|fail" {
+		t.Fatalf("verify --status values = %q", values)
+	}
+	if !strings.Contains(commands["brain"].Description, "minted by brain dispatch") || !strings.Contains(commands["brain"].Description, "brain status") {
+		t.Fatalf("brain help omits mission-id provenance: %q", commands["brain"].Description)
 	}
 }
 

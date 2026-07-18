@@ -88,6 +88,70 @@ type AgentDiscovery struct {
 	Invalid []string `json:"invalid,omitempty"`
 }
 
+// WorkerDefinitions is the filesystem-backed worker-presence probe shared by
+// doctor and orchestration. It deliberately exposes only WorkerAvailable to
+// the controller: harness detection and path conventions stay in core, while
+// orchestration depends on a tiny interface and never imports cmd.
+type WorkerDefinitions struct {
+	Root    string
+	Harness string
+}
+
+// WorkerAvailable reports whether every Pinky role required by the active
+// harness is installed. Unknown harnesses fail closed.
+func (w WorkerDefinitions) WorkerAvailable() bool {
+	missing, invalid := w.Problems()
+	return len(missing) == 0 && len(invalid) == 0
+}
+
+// Problems returns stable workspace-relative paths. Codex additionally needs
+// its registration block; Claude discovers workers directly from agent files.
+func (w WorkerDefinitions) Problems() (missing, invalid []string) {
+	paths, known := pinkyFilesForHarness(w.Harness)
+	if !known {
+		return nil, []string{"handshake agent " + w.Harness + " is not a supported worker harness (want codex or claude)"}
+	}
+	for _, rel := range paths {
+		if _, err := os.Stat(filepath.Join(w.Root, rel)); err != nil {
+			if os.IsNotExist(err) {
+				missing = append(missing, rel)
+			} else {
+				invalid = append(invalid, rel+": "+err.Error())
+			}
+		}
+	}
+	if strings.EqualFold(w.Harness, "codex") {
+		const rel = ".codex/config.toml"
+		raw, err := os.ReadFile(filepath.Join(w.Root, rel))
+		switch {
+		case os.IsNotExist(err):
+			missing = append(missing, rel)
+		case err != nil:
+			invalid = append(invalid, rel+": "+err.Error())
+		case !validPinkyCodexConfig(string(raw)):
+			invalid = append(invalid, rel+": missing pinky managed block")
+		}
+	}
+	return missing, invalid
+}
+
+func pinkyFilesForHarness(harness string) ([]string, bool) {
+	var ext, dir string
+	switch strings.ToLower(strings.TrimSpace(harness)) {
+	case "claude":
+		dir, ext = ".claude/agents", ".md"
+	case "codex":
+		dir, ext = ".codex/agents", ".toml"
+	default:
+		return nil, false
+	}
+	paths := make([]string, 0, 4)
+	for _, role := range []string{"scout", "craftsman", "validator", "auditor"} {
+		paths = append(paths, dir+"/pinky-"+role+ext)
+	}
+	return paths, true
+}
+
 func DiscoverAgents(root string) []AgentDiscovery {
 	pinky := AgentDiscovery{Name: "pinky", Files: pinkyFiles()}
 	for _, rel := range pinky.Files {

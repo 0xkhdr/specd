@@ -36,7 +36,14 @@ func LeaseWorkerState(lease Lease, now time.Time) WorkerState {
 const (
 	ReasonWaitAuthorityAbsent = "waiting: dispatch authority absent; grant it with `specd brain run <slug> --authority`"
 	ReasonWaitFrontierEmpty   = "waiting: frontier empty (no task has all dependencies resolved); inspect with `specd status <slug> --guide`"
+	ReasonWaitNoWorker        = "waiting: no worker definition for active harness; repair with `specd init --repair`"
 )
+
+// WorkerPresence keeps harness-specific filesystem checks outside the pure
+// decision package. Callers inject a deterministic snapshot/probe result.
+type WorkerPresence interface {
+	WorkerAvailable() bool
+}
 
 type Decision struct {
 	Action Action
@@ -51,6 +58,7 @@ type DecisionLimits struct {
 	MaxCostMicros    int64
 	MaxTokens        int64
 	RequireTelemetry bool
+	Workers          WorkerPresence
 }
 
 func Decide(snapshot Snapshot, limits DecisionLimits) Decision {
@@ -69,6 +77,9 @@ func Decide(snapshot Snapshot, limits DecisionLimits) Decision {
 	}
 	if len(snapshot.Frontier) == 0 {
 		return Decision{Action: ActionWait, Reason: ReasonWaitFrontierEmpty}
+	}
+	if limits.Workers != nil && !limits.Workers.WorkerAvailable() {
+		return Decision{Action: ActionWait, Reason: ReasonWaitNoWorker}
 	}
 
 	frontier := append([]core.FrontierTask(nil), snapshot.Frontier...)

@@ -63,6 +63,12 @@ func TestDecideWaitReasons(t *testing.T) {
 			limits:   DecisionLimits{AllowDispatch: true},
 			want:     "waiting: frontier empty (no task has all dependencies resolved); inspect with `specd status <slug> --guide`",
 		},
+		{
+			name:     "worker-absent",
+			snapshot: Snapshot{Frontier: frontier},
+			limits:   DecisionLimits{AllowDispatch: true, Workers: workerPresence(false)},
+			want:     "waiting: no worker definition for active harness; repair with `specd init --repair`",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -76,6 +82,10 @@ func TestDecideWaitReasons(t *testing.T) {
 		})
 	}
 }
+
+type workerPresence bool
+
+func (present workerPresence) WorkerAvailable() bool { return bool(present) }
 
 func TestSense(t *testing.T) {
 	now := time.Unix(200, 0).UTC()

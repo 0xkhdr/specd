@@ -467,7 +467,7 @@ func runHelp(root string, args []string, flags map[string]string) error {
 		}
 		fmt.Fprintf(os.Stdout, "%s\n  %s\n", command.Usage, command.Description)
 		for _, flag := range command.Flags {
-			fmt.Fprintf(os.Stdout, "  --%s  %s\n", flag.Name, flag.Description)
+			fmt.Fprintln(os.Stdout, flagHelpLine(flag))
 		}
 		return nil
 	}

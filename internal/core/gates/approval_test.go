@@ -30,14 +30,27 @@ func TestCoverageRefusalNamesRefsColumnAndRemedies(t *testing.T) {
 	}
 }
 
-// TestCoverageGateArmingUnchanged pins that the wording change altered no
-// semantics: the gate still arms only at the executing transition and only
-// when the tasks carry a trace, and stays silent without gaps.
-func TestCoverageGateArmingUnchanged(t *testing.T) {
+// TestCoverageGateArmingPerTarget pins spec R5.2: the tasks-phase approval
+// runs the same coverage analysis at warning severity (approval proceeds, the
+// gap is reported early), the executing transition keeps its blocking error
+// severity, and every other target — or an untraced/gapless table — stays
+// silent.
+func TestCoverageGateArmingPerTarget(t *testing.T) {
 	traced := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./...", Refs: []string{"R1.1"}}}
 
-	if f := coverageGate(CheckCtx{ApproveTarget: string(core.StatusTasks), Tasks: traced, CoverageGaps: []string{"R2"}}); len(f) != 0 {
-		t.Fatalf("gate armed outside executing transition: %+v", f)
+	tasksFindings := coverageGate(CheckCtx{ApproveTarget: string(core.StatusTasks), Tasks: traced, CoverageGaps: []string{"R2"}})
+	if len(tasksFindings) != 1 || tasksFindings[0].Severity != Warn || !strings.Contains(tasksFindings[0].Message, "R2") {
+		t.Fatalf("tasks-phase coverage advisory wrong: %+v", tasksFindings)
+	}
+	if HasErrors(tasksFindings) {
+		t.Fatalf("tasks-phase coverage advisory must not block approval: %+v", tasksFindings)
+	}
+	execFindings := coverageGate(CheckCtx{ApproveTarget: string(core.StatusExecuting), Tasks: traced, CoverageGaps: []string{"R2"}})
+	if !HasErrors(execFindings) {
+		t.Fatalf("executing transition no longer blocks on coverage gaps: %+v", execFindings)
+	}
+	if f := coverageGate(CheckCtx{ApproveTarget: "design", Tasks: traced, CoverageGaps: []string{"R2"}}); len(f) != 0 {
+		t.Fatalf("gate armed outside tasks/executing: %+v", f)
 	}
 	untraced := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./..."}}
 	if f := coverageGate(CheckCtx{ApproveTarget: string(core.StatusExecuting), Tasks: untraced, CoverageGaps: []string{"R2"}}); len(f) != 0 {

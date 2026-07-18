@@ -57,6 +57,12 @@ type Flag struct {
 	Type        string   `json:"type,omitempty"`    // "bool" | "string"; empty ⇒ bool
 	Enum        []string `json:"enum,omitempty"`    // allowed values (value flags only)
 	Default     string   `json:"default,omitempty"` // documented default
+	// Values is the human-readable value shape or provenance of a value flag
+	// (spec R4.3): an enum rendering like "pass|fail", or a note on where the
+	// value comes from (e.g. which command mints the id it expects). It is
+	// surfaced verbatim by `help --json` and per-command text help; unlike
+	// Enum it is documentation only — dispatch never validates against it.
+	Values string `json:"values,omitempty"`
 }
 
 // ExitCode documents one exit status a command can return. The convention is
@@ -209,8 +215,8 @@ var Commands = []Command{
 		Examples:      []string{"specd eval import payments adapter.jsonl --task T1", "specd eval status payments --json"},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable JSON."},
-			{Name: "task", TakesValue: true, Type: "string", Description: "Expected task identity for import."},
-			{Name: "check", TakesValue: true, Type: "string", Description: "Expected check identity for import."},
+			{Name: "task", TakesValue: true, Type: "string", Values: "task id from the spec's tasks.md `id` column", Description: "Expected task identity for import."},
+			{Name: "check", TakesValue: true, Type: "string", Values: "check-id from the task's declared evidence cell (class/check-id; classes: test|output_eval|trajectory_eval|review)", Description: "Expected check identity for import."},
 		},
 		ExitCodes: stdCodes(),
 	},
@@ -322,7 +328,7 @@ var Commands = []Command{
 		Name: "recurring", Usage: "specd recurring record <spec> --check <id> --head <sha> --release <id> --config <id> --verdict pass|fail --observed-at <RFC3339>",
 		Description: "Validate and append an externally executed recurring-check result.", AllowedPhases: anyPhase(), ExitCodes: stdCodes(),
 		Examples: []string{"specd recurring record payments --check api-health --head 0123456789012345678901234567890123456789 --release rel-7 --config prod-v3 --verdict pass --observed-at 2026-01-01T00:00:00Z"},
-		Flags:    []Flag{{Name: "check", TakesValue: true, Type: "string", Description: "Recurring check identity."}, {Name: "head", TakesValue: true, Type: "string", Description: "Tested git HEAD."}, {Name: "release", TakesValue: true, Type: "string", Description: "Tested release identity."}, {Name: "config", TakesValue: true, Type: "string", Description: "Tested configuration identity."}, {Name: "verdict", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Description: "Check verdict."}, {Name: "observed-at", TakesValue: true, Type: "string", Description: "Explicit RFC3339 observation time."}},
+		Flags:    []Flag{{Name: "check", TakesValue: true, Type: "string", Description: "Recurring check identity."}, {Name: "head", TakesValue: true, Type: "string", Description: "Tested git HEAD."}, {Name: "release", TakesValue: true, Type: "string", Description: "Tested release identity."}, {Name: "config", TakesValue: true, Type: "string", Description: "Tested configuration identity."}, {Name: "verdict", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Values: "pass|fail", Description: "Check verdict."}, {Name: "observed-at", TakesValue: true, Type: "string", Description: "Explicit RFC3339 observation time."}},
 	},
 	{
 		Name:          "spike",
@@ -430,7 +436,7 @@ var Commands = []Command{
 			{Name: "sandbox", Type: "bool", Description: "Run the verify line inside a bwrap sandbox (fail-closed if the binary is absent)."},
 			{Name: "sandbox-binary", TakesValue: true, Type: "string", Description: "Path to sandbox binary (overrides auto-detect)."},
 			{Name: "criterion", TakesValue: true, Type: "string", Description: "Record evidence for acceptance criterion <r>.<n> instead of running a task verify."},
-			{Name: "status", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Description: "Criterion verdict (with --criterion): pass|fail."},
+			{Name: "status", TakesValue: true, Type: "string", Enum: []string{"pass", "fail"}, Values: "pass|fail", Description: "Criterion verdict (with --criterion): pass|fail."},
 			{Name: "evidence", TakesValue: true, Type: "string", Description: "Evidence text or path backing the criterion verdict (with --criterion)."},
 			{Name: "tokens", TakesValue: true, Type: "string", Description: "Optional worker-reported token count, stored verbatim."},
 			{Name: "cost", TakesValue: true, Type: "string", Description: "Optional worker-reported cost as a decimal string, stored verbatim."},
@@ -514,7 +520,7 @@ var Commands = []Command{
 	{
 		Name:          "brain",
 		Usage:         "specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args] [--authority]",
-		Description:   "Run the opt-in deterministic orchestration controller.",
+		Description:   "Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker.",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(1),
 		ExitCodes:     stdCodes(),

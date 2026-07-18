@@ -38,6 +38,22 @@ func Doctor(root, pinned string) DoctorResultV1 {
 			findings = append(findings, DriverFinding{Code: code, Severity: "error", Ref: pinned, Message: err.Error(), RecoveryAction: "choose one valid spec explicitly"})
 		}
 	}
+	config, diagnostics := LoadConfig(ConfigPaths{Project: filepath.Join(root, "project.yml")}, nil)
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == "error" {
+			findings = append(findings, DriverFinding{Code: "CONFIG_INVALID", Severity: "error", Ref: diagnostic.Path, Message: diagnostic.Message, RecoveryAction: "repair project.yml, then run `specd agents doctor --json` again"})
+		}
+	}
+	if config.Orchestration.Enabled {
+		workers := WorkerDefinitions{Root: root, Harness: config.Agent}
+		missing, invalid := workers.Problems()
+		for _, ref := range missing {
+			findings = append(findings, DriverFinding{Code: "WORKER_DEFINITION_MISSING", Severity: "error", Ref: ref, Message: "orchestration is enabled but the handshake agent " + config.Agent + " has no aligned worker definition", RecoveryAction: "run `specd init --repair`"})
+		}
+		for _, ref := range invalid {
+			findings = append(findings, DriverFinding{Code: "WORKER_HARNESS_MISMATCH", Severity: "error", Ref: ref, Message: "orchestration worker definitions are inconsistent with handshake agent " + config.Agent, RecoveryAction: "run `specd init --repair`"})
+		}
+	}
 	sort.Slice(findings, func(i, j int) bool {
 		if findings[i].Code != findings[j].Code {
 			return findings[i].Code < findings[j].Code

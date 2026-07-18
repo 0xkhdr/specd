@@ -105,6 +105,45 @@ func TestCompleteTaskWithQualityMissingStaleAndTestNoBypass(t *testing.T) {
 	}
 }
 
+// TestCompleteTaskQualityMissingMessageNamesUnblock asserts the EVIDENCE_MISSING
+// refusal is self-unblocking (spec R2.3): it names the declared class/check-id,
+// explains that class-less verify records cannot satisfy a non-test class, and
+// prints the exact `specd eval import` command plus the remove-declaration
+// option. A missing test-class envelope names re-verify instead (R2.1).
+func TestCompleteTaskQualityMissingMessageNamesUnblock(t *testing.T) {
+	raw := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok |\n")
+	pass := map[string]EvidenceRecord{"T1": {TaskID: "T1", ExitCode: 0, GitHead: "abc"}}
+	subject := FreshnessSubject{Revision: "abc"}
+
+	contract := QualityContract{TaskID: "T1", Required: []EvidenceRequirement{{EvidenceClass: EvidenceOutputEval, CheckID: "rubric"}}}
+	_, err := CompleteTaskWithQuality(raw, "T1", pass, contract, nil, subject)
+	if err == nil {
+		t.Fatal("missing non-test evidence accepted")
+	}
+	for _, want := range []string{
+		"EVIDENCE_MISSING",
+		"output_eval/rubric",
+		"carries no evidence class",
+		"specd eval import <slug> <file> --task T1 --check rubric",
+		"remove the declaration",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("refusal missing %q: %v", want, err)
+		}
+	}
+
+	testContract := QualityContract{TaskID: "T1", Required: []EvidenceRequirement{{EvidenceClass: EvidenceTest, CheckID: "unit"}}}
+	_, err = CompleteTaskWithQuality(raw, "T1", pass, testContract, nil, subject)
+	if err == nil {
+		t.Fatal("missing test evidence accepted")
+	}
+	for _, want := range []string{"EVIDENCE_MISSING", "test/unit", "specd verify"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("test-class refusal missing %q: %v", want, err)
+		}
+	}
+}
+
 func TestCompleteTaskEmptySubjectFreshnessBaseline(t *testing.T) {
 	raw := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok |\n")
 	// Current API has no expected subject input, so any pinned historical head

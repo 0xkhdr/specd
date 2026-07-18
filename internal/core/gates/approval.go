@@ -86,7 +86,8 @@ func criteriaGate(ctx CheckCtx) []Finding {
 }
 
 func coverageGate(ctx CheckCtx) []Finding {
-	if ctx.ApproveTarget != string(core.StatusExecuting) || !core.HasTaskTrace(ctx.Tasks) {
+	severity, armed := coverageSeverity(ctx.ApproveTarget)
+	if !armed || !core.HasTaskTrace(ctx.Tasks) {
 		return nil
 	}
 	gaps := ctx.CoverageGaps
@@ -107,9 +108,24 @@ func coverageGate(ctx CheckCtx) []Finding {
 	// Spec R5.1: the refusal states where matching happens (the tasks.md `refs`
 	// column), lists every uncovered id, and names both remedies — so the fix
 	// needs no further lookup. Matching semantics are unchanged.
-	return []Finding{{Severity: Error, Message: fmt.Sprintf(
+	return []Finding{{Severity: severity, Message: fmt.Sprintf(
 		"coverage: requirement/criterion id(s) matched against the tasks.md `refs` column have no implementing task: %s; fix: add each id to an implementing task's `refs` column, or mark its task `kind: deferred`",
 		strings.Join(gaps, ", "))}}
+}
+
+// coverageSeverity arms the coverage analysis per approval target (spec R5.2):
+// the tasks-phase approval runs the same analysis as a non-blocking advisory
+// (warning — approval proceeds, the gap is reported early), and the executing
+// transition keeps its blocking error severity unchanged. Any other target
+// leaves the gate disarmed.
+func coverageSeverity(target string) (Severity, bool) {
+	switch target {
+	case string(core.StatusTasks):
+		return Warn, true
+	case string(core.StatusExecuting):
+		return Error, true
+	}
+	return "", false
 }
 
 func evidencePolicyGate(ctx CheckCtx) []Finding {
