@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -34,9 +35,22 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 	}
 	meta, hasMeta := core.CommandByName(name)
 	if hasMeta {
+		// Additive help surface (spec R4.1): on a multi-operation verb, --help
+		// or a missing subcommand prints the verb's palette operations and
+		// exits 0 instead of failing closed. Unknown subcommands still fail
+		// closed below (exit 2) — only the discoverability path changed.
+		if wantsOperationPalette(name, args, flags) {
+			printOperationPalette(meta)
+			return nil
+		}
 		operation, ok := core.ResolveOperation(name, args, flags)
 		if !ok {
 			return fmt.Errorf("%w: unknown operation for command %q", ErrUsage, name)
+		}
+		if name == "agents" && len(args) > 0 && args[0] == "inspect" {
+			// `agents inspect` aliases bare `agents` (spec R4.2): the alias token
+			// resolved to agents.inspect above; the handler expects it stripped.
+			args = args[1:]
 		}
 		if err := checkFlagEnums(meta, flags); err != nil {
 			return err
@@ -84,6 +98,48 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		}
 	}
 	return handler(root, args, flags)
+}
+
+// wantsOperationPalette reports whether this invocation asks for the verb's
+// operation palette instead of an operation: --help on any multi-operation
+// verb, or an empty subcommand on one that has no bare (subcommand-less)
+// operation and would otherwise fail closed with no guidance (spec R4.1).
+func wantsOperationPalette(name string, args []string, flags map[string]string) bool {
+	operations := core.OperationsForCommand(name)
+	hasSubcommand, hasBare := false, false
+	for _, operation := range operations {
+		if operation.Subcommand != "" {
+			hasSubcommand = true
+		} else {
+			hasBare = true
+		}
+	}
+	if len(operations) < 2 || !hasSubcommand {
+		return false
+	}
+	if _, ok := flags["help"]; ok {
+		return true
+	}
+	return len(args) == 0 && !hasBare
+}
+
+// printOperationPalette renders the palette operations already declared in
+// core/commands.go — usage, examples, and the verb's flags — the same metadata
+// help --json and MCP serve. Nothing is restated by hand.
+func printOperationPalette(meta core.Command) {
+	fmt.Fprintf(os.Stdout, "usage: %s\n%s\n\noperations:\n", meta.Usage, meta.Description)
+	for _, operation := range core.OperationsForCommand(meta.Name) {
+		fmt.Fprintf(os.Stdout, "  %-18s %s\n", operation.ID, operation.Usage)
+		for _, example := range operation.Examples {
+			fmt.Fprintf(os.Stdout, "%20s example: %s\n", "", example)
+		}
+	}
+	if len(meta.Flags) > 0 {
+		fmt.Fprintln(os.Stdout, "\nflags:")
+		for _, flag := range meta.Flags {
+			fmt.Fprintf(os.Stdout, "  --%-16s %s\n", flag.Name, flag.Description)
+		}
+	}
 }
 
 func productionMissionScope(root string, operation core.Operation, args []string, authority core.AuthorityV1) ([]string, error) {

@@ -104,7 +104,12 @@ func coverageGate(ctx CheckCtx) []Finding {
 	if len(gaps) == 0 {
 		return nil
 	}
-	return []Finding{{Severity: Error, Message: "coverage: approved requirement(s) without an implementing task or deferred disposition: " + strings.Join(gaps, ", ")}}
+	// Spec R5.1: the refusal states where matching happens (the tasks.md `refs`
+	// column), lists every uncovered id, and names both remedies — so the fix
+	// needs no further lookup. Matching semantics are unchanged.
+	return []Finding{{Severity: Error, Message: fmt.Sprintf(
+		"coverage: requirement/criterion id(s) matched against the tasks.md `refs` column have no implementing task: %s; fix: add each id to an implementing task's `refs` column, or mark its task `kind: deferred`",
+		strings.Join(gaps, ", "))}}
 }
 
 func evidencePolicyGate(ctx CheckCtx) []Finding {

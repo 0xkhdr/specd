@@ -202,6 +202,91 @@ func TestDispatchPhaseAllowed(t *testing.T) {
 	}
 }
 
+// TestDispatchHelpPalette pins spec R4.1: --help on a multi-operation verb
+// prints the verb's palette operations (usage, flags, examples) and exits 0
+// instead of failing closed.
+func TestDispatchHelpPalette(t *testing.T) {
+	cases := map[string]string{
+		"brain":     "brain.start",
+		"eval":      "eval.import",
+		"exception": "exception.approve",
+		"agents":    "agents.doctor",
+	}
+	for name, operationID := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			out, err := captureStdout(t, func() error {
+				return Run(root, name, nil, map[string]string{"help": "true"})
+			})
+			if err != nil {
+				t.Fatalf("%s --help: %v", name, err)
+			}
+			for _, want := range []string{"usage:", "operations:", operationID} {
+				if !strings.Contains(out, want) {
+					t.Errorf("%s --help output %q missing %q", name, out, want)
+				}
+			}
+		})
+	}
+}
+
+// TestDispatchEmptySubcommandPalette pins spec R4.1 for the empty-subcommand
+// form: a multi-operation verb with no bare operation prints its palette and
+// exits 0 where it previously failed closed.
+func TestDispatchEmptySubcommandPalette(t *testing.T) {
+	for _, name := range []string{"brain", "eval", "exception"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			out, err := captureStdout(t, func() error {
+				return Run(root, name, nil, nil)
+			})
+			if err != nil {
+				t.Fatalf("bare %s: %v", name, err)
+			}
+			if !strings.Contains(out, "operations:") || !strings.Contains(out, name+".") {
+				t.Errorf("bare %s output %q is not the operation palette", name, out)
+			}
+		})
+	}
+}
+
+// TestDispatchUnknownSubcommandStillFailsClosed pins that the help surface is
+// additive: an unknown subcommand on a multi-operation verb still exits 2.
+func TestDispatchUnknownSubcommandStillFailsClosed(t *testing.T) {
+	for _, name := range []string{"brain", "eval", "exception", "agents"} {
+		t.Run(name, func(t *testing.T) {
+			err := Run(t.TempDir(), name, []string{"bogus"}, nil)
+			if !errors.Is(err, ErrUsage) {
+				t.Fatalf("%s bogus err = %v, want ErrUsage", name, err)
+			}
+		})
+	}
+}
+
+// TestDispatchAgentsInspectAlias pins spec R4.2: `specd agents inspect`
+// aliases bare `specd agents`, matching the palette id agents.inspect.
+func TestDispatchAgentsInspectAlias(t *testing.T) {
+	root := t.TempDir()
+	if err := core.WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	bare, err := captureStdout(t, func() error {
+		return Run(root, "agents", nil, map[string]string{"json": "true"})
+	})
+	if err != nil {
+		t.Fatalf("bare agents: %v", err)
+	}
+	aliased, err := captureStdout(t, func() error {
+		return Run(root, "agents", []string{"inspect"}, map[string]string{"json": "true"})
+	})
+	if err != nil {
+		t.Fatalf("agents inspect: %v", err)
+	}
+	if bare != aliased {
+		t.Fatalf("agents inspect output %q differs from bare agents %q", aliased, bare)
+	}
+}
+
 // TestFlagEnum pins spec 03 R3: an enum-declared flag given an out-of-enum
 // value fails closed (exit 2) naming the flag and allowed values.
 func TestFlagEnum(t *testing.T) {

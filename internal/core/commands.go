@@ -815,7 +815,10 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 	switch command {
 	case "agents":
 		switch first {
-		case "":
+		case "", "inspect":
+			// `specd agents inspect` aliases bare `specd agents`, matching the
+			// palette id agents.inspect (spec R4.2). Dispatch strips the alias
+			// token before the handler runs.
 			id = "agents.inspect"
 		case "doctor", "guide":
 			id = "agents." + first

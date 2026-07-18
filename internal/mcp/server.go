@@ -155,6 +155,14 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 			resp.Error = &ResponseError{Code: -32601, Message: "tool not implemented"}
 			return resp
 		}
+		if element, ok := flagLikeArgument(params.Arguments); ok {
+			// A "--flag" smuggled into the positional `args` array is a shape
+			// mistake, not a positional operand: reject with the property
+			// spelling instead of silently forwarding it to the dispatcher
+			// (spec R7.1/R7.2). Reject, never normalize.
+			resp.Result = toolResult(fmt.Sprintf("invalid `args` element %q: flags are tool-call properties; pass %s as a property, not inside `args`", element, propertyHint(element)), true)
+			return resp
+		}
 		args, flags := splitArguments(params.Arguments)
 		if operation, ok := core.OperationByID(params.Name); ok && operation.Subcommand != "" && (len(args) == 0 || args[0] != operation.Subcommand) {
 			args = append([]string{operation.Subcommand}, args...)
@@ -192,6 +200,32 @@ func splitArguments(arguments map[string]any) ([]string, map[string]string) {
 		flags[key] = valueToString(value)
 	}
 	return args, flags
+}
+
+// flagLikeArgument returns the first element of the reserved "args" array that
+// carries a "--" prefix — a flag mistakenly passed as a positional operand.
+func flagLikeArgument(arguments map[string]any) (string, bool) {
+	list, ok := arguments["args"].([]any)
+	if !ok {
+		return "", false
+	}
+	for _, item := range list {
+		if element := valueToString(item); strings.HasPrefix(element, "--") {
+			return element, true
+		}
+	}
+	return "", false
+}
+
+// propertyHint renders the tool-call property spelling that would have worked
+// for a flag-like args element (spec R7.2): `--guide` → `guide: true`,
+// `--format=json` → `format: "json"`.
+func propertyHint(element string) string {
+	name, value, hasValue := strings.Cut(strings.TrimPrefix(element, "--"), "=")
+	if hasValue {
+		return fmt.Sprintf("`%s: %q`", name, value)
+	}
+	return fmt.Sprintf("`%s: true`", name)
 }
 
 func valueToString(value any) string {

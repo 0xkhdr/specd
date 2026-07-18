@@ -141,6 +141,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "intake", run: intakeReadiness})
 	registry.Register(gateFunc{name: "governance", run: governanceGate})
 	registry.Register(gateFunc{name: "memory-lint", run: memoryConflictLint})
+	registry.Register(gateFunc{name: "quality-declaration", run: qualityDeclaration})
 	return registry
 }
 

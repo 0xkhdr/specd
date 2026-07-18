@@ -31,6 +31,13 @@ func LeaseWorkerState(lease Lease, now time.Time) WorkerState {
 	return WorkerStateExpired
 }
 
+// Wait reasons are distinct per blocking condition (spec R3.1/R3.2): each
+// states why the loop is waiting and names the command that unblocks it.
+const (
+	ReasonWaitAuthorityAbsent = "waiting: dispatch authority absent; grant it with `specd brain run <slug> --authority`"
+	ReasonWaitFrontierEmpty   = "waiting: frontier empty (no task has all dependencies resolved); inspect with `specd status <slug> --guide`"
+)
+
 type Decision struct {
 	Action Action
 	TaskID string
@@ -53,8 +60,15 @@ func Decide(snapshot Snapshot, limits DecisionLimits) Decision {
 	if escalation := Escalation(snapshot.Leases, limits.MaxRetries, snapshot.Now); escalation.TaskID != "" {
 		return Decision{Action: ActionEscalate, TaskID: escalation.TaskID, Reason: escalation.Reason}
 	}
-	if !limits.AllowDispatch || len(snapshot.Frontier) == 0 {
-		return Decision{Action: ActionWait, Reason: "no dispatch authority or no frontier"}
+	// Each wait reason is distinct and names its unblock command (spec R3.1,
+	// R3.2), so an operator reading a stalled loop knows which lever to pull.
+	// Authority is checked before the frontier: without dispatch authority the
+	// frontier's contents are irrelevant. (A third no-worker reason lands later.)
+	if !limits.AllowDispatch {
+		return Decision{Action: ActionWait, Reason: ReasonWaitAuthorityAbsent}
+	}
+	if len(snapshot.Frontier) == 0 {
+		return Decision{Action: ActionWait, Reason: ReasonWaitFrontierEmpty}
 	}
 
 	frontier := append([]core.FrontierTask(nil), snapshot.Frontier...)

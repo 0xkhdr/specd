@@ -101,6 +101,64 @@ func TestMCPCompleteTaskUsesNarrowAuthorizedRoute(t *testing.T) {
 	}
 }
 
+// TestMCPRejectsFlagLikeArgsElement pins spec R7.1/R7.2: a "--"-prefixed
+// element inside the positional `args` array is rejected with a structured
+// tool error naming the offending element and the property spelling that
+// would have worked — never silently forwarded to the dispatcher.
+func TestMCPRejectsFlagLikeArgsElement(t *testing.T) {
+	cases := []struct {
+		name    string
+		element string
+		hint    string
+	}{
+		{name: "bool-flag", element: "--guide", hint: "`guide: true`"},
+		{name: "value-flag", element: "--format=json", hint: "`format: \"json\"`"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			params, err := json.Marshal(toolCallParams{Name: "status", Arguments: map[string]any{"args": []any{"demo", tc.element}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: params}
+			resp := Dispatch(req, CoreTools(), func(string, []string, map[string]string, *core.AuthorityV1, time.Time) (string, error) {
+				t.Fatal("flag-like args element forwarded to executor")
+				return "", nil
+			})
+			if resp.Error != nil {
+				t.Fatalf("expected structured tool error, got protocol error %+v", resp.Error)
+			}
+			result, ok := resp.Result.(map[string]any)
+			if !ok || result["isError"] != true {
+				t.Fatalf("result = %+v, want isError tool result", resp.Result)
+			}
+			text := result["content"].([]map[string]any)[0]["text"].(string)
+			for _, want := range []string{tc.element, tc.hint, "property", "`args`"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("rejection %q missing %q", text, want)
+				}
+			}
+		})
+	}
+}
+
+// TestMCPValidPositionalsUnaffected pins that plain positional operands still
+// forward untouched after the flag-like rejection landed.
+func TestMCPValidPositionalsUnaffected(t *testing.T) {
+	req := Request{JSONRPC: "2.0", ID: 1, Method: "tools/call", Params: []byte(`{"name":"status","arguments":{"args":["demo"]}}`)}
+	called := false
+	resp := Dispatch(req, CoreTools(), func(command string, args []string, _ map[string]string, _ *core.AuthorityV1, _ time.Time) (string, error) {
+		called = true
+		if command != "status" || len(args) != 1 || args[0] != "demo" {
+			t.Fatalf("route = %q %v", command, args)
+		}
+		return "ok\n", nil
+	})
+	if resp.Error != nil || !called {
+		t.Fatalf("response = %+v, called=%v", resp, called)
+	}
+}
+
 func TestMCPTaskOperationAuthorizesCanonicalCommand(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	a, err := core.BuildAuthority(core.TaskRow{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"a.go"}}, "controller", "w", "demo", "execute", "abc", "policy", "required", now, now.Add(time.Hour))
