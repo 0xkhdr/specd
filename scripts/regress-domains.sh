@@ -25,6 +25,8 @@ cd "$RUN"
 
 go build -o "$RUN/specd" . >/dev/null 2>&1 || { echo "W?: build failed" >&2; exit 1; }
 SPECD="$RUN/specd"
+go build -o "$RUN/evalstatusassert" ./internal/testutil/evalstatusassert >/dev/null 2>&1 || { echo "AD-R2: eval status assertion helper build failed" >&2; exit 1; }
+EVAL_STATUS_ASSERT="$RUN/evalstatusassert"
 
 violation() { printf 'VIOLATION %s: %s\n' "$1" "$2" >&2; exit 1; }
 pass() { printf 'ok  %s  %s\n' "$1" "$2"; }
@@ -101,9 +103,7 @@ approve_ad_to_tasks ad-evidence
 verify_out=$("$SPECD" verify ad-evidence T1 2>&1) || violation AD-R2 "passing task verify failed"
 printf '%s\n' "$verify_out" | grep -Fq 'specd complete-task ad-evidence T1' || violation AD-R2 "satisfied test contract lacked completion hint"
 eval_line=$("$SPECD" eval status ad-evidence --json 2>&1) || violation AD-R2 "eval status failed"
-for expected in '"schema_version"[[:space:]]*:[[:space:]]*"1"' '"evidence_class"[[:space:]]*:[[:space:]]*"test"' '"check_id"[[:space:]]*:[[:space:]]*"unit"' '"producer"[[:space:]]*:[[:space:]]*"specd-verify"'; do
-	printf '%s\n' "$eval_line" | grep -Eq "$expected" || violation AD-R2 "stamped envelope missing $expected"
-done
+printf '%s\n' "$eval_line" | "$EVAL_STATUS_ASSERT" ad-evidence T1 unit || violation AD-R2 "stamped envelope JSON contract invalid"
 "$SPECD" complete-task ad-evidence T1 >/dev/null 2>&1 || violation AD-R2 "stamped test envelope did not permit completion"
 pass AD-R2 "passing test/* verify stamps envelope and completes"
 
