@@ -10,10 +10,11 @@ import (
 	embedtemplates "github.com/0xkhdr/specd/internal/core/embed_templates"
 )
 
-// TemplateVersion is the current version stamp for specd-managed scaffold assets.
+// TemplateVersion is the schema generation for specd-managed scaffold regions.
 // It rides in every managed-region marker so `init --refresh` can detect a region
-// written by an older binary. Bump it whenever a role/steering template changes.
-const TemplateVersion = 3
+// written by an older binary. 1.0.0 ships generation 1; bump it whenever a
+// role/steering template changes shape.
+const TemplateVersion = 1
 
 // ManagedAsset is one specd-managed scaffold file (a role or steering template).
 // Its Template is wrapped in stable marker comments so `init --repair`/`--refresh`
