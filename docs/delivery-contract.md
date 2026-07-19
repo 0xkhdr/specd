@@ -1,5 +1,7 @@
 # specd — Delivery contract (draft)
 
+Driver: `deliveryTransitions` / `ValidateDeliveryTransition` (`internal/core/delivery.go:349`) — the closed state machine below is that table, enforced before any append.
+
 Delivery is a **parallel, additive ledger domain**. It never adds a value to the six lifecycle
 status states and never satisfies a task evidence gate. Everything below is a pure function of
 on-disk `.specd/` ledgers plus validated adapter envelopes — no LLM, no network in core, no

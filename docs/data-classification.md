@@ -1,5 +1,7 @@
 # Data classification and boundary redaction (Domain 10, R4)
 
+Driver: `TestRedactForExport` (`internal/adapter/classify_test.go:31`) — proves the zero-value `ExportPolicy` strips inline bytes from every restricted class while digests survive.
+
 `specd` classifies every reference an adapter carries so the boundary layer can
 decide what may cross a process, network, A2A, CI, or telemetry boundary and what
 must be redacted. Domain 10 owns this taxonomy and the default-deny export;

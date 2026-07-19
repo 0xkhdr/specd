@@ -1,5 +1,7 @@
 # Telemetry schema and privacy policy
 
+Driver: `TestPrometheusLabelAllowlist` (`internal/core/prometheus_test.go:128`) — fails if any renderer emits a label outside `MetricLabelAllowlist` or the allowlist admits a forbidden high-cardinality key.
+
 specd telemetry is **metadata-only by construction**. The on-disk `telemetry`
 object on an evidence record (`internal/core/telemetry.go`, type `Annotations`)
 carries only these keys — there is no field that can hold a prompt, a model

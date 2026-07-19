@@ -1,5 +1,7 @@
 # Adapter contract and boundary index (Domain 10)
 
+Driver: `TestImportGuard` (`internal/adapter/import_guard_test.go:130`) — proves no trusted-core package reaches `internal/adapter` on any first-party import path.
+
 The durable product of Domain 10 is a **contract**, not a set of integrations.
 Core generates request envelopes as data and consumes result envelopes only after
 they are validated and pinned; core never imports `internal/adapter`. This file is

@@ -1,8 +1,108 @@
 {
   "schema_version": 1,
   "slug": "deep-review-phase5-decisions",
-  "mode": "default",
-  "status": "requirements",
-  "phase": "perceive",
-  "revision": 0
+  "mode": "orchestrated",
+  "status": "verifying",
+  "phase": "verify",
+  "revision": 16,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 2,
+      "source_digest": "6d849be89c2a2652501c11e1e79ce527d3864d2440c6d9fa62e3b4f45a6e4c3c",
+      "timestamp": "2026-07-19T19:02:25Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 4,
+      "timestamp": "2026-07-19T19:03:14Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "timestamp": "2026-07-19T19:02:16Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "approved_revision": 1,
+      "source_digest": "d456f0ee60528701ce6b6129c82d8b97b384e491d3ac2952357e7e0d926009d6",
+      "timestamp": "2026-07-19T19:02:25Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-19T19:03:14Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:0": {
+      "kind": "decision",
+      "text": "R1.1 ledger-verb consolidation decision, 2026-07-19, owner 0xkhdr. Blanket consolidation under a single `specd record \u003ckind\u003e` verb is REJECTED. The T1 audit found only 4 of the 14 audited verbs are thin append-a-record shells (recurring, spike, unlink, decision); the other 10 carry real logic - incident scaffolds a successor spec with typed program links, midreq synthesizes an invalidating Amendment, release computes evidence-set and bootstrap digests, deploy validates against the frozen candidate, drift is a read-only projection not an append, eval guards path traversal, exception enforces a constitutional non-waivable guard, memory does cross-spec threshold promotion, link does cycle-refusing slug validation, handshake builds the driver guide. Consolidating those behind one verb would hide distinct authority and validation semantics behind a kind string, so it is not done.",
+      "scope": "R1.1",
+      "timestamp": "2026-07-19T19:07:44Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:1": {
+      "kind": "decision",
+      "text": "R1.1 consolidation decision part 2 of 4 - KEPT WITH NAMED CONSUMERS (R1.1 edge case), 2026-07-19, owner 0xkhdr: incident (scripts/regress-domains.sh:196,201; maintenance/incident.md template), release (internal/cmd/deploy.go:33 refuses deploy without a frozen candidate), deploy (internal/cmd/report.go:452,513,574; internal/core/adapter_envelope.go:178), midreq (internal/core/freshness.go:62; internal/core/report.go:168), drift (MCP surface via internal/core/manifest_tools.go:79), eval (scripts/regress-domains.sh:105), exception (internal/core/gates/security/allowlist.go:29), memory (embed_templates/steering/memory.md:11; workflow.md:26), link and unlink (program.json graph read by internal/cmd/lifecycle.go:121, report.go:502, archive.go:30), decision (internal/cmd/report.go:222; internal/orchestration/sense.go:31; mandated by embed_templates/roles/craftsman.md:17), handshake (embed_templates/AGENTS.md:7 agent boot; scripts/release-smoke.sh:39).",
+      "scope": "R1.1",
+      "timestamp": "2026-07-19T19:07:51Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:2": {
+      "kind": "decision",
+      "text": "R1.1 consolidation decision part 3 of 4 - DEFERRED FOR DELETION, dated 2026-07-19, revisit 2026-10-19, owner 0xkhdr: `specd recurring` and `specd spike` are write-only - recurring-results.jsonl has no non-test reader and PlanRecurringSuccessor is never called outside tests; State.Spikes() is read only by state.go own re-parse. Both are deferred, not deleted here, because deletion is a follow-up spec per this spec non-goals.",
+      "scope": "R1.1",
+      "timestamp": "2026-07-19T19:07:58Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:3": {
+      "kind": "decision",
+      "text": "R1.1 consolidation decision part 4 of 4 - FOLLOW-UP DEFECT recorded 2026-07-19, owner 0xkhdr: `specd decision` writes state.Records while the governance store core.DecisionPath (.specd/specs/\u003cslug\u003e/decisions.json, read by internal/cmd/drift.go:23 and internal/context/decision.go:30) has no non-test writer - the two decision stores are unrelated and the governance one is hand-authored. Resolving that split is a follow-up spec.",
+      "scope": "R1.1",
+      "timestamp": "2026-07-19T19:07:58Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:4": {
+      "kind": "decision",
+      "text": "R2.1/R2.2 metrics export format: KEEP Prometheus text exposition (report --format prometheus) as the single supported metrics export; DEPRECATE report --format otel and schedule it for deletion in a follow-up spec (deletion is a non-goal of this spec). Evidence: internal/adapter/otel_export.go is reached only from internal/cmd/report_otel.go; every other otel mention in the tree is its own tests (report_otel_test.go, otel_export_test.go), the command palette enum in internal/core/commands.go, or generated docs/command-reference.md. No driver in scripts/, .github/, or embed_templates/. It is also redundant with the documented integration path: docs/adapter-contract.md and docs/adapters/telemetry.md specify OTel export as an EXTERNAL adapter concern mapping the neutral event/v1 JSONL stream, so the built-in span projection is a duplicate schema with no reader. Prometheus is kept because node_exporter textfile output is a file drop matching specd zero-runtime-dependency no-daemon posture, its metric names are a documented API contract, and it carries the worker tokens/cost/duration counter series. Correction to the framing: scripts/regress-domains.sh:204 is an enum-rejection probe using --format __bogus__, not a live prometheus consumer; the keep rests on the documented metric-name API and posture fit, not on that probe. --format event is a third format, out of R2.1 scope, unaffected and retained as the neutral adapter stream; it has no script/CI driver but is the documented adapter integration surface. Documented in docs/observability.md.",
+      "scope": "R2.1",
+      "timestamp": "2026-07-19T19:10:08Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:5": {
+      "kind": "decision",
+      "text": "T4 verify passes and all six contract docs carry cited Driver headers, but brain report fails scope: docs/observability.md was already modified-uncommitted in the tree when the T4 lease was claimed (leftover from the prior --format otel deprecation task). Not reverting or committing another task's work under the T4 lease; escalating to Brain to commit or land that change first, then re-report T4.",
+      "scope": "deep-review-phase5-decisions.s6.T4",
+      "timestamp": "2026-07-19T19:13:52Z",
+      "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    }
+  },
+  "task_status": {
+    "T1": "complete",
+    "T2": "complete",
+    "T3": "complete"
+  }
 }
