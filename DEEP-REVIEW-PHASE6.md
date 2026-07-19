@@ -78,17 +78,16 @@ task evidence back to requirement criteria. Record with
 `…s3.T2` and `…s4.T2` remain `pending` in `session.json`, artifacts of F1. Harmless; they expire.
 Do not hand-edit — they are ledger history.
 
-### F6 — `TestProductionSmokeLane` is red on `optimization` (stale assertion, low)
+### F6 — `TestProductionSmokeLane` asserted the wrong workflow — **FIXED** (`ea6b78e`)
 
-`internal/integration/production_smoke_test.go:35` asserts `.github/workflows/ci.yml` contains
-`./scripts/production-smoke.sh`. Phase 4 (`1dfeae4`) split CI into two tiers and moved that lane to
-`.github/workflows/heavy.yml:83`, where it still runs — so the check is **not** lost, the assertion
-is just stale. Phase 4's own validator missed it.
+`internal/integration/production_smoke_test.go` pinned its assertion to `.github/workflows/ci.yml`.
+Phase 4 (`1dfeae4`) split CI into a fast PR tier and a heavy main tier and moved the lane to
+`.github/workflows/heavy.yml:83`, where it still runs — so the check was never lost, but the test
+had been failing ever since and left `go test ./...` red on this branch.
 
-Effect: `go test ./...` is red on this branch for a reason unrelated to any current work, which
-trains people to ignore a failing suite. Fix is one line — assert against the workflow that now
-owns the lane, or across both. Not done here: it was found while verifying F1 and fixing it
-unbidden would have hidden an unrelated regression inside an unrelated commit.
+Fixed by scanning the workflows directory instead of naming one file: what the test protects is
+that CI runs the lane at all, not which tier owns it, so a future retiering cannot make it stale
+again. Verified by negative control — the test still fails when the lane is genuinely removed.
 
 ## 2. Carried-forward decisions from Phase 5
 
@@ -110,16 +109,16 @@ source when implementing.
 
 Ordered by (risk removed ÷ effort). Each is small; resist bundling.
 
-**Step 1 — F6, unblock the suite.** One line, and it stops `go test ./...` being red for an
-unrelated reason. Do this before anything else so later work has a clean baseline.
+The suite is green as of `ea6b78e`; both defects found this session (F1, F6) are fixed. What is
+left is cleanup and one carried-forward deletion spec.
 
-**Step 2 — F2, subtractive.** Either populate the status field or delete the 8 unused constants.
+**Step 1 — F2, subtractive.** Either populate the status field or delete the 8 unused constants.
 Prefer deletion; lease state already carries the lifecycle. If any is kept, keep only what a reader
 is actually shown.
 
-**Step 3 — the otel deletion spec.** Straightforward but touches the palette. Remember `gendocs`.
+**Step 2 — the otel deletion spec.** Straightforward but touches the palette. Remember `gendocs`.
 
-**Step 4 — F4.** One `specd verify --criterion` call per criterion, or accept the gap and note it.
+**Step 3 — F4.** One `specd verify --criterion` call per criterion, or accept the gap and note it.
 Cheap either way.
 
 **Defer:** F3 (rename is churn across docs, templates, and muscle memory — the docs fix may be
@@ -149,5 +148,7 @@ enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026
 | `a67a350` | Dead `.specd/project.yml` deleted |
 | `d9307df` | This handoff doc |
 | `71a2ec7` | **F1 fixed** — dispatched missions reserve their task against the frontier |
+| `75bc0bc` | Handoff doc updated for F1 + F6 |
+| `ea6b78e` | **F6 fixed** — smoke-lane assertion no longer pinned to `ci.yml` |
 
 Branch `optimization`. Not merged to `main`.
