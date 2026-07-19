@@ -1,8 +1,49 @@
 {
   "schema_version": 1,
   "slug": "deep-review-phase3-cleanups",
-  "mode": "default",
-  "status": "requirements",
-  "phase": "perceive",
-  "revision": 0
+  "mode": "orchestrated",
+  "status": "executing",
+  "phase": "execute",
+  "revision": 5,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 2,
+      "source_digest": "436f7ac578b5dc3453611307e1cfde3d8ce94e021f971832fd9b5cf822e1c182",
+      "timestamp": "2026-07-19T13:57:49Z",
+      "git_head": "0262c84f53ca94e7a1858291e695e6d55ff0d0c6",
+      "actor": "xkhdr"
+    },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "timestamp": "2026-07-19T13:57:45Z",
+      "git_head": "0262c84f53ca94e7a1858291e695e6d55ff0d0c6",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "approved_revision": 1,
+      "source_digest": "efc024defd7e6e946c378d0a53c2a76966c15ad64e4fd82661b412dfa7a9cf3e",
+      "timestamp": "2026-07-19T13:57:49Z",
+      "git_head": "0262c84f53ca94e7a1858291e695e6d55ff0d0c6",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-19T14:00:49Z",
+      "git_head": "0262c84f53ca94e7a1858291e695e6d55ff0d0c6",
+      "actor": "xkhdr"
+    }
+  },
+  "task_status": {
+    "T1": "complete"
+  }
 }

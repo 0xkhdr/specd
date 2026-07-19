@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -218,7 +219,7 @@ func RecommendRouting(task TaskRow, cfg RoutingConfig) (RoutingRecommendation, e
 	if recommended := cfg.Recommendations[task.Complexity]; recommended != "" {
 		class = recommended
 	}
-	if !contains(cfg.Classes, class) {
+	if !slices.Contains(cfg.Classes, class) {
 		return RoutingRecommendation{}, fmt.Errorf("routing class %q is not declared", class)
 	}
 	return RoutingRecommendation{Class: class, Complexity: task.Complexity}, nil

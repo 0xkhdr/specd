@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -262,7 +263,7 @@ func checkFlagEnums(meta core.Command, flags map[string]string) error {
 		if flag == nil || len(flag.Enum) == 0 {
 			continue
 		}
-		if !contains(flag.Enum, value) {
+		if !slices.Contains(flag.Enum, value) {
 			return fmt.Errorf("%w: flag --%s=%q not allowed; expected one of %v", ErrUsage, name, value, flag.Enum)
 		}
 	}
@@ -299,15 +300,6 @@ func checkPhase(root string, meta core.Command, args []string) error {
 	}
 	return fmt.Errorf("%w: verb %q not allowed in phase %q; allowed phases: %s",
 		ErrUsage, meta.Name, state.Phase, joinPhases(meta.AllowedPhases))
-}
-
-func contains(values []string, want string) bool {
-	for _, v := range values {
-		if v == want {
-			return true
-		}
-	}
-	return false
 }
 
 func joinPhases(phases []core.Phase) string {

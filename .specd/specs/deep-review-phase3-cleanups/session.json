@@ -1,0 +1,43 @@
+{
+  "id": "deep-review-phase3-cleanups",
+  "revision": 4,
+  "step": 1,
+  "missions": [
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase3-cleanups",
+      "mission_id": "deep-review-phase3-cleanups.s1.T1",
+      "spec_slug": "deep-review-phase3-cleanups",
+      "task_id": "T1",
+      "attempt": 1,
+      "role": "craftsman",
+      "authority_ref": "approval:tasks",
+      "declared_files": [
+        "internal/cmd/dispatch.go",
+        "internal/core/authority.go",
+        "internal/core/config_loader.go",
+        "internal/core/config_validate.go",
+        "internal/core/driver.go"
+      ],
+      "acceptance": [
+        "R1.1"
+      ],
+      "verify": "bash -c 'go vet ./... \u0026\u0026 go test ./internal/core ./internal/cmd -count=1 \u0026\u0026 ! grep -rn --include=*.go --exclude=*_test.go \"func contains\" internal/core internal/cmd'",
+      "context_ref": "context:deep-review-phase3-cleanups:T1",
+      "context_digest": "29c3a05cccae3a4ff6f78c7415a2d7c48dd53945cfc2ec14efc1753e4e07ec61",
+      "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "subject_head": "0262c84f53ca94e7a1858291e695e6d55ff0d0c6",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=simple capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T18:30:41.609536797+03:00",
+      "expires_at": "2026-07-19T18:45:41.609536797+03:00",
+      "status": "pending"
+    }
+  ]
+}
