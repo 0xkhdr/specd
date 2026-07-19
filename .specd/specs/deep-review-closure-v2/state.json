@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "slug": "deep-review-closure-v2",
+  "mode": "default",
+  "status": "executing",
+  "phase": "execute",
+  "revision": 3,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "8b98d9d16d5039bae7aa2e1114a5cfd2aa4ae9e96d80333822b7d47116dcc5bc",
+      "timestamp": "2026-07-19T22:21:49Z",
+      "git_head": "ac133a3b7a167d401206c413891f0c11cd4209f7",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "33a649f994bdc50eb310df3851e0d70f859656249d46bf24bfc06d4c97fdcf38",
+      "timestamp": "2026-07-19T22:20:40Z",
+      "git_head": "ac133a3b7a167d401206c413891f0c11cd4209f7",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 2,
+      "timestamp": "2026-07-19T22:22:59Z",
+      "git_head": "ac133a3b7a167d401206c413891f0c11cd4209f7",
+      "actor": "xkhdr"
+    }
+  }
+}

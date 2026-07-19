@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "links": [
+    {
+      "from": "deep-review-closure",
+      "to": "deep-review-phase5-decisions",
+      "kind": "maintains"
+    },
+    {
+      "from": "deep-review-closure-v2",
+      "to": "deep-review-phase5-decisions",
+      "kind": "maintains"
+    }
+  ]
+}
