@@ -118,9 +118,20 @@ whenever any of these happen:
 - a gate rejected artifacts you believed were valid (record why you believed that)
 - you were tempted to bypass the harness — record what pulled you off-path
 
-Rules: append during the work, not after; one entry per distinct friction; quote
-exact commands and exact error lines; recommend a concrete change, not a wish.
-No entry when the workflow simply worked — silence is the pass signal.
+Also append an **improvement** entry when the workflow succeeded but you can name
+a concrete win:
+
+- a step was redundant, or two commands always run together
+- output was correct but you had to re-read or re-derive it to act on it
+- guidance was right but arrived a turn later than you needed it
+- a flag or JSON field would have removed a whole round trip
+- you found a sequence worth making the documented default
+
+Rules: append during the work, not after; one entry per distinct observation;
+quote exact commands and exact error lines; recommend a concrete change, not a
+wish. No entry for "worked fine" alone — an improvement entry needs a named cost
+and a named fix. Never act on your own recommendation in the same run: log it,
+finish the spec, let the analysis pass decide.
 
 <!-- specd:agents begin -->
 # specd host guide
