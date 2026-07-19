@@ -13,17 +13,11 @@ const MissionProtocolVersion = "1"
 
 type MissionStatus string
 
-const (
-	MissionPending   MissionStatus = "pending"
-	MissionDelivered MissionStatus = "delivered"
-	MissionClaimed   MissionStatus = "claimed"
-	MissionActive    MissionStatus = "active"
-	MissionReported  MissionStatus = "reported"
-	MissionExpired   MissionStatus = "expired"
-	MissionCancelled MissionStatus = "cancelled"
-	MissionEscalated MissionStatus = "escalated"
-	MissionTerminal  MissionStatus = "terminal"
-)
+// MissionPending is the only status the controller mints, and the only one
+// ValidateMission accepts. Mission lifecycle after dispatch is tracked by lease
+// state and by moving records PendingMissions -> Missions on claim, not by this
+// field — so there is deliberately no enum of later states here.
+const MissionPending MissionStatus = "pending"
 
 type MissionLimits struct {
 	MaxAttempts    int   `json:"max_attempts"`

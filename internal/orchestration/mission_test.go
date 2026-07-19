@@ -33,7 +33,7 @@ func TestMissionValidateFailsClosed(t *testing.T) {
 		t.Fatal("missing pin accepted")
 	}
 	m = validMission()
-	m.Status = MissionActive
+	m.Status = MissionStatus("active")
 	if err := ValidateMission(m); err == nil {
 		t.Fatal("controller minted active mission")
 	}
