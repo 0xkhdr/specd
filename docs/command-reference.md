@@ -67,7 +67,7 @@ specd agents doctor --json
 specd agents guide payments --json
 ```
 
-### `approve` — human only
+### `approve`
 
 ```
 specd approve <spec>
@@ -75,7 +75,7 @@ specd approve <spec>
 
 Advance a spec exactly one lifecycle step after human approval and passing readiness gates.
 
-**Phases:** any.
+**Phases:** any. **Human only.**
 
 **Examples:**
 
@@ -205,7 +205,7 @@ specd context payments T3
 specd context payments T3 --hud
 ```
 
-### `decision` — human only
+### `decision`
 
 ```
 specd decision <spec> --text <rationale> [--scope <scope>]
@@ -213,7 +213,7 @@ specd decision <spec> --text <rationale> [--scope <scope>]
 
 Record an explicit human decision.
 
-**Phases:** any.
+**Phases:** any. **Human only.**
 
 | Flag | Value | Description |
 |---|---|---|
@@ -297,7 +297,7 @@ specd eval import payments adapter.jsonl --task T1
 specd eval status payments --json
 ```
 
-### `exception` — human only
+### `exception`
 
 ```
 specd exception <approve|revoke> <finding> [governed exception fields]
@@ -305,7 +305,7 @@ specd exception <approve|revoke> <finding> [governed exception fields]
 
 Record or revoke a governed human security exception without changing lifecycle status.
 
-**Phases:** any.
+**Phases:** any. **Human only.**
 
 | Flag | Value | Description |
 |---|---|---|
@@ -501,7 +501,7 @@ Append or promote steering-memory patterns (learning flywheel).
 specd memory payments add --key 'atomic writes' --pattern 'use AtomicWrite'
 ```
 
-### `midreq` — human only
+### `midreq`
 
 ```
 specd midreq <spec> --text <change> [--scope <scope>]
@@ -509,7 +509,7 @@ specd midreq <spec> --text <change> [--scope <scope>]
 
 Capture a scoped mid-stream requirement change.
 
-**Phases:** any.
+**Phases:** any. **Human only.**
 
 | Flag | Value | Description |
 |---|---|---|
@@ -522,7 +522,7 @@ Capture a scoped mid-stream requirement change.
 specd midreq payments --text 'add refund path' --scope requirements
 ```
 
-### `mode` — human only
+### `mode`
 
 ```
 specd mode <spec> orchestrated
@@ -530,7 +530,7 @@ specd mode <spec> orchestrated
 
 Record human approval for the separate opt-in orchestration mode transition.
 
-**Phases:** any.
+**Phases:** any. **Human only.**
 
 **Examples:**
 

@@ -51,9 +51,9 @@ jobs:
           # SC2015 (best-effort `... || true`), SC2016 (sed single-quote scripts).
           severity: error
 
-      - name: docs-lint (cheat-sheet ↔ command-reference sync)
-        # Gate cheat-sheet drift on PRs. Asserts
-        # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
+      - name: docs-lint (command-reference generated from palette)
+        # command-reference.md is generated from the specd help --json palette by
+        # tools/gendocs; this fails the build if the committed doc has drifted.
         run: ./scripts/docs-lint.sh
 
       - name: install script tests

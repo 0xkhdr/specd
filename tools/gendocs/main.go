@@ -115,14 +115,10 @@ func exitCodeUnion(cmds []core.Command) []core.ExitCode {
 }
 
 func renderCommand(b *strings.Builder, c core.Command) {
-	heading := "### `" + c.Name + "`"
-	if c.Deferred {
-		heading += " — deferred"
-	}
-	if c.HumanOnly {
-		heading += " — human only"
-	}
-	fmt.Fprintf(b, "\n%s\n\n", heading)
+	// Heading stays a bare ``### `name` `` so the CLI-surface test
+	// (internal/cmd/surface_test.go) can parse every verb; Deferred/HumanOnly
+	// markers ride on the Phases line as bold tags instead.
+	fmt.Fprintf(b, "\n### `%s`\n\n", c.Name)
 
 	fmt.Fprintf(b, "```\n%s\n```\n", c.Usage)
 
@@ -135,7 +131,14 @@ func renderCommand(b *strings.Builder, c core.Command) {
 		for i, p := range c.AllowedPhases {
 			phases[i] = string(p)
 		}
-		fmt.Fprintf(b, "\n**Phases:** %s.\n", strings.Join(phases, " · "))
+		line := fmt.Sprintf("**Phases:** %s.", strings.Join(phases, " · "))
+		if c.Deferred {
+			line += " **Deferred.**"
+		}
+		if c.HumanOnly {
+			line += " **Human only.**"
+		}
+		fmt.Fprintf(b, "\n%s\n", line)
 	}
 
 	if len(c.Flags) > 0 {

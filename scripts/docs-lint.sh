@@ -3,8 +3,11 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-if ! cmp -s "$root/docs/command-reference.md" "$root/docs/CHEATSHEET.md"; then
-	echo "docs-lint: docs/CHEATSHEET.md must mirror docs/command-reference.md" >&2
+# docs/command-reference.md is generated from the specd help --json palette
+# (internal/core/commands.go) by tools/gendocs. Fail if the committed doc has
+# drifted from the generator output.
+if ! (cd "$root" && go run ./tools/gendocs -check); then
+	echo "docs-lint: docs/command-reference.md is stale — run: go run ./tools/gendocs" >&2
 	exit 1
 fi
 
@@ -14,7 +17,7 @@ fi
 cd "$root"
 docs="README.md CLAUDE.md CONTRIBUTING.md TESTING.md CHANGELOG.md SECURITY.md \
 	docs/README.md docs/validation-gates.md docs/concepts.md docs/user-guide.md \
-	docs/command-reference.md docs/CHEATSHEET.md docs/contributor-guide.md docs/github-action.md \
+	docs/command-reference.md docs/contributor-guide.md docs/github-action.md \
 	docs/agent-integration.md docs/mcp-guide.md docs/open-spec-format.md docs/troubleshooting.md \
 	docs/scale-envelope.md docs/observability.md docs/versioning-policy.md"
 
