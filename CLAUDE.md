@@ -85,6 +85,27 @@ Roles constrain what an agent may do: **scout** (read-only explore), **craftsman
 verify, exactly one atomic task per invocation), **validator** (read-only, runs verify line),
 **auditor** (read-only, audits a diff against acceptance).
 
+## Dogfooding: log every workflow friction
+
+This repo builds specd **and** uses specd. Whenever you drive a spec here
+(`specd new/status/context/verify/complete-task/check/approve`), you are also
+testing the harness. Stay in observer mode the whole time.
+
+Append an entry to `WORKFLOW-FEEDBACK.md` (root, format documented in the file)
+whenever any of these happen:
+
+- a command fails, exits non-zero, or blocks you unexpectedly
+- an error message does not tell you what to do next
+- you had to guess the next legal action, or `--guide` was wrong/insufficient
+- you needed a verb/flag that does not exist
+- docs, roles, or steering contradicted actual behaviour
+- a gate rejected artifacts you believed were valid (record why you believed that)
+- you were tempted to bypass the harness — record what pulled you off-path
+
+Rules: append during the work, not after; one entry per distinct friction; quote
+exact commands and exact error lines; recommend a concrete change, not a wish.
+No entry when the workflow simply worked — silence is the pass signal.
+
 ## Non-negotiable invariants (guardrails)
 
 When changing this codebase, preserve these — detail in `docs/contributor-guide.md` §3:

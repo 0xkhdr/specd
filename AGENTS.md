@@ -101,10 +101,26 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
 - **Docs sync.** If you touch CLI verbs or flags, regenerate `docs/command-reference.md` with
   `go run ./tools/gendocs` (`docs-lint.sh` enforces palette parity).
 
-## `reference/` — do not touch
+## Dogfooding: log every workflow friction
 
-`reference/` is the frozen v1 implementation: a read-only museum. Never import, build, copy
-from, or edit it. Its `Makefile`, scripts, and docs describe the old system, not this one.
+This repo builds specd **and** uses specd. Whenever you drive a spec here
+(`specd new/status/context/verify/complete-task/check/approve`), you are also
+testing the harness. Stay in observer mode the whole time.
+
+Append an entry to `WORKFLOW-FEEDBACK.md` (root, format documented in the file)
+whenever any of these happen:
+
+- a command fails, exits non-zero, or blocks you unexpectedly
+- an error message does not tell you what to do next
+- you had to guess the next legal action, or `--guide` was wrong/insufficient
+- you needed a verb/flag that does not exist
+- docs, roles, or steering contradicted actual behaviour
+- a gate rejected artifacts you believed were valid (record why you believed that)
+- you were tempted to bypass the harness — record what pulled you off-path
+
+Rules: append during the work, not after; one entry per distinct friction; quote
+exact commands and exact error lines; recommend a concrete change, not a wish.
+No entry when the workflow simply worked — silence is the pass signal.
 
 <!-- specd:agents begin -->
 # specd host guide
