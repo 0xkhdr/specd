@@ -787,21 +787,6 @@ specd brain cancel payments
 
 ---
 
-## Deferred
-
-### `triage`
-```
-specd triage <spec>
-```
-Run the opt-in extended-loop triage tier. **Deferred:** registered but not wired — prints a
-deferral notice and exits 0. **Phases:** any.
-
-```bash
-specd triage payments
-```
-
----
-
 ## Security release proof
 
 Production sandbox declarations use `sandbox-adapter/v1` and platform class `linux`, `darwin`, or

@@ -595,15 +595,6 @@ var Commands = []Command{
 		},
 	},
 	{
-		Name:          "triage",
-		Usage:         "specd triage <spec>",
-		Description:   "Run the opt-in extended-loop triage tier.",
-		AllowedPhases: anyPhase(),
-		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd triage payments"},
-		Deferred:      true,
-	},
-	{
 		Name:          "release",
 		Usage:         "specd release candidate <spec> --artifact-digest <d> --sbom-ref <r> --provenance-ref <r>",
 		Description:   "Freeze an immutable, reproducible release candidate identity into releases.jsonl. Builds and uploads nothing.",
@@ -745,7 +736,7 @@ func defaultOperationActor(command Command) OperationActor {
 
 func defaultOperationEffect(command string) OperationEffect {
 	switch command {
-	case "help", "version", "agents", "adapters", "drift", "next", "status", "context", "handshake", "report", "triage", "mcp":
+	case "help", "version", "agents", "adapters", "drift", "next", "status", "context", "handshake", "report", "mcp":
 		return EffectRead
 	case "init", "new", "incident", "review":
 		return EffectWorkspaceWrite
