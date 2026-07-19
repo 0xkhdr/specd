@@ -1,0 +1,108 @@
+name: Heavy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+# Force all JavaScript actions onto the Node 24 runtime. Node 20 is deprecated
+# on GitHub-hosted runners and forced off by default starting 2026-06-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  heavy-test:
+    name: Order-dependence test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      # A second run catches order/iteration-order dependence in goldens.
+      - name: go test -count=2 (order-dependence)
+        run: go test ./... -count=2
+
+  regression:
+    name: Domain regression harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      # Per-domain black-box invariants re-asserted against a freshly built
+      # binary in a throwaway tree.
+      - name: regress-domains (per-domain invariants)
+        run: ./scripts/regress-domains.sh
+
+  stress:
+    name: Concurrency stress (${{ matrix.domain }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        domain: [default, acp, orchestration, program, brain-recovery, checkpoint-fault]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Cross-process contention (${{ matrix.domain }})
+        run: ./scripts/stress.sh ${{ matrix.domain }}
+
+  perf:
+    name: Performance gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      # Measured perf gate — disabled-mode context manifest does no work.
+      - name: perf-gate
+        run: ./scripts/perf-gate.sh
+
+  install-scripts:
+    name: Install script tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: install script tests
+        run: ./scripts/install-scripts-test.sh
+
+  coverage-floor:
+    name: Coverage floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Enforce coverage floor
+        run: ./scripts/coverage-check.sh

@@ -2,7 +2,8 @@ package gates
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -35,7 +36,7 @@ func intakeReadiness(ctx CheckCtx) []Finding {
 		}
 	}
 	// Unknown policy fields fail closed in lexical order without depending on map iteration.
-	for _, field := range sortedKeys(required) {
+	for _, field := range slices.Sorted(maps.Keys(required)) {
 		findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("intake policy requires unknown field %q", field)})
 	}
 	return findings
@@ -88,13 +89,4 @@ func unknownSlice(values []string) bool {
 		}
 	}
 	return false
-}
-
-func sortedKeys(values map[string]bool) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }

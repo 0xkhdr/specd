@@ -60,6 +60,20 @@ Prometheus metric **names are an API** — the full family list and naming contr
 [command-reference.md](command-reference.md); renaming one breaks dashboards, so they must not
 churn.
 
+### One metrics export format
+
+**Prometheus text exposition (`report --format prometheus`) is the one supported metrics export
+format.** node_exporter textfile output is a file drop, which matches specd's zero-runtime-dependency,
+no-daemon posture: nothing to run, nothing to connect to.
+
+**`report --format otel` was deleted** — it had no consumer, and it was redundant with the
+documented integration path: the adapter contract specifies OTel export as an *external adapter*
+concern mapping the neutral `event/v1` JSONL stream (see
+[adapters/telemetry.md](adapters/telemetry.md)), so a second, built-in span projection was a
+duplicate schema with no reader. Export OTel by mapping `--format event` output in your adapter.
+
+`--format event` is unaffected: it is that neutral stream and stays.
+
 ## Current limits (P0 honesty baseline)
 
 The observability surface is deliberately narrow today. State these limits plainly so operators
@@ -106,8 +120,8 @@ construction:
 ## Crash-safety
 
 The opt-in Brain's ACP ledger is append-only and crash-safe: an interrupted append replays to a
-consistent state on the next load. This is proven by `scripts/stress-acp.sh` and
-`scripts/stress-checkpoint-fault.sh` (fault-injected interrupted writes), wired into CI. See
+consistent state on the next load. This is proven by `scripts/stress.sh acp` and
+`scripts/stress.sh checkpoint-fault` (fault-injected interrupted writes), wired into CI. See
 [TESTING.md](../TESTING.md) for the stress jobs.
 
 ---

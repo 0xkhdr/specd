@@ -95,25 +95,6 @@ func TestUnknownCommandFailsClosed(t *testing.T) {
 	}
 }
 
-// TestDeferredVerbExitsZero is the deferred-verb regression (SPEC-02 T-02-02):
-// a verb marked Deferred must print an explicit deferral notice and return nil
-// (exit 0) — never a silent no-op and never non-zero. `triage` is the one
-// deferred verb in the palette; this fails if it is wired to a real handler
-// without updating the guard, or if the deferral stops printing.
-func TestDeferredVerbExitsZero(t *testing.T) {
-	meta, ok := core.CommandByName("triage")
-	if !ok || !meta.Deferred {
-		t.Fatal("expected triage to be a Deferred verb in the palette")
-	}
-	out, err := captureStdout(t, func() error { return Run(t.TempDir(), "triage", nil, nil) })
-	if err != nil {
-		t.Fatalf("deferred verb must exit 0, got err=%v", err)
-	}
-	if !strings.Contains(out, "deferred") {
-		t.Fatalf("deferred verb must print a deferral notice, got %q", out)
-	}
-}
-
 func TestRegistryAgentsDoctor(t *testing.T) {
 	root := t.TempDir()
 	out, err := captureStdout(t, func() error { return Run(root, "agents", []string{"doctor"}, map[string]string{"json": ""}) })

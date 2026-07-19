@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -100,7 +101,7 @@ func AuthorizeTool(a AuthorityV1, tool string, paths []string, now time.Time, ph
 	if err := ValidateAuthority(a, now, phase); err != nil {
 		return err
 	}
-	if containsString(a.DeniedTools, tool) {
+	if slices.Contains(a.DeniedTools, tool) {
 		return fmt.Errorf("TOOL_DENIED: %s", tool)
 	}
 	allowed := false
@@ -132,14 +133,6 @@ func AuthorizeTool(a AuthorityV1, tool string, paths []string, now time.Time, ph
 		}
 	}
 	return nil
-}
-func containsString(xs []string, w string) bool {
-	for _, x := range xs {
-		if x == w {
-			return true
-		}
-	}
-	return false
 }
 
 func BuildAuthority(task TaskRow, actor, worker, slug, phase, baseline, policyDigest, sandbox string, issued, expires time.Time) (AuthorityV1, error) {

@@ -33,6 +33,50 @@ func TestCriterionIDs(t *testing.T) {
 	}
 }
 
+// TestCriterionIDsExplicitLabels pins the labelled authoring style used by this
+// project's own specs: a heading per requirement plus flat "- R<r>.<n>:" bullets.
+// Before the fix, reqBullet matched "R2" inside both "R2.1" and "R2.2", so each
+// label opened a fresh childless requirement and the parser emitted "2.1" twice
+// with no "2.2" — an aliased id that one evidence record could satisfy twice.
+func TestCriterionIDsExplicitLabels(t *testing.T) {
+	doc := "# Requirements\n\n" +
+		"## R1 — first\n\n" +
+		"- owner: someone\n" +
+		"- R1.1: When a user submits, the system shall respond.\n" +
+		"- edge: If the payload is empty, the system shall reject it.\n\n" +
+		"## R2 — second\n\n" +
+		"- priority: should\n" +
+		"- R2.1: When idle, the system shall wait.\n" +
+		"- R2.2: When woken, the system shall resume.\n"
+
+	got := CriterionIDs(doc)
+	want := []string{"1.1", "2.1", "2.2"}
+	if len(got) != len(want) {
+		t.Fatalf("got %d ids %v, want %v", len(got), got, want)
+	}
+	for i, id := range got {
+		if id.String() != want[i] {
+			t.Fatalf("id[%d] = %q, want %q", i, id.String(), want[i])
+		}
+	}
+	if !HasCriterion(doc, "2.2") {
+		t.Fatal("2.2 should be addressable when declared as an explicit label")
+	}
+
+	// Metadata bullets ("owner:", "edge:") are not criteria, and a labelled
+	// requirement must not also yield a phantom "<r>.1".
+	if HasCriterion(doc, "1.2") {
+		t.Fatal("edge/metadata bullets must not count as criteria")
+	}
+
+	// Ids are unique: a duplicated label collapses rather than producing two
+	// entries one record could satisfy.
+	dup := "- R3.1: the system shall x.\n- R3.1: the system shall x.\n"
+	if ids := CriterionIDs(dup); len(ids) != 1 || ids[0].String() != "3.1" {
+		t.Fatalf("duplicate label = %v, want [3.1]", ids)
+	}
+}
+
 func TestCriteriaRequired(t *testing.T) {
 	base := CheckCtx{ApproveTarget: "complete", CriteriaRequired: true, CriteriaUnmet: []string{"1.2"}}
 

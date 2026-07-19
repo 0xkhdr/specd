@@ -28,12 +28,59 @@ func TestProductionSmokeLane(t *testing.T) {
 		}
 	}
 
-	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "ci.yml"))
+	release, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "release.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(workflow), "./scripts/production-smoke.sh") {
-		t.Fatal("CI does not run production smoke lane")
+	if !strings.Contains(string(release), "./scripts/production-smoke.sh") {
+		t.Fatal("release workflow does not run ./scripts/production-smoke.sh")
+	}
+}
+
+func TestCITierContract(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", ".."))
+	read := func(path string) string {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	ci := read(".github/workflows/ci.yml")
+	heavy := read(".github/workflows/heavy.yml")
+	release := read(".github/workflows/release.yml")
+	local := read("scripts/ci-local.sh")
+
+	for _, want := range []string{"pull_request:", "branches-ignore: [main]", "go test ./... -race -count=1"} {
+		if !strings.Contains(ci, want) {
+			t.Errorf("fast workflow missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"regress-domains.sh", "stress.sh", "perf-gate.sh", "production-smoke.sh", "GOOS="} {
+		if strings.Contains(ci, forbidden) {
+			t.Errorf("fast workflow contains merge/release lane %q", forbidden)
+		}
+	}
+	for _, want := range []string{"branches: [main]", "schedule:", "go test ./... -count=2", "regress-domains.sh", "stress.sh", "perf-gate.sh", "install-scripts-test.sh", "coverage-check.sh"} {
+		if !strings.Contains(heavy, want) {
+			t.Errorf("heavy workflow missing %q", want)
+		}
+	}
+	for _, want := range []string{"production-smoke.sh", "goreleaser/goreleaser-action"} {
+		if !strings.Contains(release, want) {
+			t.Errorf("release workflow missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"SKIP:", "install-scripts-test.sh", "go test ./... -count=2", "perf-gate.sh", "regress-domains.sh", "stress.sh"} {
+		if strings.Contains(local, forbidden) {
+			t.Errorf("local fast tier contains %q", forbidden)
+		}
+	}
+	for _, want := range []string{"golangci-lint run", "govulncheck ./...", "shellcheck -S error", "go test ./... -race -count=1", "coverage-check.sh", "go build ./..."} {
+		if !strings.Contains(local, want) {
+			t.Errorf("local fast tier missing %q", want)
+		}
 	}
 }
 

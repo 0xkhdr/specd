@@ -1,0 +1,29 @@
+<!-- specd:managed:steering/workflow.md:v1 begin -->
+# Steering: Workflow
+
+The spec lifecycle. Advance is forward-only and human-approvable; each transition
+leaves an on-disk record.
+
+## Phases
+0. **Intake** — capture intent. `specd new <slug>` scaffolds `requirements.md`,
+   `design.md`, `tasks.md`, and `state.json` at revision 0.
+1. **Requirements** — author EARS-shaped requirements (`When <trigger>, the system
+   shall <response>`). Testable, no ambiguity.
+2. **Design** — name module boundaries, on-disk contracts, and preserved invariants
+   in `design.md`. The design gate must pass before tasks execute.
+3. **Tasks** — decompose into an atomic DAG in `tasks.md`. Each task carries
+   `role / files / depends-on / verify / acceptance`.
+4. **Execute** — work the current frontier: only tasks whose dependencies are met.
+   Touch only a task's declared `files:`. One task at a time.
+5. **Verify** — `specd verify` records evidence (exit code + HEAD). Mark the task
+   complete only on a pass.
+
+## Rules
+- Advance status only along the forward-only planning map. No backward or skipping
+  transitions.
+- `approve` refuses to transition if the phase's readiness gates do not pass, and
+  reports the failing gates.
+- Record deviations from the spec via `specd decision` before finishing a task.
+- Durable facts learned during work go to `memory.md` via `specd memory`, not into
+  the spec prose.
+<!-- specd:managed:steering/workflow.md:v1 end -->

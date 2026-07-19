@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches-ignore: [main]
 
 permissions:
   contents: read
@@ -51,13 +51,10 @@ jobs:
           # SC2015 (best-effort `... || true`), SC2016 (sed single-quote scripts).
           severity: error
 
-      - name: docs-lint (cheat-sheet ↔ command-reference sync)
-        # Gate cheat-sheet drift on PRs. Asserts
-        # docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim.
+      - name: docs-lint (command-reference generated from palette)
+        # command-reference.md is generated from the specd help --json palette by
+        # tools/gendocs; this fails the build if the committed doc has drifted.
         run: ./scripts/docs-lint.sh
-
-      - name: install script tests
-        run: ./scripts/install-scripts-test.sh
 
   analyze:
     name: Static analysis & vulnerabilities
@@ -117,22 +114,6 @@ jobs:
       - name: go test -race (with coverage)
         run: go test ./... -race -count=1 -coverprofile=coverage.out
 
-      # F4: a second run catches order/iteration-order dependence in goldens.
-      - name: go test -count=2 (order-dependence)
-        run: go test ./... -count=2
-
-      # A4: measured perf gate — disabled-mode context manifest does no work.
-      # SPEC-01 T-01-02: replaced `make perf-gate` (no root Makefile exists) with
-      # a single-mechanism script. See scripts/README.md for the keep/delete log.
-      - name: perf-gate
-        run: ./scripts/perf-gate.sh
-
-      - name: installed production lifecycle smoke
-        if: matrix.os != 'windows-latest'
-        run: |
-          go build -o "$RUNNER_TEMP/specd" .
-          SPECD_BIN="$RUNNER_TEMP/specd" ./scripts/production-smoke.sh
-
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.go == 'stable'
         uses: codecov/codecov-action@v5
@@ -154,106 +135,6 @@ jobs:
       - name: Enforce coverage floor
         run: ./scripts/coverage-check.sh
 
-  regression:
-    name: Domain regression harness
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      # Per-domain black-box invariants re-asserted against a freshly built
-      # binary in a throwaway tree.
-      - name: regress-domains (per-domain invariants)
-        run: ./scripts/regress-domains.sh
-
-  stress:
-    name: Concurrency stress (cross-process)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Cross-process contention on one spec
-        run: ./scripts/stress.sh
-
-  stress-acp:
-    name: ACP ledger stress
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: ACP append/replay contention
-        run: ./scripts/stress-acp.sh
-
-  stress-orchestration:
-    name: Orchestration stress
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Brain/Pinky orchestration contention
-        run: ./scripts/stress-orchestration.sh
-
-  stress-program:
-    name: Program scheduler stress
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Cross-spec program scheduling contention
-        run: ./scripts/stress-program.sh
-
-  stress-brain-recovery:
-    name: Brain recovery stress
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Brain recovery retry/reclaim paths
-        run: ./scripts/stress-brain-recovery.sh
-
-  stress-checkpoint-fault:
-    name: Checkpoint fault-injection stress
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Crash mid-checkpoint; assert no double-claim / no orphaned lease
-        run: ./scripts/stress-checkpoint-fault.sh
-
   build:
     name: Build (${{ matrix.os }})
     strategy:
@@ -274,15 +155,3 @@ jobs:
       # binary still builds and all non-self-update commands work.
       - name: Build binary
         run: go build -ldflags "-s -w -X github.com/0xkhdr/specd/internal/version.Version=ci" -o specd .
-
-      - name: Cross-compile linux/arm64
-        if: matrix.os == 'ubuntu-latest'
-        run: GOOS=linux GOARCH=arm64 go build ./...
-
-      - name: Cross-compile darwin/arm64
-        if: matrix.os == 'ubuntu-latest'
-        run: GOOS=darwin GOARCH=arm64 go build ./...
-
-      - name: Cross-compile windows/amd64
-        if: matrix.os == 'ubuntu-latest'
-        run: GOOS=windows GOARCH=amd64 go build ./...

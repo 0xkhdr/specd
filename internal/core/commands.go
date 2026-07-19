@@ -531,11 +531,11 @@ var Commands = []Command{
 	},
 	{
 		Name:          "report",
-		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--format prometheus|event|otel] | specd report --portfolio",
+		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--format prometheus|event] | specd report --portfolio",
 		Description:   "Render evidence-backed status, PR, history, trace, and metrics reports.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --trace", "specd report payments --format prometheus", "specd report payments --format otel"},
+		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --trace", "specd report payments --format prometheus", "specd report payments --format event"},
 		Flags: []Flag{
 			{Name: "pr", Type: "bool", Description: "Emit PR-oriented report."},
 			{Name: "metrics", Type: "bool", Description: "Emit metrics summary."},
@@ -547,7 +547,7 @@ var Commands = []Command{
 			{Name: "json", Type: "bool", Description: "Emit machine-readable report (JSON Lines with --history)."},
 			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
 			{Name: "trace", Type: "bool", Description: "Export the metadata-only run trace as stable JSON Lines."},
-			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus", "event", "otel"}, Description: "Alternate output format; event emits neutral local JSONL, prometheus emits metrics, otel emits adapter-mapped spans."},
+			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus", "event"}, Description: "Alternate output format; event emits neutral local JSONL, prometheus emits metrics."},
 		},
 	},
 	{
@@ -593,15 +593,6 @@ var Commands = []Command{
 		Flags: []Flag{
 			{Name: "resubmit", Type: "bool", Description: "Allow resubmitting a spec already submitted at the current git HEAD."},
 		},
-	},
-	{
-		Name:          "triage",
-		Usage:         "specd triage <spec>",
-		Description:   "Run the opt-in extended-loop triage tier.",
-		AllowedPhases: anyPhase(),
-		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd triage payments"},
-		Deferred:      true,
 	},
 	{
 		Name:          "release",
@@ -745,7 +736,7 @@ func defaultOperationActor(command Command) OperationActor {
 
 func defaultOperationEffect(command string) OperationEffect {
 	switch command {
-	case "help", "version", "agents", "adapters", "drift", "next", "status", "context", "handshake", "report", "triage", "mcp":
+	case "help", "version", "agents", "adapters", "drift", "next", "status", "context", "handshake", "report", "mcp":
 		return EffectRead
 	case "init", "new", "incident", "review":
 		return EffectWorkspaceWrite

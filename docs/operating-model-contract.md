@@ -1,5 +1,7 @@
 # specd — Operating-model contract (draft)
 
+Driver: typed-link decode in `LoadProgram` (`internal/core/program.go:420`) — an absent `kind` decodes to `follows` and an unknown kind fails closed, pinning ProgramLinkV1 (R1).
+
 Maintenance is a **parallel, additive record domain**. It never adds a value to the six lifecycle
 status states, never reopens a completed spec, and never satisfies a task evidence gate. Every
 follow-up is a **new spec** joined to its source by a typed link. Everything below is a pure

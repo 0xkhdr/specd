@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -161,7 +162,7 @@ func ProjectDriverGuide(root, slug string, status Status, approvals, frontier []
 	add := func(operationID string, args []string, reason string) {
 		operation, ok := OperationByID(operationID)
 		command, commandOK := CommandByName(operation.Command)
-		if !ok || !commandOK || command.Deferred || !containsPhase(operation.AllowedPhases, phase) {
+		if !ok || !commandOK || command.Deferred || !phaseAllowed(operation.AllowedPhases, phase) {
 			return
 		}
 		g.NextActions = append(g.NextActions, NextAction{ID: operation.ID, Command: operation.Command, Args: args, Actor: string(operation.Actor), SideEffect: string(operation.Effect), AuthorityRequired: operation.AuthorityRequired, AllowedPhases: append([]Phase(nil), operation.AllowedPhases...), SourceRef: "core.Operations/" + operation.ID, Reason: reason})
@@ -180,11 +181,8 @@ func ProjectDriverGuide(root, slug string, status Status, approvals, frontier []
 	return g
 }
 
-func containsPhase(phases []Phase, phase Phase) bool {
-	for _, allowed := range phases {
-		if allowed == PhaseAny || allowed == phase {
-			return true
-		}
-	}
-	return false
+// phaseAllowed reports whether phase is permitted: PhaseAny is a wildcard that
+// matches any phase, so this is not a plain membership check.
+func phaseAllowed(phases []Phase, phase Phase) bool {
+	return slices.Contains(phases, PhaseAny) || slices.Contains(phases, phase)
 }

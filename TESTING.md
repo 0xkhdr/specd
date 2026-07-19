@@ -87,16 +87,11 @@ publishes a tag.
 
 Cross-process concurrency and crash-safety are proven by dedicated CI jobs (not the unit suite):
 
-| Script | CI job | Proves |
+| Script | Domains | Proves |
 |---|---|---|
-| `stress.sh` | Concurrency stress | Cross-process contention on one spec. |
-| `stress-acp.sh` | ACP ledger stress | ACP append/replay survives interleaving. |
-| `stress-checkpoint-fault.sh` | Checkpoint fault-injection | Crash mid-checkpoint → no double-claim / no orphaned lease. |
-| `stress-orchestration.sh` | Orchestration stress | Brain/Pinky contention. |
-| `stress-program.sh` | Program scheduler stress | Cross-spec scheduling contention. |
-| `stress-brain-recovery.sh` | Brain recovery stress | Retry/reclaim paths. |
+| `stress.sh <domain>` | `default`, `acp`, `orchestration`, `program`, `brain-recovery`, `checkpoint-fault` | State CAS, ledger integrity, orchestration contention, program isolation, recovery, and checkpoint fault handling. |
 
-Run any locally the same way CI does, e.g. `./scripts/stress-acp.sh`.
+Run any domain locally the same way CI does, e.g. `./scripts/stress.sh acp`.
 
 ## Lint gates
 
@@ -105,7 +100,7 @@ gofmt -l .            # must be empty
 go vet ./...
 go mod tidy           # no diff (zero runtime deps; no go.sum)
 ./scripts/test-lint.sh   # test-suite structural lint
-./scripts/docs-lint.sh   # CHEATSHEET ↔ command-reference sync + drift-guard
+./scripts/docs-lint.sh   # generated command-reference + documented-invariant drift guard
 golangci-lint run        # v2 config in .golangci.yml
 ```
 

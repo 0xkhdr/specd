@@ -33,8 +33,4 @@ func TestSchemaVersionFailsClosedWithoutExactOffer(t *testing.T) {
 	if err := req.Validate(); err == nil {
 		t.Fatal("unsupported adapter version accepted")
 	}
-	feedback := ReleaseFeedbackV1{SchemaVersion: "release_feedback/v2", SourceSpec: "a", SuccessorSpec: "b", ReleaseID: "r", Environment: "production", GitHead: "h", ObservedAt: "2026-07-13T10:00:00Z", EvidenceRefs: []string{"artifact://e/1"}}
-	if _, err := FeedbackRequest(feedback, "req", "corr", "adapter"); err == nil {
-		t.Fatal("unsupported payload version accepted")
-	}
 }

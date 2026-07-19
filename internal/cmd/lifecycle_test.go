@@ -73,6 +73,20 @@ func TestStubProductionAuthoringContract(t *testing.T) {
 	}
 }
 
+func TestNewDesignScaffoldParsesReferences(t *testing.T) {
+	root := t.TempDir()
+	if _, err := captureStdout(t, func() error { return runNew(root, []string{"demo"}, nil) }); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", "demo", "design.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := core.ParseDesign(raw).Refs; len(got) != 2 || got[0] != "R1" || got[1] != "R1.1" {
+		t.Fatalf("generated design references = %v, want [R1 R1.1]", got)
+	}
+}
+
 func TestApproveModeOperationIsSeparate(t *testing.T) {
 	root := newDemoSpec(t)
 	statePath := core.StatePath(root, "demo")

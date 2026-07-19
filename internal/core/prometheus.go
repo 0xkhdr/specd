@@ -2,7 +2,9 @@ package core
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -92,7 +94,7 @@ func RenderPrometheus(m PrometheusMetrics) string {
 	// Tasks by status — a gauge (a status count rises and falls as work moves).
 	b.WriteString("# HELP specd_tasks Number of tasks in each status.\n")
 	b.WriteString("# TYPE specd_tasks gauge\n")
-	for _, status := range sortedKeys(m.TasksByStatus) {
+	for _, status := range slices.Sorted(maps.Keys(m.TasksByStatus)) {
 		fmt.Fprintf(&b, "specd_tasks{%s,%s} %d\n", spec, promLabel("status", status), m.TasksByStatus[status])
 	}
 
@@ -101,7 +103,7 @@ func RenderPrometheus(m PrometheusMetrics) string {
 	if m.DeliveryBySource != nil {
 		b.WriteString("# HELP specd_delivery_records Delivery ledger records by bounded trust source.\n")
 		b.WriteString("# TYPE specd_delivery_records gauge\n")
-		for _, source := range sortedKeys(m.DeliveryBySource) {
+		for _, source := range slices.Sorted(maps.Keys(m.DeliveryBySource)) {
 			fmt.Fprintf(&b, "specd_delivery_records{%s,%s} %d\n", spec, promLabel("source", source), m.DeliveryBySource[source])
 		}
 	}
@@ -159,13 +161,4 @@ func promDecimal(cost string) string {
 // without float rounding, keeping the exact-decimal discipline of spec 10.
 func msToSeconds(ms int) string {
 	return fmt.Sprintf("%d.%03d", ms/1000, ms%1000)
-}
-
-func sortedKeys(m map[string]int) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

@@ -30,7 +30,7 @@ Lint gates (CI runs each; run before pushing):
 gofmt -l .            # must be empty — CI fails on any unformatted file
 go vet ./...
 ./scripts/test-lint.sh   # test-suite structural lint (no banned suffixes, no space-separated subtest names, no dup helpers)
-./scripts/docs-lint.sh   # asserts docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim
+./scripts/docs-lint.sh   # regenerates docs/command-reference.md from the palette and fails on drift
 # CI also runs gofmt, go vet, go mod tidy check, and the scripts above.
 ```
 
@@ -97,6 +97,7 @@ When changing this codebase, preserve these — detail in `docs/contributor-guid
   lock, byte-stable tasks parser, `go:embed` templates, **zero runtime dependencies**
   (there is no `go.sum` — nothing to sum; CI runs `go mod tidy` and fails on any `go.mod` diff).
 - **Subtractive bias.** When unsure, cut or defer and record the decision.
-- **Docs sync.** If you touch CLI verbs or flags, update `docs/command-reference.md` **and**
-  `docs/CHEATSHEET.md` together (`docs-lint.sh` enforces they match).
+- **Docs sync.** `docs/command-reference.md` is generated from the palette
+  (`internal/core/commands.go`) by `tools/gendocs` — never hand-edit it. If you touch CLI verbs
+  or flags, regenerate it with `go run ./tools/gendocs` (`docs-lint.sh` fails CI on any drift).
 

@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -31,29 +30,5 @@ func TestOrchestrationConformance(t *testing.T) {
 	}
 	if err := orchestration.ValidateWorkerReport(r, m, revoked, now.Add(40*time.Second)); err == nil {
 		t.Fatal("revoked lease accepted stale report")
-	}
-}
-
-func TestOrchestrationConformanceA2AParity(t *testing.T) {
-	now := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC)
-	m := orchestration.MissionV1{ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: "s", MissionID: "s.s1.T1", SpecSlug: "demo", TaskID: "T1", Attempt: 1, Role: "craftsman", AuthorityRef: "approval:tasks", DeclaredFiles: []string{"a.go"}, Acceptance: []string{"R6"}, Verify: "printf ok", ContextRef: "context:T1", ContextDigest: "sha256:c", ConfigDigest: "sha256:g", PaletteDigest: "sha256:p", PolicyDigest: "sha256:y", SubjectHead: "0123456789012345678901234567890123456789", RouteClass: "local", RouteReason: "fixture", Limits: orchestration.MissionLimits{MaxAttempts: 2, TimeoutSeconds: 60}, IssuedAt: now, ExpiresAt: now.Add(time.Hour), Status: orchestration.MissionPending}
-	raw, err := orchestration.ExportA2A(orchestration.A2AKindMission, m, orchestration.A2ATransport{Adapter: "fake-a2a", MessageID: "delivery-only"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	message, err := orchestration.ImportA2A(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := orchestration.A2ASemanticACP(message)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := orchestration.SemanticACP(orchestration.A2AKindMission, m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("local/A2A semantic streams differ:\ngot  %+v\nwant %+v", got, want)
 	}
 }

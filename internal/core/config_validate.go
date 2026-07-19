@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -99,7 +100,7 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Routing.Classes = items
-			if !contains(items, cfg.Routing.DefaultClass) {
+			if !slices.Contains(items, cfg.Routing.DefaultClass) {
 				cfg.Routing.DefaultClass = items[0]
 			}
 		case "routing.default_class":
@@ -313,29 +314,20 @@ func parseClassCapabilities(value string) (map[string][]string, bool) {
 	return out, len(out) > 0
 }
 
-func contains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
 func validateRouting(cfg *Config, path string, diagnostics *[]Diagnostic) {
 	bad := func(message string) {
 		*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: message})
 	}
-	if !contains(cfg.Routing.Classes, cfg.Routing.DefaultClass) {
+	if !slices.Contains(cfg.Routing.Classes, cfg.Routing.DefaultClass) {
 		bad("routing.default_class must name a routing class")
 	}
 	for _, class := range cfg.Routing.Fallback {
-		if !contains(cfg.Routing.Classes, class) {
+		if !slices.Contains(cfg.Routing.Classes, class) {
 			bad("routing.fallback contains unknown class: " + class)
 		}
 	}
 	for class := range cfg.Routing.ClassCapabilities {
-		if !contains(cfg.Routing.Classes, class) {
+		if !slices.Contains(cfg.Routing.Classes, class) {
 			bad("routing.class_capabilities contains unknown class: " + class)
 		}
 	}

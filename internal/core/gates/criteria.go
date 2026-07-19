@@ -29,31 +29,59 @@ func (c CriterionID) String() string {
 	return fmt.Sprintf("%d.%d", c.Req, c.Sub)
 }
 
-// reqBullet matches a requirement header bullet, e.g. "- **R1** When …" or
-// "- R12: …". The leading list marker is stripped before matching.
-var reqBullet = regexp.MustCompile(`^\*{0,2}R(\d+)\b`)
+// reqBullet matches a requirement bullet, e.g. "- **R1** When …" or "- R12: …",
+// capturing an optional explicit criterion suffix so "- R2.2: …" is read as the
+// second criterion of R2 rather than as a second requirement R2. The leading
+// list marker is stripped before matching.
+var reqBullet = regexp.MustCompile(`^\*{0,2}R(\d+)(?:\.(\d+))?\b`)
 
 // CriterionIDs enumerates the acceptance-criterion ids declared in an EARS
 // requirements document, in document order. It reuses the same bullet-oriented
 // reading as the EARS gate so there is a single source of truth for what counts
 // as a requirement (spec 04 R2, design note "one parser, no second source").
 //
-// A requirement is a top-level bullet whose text begins with an "R<n>" id. Its
-// acceptance criteria are the more-indented sub-bullets beneath it, numbered
-// 1..k in order. A requirement with no sub-bullets is itself a single criterion
+// A requirement is a top-level bullet whose text begins with an "R<n>" id. Two
+// authoring styles address correctly:
+//
+//   - implicit — acceptance criteria are the more-indented sub-bullets beneath
+//     the requirement bullet, numbered 1..k in document order;
+//   - explicit — criteria are labelled inline as "- R<r>.<n>: …", in which case
+//     the label is authoritative and the id is taken from it verbatim.
+//
+// A requirement that declares criteria neither way is itself a single criterion
 // "<r>.1", so the flat one-bullet-per-requirement style still yields addressable
 // ids.
+//
+// Ids are deduplicated. This matters because the result drives a gate: two
+// entries sharing an id would be satisfied by one evidence record, letting a
+// spec pass the criteria ratchet with a criterion genuinely unattested.
 func CriterionIDs(requirementsDoc string) []CriterionID {
 	var ids []CriterionID
+	seen := map[CriterionID]bool{}
 	curReq := 0
 	curIndent := 0
 	subCount := 0
+	labelled := false
 
-	flush := func() {
-		// A requirement that declared no sub-bullets is one criterion, "<r>.1".
-		if curReq != 0 && subCount == 0 {
-			ids = append(ids, CriterionID{Req: curReq, Sub: 1})
+	emit := func(c CriterionID) {
+		if seen[c] {
+			return
 		}
+		seen[c] = true
+		ids = append(ids, c)
+	}
+	flush := func() {
+		// A requirement that declared no criteria either way is one, "<r>.1".
+		if curReq != 0 && subCount == 0 && !labelled {
+			emit(CriterionID{Req: curReq, Sub: 1})
+		}
+	}
+	open := func(req, indent int) {
+		flush()
+		curReq = req
+		curIndent = indent
+		subCount = 0
+		labelled = false
 	}
 
 	for _, line := range strings.Split(requirementsDoc, "\n") {
@@ -64,15 +92,24 @@ func CriterionIDs(requirementsDoc string) []CriterionID {
 		}
 		content := strings.TrimSpace(strings.TrimLeft(trimmed, "-*+"))
 		if m := reqBullet.FindStringSubmatch(content); m != nil {
-			flush()
-			curReq, _ = strconv.Atoi(m[1])
-			curIndent = indent
-			subCount = 0
+			req, _ := strconv.Atoi(m[1])
+			if m[2] == "" {
+				open(req, indent)
+				continue
+			}
+			// Explicitly labelled criterion. Consecutive labels under the same
+			// requirement extend it rather than reopening it.
+			if req != curReq {
+				open(req, indent)
+			}
+			labelled = true
+			sub, _ := strconv.Atoi(m[2])
+			emit(CriterionID{Req: req, Sub: sub})
 			continue
 		}
 		if curReq != 0 && indent > curIndent {
 			subCount++
-			ids = append(ids, CriterionID{Req: curReq, Sub: subCount})
+			emit(CriterionID{Req: curReq, Sub: subCount})
 		}
 	}
 	flush()

@@ -1,5 +1,7 @@
 # specd — Scale Envelope
 
+Driver: `TestFrontierScalesSubQuadratically` (`internal/core/bench_test.go:70`) — fails if quadrupling task count costs more than 9x on the frontier hot path.
+
 The intended operating limits for a `specd`-managed workspace, and the measured numbers that
 back them. `specd` is a local, single-binary harness over a local filesystem; the envelope is
 generous relative to how large a hand-authored spec ever gets, but it is stated so nobody has to
