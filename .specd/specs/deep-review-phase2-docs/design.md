@@ -1,6 +1,6 @@
 # Design — deep-review-phase2-docs
 
-references: R1, R1.1, R1.2, R1.3, R2, R2.1, R2.2
+- references: R1, R1.1, R1.2, R1.3, R2, R2.1, R2.2
 disposition: accepted
 owner: 0xkhdr
 

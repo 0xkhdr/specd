@@ -1,0 +1,138 @@
+{
+  "id": "deep-review-phase2-docs",
+  "revision": 13,
+  "step": 4,
+  "missions": [
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase2-docs",
+      "mission_id": "deep-review-phase2-docs.s1.T1",
+      "spec_slug": "deep-review-phase2-docs",
+      "task_id": "T1",
+      "attempt": 1,
+      "role": "craftsman",
+      "authority_ref": "approval:tasks",
+      "declared_files": [
+        "docs/command-reference.md",
+        "tools/gendocs/main.go"
+      ],
+      "acceptance": [
+        "R1.1"
+      ],
+      "verify": "bash -c 'go run ./tools/gendocs -check \u0026\u0026 go run ./tools/gendocs -check'",
+      "context_ref": "context:deep-review-phase2-docs:T1",
+      "context_digest": "9f8a6cfecfcf1456b6fd80b667878f2ac81979be0e384d41036f2b09ba23f728",
+      "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "subject_head": "72f761f5108e339bfbdf9eb927e43cf2ede8f175",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T15:02:54.464703081+03:00",
+      "expires_at": "2026-07-19T15:17:54.464703081+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase2-docs",
+      "mission_id": "deep-review-phase2-docs.s2.T2",
+      "spec_slug": "deep-review-phase2-docs",
+      "task_id": "T2",
+      "attempt": 1,
+      "role": "craftsman",
+      "authority_ref": "approval:tasks",
+      "declared_files": [
+        ".github/workflows/ci.yml",
+        "CLAUDE.md",
+        "docs/CHEATSHEET.md",
+        "scripts/docs-lint.sh"
+      ],
+      "acceptance": [
+        "R1.2, R1.3"
+      ],
+      "verify": "bash -c './scripts/docs-lint.sh \u0026\u0026 ! test -f docs/CHEATSHEET.md'",
+      "context_ref": "context:deep-review-phase2-docs:T2",
+      "context_digest": "52e76faa956cb0c41756fd15729e383c8d1e78ce523fb3a532529092be9b05ea",
+      "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "subject_head": "3b06e737649e3ad6dddeb571a2063cc4fe32c584",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=simple capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T15:06:44.797649607+03:00",
+      "expires_at": "2026-07-19T15:21:44.797649607+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase2-docs",
+      "mission_id": "deep-review-phase2-docs.s3.T3",
+      "spec_slug": "deep-review-phase2-docs",
+      "task_id": "T3",
+      "attempt": 1,
+      "role": "craftsman",
+      "authority_ref": "approval:tasks",
+      "declared_files": [
+        "CONTRIBUTING.md",
+        "scripts/ci-local.sh"
+      ],
+      "acceptance": [
+        "R2.1"
+      ],
+      "verify": "bash -c 'test -x scripts/ci-local.sh \u0026\u0026 grep -q staticcheck scripts/ci-local.sh \u0026\u0026 grep -q ci-local CONTRIBUTING.md'",
+      "context_ref": "context:deep-review-phase2-docs:T3",
+      "context_digest": "8c43f8e87eb2a728296abfe70f9877244749f309fc5006e8d97e561bf9686937",
+      "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "subject_head": "ca1fa48b2f1e4dc99b777492d1b85229eeab9aae",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=simple capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T15:08:49.996839851+03:00",
+      "expires_at": "2026-07-19T15:23:49.996839851+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase2-docs",
+      "mission_id": "deep-review-phase2-docs.s4.T4",
+      "spec_slug": "deep-review-phase2-docs",
+      "task_id": "T4",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.2, R2.2"
+      ],
+      "verify": "bash -c 'gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh'",
+      "context_ref": "context:deep-review-phase2-docs:T4",
+      "context_digest": "fd9e9df662a52d8b20af7521976680ecb193df6b17a2aa743dd816252a434eb4",
+      "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "subject_head": "6ed576f35c19a5ed4f6f2811a9b45fa420f8be40",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T15:18:28.030968994+03:00",
+      "expires_at": "2026-07-19T15:33:28.030968994+03:00",
+      "status": "pending"
+    }
+  ]
+}
