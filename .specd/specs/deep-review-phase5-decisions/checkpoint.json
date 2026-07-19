@@ -1,14 +1,14 @@
 {
   "session_id": "deep-review-phase5-decisions",
-  "step": 6,
+  "step": 8,
   "wave": 0,
   "decision": "dispatch",
-  "mission_id": "deep-review-phase5-decisions.s6.T4",
+  "mission_id": "deep-review-phase5-decisions.s8.T4",
   "task_id": "T4",
   "mission": {
     "protocol_version": "1",
     "session_id": "deep-review-phase5-decisions",
-    "mission_id": "deep-review-phase5-decisions.s6.T4",
+    "mission_id": "deep-review-phase5-decisions.s8.T4",
     "spec_slug": "deep-review-phase5-decisions",
     "task_id": "T4",
     "attempt": 1,
@@ -31,16 +31,16 @@
     "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
     "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
     "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
-    "subject_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+    "subject_head": "78231944a7c308487a528f5158d3c42baca1e9a3",
     "route_class": "default",
     "route_reason": "policy=1 risk=low complexity=standard capabilities=",
     "limits": {
       "max_attempts": 4,
       "timeout_seconds": 900
     },
-    "issued_at": "2026-07-19T22:11:08.149513966+03:00",
-    "expires_at": "2026-07-19T22:26:08.149513966+03:00",
+    "issued_at": "2026-07-19T22:26:27.496944001+03:00",
+    "expires_at": "2026-07-19T22:41:27.496944001+03:00",
     "status": "pending"
   },
-  "time": "2026-07-19T22:11:08.149513966+03:00"
+  "time": "2026-07-19T22:26:27.496944001+03:00"
 }

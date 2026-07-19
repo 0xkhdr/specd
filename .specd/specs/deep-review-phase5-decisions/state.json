@@ -2,10 +2,19 @@
   "schema_version": 1,
   "slug": "deep-review-phase5-decisions",
   "mode": "orchestrated",
-  "status": "verifying",
-  "phase": "verify",
-  "revision": 16,
+  "status": "complete",
+  "phase": "reflect",
+  "revision": 19,
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 18,
+      "timestamp": "2026-07-19T19:27:07Z",
+      "git_head": "78231944a7c308487a528f5158d3c42baca1e9a3",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -103,6 +112,7 @@
   "task_status": {
     "T1": "complete",
     "T2": "complete",
-    "T3": "complete"
+    "T3": "complete",
+    "T4": "complete"
   }
 }
