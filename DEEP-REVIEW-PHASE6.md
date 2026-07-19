@@ -43,15 +43,19 @@ Regression: `TestBrainStepDoesNotRedispatchUnclaimedMission`, verified to fail w
 the exact observed symptom. Full suite, `-count=2`, vet, gofmt, both lint scripts, and
 `regress-domains.sh` all pass.
 
-### F2 — `MissionStatus` is a 9-value enum with 1 value ever written (dead flexibility, low)
+### F2 — `MissionStatus` was a 9-value enum with 1 value ever written — **FIXED** (`da739d2`)
 
-`MissionPending` is the only constant assigned in non-test code; `Delivered`, `Claimed`, `Active`,
-`Reported`, `Expired`, `Cancelled`, `Escalated`, `Terminal` are never written
+`MissionPending` was the only constant assigned in non-test code; `Delivered`, `Claimed`, `Active`,
+`Reported`, `Expired`, `Cancelled`, `Escalated`, `Terminal` were never written
 (`internal/orchestration/mission.go:17-25`). Mission lifecycle is tracked by lease state and by
 moving records `PendingMissions → Missions` on claim (`internal/cmd/brain_claim.go:47`), so the
 field is vestigial — completed missions still read `"status": "pending"` in `session.json`.
 
-This is a reader trap: it looks like a state machine and is not one.
+It was a reader trap: it looked like a state machine and is not one. Resolved subtractively per
+Step 1 — the eight unwritten constants are deleted and `MissionPending` carries a comment stating
+why no later states exist. `ValidateMission` still rejects any non-pending initial status, so the
+fail-closed check is unchanged; the one test that used `MissionActive` as a "not pending" probe now
+spells the literal. Suite, `-race`, vet, gofmt, both lint scripts, and `regress-domains.sh` pass.
 
 ### F3 — `specd exception` writes a different store than the governance gate reads (naming, medium)
 
@@ -112,9 +116,8 @@ Ordered by (risk removed ÷ effort). Each is small; resist bundling.
 The suite is green as of `ea6b78e`; both defects found this session (F1, F6) are fixed. What is
 left is cleanup and one carried-forward deletion spec.
 
-**Step 1 — F2, subtractive.** Either populate the status field or delete the 8 unused constants.
-Prefer deletion; lease state already carries the lifecycle. If any is kept, keep only what a reader
-is actually shown.
+**Step 1 — F2, subtractive.** ✅ Done (`da739d2`) — deleted the 8 unused constants; lease state
+already carries the lifecycle.
 
 **Step 2 — the otel deletion spec.** Straightforward but touches the palette. Remember `gendocs`.
 
@@ -150,5 +153,6 @@ enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026
 | `71a2ec7` | **F1 fixed** — dispatched missions reserve their task against the frontier |
 | `75bc0bc` | Handoff doc updated for F1 + F6 |
 | `ea6b78e` | **F6 fixed** — smoke-lane assertion no longer pinned to `ci.yml` |
+| `da739d2` | **F2 fixed** — 8 never-written `MissionStatus` constants deleted |
 
 Branch `optimization`. Not merged to `main`.
