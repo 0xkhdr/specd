@@ -1,2 +1,0 @@
-{"type":"criterion","criterion":"1.1","status":"pass","evidence":"T1: tools/gendocs renders docs/command-reference.md from the specd help --json palette; go run ./tools/gendocs -check green","git_head":"6ed576f35c19a5ed4f6f2811a9b45fa420f8be40","timestamp":"2026-07-19T12:20:27Z","actor":"xkhdr"}
-{"type":"criterion","criterion":"2.1","status":"pass","evidence":"T3: CONTRIBUTING.md points at scripts/ci-local.sh which mirrors the CI gate set","git_head":"6ed576f35c19a5ed4f6f2811a9b45fa420f8be40","timestamp":"2026-07-19T12:20:27Z","actor":"xkhdr"}
