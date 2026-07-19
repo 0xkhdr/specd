@@ -112,8 +112,28 @@ func writePinkyArtifacts(root string) error {
 	return AtomicWrite(configPath, MergePinkyCodexConfig(string(existing)))
 }
 
+// pinkyRoleDescription is the one-line role summary both harnesses require in
+// their agent-definition schemas (codex `description`, Claude Code frontmatter).
+func pinkyRoleDescription(role string) string {
+	switch role {
+	case "scout":
+		return "Read-only specd Pinky scout: inspects repo, steering, and spec, reports findings as evidence."
+	case "craftsman":
+		return "specd Pinky craftsman: edits only declared task files, verifies through specd verify, reports evidence."
+	case "validator":
+		return "Read-only specd Pinky validator: runs the task verify command and reports the specd-generated record."
+	default:
+		return "Read-only specd Pinky auditor: audits the declared diff against acceptance criteria and reports findings."
+	}
+}
+
 func pinkyClaudeAgent(role string) string {
-	return strings.TrimSpace(`# Pinky `+role+`
+	return strings.TrimSpace(`---
+name: pinky-`+role+`
+description: `+pinkyRoleDescription(role)+`
+---
+
+# Pinky `+role+`
 
 You are the specd Pinky `+role+` worker. Follow AGENTS.md and .specd/roles/`+role+`.md before acting.
 
@@ -128,7 +148,8 @@ Rules:
 
 func pinkyCodexAgent(role string) string {
 	return strings.TrimSpace(`name = "pinky-`+role+`"
-instructions = """
+description = "`+pinkyRoleDescription(role)+`"
+developer_instructions = """
 You are the specd Pinky `+role+` worker. Follow AGENTS.md and .specd/roles/`+role+`.md before acting.
 
 Run specd status, load specd context for the assigned task, stay inside the task files, and record evidence with specd verify.

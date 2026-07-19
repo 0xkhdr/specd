@@ -71,6 +71,32 @@ func TestWriteScaffoldPinkyArtifacts(t *testing.T) {
 	}
 }
 
+func TestPinkyAgentDefinitionsCarryHostRequiredFields(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root, "pinky"); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range []string{"scout", "craftsman", "validator", "auditor"} {
+		codex, err := os.ReadFile(filepath.Join(root, ".codex", "agents", "pinky-"+role+".toml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, key := range []string{`name = "pinky-` + role + `"`, "description = \"", "developer_instructions = \"\"\""} {
+			if !strings.Contains(string(codex), key) {
+				t.Fatalf("codex %s definition missing %s: %s", role, key, codex)
+			}
+		}
+
+		claude, err := os.ReadFile(filepath.Join(root, ".claude", "agents", "pinky-"+role+".md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(claude), "---\nname: pinky-"+role+"\ndescription: ") {
+			t.Fatalf("claude %s definition missing frontmatter: %s", role, claude)
+		}
+	}
+}
+
 func TestDiscoverAgentsPinkyStates(t *testing.T) {
 	missing := DiscoverAgents(t.TempDir())
 	if missing[0].Status != "missing" {
