@@ -26,18 +26,22 @@ and appears at least four times (`decisions.json`, `drift.json`, `exceptions.jso
 
 ## 1. Findings
 
-### F1 — `brain step` re-dispatches unclaimed missions (defect, medium)
+### F1 — `brain step` re-dispatches unclaimed missions — **FIXED** (`71a2ec7`)
 
-`Decide` (`internal/orchestration/decide.go:85-89`) sorts the frontier and returns `frontier[0]`
-with no check against already-dispatched missions. Re-issue is prevented only by **leases**
-(`internal/cmd/brain_run.go:121-129`), so a mission that is dispatched but not yet *claimed* leaves
-no lease and is re-issued on the next `step`.
+`Decide` (`internal/orchestration/decide.go:85-89`) returns `frontier[0]` with no check against
+already-dispatched missions, and the frontier was filtered on **leases** alone. An unclaimed
+mission leaves no lease, so a repeated `step` re-issued it. Observed during the phase 5 run: T2
+dispatched three times (`…s2.T2`, `…s3.T2`, `…s4.T2`), all pending at once.
 
-The intent is stated in that file's own comment — *"live-leased tasks are withheld so a repeated
-step … advances to the next task instead of re-issuing an in-flight one"* — so this is a gap
-against declared intent, not a design choice.
+The fix builds `reservations` (leases + pending missions) *before* the frontier and derives the
+withheld set from it. That list already existed a few lines below for the snapshot, so it reuses
+the existing notion of in-flight rather than adding a second one. Reservations carry an expiry and
+`LeaseWorkerState` (`internal/orchestration/decide.go:27`) already honours it, so a dispatch nobody
+claims frees its task instead of wedging the frontier.
 
-Observed: T2 was dispatched three times (`…s2.T2`, `…s3.T2`, `…s4.T2`), all pending simultaneously.
+Regression: `TestBrainStepDoesNotRedispatchUnclaimedMission`, verified to fail without the fix with
+the exact observed symptom. Full suite, `-count=2`, vet, gofmt, both lint scripts, and
+`regress-domains.sh` all pass.
 
 ### F2 — `MissionStatus` is a 9-value enum with 1 value ever written (dead flexibility, low)
 
@@ -74,6 +78,18 @@ task evidence back to requirement criteria. Record with
 `…s3.T2` and `…s4.T2` remain `pending` in `session.json`, artifacts of F1. Harmless; they expire.
 Do not hand-edit — they are ledger history.
 
+### F6 — `TestProductionSmokeLane` is red on `optimization` (stale assertion, low)
+
+`internal/integration/production_smoke_test.go:35` asserts `.github/workflows/ci.yml` contains
+`./scripts/production-smoke.sh`. Phase 4 (`1dfeae4`) split CI into two tiers and moved that lane to
+`.github/workflows/heavy.yml:83`, where it still runs — so the check is **not** lost, the assertion
+is just stale. Phase 4's own validator missed it.
+
+Effect: `go test ./...` is red on this branch for a reason unrelated to any current work, which
+trains people to ignore a failing suite. Fix is one line — assert against the workflow that now
+owns the lane, or across both. Not done here: it was found while verifying F1 and fixing it
+unbidden would have hidden an unrelated regression inside an unrelated commit.
+
 ## 2. Carried-forward decisions from Phase 5
 
 These are **recorded owner calls**, not open questions. Cite `deep-review-phase5-decisions` as
@@ -94,11 +110,8 @@ source when implementing.
 
 Ordered by (risk removed ÷ effort). Each is small; resist bundling.
 
-**Step 1 — F1, the only real defect.** Withhold tasks with a live *dispatched* mission, not just a
-live lease. Likely a few lines in the `withheld` set construction at `internal/cmd/brain_run.go:121`,
-reusing `session.PendingMissions`. Check mission expiry so a stale dispatch cannot wedge the
-frontier forever. Test: two consecutive `brain step` calls with no claim in between must dispatch
-two *different* tasks.
+**Step 1 — F6, unblock the suite.** One line, and it stops `go test ./...` being red for an
+unrelated reason. Do this before anything else so later work has a clean baseline.
 
 **Step 2 — F2, subtractive.** Either populate the status field or delete the 8 unused constants.
 Prefer deletion; lease state already carries the lifecycle. If any is kept, keep only what a reader
@@ -134,5 +147,7 @@ enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026
 | `38207b0` | `decisions.json` / `drift.json` documented as declared inputs |
 | `7a390d8` | Corrected governance arming; exceptions + verb collision documented |
 | `a67a350` | Dead `.specd/project.yml` deleted |
+| `d9307df` | This handoff doc |
+| `71a2ec7` | **F1 fixed** — dispatched missions reserve their task against the frontier |
 
 Branch `optimization`. Not merged to `main`.
