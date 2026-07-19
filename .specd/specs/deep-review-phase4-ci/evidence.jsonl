@@ -1,0 +1,1 @@
+{"task_id":"T1","command":"bash -c 'test -f .github/workflows/heavy.yml \u0026\u0026 ! grep -q -e stress -e perf-gate -e count=2 .github/workflows/ci.yml \u0026\u0026 grep -q count=2 .github/workflows/heavy.yml'","exit_code":0,"git_head":"de38d94c4a23f97f4a2c13042601baa21d8c28ef","timestamp":"2026-07-19T18:41:21Z","actor":"xkhdr"}

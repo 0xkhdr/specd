@@ -1,8 +1,49 @@
 {
   "schema_version": 1,
   "slug": "deep-review-phase4-ci",
-  "mode": "default",
-  "status": "requirements",
-  "phase": "perceive",
-  "revision": 0
+  "mode": "orchestrated",
+  "status": "executing",
+  "phase": "execute",
+  "revision": 5,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 2,
+      "source_digest": "f47817753bf37c8552226cf672d0cfef88584f67ec6b93576e83294735c37d55",
+      "timestamp": "2026-07-19T18:29:41Z",
+      "git_head": "de38d94c4a23f97f4a2c13042601baa21d8c28ef",
+      "actor": "xkhdr"
+    },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "timestamp": "2026-07-19T18:29:35Z",
+      "git_head": "de38d94c4a23f97f4a2c13042601baa21d8c28ef",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "approved_revision": 1,
+      "source_digest": "bbbbdc6d76e4c1558886d3ce8ca65ed7dc6ba54b79096d794aefd1d47c75a8a8",
+      "timestamp": "2026-07-19T18:29:35Z",
+      "git_head": "de38d94c4a23f97f4a2c13042601baa21d8c28ef",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-19T18:34:03Z",
+      "git_head": "de38d94c4a23f97f4a2c13042601baa21d8c28ef",
+      "actor": "xkhdr"
+    }
+  },
+  "task_status": {
+    "T1": "complete"
+  }
 }

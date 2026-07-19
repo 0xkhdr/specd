@@ -1,0 +1,2 @@
+{"envelope_version":"v1","run_id":"0fa24fccc29a9567","spec_id":"deep-review-phase4-ci","task_id":"T1","attempt":1,"started_at":"2026-07-19T18:41:21Z","git_head":"de38d94c4a23f97f4a2c13042601baa21d8c28ef","actor":"xkhdr","telemetry_source":"worker"}
+{"envelope_version":"v1","run_id":"0fa24fccc29a9567","spec_id":"deep-review-phase4-ci","task_id":"T1","attempt":2,"started_at":"2026-07-19T18:41:26Z","git_head":"de38d94c4a23f97f4a2c13042601baa21d8c28ef","actor":"xkhdr","worker_id":"pinky-t1","telemetry_source":"worker"}

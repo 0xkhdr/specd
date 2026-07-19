@@ -1,0 +1,40 @@
+{
+  "id": "deep-review-phase4-ci",
+  "revision": 4,
+  "step": 1,
+  "missions": [
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase4-ci",
+      "mission_id": "deep-review-phase4-ci.s1.T1",
+      "spec_slug": "deep-review-phase4-ci",
+      "task_id": "T1",
+      "attempt": 1,
+      "role": "craftsman",
+      "authority_ref": "approval:tasks",
+      "declared_files": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/heavy.yml"
+      ],
+      "acceptance": [
+        "R1.1, R1.2"
+      ],
+      "verify": "bash -c 'test -f .github/workflows/heavy.yml \u0026\u0026 ! grep -q -e stress -e perf-gate -e count=2 .github/workflows/ci.yml \u0026\u0026 grep -q count=2 .github/workflows/heavy.yml'",
+      "context_ref": "context:deep-review-phase4-ci:T1",
+      "context_digest": "418e6fef70e4b8d3cffc933bd5e292f16a52a71b3ed0f81461e64285a8747c21",
+      "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
+      "subject_head": "de38d94c4a23f97f4a2c13042601baa21d8c28ef",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=medium complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T21:36:13.075365005+03:00",
+      "expires_at": "2026-07-19T21:51:13.075365005+03:00",
+      "status": "pending"
+    }
+  ]
+}
