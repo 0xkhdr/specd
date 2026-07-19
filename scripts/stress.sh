@@ -14,13 +14,13 @@
 #   checkpoint-fault crash mid-checkpoint + stale lease: one dispatch, reclaimed
 set -euo pipefail
 
-domain=${1:-}
+domain=${1:-default}
 valid="default acp orchestration program brain-recovery checkpoint-fault"
 ok=0
 for d in $valid; do [ "$domain" = "$d" ] && ok=1; done
 if [ "$ok" -ne 1 ]; then
 	echo "usage: stress.sh <domain>   valid domains: $valid" >&2
-	exit 2
+	exit 1
 fi
 
 # --- shared setup (runs for every domain) ---
