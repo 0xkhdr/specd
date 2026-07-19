@@ -633,7 +633,7 @@ specd release candidate payments --artifact-digest sha256:abc --sbom-ref sbom://
 ### `report`
 
 ```
-specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--format prometheus|event|otel] | specd report --portfolio
+specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--format prometheus|event] | specd report --portfolio
 ```
 
 Render evidence-backed status, PR, history, trace, and metrics reports.
@@ -644,7 +644,7 @@ Render evidence-backed status, PR, history, trace, and metrics reports.
 |---|---|---|
 | `--delivery` | bool | Emit deterministic deployment status with adapter and trust source labeled separately. |
 | `--efficiency` | bool | Emit deterministic context-efficiency report with explicit unknown values. |
-| `--format` | string | Alternate output format; event emits neutral local JSONL, prometheus emits metrics, otel emits adapter-mapped spans. |
+| `--format` | string | Alternate output format; event emits neutral local JSONL, prometheus emits metrics. |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--json` | bool | Emit machine-readable report (JSON Lines with --history). |
 | `--metrics` | bool | Emit metrics summary. |
@@ -662,7 +662,7 @@ specd report payments --metrics
 specd report payments --history
 specd report payments --trace
 specd report payments --format prometheus
-specd report payments --format otel
+specd report payments --format event
 ```
 
 ### `review`

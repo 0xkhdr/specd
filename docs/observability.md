@@ -66,17 +66,13 @@ churn.
 format.** node_exporter textfile output is a file drop, which matches specd's zero-runtime-dependency,
 no-daemon posture: nothing to run, nothing to connect to.
 
-**`report --format otel` is deprecated and scheduled for deletion in a follow-up spec.** It has no
-consumer: `internal/adapter/otel_export.go` is reached only from `internal/cmd/report_otel.go`, and
-every other mention in the tree is its own tests, the command palette
-(`internal/core/commands.go`), or generated docs. Nothing in `scripts/`, `.github/`, or
-`embed_templates/` drives it. It is also redundant with the documented integration path — the
-adapter contract already specifies OTel export as an *external adapter* concern mapping the neutral
-`event/v1` JSONL stream (see [adapters/telemetry.md](adapters/telemetry.md)), so a second, built-in
-span projection is a duplicate schema with no reader. `--format event` is unaffected: it is that
-neutral stream and stays.
+**`report --format otel` was deleted** — it had no consumer, and it was redundant with the
+documented integration path: the adapter contract specifies OTel export as an *external adapter*
+concern mapping the neutral `event/v1` JSONL stream (see
+[adapters/telemetry.md](adapters/telemetry.md)), so a second, built-in span projection was a
+duplicate schema with no reader. Export OTel by mapping `--format event` output in your adapter.
 
-Until the deletion lands, `--format otel` remains callable; do not build on it.
+`--format event` is unaffected: it is that neutral stream and stays.
 
 ## Current limits (P0 honesty baseline)
 

@@ -552,7 +552,7 @@ func runReport(root string, args []string, flags map[string]string) error {
 		return writeJSON(export)
 	}
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event|otel] | report --portfolio")
+		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event] | report --portfolio")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
@@ -649,16 +649,6 @@ func runReport(root string, args []string, flags map[string]string) error {
 		fmt.Fprint(os.Stdout, core.RenderPrometheus(metrics))
 		return nil
 	}
-	// --format otel maps the spec's local observable-event traces to
-	// OpenTelemetry-compatible spans via the external adapter (spec 10 R10.2).
-	if flags["format"] == "otel" {
-		out, err := runOTelExport(root, args[0])
-		if err != nil {
-			return err
-		}
-		fmt.Fprint(os.Stdout, out)
-		return nil
-	}
 	if flags["format"] == "event" {
 		out, err := runEvents(root, args[0], model)
 		if err != nil {
@@ -668,7 +658,7 @@ func runReport(root string, args []string, flags map[string]string) error {
 		return nil
 	}
 	if format, ok := flags["format"]; ok && format != "" {
-		return fmt.Errorf("%w: unsupported --format %q (only prometheus, event, otel)", ErrUsage, format)
+		return fmt.Errorf("%w: unsupported --format %q (only prometheus, event)", ErrUsage, format)
 	}
 	coverage, err := criterionCoverage(root, args[0])
 	if err != nil {
