@@ -1,0 +1,189 @@
+{
+  "id": "deep-review-phase1-deletion",
+  "revision": 9,
+  "step": 6,
+  "pending_missions": [
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase1-deletion",
+      "mission_id": "deep-review-phase1-deletion.s1.T5",
+      "spec_slug": "deep-review-phase1-deletion",
+      "task_id": "T5",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.1, R2.1, R3.1"
+      ],
+      "verify": "gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh",
+      "context_ref": "context:deep-review-phase1-deletion:T5",
+      "context_digest": "931e72734cdc7ac7ce16f2a17696182a4e1ba6149abee045e52b2eaedf102b7b",
+      "config_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "subject_head": "1cab1fd9fd7b2b04dab22b5d266927301e14955e",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T13:39:47.765754285+03:00",
+      "expires_at": "2026-07-19T13:54:47.765754285+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase1-deletion",
+      "mission_id": "deep-review-phase1-deletion.s2.T5",
+      "spec_slug": "deep-review-phase1-deletion",
+      "task_id": "T5",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.1, R2.1, R3.1"
+      ],
+      "verify": "gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh",
+      "context_ref": "context:deep-review-phase1-deletion:T5",
+      "context_digest": "931e72734cdc7ac7ce16f2a17696182a4e1ba6149abee045e52b2eaedf102b7b",
+      "config_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "subject_head": "1cab1fd9fd7b2b04dab22b5d266927301e14955e",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T13:39:47.770079543+03:00",
+      "expires_at": "2026-07-19T13:54:47.770079543+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase1-deletion",
+      "mission_id": "deep-review-phase1-deletion.s3.T5",
+      "spec_slug": "deep-review-phase1-deletion",
+      "task_id": "T5",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.1, R2.1, R3.1"
+      ],
+      "verify": "gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh",
+      "context_ref": "context:deep-review-phase1-deletion:T5",
+      "context_digest": "931e72734cdc7ac7ce16f2a17696182a4e1ba6149abee045e52b2eaedf102b7b",
+      "config_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "subject_head": "1cab1fd9fd7b2b04dab22b5d266927301e14955e",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T13:39:47.774841519+03:00",
+      "expires_at": "2026-07-19T13:54:47.774841519+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase1-deletion",
+      "mission_id": "deep-review-phase1-deletion.s4.T5",
+      "spec_slug": "deep-review-phase1-deletion",
+      "task_id": "T5",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.1, R2.1, R3.1"
+      ],
+      "verify": "gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh",
+      "context_ref": "context:deep-review-phase1-deletion:T5",
+      "context_digest": "931e72734cdc7ac7ce16f2a17696182a4e1ba6149abee045e52b2eaedf102b7b",
+      "config_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "subject_head": "1cab1fd9fd7b2b04dab22b5d266927301e14955e",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T13:39:47.779659581+03:00",
+      "expires_at": "2026-07-19T13:54:47.779659581+03:00",
+      "status": "pending"
+    },
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase1-deletion",
+      "mission_id": "deep-review-phase1-deletion.s5.T5",
+      "spec_slug": "deep-review-phase1-deletion",
+      "task_id": "T5",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.1, R2.1, R3.1"
+      ],
+      "verify": "gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh",
+      "context_ref": "context:deep-review-phase1-deletion:T5",
+      "context_digest": "931e72734cdc7ac7ce16f2a17696182a4e1ba6149abee045e52b2eaedf102b7b",
+      "config_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "subject_head": "1cab1fd9fd7b2b04dab22b5d266927301e14955e",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T13:39:47.783927805+03:00",
+      "expires_at": "2026-07-19T13:54:47.783927805+03:00",
+      "status": "pending"
+    }
+  ],
+  "missions": [
+    {
+      "protocol_version": "1",
+      "session_id": "deep-review-phase1-deletion",
+      "mission_id": "deep-review-phase1-deletion.s6.T5",
+      "spec_slug": "deep-review-phase1-deletion",
+      "task_id": "T5",
+      "attempt": 1,
+      "role": "validator",
+      "authority_ref": "approval:tasks",
+      "declared_files": null,
+      "acceptance": [
+        "R1.1, R2.1, R3.1"
+      ],
+      "verify": "gofmt -l . \u0026\u0026 go vet ./... \u0026\u0026 go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh",
+      "context_ref": "context:deep-review-phase1-deletion:T5",
+      "context_digest": "931e72734cdc7ac7ce16f2a17696182a4e1ba6149abee045e52b2eaedf102b7b",
+      "config_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
+      "policy_digest": "38751713881ed15f7a112df860c71f018f2687a58ce3ac51186c3b19f248197b",
+      "subject_head": "1cab1fd9fd7b2b04dab22b5d266927301e14955e",
+      "route_class": "default",
+      "route_reason": "policy=1 risk=low complexity=standard capabilities=",
+      "limits": {
+        "max_attempts": 4,
+        "timeout_seconds": 900
+      },
+      "issued_at": "2026-07-19T13:39:47.789222229+03:00",
+      "expires_at": "2026-07-19T13:54:47.789222229+03:00",
+      "status": "pending"
+    }
+  ]
+}
