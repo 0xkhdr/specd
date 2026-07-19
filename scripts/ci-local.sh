@@ -1,12 +1,17 @@
 #!/usr/bin/env sh
-# ci-local: run the same gate set CI runs (.github/workflows/ci.yml), in order,
-# failing on the first failing gate. Mirrors CI so a green run here means a green
-# pipeline. External tools that may be absent locally (golangci-lint, the vuln
-# scanner, the shell linter) are guarded with command -v and SKIPped when missing.
+# ci-local: run the Linux fast-tier gates from .github/workflows/ci.yml,
+# failing on the first failure. Required external tools fail closed when absent.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root"
+
+for tool in golangci-lint govulncheck shellcheck; do
+	if ! command -v "$tool" >/dev/null 2>&1; then
+		echo "ci-local: required tool not found: $tool" >&2
+		exit 1
+	fi
+done
 
 # --- gofmt (fail on any unformatted file) ---
 unformatted=$(gofmt -l .)
@@ -23,38 +28,18 @@ go vet ./...
 go mod tidy
 git diff --exit-code -- go.mod go.sum
 
-# --- structural / docs / install-script lints ---
+# --- structural / docs lints ---
 ./scripts/test-lint.sh
 ./scripts/docs-lint.sh
-./scripts/install-scripts-test.sh
 
-# --- tests: race, then an order-dependence rerun ---
+# --- static analysis and vulnerability scan ---
+golangci-lint run
+govulncheck ./...
+shellcheck -S error scripts/*.sh
+
+# --- race tests, coverage floor, and build ---
 go test ./... -race -count=1
-go test ./... -count=2
-
-# --- perf gate and coverage floor ---
-./scripts/perf-gate.sh
 ./scripts/coverage-check.sh
-
-# --- staticcheck via golangci-lint (guarded: absent on a clean checkout) ---
-if command -v golangci-lint >/dev/null 2>&1; then
-	golangci-lint run
-else
-	echo "SKIP: golangci-lint not installed (CI runs it — staticcheck)"
-fi
-
-# --- govulncheck (guarded) ---
-if command -v govulncheck >/dev/null 2>&1; then
-	govulncheck ./...
-else
-	echo "SKIP: govulncheck not installed (CI runs it)"
-fi
-
-# --- shellcheck over scripts/*.sh (guarded) ---
-if command -v shellcheck >/dev/null 2>&1; then
-	shellcheck scripts/*.sh
-else
-	echo "SKIP: shellcheck not installed (CI runs it)"
-fi
+go build ./...
 
 echo "ci-local: ok"

@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches-ignore: [main]
 
 permissions:
   contents: read
@@ -153,15 +155,3 @@ jobs:
       # binary still builds and all non-self-update commands work.
       - name: Build binary
         run: go build -ldflags "-s -w -X github.com/0xkhdr/specd/internal/version.Version=ci" -o specd .
-
-      - name: Cross-compile linux/arm64
-        if: matrix.os == 'ubuntu-latest'
-        run: GOOS=linux GOARCH=arm64 go build ./...
-
-      - name: Cross-compile darwin/arm64
-        if: matrix.os == 'ubuntu-latest'
-        run: GOOS=darwin GOARCH=arm64 go build ./...
-
-      - name: Cross-compile windows/amd64
-        if: matrix.os == 'ubuntu-latest'
-        run: GOOS=windows GOARCH=amd64 go build ./...

@@ -32,9 +32,8 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      # Gate the release on the full CI suite (lint + race + order-dependence +
-      # coverage floor + stress) even though ci.yml already ran it on the commit
-      # — a tag should never publish an unverified tree (R4.3).
+      # Re-run the deterministic release inputs on the tagged tree even though
+      # the fast and heavy workflows already validated the commit.
       - name: verify release inputs
         run: |
           go test ./... -race -count=1
@@ -43,6 +42,11 @@ jobs:
           ./scripts/docs-lint.sh
           ./scripts/install-scripts-test.sh
           ./scripts/regress-domains.sh
+
+      - name: installed production lifecycle smoke
+        run: |
+          go build -o "$RUNNER_TEMP/specd" .
+          SPECD_BIN="$RUNNER_TEMP/specd" ./scripts/production-smoke.sh
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0

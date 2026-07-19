@@ -3,6 +3,8 @@ name: Heavy
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 3 * * *"
 
 permissions:
   contents: read
@@ -63,7 +65,7 @@ jobs:
         run: ./scripts/stress.sh ${{ matrix.domain }}
 
   perf:
-    name: Performance gate & production smoke
+    name: Performance gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -76,11 +78,6 @@ jobs:
       # Measured perf gate — disabled-mode context manifest does no work.
       - name: perf-gate
         run: ./scripts/perf-gate.sh
-
-      - name: installed production lifecycle smoke
-        run: |
-          go build -o "$RUNNER_TEMP/specd" .
-          SPECD_BIN="$RUNNER_TEMP/specd" ./scripts/production-smoke.sh
 
   install-scripts:
     name: Install script tests
