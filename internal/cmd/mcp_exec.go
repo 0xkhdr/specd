@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -9,6 +11,26 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/mcp"
 )
+
+func runMCP(root string, args []string, flags map[string]string) error {
+	// `--config <host>` prints a paste-ready MCP config snippet instead of serving
+	// (spec 11 R1). --root/--spec pin the server's cwd and active spec.
+	if host, ok := flags["config"]; ok {
+		if len(args) != 0 {
+			return errors.New("usage: specd mcp --config <host> [--root <path>] [--spec <slug>]")
+		}
+		snippet, err := core.MCPConfigSnippet(host, flags["root"], flags["spec"])
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUsage, err)
+		}
+		fmt.Fprint(os.Stdout, snippet)
+		return nil
+	}
+	if len(args) != 0 {
+		return errors.New("usage: mcp")
+	}
+	return mcp.Serve(os.Stdin, os.Stdout, mcp.CoreTools(), mcpExecutor(root))
+}
 
 // mcpExecutor adapts the dispatcher into an mcp.Executor. It lives here, not in
 // the mcp package, because mcp must not import cmd (cmd already imports mcp — the

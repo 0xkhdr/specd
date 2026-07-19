@@ -1,43 +1,50 @@
 {
   "session_id": "deep-review-phase3-cleanups",
-  "step": 3,
+  "step": 4,
   "wave": 0,
   "decision": "dispatch",
-  "mission_id": "deep-review-phase3-cleanups.s3.T2",
-  "task_id": "T2",
+  "mission_id": "deep-review-phase3-cleanups.s4.T3",
+  "task_id": "T3",
   "mission": {
     "protocol_version": "1",
     "session_id": "deep-review-phase3-cleanups",
-    "mission_id": "deep-review-phase3-cleanups.s3.T2",
+    "mission_id": "deep-review-phase3-cleanups.s4.T3",
     "spec_slug": "deep-review-phase3-cleanups",
-    "task_id": "T2",
+    "task_id": "T3",
     "attempt": 1,
     "role": "craftsman",
     "authority_ref": "approval:tasks",
     "declared_files": [
+      "internal/cmd/check.go",
+      "internal/cmd/context.go",
+      "internal/cmd/handshake.go",
+      "internal/cmd/init.go",
+      "internal/cmd/mcp_exec.go",
+      "internal/cmd/next.go",
       "internal/cmd/registry.go",
-      "internal/core/gates/intake.go",
-      "internal/core/prometheus.go"
+      "internal/cmd/report.go",
+      "internal/cmd/status.go",
+      "internal/cmd/verify.go"
     ],
     "acceptance": [
-      "R1.2"
+      "R2.1, R2.2"
     ],
-    "verify": "bash -c 'go vet ./... \u0026\u0026 go test ./internal/... -count=1 \u0026\u0026 ! grep -rn \"func sortedKeys\" internal/'",
-    "context_ref": "context:deep-review-phase3-cleanups:T2",
-    "context_digest": "68714209ee0e5fe9324e819a74afb78362a5dd6b70da40e38d8660cb57b9125b",
+    "verify": "bash -c 'go build ./... \u0026\u0026 go test ./internal/cmd -race -count=1 \u0026\u0026 [ $(wc -l \u003c internal/cmd/registry.go) -lt 500 ]'",
+    "context_ref": "context:deep-review-phase3-cleanups:T3",
+    "context_digest": "0d210feb13ef29cb11de3983900ac693f41ae5c159cf1cae26445e3aeee1492d",
     "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
     "palette_digest": "39e1fc91543aeaa1451f32d504289a9a5e89198db5c12e8d7638cf7b688f279c",
     "policy_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
-    "subject_head": "18a54b550f8fd270094ae759632123f58e7c675f",
+    "subject_head": "71be8f85c4cba43d5fddc5516f6fa9905c849d99",
     "route_class": "default",
-    "route_reason": "policy=1 risk=low complexity=simple capabilities=",
+    "route_reason": "policy=1 risk=medium complexity=standard capabilities=",
     "limits": {
       "max_attempts": 4,
       "timeout_seconds": 900
     },
-    "issued_at": "2026-07-19T18:51:27.501325301+03:00",
-    "expires_at": "2026-07-19T19:06:27.501325301+03:00",
+    "issued_at": "2026-07-19T18:53:13.473565185+03:00",
+    "expires_at": "2026-07-19T19:08:13.473565185+03:00",
     "status": "pending"
   },
-  "time": "2026-07-19T18:51:27.501325301+03:00"
+  "time": "2026-07-19T18:53:13.473565185+03:00"
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -494,4 +495,215 @@ func sortedRecordKeys(records map[string]json.RawMessage) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func runReport(root string, args []string, flags map[string]string) error {
+	if len(args) == 0 && flagEnabled(flags, "portfolio") {
+		program, err := core.LoadProgram(core.ProgramPath(root))
+		if err != nil {
+			return err
+		}
+		var inputs []core.PortfolioSpec
+		export := portfolioExport{SchemaVersion: 1}
+		for _, slug := range core.ListSpecs(root) {
+			state, err := core.LoadState(core.StatePath(root, slug))
+			if err != nil {
+				return err
+			}
+			deployments, err := core.ReadDeployments(core.DeploymentLedgerPath(root, slug))
+			if err != nil {
+				return err
+			}
+			inputs = append(inputs, core.PortfolioSpec{SpecID: slug, Complete: state.Status == core.StatusComplete, Deployments: deployments})
+			risk := "unknown"
+			if provenance, err := core.LoadProvenance(core.ProvenancePath(root, slug)); err != nil {
+				return err
+			} else if provenance != nil && provenance.Risk != "" {
+				risk = provenance.Risk
+			}
+			records, err := core.LoadEvidenceRecords(core.EvidencePath(root, slug))
+			if err != nil {
+				return err
+			}
+			refs := make([]string, 0, len(records))
+			for i, record := range records {
+				refs = append(refs, fmt.Sprintf("verify:%s:%d:%s", record.TaskID, i+1, record.GitHead))
+			}
+			export.Specs = append(export.Specs, portfolioExportSpec{ID: slug, Status: string(state.Status), Risk: risk, EvidenceRefs: refs})
+		}
+		view, err := core.BuildPortfolioView(program, inputs)
+		if err != nil {
+			return err
+		}
+		links := append([]core.ProgramLink(nil), program.Links...)
+		sort.Slice(links, func(i, j int) bool {
+			if links[i].From != links[j].From {
+				return links[i].From < links[j].From
+			}
+			if links[i].To != links[j].To {
+				return links[i].To < links[j].To
+			}
+			return links[i].Kind < links[j].Kind
+		})
+		for _, link := range links {
+			export.Links = append(export.Links, portfolioExportLink{From: link.From, To: link.To, Kind: link.Kind})
+		}
+		export.View = view
+		return writeJSON(export)
+	}
+	if len(args) != 1 {
+		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event|otel] | report --portfolio")
+	}
+	model, err := reportModel(root, args[0])
+	if err != nil {
+		return err
+	}
+	if flagEnabled(flags, "outcome-review") {
+		records, err := core.LoadEvidenceRecords(core.EvidencePath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		refs := make([]string, 0, len(records))
+		for i, record := range records {
+			refs = append(refs, fmt.Sprintf("verify:%s:%d:%s", record.TaskID, i+1, record.GitHead))
+		}
+		_, err = fmt.Fprint(os.Stdout, renderOutcomeReview([]outcomeInput{{SpecID: args[0], EvidenceRefs: refs}}))
+		return err
+	}
+	if flagEnabled(flags, "delivery") {
+		records, err := core.ReadDeployments(core.DeploymentLedgerPath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, renderDeliveryReport(records))
+		return nil
+	}
+	if flagEnabled(flags, "rollup") {
+		rollup, err := gatherProgramEconomics(root)
+		if err != nil {
+			return err
+		}
+		return writeJSON(rollup)
+	}
+	// --proof emits the deterministic R8.2 lifecycle proof: requirement-to-evidence
+	// coverage, stale records, amendments, and escaped-defect links. Pure projection
+	// of on-disk state; honours --json for a machine-readable object.
+	if flagEnabled(flags, "proof") {
+		proof, err := gatherLifecycleProof(root, args[0])
+		if err != nil {
+			return err
+		}
+		if flagEnabled(flags, "json") {
+			out, err := core.RenderLifecycleProofJSON(proof)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(os.Stdout, out)
+			return nil
+		}
+		fmt.Fprint(os.Stdout, core.RenderLifecycleProof(proof))
+		return nil
+	}
+	// --history replays the spec's audit trail from existing records (spec 13);
+	// it writes nothing and honours --json for machine-readable JSON Lines (R6).
+	if flagEnabled(flags, "history") {
+		events, err := gatherHistory(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		if flagEnabled(flags, "json") {
+			out, err := core.RenderHistoryJSON(events)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(os.Stdout, out)
+			return nil
+		}
+		fmt.Fprint(os.Stdout, core.RenderHistory(args[0], events))
+		return nil
+	}
+	// --trace exports the spec's metadata-only run trace as stable JSON Lines
+	// (spec 07 R6); a pure projection of on-disk records that writes nothing.
+	if flagEnabled(flags, "trace") {
+		out, err := runTrace(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
+	if flagEnabled(flags, "efficiency") {
+		out, err := gatherContextEfficiency(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
+	// --format prometheus emits a textfile-collector exposition (spec 13 R4).
+	if flags["format"] == "prometheus" {
+		metrics, err := gatherPrometheus(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, core.RenderPrometheus(metrics))
+		return nil
+	}
+	// --format otel maps the spec's local observable-event traces to
+	// OpenTelemetry-compatible spans via the external adapter (spec 10 R10.2).
+	if flags["format"] == "otel" {
+		out, err := runOTelExport(root, args[0])
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
+	if flags["format"] == "event" {
+		out, err := runEvents(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, out)
+		return nil
+	}
+	if format, ok := flags["format"]; ok && format != "" {
+		return fmt.Errorf("%w: unsupported --format %q (only prometheus, event, otel)", ErrUsage, format)
+	}
+	coverage, err := criterionCoverage(root, args[0])
+	if err != nil {
+		return err
+	}
+	switch {
+	case flagEnabled(flags, "json"):
+		return writeJSON(struct {
+			core.ReportModel
+			Criteria []requirementCoverage `json:"criteria,omitempty"`
+		}{model, coverage})
+	case flagEnabled(flags, "metrics"):
+		fmt.Fprint(os.Stdout, core.RenderMetrics(model))
+		telemetry, err := aggregateTelemetry(root, args[0], model)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(os.Stdout, core.RenderTelemetry(args[0], telemetry))
+	case flagEnabled(flags, "pr"):
+		fmt.Fprint(os.Stdout, core.PRSummary(model))
+	default:
+		fmt.Fprint(os.Stdout, core.RenderStatus(model))
+		fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
+	}
+	return nil
+}
+
+func reportModel(root, slug string) (core.ReportModel, error) {
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return core.ReportModel{}, err
+	}
+	evidence, err := core.LoadEvidence(core.EvidencePath(root, slug))
+	if err != nil {
+		return core.ReportModel{}, err
+	}
+	return core.BuildReportModel(slug, spec.Tasks, taskStatus(spec.Tasks), evidence), nil
 }
