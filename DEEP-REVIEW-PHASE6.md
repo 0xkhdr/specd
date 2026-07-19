@@ -98,11 +98,11 @@ again. Verified by negative control — the test still fails when the lane is ge
 These are **recorded owner calls**, not open questions. Cite `deep-review-phase5-decisions` as
 source when implementing.
 
-- **Delete `report --format otel`.** No consumer; redundant with the adapter-contract path that
-  maps the neutral `event/v1` stream externally. `--format event` and `--format prometheus` stay.
-  *The task list must include `go run ./tools/gendocs`* — removing the enum value from
-  `internal/core/commands.go:550` regenerates `docs/command-reference.md`, and `docs-lint.sh` fails
-  CI on drift.
+- **Delete `report --format otel`.** ✅ Done (`20f7557`). No consumer; redundant with the
+  adapter-contract path that maps the neutral `event/v1` stream externally. `--format event` and
+  `--format prometheus` stay. Scope ran one step wider than written: `ExportNeutralEvents` had no
+  consumer outside its own test either, so the whole `adapter/otel_export.go` projection went
+  rather than leaving half a dead file. Net −316 lines.
 - **Delete `specd recurring` and `specd spike`.** The only write-only verbs: no non-test reader for
   `recurring-results.jsonl`, `PlanRecurringSuccessor` never called outside tests, `State.Spikes()`
   read only by `state.go`'s own re-parse. Deferral dated 2026-07-19, **revisit 2026-10-19**.
@@ -119,7 +119,8 @@ left is cleanup and one carried-forward deletion spec.
 **Step 1 — F2, subtractive.** ✅ Done (`da739d2`) — deleted the 8 unused constants; lease state
 already carries the lifecycle.
 
-**Step 2 — the otel deletion spec.** Straightforward but touches the palette. Remember `gendocs`.
+**Step 2 — the otel deletion spec.** ✅ Done (`20f7557`) — palette enum, both projection entry
+points, and 3 files deleted; `gendocs` regenerated the command reference.
 
 **Step 3 — F4.** One `specd verify --criterion` call per criterion, or accept the gap and note it.
 Cheap either way.
