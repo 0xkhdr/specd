@@ -77,7 +77,7 @@ this project (no `criteria.required`, no production profile), so it did not bloc
 task evidence back to requirement criteria. Record with
 `specd verify <slug> --criterion <r>.<n> --status pass --evidence <text>`.
 
-### F7 — Criteria parser aliases labelled sub-criteria, so the ratchet undercounts (gate soundness, medium)
+### F7 — Criteria parser aliased labelled sub-criteria, so the ratchet undercounted — **FIXED** (`fae340b`)
 
 Found while executing Step 3. `specd verify <slug> --criterion 2.2` fails closed with `unknown
 criterion "2.2" — not an acceptance criterion in approved requirements.md`, even though
@@ -100,12 +100,22 @@ four criteria. Under `criteria.required` or a production profile this ratchet **
 a spec written in the labelled style can pass the gate with genuinely missing criterion evidence.
 Not triggered in this project (ratchet unarmed, per F4) — a live risk for anyone who arms it.
 
-Fix (not applied — needs an owner call): teach `reqBullet` to capture an optional `.<n>` and emit
-that exact id instead of opening a new requirement. Root-cause fix in the shared parser, so both
-authoring styles address correctly; rewriting `requirements.md` is the wrong lever — those files are
-approved, and retroactively editing an approved requirements doc is what the amendment path exists
-to prevent. Whatever lands needs a test pinning the labelled style: `- R2.1:`/`- R2.2:` must yield
-`2.1, 2.2`, never a duplicate.
+Fixed in the parser, not the documents: `reqBullet` captures an optional `.<n>` and treats it as
+authoritative, so both authoring styles address correctly — implicit indented sub-bullets numbered
+in order, or explicit inline labels taken verbatim. Rewriting `requirements.md` was rejected as the
+lever: those files are approved, and retroactively editing an approved requirements doc is what the
+amendment path exists to prevent.
+
+`CriterionIDs` now also deduplicates, so a repeated label collapses instead of inflating the
+denominator with an entry a single record could satisfy.
+
+`TestCriterionIDsExplicitLabels` pins the labelled style and the uniqueness invariant; verified by
+negative control — with the old regex it fails with exactly the observed `got [1.1 2.1], want [1.1
+2.1 2.2]`. The implicit style is unchanged and still covered by `TestCriterionIDs`. Suite, `-race`,
+`-count=2`, vet, gofmt, both lint scripts, `go mod tidy`, and `regress-domains.sh` all pass.
+
+Aftermath on this spec: coverage correctly fell `4/4 → 3/4` once the alias was gone, exposing R2.2
+as genuinely unattested. It is now recorded, so `4/4` rests on four records for four criteria.
 
 ### F5 — Stale duplicate missions in the phase 5 ledger (cosmetic)
 
@@ -152,11 +162,14 @@ already carries the lifecycle.
 **Step 2 — the otel deletion spec.** ✅ Done (`20f7557`) — palette enum, both projection entry
 points, and 3 files deleted; `gendocs` regenerated the command reference.
 
-**Step 3 — F4.** ✅ Done (`a2cd180`) — criteria recorded, coverage `0/4 → 4/4`. Not as cheap as
-billed: R2.2 is unaddressable and surfaced **F7**, which is now the top open item.
+**Step 3 — F4.** ✅ Done (`a2cd180`, `fae340b`) — criteria recorded, coverage `0/4 → 4/4` on four
+records. Not as cheap as billed: R2.2 was unaddressable and surfaced **F7**.
 
-**Step 4 — F7, the criteria-parser aliasing.** Open. Highest risk left in this file: it is the only
-finding that can make a *gate* pass with missing evidence.
+**Step 4 — F7, the criteria-parser aliasing.** ✅ Done (`fae340b`) — the one finding here that could
+make a *gate* pass with missing evidence.
+
+All of Steps 1–4 have landed. What remains in this file is deferred by decision, not by omission:
+F3, F5, and the `recurring`/`spike` deletion (revisit 2026-10-19).
 
 **Defer:** F3 (rename is churn across docs, templates, and muscle memory — the docs fix may be
 enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026-10-19 review date.
@@ -188,5 +201,8 @@ enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026
 | `75bc0bc` | Handoff doc updated for F1 + F6 |
 | `ea6b78e` | **F6 fixed** — smoke-lane assertion no longer pinned to `ci.yml` |
 | `da739d2` | **F2 fixed** — 8 never-written `MissionStatus` constants deleted |
+| `20f7557` | `report --format otel` and the built-in OTel projection deleted (−316 lines) |
+| `a2cd180` | Phase-5 criterion evidence recorded (**F4**) |
+| `fae340b` | **F7 fixed** — labelled criteria address correctly; ids deduplicated |
 
 Branch `optimization`. Not merged to `main`.
