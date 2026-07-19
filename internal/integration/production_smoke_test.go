@@ -28,12 +28,26 @@ func TestProductionSmokeLane(t *testing.T) {
 		}
 	}
 
-	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "ci.yml"))
+	// What matters is that some workflow runs the lane, not which one: CI is
+	// tiered, and pinning this to a single file made the assertion stale the
+	// moment the lane moved from ci.yml to heavy.yml while still running.
+	workflowDir := filepath.Join(root, ".github", "workflows")
+	entries, err := os.ReadDir(workflowDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(workflow), "./scripts/production-smoke.sh") {
-		t.Fatal("CI does not run production smoke lane")
+	var ranBy []string
+	for _, entry := range entries {
+		workflow, err := os.ReadFile(filepath.Join(workflowDir, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(workflow), "./scripts/production-smoke.sh") {
+			ranBy = append(ranBy, entry.Name())
+		}
+	}
+	if len(ranBy) == 0 {
+		t.Fatalf("no workflow in %s runs ./scripts/production-smoke.sh", workflowDir)
 	}
 }
 
