@@ -584,7 +584,7 @@ func requirementsStub(slug string) string {
 func designStub(slug string) string {
 	return fmt.Sprintf("# Design — %s\n\n"+
 		"> Replace prompts. Trace every decision to approved requirement IDs.\n\n"+
-		"references: <R1, R1.1>\ndisposition: <accepted|deferred|rejected>\nowner: <human decision owner>\n\n"+
+		"- references: <R1, R1.1>\n- disposition: <accepted|deferred|rejected>\n- owner: <human decision owner>\n\n"+
 		"## Boundaries\n\n- <owned modules and excluded responsibilities>\n\n"+
 		"## Interfaces\n\n- <API, file, or protocol contracts>\n\n"+
 		"## Invariants\n\n- <property preserved across success and failure>\n\n"+
