@@ -4,7 +4,7 @@
   "mode": "default",
   "status": "executing",
   "phase": "execute",
-  "revision": 3,
+  "revision": 4,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -34,5 +34,8 @@
       "git_head": "ac133a3b7a167d401206c413891f0c11cd4209f7",
       "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T1": "complete"
   }
 }

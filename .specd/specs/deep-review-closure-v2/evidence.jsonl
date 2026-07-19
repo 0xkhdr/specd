@@ -1,0 +1,1 @@
+{"task_id":"T1","command":"go test ./internal/cmd -run TestNewDesignScaffoldParsesReferences -count=1","exit_code":0,"git_head":"c6e7dd60d5a1fde85eb24d376c77ad10706217ee","timestamp":"2026-07-19T22:24:33Z","actor":"xkhdr"}
