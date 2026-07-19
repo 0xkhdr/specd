@@ -77,6 +77,36 @@ this project (no `criteria.required`, no production profile), so it did not bloc
 task evidence back to requirement criteria. Record with
 `specd verify <slug> --criterion <r>.<n> --status pass --evidence <text>`.
 
+### F7 — Criteria parser aliases labelled sub-criteria, so the ratchet undercounts (gate soundness, medium)
+
+Found while executing Step 3. `specd verify <slug> --criterion 2.2` fails closed with `unknown
+criterion "2.2" — not an acceptance criterion in approved requirements.md`, even though
+`requirements.md` declares `R2.2` and `status` reports `R2 0/2`.
+
+Cause: `CriterionIDs` (`internal/core/gates/criteria.go:46`) reads criteria as *indented sub-bullets
+positionally numbered* under a requirement bullet — the style its own test uses
+(`criteria_test.go:6-10`, `- **R1** …` plus unlabelled `  - …` children). This project's specs use
+the other style: a `## R2` heading with flat, explicitly labelled `- R2.1:` / `- R2.2:` bullets.
+`reqBullet` (`criteria.go:34`, `^\*{0,2}R(\d+)\b`) matches `R2` in *both* `R2.1` and `R2.2` — `\b`
+holds because `.` is a non-word char — so each labelled criterion is read as a fresh requirement R2
+with zero children, and `flush()` emits `<r>.1` for each.
+
+Verified by dumping the parser against the real doc: it yields `1.1, 2.1, 2.1, 3.1` — `2.1`
+duplicated, no `2.2`.
+
+The consequence is worse than an unaddressable id. Aliased ids collapse: a **single** `2.1` record
+satisfies **both** entries, so coverage now reads `R2 2/2` and `total 4/4` off three records for
+four criteria. Under `criteria.required` or a production profile this ratchet **gates approval**, so
+a spec written in the labelled style can pass the gate with genuinely missing criterion evidence.
+Not triggered in this project (ratchet unarmed, per F4) — a live risk for anyone who arms it.
+
+Fix (not applied — needs an owner call): teach `reqBullet` to capture an optional `.<n>` and emit
+that exact id instead of opening a new requirement. Root-cause fix in the shared parser, so both
+authoring styles address correctly; rewriting `requirements.md` is the wrong lever — those files are
+approved, and retroactively editing an approved requirements doc is what the amendment path exists
+to prevent. Whatever lands needs a test pinning the labelled style: `- R2.1:`/`- R2.2:` must yield
+`2.1, 2.2`, never a duplicate.
+
 ### F5 — Stale duplicate missions in the phase 5 ledger (cosmetic)
 
 `…s3.T2` and `…s4.T2` remain `pending` in `session.json`, artifacts of F1. Harmless; they expire.
@@ -122,8 +152,11 @@ already carries the lifecycle.
 **Step 2 — the otel deletion spec.** ✅ Done (`20f7557`) — palette enum, both projection entry
 points, and 3 files deleted; `gendocs` regenerated the command reference.
 
-**Step 3 — F4.** One `specd verify --criterion` call per criterion, or accept the gap and note it.
-Cheap either way.
+**Step 3 — F4.** ✅ Done (`a2cd180`) — criteria recorded, coverage `0/4 → 4/4`. Not as cheap as
+billed: R2.2 is unaddressable and surfaced **F7**, which is now the top open item.
+
+**Step 4 — F7, the criteria-parser aliasing.** Open. Highest risk left in this file: it is the only
+finding that can make a *gate* pass with missing evidence.
 
 **Defer:** F3 (rename is churn across docs, templates, and muscle memory — the docs fix may be
 enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026-10-19 review date.
