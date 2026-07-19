@@ -120,8 +120,8 @@ construction:
 ## Crash-safety
 
 The opt-in Brain's ACP ledger is append-only and crash-safe: an interrupted append replays to a
-consistent state on the next load. This is proven by `scripts/stress-acp.sh` and
-`scripts/stress-checkpoint-fault.sh` (fault-injected interrupted writes), wired into CI. See
+consistent state on the next load. This is proven by `scripts/stress.sh acp` and
+`scripts/stress.sh checkpoint-fault` (fault-injected interrupted writes), wired into CI. See
 [TESTING.md](../TESTING.md) for the stress jobs.
 
 ---

@@ -110,8 +110,7 @@ Start at the **[docs index](docs/README.md)** for fast paths, or jump straight i
 - 💡 [Concepts](docs/concepts.md) — The foundational split, the philosophy pillars, and spec lifecycle.
 - 📖 [User Guide](docs/user-guide.md) — Walkthrough of the lifecycle, stubs, verify, and complete flow.
 - 📑 [Command Reference](docs/command-reference.md) — Complete CLI syntax, flags, and exit codes.
-- 🗂️ [Cheatsheet](docs/CHEATSHEET.md) — Byte-identical mirror of the command reference.
-- ✅ [Validation Gates](docs/validation-gates.md) — Details on all 14 core validation gates plus security gates.
+- ✅ [Validation Gates](docs/validation-gates.md) — Details on all 22 core validation gates plus security gates.
 - 🤖 [Agent Integration](docs/agent-integration.md) — Roles, steering files, dispatch, and the Brain/Pinky controller.
 - 🔌 [MCP Guide](docs/mcp-guide.md) — The `specd mcp` stdio server, host config snippets, and handshake digests.
 - 📦 [Open Spec Format](docs/open-spec-format.md) — The on-disk `.specd/` layout and `state.json` schema.

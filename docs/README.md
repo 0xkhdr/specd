@@ -15,7 +15,7 @@ evidence-gated execution**.
 |---|---|
 | Understand *why* specd exists | [concepts.md](concepts.md) |
 | Run a spec end to end | [user-guide.md](user-guide.md) |
-| Look up a verb, flag, or exit code | [command-reference.md](command-reference.md) · [CHEATSHEET.md](CHEATSHEET.md) |
+| Look up a verb, flag, or exit code | [command-reference.md](command-reference.md) |
 | Know what a gate checks / why it failed | [validation-gates.md](validation-gates.md) |
 | Wire up an agent, roles, or orchestration | [agent-integration.md](agent-integration.md) |
 | Connect an MCP client | [mcp-guide.md](mcp-guide.md) |
@@ -33,8 +33,6 @@ evidence-gated execution**.
   the verify→complete loop → mid-stream changes → review & submit.
 - 📑 **[command-reference.md](command-reference.md)** — the **source-of-truth** doc: every verb,
   flag, exit code, and allowed phase, generated to match `internal/core/commands.go`.
-- 🗂️ **[CHEATSHEET.md](CHEATSHEET.md)** — a byte-identical mirror of the command reference
-  (`scripts/docs-lint.sh` enforces the match).
 - ✅ **[validation-gates.md](validation-gates.md)** — the 22 core gates plus the opt-in security
   gates: what each checks, when it fires, how to fix a failure.
 - 🤖 **[agent-integration.md](agent-integration.md)** — the `AGENTS.md` loop, the four roles,

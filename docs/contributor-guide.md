@@ -24,7 +24,7 @@ gofmt -l .              # must be empty — CI fails on any unformatted file
 go vet ./...
 go mod tidy             # must produce no diff (zero runtime deps)
 ./scripts/test-lint.sh  # test-suite structural lint
-./scripts/docs-lint.sh  # asserts docs/CHEATSHEET.md mirrors docs/command-reference.md verbatim
+./scripts/docs-lint.sh  # checks generated command-reference and documented invariants
 ```
 
 The regression harness re-asserts each domain's invariant black-box against a freshly built
@@ -97,8 +97,8 @@ Preserve these when changing the codebase:
    per-spec lock, byte-stable tasks parser, `go:embed` templates, **zero runtime dependencies**
    (there is no `go.sum` — nothing to sum; CI runs `go mod tidy` and fails on any `go.mod` diff).
 4. **Subtractive bias.** When unsure, cut or defer and record the decision.
-5. **Docs sync.** If you touch CLI verbs or flags, update `docs/command-reference.md` **and**
-   `docs/CHEATSHEET.md` together (`docs-lint.sh` enforces byte-identical match).
+5. **Docs sync.** If you touch CLI verbs or flags, regenerate `docs/command-reference.md` with
+   `go run ./tools/gendocs` (`docs-lint.sh` enforces palette parity).
 
 ## Concurrency & durability model
 
@@ -119,8 +119,7 @@ Preserve these when changing the codebase:
    description, flags, `AllowedPhases`, `ExitCodes: stdCodes()`, at least one example,
    `SpecSlugArg` if it phase-checks a spec).
 2. Add the handler in `internal/cmd/` and register it in `registry.go`.
-3. Update `docs/command-reference.md` **and** copy it to `docs/CHEATSHEET.md`; run
-   `./scripts/docs-lint.sh`.
+3. Run `go run ./tools/gendocs`, then `./scripts/docs-lint.sh`.
 4. Add tests; the handler-parity test asserts every non-deferred verb has a handler.
 
 ### Add a gate

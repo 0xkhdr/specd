@@ -174,6 +174,12 @@ F3, F5, and the `recurring`/`spike` deletion (revisit 2026-10-19).
 **Defer:** F3 (rename is churn across docs, templates, and muscle memory — the docs fix may be
 enough), F5 (self-clearing), and the `recurring`/`spike` deletion until the 2026-10-19 review date.
 
+### Traceability note — 2026-07-20
+
+The F1, F2, F6, F7, and OTel commits above landed without a dedicated follow-up spec/task evidence
+trail. `deep-review-closure-v2` records that process gap and governs subsequent closure work. No
+retrospective verify, completion, or approval evidence was created for the already-landed commits.
+
 ## 4. Working agreements that earned their keep
 
 - **Read the contract before believing a grep.** See §0.
