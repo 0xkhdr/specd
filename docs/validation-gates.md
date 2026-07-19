@@ -81,7 +81,29 @@ Registered by `CoreRegistry()` in the order they run:
   malformed provenance and configured fields whose value is empty or `unknown` fail closed.
 - **`governance` (19)** is armed only when governance policy is configured. It rejects missing or
   proposed required decisions and expired blocking exceptions, naming owner and review action;
-  unconfigured projects remain unchanged.
+  unconfigured projects remain unchanged. "Configured" means the file exists: governance decisions
+  are a **declared input** you author at `.specd/specs/<slug>/decisions.json`, not CLI output —
+  there is deliberately no verb that writes them, and an absent file means governance is
+  unconfigured rather than failing. Note that `specd decision` is a different, unrelated surface:
+  it appends a free-text record to `state.json` for the audit trail and never touches this file.
+  The shape is a bare JSON array of records, each requiring `id`, `status`
+  (`proposed|accepted|superseded|expired|revoked`), `owner`, and RFC3339 `created_at`,
+  `review_at`, and `expires_at`; optional `supersedes` must name an existing, not-yet-superseded
+  id, and `affected_invariants` links the decision to drift invariants. **A decision counts as
+  active only while `status: accepted` and `expires_at` is in the future** — an accepted decision
+  with a past `expires_at` silently stops applying, so keep `review_at` ahead of it.
+
+  ```json
+  [{"id": "D1", "status": "accepted", "owner": "0xkhdr", "created_at": "2026-07-19T00:00:00Z",
+    "review_at": "2026-10-19T00:00:00Z", "expires_at": "2027-01-19T00:00:00Z",
+    "affected_invariants": ["INV-EVIDENCE"]}]
+  ```
+
+  `specd drift` reads the same declared-input model from `.specd/specs/<slug>/drift.json` — an
+  object `{"schema_version": 1, "invariants": [...]}` whose entries need `id`, a
+  workspace-relative `path`, an `evidence_task` naming the task whose verify evidence proves the
+  invariant, and `severity` (`unknown|low|medium|high|critical`). It projects those against
+  evidence and writes nothing; with no `drift.json` it reports a single `none` finding.
 - **`criteria` (13)** is armed by `config.criteria.required = true` or the production lifecycle
   profile (`config.profile = production`). Until then it is dormant. Record criterion evidence
   with `specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>`.

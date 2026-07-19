@@ -4,7 +4,7 @@
   "mode": "orchestrated",
   "status": "complete",
   "phase": "reflect",
-  "revision": 19,
+  "revision": 20,
   "records": {
     "approval:complete": {
       "kind": "approval",
@@ -106,6 +106,14 @@
       "scope": "deep-review-phase5-decisions.s6.T4",
       "timestamp": "2026-07-19T19:13:52Z",
       "git_head": "2e7ba9e32cf0c7711454c062002391ca85843d4e",
+      "actor": "xkhdr"
+    },
+    "decision:6": {
+      "kind": "decision",
+      "text": "CORRECTION 2026-07-19 to the decision-store finding recorded earlier in this spec (see decision:3). That finding claimed `specd decision` writing state.Records while core.DecisionPath (.specd/specs/\u003cslug\u003e/decisions.json) has no non-test writer is a defect requiring a follow-up spec. It is NOT a defect and no follow-up spec is warranted. The two stores are intentionally different: `specd decision --text` appends a narrative record (Kind/Text/Scope) to state.Records, consumed by report --history (internal/cmd/report.go:222) and internal/orchestration/sense.go:31; decisions.json holds structured governance declarations (core.DecisionV1: ID, Status, Owner, CreatedAt, ReviewAt, ExpiresAt, Supersedes, AffectedInvariants) consumed by drift, the governance gate and context assembly. decisions.json is a DECLARED-INPUT file, opt-in by presence, not a CLI output: core.LoadDecisions documents \"Missing file means governance is unconfigured\"; internal/cmd/registry.go:216 arms the gate only via GovernanceRequired = len(decisions) \u003e 0 || len(exceptions) \u003e 0; and the drift verb is specified in internal/core/commands.go:321 as projecting declared invariants and active decisions \"without writing\". Decisive evidence: drift.json (the invariants half of the same model, core.DriftPath) likewise has no writer and is not considered defective. Adding a CLI writer would force ID/Status/Owner/ReviewAt/ExpiresAt flags, inventing values for fields whose purpose is deliberate human authorship. ROOT CAUSE of the bad finding: it was inferred from grep coverage (no non-test writer implies broken) without reading the load-function contracts. RESIDUAL REAL GAP, narrower: no file under docs/, internal/core/embed_templates/ or AGENTS.md mentions decisions.json or drift.json, so the governance and drift surfaces are undiscoverable — docs/validation-gates.md:59 calls the governance gate opt-in without stating which file to author or in what shape. That is a documentation fix, not a spec.",
+      "scope": "R1.1",
+      "timestamp": "2026-07-19T19:33:22Z",
+      "git_head": "1d788313c616a34ff92eade3943dcf8c33aefb12",
       "actor": "xkhdr"
     }
   },
