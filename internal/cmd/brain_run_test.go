@@ -268,3 +268,35 @@ func assertNoBrainSession(t *testing.T, root string) {
 func brainSessionPath(root string) string {
 	return filepath.Join(root, ".specd", "specs", "demo", "session.json")
 }
+
+// A dispatched mission reserves its task even before a worker claims it. Two
+// consecutive steps with no claim in between must advance to the second task
+// rather than re-issuing the first, which filtering on leases alone did.
+func TestBrainStepDoesNotRedispatchUnclaimedMission(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n" +
+		"| T1 | craftsman | a.go | - | printf ok | R1 |\n" +
+		"| T2 | craftsman | b.go | - | printf ok | R1 |\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := loadBrainSession(t, root)
+	if len(s.PendingMissions) != 2 {
+		t.Fatalf("pending missions = %d, want 2: %+v", len(s.PendingMissions), s.PendingMissions)
+	}
+	dispatched := map[string]bool{}
+	for _, mission := range s.PendingMissions {
+		if dispatched[mission.TaskID] {
+			t.Fatalf("task %s dispatched twice while unclaimed: %+v", mission.TaskID, s.PendingMissions)
+		}
+		dispatched[mission.TaskID] = true
+	}
+}

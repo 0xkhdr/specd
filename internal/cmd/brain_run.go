@@ -114,27 +114,32 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	session.Leases = kept
 
 	now := time.Now()
+	// A dispatched mission reserves its task before any worker claims it, so
+	// reservations — leases plus still-pending missions — are what the frontier
+	// must be filtered against. Filtering on leases alone re-issued a mission that
+	// was dispatched but not yet claimed, because an unclaimed mission has no lease.
+	reservations := append([]orchestration.Lease(nil), session.Leases...)
+	for _, mission := range session.PendingMissions {
+		reservations = append(reservations, orchestration.Lease{TaskID: mission.TaskID, ExpiresAt: mission.ExpiresAt})
+	}
+
 	// Escalated tasks are withheld so the Brain never spins on a task a human must
-	// clear first (spec 06 R2); live-leased tasks are withheld so a repeated step
+	// clear first (spec 06 R2); reserved tasks are withheld so a repeated step
 	// (and each `run` iteration) advances to the next task instead of re-issuing an
-	// in-flight one.
+	// in-flight one. Reservations expire, so a dispatch nobody claims frees its task
+	// again rather than wedging the frontier.
 	withheld := escalatedBoolSet(escalated)
-	for _, lease := range session.Leases {
-		if orchestration.LeaseWorkerState(lease, now) == orchestration.WorkerStateActive {
+	for _, reservation := range reservations {
+		if orchestration.LeaseWorkerState(reservation, now) == orchestration.WorkerStateActive {
 			if withheld == nil {
 				withheld = map[string]bool{}
 			}
-			withheld[lease.TaskID] = true
+			withheld[reservation.TaskID] = true
 		}
 	}
 	frontier, err := core.FrontierExcluding(spec.Tasks, status, withheld)
 	if err != nil {
 		return "", err
-	}
-
-	reservations := append([]orchestration.Lease(nil), session.Leases...)
-	for _, mission := range session.PendingMissions {
-		reservations = append(reservations, orchestration.Lease{TaskID: mission.TaskID, ExpiresAt: mission.ExpiresAt})
 	}
 	// Fold accepted worker/host/adapter reports off the mission ledger into the
 	// honest cost brake input. Absent reports stay unknown (never zero-filled),
