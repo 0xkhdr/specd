@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -671,19 +673,10 @@ func renderEscalated(escalated map[string]int, ratchetActive bool) string {
 	}
 	var b strings.Builder
 	b.WriteString("\n" + header + "\n")
-	for _, id := range sortedKeys(escalated) {
+	for _, id := range slices.Sorted(maps.Keys(escalated)) {
 		fmt.Fprintf(&b, "  %s — %d consecutive verify failures\n", id, escalated[id])
 	}
 	return b.String()
-}
-
-func sortedKeys(m map[string]int) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func runReport(root string, args []string, flags map[string]string) error {

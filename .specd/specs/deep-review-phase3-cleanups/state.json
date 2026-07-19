@@ -4,7 +4,7 @@
   "mode": "orchestrated",
   "status": "executing",
   "phase": "execute",
-  "revision": 5,
+  "revision": 6,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -44,6 +44,7 @@
     }
   },
   "task_status": {
-    "T1": "complete"
+    "T1": "complete",
+    "T2": "complete"
   }
 }
