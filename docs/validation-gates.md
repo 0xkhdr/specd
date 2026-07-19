@@ -81,11 +81,15 @@ Registered by `CoreRegistry()` in the order they run:
   malformed provenance and configured fields whose value is empty or `unknown` fail closed.
 - **`governance` (19)** is armed only when governance policy is configured. It rejects missing or
   proposed required decisions and expired blocking exceptions, naming owner and review action;
-  unconfigured projects remain unchanged. "Configured" means the file exists: governance decisions
+  unconfigured projects remain unchanged. Arming takes **both** conditions: `config.profile =
+  production` *and* at least one governance record on disk — outside the production profile the
+  records are never even loaded, so a malformed or expired one stays silent. Governance decisions
   are a **declared input** you author at `.specd/specs/<slug>/decisions.json`, not CLI output —
   there is deliberately no verb that writes them, and an absent file means governance is
   unconfigured rather than failing. Note that `specd decision` is a different, unrelated surface:
   it appends a free-text record to `state.json` for the audit trail and never touches this file.
+  **Every** decision in the file is treated as required, so a record left `proposed`, or one whose
+  `expires_at` has passed, blocks approval until its owner accepts or supersedes it.
   The shape is a bare JSON array of records, each requiring `id`, `status`
   (`proposed|accepted|superseded|expired|revoked`), `owner`, and RFC3339 `created_at`,
   `review_at`, and `expires_at`; optional `supersedes` must name an existing, not-yet-superseded
@@ -98,6 +102,16 @@ Registered by `CoreRegistry()` in the order they run:
     "review_at": "2026-10-19T00:00:00Z", "expires_at": "2027-01-19T00:00:00Z",
     "affected_invariants": ["INV-EVIDENCE"]}]
   ```
+
+  Governance **exceptions** live beside them at `.specd/specs/<slug>/exceptions.json`, same array
+  shape and same required fields, plus `blocking`. Only `blocking: true` exceptions are checked,
+  and only to fail closed once expired; a non-blocking exception is inert. Beware the name
+  collision: `specd exception approve|revoke` does **not** write this file — it appends to the
+  separate security ledger `.specd/security/exceptions.jsonl` (a different record shape:
+  `finding`/`action`/`reason`/`ticket`/`owner`/`scope`/`revision`/`environment`/`issued_at`/
+  `expires_at`/`compensating_control`/`approver`), which suppresses security findings by
+  fingerprint and whose mere presence switches the security gate off `.specd/security/allow.json`.
+  That verb refuses to waive evidence integrity or worker authority.
 
   `specd drift` reads the same declared-input model from `.specd/specs/<slug>/drift.json` — an
   object `{"schema_version": 1, "invariants": [...]}` whose entries need `id`, a
