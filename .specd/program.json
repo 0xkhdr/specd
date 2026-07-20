@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "links": [
+    {
+      "from": "agent-driver-protocol",
+      "to": "agent-protocol-clarity",
+      "kind": "follows",
+      "reason": "Driver protocol consumes assurance levels, typed refusals, and role capability contracts defined in agent-protocol-clarity."
+    }
+  ]
+}

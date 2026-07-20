@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "slug": "agent-protocol-clarity",
+  "mode": "default",
+  "status": "executing",
+  "phase": "execute",
+  "revision": 3,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "f7d00f582b976434d7074ccb3c541dec55ade387fc170d69a934d18f35f65cfb",
+      "timestamp": "2026-07-20T17:12:20Z",
+      "git_head": "c64cba0505edab811acfff35804d13765ae506e1",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "d461f3c4c07f64a3bd583e741ac403a72ad0426a1494b4a1d960da7fce1297cf",
+      "timestamp": "2026-07-20T17:12:16Z",
+      "git_head": "c64cba0505edab811acfff35804d13765ae506e1",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 2,
+      "timestamp": "2026-07-20T17:12:36Z",
+      "git_head": "c64cba0505edab811acfff35804d13765ae506e1",
+      "actor": "xkhdr"
+    }
+  }
+}
