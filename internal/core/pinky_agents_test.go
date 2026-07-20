@@ -21,7 +21,7 @@ func TestAgentRegistryIncludesPinky(t *testing.T) {
 
 func TestMergePinkyCodexConfigPreservesUserContent(t *testing.T) {
 	existing := "model = \"gpt-5\"\n\n" + pinkyCodexBegin + "\nold\n" + pinkyCodexEnd + "\n\n[profiles.default]\n"
-	got := MergePinkyCodexConfig(existing)
+	got := MergePinkyCodexConfig(existing, "/tmp/proj")
 	if !strings.Contains(got, "model = \"gpt-5\"") || !strings.Contains(got, "[profiles.default]") {
 		t.Fatalf("MergePinkyCodexConfig lost user content: %q", got)
 	}

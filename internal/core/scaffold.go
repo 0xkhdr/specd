@@ -138,7 +138,7 @@ func writePinkyArtifacts(root string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	return AtomicWrite(configPath, MergePinkyCodexConfig(string(existing)))
+	return AtomicWrite(configPath, MergePinkyCodexConfig(string(existing), root))
 }
 
 // pinkyRoleDescription is the one-line role summary both harnesses require in
@@ -176,9 +176,13 @@ Rules:
 }
 
 func pinkyCodexAgent(role string) string {
+	sandbox := ""
+	if role != "craftsman" { // scout, validator, auditor are read-only
+		sandbox = "sandbox_mode = \"read-only\"\n"
+	}
 	return strings.TrimSpace(`name = "pinky-`+role+`"
 description = "`+pinkyRoleDescription(role)+`"
-developer_instructions = """
+`+sandbox+`developer_instructions = """
 You are the specd Pinky `+role+` worker. Follow AGENTS.md and .specd/roles/`+role+`.md before acting.
 
 Run specd status, load specd context for the assigned task, stay inside the task files, and record evidence with specd verify.

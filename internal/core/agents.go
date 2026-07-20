@@ -49,9 +49,14 @@ const (
 	pinkyCodexEnd   = "# specd:pinky end"
 )
 
-func MergePinkyCodexConfig(existing string) string {
+func MergePinkyCodexConfig(existing, root string) string {
 	block := strings.Join([]string{
 		pinkyCodexBegin,
+		`[mcp_servers.specd]`,
+		`command = "specd"`,
+		`args = ["mcp"]`,
+		`cwd = "` + root + `"`,
+		``,
 		`[agents.pinky-scout]`,
 		`config = ".codex/agents/pinky-scout.toml"`,
 		``,
@@ -200,6 +205,9 @@ func pinkyFiles() []string {
 
 func validPinkyCodexConfig(config string) bool {
 	if !strings.Contains(config, pinkyCodexBegin) || !strings.Contains(config, pinkyCodexEnd) {
+		return false
+	}
+	if !strings.Contains(config, "[mcp_servers.specd]") {
 		return false
 	}
 	for _, role := range []string{"scout", "craftsman", "validator", "auditor"} {
