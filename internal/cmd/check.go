@@ -15,7 +15,7 @@ import (
 
 func runSecurityException(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 || (args[0] != "approve" && args[0] != "revoke") {
-		return errors.New("usage: specd exception <approve|revoke> <finding> [governed exception fields]")
+		return usageError("exception")
 	}
 	action := "suppress"
 	if args[0] == "revoke" {
@@ -40,7 +40,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	securityOnly := len(args) == 0 && flagEnabled(flags, "security") &&
 		!flagEnabled(flags, "schema") && !flagEnabled(flags, "schema-only")
 	if !securityOnly && len(args) != 1 {
-		return errors.New("usage: specd check <slug> [--json] [--security] [--schema] [--schema-only]")
+		return usageError("check")
 	}
 	slug := ""
 	if len(args) == 1 {

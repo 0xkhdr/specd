@@ -23,7 +23,7 @@ import (
 // spec ledger (R4); a same-HEAD resubmission is refused without --resubmit (R5).
 func runSubmit(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd submit <spec> [--resubmit]")
+		return usageError("submit")
 	}
 	slug := args[0]
 

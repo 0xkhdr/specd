@@ -37,7 +37,7 @@ func specExists(root, slug string) bool {
 // cross-spec graph is refused (exit 1) with the cycle path (spec 12 R1, R2).
 func runLink(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("%w: specd link <from-slug> <to-slug>", ErrUsage)
+		return usageError("link")
 	}
 	from, to := args[0], args[1]
 	kind := core.LinkKind(strings.TrimSpace(flags["kind"]))
@@ -92,7 +92,7 @@ func runLink(root string, args []string, flags map[string]string) error {
 // (exit 2) (spec 12 R3).
 func runUnlink(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 {
-		return fmt.Errorf("%w: specd unlink <from-slug> <to-slug>", ErrUsage)
+		return usageError("unlink")
 	}
 	from, to := args[0], args[1]
 	removed := false

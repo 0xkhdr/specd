@@ -310,3 +310,40 @@ func TestFlagEnum(t *testing.T) {
 		t.Fatalf("valid enum value rejected by enum gate: %v", err)
 	}
 }
+
+// TestUsageErrorMatchesPalette pins handler arity errors to the palette's own
+// usage string. Before this, runVerify hand-wrote "usage: specd verify <slug>
+// <task>" with a bare errors.New: it hid --criterion mode and exited 1 instead
+// of the fail-closed 2.
+func TestUsageErrorMatchesPalette(t *testing.T) {
+	t.Run("wraps_ErrUsage_with_palette_string", func(t *testing.T) {
+		cmd, ok := core.CommandByName("verify")
+		if !ok {
+			t.Fatal("verify missing from palette")
+		}
+		err := usageError("verify")
+		if !errors.Is(err, ErrUsage) {
+			t.Fatalf("usageError must wrap ErrUsage, got %v", err)
+		}
+		if !strings.Contains(err.Error(), cmd.Usage) {
+			t.Fatalf("usage error %q does not carry palette usage %q", err, cmd.Usage)
+		}
+	})
+
+	t.Run("unknown_verb_falls_back", func(t *testing.T) {
+		err := usageError("no-such-verb")
+		if !errors.Is(err, ErrUsage) {
+			t.Fatalf("fallback must wrap ErrUsage, got %v", err)
+		}
+	})
+
+	t.Run("verify_arity_error_names_criterion_mode", func(t *testing.T) {
+		err := runVerify(t.TempDir(), []string{"only-one-arg"}, nil)
+		if !errors.Is(err, ErrUsage) {
+			t.Fatalf("verify arity error must wrap ErrUsage (exit 2), got %v", err)
+		}
+		if !strings.Contains(err.Error(), "--criterion") {
+			t.Fatalf("verify usage must surface --criterion mode, got %q", err)
+		}
+	})
+}

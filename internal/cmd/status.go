@@ -26,12 +26,12 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	}
 	if flagEnabled(flags, "guide") {
 		if len(args) != 1 {
-			return errors.New("usage: specd status <spec> --guide [--json]")
+			return usageError("status")
 		}
 		return emitGuidance(root, args[0], flagEnabled(flags, "json"))
 	}
 	if len(args) != 1 {
-		return errors.New("usage: status slug [--json]")
+		return usageError("status")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {

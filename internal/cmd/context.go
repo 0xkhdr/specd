@@ -12,7 +12,7 @@ import (
 
 func runContext(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 {
-		return errors.New("usage: specd context <slug> <task> [--json]")
+		return usageError("context")
 	}
 	spec, err := loadSpec(root, args[0])
 	if err != nil {
@@ -28,7 +28,7 @@ func runContext(root string, args []string, flags map[string]string) error {
 	hud := flagEnabled(flags, "hud")
 	asJSON := flagEnabled(flags, "json")
 	if hud && asJSON {
-		return errors.New("usage: specd context <slug> <task> [--json|--hud]: choose one render")
+		return fmt.Errorf("%w: --json and --hud are mutually exclusive; choose one render", ErrUsage)
 	}
 	if asJSON {
 		config, _ := core.LoadConfig(configPaths(root), getenv())

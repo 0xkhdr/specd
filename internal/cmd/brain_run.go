@@ -19,7 +19,7 @@ const brainLeaseTTL = 15 * time.Minute
 // nothing. No LLM sits in this path — Decide/Sense are pure functions of state.
 func runBrain(root string, args []string, flags map[string]string) error {
 	if len(args) < 2 {
-		return errors.New("usage: specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args]")
+		return usageError("brain")
 	}
 	sub, slug := args[0], args[1]
 	sessionPath := filepath.Join(core.SpecdDir(root), "specs", slug, "session.json")

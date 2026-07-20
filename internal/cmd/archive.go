@@ -12,7 +12,7 @@ import (
 
 func runArchive(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd archive <spec> --successor <spec> --owner <owner> --evidence <ref>")
+		return usageError("archive")
 	}
 	req := core.ArchiveRequest{SpecID: args[0], SuccessorID: strings.TrimSpace(flags["successor"]), Owner: strings.TrimSpace(flags["owner"]), EvidenceRef: strings.TrimSpace(flags["evidence"])}
 	if req.SuccessorID == "" || req.Owner == "" || req.EvidenceRef == "" {

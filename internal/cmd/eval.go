@@ -17,7 +17,7 @@ type evalStatusReport struct {
 
 func runEval(root string, args []string, flags map[string]string) error {
 	if len(args) < 2 {
-		return fmt.Errorf("%w: specd eval <import|status> <spec> [path]", ErrUsage)
+		return usageError("eval")
 	}
 	switch args[0] {
 	case "import":

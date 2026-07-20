@@ -427,7 +427,7 @@ var Commands = []Command{
 	},
 	{
 		Name:          "check",
-		Usage:         "specd check <spec> [--security] [--json]",
+		Usage:         "specd check <spec> [--security] [--schema] [--schema-only] [--json]",
 		Description:   "Run the validation gate registry against a spec.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),

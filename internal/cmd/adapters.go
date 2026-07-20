@@ -44,7 +44,7 @@ type adaptersReport struct {
 // stays fully usable with no adapters configured (R8.1).
 func runAdapters(root string, args []string, flags map[string]string) error {
 	if len(args) != 0 {
-		return fmt.Errorf("%w: specd adapters [--json]", ErrUsage)
+		return usageError("adapters")
 	}
 	manifest, err := loadAdapterManifest(root)
 	if err != nil {

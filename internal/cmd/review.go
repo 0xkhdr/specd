@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -15,7 +14,7 @@ import (
 // in-progress notes are not clobbered by a re-scaffold.
 func runReview(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd review <spec> [--force]")
+		return usageError("review")
 	}
 	slug := args[0]
 	spec, err := loadSpec(root, slug)

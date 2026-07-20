@@ -10,7 +10,7 @@ import (
 
 func runDrift(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("%w: specd drift <spec> [--json]", ErrUsage)
+		return usageError("drift")
 	}
 	slug := args[0]
 	if err := core.ValidateSlug(slug); err != nil {

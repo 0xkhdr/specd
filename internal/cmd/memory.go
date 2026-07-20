@@ -21,7 +21,7 @@ var memoryNow = func() time.Time { return time.Now().UTC() }
 // the shared steering store once it clears the promotion threshold (RM.1–RM.9).
 func runMemory(root string, args []string, flags map[string]string) error {
 	if len(args) < 2 {
-		return errors.New("usage: specd memory <slug> <add|promote> [flags]")
+		return usageError("memory")
 	}
 	slug, sub := args[0], args[1]
 	if err := core.ValidateSlug(slug); err != nil {

@@ -16,7 +16,7 @@ import (
 // not freeze.
 func runDeploy(root string, args []string, flags map[string]string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("%w: usage: specd deploy <spec> --release <id> --environment <env> --adapter <a> --authority <auth>", ErrUsage)
+		return usageError("deploy")
 	}
 	slug := args[0]
 

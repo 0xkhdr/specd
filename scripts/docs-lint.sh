@@ -44,4 +44,14 @@ if grep -nE "$retired" $docs; then
 	exit 1
 fi
 
+# 4. Handler usage strings must come from the palette, not hand-written literals.
+#    A handler that spells its own `specd <verb> ...` usage drifts from what
+#    `specd help <verb>` and docs/command-reference.md print. Top-level arity
+#    errors must call usageError(<verb>) instead. Narrower messages that name a
+#    specific violation (a subcommand form, a missing flag) are still correct.
+if grep -rnE '(errors\.New|fmt\.Errorf)\("(%w: )?(usage: )?specd [a-z-]+ <' internal/cmd --include='*.go' | grep -v '_test\.go' | grep -vE 'specd (eval (import|status)|verify <slug> --criterion)'; then
+	echo "docs-lint: handler hand-writes a usage string; call usageError(<verb>) so it matches the palette" >&2
+	exit 1
+fi
+
 echo "docs-lint: ok"

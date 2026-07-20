@@ -20,7 +20,7 @@ var taskCompleteAtomicWrite = core.AtomicWrite
 // compare-and-swap; SaveStateCAS with expected revision 0 would ratchet to 1.
 func runNew(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd new <name>")
+		return usageError("new")
 	}
 	slug := args[0]
 	if err := core.ValidateSlug(slug); err != nil {
@@ -61,7 +61,7 @@ func runNew(root string, args []string, flags map[string]string) error {
 // approval record via CAS (R13.4).
 func runApprove(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd approve <spec>")
+		return usageError("approve")
 	}
 	slug := args[0]
 	if err := core.ValidateSlug(slug); err != nil {
@@ -150,7 +150,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 
 func runMode(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 || args[1] != string(core.ModeOrchestrated) {
-		return errors.New("usage: specd mode <spec> orchestrated")
+		return usageError("mode")
 	}
 	if err := core.ValidateSlug(args[0]); err != nil {
 		return err
@@ -202,7 +202,7 @@ func runApproveOrchestrated(root, slug string) error {
 // two never drift (the Sync gate enforces that agreement).
 func runTaskComplete(root string, args []string, flags map[string]string) error {
 	if len(args) != 2 {
-		return errors.New("usage: specd complete-task <spec> <id>")
+		return usageError("complete-task")
 	}
 	slug, id := args[0], args[1]
 	if err := core.ValidateSlug(slug); err != nil {
@@ -337,7 +337,7 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 // bound enforcement lives in core.Spike.Validate (via AppendSpike).
 func runSpike(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd spike <spec> --question <q> --scope <s> --expiry <RFC3339> [--output <ref>]")
+		return usageError("spike")
 	}
 	slug := args[0]
 	if err := core.ValidateSlug(slug); err != nil {
@@ -485,7 +485,7 @@ func runHelp(root string, args []string, flags map[string]string) error {
 // (R13.9).
 func runTask(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd task <id> [--override --reason <text>]")
+		return usageError("task")
 	}
 	id := args[0]
 	if flagEnabled(flags, "override") {

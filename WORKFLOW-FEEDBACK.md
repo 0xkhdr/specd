@@ -113,3 +113,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task-level evidence and criterion-level coverage are separate ledgers with no link, and the guidance surface that exists to say "what next" does not mention the second one. The number is correct; it is just unreachable from the guidance.
 - **Recommendation:** when a spec has completed tasks whose `acceptance` cells reference criteria with no criterion evidence, add a `specd verify-criterion <slug> <criterion>` line to `status --guide` blockers. Deterministic — reads the tasks table, state, and the criterion store.
 - **Status:** open
+
+### 2026-07-20 — improvement — bare `specd verify` usage line hides `--criterion` mode, which `help verify` and the docs both document
+- **Context:** `agent-protocol-clarity` after T1–T8 complete, chasing the `total 0/12 criteria passing` line from the entry above. Went looking for the command that records criterion evidence.
+- **Expected:** the first surface I hit while holding a spec with uncovered criteria names the command that covers them.
+- **Actual:** guessed a top-level verb and got `UNKNOWN_COMMAND: unknown command "verify-criterion"`; the palette dump that follows it lists `verify` with no hint the mode exists. Ran `specd verify` bare and got `usage: specd verify <slug> <task>` — the task form only. Only `specd help verify` and `docs/command-reference.md:821` show the real two-mode line: `specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>`. No parity gap and no missing verb — the feature is complete and correctly documented, it just is not visible from the two surfaces reached first.
+- **Root cause:** `runVerify` (`internal/cmd/verify.go:22`) hand-writes a shorter usage string than the palette's own `help verify` text, so the dispatch-time error is narrower than the registered usage. The two strings are independent, with nothing asserting they agree.
+- **Recommendation:** return the palette usage string in `runVerify`'s arity error instead of the hand-written literal, so the error matches `help verify`. One line, removes a class of drift rather than this instance. Optionally have `docs-lint.sh` assert no `errors.New("usage: ...")` literal in a handler whose verb has a palette usage string.
+- **Status:** open

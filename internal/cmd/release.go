@@ -19,7 +19,7 @@ import (
 // produced here.
 func runRelease(root string, args []string, flags map[string]string) error {
 	if len(args) < 2 || args[0] != "candidate" {
-		return fmt.Errorf("%w: usage: specd release candidate <spec> --artifact-digest <d> --sbom-ref <r> --provenance-ref <r>", ErrUsage)
+		return usageError("release")
 	}
 	slug := args[1]
 

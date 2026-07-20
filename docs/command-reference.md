@@ -131,7 +131,7 @@ specd brain report payments <lease-id> worker-1
 ### `check`
 
 ```
-specd check <spec> [--security] [--json]
+specd check <spec> [--security] [--schema] [--schema-only] [--json]
 ```
 
 Run the validation gate registry against a spec.

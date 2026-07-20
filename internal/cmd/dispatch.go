@@ -20,6 +20,16 @@ import (
 // so the message names the specific violation (spec 03 R2, R3).
 var ErrUsage = errors.New("usage")
 
+// usageError builds an arity/usage rejection from the palette's own usage
+// string, so a handler's error can never drift from what `specd help <verb>`
+// and docs/command-reference.md print for the same verb.
+func usageError(verb string) error {
+	if cmd, ok := core.CommandByName(verb); ok {
+		return fmt.Errorf("%w: %s", ErrUsage, cmd.Usage)
+	}
+	return fmt.Errorf("%w: specd %s", ErrUsage, verb)
+}
+
 // Run is the single dispatch choke point. It resolves the verb, enforces
 // declared flag enums and lifecycle-phase compatibility *before* any handler
 // side effect, then invokes the handler. Fail-closed rejections wrap ErrUsage

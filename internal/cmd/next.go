@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -12,7 +11,7 @@ import (
 
 func runNext(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return errors.New("usage: specd next <slug> [--json|--waves]")
+		return usageError("next")
 	}
 	spec, err := loadSpec(root, args[0])
 	if err != nil {

@@ -20,7 +20,7 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		return runVerifyCriterion(root, args, flags)
 	}
 	if len(args) != 2 {
-		return errors.New("usage: specd verify <slug> <task>")
+		return usageError("verify")
 	}
 	slug, taskID := args[0], args[1]
 	if err := requireTaskGate(root, slug); err != nil {
