@@ -171,9 +171,11 @@ Complete one task by consuming current passing evidence through the gated comple
 | `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim. |
 | `--input-tokens` | string | Optional provider-neutral input token count. |
 | `--model` | string | Optional bounded model identifier. |
+| `--nonce` | minted by `specd session action` | Single-use operation nonce. Spent on use; a replay is refused. |
 | `--output-tokens` | string | Optional provider-neutral output token count. |
 | `--pricing-ref` | string | Pricing reference required with canonical cost. |
 | `--provider` | string | Optional bounded provider identifier. |
+| `--session` | id minted by `specd session open` | Driver session id. Required while a session is open; mint the accompanying nonce with `specd session action`. |
 | `--telemetry-source` | string | Telemetry provenance. |
 | `--tokens` | string | Optional worker-reported token count, stored verbatim. |
 
@@ -272,6 +274,28 @@ Project declared invariants and active decisions against local verify evidence w
 ```bash
 specd drift payments
 specd drift payments --json
+```
+
+### `drive`
+
+```
+specd drive <spec> [--json] [--sandbox]
+```
+
+Emit the single next-action envelope: session, revision, assurance, permitted actor, legal operations, selected task, authority, context digest, blockers, and the exact next command. A projection over the granular commands, which keep working unchanged.
+
+**Phases:** analyze · plan · execute · verify · reflect.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--json` | bool | Emit the machine-readable drive envelope. |
+| `--sandbox` | bool | Declare that the invoking host isolates execution. Raises the reported assurance ceiling; absent, the session is advisory. |
+
+**Examples:**
+
+```bash
+specd drive payments --json
+specd drive payments --sandbox --json
 ```
 
 ### `eval`
@@ -707,6 +731,32 @@ specd review payments
 specd review payments --force
 ```
 
+### `session`
+
+```
+specd session <open|show|action|ack|close> <spec> [<task>] [--driver <host>] [--tokens <n>] [--json]
+```
+
+Manage the driver session that binds a host to one spec's mutable work. `action` mints the single-use nonce and bindings a mutable operation must carry; `ack` records the host's context receipt, without which mutable authority stays withheld.
+
+**Phases:** analyze · plan · execute · verify · reflect.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--driver` | string | Host identity opening the session (required by `open`). |
+| `--json` | bool | Emit machine-readable session packet. |
+| `--partial` | bool | Acknowledge no required context lane, proving the withholding path (`ack`). |
+| `--tokens` | string | Host-reported context token count recorded by `ack`. Recorded, never trusted as the harness estimate. |
+
+**Examples:**
+
+```bash
+specd session open payments --driver claude-code --json
+specd session ack payments T1 --tokens 4200
+specd session action payments --json
+specd session close payments
+```
+
 ### `spike`
 
 ```
@@ -836,12 +886,14 @@ Run and record task verification (task mode), or record a per-acceptance-criteri
 | `--evidence` | string | Evidence text or path backing the criterion verdict (with --criterion). |
 | `--input-tokens` | string | Optional provider-neutral input token count. |
 | `--model` | string | Optional bounded model identifier. |
+| `--nonce` | minted by `specd session action` | Single-use operation nonce. Spent on use; a replay is refused. |
 | `--output-tokens` | string | Optional provider-neutral output token count. |
 | `--pricing-ref` | string | Pricing reference required with canonical cost. |
 | `--provider` | string | Optional bounded provider identifier. |
 | `--revert-on-fail` | bool | Restore working tree on verify failure. |
 | `--sandbox` | bool | Run the verify line inside a bwrap sandbox (fail-closed if the binary is absent). |
 | `--sandbox-binary` | string | Path to sandbox binary (overrides auto-detect). |
+| `--session` | id minted by `specd session open` | Driver session id. Required while a session is open; mint the accompanying nonce with `specd session action`. |
 | `--status` | pass|fail | Criterion verdict (with --criterion): pass|fail. |
 | `--telemetry-source` | string | Telemetry provenance. |
 | `--tokens` | string | Optional worker-reported token count, stored verbatim. |

@@ -88,3 +88,45 @@ func Decide(snapshot Snapshot, limits DecisionLimits) Decision {
 	})
 	return Decision{Action: ActionDispatch, TaskID: frontier[0].ID, Reason: "frontier ready"}
 }
+
+// ReasonWaitScopeConflict is the wait a task earns when every runnable option
+// overlaps live work. Like the other wait reasons it names the lever, which
+// here is time rather than a command: the conflict clears when the lease does.
+const ReasonWaitScopeConflict = "waiting: every frontier task overlaps an active lease's write scope; wait for the lease to release or inspect with `specd brain status <slug>`"
+
+// PreDispatchConflict reports whether dispatching taskID with the given write
+// scope would overlap live work (R6.2).
+//
+// It runs before dispatch, not at claim. CheckParallelConflict already guards
+// the claim, but by then a mission exists and a worker is asking for it — the
+// overlap has been created and is merely being refused. Detecting it here means
+// the conflicting mission is never minted, so the loser is a task that waits
+// rather than a worker that fails.
+//
+// Callers hold the spec lock, so the lease set cannot change underneath this
+// between the check and the dispatch it guards.
+func PreDispatchConflict(taskID string, declared []string, missions []MissionV1, leases []Lease, now time.Time) error {
+	byID := make(map[string]MissionV1, len(missions))
+	for _, mission := range missions {
+		byID[mission.MissionID] = mission
+	}
+	for _, lease := range leases {
+		if lease.State != LeaseActive || !now.Before(lease.ExpiresAt) {
+			continue
+		}
+		// A lease on the same task is this task's own prior attempt, not a
+		// competitor; refusing it would deadlock every retry.
+		if lease.TaskID == taskID {
+			continue
+		}
+		active, ok := byID[lease.MissionID]
+		if !ok {
+			continue
+		}
+		if scopesOverlap(declared, active.DeclaredFiles) {
+			return core.Refusef("WRITE_SCOPE_CONFLICT", "task %s overlaps the write scope held by task %s under lease %s",
+				taskID, active.TaskID, lease.LeaseID)
+		}
+	}
+	return nil
+}

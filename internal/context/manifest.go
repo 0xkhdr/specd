@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -778,4 +779,27 @@ func AttachAuthority(m MachineManifest, authority core.AuthorityV1) (MachineMani
 	}
 	m.ManifestDigest = MachineManifestDigest(m)
 	return m, nil
+}
+
+// RequiredDigests returns the digest of every required item in the manifest, in
+// deterministic order. It is what a host must acknowledge loading before mutable
+// authority activates (R3.1), and what core.BuildContextReceipt derives the
+// missing set against.
+//
+// Digests rather than paths: the receipt contract is content-free, and a digest
+// also pins the version the host read. A host that loaded a stale copy of a
+// required file reports a digest that no longer matches, which is a miss rather
+// than a silent pass.
+func RequiredDigests(m MachineManifest) []string {
+	digests := make([]string, 0, len(m.Items))
+	for _, item := range m.Items {
+		if !item.Required {
+			continue
+		}
+		if digest := selectedDigest(item); digest != "" {
+			digests = append(digests, digest)
+		}
+	}
+	sort.Strings(digests)
+	return slices.Compact(digests)
 }

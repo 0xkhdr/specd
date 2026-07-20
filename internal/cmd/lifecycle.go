@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
+	corescope "github.com/0xkhdr/specd/internal/core/scope"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
@@ -254,29 +257,16 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if err != nil {
 			return struct{}{}, err
 		}
-		cfg := loadSpecConfig(root)
-		if cfg.ProductionTaskAuthorityRequired() {
-			sessionPath := filepath.Join(core.SpecdDir(root), "specs", slug, "session.json")
-			session, err := orchestration.LoadSession(sessionPath)
-			if err != nil {
-				return struct{}{}, err
-			}
-			baseline := ""
-			for _, m := range append(session.Missions, session.PendingMissions...) {
-				if m.TaskID == id {
-					baseline = m.SubjectHead
-				}
-			}
-			if baseline == "" {
-				return struct{}{}, fmt.Errorf("outside_scope: task %s has no pinned baseline; dispatch a fresh mission", id)
-			}
-			diff, err := core.DeriveDiff(root, baseline)
-			if err != nil {
-				return struct{}{}, err
-			}
-			if err := gates.CheckScope(diff.Paths, task.DeclaredFiles); err != nil {
-				return struct{}{}, err
-			}
+		// R2.2/R2.3/R2.4 and R3.2: when a driver session is open, every protocol
+		// binding is required before the state mutation below.
+		if err := enforceSessionBinding(root, slug, id, state, flags, time.Now()); err != nil {
+			return struct{}{}, err
+		}
+		// R4.5: diff-scope is a core invariant, not a production-profile extra.
+		// It runs here on every transport and every profile; what varies is
+		// whether a baseline was ever pinned, not whether the rule applies.
+		if err := enforceDiffScope(root, slug, id, task); err != nil {
+			return struct{}{}, err
 		}
 		// Escalation ratchet (spec 06 R2): a task blocked by N consecutive verify
 		// failures cannot complete until a human override resets the counter. The
@@ -607,4 +597,216 @@ func tasksStub(slug string) string {
 
 <!-- Example field values (not a runnable task): id=T<n>; role=craftsman; files=<paths>; depends-on=-; verify=<command>; acceptance=<criterion IDs>; refs=R1.1; kind=feature; risk=medium; complexity=standard; capabilities=read,write; context=<required sources>; evidence=tests; checks=<negative and edge cases>. -->
 `, slug)
+}
+
+// enforceDiffScope compares the whole worktree diff against the task's declared
+// scope (R4.1 to R4.4) and runs on every transport and profile (R4.5).
+//
+// Baseline resolution is graduated, because what a baseline means depends on how
+// the work was dispatched:
+//
+//   - a brain mission pins one explicitly (the production path);
+//   - otherwise the driver session's git HEAD at open bounds the work;
+//   - otherwise nothing pinned the work at all.
+//
+// The last case proceeds rather than refusing. There is no reference point to
+// measure against, so a refusal would be arbitrary rather than earned — and a
+// session that pinned nothing is already reported as advisory (R5.4), which is
+// the honest label for work the harness did not bound. This is the one place
+// the check yields, and it yields to absence of evidence, never to a flag: no
+// configuration, role, or argument can switch the rule off when a baseline does
+// exist.
+func enforceDiffScope(root, slug, id string, task core.TaskRow) error {
+	baseline := missionBaseline(root, slug, id)
+	if baseline == "" {
+		session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+		if err != nil {
+			return err
+		}
+		baseline = session.BaselineHead
+	}
+	if baseline == "" {
+		// The production profile has always refused an unpinned task, and R4.5
+		// asks for the check to run everywhere — not for production to start
+		// accepting what it previously rejected. The graduated behaviour below
+		// is for the default profile only.
+		if loadSpecConfig(root).ProductionTaskAuthorityRequired() {
+			return core.Refusef("BASELINE_UNPINNED", "task %s has no pinned baseline; dispatch a fresh mission or open a driver session", id).
+				WithRecovery(core.RefusalActorAgent, "specd session open "+slug+" --driver <host>")
+		}
+		return nil
+	}
+
+	// The full diff, deliberately not core.DeriveDiff: that helper strips
+	// .specd/ paths, which is exactly the class R4.3 must reject.
+	diff, err := corescope.Derive(root, baseline)
+	if err != nil {
+		return core.Refusef("BASELINE_UNRESOLVABLE", "cannot derive the diff for task %s against baseline %s: %v", id, baseline, err).
+			WithRecovery(core.RefusalActorAgent, "specd session open "+slug+" --driver <host>").Wrapping(err)
+	}
+
+	findings := gates.CheckDiffScope(gates.DiffScopeInput{
+		TaskID:             id,
+		Baseline:           baseline,
+		Changes:            diff.Changes,
+		DeclaredPaths:      task.DeclaredFiles,
+		BaselineIsAncestor: isAncestor(root, baseline),
+		BaselineResolvable: true,
+		OtherLeaseScopes:   otherLeaseScopes(root, slug, id),
+	})
+	if len(findings) == 0 {
+		return nil
+	}
+	messages := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		messages = append(messages, finding.Message)
+	}
+	// No bypass is offered: the recovery is to declare the path or narrow the
+	// change, which is a task edit, not a flag.
+	return core.Refusef("OUTSIDE_SCOPE", "task %s changed files outside its declared scope:\n  %s", id, strings.Join(messages, "\n  ")).
+		WithRecovery(core.RefusalActorAgent, "specd status "+slug+" --guide")
+}
+
+// missionBaseline returns the SubjectHead a brain mission pinned for this task,
+// or "" when the brain is not driving it.
+func missionBaseline(root, slug, id string) string {
+	session, err := orchestration.LoadSession(filepath.Join(core.SpecdDir(root), "specs", slug, "session.json"))
+	if err != nil {
+		return ""
+	}
+	baseline := ""
+	for _, mission := range append(session.Missions, session.PendingMissions...) {
+		if mission.TaskID == id {
+			baseline = mission.SubjectHead
+		}
+	}
+	return baseline
+}
+
+// otherLeaseScopes maps every active lease except this task's to the paths it
+// holds, so an overlapping write is refused rather than racing (R4.4).
+func otherLeaseScopes(root, slug, id string) map[string][]string {
+	session, err := orchestration.LoadSession(filepath.Join(core.SpecdDir(root), "specs", slug, "session.json"))
+	if err != nil {
+		return nil
+	}
+	scopes := map[string][]string{}
+	for _, lease := range session.Leases {
+		// Only an active lease can race this write. A revoked or expired one
+		// holds nothing, and treating it as an overlap would refuse legitimate
+		// work after every failed attempt.
+		if lease.TaskID == id || lease.State != orchestration.LeaseActive {
+			continue
+		}
+		for _, mission := range append(session.Missions, session.PendingMissions...) {
+			if mission.TaskID == lease.TaskID && len(mission.DeclaredFiles) > 0 {
+				scopes[lease.LeaseID] = mission.DeclaredFiles
+			}
+		}
+	}
+	if len(scopes) == 0 {
+		return nil
+	}
+	return scopes
+}
+
+// isAncestor reports whether baseline is an ancestor of HEAD. A false answer
+// means the worktree carries history predating the mission baseline (R4.2).
+func isAncestor(root, baseline string) bool {
+	return exec.Command("git", "-C", root, "merge-base", "--is-ancestor", baseline, "HEAD").Run() == nil
+}
+
+// enforceSessionBinding is the live enforcement of R2.2, R2.3, R2.4, and R3.2
+// on a mutable operation.
+//
+// Graduated like the diff-scope check above, and for the same reason: an
+// operator driving specd by hand has no session, and refusing them would make
+// the harness unusable outside a governed host. But the moment a session IS
+// open, the host has declared itself governed, and every binding the protocol
+// defines is then required. There is no flag to turn this off — closing the
+// session is the only way out, and that is a visible act rather than a hidden
+// one.
+//
+// The nonce is spent here, inside the same spec lock the caller holds, so two
+// concurrent operations cannot both observe it unspent.
+func enforceSessionBinding(root, slug, id string, state core.State, flags map[string]string, now time.Time) error {
+	session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+	if err != nil {
+		return err
+	}
+	if session.ID == "" || session.Expired(now) {
+		return nil
+	}
+
+	sessionID, nonce := flags["session"], flags["nonce"]
+	if sessionID == "" || nonce == "" {
+		recordConformance(root, slug, id, core.ConformanceWorkWithoutBootstrap,
+			"mutable operation attempted without session bindings while session "+session.ID+" was open")
+		return core.Refusef("BINDING_MISSING", "driver session %s is open, so %s requires --session and --nonce", session.ID, id).
+			WithRecovery(core.RefusalActorAgent, "specd session action "+slug+" --json")
+	}
+
+	// R3.2: authority does not activate until the required context lanes are
+	// acknowledged. Checked before the nonce is spent, so a host that has not
+	// acknowledged does not burn one discovering that.
+	if session.ContextReceipt == nil {
+		recordConformance(root, slug, id, core.ConformanceContextAckSkipped, "no context receipt recorded for session "+session.ID)
+		return core.Refusef("BINDING_MISSING", "session %s has acknowledged no context; mutable authority is withheld", session.ID).
+			WithRecovery(core.RefusalActorAgent, "specd session ack "+slug+" "+id+" --tokens <n>")
+	}
+	if !session.ContextReceipt.Complete() {
+		recordConformance(root, slug, id, core.ConformanceContextAckSkipped,
+			fmt.Sprintf("%d required context lanes unacknowledged", len(session.ContextReceipt.MissingDigests)))
+		return core.Refusef("AUTHORITY_DENIED", "session %s is missing %d required context lane(s); mutable authority is withheld",
+			session.ID, len(session.ContextReceipt.MissingDigests)).
+			WithRecovery(core.RefusalActorAgent, "specd session ack "+slug+" "+id+" --tokens <n>")
+	}
+
+	binding := core.OperationBinding{
+		SessionID:            sessionID,
+		ExpectedRevision:     state.Revision,
+		HandshakeDigest:      session.HandshakeDigest,
+		AuthorityDigest:      session.AuthorityDigest,
+		ContextReceiptDigest: session.ContextReceipt.ReceiptDigest,
+		BaselineRevision:     session.BaselineRevision,
+		Nonce:                nonce,
+	}
+	if _, err := core.SpendNonce(root, slug, binding, state.Revision, now); err != nil {
+		recordConformanceForRefusal(root, slug, id, err)
+		return err
+	}
+	return nil
+}
+
+// recordConformance observes a protocol violation (R7.1). The error is
+// deliberately discarded: an observation must never change control flow, or the
+// log becomes load-bearing (R7.2).
+func recordConformance(root, slug, taskID, kind, detail string) {
+	_ = core.RecordConformanceEvent(root, slug, core.ConformanceEvent{
+		Kind: kind, TaskID: taskID, Operation: "complete-task", Detail: detail,
+	})
+}
+
+// recordConformanceForRefusal maps a binding refusal to the protocol event it
+// evidences, so the log distinguishes a replay from an expired session.
+func recordConformanceForRefusal(root, slug, taskID string, err error) {
+	refusal, ok := core.AsRefusal(err)
+	if !ok {
+		return
+	}
+	kind := ""
+	switch refusal.Code {
+	case "NONCE_REPLAYED":
+		kind = core.ConformanceStaleActionReplayed
+	case "REVISION_CONFLICT", "BASELINE_DRIFTED":
+		kind = core.ConformanceStaleActionReplayed
+	case "AUTHORITY_DENIED":
+		kind = core.ConformanceActedWithoutAuthority
+	case "SESSION_UNKNOWN", "SESSION_EXPIRED", "HANDSHAKE_MISMATCH":
+		kind = core.ConformanceWorkWithoutBootstrap
+	}
+	if kind == "" {
+		return
+	}
+	recordConformance(root, slug, taskID, kind, refusal.Code+": "+refusal.Blocker)
 }

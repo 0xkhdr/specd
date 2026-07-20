@@ -46,6 +46,19 @@ func brainWorkerReport(root, sessionPath, acpPath, slug string, args []string) e
 	now := time.Now()
 	head := gitHead(root)
 	r := orchestration.WorkerReportV1{MissionID: m.MissionID, LeaseID: l.LeaseID, WorkerID: workerID, TaskID: m.TaskID, Attempt: m.Attempt, Role: m.Role, SubjectHead: head, VerifyRef: "evidence.jsonl#" + m.TaskID, Status: "complete"}
+	// R6.1: a lease bound to a driver session may only be acted on under that
+	// session. An unbound lease is unaffected, and a closed or expired session
+	// leaves nothing to match against, so this refuses only a genuine mismatch:
+	// a second host reporting against work another session holds.
+	if l.DriverSessionID != "" {
+		driver, loadErr := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+		if loadErr != nil {
+			return loadErr
+		}
+		if err := orchestration.ValidateLeaseSession(l, driver.ID); err != nil {
+			return err
+		}
+	}
 	if err := orchestration.ValidateWorkerReport(r, m, l, now); err != nil {
 		return err
 	}

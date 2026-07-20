@@ -81,8 +81,13 @@ func TestBrainReportProductionScopeRejectsUndeclared(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := runTaskComplete(root, []string{"demo", "T1"}, nil)
-	if err == nil || !strings.Contains(err.Error(), "outside_scope") {
+	// The refusal is typed since the diff-scope gate moved into the core path;
+	// the code is upper-case like every other entry in refusal.go.
+	if err == nil || !strings.Contains(err.Error(), "OUTSIDE_SCOPE") {
 		t.Fatalf("err=%v", err)
+	}
+	if !strings.Contains(err.Error(), "outside.go") {
+		t.Fatalf("refusal does not name the undeclared file: %v", err)
 	}
 }
 

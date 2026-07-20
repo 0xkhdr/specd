@@ -254,6 +254,14 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 			break
 		}
 	}
+	// R6.2: detect the overlap before the mission is minted, not at claim. The
+	// caller holds the spec lock, so the lease set cannot move between here and
+	// the append below.
+	if err := orchestration.PreDispatchConflict(task.ID, selected.DeclaredFiles,
+		append(append([]orchestration.MissionV1(nil), d.session.Missions...), d.session.PendingMissions...),
+		d.session.Leases, d.now); err != nil {
+		return err
+	}
 	route, err := orchestration.RouteTask(selected, d.config.Routing)
 	if err != nil {
 		return err

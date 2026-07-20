@@ -24,6 +24,13 @@ func ValidateWorkerReport(r WorkerReportV1, m MissionV1, l Lease, now time.Time)
 	if r.MissionID != m.MissionID || r.MissionID != l.MissionID || r.LeaseID != l.LeaseID || r.WorkerID != l.WorkerID || r.TaskID != m.TaskID || r.TaskID != l.TaskID || r.Attempt != m.Attempt || r.Attempt != l.Attempt || r.Role != m.Role || r.SubjectHead == "" || r.VerifyRef == "" || (m.DispatchDigest != "" && (r.DispatchDigest != m.DispatchDigest || l.DispatchDigest != m.DispatchDigest)) {
 		return fmt.Errorf("REPORT_IDENTITY_OR_PIN_MISMATCH")
 	}
+	// R6.3: a report whose subject head is not the one the mission pinned was
+	// produced against a tree that has since moved. The identity check above
+	// only requires SubjectHead to be non-empty, which a worker on a drifted
+	// baseline satisfies without ever agreeing with the mission.
+	if r.SubjectHead != m.SubjectHead {
+		return fmt.Errorf("REPORT_BASELINE_STALE: report pins %s but mission %s pinned %s", r.SubjectHead, m.MissionID, m.SubjectHead)
+	}
 	if l.State != LeaseActive || !now.Before(l.ExpiresAt) {
 		return fmt.Errorf("REPORT_LEASE_NOT_LIVE")
 	}

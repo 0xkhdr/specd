@@ -2,7 +2,67 @@
   "schema_version": 1,
   "slug": "agent-driver-protocol",
   "mode": "default",
-  "status": "requirements",
-  "phase": "perceive",
-  "revision": 0
+  "status": "complete",
+  "phase": "reflect",
+  "revision": 15,
+  "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 14,
+      "timestamp": "2026-07-20T20:10:31Z",
+      "git_head": "99208cea74fcf77dba3b37a8d335908f3dcfd3a2",
+      "actor": "xkhdr"
+    },
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "0e58a69c2865194a9052d022a177ea2adf4336ac01cc6401751b3e506a0ea663",
+      "timestamp": "2026-07-20T18:16:24Z",
+      "git_head": "99208cea74fcf77dba3b37a8d335908f3dcfd3a2",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 13,
+      "timestamp": "2026-07-20T20:10:29Z",
+      "git_head": "99208cea74fcf77dba3b37a8d335908f3dcfd3a2",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "4d30dc9e00a1f9afe244b37c3d8eb5675fb4ee97e73e9b66bcb694670fb79bec",
+      "timestamp": "2026-07-20T18:16:23Z",
+      "git_head": "99208cea74fcf77dba3b37a8d335908f3dcfd3a2",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 2,
+      "timestamp": "2026-07-20T18:16:25Z",
+      "git_head": "99208cea74fcf77dba3b37a8d335908f3dcfd3a2",
+      "actor": "xkhdr"
+    }
+  },
+  "task_status": {
+    "T1": "complete",
+    "T10": "complete",
+    "T2": "complete",
+    "T3": "complete",
+    "T4": "complete",
+    "T5": "complete",
+    "T6": "complete",
+    "T7": "complete",
+    "T8": "complete",
+    "T9": "complete"
+  }
 }

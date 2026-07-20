@@ -29,6 +29,43 @@ type Lease struct {
 	RevocationReason string           `json:"revocation_reason,omitempty"`
 	Authority        core.AuthorityV1 `json:"authority"`
 	Retries          int              `json:"retries"`
+
+	// DriverSessionID binds the lease to the driver session that governs its
+	// task (R6.1). Without it, a lease and a session are two independent
+	// authorities over the same work: a session can outlive the lease it was
+	// opened for, and a lease can be claimed by a host holding no session at
+	// all. Empty means the lease predates session binding, which stays valid so
+	// existing sessions are not invalidated by an upgrade.
+	DriverSessionID string `json:"driver_session_id,omitempty"`
+}
+
+// BindLeaseToSession attaches a driver session to a lease (R6.1). Rebinding a
+// lease already bound to a different session is refused: that is either a
+// second host claiming live work, or the same host having lost and reopened its
+// session, and both need the lease reissued rather than quietly retargeted.
+func BindLeaseToSession(lease Lease, sessionID string) (Lease, error) {
+	if sessionID == "" {
+		return Lease{}, core.Refuse("SESSION_UNKNOWN", "cannot bind a lease to an empty driver session id")
+	}
+	if lease.DriverSessionID != "" && lease.DriverSessionID != sessionID {
+		return Lease{}, core.Refusef("LEASE_SESSION_CONFLICT", "lease %s is already bound to driver session %s", lease.LeaseID, lease.DriverSessionID)
+	}
+	lease.DriverSessionID = sessionID
+	return lease, nil
+}
+
+// ValidateLeaseSession checks that an operation carrying sessionID is entitled
+// to act under this lease (R6.1). An unbound lease is accepted for backward
+// compatibility; a bound one must match exactly.
+func ValidateLeaseSession(lease Lease, sessionID string) error {
+	if lease.DriverSessionID == "" {
+		return nil
+	}
+	if sessionID != lease.DriverSessionID {
+		return core.Refusef("LEASE_SESSION_MISMATCH", "lease %s is bound to driver session %s, not %s", lease.LeaseID, lease.DriverSessionID, sessionID).
+			WithRecovery(core.RefusalActorAgent, "specd session open <slug> --driver <host>")
+	}
+	return nil
 }
 
 func ValidateLease(l Lease) error {

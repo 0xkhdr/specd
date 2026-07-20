@@ -44,6 +44,16 @@ func brainClaim(root, sessionPath, acpPath, slug string, args []string) error {
 		if err != nil {
 			return struct{}{}, err
 		}
+		// R6.1: bind the lease to the driver session governing this spec, so a
+		// lease and a session cannot become two independent authorities over the
+		// same task. No open session leaves the lease unbound, which stays valid.
+		if driver, err := core.LoadDriverSession(core.DriverSessionPath(root, slug)); err == nil && driver.ID != "" && !driver.Expired(now) {
+			bound, err := orchestration.BindLeaseToSession(l, driver.ID)
+			if err != nil {
+				return struct{}{}, err
+			}
+			l = bound
+		}
 		s.PendingMissions = append(s.PendingMissions[:idx], s.PendingMissions[idx+1:]...)
 		s.Missions = append(s.Missions, m)
 		s.Leases = append(s.Leases, l)

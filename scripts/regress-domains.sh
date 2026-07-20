@@ -265,6 +265,69 @@ else
 	pass W7 "report --proof deterministic (coverage/stale/amendments/escaped)"
 fi
 
+# AD-R8 — diff-scope is a core invariant (agent-driver-protocol R4.5). The check
+# must run on the DEFAULT profile: it previously lived behind
+# `lifecycle.profile = production`, so a probe that enables production would pass
+# while the invariant this asserts was absent. No project.yml profile is set here.
+#
+# A baseline is what arms the check, and `session open` is what pins one, so the
+# probe opens a session and then completes with an undeclared file present.
+author_ad_spec ad-diffscope '| T1 | craftsman | ad-diffscope-declared.txt | - | test -f ad-diffscope-declared.txt | R1.1 | R1, R1.1 | feature | low | low | test/unit |'
+approve_ad_to_tasks ad-diffscope
+"$SPECD" approve ad-diffscope >/dev/null 2>&1 || violation AD-R8 "tasks approval failed for diff-scope probe"
+
+printf 'declared\n' >ad-diffscope-declared.txt
+git add -A >/dev/null 2>&1
+git commit -qm 'diff-scope probe baseline' >/dev/null 2>&1 || violation AD-R8 "could not commit probe baseline"
+"$SPECD" session open ad-diffscope --driver regress >/dev/null 2>&1 || violation AD-R8 "session open failed"
+
+# An open session makes the protocol bindings mandatory, so the probe drives the
+# real chain: ack the context, mint a nonce, then complete. The declared file
+# alone must complete cleanly, or the violation probe below proves nothing.
+printf 'edited\n' >ad-diffscope-declared.txt
+"$SPECD" verify ad-diffscope T1 >/dev/null 2>&1 || violation AD-R8 "declared-only verify failed"
+if "$SPECD" complete-task ad-diffscope T1 >/dev/null 2>&1; then
+	violation AD-R8 "an open session accepted a completion carrying no bindings"
+fi
+"$SPECD" session ack ad-diffscope T1 --tokens 100 >/dev/null 2>&1 || violation AD-R8 "context ack failed"
+ds_id=$("$SPECD" session show ad-diffscope --json | sed -n 's/.*"id": "\([^"]*\)".*/\1/p' | head -1)
+ds_nonce=$("$SPECD" session action ad-diffscope --json | sed -n 's/.*"nonce": "\([^"]*\)".*/\1/p' | head -1)
+[ -n "$ds_id" ] && [ -n "$ds_nonce" ] || violation AD-R8 "session action did not mint bindings"
+"$SPECD" complete-task ad-diffscope T1 --session "$ds_id" --nonce "$ds_nonce" >/dev/null 2>&1 || violation AD-R8 "declared-only change was refused"
+if "$SPECD" complete-task ad-diffscope T1 --session "$ds_id" --nonce "$ds_nonce" >/dev/null 2>&1; then
+	violation AD-R8 "a spent nonce was accepted a second time"
+fi
+
+# Now the real assertion, on a second spec: an undeclared sibling must refuse.
+author_ad_spec ad-diffscope-violation '| T1 | craftsman | ad-diffscope-declared.txt | - | test -f ad-diffscope-declared.txt | R1.1 | R1, R1.1 | feature | low | low | test/unit |'
+approve_ad_to_tasks ad-diffscope-violation
+"$SPECD" approve ad-diffscope-violation >/dev/null 2>&1 || violation AD-R8 "tasks approval failed for violation probe"
+git add -A >/dev/null 2>&1
+git commit -qm 'violation probe baseline' >/dev/null 2>&1 || violation AD-R8 "could not commit violation baseline"
+"$SPECD" session open ad-diffscope-violation --driver regress >/dev/null 2>&1 || violation AD-R8 "session open failed"
+
+printf 'edited again\n' >ad-diffscope-declared.txt
+printf 'undeclared\n' >ad-diffscope-undeclared.txt
+"$SPECD" verify ad-diffscope-violation T1 >/dev/null 2>&1 || violation AD-R8 "violation probe verify failed"
+"$SPECD" session ack ad-diffscope-violation T1 --tokens 100 >/dev/null 2>&1 || violation AD-R8 "context ack failed"
+vs_id=$("$SPECD" session show ad-diffscope-violation --json | sed -n 's/.*"id": "\([^"]*\)".*/\1/p' | head -1)
+vs_nonce=$("$SPECD" session action ad-diffscope-violation --json | sed -n 's/.*"nonce": "\([^"]*\)".*/\1/p' | head -1)
+if scope_out=$("$SPECD" complete-task ad-diffscope-violation T1 --session "$vs_id" --nonce "$vs_nonce" 2>&1); then
+	violation AD-R8 "completion accepted an undeclared file on the default profile"
+fi
+printf '%s\n' "$scope_out" | grep -Fq 'OUTSIDE_SCOPE' || violation AD-R8 "scope refusal is not typed OUTSIDE_SCOPE"
+printf '%s\n' "$scope_out" | grep -Fq 'ad-diffscope-undeclared.txt' || violation AD-R8 "scope refusal does not name the undeclared file"
+
+# R4.3 — harness-owned artifacts are refused even though .specd/ runtime state
+# (evidence, session, state.json) is written by specd during the same task.
+printf '\nhand-edited\n' >>.specd/specs/ad-diffscope-violation/tasks.md
+vs_nonce2=$("$SPECD" session action ad-diffscope-violation --json | sed -n 's/.*"nonce": "\([^"]*\)".*/\1/p' | head -1)
+if marker_out=$("$SPECD" complete-task ad-diffscope-violation T1 --session "$vs_id" --nonce "$vs_nonce2" 2>&1); then
+	violation AD-R8 "completion accepted a hand-edited tasks.md"
+fi
+printf '%s\n' "$marker_out" | grep -Fq 'harness-owned' || violation AD-R8 "task-marker refusal does not name the harness-owned rule"
+pass AD-R8 "diff-scope + session bindings enforce on the default profile (undeclared, harness-owned, unbound, replayed)"
+
 # Domain 10 W3 — public adapter contract remains executable without internal imports.
 ./scripts/adapter-conformance.sh >/dev/null 2>&1 || {
 	violation 10-W3 "adapter conformance contract regressed"
