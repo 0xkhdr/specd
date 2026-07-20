@@ -50,24 +50,16 @@ const (
 )
 
 func MergePinkyCodexConfig(existing, root string) string {
+	// Only the MCP server registration lives here. Codex auto-discovers the
+	// per-role agent definitions from .codex/agents/*.toml, so declaring them
+	// again in config.toml made codex see each role twice ("duplicate agent
+	// role name ... in the same config layer") and drop them.
 	block := strings.Join([]string{
 		pinkyCodexBegin,
 		`[mcp_servers.specd]`,
 		`command = "specd"`,
 		`args = ["mcp"]`,
 		`cwd = "` + root + `"`,
-		``,
-		`[agents.pinky-scout]`,
-		`config = ".codex/agents/pinky-scout.toml"`,
-		``,
-		`[agents.pinky-craftsman]`,
-		`config = ".codex/agents/pinky-craftsman.toml"`,
-		``,
-		`[agents.pinky-validator]`,
-		`config = ".codex/agents/pinky-validator.toml"`,
-		``,
-		`[agents.pinky-auditor]`,
-		`config = ".codex/agents/pinky-auditor.toml"`,
 		pinkyCodexEnd,
 	}, "\n")
 	start := strings.Index(existing, pinkyCodexBegin)
@@ -207,13 +199,5 @@ func validPinkyCodexConfig(config string) bool {
 	if !strings.Contains(config, pinkyCodexBegin) || !strings.Contains(config, pinkyCodexEnd) {
 		return false
 	}
-	if !strings.Contains(config, "[mcp_servers.specd]") {
-		return false
-	}
-	for _, role := range []string{"scout", "craftsman", "validator", "auditor"} {
-		if !strings.Contains(config, "[agents.pinky-"+role+"]") {
-			return false
-		}
-	}
-	return true
+	return strings.Contains(config, "[mcp_servers.specd]")
 }

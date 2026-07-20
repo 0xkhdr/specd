@@ -28,8 +28,13 @@ func TestMergePinkyCodexConfigPreservesUserContent(t *testing.T) {
 	if strings.Contains(got, "old") {
 		t.Fatalf("MergePinkyCodexConfig did not replace managed block: %q", got)
 	}
-	if !strings.Contains(got, `[agents.pinky-craftsman]`) {
-		t.Fatalf("MergePinkyCodexConfig missing pinky agent block: %q", got)
+	if !strings.Contains(got, `[mcp_servers.specd]`) {
+		t.Fatalf("MergePinkyCodexConfig missing mcp server block: %q", got)
+	}
+	// Codex auto-discovers .codex/agents/*.toml; declaring the roles here too
+	// makes codex see each twice, so the managed block must not register them.
+	if strings.Contains(got, `[agents.pinky-`) {
+		t.Fatalf("MergePinkyCodexConfig must not register pinky agents in config.toml: %q", got)
 	}
 }
 
@@ -66,8 +71,8 @@ func TestWriteScaffoldPinkyArtifacts(t *testing.T) {
 	if !strings.Contains(string(config), "model = \"gpt-5\"") {
 		t.Fatalf("config lost user content: %s", config)
 	}
-	if !strings.Contains(string(config), `[agents.pinky-auditor]`) {
-		t.Fatalf("config missing pinky agents: %s", config)
+	if !strings.Contains(string(config), `[mcp_servers.specd]`) {
+		t.Fatalf("config missing pinky mcp server block: %s", config)
 	}
 }
 
