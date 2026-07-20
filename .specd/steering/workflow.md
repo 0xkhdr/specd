@@ -23,7 +23,8 @@ leaves an on-disk record.
   transitions.
 - `approve` refuses to transition if the phase's readiness gates do not pass, and
   reports the failing gates.
-- Record deviations from the spec via `specd decision` before finishing a task.
+- Record deviations from the spec via `specd request-decision` before finishing a task.
+  A human answers it; recording the answer is human-only.
 - Durable facts learned during work go to `memory.md` via `specd memory`, not into
   the spec prose.
 <!-- specd:managed:steering/workflow.md:v1 end -->
