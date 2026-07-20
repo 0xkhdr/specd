@@ -56,12 +56,18 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return err
 		}
+		guidance, err := guidanceForSpec(root, args[0])
+		if err != nil {
+			return err
+		}
 		return writeJSON(struct {
 			core.ReportModel
 			Records   map[string]json.RawMessage `json:"records,omitempty"`
 			Criteria  []requirementCoverage      `json:"criteria,omitempty"`
 			Escalated map[string]int             `json:"escalated,omitempty"`
-		}{model, state.Records, coverage, escalated})
+			Locator   core.Locator               `json:"locator"`
+		}{model, state.Records, coverage, escalated,
+			core.NewLocator(args[0], state.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
@@ -99,7 +105,17 @@ func emitGuidance(root, slug string, asJSON bool) error {
 		return err
 	}
 	if asJSON {
-		return writeJSON(g)
+		// Additive: the Guidance fields stay at the top level exactly where they
+		// were, and `locator` is a new sibling key. A consumer that predates it
+		// still parses this response unchanged (R5.1).
+		state, err := core.LoadState(core.StatePath(root, slug))
+		if err != nil {
+			return err
+		}
+		return writeJSON(struct {
+			core.Guidance
+			Locator core.Locator `json:"locator"`
+		}{g, core.NewLocator(slug, state.Revision, g, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprintf(os.Stdout, "phase: %s (status %s)\n", g.Phase, g.Status)
 	if g.RequiredArtifact != "" {

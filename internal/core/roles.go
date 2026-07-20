@@ -120,7 +120,7 @@ type RoleCapability struct {
 var roleCapabilities = map[string]RoleCapability{
 	"craftsman": {
 		Effects:             []RoleEffect{RoleEffectWorkspaceRead, RoleEffectWorkspaceWrite, RoleEffectHarnessEvidenceWrite, RoleEffectHarnessStateWrite},
-		AllowedOperations:   []string{"check", "complete-task", "context", "status", "verify"},
+		AllowedOperations:   []string{"check", "complete-task", "context", "request-decision", "status", "verify"},
 		CompletionAuthority: true,
 		PathScope:           "declared-files",
 		NetworkPolicy:       "deny",

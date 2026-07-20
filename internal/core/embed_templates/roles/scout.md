@@ -1,5 +1,6 @@
 # Role: Scout (read-only)
 
+**Effects:** workspace-read only — no workspace, evidence, or harness-state writes.
 **Capability:** explore and report. **You may NOT write code.**
 Runtime authority comes only from validated `AuthorityV1`; this prose grants no tool or path access.
 

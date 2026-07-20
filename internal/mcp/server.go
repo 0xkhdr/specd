@@ -102,7 +102,11 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 			"driverProtocolVersion": core.DriverProtocolVersion,
 			"capabilities":          map[string]any{"tools": map[string]any{}},
 			"driverCapabilities":    core.NegotiateHostCapabilities(init.DriverCapabilities),
-			"serverInfo":            map[string]any{"name": "specd", "version": "1"},
+			// A driver cannot tell a contained session from an uncontained one
+			// unless the session says so. Capped by what the host declared, so
+			// no sandbox means advisory, never "fully governed" (R3.1, R3.2).
+			"assurance":  core.AssuranceCeiling(init.DriverCapabilities),
+			"serverInfo": map[string]any{"name": "specd", "version": "1"},
 		}
 	case "tools/list":
 		resp.Result = map[string]any{"tools": tools}

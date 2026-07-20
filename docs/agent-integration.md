@@ -28,13 +28,56 @@ task. Each task in `tasks.md` declares one, and the `roles` gate rejects unknown
 |---|---|
 | **scout** | Read-only exploration. Inspects the repo/steering/spec, reports findings. No writes. |
 | **craftsman** | Write + verify. Edits only its declared files, runs `specd verify`, completes **exactly one atomic task** per invocation. |
-| **validator** | Read-only. Runs the task's verify command and reports the specd-generated record. |
+| **validator** | Workspace-read + harness-evidence-write. Runs the task's verify command and reports the specd-generated record. Not read-only: recording evidence is a write. |
 | **auditor** | Read-only. Audits a diff against the acceptance criteria; fills the review report. |
+
+Authority comes from the machine-readable role capability contract (`internal/core/roles.go`),
+never from role prose. Role Markdown explains the role to a reader; when the two disagree a
+conformance test fails rather than a runtime resolving the conflict.
 
 The capability split is currently convention plus structural gates. Role prose does not grant or
 revoke host tools, and declared task files are not yet compared with the harness-derived diff.
 Until production authority and scope gates land, hosts must enforce tool permissions and reviewers
 must inspect actual changes; `specd check --security` remains an explicit migration check.
+
+## Assurance: what is actually enforced, and by whom
+
+Machine-readable responses carry an `assurance` level so a driver never has to infer how much
+the session is worth:
+
+| Level | Meaning |
+|---|---|
+| `advisory` | Findings are reported. Nothing is contained. |
+| `gated` | Harness gates block the transition, but execution is not isolated. |
+| `sandboxed` | Gated, and the host isolates execution. |
+
+The level only ever moves down. A host that declares no sandbox support in the MCP `initialize`
+handshake is reported as `advisory`, and an unrecognized stored level degrades to `advisory`
+rather than being guessed upward — advertising containment nobody provides is the one failure
+mode worth designing against.
+
+**specd never enforces a host tool permission, a filesystem boundary, or a network policy.** It
+has no mechanism to. Isolation is the host's job in every profile; the profiles below change
+which *gates* run, not what the harness can contain.
+
+### Default profile vs production profile
+
+The boundary is explicit because the two profiles fail differently, not because one is "stricter":
+
+| | default profile | production profile |
+|---|---|---|
+| Evidence-gated completion | enforced | enforced |
+| Acyclic DAG, task schema, EARS, sync, approval gates | enforced | enforced |
+| Design contract present | not checked | required |
+| Task → requirement trace | not checked | required |
+| Steering memory lint | not checked | required |
+| Integration policy | inert | armed |
+| Host tool/path/network isolation | **not enforced — host's job** | **not enforced — host's job** |
+
+Everything enforced in the default profile stays enforced in production; production adds
+authoring-time checks that would be noise on an early spec and are non-negotiable on a shipped
+one. Neither profile makes specd a sandbox. Run `specd check --security` to see the explicit
+migration checks between them.
 
 ## Steering: the constitution
 

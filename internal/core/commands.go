@@ -316,6 +316,23 @@ var Commands = []Command{
 		},
 	},
 	{
+		// The agent-legal counterpart to `decision`. An agent that hits a
+		// deviation needs a route it is permitted to take; without one it either
+		// invents authority or drops the deviation on the floor (R1.1). This
+		// records the request only — it advances no phase, resolves nothing, and
+		// writes no evidence. A human still answers with `specd decision`.
+		Name:          "request-decision",
+		Usage:         "specd request-decision <spec> --text <deviation> [--scope <scope>]",
+		Description:   "Record an agent's request for a human decision. Records the request only; it advances no phase and writes no evidence.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd request-decision payments --text 'webhook retry needs a backoff not in the design' --scope design"},
+		Flags: []Flag{
+			{Name: "text", TakesValue: true, Type: "string", Description: "Deviation the agent needs decided (required)."},
+			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
+		},
+	},
+	{
 		Name:          "drift",
 		Usage:         "specd drift <spec> [--json]",
 		Description:   "Project declared invariants and active decisions against local verify evidence without writing.",

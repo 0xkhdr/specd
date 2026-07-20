@@ -89,3 +89,27 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Recommendation:** add `core.SpecDir(root, slug string) string` as the single join for everything under `.specd/specs/<slug>/`, and route all ~20 builders through it. `url.PathEscape` on the slug inside it is a no-op for valid slugs (`^[a-z0-9][a-z0-9-]*$`) and neutralizes traversal, so it is defense-in-depth with zero behavior change and no signature churn. Separately, add a `TakesSpecSlug` bool to the palette so coverage tests stop inferring it from usage prose. Needs its own task — outside T5's declared files.
 - **Status:** open
 
+
+### 2026-07-20 — friction — `evidence` cell can declare a `review/` check no role in the task can produce
+- **Context:** executing `agent-protocol-clarity` T8, role auditor. Task declares `evidence: review/protocol-clarity-audit` and `verify: go test ./... -race -count=1`.
+- **Expected:** running the task's own `verify` line and then `complete-task` closes the task.
+- **Actual:** `specd verify` recorded evidence, then `complete-task` refused: `EVIDENCE_MISSING: task T8 lacks passing evidence for review/protocol-clarity-audit; review/protocol-clarity-audit: a plain `specd verify` record carries no evidence class and cannot satisfy it — import external evidence with `specd eval import <slug> <file> --task T8 --check protocol-clarity-audit``
+- **Root cause:** authoring gap with no gate behind it. A task can pair a `verify` line with an `evidence` class that `verify` structurally cannot produce, and nothing says so until `complete-task` — after the work is done. The refusal message is good (it names the exact recovery command); the cost is that it arrives at the end rather than at `specd approve` on tasks.
+- **Recommendation:** in the tasks gate, when an `evidence` cell declares a non-`test/` class, require the task to be authored with that producer in mind — at minimum warn at approve time that its `verify` line cannot satisfy the declaration. Deterministic: reads the tasks table only.
+- **Status:** open
+
+### 2026-07-20 — friction — role/steering conformance has no equivalent of the roles capability check for steering text
+- **Context:** auditing `agent-protocol-clarity` T8 against R1.2 ("any shipped role **or steering** text ... shall fail a test if that command is denied to the role it is written for").
+- **Expected:** the spec's own conformance test covers both surfaces R1.2 names.
+- **Actual:** `internal/core/embed_templates/steering/workflow.md:25` still reads "Record deviations from the spec via `specd decision` before finishing a task." `specd decision` is `HumanOnly: true`, so this instructs every agent to run a command its authority denies. `TestRoleProseMatchesCapability` (added by T2) scans `internal/core/embed_templates/roles/` only, and no task in this spec declares the steering directory in its `files:`, so the violation survives a fully green spec.
+- **Root cause:** the requirement names two surfaces; the task decomposition covered one. Steering text is not role-scoped, so the "denied to the role it is written for" check needs a target role (craftsman) to be meaningful.
+- **Recommendation:** add a craftsman-scoped conformance case over `internal/core/embed_templates/steering/*.md` and change that line to `specd request-decision` (added by T3). Needs its own task — outside every declared `files:` in this spec.
+- **Status:** open
+
+### 2026-07-20 — improvement — every task complete and `check` clean, but criterion coverage reads 0/12 with no next action named
+- **Context:** `agent-protocol-clarity` after T1–T8 all completed. `specd check agent-protocol-clarity` exits 0 with no findings; `specd status agent-protocol-clarity` ends with `total 0/12 criteria passing`.
+- **Expected:** either the coverage number moves as tasks complete, or the status output names the command that moves it.
+- **Actual:** eight tasks with `acceptance` cells naming R1.1 … R6.2 all completed against passing evidence, and coverage stayed 0/12. `specd status --guide` lists 29 legal commands and never mentions criterion verification, so the only route to a non-zero number is knowing `verify_criterion` exists from the MCP palette.
+- **Root cause:** task-level evidence and criterion-level coverage are separate ledgers with no link, and the guidance surface that exists to say "what next" does not mention the second one. The number is correct; it is just unreachable from the guidance.
+- **Recommendation:** when a spec has completed tasks whose `acceptance` cells reference criteria with no criterion evidence, add a `specd verify-criterion <slug> <criterion>` line to `status --guide` blockers. Deterministic — reads the tasks table, state, and the criterion store.
+- **Status:** open

@@ -665,6 +665,27 @@ specd report payments --format prometheus
 specd report payments --format event
 ```
 
+### `request-decision`
+
+```
+specd request-decision <spec> --text <deviation> [--scope <scope>]
+```
+
+Record an agent's request for a human decision. Records the request only; it advances no phase and writes no evidence.
+
+**Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--scope` | string | Optional scope label. |
+| `--text` | string | Deviation the agent needs decided (required). |
+
+**Examples:**
+
+```bash
+specd request-decision payments --text 'webhook retry needs a backoff not in the design' --scope design
+```
+
 ### `review`
 
 ```
