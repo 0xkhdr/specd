@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -86,11 +87,99 @@ func KnownRoles() []string {
 	return roles
 }
 
+// Effect names the one kind of change an operation can make. Roles declare an
+// explicit set: "read-only" is not an effect, it is the absence of every write
+// effect, and saying so out loud is the point (spec agent-protocol-clarity R2.1).
+type RoleEffect string
+
+const (
+	RoleEffectWorkspaceRead        RoleEffect = "workspace-read"
+	RoleEffectWorkspaceWrite       RoleEffect = "workspace-write"
+	RoleEffectHarnessEvidenceWrite RoleEffect = "harness-evidence-write"
+	RoleEffectHarnessStateWrite    RoleEffect = "harness-state-write"
+	RoleEffectExternalWrite        RoleEffect = "external-write"
+)
+
+// RoleCapability is the machine-readable authority contract for one role. Role
+// Markdown explains behavior to a reader; this contract alone defines what the
+// role may do. Prose that disagrees is a conformance test failure, never a
+// runtime resolution (R6.1, R6.2).
+type RoleCapability struct {
+	Role                string       `json:"role"`
+	Effects             []RoleEffect `json:"effects"`
+	AllowedOperations   []string     `json:"allowed_operations"`
+	CompletionAuthority bool         `json:"completion_authority"`
+	HumanAuthority      bool         `json:"human_authority"`
+	PathScope           string       `json:"path_scope"`
+	NetworkPolicy       string       `json:"network_policy"`
+	SandboxRequired     bool         `json:"sandbox_required"`
+}
+
+// roleCapabilities is the single source of role authority. No role carries
+// HumanAuthority: approval is human-only and no contract may grant it.
+var roleCapabilities = map[string]RoleCapability{
+	"craftsman": {
+		Effects:             []RoleEffect{RoleEffectWorkspaceRead, RoleEffectWorkspaceWrite, RoleEffectHarnessEvidenceWrite, RoleEffectHarnessStateWrite},
+		AllowedOperations:   []string{"check", "complete-task", "context", "status", "verify"},
+		CompletionAuthority: true,
+		PathScope:           "declared-files",
+		NetworkPolicy:       "deny",
+		SandboxRequired:     true,
+	},
+	"scout": {
+		Effects:           []RoleEffect{RoleEffectWorkspaceRead},
+		AllowedOperations: []string{"check", "context", "status"},
+		PathScope:         "workspace-read",
+		NetworkPolicy:     "deny",
+	},
+	// The validator writes an evidence record, so it is not read-only (R2.2).
+	"validator": {
+		Effects:           []RoleEffect{RoleEffectWorkspaceRead, RoleEffectHarnessEvidenceWrite},
+		AllowedOperations: []string{"check", "context", "status", "verify"},
+		PathScope:         "workspace-read",
+		NetworkPolicy:     "deny",
+	},
+	"auditor": {
+		Effects:           []RoleEffect{RoleEffectWorkspaceRead},
+		AllowedOperations: []string{"check", "context", "report", "status"},
+		PathScope:         "workspace-read",
+		NetworkPolicy:     "deny",
+	},
+}
+
+// RoleCapabilityFor returns the contract for role. An unknown or undeclared
+// role fails closed: the empty effect set, no operations, no authority. It
+// never defaults to workspace-write.
+func RoleCapabilityFor(role string) (RoleCapability, bool) {
+	role = strings.TrimSpace(role)
+	capability, ok := roleCapabilities[role]
+	if !ok {
+		return RoleCapability{Role: role, Effects: []RoleEffect{}, AllowedOperations: []string{}, NetworkPolicy: "deny"}, false
+	}
+	capability.Role = role
+	capability.Effects = append([]RoleEffect(nil), capability.Effects...)
+	capability.AllowedOperations = append([]string(nil), capability.AllowedOperations...)
+	return capability, true
+}
+
+// RoleHasEffect reports whether role's contract declares effect.
+func RoleHasEffect(role string, effect RoleEffect) bool {
+	capability, _ := RoleCapabilityFor(role)
+	return slices.Contains(capability.Effects, effect)
+}
+
+// RoleAllowsOperation reports whether role's contract permits operation. Default
+// deny: an operation absent from the contract is denied, not inherited.
+func RoleAllowsOperation(role, operation string) bool {
+	capability, _ := RoleCapabilityFor(role)
+	return slices.Contains(capability.AllowedOperations, strings.TrimSpace(operation))
+}
+
 // IsWriteRole reports whether role is permitted to write product code. Only the
 // craftsman writes; scout, validator, and auditor are read-only. Used by the
 // verify gate to reject a write task hiding behind a trivial verify (spec 01 R4.2).
 func IsWriteRole(role string) bool {
-	return strings.TrimSpace(role) == "craftsman"
+	return RoleHasEffect(role, RoleEffectWorkspaceWrite)
 }
 
 // IsKnownRole reports whether role is one of the canonical roles (spec 01 R4.1).

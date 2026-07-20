@@ -28,6 +28,14 @@ func init() { Registry = buildRegistry() }
 // carries no handler. The dispatcher must fail closed on it (exit 2), never 0.
 var ErrUnknownCommand = errors.New("unknown command")
 
+// RefuseUnknownCommand is the typed refusal for an unregistered verb. It still
+// satisfies errors.Is(err, ErrUnknownCommand), so the dispatcher keeps failing
+// closed on it (exit 2) while an agent reads the recovery off the shape
+// instead of guessing (R4.1, R4.2).
+func RefuseUnknownCommand(name string) error {
+	return core.Refusef("UNKNOWN_COMMAND", "unknown command %q", name).Wrapping(ErrUnknownCommand)
+}
+
 var executable = map[string]Handler{
 	"approve":       runApprove,
 	"archive":       runArchive,
@@ -136,7 +144,7 @@ func loadSpec(root, slug string) (specData, error) {
 	// slug like "../../x" escapes .specd/specs/ on both reads and writes. This
 	// is the central chokepoint every spec-resolving verb funnels through.
 	if err := core.ValidateSlug(slug); err != nil {
-		return specData{}, err
+		return specData{}, core.Refusef("SPEC_INVALID", "%v", err)
 	}
 	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	raw, err := os.ReadFile(filepath.Join(dir, "tasks.md"))

@@ -1,0 +1,4 @@
+{"task_id":"T1","command":"go test ./internal/core -run TestRoleCapabilityContract -count=1","exit_code":0,"git_head":"d7e18a49a7d2e26a2da38d7b76405b311eda058d","timestamp":"2026-07-20T17:15:28Z","actor":"xkhdr"}
+{"task_id":"T5","command":"go test ./internal/cmd ./internal/core -run TestTypedRefusal -count=1","exit_code":0,"git_head":"d7e18a49a7d2e26a2da38d7b76405b311eda058d","timestamp":"2026-07-20T17:18:51Z","actor":"xkhdr"}
+{"task_id":"T5","command":"go test ./internal/cmd ./internal/core -run TestTypedRefusal -count=1","exit_code":0,"git_head":"d7e18a49a7d2e26a2da38d7b76405b311eda058d","timestamp":"2026-07-20T17:22:29Z","actor":"xkhdr"}
+{"task_id":"T5","command":"go test ./internal/cmd ./internal/core -run TestTypedRefusal -count=1","exit_code":0,"git_head":"d7e18a49a7d2e26a2da38d7b76405b311eda058d","timestamp":"2026-07-20T17:27:31Z","actor":"xkhdr"}

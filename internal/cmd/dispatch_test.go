@@ -123,7 +123,8 @@ func TestProductionTaskAuthorityUsesLifecycleProfileAndMissionScope(t *testing.T
 				}
 			}
 			err := RunAuthorized(root, "complete-task", []string{"demo", "T1"}, nil, bad, nil, now)
-			if err == nil || !strings.Contains(err.Error(), "authority denied") {
+			refusal, ok := core.AsRefusal(err)
+			if err == nil || !ok || refusal.Code != "AUTHORITY_DENIED" {
 				t.Fatalf("%s mismatch accepted: %v", name, err)
 			}
 		})

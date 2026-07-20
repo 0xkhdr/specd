@@ -32,7 +32,7 @@ func Run(root, name string, args []string, flags map[string]string) error {
 func runDispatch(root, name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time, changedPaths []string) error {
 	handler, ok := Registry[name]
 	if !ok || handler == nil {
-		return fmt.Errorf("%w: %q", ErrUnknownCommand, name)
+		return RefuseUnknownCommand(name)
 	}
 	meta, hasMeta := core.CommandByName(name)
 	if hasMeta {
@@ -46,7 +46,8 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		}
 		operation, ok := core.ResolveOperation(name, args, flags)
 		if !ok {
-			return fmt.Errorf("%w: unknown operation for command %q", ErrUsage, name)
+			return core.Refusef("OPERATION_UNKNOWN", "unknown operation for command %q", name).
+				WithRecovery(core.RefusalActorAgent, "specd help "+name).Wrapping(ErrUsage)
 		}
 		if name == "agents" && len(args) > 0 && args[0] == "inspect" {
 			// `agents inspect` aliases bare `agents` (spec R4.2): the alias token
@@ -65,7 +66,9 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		cfg := loadSpecConfig(root)
 		productionTask := cfg.ProductionTaskAuthorityRequired() && operation.TaskRequired
 		if productionTask && authority == nil {
-			return fmt.Errorf("authority denied: production task command requires AuthorityV1 packet")
+			// No packet was supplied, so none was consumed: the agent can retry
+			// once it holds one.
+			return core.Refuse("AUTHORITY_DENIED", "production task command requires AuthorityV1 packet")
 		}
 		if authority != nil {
 			mutable := operation.Effect != core.EffectRead
@@ -78,23 +81,25 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 			if productionTask {
 				paths, err := productionMissionScope(root, operation, args, *authority)
 				if err != nil {
-					return fmt.Errorf("authority denied: %w", err)
+					return core.Refusef("AUTHORITY_DENIED", "%v", err)
 				}
 				changedPaths = paths
 			}
 			if err := core.AuthorizeTool(*authority, name, changedPaths, now, phase, mutable); err != nil {
 				_ = orchestration.RecordAuthorityDenial(root, *authority, name, "denied", now)
-				return fmt.Errorf("authority denied: %w", err)
+				// The denial is recorded against this packet, so it is spent: a
+				// retry needs a freshly issued one.
+				return core.Refusef("AUTHORITY_DENIED", "%v", err).Consumed()
 			}
 			if meta.SpecSlugArg != nil && *meta.SpecSlugArg < len(args) && authority.SpecID != args[*meta.SpecSlugArg] {
-				return fmt.Errorf("authority denied: spec mismatch")
+				return core.Refuse("AUTHORITY_DENIED", "spec mismatch")
 			}
 			taskArg := 1
 			if name == "task" {
 				taskArg = 2
 			}
 			if operation.TaskRequired && len(args) > taskArg && authority.TaskID != args[taskArg] {
-				return fmt.Errorf("authority denied: task mismatch")
+				return core.Refuse("AUTHORITY_DENIED", "task mismatch")
 			}
 		}
 	}
@@ -246,7 +251,9 @@ func checkFreshDispatch(root, name string, args []string) error {
 	if err != nil || len(report.Stale) == 0 {
 		return nil
 	}
-	return fmt.Errorf("dispatch paused: stale records require re-approval: %s", strings.Join(report.Stale, ", "))
+	// Only a human can re-approve, so this refusal is not agent-retryable.
+	return core.Refusef("APPROVAL_REQUIRED", "dispatch paused: stale records require re-approval: %s", strings.Join(report.Stale, ", ")).
+		WithRecovery(core.RefusalActorHuman, "specd approve "+args[idx])
 }
 
 // RunAuthorized enforces a mission authority packet before normal dispatch.
@@ -264,7 +271,8 @@ func checkFlagEnums(meta core.Command, flags map[string]string) error {
 			continue
 		}
 		if !slices.Contains(flag.Enum, value) {
-			return fmt.Errorf("%w: flag --%s=%q not allowed; expected one of %v", ErrUsage, name, value, flag.Enum)
+			return core.Refusef("FLAG_VALUE_INVALID", "flag --%s=%q not allowed; expected one of %v", name, value, flag.Enum).
+				WithRecovery(core.RefusalActorAgent, "specd help "+meta.Name).Wrapping(ErrUsage)
 		}
 	}
 	return nil
@@ -289,7 +297,7 @@ func checkPhase(root string, meta core.Command, args []string) error {
 	// into a filesystem path (a phase-enforced verb reads/writes state.json for
 	// its slug; "../../x" would escape .specd/specs/). Fail closed (exit 2).
 	if err := core.ValidateSlug(slug); err != nil {
-		return fmt.Errorf("%w: %v", ErrUsage, err)
+		return core.Refusef("SPEC_INVALID", "%v", err).Wrapping(ErrUsage)
 	}
 	state, err := core.LoadState(core.StatePath(root, slug))
 	if err != nil {
@@ -298,8 +306,9 @@ func checkPhase(root string, meta core.Command, args []string) error {
 	if meta.AllowsPhase(state.Phase) {
 		return nil
 	}
-	return fmt.Errorf("%w: verb %q not allowed in phase %q; allowed phases: %s",
-		ErrUsage, meta.Name, state.Phase, joinPhases(meta.AllowedPhases))
+	return core.Refusef("PHASE_INVALID", "verb %q not allowed in phase %q; allowed phases: %s",
+		meta.Name, state.Phase, joinPhases(meta.AllowedPhases)).
+		WithRecovery(core.RefusalActorAgent, "specd status "+slug+" --guide").Wrapping(ErrUsage)
 }
 
 func joinPhases(phases []core.Phase) string {

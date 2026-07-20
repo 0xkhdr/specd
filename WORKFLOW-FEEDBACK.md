@@ -72,3 +72,20 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — same untested template/consumer contract.
 - **Recommendation:** change the example to `evidence=test/<check-id>`. Tracked as spec `template-conformance` R2.2.
 - **Status:** open
+
+### 2026-07-20 — friction — task `files:` cannot express the test file its own `verify` line requires
+- **Context:** executing spec `agent-protocol-clarity` T1, role craftsman. Task declares `files: internal/core/roles.go` and `verify: go test ./internal/core -run TestRoleCapabilityContract -count=1`.
+- **Expected:** the declared file set covers everything the task must touch to make its own verify line pass.
+- **Actual:** `TestRoleCapabilityContract` did not exist, so the verify line could only pass by editing `internal/core/roles_test.go` — a file the task never declared. `.specd/roles/craftsman.md` says "Touch only files explicitly named in the task's `files:`; tests must also be declared", so the role text names the obligation the task row cannot satisfy. Nothing blocked: `specd verify` and `specd complete-task` both exited 0 against an undeclared write.
+- **Root cause:** authoring gap with no gate behind it — a `verify` line naming `-run <TestName>` implies a test file, and no check asserts that file is declared.
+- **Recommendation:** in the tasks gate, when a `verify` line contains `-run <TestName>`, require at least one `_test.go` path in that task's `files:`. Fails closed at authoring time, costs one regexp, and needs no new state. Deterministic — it reads the tasks table only.
+- **Status:** open
+
+### 2026-07-20 — friction — slug traversal is guarded at ~29 call sites, never at the path builders
+- **Context:** executing `agent-protocol-clarity` T5. A new typed-refusal test drove `specd check ../../escape` and found a second, independent traversal-rejection path in `loadSpec` (`internal/cmd/registry.go`) that the migrated `checkPhase` route never reaches — `check` declares `PhaseAny`, so the phase gate returns before validating.
+- **Expected:** one chokepoint rejects a traversal slug, or the sink refuses to build the path.
+- **Actual:** `grep -rn ValidateSlug internal/ --include="*.go"` returns ~29 non-test call sites. Every spec path builder (`StatePath`, `EvidencePath`, `SpecMemoryPath`, `EvalStorePath`, `RunLedgerPath`, ~20 total) takes a slug and `filepath.Join`s it with **no** validation, e.g. `filepath.Join(SpecdDir(root), "specs", slug, "memory.md")`. Safety depends entirely on every caller remembering. Probed all 29 spec-taking verbs against a live tree: **no escape today** — this is fragility, not a live vulnerability.
+- **Root cause:** defense placed at callers instead of the sink, with no palette field marking "this verb takes a slug" (`SpecSlugArg` is set only on phase-enforced verbs; usage strings spell it `<spec>`, `<slug>`, `<from-slug>`, `<new-spec>` inconsistently). The existing `TestSlugTraversalRejected` was a hand-maintained list of 15 verbs, so `drift`, `archive`, `spike`, `brain`, `unlink` and any future verb were uncovered.
+- **Recommendation:** add `core.SpecDir(root, slug string) string` as the single join for everything under `.specd/specs/<slug>/`, and route all ~20 builders through it. `url.PathEscape` on the slug inside it is a no-op for valid slugs (`^[a-z0-9][a-z0-9-]*$`) and neutralizes traversal, so it is defense-in-depth with zero behavior change and no signature churn. Separately, add a `TakesSpecSlug` bool to the palette so coverage tests stop inferring it from usage prose. Needs its own task — outside T5's declared files.
+- **Status:** open
+
