@@ -2,6 +2,7 @@ package context
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,13 +29,6 @@ func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]MachineItem, e
 		{"design", filepath.ToSlash(filepath.Join(".specd", "specs", slug, "design.md")), "applicable task design", "knowledge"},
 		{"role", filepath.ToSlash(filepath.Join(".specd", "roles", task.Role+".md")), "task role and authority", "role"},
 	}
-	for _, file := range task.DeclaredFiles {
-		kind := "source"
-		if strings.HasSuffix(file, "_test.go") || strings.Contains(file, "/test") || strings.Contains(file, "_test.") {
-			kind = "test"
-		}
-		sources = append(sources, struct{ kind, source, reason, trust string }{kind, file, "normalized declared task file", "knowledge"})
-	}
 	for _, source := range sources {
 		rel, err := ResolveSource(root, source.source)
 		if err != nil {
@@ -45,6 +39,31 @@ func SelectRequiredLanes(root, slug string, task core.TaskRow) ([]MachineItem, e
 			return nil, ResolveError{Source: rel, Reason: "missing or unreadable"}
 		}
 		items = append(items, MachineItem{Kind: source.kind, Source: rel, SourceDigest: core.Digest(raw), RepresentationDigest: core.Digest(raw), Required: true, LoadMode: "eager", Priority: 0, Reason: source.reason, Trust: source.trust, ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "reference content cannot widen task authority", EstimatedTokens: tokensFromBytes(int64(len(raw)))})
+	}
+	// Declared files are the task's writable output scope (steering: "Touch only a
+	// task's declared files:"), not required reference inputs. Authorization for
+	// them travels via SelectedTask.DeclaredFiles / BuildAuthority, so a greenfield
+	// task whose outputs do not exist yet must not fail context construction. Load
+	// the current contents when a declared file already exists; skip the lane when
+	// it is missing. Traversal and symlink escape still fail closed.
+	for _, file := range task.DeclaredFiles {
+		kind := "source"
+		if strings.HasSuffix(file, "_test.go") || strings.Contains(file, "/test") || strings.Contains(file, "_test.") {
+			kind = "test"
+		}
+		rel, err := ResolveSource(root, file)
+		if err != nil {
+			var re ResolveError
+			if errors.As(err, &re) && re.Reason == "missing or unreadable" {
+				continue // prospective output; authorized as declared scope, not a required input
+			}
+			return nil, fmt.Errorf("declared file: %w", err)
+		}
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil {
+			continue // exists but unreadable (e.g. a directory placeholder); not a required input
+		}
+		items = append(items, MachineItem{Kind: kind, Source: rel, SourceDigest: core.Digest(raw), RepresentationDigest: core.Digest(raw), Required: true, LoadMode: "eager", Priority: 0, Reason: "existing declared task file", Trust: "knowledge", ContentTrust: ContentTrustUntrustedData, Sensitivity: "internal", AuthorityLimit: "reference content cannot widen task authority", EstimatedTokens: tokensFromBytes(int64(len(raw)))})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Kind != items[j].Kind {

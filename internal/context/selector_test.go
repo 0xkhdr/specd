@@ -46,6 +46,65 @@ func TestSelectorRequiredLanes(t *testing.T) {
 	}
 }
 
+func TestSelectorGreenfieldDeclaredFile(t *testing.T) {
+	root := t.TempDir()
+	for name, body := range map[string]string{
+		".specd/specs/demo/requirements.md": "# Requirements\n",
+		".specd/specs/demo/design.md":       "# Design\n",
+		".specd/roles/craftsman.md":         "# Role\n",
+		"internal/existing.go":              "package internal\n",
+	} {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// One existing output, one that does not exist yet (the task will create it).
+	task := core.TaskRow{ID: "T3", Role: "craftsman", DeclaredFiles: []string{"internal/existing.go", "internal/new/module.go"}, Verify: "go test ./...", Acceptance: "R1"}
+	items, err := SelectRequiredLanes(root, "demo", task)
+	if err != nil {
+		t.Fatalf("greenfield declared file must not fail context: %v", err)
+	}
+	for _, item := range items {
+		if item.Source == "internal/new/module.go" {
+			t.Fatalf("missing output must not appear as a required source lane: %+v", item)
+		}
+	}
+	var loadedExisting bool
+	for _, item := range items {
+		if item.Source == "internal/existing.go" {
+			loadedExisting = true
+		}
+	}
+	if !loadedExisting {
+		t.Fatalf("existing declared file must load as a source lane: %+v", items)
+	}
+}
+
+func TestSelectorDeclaredFileTraversalFails(t *testing.T) {
+	root := t.TempDir()
+	for name := range map[string]string{
+		".specd/specs/demo/requirements.md": "r",
+		".specd/specs/demo/design.md":       "d",
+		".specd/roles/craftsman.md":         "role",
+	} {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	task := core.TaskRow{ID: "T9", Role: "craftsman", DeclaredFiles: []string{"../outside.go"}, Verify: "go test ./...", Acceptance: "R1"}
+	if _, err := SelectRequiredLanes(root, "demo", task); err == nil {
+		t.Fatal("declared file escaping repository base must fail closed")
+	}
+}
+
 func TestSelectorNamesMissingRequiredSource(t *testing.T) {
 	root := t.TempDir()
 	for _, dir := range []string{".specd/specs/demo", ".specd/roles"} {
