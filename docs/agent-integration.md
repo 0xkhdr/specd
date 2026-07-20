@@ -109,6 +109,14 @@ task — only the files that task needs, within the `context.max_tokens` budget 
 `context-budget` gate enforces. `--hud` renders an operator view (files, bytes, tokens, mode);
 `--json` emits the machine-readable manifest.
 
+**Two steering paths, and they differ.** Plain `specd context <slug> <task-id>` lists *every*
+steering file in the directory. `--json` applies `specd-context` selection: only steering files
+carrying a `specd-context` block are included, and the `--json` manifest is what drivers, the
+brain, and the MCP surface actually consume. A steering file without a `specd-context` block is
+silently dropped from the machine path — so trust `--json`, not the plain listing, when checking
+what a worker will see. (When *every* steering file is dropped for missing metadata, `specd check`
+raises a warning; a single dropped file stays silent.)
+
 `specd next <slug> --dispatch` emits that manifest for the first frontier task — a ready-to-run
 dispatch packet for a worker.
 

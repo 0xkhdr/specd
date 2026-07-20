@@ -239,3 +239,41 @@ func SelectSteering(root string, c SelectionContext) ([]MachineItem, []Omission,
 	CanonicalizeMachineManifest(&MachineManifest{Items: items})
 	return items, omissions, nil
 }
+
+// SteeringTotalOmission reports whether every steering file present in root is
+// dropped from the machine manifest for missing applicability metadata — the
+// whole-set misconfiguration of R1.2, distinct from a per-file budget/selector
+// omission (R1.3), which stays silent. It is false for an absent or empty
+// steering directory and false as soon as one file loads or is omitted for any
+// other reason (not applicable, or a parse error that surfaces on its own).
+func SteeringTotalOmission(root string) (bool, error) {
+	dir := filepath.Join(root, ".specd", "steering")
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	total := 0
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") || e.Name() == "memory.md" {
+			continue
+		}
+		total++
+	}
+	if total == 0 {
+		return false, nil
+	}
+	_, omissions, err := SelectSteering(root, SelectionContext{})
+	if err != nil {
+		return false, nil
+	}
+	missing := 0
+	for _, o := range omissions {
+		if o.Reason == "missing explicit applicability metadata" {
+			missing++
+		}
+	}
+	return missing == total, nil
+}

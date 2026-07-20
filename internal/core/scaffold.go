@@ -8,6 +8,35 @@ import (
 	embedtemplates "github.com/0xkhdr/specd/internal/core/embed_templates"
 )
 
+// RequirementsScaffold is the single source for the requirements.md starter
+// document: it seeds `specd new` and is the stub the design gate compares a
+// filled doc against. Its shape must satisfy core.ParseRequirements — a `## R<n>`
+// heading and `- R<n>.<m>:` criteria — so the scaffold passes its own gates
+// (R2.1). Changing it silently breaks that contract; the template-conformance
+// suite pins it.
+func RequirementsScaffold(slug string) string {
+	return "# Requirements — " + slug + "\n\n" +
+		"> Use stable requirement and criterion IDs. Write testable EARS behavior; replace all prompts.\n\n" +
+		"## R1 — <name>\n\n" +
+		"owner: <human owner>\npriority: <must|should|could>\nrisk: <low|medium|high|critical>\n\n" +
+		"- R1.1: When <trigger>, the system shall <observable response>.\n\n" +
+		"## Edge and failure behavior\n\n- <invalid input, dependency failure, boundary condition>\n\n" +
+		"## Non-goals\n\n- <explicitly excluded outcome>\n"
+}
+
+// TasksScaffold is the single source for the tasks.md starter document. Its
+// example-values comment must teach an `evidence=` value the quality-declaration
+// gate accepts — class/check-id, never a bare class (R2.2). The
+// template-conformance suite pins the example against ParseQualityContract.
+func TasksScaffold(slug string) string {
+	return "# Tasks — " + slug + "\n\n" +
+		"> Add only real work. The optional columns beyond the six required ones may be omitted.\n" +
+		"> Production rows declare full trace, risk, routing, context, capability, evidence, and edge-check intent.\n\n" +
+		"| id | role | files | depends-on | verify | acceptance | refs | kind | risk | complexity | capabilities | context | evidence | checks |\n" +
+		"|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n\n" +
+		"<!-- Example field values (not a runnable task): id=T<n>; role=craftsman; files=<paths>; depends-on=-; verify=<command>; acceptance=<criterion IDs>; refs=R1.1; kind=feature; risk=medium; complexity=standard; capabilities=read,write; context=<required sources>; evidence=test/readme-purpose; checks=<negative and edge cases>. -->\n"
+}
+
 func WriteScaffold(root string, agents ...string) error {
 	if err := writeManagedAssets(root); err != nil {
 		return err

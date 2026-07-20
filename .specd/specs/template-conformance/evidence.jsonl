@@ -1,0 +1,9 @@
+{"task_id":"T1","command":"go test ./internal/context -run TestScaffoldedSteeringSelects -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:16:12Z","actor":"xkhdr"}
+{"task_id":"T2","command":"go test ./internal/context ./internal/core/gates -run TestSteeringTotalOmission -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:18:53Z","actor":"xkhdr"}
+{"task_id":"T3","command":"go test ./internal/core -run TestScaffoldRequirementsParse -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:20:49Z","actor":"xkhdr"}
+{"task_id":"T4","command":"go test ./internal/core -run TestScaffoldTasksQualityDeclaration -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:21:52Z","actor":"xkhdr"}
+{"task_id":"T5","command":"go test ./internal/core/gates -run TestTaskTraceEmptyRequirementSet -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:23:35Z","actor":"xkhdr"}
+{"task_id":"T6","command":"go test ./internal/core -run TestManagedRegionsCarryEditingNotice -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:24:44Z","actor":"xkhdr"}
+{"task_id":"T7","command":"go test ./... -race -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:29:04Z","actor":"xkhdr"}
+{"task_id":"T8","command":"go test ./... -race -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:29:54Z","actor":"xkhdr"}
+{"task_id":"T8","command":"go test ./... -race -count=1","exit_code":0,"git_head":"11f1bb98e5cba1766a249f07667048054cd54060","timestamp":"2026-07-20T20:31:47Z","actor":"xkhdr"}

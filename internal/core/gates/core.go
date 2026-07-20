@@ -143,6 +143,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "memory-lint", run: memoryConflictLint})
 	registry.Register(gateFunc{name: "quality-declaration", run: qualityDeclaration})
 	registry.Register(gateFunc{name: "verify-lint", run: verifyLint})
+	registry.Register(gateFunc{name: "steering-applicability", run: steeringApplicability})
 	return registry
 }
 
@@ -163,11 +164,34 @@ func CoreRegistryWith(required ...Gate) Registry {
 // gate never touches disk. Empty CheckCtx ⇒ no tasks ⇒ no findings (parity).
 func taskTrace(ctx CheckCtx) []Finding {
 	known := core.RequirementIDSet(ctx.RequirementsDoc)
+	traceFindings := core.ValidateTaskTrace(ctx.Tasks, known, ctx.TaskTraceRequired)
+	// R3.1: when requirements.md has content but no parseable requirement IDs and
+	// tasks cite R-ids, the malformed file is requirements.md — not tasks.md.
+	// Name it once instead of emitting a misleading unknown-reference finding
+	// against each task; keep any other trace findings unchanged.
+	if len(known) == 0 && strings.TrimSpace(ctx.RequirementsDoc) != "" && citesUnknownRequirement(traceFindings) {
+		findings := []Finding{{Severity: Error, Message: "requirements.md declares no parseable requirement IDs (expected '## R<n>' headings and '- R<n>.<m>:' criteria)"}}
+		for _, f := range traceFindings {
+			if !strings.Contains(f.Message, "references unknown requirement") {
+				findings = append(findings, Finding{Severity: Error, Message: f.Message})
+			}
+		}
+		return findings
+	}
 	var findings []Finding
-	for _, f := range core.ValidateTaskTrace(ctx.Tasks, known, ctx.TaskTraceRequired) {
+	for _, f := range traceFindings {
 		findings = append(findings, Finding{Severity: Error, Message: f.Message})
 	}
 	return findings
+}
+
+func citesUnknownRequirement(findings []core.TaskTraceFinding) bool {
+	for _, f := range findings {
+		if strings.Contains(f.Message, "references unknown requirement") {
+			return true
+		}
+	}
+	return false
 }
 
 type gateFunc struct {

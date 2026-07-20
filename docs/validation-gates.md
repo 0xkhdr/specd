@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 22 core gates
+## The 23 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -58,6 +58,9 @@ Registered by `CoreRegistry()` in the order they run:
 | 18 | `intake` | *(opt-in)* `provenance.json` supplies every configured typed-intake field; empty and `unknown` both fail readiness. |
 | 19 | `governance` | *(opt-in)* Required decisions are accepted and active; expired blocking exceptions fail closed with owner/review action. |
 | 20 | `memory-lint` | *(production profile)* Active memory has no duplicate normalized keys, explicit critical contradictions, or unowned forced promotions. |
+| 21 | `quality-declaration` | Each task's `evidence=` declaration is well-formed `class/check-id` (valid classes: test/output_eval/trajectory_eval/review). |
+| 22 | `verify-lint` | A write task's verify command is not a trivially-passing no-op. |
+| 23 | `steering-applicability` | *(warning)* Warns when every `.specd/steering/*.md` is dropped from the machine manifest for missing `specd-context` metadata; per-file omission stays silent. |
 
 ### Notes on individual gates
 

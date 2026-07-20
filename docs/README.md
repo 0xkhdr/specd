@@ -33,7 +33,7 @@ evidence-gated execution**.
   the verify→complete loop → mid-stream changes → review & submit.
 - 📑 **[command-reference.md](command-reference.md)** — the **source-of-truth** doc: every verb,
   flag, exit code, and allowed phase, generated to match `internal/core/commands.go`.
-- ✅ **[validation-gates.md](validation-gates.md)** — the 22 core gates plus the opt-in security
+- ✅ **[validation-gates.md](validation-gates.md)** — the 23 core gates plus the opt-in security
   gates: what each checks, when it fires, how to fix a failure.
 - 🤖 **[agent-integration.md](agent-integration.md)** — the `AGENTS.md` loop, the four roles,
   steering, the context manifest, dispatch packets, Brain/Pinky orchestration, cross-spec

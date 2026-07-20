@@ -562,13 +562,7 @@ func memoryStub(slug string) string {
 }
 
 func requirementsStub(slug string) string {
-	return fmt.Sprintf("# Requirements — %s\n\n"+
-		"> Use stable requirement and criterion IDs. Write testable EARS behavior; replace all prompts.\n\n"+
-		"## Requirement R1 — <name>\n\n"+
-		"owner: <human owner>\npriority: <must|should|could>\nrisk: <low|medium|high|critical>\n\n"+
-		"- **R1.1** When <trigger>, the system shall <observable response>.\n\n"+
-		"## Edge and failure behavior\n\n- <invalid input, dependency failure, boundary condition>\n\n"+
-		"## Non-goals\n\n- <explicitly excluded outcome>\n", slug)
+	return core.RequirementsScaffold(slug)
 }
 
 func designStub(slug string) string {
@@ -587,16 +581,7 @@ func designStub(slug string) string {
 }
 
 func tasksStub(slug string) string {
-	return fmt.Sprintf(`# Tasks — %s
-
-> Add only real work. The optional columns beyond the six required ones may be omitted.
-> Production rows declare full trace, risk, routing, context, capability, evidence, and edge-check intent.
-
-| id | role | files | depends-on | verify | acceptance | refs | kind | risk | complexity | capabilities | context | evidence | checks |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-
-<!-- Example field values (not a runnable task): id=T<n>; role=craftsman; files=<paths>; depends-on=-; verify=<command>; acceptance=<criterion IDs>; refs=R1.1; kind=feature; risk=medium; complexity=standard; capabilities=read,write; context=<required sources>; evidence=tests; checks=<negative and edge cases>. -->
-`, slug)
+	return core.TasksScaffold(slug)
 }
 
 // enforceDiffScope compares the whole worktree diff against the task's declared
