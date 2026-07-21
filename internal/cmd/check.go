@@ -42,6 +42,166 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	if !securityOnly && len(args) != 1 {
 		return usageError("check")
 	}
+	if securityOnly || flagEnabled(flags, "security") || flagEnabled(flags, "schema") || flagEnabled(flags, "schema-only") {
+		return runDiagnosticCheck(root, args, flags, securityOnly)
+	}
+
+	slug := args[0]
+	if err := core.ValidateSlug(slug); err != nil {
+		return core.Refusef("SPEC_INVALID", "%v", err)
+	}
+	var result readinessResult
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		_, cfg, err := requiredRegistry(root)
+		if err != nil {
+			return struct{}{}, err
+		}
+		policy, err := security.ResolvePolicy(cfg.Security)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if policy.Profile == "production" {
+			if err := recordSecurity(root, slug, policy, security.Analyze(root, security.ConfigForPolicy(cfg.Security, policy))); err != nil {
+				return struct{}{}, err
+			}
+		}
+		state, err := core.LoadState(core.StatePath(root, slug))
+		if err != nil {
+			return struct{}{}, err
+		}
+		result, err = buildReadiness(root, slug, state)
+		return struct{}{}, err
+	})
+	if err != nil {
+		return err
+	}
+	if flags["json"] == "legacy" {
+		return json.NewEncoder(os.Stdout).Encode(result.Findings)
+	}
+	if flagEnabled(flags, "json") {
+		if err := json.NewEncoder(os.Stdout).Encode(result.Envelope); err != nil {
+			return err
+		}
+		if gates.HasErrors(result.Findings) {
+			return errors.New("check failed")
+		}
+		return nil
+	}
+	for _, finding := range result.Findings {
+		fmt.Fprintf(os.Stdout, "%s %s: %s\n", finding.Severity, finding.Gate, finding.Message)
+	}
+	if gates.HasErrors(result.Findings) {
+		return errors.New("check failed")
+	}
+	plan := result.Envelope.Plan
+	if plan.Terminal {
+		fmt.Fprintf(os.Stdout, "checked %s: terminal at %s revision %d plan %s config %s gates %d readiness_checked=true\n", slug, plan.Current, plan.StateRevision, plan.PlanDigest, plan.ConfigDigest, len(plan.ArmedGates))
+	} else {
+		fmt.Fprintf(os.Stdout, "ready %s: %s → %s revision %d plan %s config %s gates %d readiness_checked=true\n", slug, plan.Current, plan.Target, plan.StateRevision, plan.PlanDigest, plan.ConfigDigest, len(plan.ArmedGates))
+	}
+	for _, artifact := range plan.ArtifactDigests {
+		fmt.Fprintf(os.Stdout, "artifact %s %s\n", artifact.ID, artifact.Digest)
+	}
+	return nil
+}
+
+type readinessResult struct {
+	Envelope core.ReadinessEnvelope
+	Findings []gates.Finding
+}
+
+func buildReadiness(root, slug string, state core.State) (readinessResult, error) {
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return readinessResult{}, err
+	}
+	registry, cfg, err := requiredRegistry(root)
+	if err != nil {
+		return readinessResult{}, err
+	}
+	target := core.NextStatus(state.Status)
+	readinessGate := string(target)
+	if state.Status == core.StatusRequirements || state.Status == core.StatusDesign {
+		readinessGate = string(state.Status)
+	}
+	armedGates := registry.Names()
+	findings := registry.Run(buildCheckCtx(root, slug, spec, readinessGate))
+	if target == core.StatusExecuting {
+		armedGates = append(armedGates, "program-dependencies")
+		program, err := core.LoadProgram(core.ProgramPath(root))
+		if err != nil {
+			return readinessResult{}, err
+		}
+		if blocking := program.IncompleteDeps(slug, func(dep string) bool { return specComplete(root, dep) }); len(blocking) > 0 {
+			findings = append(findings, gates.Finding{Gate: "program-dependencies", Severity: gates.Error, Message: fmt.Sprintf("%s blocked by incomplete dependencies: %s", slug, strings.Join(blocking, ", "))})
+		}
+	}
+	artifacts, inputs, err := transitionDigests(root, slug, state)
+	if err != nil {
+		return readinessResult{}, err
+	}
+	input := core.TransitionInput{
+		Current:               state.Status,
+		Target:                target,
+		StateRevision:         state.Revision,
+		Actor:                 core.ActorHuman,
+		ActorAssurance:        "human-only-cli",
+		ArmedGates:            armedGates,
+		Inputs:                inputs,
+		ArtifactDigests:       artifacts,
+		ConfigDigest:          core.ConfigDigest(cfg),
+		PolicyDigest:          core.PolicyDigest(cfg),
+		TransportCapabilities: []string{"cli"},
+		RequiredTransport:     []string{"cli"},
+		ReadinessChecked:      true,
+		MutationIntent:        core.TransitionMutationAdvanceStatus,
+	}
+	readinessFindings := make([]core.ReadinessFinding, 0, len(findings))
+	for _, finding := range findings {
+		code := strings.ToUpper(strings.ReplaceAll(finding.Gate, "-", "_")) + "_GATE"
+		item := core.TransitionBlocker{Code: code, Gate: finding.Gate, Message: finding.Message}
+		readinessFindings = append(readinessFindings, core.ReadinessFinding{Gate: finding.Gate, Severity: string(finding.Severity), Message: finding.Message})
+		if finding.Severity == gates.Error {
+			input.Blockers = append(input.Blockers, item)
+			input.Recoveries = append(input.Recoveries, core.TransitionRecovery{BlockerCode: code, Operation: "check", Actor: core.ActorAgent})
+		} else {
+			input.Warnings = append(input.Warnings, item)
+		}
+	}
+	plan := core.BuildTransitionPlan(input)
+	return readinessResult{
+		Envelope: core.ReadinessEnvelope{SchemaVersion: core.ReadinessSchemaVersion, Plan: plan, Findings: readinessFindings},
+		Findings: findings,
+	}, nil
+}
+
+func transitionDigests(root, slug string, state core.State) (map[string]string, map[string]string, error) {
+	artifacts := map[string]string{}
+	dir := filepath.Join(core.SpecdDir(root), "specs", slug)
+	for _, name := range []string{"requirements.md", "design.md", "tasks.md"} {
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, nil, err
+		}
+		artifacts[name] = core.Digest(raw)
+	}
+	stateRaw, err := json.Marshal(state)
+	if err != nil {
+		return nil, nil, err
+	}
+	inputs := map[string]string{"state.json": core.Digest(stateRaw)}
+	if raw, err := os.ReadFile(core.EvidencePath(root, slug)); err == nil {
+		inputs["evidence.jsonl"] = core.Digest(raw)
+	} else if !os.IsNotExist(err) {
+		return nil, nil, err
+	}
+	return artifacts, inputs, nil
+}
+
+func runDiagnosticCheck(root string, args []string, flags map[string]string, securityOnly bool) error {
 	slug := ""
 	if len(args) == 1 {
 		slug = args[0]
@@ -65,10 +225,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return err
 		}
-		registry := gates.CoreRegistry()
-		if policy.Profile == "production" {
-			registry = gates.CoreRegistryWith(security.New(security.ConfigForPolicy(cfg.Security, policy)))
-		}
+		registry := registryForConfig(cfg, policy)
 		findings = append(findings, registry.Run(buildCheckCtx(root, slug, spec, ""))...)
 		if flagEnabled(flags, "security") || policy.Profile == "production" {
 			result := security.Analyze(root, security.ConfigForPolicy(cfg.Security, policy))
@@ -95,21 +252,25 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	return nil
 }
 
-func requiredRegistry(root string) (gates.Registry, security.PolicyV1, error) {
+func requiredRegistry(root string) (gates.Registry, core.Config, error) {
 	cfg, diagnostics := core.LoadConfig(configPaths(root), getenv())
 	for _, d := range diagnostics {
 		if d.Severity == "error" {
-			return gates.Registry{}, security.PolicyV1{}, fmt.Errorf("load config: %s", d.Message)
+			return gates.Registry{}, core.Config{}, fmt.Errorf("load config: %s", d.Message)
 		}
 	}
 	policy, err := security.ResolvePolicy(cfg.Security)
 	if err != nil {
-		return gates.Registry{}, security.PolicyV1{}, err
+		return gates.Registry{}, core.Config{}, err
 	}
+	return registryForConfig(cfg, policy), cfg, nil
+}
+
+func registryForConfig(cfg core.Config, policy security.PolicyV1) gates.Registry {
 	if policy.Profile == "production" {
-		return gates.CoreRegistryWith(security.New(security.ConfigForPolicy(cfg.Security, policy))), policy, nil
+		return gates.CoreRegistryWith(security.New(security.ConfigForPolicy(cfg.Security, policy)))
 	}
-	return gates.CoreRegistry(), policy, nil
+	return gates.CoreRegistry()
 }
 
 // recordSecurity persists the security analysis under state.security so reports

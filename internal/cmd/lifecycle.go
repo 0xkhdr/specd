@@ -71,6 +71,8 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		return err
 	}
 	var approvedFrom, approvedTarget core.Status
+	var approvedPlan string
+	var approvedRevision int64
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {
 		statePath := core.StatePath(root, slug)
 		state, err := core.LoadState(statePath)
@@ -78,56 +80,32 @@ func runApprove(root string, args []string, flags map[string]string) error {
 			return struct{}{}, err
 		}
 		current := state.Status
-		target := core.NextStatus(current)
+		readiness, err := buildReadiness(root, slug, state)
+		if err != nil {
+			return struct{}{}, err
+		}
+		plan := readiness.Envelope.Plan
+		if plan.Terminal {
+			return struct{}{}, fmt.Errorf("status %q has no lifecycle successor", current)
+		}
+		target := plan.Target
+		approvedPlan, approvedRevision = plan.PlanDigest, plan.StateRevision
 		phase, err := core.AdvanceStatus(current, target)
 		if err != nil {
 			return struct{}{}, err
 		}
 		approvedFrom, approvedTarget = current, target
 		gate := string(current)
-		readinessGate := gate
-		switch current {
-		case core.StatusRequirements, core.StatusDesign:
-			// Approve the artifact being left before entering its authoring
-			// successor (requirements→design, design→tasks).
-		default:
-			// Later transitions gate the destination contract (especially
-			// executing and complete), while tasks remains the recorded source
-			// approval used by worker authority.
-			readinessGate = string(target)
-		}
 		if target == core.StatusComplete {
 			gate = string(target)
 		}
-		spec, err := loadSpec(root, slug)
-		if err != nil {
-			return struct{}{}, err
-		}
-		registry, _, err := requiredRegistry(root)
-		if err != nil {
-			return struct{}{}, err
-		}
-		findings := registry.Run(buildCheckCtx(root, slug, spec, readinessGate))
-		if gates.HasErrors(findings) {
-			for _, finding := range findings {
+		if gates.HasErrors(readiness.Findings) {
+			for _, finding := range readiness.Findings {
 				if finding.Severity == gates.Error {
 					fmt.Fprintf(os.Stderr, "%s %s: %s\n", finding.Severity, finding.Gate, finding.Message)
 				}
 			}
-			return struct{}{}, errors.New("approve refused: readiness gates failing")
-		}
-		// Cross-spec links are enforcement, not annotation (spec 12 R5): a spec
-		// may plan while a dependency is unfinished, but may not advance into the
-		// execution phase until every spec it depends on is complete. Planning
-		// phases stay unblocked; only the transition into StatusExecuting gates.
-		if target == core.StatusExecuting {
-			program, err := core.LoadProgram(core.ProgramPath(root))
-			if err != nil {
-				return struct{}{}, err
-			}
-			if blocking := program.IncompleteDeps(slug, func(dep string) bool { return specComplete(root, dep) }); len(blocking) > 0 {
-				return struct{}{}, fmt.Errorf("approve refused: %s blocked by incomplete dependencies: %s", slug, strings.Join(blocking, ", "))
-			}
+			return struct{}{}, fmt.Errorf("approve refused: readiness plan %s has %d blocker(s)", plan.PlanDigest, len(plan.Blockers))
 		}
 		state.Status = target
 		state.Phase = phase
@@ -147,7 +125,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "approved %s: %s → %s\n", slug, approvedFrom, approvedTarget)
+	fmt.Fprintf(os.Stdout, "approved %s: %s → %s revision %d plan %s\n", slug, approvedFrom, approvedTarget, approvedRevision, approvedPlan)
 	return nil
 }
 

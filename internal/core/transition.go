@@ -6,7 +6,10 @@ import (
 	"sort"
 )
 
-const TransitionPlanSchemaVersion = "1"
+const (
+	TransitionPlanSchemaVersion = "1"
+	ReadinessSchemaVersion      = "1"
+)
 
 const (
 	TransitionMutationNone          = "none"
@@ -99,6 +102,21 @@ type TransitionPlan struct {
 	MutationIntent        string               `json:"mutation_intent"`
 	StateChanged          bool                 `json:"state_changed"`
 	ExternallyConsumed    bool                 `json:"externally_consumed"`
+}
+
+// ReadinessEnvelope is the versioned machine projection returned by readiness
+// checks. ReadinessFinding intentionally mirrors the stable gate finding shape
+// without making core depend on its gates subpackage.
+type ReadinessEnvelope struct {
+	SchemaVersion string             `json:"schema_version"`
+	Plan          TransitionPlan     `json:"plan"`
+	Findings      []ReadinessFinding `json:"findings"`
+}
+
+type ReadinessFinding struct {
+	Gate     string `json:"gate"`
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
 }
 
 // BuildTransitionPlan returns a canonical, content-addressed projection of the

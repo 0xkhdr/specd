@@ -347,3 +347,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** the next mission inherits a Git baseline that excludes the previous `brain report` task-marker mutation, but task completion later classifies that controller-owned dirty marker as a worker edit. Checkpointing it advances HEAD and invalidates the already-issued mission, producing a two-error dead end.
 - **Recommendation:** after a successful Brain report, persist a controller-owned post-completion baseline for subsequent mission scope checks, excluding the exact task/state mutation Brain just wrote. If HEAD changes after dispatch, `REPORT_BASELINE_STALE` must name and support one deterministic reissue command that revokes the stale lease and re-mints the same task at current HEAD.
 - **Status:** open
+
+### 2026-07-22 — friction — shared readiness initially bypassed typed slug validation
+- **Context:** `workflow-01-truthful-control` T04, after routing check and approval through a shared readiness builder. Exact command: `go test ./internal/core ./internal/cmd -count=1`.
+- **Expected:** `check` rejects traversal slugs through the existing typed invalid-slug boundary before resolving any state path.
+- **Actual:** the first run failed with `--- FAIL: TestTypedRefusalDispatchSitesAreTyped/traversal-slug` and `refusal_test.go:54: untyped refusal: open /tmp/TestTypedRefusalDispatchSitesAreTyped981945509/001/escape/state.json: no such file or directory`; it also failed with `--- FAIL: TestSlugTraversalRejectedForSlugReason/check` and `traversal_test.go:115: check [../../specd_traversal_canary]: want invalid-slug rejection, got open /tmp/TestSlugTraversalRejectedForSlugReasoncheck3864853779/001/specd_traversal_canary/state.json: no such file or directory`.
+- **Root cause:** the new readiness builder loaded state before `loadSpec` could perform the validation the previous check path inherited indirectly.
+- **Recommendation:** keep slug validation explicit at the shared readiness boundary and retain both typed-refusal and traversal regression cases whenever readiness input assembly changes.
+- **Status:** resolved — `go test ./internal/cmd -run 'TestTypedRefusalDispatchSitesAreTyped|TestSlugTraversalRejectedForSlugReason' -count=1`.

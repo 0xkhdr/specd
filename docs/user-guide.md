@@ -110,6 +110,12 @@ specd check payments
 specd approve payments
 ```
 
+A successful check names the exact lifecycle transition, state revision, plan and config
+digests, armed gate count, and artifact digests that were inspected. `specd check payments
+--json` returns the versioned readiness envelope (plan plus findings). During the compatibility
+window, `specd check payments --json=legacy` retains the previous bare findings array. Approval
+rebuilds and consumes that same plan under the spec lock before its compare-and-swap update.
+
 ### 2. Design (analyze)
 
 Fill `design.md` past its scaffold stub. The `design` gate compares against the stub and
