@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "slug": "workflow-04-repair-transactions",
+  "mode": "default",
+  "status": "tasks",
+  "phase": "plan",
+  "revision": 2,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "05208a0dbdf4e4197f209d4fa6fcbfb2bdf8283103f7577c3067f765f8ce192a",
+      "timestamp": "2026-07-21T21:19:33Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "299101036527714fc56bbd69931795d25cca93f767f150c5c92c9bb6f4e8a114",
+      "timestamp": "2026-07-21T21:03:51Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    }
+  }
+}

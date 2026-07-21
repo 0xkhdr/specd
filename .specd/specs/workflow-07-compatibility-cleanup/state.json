@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "slug": "workflow-07-compatibility-cleanup",
+  "mode": "default",
+  "status": "tasks",
+  "phase": "plan",
+  "revision": 2,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "4e1343dfb36c6575183a9d2d10e0d5be289369496331f092ab48a5b3c4917598",
+      "timestamp": "2026-07-21T21:19:33Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "d08efe6d35432b50690a75eec5e25e9c1325d125d08e647409aaf9990ab77141",
+      "timestamp": "2026-07-21T21:03:51Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    }
+  }
+}

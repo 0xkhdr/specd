@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "links": [
+    {
+      "from": "workflow-02-explicit-activation",
+      "to": "workflow-01-truthful-control",
+      "kind": "follows",
+      "reason": "Release B begins after Release A truthful-control exit gate"
+    },
+    {
+      "from": "workflow-03-state-foundations",
+      "to": "workflow-02-explicit-activation",
+      "kind": "follows",
+      "reason": "Release C begins after Release B routing and config exit gate"
+    },
+    {
+      "from": "workflow-04-repair-transactions",
+      "to": "workflow-03-state-foundations",
+      "kind": "follows",
+      "reason": "Repair requires versioned event, state, task, clarification, and approval foundations"
+    },
+    {
+      "from": "workflow-05-executable-orchestration",
+      "to": "workflow-04-repair-transactions",
+      "kind": "follows",
+      "reason": "Execution repair consumes task attempts and reopen semantics"
+    },
+    {
+      "from": "workflow-06-unattended-authority",
+      "to": "workflow-05-executable-orchestration",
+      "kind": "follows",
+      "reason": "Delegation requires a complete enforceable controller route"
+    },
+    {
+      "from": "workflow-07-compatibility-cleanup",
+      "to": "workflow-06-unattended-authority",
+      "kind": "follows",
+      "reason": "Compatibility removal waits for all replacement workflows and the published window"
+    }
+  ]
+}

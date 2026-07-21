@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "slug": "workflow-06-unattended-authority",
+  "mode": "default",
+  "status": "tasks",
+  "phase": "plan",
+  "revision": 2,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "1704a46a80f5bbdb6dd2dc32050ca6582300c1c53ba3c8e57fde223d94a804c8",
+      "timestamp": "2026-07-21T21:19:33Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "4e7037d9d0755096b4d4a0e4ff689396df434dfe1518112d74cc6399ee4d5b99",
+      "timestamp": "2026-07-21T21:03:51Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    }
+  }
+}

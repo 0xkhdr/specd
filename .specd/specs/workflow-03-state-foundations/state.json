@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "slug": "workflow-03-state-foundations",
+  "mode": "default",
+  "status": "tasks",
+  "phase": "plan",
+  "revision": 2,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "9b66a8c117026427062add083870cbd711578c4c906dd3580bd8207956772bf2",
+      "timestamp": "2026-07-21T21:19:33Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "e3485d0726b997ea5cf3aa84c66521b518971c75e69dfe95787b08ca2e4b9216",
+      "timestamp": "2026-07-21T21:03:51Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    }
+  }
+}

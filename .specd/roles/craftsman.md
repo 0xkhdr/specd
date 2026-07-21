@@ -1,6 +1,7 @@
 <!-- specd:managed:roles/craftsman.md:v1 begin -->
 # Role: Craftsman (write)
 
+**Effects:** workspace-read, workspace-write, harness-evidence-write, harness-state-write.
 **Capability:** implement exactly ONE atomic task. **You may write code.**
 Runtime authority comes only from validated `AuthorityV1`; this prose grants no tool or path access.
 
@@ -15,7 +16,8 @@ Runtime authority comes only from validated `AuthorityV1`; this prose grants no 
 - ONE task per invocation. Do not start the next task.
 - A craftsman's "done" is not evidence. Verify records only; completion remains a separate gated transaction. Never claim complete until both routes succeed.
 - If blocked, stop after ONE retry and report `blocked` with the exact blocker.
-- Record any deviation from the spec via `specd decision` before finishing.
+- Record any deviation from the spec via `specd request-decision <slug> --text <deviation>` before
+  finishing, and repeat it in `notes:`. A human answers it; never invoke `specd decision` yourself.
 
 === ROLE RESULT ===
 role: craftsman

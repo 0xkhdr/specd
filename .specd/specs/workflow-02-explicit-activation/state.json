@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "slug": "workflow-02-explicit-activation",
+  "mode": "default",
+  "status": "tasks",
+  "phase": "plan",
+  "revision": 2,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "a4168745527d3c21cd3d75fceb688bc617a5792c8ac83024f3ee2135b69131aa",
+      "timestamp": "2026-07-21T21:19:33Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "source_digest": "c810e60138b47394ef81c6c80db645be25a812e804db95b1d1ec4db56d5574aa",
+      "timestamp": "2026-07-21T21:03:51Z",
+      "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    }
+  }
+}

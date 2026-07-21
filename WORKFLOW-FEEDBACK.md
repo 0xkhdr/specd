@@ -301,3 +301,25 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** ambiguous docs plus a strict parser with no authoring affordance. Nothing in the scaffold comment says the field is exact-match to end-of-line.
 - **Recommendation:** parse the first token of the verdict field and treat the rest as a free-text note (surface it in `status --json` as `review.note`). Failing that, make the template explicit — `- **Verdict:** <approve|reject|needs-changes>  <!-- exact, one word, nothing after -->` — and give multi-pass audits the field they actually need: `- **Pass:** <label>`. Also cap the quoted string in the blocker at ~60 chars; a 200-char echo buries the actionable half of the message.
 - **Status:** open
+### 2026-07-21 — friction — program view marks requirements-stage specs and dependencies complete
+- **Context:** seven linked workflow improvement specs, phase perceive, agent author; exact command `./specd status --program`
+- **Expected:** each spec reports active/incomplete at `requirements`, `workflow-01-truthful-control` is the planning frontier, and later specs report waiting on their predecessor.
+- **Actual:** `workflow-01-truthful-control  phase=perceive (complete)`, every dependency renders `[complete]`, and `program frontier (actionable now):` is empty although every `state.json` status is `requirements`.
+- **Root cause:** harness bug — program completion/dependency projection disagrees with authoritative per-spec lifecycle status.
+- **Recommendation:** derive program completion and dependency satisfaction from loaded spec lifecycle state; add a black-box chain test with all specs at `requirements` that expects only the root spec actionable.
+- **Status:** open
+
+### 2026-07-22 — friction — `check --json` prints context-budget errors but exits 0
+- **Context:** task planning for `workflow-03-state-foundations`, `workflow-05-executable-orchestration`, and `workflow-06-unattended-authority`; exact command `./specd check <slug> --json`
+- **Expected:** a gate finding with `"severity":"error"` makes `check` exit 1, matching `docs/validation-gates.md` and allowing the driver loop to stop.
+- **Actual:** output included `{"gate":"context-budget","severity":"error","message":"T16: required context 41141 tokens exceeds budget 40000 — decompose the task or narrow declared files"}` (and equivalent T25/T28 findings), but every command exited 0; the shell loop therefore reported `exit:0`.
+- **Root cause:** harness bug — JSON rendering exposes failing findings but command exit semantics do not propagate their severity.
+- **Recommendation:** make `runCheck` return the existing gate-failure error after rendering JSON when any finding is error severity; add CLI tests asserting text and JSON both exit 1 for a context-budget error.
+- **Status:** open
+
+### 2026-07-22 — improvement — generated Codex MCP config can select a different binary than the bootstrap pin
+- **Context:** configuring Codex Brain hosting in this repository; exact commands `./specd init --agent=pinky`, `./specd handshake bootstrap workflow-01-truthful-control --json`, and `codex mcp list`.
+- **Observation:** bootstrap pinned local `./specd` at commit `062c54632013d41f0be3e26409ab4e35efbf1962`, while generated `.codex/config.toml` contained `command = "specd"`; `command -v specd` resolved `/usr/local/bin/specd` at commit `2549cf56dbc26de4bbea6fea8cb402c9468f68f8`.
+- **Cost:** the Codex MCP host would execute a different schema/palette/config implementation than the one whose handshake the worker received. Detecting it required comparing both `version --json` records, then manually pinning `command = "./specd"` and re-running `codex mcp list`.
+- **Recommendation:** have `writePinkyArtifacts` register the same resolved binary used by the initiating process, or default repository scaffolds to `./specd` when that executable exists; make `agents doctor` compare the MCP command's version/commit with the active handshake pin and report an actionable mismatch.
+- **Status:** open

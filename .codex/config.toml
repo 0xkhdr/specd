@@ -1,0 +1,6 @@
+# specd:pinky begin
+[mcp_servers.specd]
+command = "./specd"
+args = ["mcp"]
+cwd = "."
+# specd:pinky end
