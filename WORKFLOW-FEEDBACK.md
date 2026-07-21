@@ -323,3 +323,19 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Cost:** the Codex MCP host would execute a different schema/palette/config implementation than the one whose handshake the worker received. Detecting it required comparing both `version --json` records, then manually pinning `command = "./specd"` and re-running `codex mcp list`.
 - **Recommendation:** have `writePinkyArtifacts` register the same resolved binary used by the initiating process, or default repository scaffolds to `./specd` when that executable exists; make `agents doctor` compare the MCP command's version/commit with the active handshake pin and report an actionable mismatch.
 - **Status:** open
+
+### 2026-07-22 — friction — task context does not distinguish a declared new file from a missing required source
+- **Context:** Brain/Pinky execution of `workflow-01-truthful-control` T01. The task declares new file `docs/workflow-regressions.md`; exact read command included `sed -n '1,320p' docs/workflow-regressions.md`.
+- **Expected:** the bounded task context identifies declared paths that do not exist yet, so a worker can skip source loading and create them during implementation.
+- **Actual:** the read emitted `sed: can't read docs/workflow-regressions.md: No such file or directory`. The manifest omitted the path from eager source items but did not explicitly classify it as a new-file target.
+- **Root cause:** context manifest models existing declared files as source items and silently omits absent declared files; the worker must derive that omission by comparing the task row with manifest items.
+- **Recommendation:** add a deterministic `declared_new_files` array to `specd context --json`, populated from declared task files absent at manifest construction. This removes a failed read without widening scope.
+- **Status:** open
+
+### 2026-07-22 — improvement — verifying a completed task advertises an already-consumed completion
+- **Context:** after `specd brain report workflow-01-truthful-control 0f24c7649ad389eb41b874b721678b88 pinky-t01` completed T01, the host re-pinned evidence to the checkpoint commit with exact command `./specd verify workflow-01-truthful-control T01`.
+- **Observation:** verify passed but printed `evidence recorded for workflow-01-truthful-control T01; task not complete; run \`specd complete-task workflow-01-truthful-control T01\`` although T01 already carried the completed marker.
+- **Cost:** the host must re-read task state before trusting the exact next command; following it would create a needless refusal/round trip.
+- **Recommendation:** after recording evidence, inspect the parsed task marker. For an already completed task, print `evidence refreshed for <slug> <task>; task already complete` and omit `complete-task` guidance.
+- **Tradeoff:** one existing parsed-state branch; no gate or evidence semantics change.
+- **Status:** open
