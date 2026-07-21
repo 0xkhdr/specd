@@ -403,3 +403,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** shared readiness supplied the current lifecycle gate instead of the former empty check target, while `qualityDeclarationArmed` excluded requirements and design; the structural check silently disappeared in those phases.
 - **Recommendation:** arm malformed quality-declaration validation for every lifecycle readiness phase and retain AD-R1 as the black-box invariant.
 - **Status:** resolved — `./scripts/regress-domains.sh`.
+
+### 2026-07-22 — friction — final readiness reapplied context budgeting to completed T05
+- **Context:** final Release A readiness after every task completed through Brain. Exact command: `./specd status workflow-01-truthful-control --guide`.
+- **Expected:** execution readiness evaluates remaining work; completed tasks cannot require another context manifest.
+- **Actual:** `blocker: T05: required context 41256 tokens exceeds budget 40000 — decompose the task or narrow declared files`.
+- **Root cause:** `contextBudget` iterated every task without consulting the marker-derived completion status already present in `CheckCtx`.
+- **Recommendation:** skip completed tasks in the shared context-budget gate and pin the terminal-work case directly.
+- **Status:** resolved — `go test ./internal/core/gates -run TestContextBudget -count=2`.

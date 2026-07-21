@@ -50,3 +50,15 @@ func TestContextBudgetRequiredFailsClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestContextBudgetIgnoresCompletedTasks(t *testing.T) {
+	findings := contextBudget(CheckCtx{
+		Slug:             "demo",
+		Tasks:            []core.TaskRow{{ID: "T1", Role: "craftsman"}},
+		Status:           map[string]core.TaskRunStatus{"T1": core.TaskComplete},
+		MaxContextTokens: 1,
+	})
+	if len(findings) != 0 {
+		t.Fatalf("completed task findings = %+v", findings)
+	}
+}

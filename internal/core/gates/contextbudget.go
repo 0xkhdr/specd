@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	speccontext "github.com/0xkhdr/specd/internal/context"
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 func contextBudget(ctx CheckCtx) []Finding {
@@ -12,6 +13,9 @@ func contextBudget(ctx CheckCtx) []Finding {
 	}
 	var findings []Finding
 	for _, task := range ctx.Tasks {
+		if ctx.Status[task.ID] == core.TaskComplete {
+			continue
+		}
 		// R3.2: BuildManifest fails closed when the required set exceeds budget,
 		// carrying the concise remediation (decompose / narrow declared files). A
 		// successful build already fits budget — optional items shed, required
