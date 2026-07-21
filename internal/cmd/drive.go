@@ -28,10 +28,12 @@ type DriveEnvelope struct {
 	SessionID string `json:"session_id,omitempty"`
 	Driver    string `json:"driver,omitempty"`
 
-	Revision  int64               `json:"revision"`
-	Phase     core.Phase          `json:"phase"`
-	Status    core.Status         `json:"status"`
-	Assurance core.AssuranceLevel `json:"assurance"`
+	Revision      int64                      `json:"revision"`
+	Phase         core.Phase                 `json:"phase"`
+	Status        core.Status                `json:"status"`
+	Assurance     core.AssuranceLevel        `json:"assurance"`
+	RequestMode   core.RequestModeResolution `json:"request_routing"`
+	ExecutionMode core.Mode                  `json:"execution_mode"`
 
 	// UnmetControls names each host-contract clause the invoking host did not
 	// assert (R5.4). It is why the assurance is what it is, so an operator can
@@ -126,6 +128,11 @@ func buildDriveEnvelope(root, slug string, hostSandbox bool, now time.Time) (Dri
 		LegalOperations: guide.NextActions,
 		HumanOnly:       guidance.HumanOnly,
 		Blockers:        guide.Blockers,
+		ExecutionMode:   state.Mode,
+	}
+	envelope.RequestMode, err = core.ResolveRequestMode(core.RequestModeInput{ExplicitDirective: core.RequestModeManaged, SelectedSpec: slug})
+	if err != nil {
+		return DriveEnvelope{}, err
 	}
 
 	session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))

@@ -38,10 +38,14 @@ func Doctor(root, pinned string) DoctorResultV1 {
 			findings = append(findings, DriverFinding{Code: code, Severity: "error", Ref: pinned, Message: err.Error(), RecoveryAction: "choose one valid spec explicitly"})
 		}
 	}
-	config, diagnostics := LoadConfig(ConfigPaths{Project: filepath.Join(root, "project.yml")}, nil)
+	resolution, resolveErr := ResolveConfigSource(root)
+	if resolveErr != nil {
+		findings = append(findings, DriverFinding{Code: "CONFIG_INVALID", Severity: "error", Ref: root, Message: resolveErr.Error(), RecoveryAction: "repair configuration sources, then run `specd agents doctor --json` again"})
+	}
+	config, diagnostics := LoadConfig(ConfigPaths{Project: resolution.SelectedPath}, nil)
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Severity == "error" {
-			findings = append(findings, DriverFinding{Code: "CONFIG_INVALID", Severity: "error", Ref: diagnostic.Path, Message: diagnostic.Message, RecoveryAction: "repair project.yml, then run `specd agents doctor --json` again"})
+			findings = append(findings, DriverFinding{Code: "CONFIG_INVALID", Severity: "error", Ref: diagnostic.Path, Message: diagnostic.Message, RecoveryAction: "repair configuration, then run `specd agents doctor --json` again"})
 		}
 	}
 	if config.Orchestration.Enabled {

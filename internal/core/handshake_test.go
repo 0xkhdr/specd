@@ -8,7 +8,11 @@ import (
 )
 
 func TestHandshakeToolContracts(t *testing.T) {
-	hs := BootstrapHandshake(Config{})
+	state := InitialState("demo")
+	hs, err := BootstrapHandshakeForRoot(t.TempDir(), Config{}, &state, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if hs.OperationSchemaVersion != OperationSchemaVersion {
 		t.Fatalf("operation schema = %d, want %d", hs.OperationSchemaVersion, OperationSchemaVersion)
 	}
@@ -87,6 +91,19 @@ func TestHandshakeBind(t *testing.T) {
 	}
 	if hs.PaletteDigest == "" || hs.ConfigDigest == "" || hs.ManagedDigest == "" || hs.GuidanceDigest == "" || hs.ContextSchemaDigest == "" || len(hs.Tools) == 0 || len(hs.NextCommands) != 1 {
 		t.Fatalf("operational identity missing: %+v", hs)
+	}
+	if hs.RequestMode.Mode != RequestModeManaged || !hs.RequestMode.HandshakeRequired || hs.RequestMode.SelectedSpec != "demo" {
+		t.Fatalf("managed request routing missing: %+v", hs.RequestMode)
+	}
+}
+
+func TestRequestModeResolutionHandshakeDefaultsGeneral(t *testing.T) {
+	hs, err := BootstrapHandshakeForRoot(t.TempDir(), Config{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hs.RequestMode.Mode != RequestModeGeneral || hs.RequestMode.HandshakeRequired || len(hs.Tools) != 0 || len(hs.ToolContracts) != 0 {
+		t.Fatalf("general handshake exposed specd routes: %+v", hs)
 	}
 }
 

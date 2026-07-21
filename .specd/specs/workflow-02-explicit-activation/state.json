@@ -1,11 +1,38 @@
 {
   "schema_version": 1,
   "slug": "workflow-02-explicit-activation",
-  "mode": "default",
-  "status": "tasks",
-  "phase": "plan",
-  "revision": 2,
+  "mode": "orchestrated",
+  "status": "complete",
+  "phase": "reflect",
+  "revision": 16,
   "records": {
+    "amendment:0": {
+      "change_id": "midreq-0",
+      "affected_ids": [
+        "final-verification",
+        "design",
+        "tasks"
+      ],
+      "rationale": "Add a repair task covering internal/core/agents_test.go, internal/cmd/e2e_test.go, internal/cmd/integration_polish_test.go,\n    and internal/context/manifest_test.go; verify with go test ./... -race -count=1.",
+      "required_rechecks": [
+        "design",
+        "tasks",
+        "execution"
+      ],
+      "recorded_revision": 11,
+      "timestamp": "2026-07-21T23:48:30Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 15,
+      "timestamp": "2026-07-21T23:56:11Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -16,6 +43,23 @@
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
     },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 14,
+      "timestamp": "2026-07-21T23:55:46Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "approved_revision": 3,
+      "timestamp": "2026-07-21T23:28:11Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
     "approval:requirements": {
       "kind": "approval",
       "text": "requirements → design",
@@ -24,6 +68,48 @@
       "timestamp": "2026-07-21T21:03:51Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 2,
+      "timestamp": "2026-07-21T23:26:17Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
+    "decision-request:0": {
+      "kind": "decision-request",
+      "text": "All T07-T11 task evidence and completion transactions pass, but go test ./... -race -count=1 fails in undeclared files: internal/core/agents_test.go, internal/cmd/e2e_test.go, internal/cmd/integration_polish_test.go, and internal/context/manifest_test.go. Decide whether to amend task scope/add a repair task for canonical-config fixtures and general-mode context expectations before approving executing to verifying.",
+      "scope": "final-verification",
+      "timestamp": "2026-07-21T23:45:51Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
+    "decision:0": {
+      "kind": "decision",
+      "text": "Add a repair task covering the four failing test files, then rerun full verification.",
+      "scope": "final-verification",
+      "timestamp": "2026-07-21T23:47:55Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
+    },
+    "midreq:0": {
+      "kind": "midreq",
+      "text": "Add a repair task covering internal/core/agents_test.go, internal/cmd/e2e_test.go, internal/cmd/integration_polish_test.go,\n    and internal/context/manifest_test.go; verify with go test ./... -race -count=1.",
+      "scope": "final-verification",
+      "timestamp": "2026-07-21T23:48:30Z",
+      "git_head": "332406c1687f38ef3b71ccd4c905c171e714d516",
+      "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T07": "complete",
+    "T08": "complete",
+    "T09": "complete",
+    "T10": "complete",
+    "T11": "complete",
+    "T12": "complete",
+    "T13": "complete"
   }
 }

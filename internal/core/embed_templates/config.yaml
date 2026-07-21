@@ -1,0 +1,54 @@
+# specd project configuration — operator-owned, not a managed region.
+# `specd init` writes this once and never clobbers your edits. Every knob below
+# is documented; only verify.timeout_seconds is active by default. Syntax is a
+# strict subset of YAML: two-space indent, `key: value`, `#` comments.
+
+# Bound each task verify command in wall-clock seconds. A timeout is recorded as
+# a FAILING evidence record (exit 124), never a silent hang. 0 means unbounded.
+verify:
+  timeout_seconds: 600
+
+# Opt-in gates — uncomment to enable.
+
+# Lifecycle strictness profile. default|production.
+# profile: default
+
+# gates:
+#   verify: error
+
+# escalation:
+#   max_verify_fails: 3
+
+# orchestration:
+#   enabled: false
+#   model: ""
+
+# routing:
+#   version: 1
+#   classes: default
+#   default_class: default
+#   fallback: default
+#   class_capabilities: default=context
+#   max_tokens: 0
+#   max_cost_micros: 0
+#   deadline_seconds: 0
+#   max_retries: 3
+#   allow_unknown_telemetry: true
+
+# security:
+#   profile: prototype
+#   secrets: error
+#   injection: warn
+#   slopsquat: warn
+#   clean_worktree: off
+#   sandbox: off
+
+# environments:
+#   staging: strategy=rolling;criteria=health;window=5m;freshness=2m;rollback=previous
+#   production: strategy=canary;approver=release-manager;authority=oncall;criteria=health+latency;window=10m;freshness=5m;rollback=previous
+
+# criteria:
+#   required: false
+
+# review:
+#   required: false

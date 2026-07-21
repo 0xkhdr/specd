@@ -57,10 +57,17 @@ func previewManaged(root string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(root, "project.yml")); os.IsNotExist(err) {
-		fmt.Fprintln(os.Stdout, "+ project.yml (new operator config)")
-	} else if err != nil {
-		return err
+	configExists := false
+	for _, rel := range []string{filepath.Join(".specd", "config.yaml"), "project.yml", "project.yaml"} {
+		if _, err := os.Stat(filepath.Join(root, rel)); err == nil {
+			configExists = true
+			break
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	if !configExists {
+		fmt.Fprintln(os.Stdout, "+ .specd/config.yaml (new operator config)")
 	}
 	if len(changes) == 0 {
 		fmt.Fprintln(os.Stdout, "no managed-region changes")

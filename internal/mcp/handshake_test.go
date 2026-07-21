@@ -3,6 +3,8 @@ package mcp
 import (
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/core"
 )
 
 // TestInitializeHandshake pins that the server answers the MCP `initialize`
@@ -44,5 +46,16 @@ func TestHandshakeDriverProtocolVersion(t *testing.T) {
 	result := resp.Result.(map[string]any)
 	if result["driverProtocolVersion"] != "1" {
 		t.Fatalf("driver protocol version = %#v", result["driverProtocolVersion"])
+	}
+}
+
+func TestRequestModeGuideConformance(t *testing.T) {
+	general := RequestModeGuide(core.RequestModeResolution{Mode: core.RequestModeGeneral, Assurance: core.AssuranceAdvisory}, "")
+	if strings.Contains(general, "`specd ") || !strings.HasPrefix(general, "Request mode: general") {
+		t.Fatalf("general MCP guide = %q", general)
+	}
+	managed := RequestModeGuide(core.RequestModeResolution{Mode: core.RequestModeManaged, SelectedSpec: "demo", Assurance: core.AssuranceAdvisory}, "T1")
+	if !strings.Contains(managed, "Run `specd handshake bootstrap demo --json` first") || !strings.Contains(managed, "not enforced") {
+		t.Fatalf("managed MCP guide = %q", managed)
 	}
 }

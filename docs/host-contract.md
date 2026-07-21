@@ -18,6 +18,11 @@ of being assumed silently.
 A host that meets none of this is still usable. It is just **advisory**, and
 specd will say so rather than presenting it as governed.
 
+Request routing precedes this contract: repository presence alone keeps the request in
+general mode and invokes no specd command. Explicit managed activation starts with
+`specd handshake bootstrap <slug> --json`. A mode or managed-spec switch invalidates the
+previous authority packet; host adapters must not carry it across routes.
+
 ## The controls
 
 A host declares these at bootstrap. Each maps to a clause of `agent-driver-protocol`

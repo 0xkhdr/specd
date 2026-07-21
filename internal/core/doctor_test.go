@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -67,4 +68,27 @@ func TestDoctorFindsMissingLayoutAndInvalidPin(t *testing.T) {
 			t.Fatalf("missing %s: %+v", code, result.Findings)
 		}
 	}
+}
+
+func TestDoctorReportsConfigSourceConflict(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".specd/specs/demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".specd/config.yaml"), []byte("agent: codex\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte("agent: other\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	result := Doctor(root, "demo")
+	for _, finding := range result.Findings {
+		if finding.Code == "CONFIG_INVALID" && strings.Contains(finding.Message, "agent") {
+			return
+		}
+	}
+	t.Fatalf("config conflict missing: %+v", result.Findings)
 }

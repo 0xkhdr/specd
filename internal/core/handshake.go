@@ -47,8 +47,9 @@ type Handshake struct {
 	// the profile plus the criterion/review/integration gates it arms. It lets a
 	// later approval detect that the policy governing an earlier decision has
 	// changed, without diffing the whole config.
-	PolicyDigest  string         `json:"policy_digest"`
-	ToolContracts []ToolContract `json:"tool_contracts"`
+	PolicyDigest  string                `json:"policy_digest"`
+	ToolContracts []ToolContract        `json:"tool_contracts"`
+	RequestMode   RequestModeResolution `json:"request_routing"`
 }
 
 func BootstrapHandshake(config Config) Handshake {
@@ -102,6 +103,25 @@ func BootstrapHandshakeForRoot(root string, config Config, state *State, nextCom
 	}
 	if state != nil {
 		hs.ActiveSpec = &HandshakeSpec{Slug: state.Slug, Status: state.Status, Revision: state.Revision}
+	}
+	mode, slug := RequestMode(""), ""
+	if state != nil {
+		mode, slug = RequestModeManaged, state.Slug
+	}
+	hs.RequestMode, err = ResolveRequestMode(RequestModeInput{ExplicitDirective: mode, SelectedSpec: slug})
+	if err != nil {
+		return Handshake{}, err
+	}
+	hs.Tools = append([]string(nil), hs.RequestMode.PermittedOperations...)
+	allowedIDs := make(map[string]bool, len(hs.Tools))
+	for _, id := range hs.Tools {
+		allowedIDs[id] = true
+	}
+	hs.ToolContracts = hs.ToolContracts[:0]
+	for _, contract := range ManifestToolContracts() {
+		if allowedIDs[contract.OperationID] {
+			hs.ToolContracts = append(hs.ToolContracts, contract)
+		}
 	}
 	return hs, nil
 }

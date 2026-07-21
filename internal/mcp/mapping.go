@@ -34,3 +34,9 @@ func MissionToolCall(req adapter.Request, toolName string) (map[string]any, erro
 	}
 	return map[string]any{"name": toolName, "arguments": map[string]any{"envelope": envelope}}, nil
 }
+
+// RequestModeGuide maps resolved routing into the same guidance used by
+// generated files and host adapters.
+func RequestModeGuide(resolution core.RequestModeResolution, taskID string) string {
+	return core.RequestModeGuide(resolution.Mode, resolution.SelectedSpec, taskID, resolution.Assurance)
+}

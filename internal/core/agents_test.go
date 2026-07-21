@@ -52,7 +52,7 @@ func TestDoctorChecksOrchestrationWorkerAlignment(t *testing.T) {
 		t.Fatal(err)
 	}
 	project := "version: 1\nagent: codex\norchestration:\n  enabled: true\n"
-	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte(project), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".specd", "config.yaml"), []byte(project), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	result := Doctor(root, "demo")
@@ -66,7 +66,7 @@ func TestDoctorChecksOrchestrationWorkerAlignment(t *testing.T) {
 	}
 
 	project = "version: 1\nagent: claude\norchestration:\n  enabled: true\n"
-	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte(project), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ".specd", "config.yaml"), []byte(project), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(root, ".claude", "agents", "pinky-validator.md")); err != nil {

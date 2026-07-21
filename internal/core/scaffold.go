@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +45,7 @@ func WriteScaffold(root string, agents ...string) error {
 	if err := writeAgents(root); err != nil {
 		return err
 	}
-	if err := writeProjectConfig(root); err != nil {
+	if err := writeCanonicalConfig(root); err != nil {
 		return err
 	}
 	if err := writeSkillsRoot(root); err != nil {
@@ -100,21 +101,29 @@ func writeAgents(root string) error {
 	return AtomicWrite(target, MergeAgents(string(existing), string(generated)))
 }
 
-// writeProjectConfig materializes a commented project.yml at the project root so
-// a fresh project ships with the verify timeout bound visible and active. It is
-// operator-owned (not a managed region): an existing file is never clobbered.
-func writeProjectConfig(root string) error {
-	target := filepath.Join(root, "project.yml")
-	if _, err := os.Stat(target); err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
+// writeCanonicalConfig creates config only when the operator owns no config
+// spelling. Config is not a managed region: init never replaces or relocates it.
+func writeCanonicalConfig(root string) error {
+	for _, rel := range []string{filepath.Join(".specd", "config.yaml"), "project.yml", "project.yaml"} {
+		if _, err := os.Stat(filepath.Join(root, rel)); err == nil {
+			return nil
+		} else if !os.IsNotExist(err) {
+			return err
+		}
 	}
-	body, err := embedtemplates.FS.ReadFile("project.yml")
+	body, err := embedtemplates.FS.ReadFile("config.yaml")
 	if err != nil {
 		return err
 	}
-	return AtomicWrite(target, string(body))
+	target := filepath.Join(root, ".specd", "config.yaml")
+	if err := AtomicWrite(target, string(body)); err != nil {
+		return err
+	}
+	_, diagnostics := LoadConfig(ConfigPaths{Project: target}, nil)
+	if len(diagnostics) != 0 {
+		return fmt.Errorf("validate scaffolded config: %s", diagnostics[0].Message)
+	}
+	return nil
 }
 
 func writePinkyArtifacts(root string) error {

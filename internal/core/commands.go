@@ -190,6 +190,18 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "config",
+		Usage:         "specd config <show|validate|migrate> [--dry-run] [--source <project.yml|project.yaml>]",
+		Description:   "Inspect, validate, or explicitly migrate project configuration.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd config show", "specd config validate", "specd config migrate --dry-run", "specd config migrate --source project.yml"},
+		Flags: []Flag{
+			{Name: "dry-run", Type: "bool", Description: "Preview migration operations without writing files."},
+			{Name: "source", TakesValue: true, Type: "string", Enum: []string{"project.yml", "project.yaml"}, Values: "project.yml|project.yaml", Description: "Select one legacy spelling when both exist."},
+		},
+	},
+	{
 		Name:          "agents",
 		Usage:         "specd agents [doctor | guide <slug>] [--json]",
 		Description:   "Inspect agent artifacts, diagnose prerequisites, or emit deterministic driver guidance without writing.",
@@ -694,6 +706,11 @@ type operationDefinition struct {
 // materialized from their Command declaration by buildOperations.
 var operationDefinitions = map[string][]operationDefinition{
 	"complete-task": {{id: "complete-task", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"}},
+	"config": {
+		{id: "config.show", subcommand: "show", effect: EffectRead, scopeSource: "workspace"},
+		{id: "config.validate", subcommand: "validate", effect: EffectRead, scopeSource: "workspace"},
+		{id: "config.migrate", subcommand: "migrate", effect: EffectWorkspaceWrite, scopeSource: "workspace"},
+	},
 	"agents": {
 		{id: "agents.inspect", effect: EffectRead, scopeSource: "workspace"},
 		{id: "agents.doctor", subcommand: "doctor", effect: EffectRead, scopeSource: "workspace"},
@@ -871,7 +888,7 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 		default:
 			return Operation{}, false
 		}
-	case "eval", "exception", "brain":
+	case "eval", "exception", "brain", "config":
 		if first == "" {
 			return Operation{}, false
 		}

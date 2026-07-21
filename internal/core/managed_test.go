@@ -8,6 +8,17 @@ import (
 	"testing"
 )
 
+func TestRequestModeGuideConformance(t *testing.T) {
+	general := RequestModeGuide(RequestModeGeneral, "", "", AssuranceAdvisory)
+	if strings.Contains(general, "`specd ") || !strings.HasPrefix(general, "Request mode: general") || !strings.Contains(general, "advisory") {
+		t.Fatalf("general guide = %q", general)
+	}
+	managed := RequestModeGuide(RequestModeManaged, "demo", "T1", AssuranceAdvisory)
+	if !strings.HasPrefix(managed, "Request mode: managed") || !strings.Contains(managed, "Run `specd handshake bootstrap demo --json` first") {
+		t.Fatalf("managed guide = %q", managed)
+	}
+}
+
 func TestManagedMarkers(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteScaffold(root); err != nil {

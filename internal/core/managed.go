@@ -16,6 +16,23 @@ import (
 // role/steering template changes shape.
 const TemplateVersion = 1
 
+// RequestModeGuide renders the host-facing route after request mode has been
+// resolved. General mode deliberately contains no command; managed mode's first
+// command is the authority bootstrap.
+func RequestModeGuide(mode RequestMode, slug, taskID string, assurance AssuranceLevel) string {
+	if assurance == "" {
+		assurance = AssuranceAdvisory
+	}
+	prefix := fmt.Sprintf("Request mode: %s. Host assurance: %s.", mode, assurance)
+	if assurance == AssuranceAdvisory {
+		prefix += " Actor, path, tool, and network restrictions are advisory, not enforced by specd."
+	}
+	if mode != RequestModeManaged {
+		return prefix + " Continue as a general request without harness commands."
+	}
+	return fmt.Sprintf("%s Run `specd handshake bootstrap %s --json` first, then `specd status %s --guide`, `specd context %s %s --json`, implement declared files only, `specd verify %s %s`, `specd complete-task %s %s`, and `specd check %s`.", prefix, slug, slug, slug, taskID, slug, taskID, slug, taskID, slug)
+}
+
 // ManagedAsset is one specd-managed scaffold file (a role or steering template).
 // Its Template is wrapped in stable marker comments so `init --repair`/`--refresh`
 // can regenerate the managed region while leaving any user content outside the

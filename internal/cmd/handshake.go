@@ -102,6 +102,8 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	fmt.Fprintf(os.Stdout, "palette_digest: %s\n", handshake.PaletteDigest)
 	fmt.Fprintf(os.Stdout, "config_digest: %s\n", handshake.ConfigDigest)
 	fmt.Fprintf(os.Stdout, "managed_digest: %s\n", handshake.ManagedDigest)
+	fmt.Fprintf(os.Stdout, "request_mode: %s\n", handshake.RequestMode.Mode)
+	fmt.Fprintf(os.Stdout, "request_mode_source: %s\n", handshake.RequestMode.Source)
 	for _, tool := range handshake.Tools {
 		fmt.Fprintf(os.Stdout, "tool: %s\n", tool)
 	}

@@ -1,10 +1,19 @@
 package integration
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/0xkhdr/specd/internal/core"
+)
 
 func Snippet(host, slug, taskID string) string {
+	return ModeSnippet(host, core.RequestModeManaged, slug, taskID, core.AssuranceAdvisory)
+}
+
+// ModeSnippet projects the canonical request route into host adapter prose.
+func ModeSnippet(host string, mode core.RequestMode, slug, taskID string, assurance core.AssuranceLevel) string {
 	if host == "" {
 		host = "agent"
 	}
-	return fmt.Sprintf("%s: run `specd context %s %s --json`, implement declared files only, `specd verify %s %s` to record evidence, `specd complete-task %s %s` to complete, then `specd check %s`.", host, slug, taskID, slug, taskID, slug, taskID, slug)
+	return fmt.Sprintf("%s: %s", host, core.RequestModeGuide(mode, slug, taskID, assurance))
 }

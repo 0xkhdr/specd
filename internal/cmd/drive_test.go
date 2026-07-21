@@ -78,6 +78,12 @@ func TestDriveEnvelopeCarriesEveryRequiredField(t *testing.T) {
 	if got.ProtocolVersion != core.DriverProtocolVersion {
 		t.Errorf("protocol_version = %q, want %q", got.ProtocolVersion, core.DriverProtocolVersion)
 	}
+	if got.RequestMode.Mode != core.RequestModeManaged || got.RequestMode.SelectedSpec != "demo" || !got.RequestMode.HandshakeRequired {
+		t.Errorf("request routing = %+v", got.RequestMode)
+	}
+	if got.ExecutionMode != "default" {
+		t.Errorf("execution_mode = %q, want default", got.ExecutionMode)
+	}
 	if got.Slug != "demo" {
 		t.Errorf("spec_slug = %q, want demo", got.Slug)
 	}

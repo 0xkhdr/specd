@@ -6,6 +6,16 @@ How an AI coding agent (or an MCP client, or a custom harness) drives specd. spe
 **agent-agnostic**: it constrains *capability* through roles, not *identity*. Anything that
 can run a command can drive it.
 
+## Resolve request mode first
+
+Loading a repository does not activate specd. Route the request as `general`, `consult`, or
+explicitly activated `managed` before following any lifecycle guidance. General mode runs no
+specd command. Managed mode begins with `specd handshake bootstrap <slug> --json`; switching
+mode or managed spec invalidates authority issued for the previous route.
+
+Guides report the host assurance level. If the host cannot enforce actor, path, tool, and
+network restrictions, that level is **advisory** and must not be described as enforcement.
+
 ## The `AGENTS.md` loop
 
 `specd init` writes `AGENTS.md` into the target repo root. It is the contract the agent loads:

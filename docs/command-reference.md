@@ -185,6 +185,30 @@ Complete one task by consuming current passing evidence through the gated comple
 specd complete-task payments T3
 ```
 
+### `config`
+
+```
+specd config <show|validate|migrate> [--dry-run] [--source <project.yml|project.yaml>]
+```
+
+Inspect, validate, or explicitly migrate project configuration.
+
+**Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--dry-run` | bool | Preview migration operations without writing files. |
+| `--source` | project.yml|project.yaml | Select one legacy spelling when both exist. |
+
+**Examples:**
+
+```bash
+specd config show
+specd config validate
+specd config migrate --dry-run
+specd config migrate --source project.yml
+```
+
 ### `context`
 
 ```

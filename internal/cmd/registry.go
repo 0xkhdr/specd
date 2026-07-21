@@ -46,6 +46,7 @@ var executable = map[string]Handler{
 	"drive":            runDrive,
 	"check":            runCheck,
 	"complete-task":    runTaskComplete,
+	"config":           runConfig,
 	"context":          runContext,
 	"decision":         runDecision,
 	"request-decision": runRequestDecision,

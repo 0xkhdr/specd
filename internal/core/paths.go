@@ -88,6 +88,9 @@ func FindRoot(start string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if resolved, resolveErr := filepath.EvalSymlinks(dir); resolveErr == nil {
+		dir = resolved
+	}
 	info, err := os.Stat(dir)
 	if err == nil && !info.IsDir() {
 		dir = filepath.Dir(dir)

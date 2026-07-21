@@ -7,6 +7,12 @@ the missing regression. A `superseded` row must also name the replacement feedba
 
 | Feedback | Owner | Disposition | Regression or explicit deferral | Superseded by |
 |---|---|---|---|---|
+| WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — observer feedback creates an undeclared inventory repair task | project maintainers | regression | ./scripts/test-lint.sh | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — midreq records repair intent but leaves no executable recovery path | project maintainers | deferred | Release B+ — governed task amendment is outside Release A. | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — general-mode tool filtering also removes applicable skills | project maintainers | resolved | go test ./... -race -count=1 | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — request-mode routing invalidates undeclared context-route tests | project maintainers | resolved | go test ./... -race -count=1 | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — canonical scaffold makes an existing Doctor fixture conflict | project maintainers | resolved | go test ./... -race -count=1 | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — `status --help` is parsed as a spec slug | project maintainers | deferred | Release B+ — uniform per-command help routing is outside Release A. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-20 — friction — `specd help link` omits the allowed `--kind` values | project maintainers | deferred | Release B+ — palette enum rendering is not in Release A scope. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-20 — friction — steering templates never load into the machine manifest | project maintainers | resolved | go test ./internal/context -run TestScaffoldedSteeringSelects -count=1 | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-20 — friction — requirements scaffold cannot pass `ParseRequirements`, and the error blames tasks.md | project maintainers | resolved | go test ./internal/core -run TestScaffoldRequirementsParse -count=1 | - |

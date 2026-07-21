@@ -48,6 +48,25 @@ func TestFindRoot(t *testing.T) {
 	}
 }
 
+func TestFindRootResolvesSymlink(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, specdDirName, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "linked")
+	if err := os.Symlink(root, link); err != nil {
+		t.Fatal(err)
+	}
+	got, err := FindRoot(filepath.Join(link, specdDirName, "nested"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := filepath.EvalSymlinks(root)
+	if got != want {
+		t.Fatalf("FindRoot=%q want canonical %q", got, want)
+	}
+}
+
 func TestSlug(t *testing.T) {
 	valid := []string{"a", "a1", "spec-01", "0-a"}
 	for _, slug := range valid {

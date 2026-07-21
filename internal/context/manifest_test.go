@@ -138,7 +138,12 @@ func TestManifestFreshScaffoldSelectsApplicableSkills(t *testing.T) {
 	writeManifestFixture(t, root, ".specd/specs/demo/design.md", "# Design\n")
 	writeManifestFixture(t, root, "main.go", "package main\n")
 	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"main.go"}, Verify: "go test ./...", Acceptance: "R1.1"}}
-	m, err := BuildMachineManifest(root, "demo", tasks, "T1", "execute", "execute", 0, core.BootstrapHandshake(core.Config{}))
+	state := core.InitialState("demo")
+	hs, err := core.BootstrapHandshakeForRoot(root, core.Config{}, &state, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := BuildMachineManifest(root, "demo", tasks, "T1", "execute", "execute", 0, hs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +326,11 @@ func TestModeForTaskFailsClosed(t *testing.T) {
 }
 
 func TestManifestDriverLanes(t *testing.T) {
-	hs := core.BootstrapHandshake(core.Config{})
+	state := core.InitialState("demo")
+	hs, err := core.BootstrapHandshakeForRoot(t.TempDir(), core.Config{}, &state, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	items := DriverItems(hs, "execute", "craftsman")
 	if len(items) < 2 {
 		t.Fatalf("driver items = %+v", items)

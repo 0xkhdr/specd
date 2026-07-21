@@ -349,10 +349,13 @@ func TestLifecycleE2EDefaultScaffold(t *testing.T) {
 	}
 
 	contextOut := mustRun("context", "demo", "T1", "--json")
-	for _, want := range []string{`"selected_task"`, `"kind": "guardrails"`, `"authority_limit": "role=scout; phase=execute; human-only tools forbidden"`, `"route": "cli:`, `"palette_digest"`} {
+	for _, want := range []string{`"selected_task"`, `"kind": "guardrails"`, `"authority_limit": "role=scout; phase=execute; human-only tools forbidden"`, `"palette_digest"`} {
 		if !strings.Contains(contextOut, want) {
 			t.Fatalf("generated context omitted %s:\n%s", want, contextOut)
 		}
+	}
+	if strings.Contains(contextOut, `"route": "cli:`) {
+		t.Fatalf("general context exposed managed routes:\n%s", contextOut)
 	}
 	if _, code := run("complete-task", "demo", "T1"); code == 0 {
 		t.Fatal("completion without verify evidence succeeded")

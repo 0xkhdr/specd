@@ -1,5 +1,7 @@
 package integration
 
+import "github.com/0xkhdr/specd/internal/core"
+
 type Adapter interface {
 	Name() string
 	Install() InstallRecord
@@ -28,6 +30,10 @@ func (r Registry) Snippet(host, slug, taskID string) string {
 		return adapter.Snippet(slug, taskID)
 	}
 	return Snippet(host, slug, taskID)
+}
+
+func (r Registry) ModeSnippet(host string, mode core.RequestMode, slug, taskID string, assurance core.AssuranceLevel) string {
+	return ModeSnippet(host, mode, slug, taskID, assurance)
 }
 
 type StaticAdapter struct {

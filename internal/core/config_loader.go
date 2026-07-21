@@ -1,10 +1,13 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -235,6 +238,124 @@ type ConfigPaths struct {
 	Project string
 }
 
+// ConfigResolution identifies the one project policy source selected for a root.
+// Digests cover raw source bytes and normalized key/value policy respectively.
+type ConfigResolution struct {
+	Root            string   `json:"root"`
+	SelectedPath    string   `json:"selected_path,omitempty"`
+	SelectedKind    string   `json:"selected_kind,omitempty"`
+	SourceDigest    string   `json:"source_digest,omitempty"`
+	EffectiveDigest string   `json:"effective_digest,omitempty"`
+	DuplicatePaths  []string `json:"duplicate_paths"`
+	ConflictKeys    []string `json:"conflict_keys"`
+	Deprecations    []string `json:"deprecations"`
+}
+
+// ConfigConflictError reports policy disagreement without exposing values.
+type ConfigConflictError struct {
+	Paths []string
+	Keys  []string
+}
+
+func (e ConfigConflictError) Error() string {
+	return fmt.Sprintf("configuration sources conflict at keys %s: %s", strings.Join(e.Keys, ", "), strings.Join(e.Paths, ", "))
+}
+
+// ResolveConfigSource selects canonical config when present, otherwise the
+// first legacy spelling. Every present source is parsed first: malformed or
+// conflicting policy therefore never falls through to a weaker source.
+func ResolveConfigSource(cwd string) (ConfigResolution, error) {
+	root, err := FindRoot(cwd)
+	if err != nil {
+		return ConfigResolution{}, err
+	}
+	resolution := ConfigResolution{Root: root, DuplicatePaths: []string{}, ConflictKeys: []string{}, Deprecations: []string{}}
+	type source struct {
+		path, kind string
+		raw        []byte
+		values     map[string]string
+	}
+	var sources []source
+	for _, candidate := range []struct{ rel, kind string }{{".specd/config.yaml", "canonical"}, {"project.yml", "legacy"}, {"project.yaml", "legacy"}} {
+		path := filepath.Join(root, filepath.FromSlash(candidate.rel))
+		raw, readErr := os.ReadFile(path)
+		if os.IsNotExist(readErr) {
+			continue
+		}
+		if readErr != nil {
+			return resolution, fmt.Errorf("read configuration %s: %w", path, readErr)
+		}
+		values, parseErr := parseSimpleYAML(string(raw))
+		if parseErr != nil {
+			return resolution, fmt.Errorf("%s: %w", path, parseErr)
+		}
+		sources = append(sources, source{path: path, kind: candidate.kind, raw: raw, values: values})
+	}
+	if len(sources) == 0 {
+		return resolution, nil
+	}
+	selected := sources[0]
+	for _, other := range sources[1:] {
+		for key := range differingConfigKeys(selected.values, other.values) {
+			resolution.ConflictKeys = append(resolution.ConflictKeys, key)
+		}
+	}
+	sort.Strings(resolution.ConflictKeys)
+	resolution.ConflictKeys = slices.Compact(resolution.ConflictKeys)
+	for _, source := range sources[1:] {
+		resolution.DuplicatePaths = append(resolution.DuplicatePaths, source.path)
+	}
+	if len(resolution.ConflictKeys) != 0 {
+		paths := make([]string, len(sources))
+		for i := range sources {
+			paths[i] = sources[i].path
+		}
+		return resolution, ConfigConflictError{Paths: paths, Keys: resolution.ConflictKeys}
+	}
+	resolution.SelectedPath, resolution.SelectedKind = selected.path, selected.kind
+	resolution.SourceDigest = digestBytes(selected.raw)
+	resolution.EffectiveDigest = digestConfigValues(selected.values)
+	for _, source := range sources {
+		if source.kind == "legacy" {
+			resolution.Deprecations = append(resolution.Deprecations, source.path+": legacy configuration is deprecated; migrate to .specd/config.yaml")
+		}
+	}
+	return resolution, nil
+}
+
+func differingConfigKeys(a, b map[string]string) map[string]bool {
+	out := map[string]bool{}
+	for key, value := range a {
+		if b[key] != value {
+			out[key] = true
+		}
+	}
+	for key, value := range b {
+		if a[key] != value {
+			out[key] = true
+		}
+	}
+	return out
+}
+
+func digestBytes(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
+func digestConfigValues(values map[string]string) string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var normalized strings.Builder
+	for _, key := range keys {
+		fmt.Fprintf(&normalized, "%s=%s\n", key, values[key])
+	}
+	return digestBytes([]byte(normalized.String()))
+}
+
 var DefaultConfig = Config{
 	Version: "1",
 	Agent:   "codex",
@@ -281,7 +402,7 @@ var DefaultConfig = Config{
 func LoadConfig(paths ConfigPaths, env map[string]string) (Config, []Diagnostic) {
 	cfg := DefaultConfig
 	var diagnostics []Diagnostic
-	if path := paths.Project; path != "" && filepath.Ext(path) == ".yml" {
+	if path := paths.Project; path != "" && (filepath.Ext(path) == ".yml" || filepath.Ext(path) == ".yaml") {
 		if raw, err := os.ReadFile(path); err != nil {
 			if !os.IsNotExist(err) {
 				diagnostics = append(diagnostics, Diagnostic{Severity: "error", Path: path, Message: err.Error()})
@@ -303,6 +424,22 @@ func parseSimpleYAML(raw string) (map[string]string, error) {
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			continue
 		}
+		if strings.ContainsRune(line, '\t') {
+			return nil, configError(lineNo+1, "tabs are not supported")
+		}
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "---" || trimmedLine == "..." {
+			return nil, configError(lineNo+1, "multiple YAML documents are not supported")
+		}
+		if strings.HasPrefix(trimmedLine, "-") {
+			return nil, configError(lineNo+1, "sequences are not supported")
+		}
+		if strings.ContainsAny(trimmedLine, "[]{}") {
+			return nil, configError(lineNo+1, "flow collections are not supported")
+		}
+		if strings.Contains(trimmedLine, "&") || strings.Contains(trimmedLine, "*") {
+			return nil, configError(lineNo+1, "anchors and aliases are not supported")
+		}
 		if strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "  ") {
 			return nil, configError(lineNo+1, "indent must be two spaces")
 		}
@@ -317,13 +454,20 @@ func parseSimpleYAML(raw string) (map[string]string, error) {
 			return nil, configError(lineNo+1, "empty key")
 		}
 		if strings.HasPrefix(line, "  ") {
+			if strings.HasPrefix(line, "   ") {
+				return nil, configError(lineNo+1, "indent must be exactly two spaces")
+			}
 			if section == "" {
 				return nil, configError(lineNo+1, "nested key without section")
 			}
 			if value == "" {
 				return nil, configError(lineNo+1, "empty scalar")
 			}
-			out[section+"."+key] = unquote(value)
+			fullKey := section + "." + key
+			if _, exists := out[fullKey]; exists {
+				return nil, configError(lineNo+1, "duplicate key: "+fullKey)
+			}
+			out[fullKey] = unquote(value)
 			continue
 		}
 		if value == "" {
@@ -331,6 +475,9 @@ func parseSimpleYAML(raw string) (map[string]string, error) {
 			continue
 		}
 		section = ""
+		if _, exists := out[key]; exists {
+			return nil, configError(lineNo+1, "duplicate key: "+key)
+		}
 		out[key] = unquote(value)
 	}
 	return out, nil

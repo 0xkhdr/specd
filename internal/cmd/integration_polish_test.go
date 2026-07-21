@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/0xkhdr/specd/internal/adapter"
+	speccontext "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/mcp"
 )
@@ -259,7 +260,7 @@ func TestIntegrationMachineContextCarriesDriverContract(t *testing.T) {
 	writeFile(t, filepath.Join(root, ".specd/specs/demo/design.md"), "# Design\n")
 	writeFile(t, filepath.Join(root, ".specd/roles/craftsman.md"), "# Craftsman\n")
 	writeFile(t, filepath.Join(root, "internal/a.go"), "package internal\n")
-	out, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, map[string]string{"json": ""}) })
+	out, err := managedContextJSON(t, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,13 +283,32 @@ func TestIntegrationMachineContextRejectsRouteIdentityMismatch(t *testing.T) {
 	writeFile(t, filepath.Join(root, ".specd/specs/demo/design.md"), "# Design\n")
 	writeFile(t, filepath.Join(root, ".specd/roles/craftsman.md"), "# Craftsman\n")
 	writeFile(t, filepath.Join(root, "internal/a.go"), "package internal\n")
-	out, err := captureStdout(t, func() error { return Run(root, "context", []string{"demo", "T1"}, map[string]string{"json": ""}) })
+	out, err := managedContextJSON(t, root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, `"route": "cli:`) || strings.Contains(out, `"route": "mcp:`) {
 		t.Fatalf("context route identity mismatch: %s", out)
 	}
+}
+
+func managedContextJSON(t *testing.T, root string) (string, error) {
+	t.Helper()
+	spec, err := loadSpec(root, "demo")
+	if err != nil {
+		return "", err
+	}
+	state := core.InitialState("demo")
+	hs, err := core.BootstrapHandshakeForRoot(root, core.Config{}, &state, nil)
+	if err != nil {
+		return "", err
+	}
+	manifest, err := speccontext.BuildMachineManifest(root, "demo", spec.Tasks, "T1", "context", "execute", contextBudget(root), hs)
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.MarshalIndent(manifest, "", "  ")
+	return string(raw), err
 }
 
 // Domain 03 W0 baselines: later waves flip each assertion when common spec

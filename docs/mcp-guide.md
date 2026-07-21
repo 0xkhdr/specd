@@ -99,6 +99,12 @@ treated as supported.
 
 ## Handshake
 
+Resolve request mode before calling a tool. Repository presence alone resolves to general mode,
+which invokes no specd command. Explicit managed mode starts with the bootstrap call below.
+Changing mode or managed spec invalidates authority from the prior route. MCP guidance reports
+the negotiated host assurance; missing actor, path, tool, network, or sandbox enforcement is
+**advisory**, never silently presented as enforced.
+
 Before an agent trusts the tool surface, it confirms one packet binding binary version/commit,
 state/context/template schemas, canonical workspace root, active spec/status/revision,
 palette/config/managed-guidance digests, allowed tools, and exact next valid commands:

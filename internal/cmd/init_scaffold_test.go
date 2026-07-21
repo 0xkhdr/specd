@@ -9,28 +9,25 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// TestInitWritesBoundedProjectConfig pins R3: a fresh `specd init` scaffolds a
-// project.yml whose active verify.timeout_seconds bound is visible and parseable,
-// and a second init never clobbers an operator-edited file.
-func TestInitWritesBoundedProjectConfig(t *testing.T) {
+func TestCanonicalConfigScaffold(t *testing.T) {
 	root := t.TempDir()
 	if err := runInit(root, nil, map[string]string{}); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	path := filepath.Join(root, "project.yml")
+	path := filepath.Join(root, ".specd", "config.yaml")
 	body, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("project.yml not written: %v", err)
+		t.Fatalf("canonical config not written: %v", err)
 	}
 	if !strings.Contains(string(body), "timeout_seconds: 600") {
-		t.Fatalf("project.yml missing active bound:\n%s", body)
+		t.Fatalf("canonical config missing active bound:\n%s", body)
 	}
 
 	// The scaffolded template must parse and yield the bound — guards the template
 	// against drifting out of parseSimpleYAML's supported subset.
 	cfg, diags := core.LoadConfig(core.ConfigPaths{Project: path}, nil)
 	if len(diags) != 0 {
-		t.Fatalf("scaffolded project.yml did not parse cleanly: %#v", diags)
+		t.Fatalf("scaffolded canonical config did not parse cleanly: %#v", diags)
 	}
 	if cfg.Verify.TimeoutSecs != 600 {
 		t.Fatalf("verify.timeout_seconds = %d, want 600", cfg.Verify.TimeoutSecs)
@@ -46,6 +43,38 @@ func TestInitWritesBoundedProjectConfig(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(path); string(got) != edited {
 		t.Fatalf("second init clobbered operator config:\n%s", got)
+	}
+
+	for _, legacy := range []string{"project.yml", "project.yaml"} {
+		legacyRoot := t.TempDir()
+		legacyPath := filepath.Join(legacyRoot, legacy)
+		if err := os.WriteFile(legacyPath, []byte(edited), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := runInit(legacyRoot, nil, map[string]string{}); err != nil {
+			t.Fatalf("init with %s: %v", legacy, err)
+		}
+		if _, err := os.Stat(filepath.Join(legacyRoot, ".specd", "config.yaml")); !os.IsNotExist(err) {
+			t.Fatalf("init silently created canonical config alongside %s", legacy)
+		}
+		if got, _ := os.ReadFile(legacyPath); string(got) != edited {
+			t.Fatalf("init changed %s:\n%s", legacy, got)
+		}
+	}
+
+	agentsPath := filepath.Join(root, "AGENTS.md")
+	agents, err := os.ReadFile(agentsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(agentsPath, append([]byte("operator guidance\n"), agents...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runInit(root, nil, map[string]string{}); err != nil {
+		t.Fatalf("refresh scaffold: %v", err)
+	}
+	if got, _ := os.ReadFile(agentsPath); !strings.HasPrefix(string(got), "operator guidance\n") {
+		t.Fatalf("init clobbered human-owned guidance:\n%s", got)
 	}
 }
 

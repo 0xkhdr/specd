@@ -1,0 +1,7 @@
+{"task_id":"T07","command":"go test ./internal/core -run TestConfigSourceResolution -count=2","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:29:41Z","actor":"xkhdr"}
+{"task_id":"T08","command":"go test ./internal/core ./internal/cmd -run TestCanonicalConfigScaffold -count=2","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:32:24Z","actor":"xkhdr"}
+{"task_id":"T09","command":"go test ./internal/core ./internal/cmd -run TestConfigMigration -count=2","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:37:39Z","actor":"xkhdr"}
+{"task_id":"T10","command":"go test ./internal/core ./internal/cmd -run TestRequestModeResolution -count=2","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:41:21Z","actor":"xkhdr"}
+{"task_id":"T11","command":"go test ./internal/core ./internal/integration ./internal/mcp -run TestRequestModeGuideConformance -count=2","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:44:14Z","actor":"xkhdr"}
+{"task_id":"T12","command":"go test ./... -race -count=1","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:52:40Z","actor":"xkhdr"}
+{"task_id":"T13","command":"./scripts/test-lint.sh","exit_code":0,"git_head":"332406c1687f38ef3b71ccd4c905c171e714d516","timestamp":"2026-07-21T23:54:25Z","actor":"xkhdr"}

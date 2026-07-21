@@ -1,12 +1,83 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestConfigSourceResolution(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".specd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacy := filepath.Join(root, "project.yml")
+	canonical := filepath.Join(root, ".specd", "config.yaml")
+	policy := []byte("agent: codex\ncontext:\n  max_tokens: 2000\n")
+	if err := os.WriteFile(legacy, policy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	resolution, err := ResolveConfigSource(filepath.Join(root, ".specd"))
+	if err != nil || resolution.SelectedPath != legacy || resolution.SelectedKind != "legacy" || resolution.SourceDigest == "" || resolution.EffectiveDigest == "" || len(resolution.Deprecations) != 1 {
+		t.Fatalf("legacy resolution = %#v, err=%v", resolution, err)
+	}
+	if err := os.WriteFile(canonical, []byte("context:\n  max_tokens: 2000\nagent: codex\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	resolution, err = ResolveConfigSource(root)
+	if err != nil || resolution.SelectedPath != canonical || len(resolution.DuplicatePaths) != 1 {
+		t.Fatalf("equal canonical resolution = %#v, err=%v", resolution, err)
+	}
+	if err := os.WriteFile(canonical, []byte("agent: weaker\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = ResolveConfigSource(root)
+	var conflict ConfigConflictError
+	if !errors.As(err, &conflict) || !slices.Contains(conflict.Keys, "agent") {
+		t.Fatalf("conflict = %#v, err=%v", conflict, err)
+	}
+	if err := os.WriteFile(canonical, []byte("agent: [unsupported]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = ResolveConfigSource(root); err == nil || !strings.Contains(err.Error(), "config line 1") {
+		t.Fatalf("malformed canonical fell back: %v", err)
+	}
+}
+
+func TestConfigSourceResolutionSymlinkRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".specd", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".specd", "config.yaml"), []byte("agent: codex\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "project")
+	if err := os.Symlink(root, link); err != nil {
+		t.Fatal(err)
+	}
+	fromRoot, err := ResolveConfigSource(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromLink, err := ResolveConfigSource(filepath.Join(link, ".specd", "nested"))
+	if err != nil || fromLink.Root != fromRoot.Root || fromLink.EffectiveDigest != fromRoot.EffectiveDigest {
+		t.Fatalf("root=%#v link=%#v err=%v", fromRoot, fromLink, err)
+	}
+}
+
+func TestConfigStrictUnsupportedSyntax(t *testing.T) {
+	for _, raw := range []string{"---\nagent: codex\n", "items:\n  - one\n", "agent: &base codex\n", "agent: codex\nagent: other\n", "agent: [codex]\n"} {
+		if _, err := parseSimpleYAML(raw); err == nil || !strings.Contains(err.Error(), "config line") {
+			t.Fatalf("accepted unsupported YAML %q: %v", raw, err)
+		}
+	}
+}
 
 func TestConfigCascade(t *testing.T) {
 	dir := t.TempDir()
