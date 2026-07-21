@@ -24,9 +24,9 @@ func TestProductionSmokeLane(t *testing.T) {
 	}
 	for _, contract := range []string{
 		"profile: production",
-		`\"method\":\"initialize\"`,
-		`\"driver_capabilities\":{}`,
-		`\"capability\":\"sandbox\",\"status\":\"refused\"`,
+		`"method":"initialize"`,
+		`"driver_capabilities":{}`,
+		`"capability":"sandbox","status":"refused"`,
 		"declare sandbox support or use read-only operations",
 		"test ! -e .specd",
 	} {

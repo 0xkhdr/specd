@@ -13,7 +13,7 @@ import (
 func TestQualityDeclarationGate(t *testing.T) {
 	malformed := []core.TaskRow{{ID: "T1", Role: "craftsman", Files: "a.go", Verify: "go test ./...", Evidence: "vibes/x"}}
 
-	for _, target := range []string{"", string(core.StatusTasks), string(core.StatusExecuting)} {
+	for _, target := range []string{"", string(core.StatusRequirements), string(core.StatusDesign), string(core.StatusTasks), string(core.StatusExecuting), string(core.StatusVerifying), string(core.StatusComplete)} {
 		findings := qualityDeclaration(CheckCtx{Tasks: malformed, ApproveTarget: target})
 		if !HasErrors(findings) {
 			t.Fatalf("target %q: malformed declaration not refused", target)
@@ -25,12 +25,6 @@ func TestQualityDeclarationGate(t *testing.T) {
 		}
 	}
 
-	// Requirements/design approvals are not armed: no tasks contract exists yet.
-	for _, target := range []string{"requirements", "design"} {
-		if f := qualityDeclaration(CheckCtx{Tasks: malformed, ApproveTarget: target}); len(f) != 0 {
-			t.Fatalf("target %q: gate armed too early: %+v", target, f)
-		}
-	}
 }
 
 func TestQualityDeclarationGateAcceptsValidAndEmptyCells(t *testing.T) {

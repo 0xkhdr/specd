@@ -387,3 +387,19 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** the new truthful `observed` classification replaced the old `requires passing evidence` detail instead of preserving it as compatibility text.
 - **Recommendation:** keep stable legacy detail in `detail` while structured fields carry the normative missing/failing/stale classification; retain the broader affected-package run.
 - **Status:** resolved — `go test ./internal/core ./internal/cmd ./internal/mcp -count=1`.
+
+### 2026-07-22 — friction — production smoke source assertions searched for backslashes absent from the script
+- **Context:** Release A exit verification after T06. Exact commands: `go test ./... -race -count=1` and `go test ./... -count=2`.
+- **Expected:** both full suites accept the production smoke script's literal JSON request and refusal assertion.
+- **Actual:** both failed `TestProductionSmokeLane` with `production_smoke_test.go:34: production smoke omits "\\\"method\\\":\\\"initialize\\\""`, `production_smoke_test.go:34: production smoke omits "\\\"driver_capabilities\\\":{}"`, and `production_smoke_test.go:34: production smoke omits "\\\"capability\\\":\\\"sandbox\\\",\\\"status\\\":\\\"refused\\\""`.
+- **Root cause:** raw-string test contracts retained JSON escape backslashes even though `scripts/production-smoke.sh` stores shell-quoted JSON without those backslashes.
+- **Recommendation:** assert the exact literal script text and keep `TestProductionSmokeLane` in the full release suite.
+- **Status:** resolved — `go test ./internal/integration -run TestProductionSmokeLane -count=1`.
+
+### 2026-07-22 — friction — shared readiness disarmed malformed quality declarations during early phases
+- **Context:** Release A domain regression verification. Exact command: `./scripts/regress-domains.sh`.
+- **Expected:** AD-R1 rejects a malformed task evidence declaration during `specd check` before execution.
+- **Actual:** `[AD-R1] VIOLATION: check accepted malformed evidence declaration`.
+- **Root cause:** shared readiness supplied the current lifecycle gate instead of the former empty check target, while `qualityDeclarationArmed` excluded requirements and design; the structural check silently disappeared in those phases.
+- **Recommendation:** arm malformed quality-declaration validation for every lifecycle readiness phase and retain AD-R1 as the black-box invariant.
+- **Status:** resolved — `./scripts/regress-domains.sh`.

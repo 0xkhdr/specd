@@ -31,13 +31,11 @@ func qualityDeclaration(ctx CheckCtx) []Finding {
 	return findings
 }
 
-// qualityDeclarationArmed arms the gate for plain `specd check` (empty
-// target) and for tasks-phase approval and every later transition, so no
-// malformed declaration survives into executing (R1.2). Requirements- and
-// design-phase approvals stay untouched: no tasks contract exists yet.
+// qualityDeclarationArmed arms the structural check for every readiness phase,
+// so check and immediate approval cannot disagree about a malformed tasks.md.
 func qualityDeclarationArmed(target string) bool {
 	switch target {
-	case "", string(core.StatusTasks), string(core.StatusExecuting), string(core.StatusComplete):
+	case "", string(core.StatusRequirements), string(core.StatusDesign), string(core.StatusTasks), string(core.StatusExecuting), string(core.StatusVerifying), string(core.StatusComplete):
 		return true
 	}
 	return false
