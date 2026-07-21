@@ -35,6 +35,12 @@ digest-pinned `AuthorityV1` packet. MCP validates it, forwards it unchanged to c
 and dispatch derives changed paths from the mission baseline; missing, expired, wrong-spec,
 wrong-task, wrong-role, or out-of-scope packets fail closed.
 
+Tool discovery and execution use the same route projection as CLI guidance. Each advertised
+operation is checked against MCP dispatch, phase, actor, and authority preconditions before the
+executor runs it. A human or operator operation is a handoff, not agent authority; absent or stale
+production authority is likewise returned as `ROUTE_HANDOFF_REQUIRED`, and a missing issuer is
+reported instead of retrying the nominal mutation.
+
 ## Run the server
 
 ```bash

@@ -39,6 +39,23 @@ func Run(root, name string, args []string, flags map[string]string) error {
 	return runDispatch(root, name, args, flags, nil, time.Time{}, nil)
 }
 
+// routeContextForSpec mirrors the dispatcher's production-task authority
+// precondition for read-only guidance issuers. Default-profile CLI dispatch
+// needs no mission packet; production does and may only name Brain as an
+// issuer when orchestration is actually enabled.
+func routeContextForSpec(root, slug string, transport core.RouteTransport, authorityAvailable bool) core.RouteContext {
+	cfg := loadSpecConfig(root)
+	authority := core.RouteAuthorityAvailable
+	issuer, issuerAvailable := "", false
+	if cfg.ProductionTaskAuthorityRequired() && !authorityAvailable {
+		authority = core.RouteAuthorityMissing
+		if cfg.Orchestration.Enabled {
+			issuer, issuerAvailable = "specd brain status "+slug, true
+		}
+	}
+	return core.RouteContext{Transport: transport, Actor: core.ActorAgent, Authority: authority, Issuer: issuer, IssuerAvailable: issuerAvailable}
+}
+
 func runDispatch(root, name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time, changedPaths []string) error {
 	handler, ok := Registry[name]
 	if !ok || handler == nil {

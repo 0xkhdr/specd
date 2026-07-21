@@ -25,3 +25,24 @@ func TestWorkflowCoherenceAgentCompletionGuidance(t *testing.T) {
 		t.Fatal("broad task command unexpectedly exposed through tool contracts")
 	}
 }
+
+func TestGuidanceDispatchParity(t *testing.T) {
+	for _, operation := range core.Operations {
+		if _, ok := Registry[operation.Command]; !ok {
+			t.Errorf("operation %s has no CLI dispatcher", operation.ID)
+		}
+	}
+	g := core.GuidanceForRoutes(core.StatusTasks, nil, core.RouteContext{
+		Transport: core.RouteCLI, Actor: core.ActorAgent, Authority: core.RouteAuthorityMissing,
+	})
+	for _, command := range g.LegalCommands {
+		if _, ok := Registry[command]; !ok {
+			t.Errorf("guidance advertises undispatchable command %s", command)
+		}
+		for _, forbidden := range []string{"approve", "verify", "complete-task"} {
+			if command == forbidden {
+				t.Errorf("guidance advertises %s without its actor/authority precondition", command)
+			}
+		}
+	}
+}

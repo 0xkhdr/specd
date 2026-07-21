@@ -115,3 +115,14 @@ advertise containment that does not exist.
 `R5.3:derives_network_permission`. A host that comes back advisory can see which
 clause to fix rather than only that something is wrong. The order is stable, so
 two runs of a conformance report read alike.
+
+## Route completeness
+
+Status guidance, handshake, and drive project canonical operation metadata
+through the current CLI transport before calling an action executable. The
+projection checks dispatch availability, lifecycle phase, actor class, and
+authority. An unavailable human or host operation appears under `handoffs`;
+missing dispatch or authority issuer appears under `route_blockers`. Neither is
+an agent-executable next action. In production, task mutations remain withheld
+until the current transport has a mission-issued `AuthorityV1`; a nominal
+command name is not treated as proof that an issuer exists.

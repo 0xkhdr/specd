@@ -38,6 +38,30 @@ func runMCP(root string, args []string, flags map[string]string) error {
 // runs verbs without that cycle.
 func mcpExecutor(root string) mcp.Executor {
 	return func(name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time) (string, error) {
+		operation, ok := core.ResolveOperation(name, args, flags)
+		if !ok {
+			return "", core.Refusef("ROUTE_DISPATCH_MISSING", "MCP route for %s is not declared", name)
+		}
+		slug := ""
+		if command, found := core.CommandByName(name); found && command.SpecSlugArg != nil && *command.SpecSlugArg < len(args) {
+			slug = args[*command.SpecSlugArg]
+		}
+		route := routeContextForSpec(root, slug, core.RouteMCP, authority != nil)
+		if authority != nil {
+			route.Phase = core.Phase(authority.Phase)
+		} else if slug != "" {
+			if state, err := core.LoadState(core.StatePath(root, slug)); err == nil {
+				route.Phase = state.Phase
+			}
+		}
+		decision := core.ProjectRoute(operation.ID, route)
+		if !decision.Executable {
+			actor := core.ActorOperator
+			if decision.Handoff != nil {
+				actor = decision.Handoff.Actor
+			}
+			return "", core.Refusef("ROUTE_HANDOFF_REQUIRED", "operation %s requires a %s handoff", operation.ID, actor)
+		}
 		return captureRunOutput(func() error {
 			if authority != nil {
 				return RunAuthorized(root, name, args, flags, *authority, nil, now)

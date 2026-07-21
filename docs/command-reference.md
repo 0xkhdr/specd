@@ -282,7 +282,7 @@ specd drift payments --json
 specd drive <spec> [--json] [--sandbox]
 ```
 
-Emit the single next-action envelope: session, revision, assurance, permitted actor, legal operations, selected task, authority, context digest, blockers, and the exact next command. A projection over the granular commands, which keep working unchanged.
+Emit the single next-action envelope: session, revision, assurance, permitted actor, actor-tagged operations, handoffs, route blockers, selected task, authority, context digest, blockers, and the exact next command. A projection over the granular commands, which keep working unchanged.
 
 **Phases:** analyze · plan · execute · verify · reflect.
 
@@ -357,7 +357,7 @@ specd exception approve scanner-false-positive --reason 'reviewed false positive
 specd handshake bootstrap [<spec>] [--json] [--expect-<identity> <value>]
 ```
 
-Emit a complete, drift-safe bootstrap identity packet.
+Emit a complete, drift-safe bootstrap identity packet with executable next commands and separate handoffs.
 
 **Phases:** any.
 
@@ -786,7 +786,7 @@ specd spike payments --question 'is webhook retry idempotent?' --scope 'payments
 specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program
 ```
 
-Report current spec and task state, machine driving guidance, or the cross-spec program view.
+Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view.
 
 **Phases:** any.
 

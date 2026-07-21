@@ -378,7 +378,7 @@ var Commands = []Command{
 	{
 		Name:          "status",
 		Usage:         "specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program",
-		Description:   "Report current spec and task state, machine driving guidance, or the cross-spec program view.",
+		Description:   "Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd status payments", "specd status payments --json", "specd status payments --guide --json", "specd status --program"},
@@ -519,7 +519,7 @@ var Commands = []Command{
 	{
 		Name:          "handshake",
 		Usage:         "specd handshake bootstrap [<spec>] [--json] [--expect-<identity> <value>]",
-		Description:   "Emit a complete, drift-safe bootstrap identity packet.",
+		Description:   "Emit a complete, drift-safe bootstrap identity packet with executable next commands and separate handoffs.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd handshake bootstrap", "specd handshake bootstrap --json"},
@@ -541,7 +541,7 @@ var Commands = []Command{
 	{
 		Name:          "drive",
 		Usage:         "specd drive <spec> [--json] [--sandbox]",
-		Description:   "Emit the single next-action envelope: session, revision, assurance, permitted actor, legal operations, selected task, authority, context digest, blockers, and the exact next command. A projection over the granular commands, which keep working unchanged.",
+		Description:   "Emit the single next-action envelope: session, revision, assurance, permitted actor, actor-tagged operations, handoffs, route blockers, selected task, authority, context digest, blockers, and the exact next command. A projection over the granular commands, which keep working unchanged.",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
@@ -938,13 +938,15 @@ func CommandByName(name string) (Command, bool) {
 // artifact the phase must produce (RequiredArtifact) and any Blockers the caller
 // resolved from state. NextGate is the gate a human must clear to advance.
 type Guidance struct {
-	Status           Status   `json:"status"`
-	Phase            Phase    `json:"phase"`
-	RequiredArtifact string   `json:"required_artifact,omitempty"`
-	NextGate         Status   `json:"next_gate,omitempty"`
-	LegalCommands    []string `json:"legal_commands"`
-	HumanOnly        []string `json:"human_only"`
-	Blockers         []string `json:"blockers,omitempty"`
+	Status           Status         `json:"status"`
+	Phase            Phase          `json:"phase"`
+	RequiredArtifact string         `json:"required_artifact,omitempty"`
+	NextGate         Status         `json:"next_gate,omitempty"`
+	LegalCommands    []string       `json:"legal_commands"`
+	HumanOnly        []string       `json:"human_only"`
+	Handoffs         []RouteHandoff `json:"handoffs,omitempty"`
+	RouteBlockers    []RouteBlocker `json:"route_blockers,omitempty"`
+	Blockers         []string       `json:"blockers,omitempty"`
 }
 
 // GuidanceForPhase builds the driving guidance for status. Blockers are supplied
@@ -953,7 +955,14 @@ type Guidance struct {
 // in the phase are omitted; human-only verbs are listed separately so an agent
 // cannot mistake approval for a machine action (spec 01 R6).
 func GuidanceForPhase(status Status, blockers []string) Guidance {
+	return GuidanceForRoutes(status, blockers, RouteContext{Transport: RouteCLI, Phase: PhaseForStatus(status), Actor: ActorAgent, Authority: RouteAuthorityAvailable})
+}
+
+// GuidanceForRoutes projects the legacy command lists through current route
+// preconditions. Commands remain de-duplicated in palette order.
+func GuidanceForRoutes(status Status, blockers []string, route RouteContext) Guidance {
 	phase := PhaseForStatus(status)
+	route.Phase = phase
 	g := Guidance{
 		Status:           status,
 		Phase:            phase,
@@ -961,14 +970,30 @@ func GuidanceForPhase(status Status, blockers []string) Guidance {
 		NextGate:         NextStatus(status),
 		Blockers:         blockers,
 	}
-	for _, cmd := range Commands {
-		if cmd.Deferred || !cmd.AllowsPhase(phase) {
+	legal, human := map[string]bool{}, map[string]bool{}
+	for _, operation := range Operations {
+		cmd, ok := CommandByName(operation.Command)
+		if !ok || cmd.Deferred || !cmd.AllowsPhase(phase) {
 			continue
 		}
-		if cmd.HumanOnly {
-			g.HumanOnly = append(g.HumanOnly, cmd.Name)
-		} else {
+		decision := ProjectRoute(operation.ID, route)
+		if decision.Executable {
+			legal[cmd.Name] = true
+		}
+		if decision.Handoff != nil {
+			g.Handoffs = append(g.Handoffs, *decision.Handoff)
+			if decision.Handoff.Actor == ActorHuman && cmd.HumanOnly {
+				human[cmd.Name] = true
+			}
+		}
+		g.RouteBlockers = append(g.RouteBlockers, decision.Blockers...)
+	}
+	for _, cmd := range Commands {
+		if legal[cmd.Name] {
 			g.LegalCommands = append(g.LegalCommands, cmd.Name)
+		}
+		if human[cmd.Name] {
+			g.HumanOnly = append(g.HumanOnly, cmd.Name)
 		}
 	}
 	return g

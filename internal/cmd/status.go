@@ -126,6 +126,19 @@ func emitGuidance(root, slug string, asJSON bool) error {
 	}
 	fmt.Fprintf(os.Stdout, "legal commands: %s\n", strings.Join(g.LegalCommands, ", "))
 	fmt.Fprintf(os.Stdout, "human-only: %s\n", strings.Join(g.HumanOnly, ", "))
+	for _, handoff := range g.Handoffs {
+		fmt.Fprintf(os.Stdout, "handoff: %s requires %s", handoff.Operation, handoff.Actor)
+		if handoff.MissingAuthority != "" {
+			fmt.Fprintf(os.Stdout, " authority (%s)", handoff.MissingAuthority)
+		}
+		if handoff.Command != "" {
+			fmt.Fprintf(os.Stdout, "; %s", handoff.Command)
+		}
+		fmt.Fprintln(os.Stdout)
+	}
+	for _, blocker := range g.RouteBlockers {
+		fmt.Fprintf(os.Stdout, "route blocker: %s %s missing %s\n", blocker.Code, blocker.Operation, blocker.Missing)
+	}
 	for _, blocker := range g.Blockers {
 		fmt.Fprintf(os.Stdout, "blocker: %s\n", blocker)
 	}

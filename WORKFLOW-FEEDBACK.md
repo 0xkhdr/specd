@@ -355,3 +355,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** the new readiness builder loaded state before `loadSpec` could perform the validation the previous check path inherited indirectly.
 - **Recommendation:** keep slug validation explicit at the shared readiness boundary and retain both typed-refusal and traversal regression cases whenever readiness input assembly changes.
 - **Status:** resolved — `go test ./internal/cmd -run 'TestTypedRefusalDispatchSitesAreTyped|TestSlugTraversalRejectedForSlugReason' -count=1`.
+
+### 2026-07-22 — friction — focused route parity omitted legacy machine-surface compatibility
+- **Context:** `workflow-01-truthful-control` T05 after adding route-aware guidance and MCP preflight. Exact command: `go test ./internal/core ./internal/cmd ./internal/mcp -count=1`.
+- **Expected:** new route projection keeps production authority packets executable and preserves existing drive/locator machine fields while separating handoffs.
+- **Actual:** the first broader run failed with `dispatch_test.go:97: MCP executor dropped authority packet: ROUTE_HANDOFF_REQUIRED: operation complete-task requires a operator handoff`, `drive_test.go:274: drive lists 2 legal operations, guide lists 6`, and `locator_test.go:75: "task" listed as both legal and human-only` for both `status_--json` and `status_--guide_--json`.
+- **Root cause:** the focused T05 parity matrix covered new classifications but did not initially include existing consumers that define compatibility semantics for supplied authority, granular guide counts, and mutually exclusive locator lists.
+- **Recommendation:** make the documented pre-verify command run all three touched packages, or include these compatibility cases under the T05 verify regex, so new route projections cannot pass focused parity while breaking legacy machine fields.
+- **Status:** resolved — `go test ./internal/core ./internal/cmd ./internal/mcp -count=1`.

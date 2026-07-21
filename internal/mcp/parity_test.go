@@ -142,3 +142,24 @@ func TestRemoteEnvelopeMissingPinFailsClosed(t *testing.T) {
 		t.Fatal("missing context pin silently accepted")
 	}
 }
+
+func TestGuidanceDispatchParity(t *testing.T) {
+	seen := map[string]bool{}
+	for _, tool := range CoreTools() {
+		seen[tool.Name] = true
+		decision := core.ProjectRoute(tool.Name, core.RouteContext{
+			Transport: core.RouteMCP, Phase: core.PhaseExecute, Actor: tool.Actor, Authority: core.RouteAuthorityAvailable,
+		})
+		if !decision.Executable {
+			t.Errorf("MCP advertises unreachable tool %s: %+v", tool.Name, decision)
+		}
+	}
+	for _, operation := range core.Operations {
+		decision := core.ProjectRoute(operation.ID, core.RouteContext{
+			Transport: core.RouteMCP, Phase: core.PhaseExecute, Actor: operation.Actor, Authority: core.RouteAuthorityAvailable,
+		})
+		if decision.Executable && !seen[operation.ID] {
+			t.Errorf("MCP omits executable route %s", operation.ID)
+		}
+	}
+}

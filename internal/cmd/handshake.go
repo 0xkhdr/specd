@@ -22,6 +22,7 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	}
 	var state *core.State
 	var nextCommands []string
+	var handoffs []core.RouteHandoff
 	resolution, resolveErr := core.ResolveSpec(root, explicit, os.Getenv("SPECD_SPEC"))
 	if resolveErr == nil {
 		current, err := core.LoadState(core.StatePath(root, resolution.Slug))
@@ -30,8 +31,20 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 		}
 		state = &current
 		if guide, err := driverGuideForSpec(root, resolution.Slug); err == nil {
+			route := routeContextForSpec(root, resolution.Slug, core.RouteCLI, false)
+			route.Phase = guide.Phase
 			for _, action := range guide.NextActions {
-				nextCommands = append(nextCommands, strings.TrimSpace("specd "+action.Command+" "+strings.Join(action.Args, " ")))
+				decision := core.ProjectRoute(action.ID, route)
+				if decision.Executable {
+					nextCommands = append(nextCommands, strings.TrimSpace("specd "+action.Command+" "+strings.Join(action.Args, " ")))
+				}
+				if decision.Handoff != nil {
+					handoff := *decision.Handoff
+					if handoff.Command == "specd "+action.Command {
+						handoff.Command = strings.TrimSpace(handoff.Command + " " + strings.Join(action.Args, " "))
+					}
+					handoffs = append(handoffs, handoff)
+				}
 			}
 		} else {
 			nextCommands = []string{"specd status " + resolution.Slug + " --guide --json"}
@@ -44,6 +57,9 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	handshake, err := core.BootstrapHandshakeForRoot(root, config, state, nextCommands)
 	if err != nil {
 		return err
+	}
+	if handoffs == nil {
+		handoffs = []core.RouteHandoff{}
 	}
 	activeSlug, revision := "<none>", "<none>"
 	if handshake.ActiveSpec != nil {
@@ -77,7 +93,10 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	}
 
 	if flagEnabled(flags, "json") {
-		return writeJSON(handshake)
+		return writeJSON(struct {
+			core.Handshake
+			Handoffs []core.RouteHandoff `json:"handoffs"`
+		}{handshake, handoffs})
 	}
 	fmt.Fprintf(os.Stdout, "version: %s\n", handshake.Version)
 	fmt.Fprintf(os.Stdout, "palette_digest: %s\n", handshake.PaletteDigest)
@@ -85,6 +104,9 @@ func runHandshake(root string, args []string, flags map[string]string) error {
 	fmt.Fprintf(os.Stdout, "managed_digest: %s\n", handshake.ManagedDigest)
 	for _, tool := range handshake.Tools {
 		fmt.Fprintf(os.Stdout, "tool: %s\n", tool)
+	}
+	for _, handoff := range handoffs {
+		fmt.Fprintf(os.Stdout, "handoff: %s requires %s; %s\n", handoff.Operation, handoff.Actor, handoff.Command)
 	}
 	return nil
 }
@@ -111,7 +133,7 @@ func guidanceForSpec(root, slug string) (core.Guidance, error) {
 			}
 		}
 	}
-	g := core.GuidanceForPhase(state.Status, blockers)
+	g := core.GuidanceForRoutes(state.Status, blockers, routeContextForSpec(root, slug, core.RouteCLI, false))
 	// R6.2: only suggest task-bearing commands (task verify/context) when the
 	// spec actually has an executable task. requireTaskGate fails closed before
 	// execution is approved; an empty frontier means nothing to run.

@@ -43,8 +43,12 @@ type DriveEnvelope struct {
 	// spec as its own turn.
 	PermittedActor string `json:"permitted_actor"`
 
-	LegalOperations []core.NextAction `json:"legal_operations"`
-	HumanOnly       []string          `json:"human_only"`
+	LegalOperations     []core.NextAction   `json:"legal_operations"`
+	HumanOnly           []string            `json:"human_only"`
+	Handoffs            []core.RouteHandoff `json:"handoffs"`
+	RouteBlockers       []core.RouteBlocker `json:"route_blockers"`
+	contextAcknowledged bool
+	authorityBound      bool
 
 	SelectedTask *DriveTask        `json:"selected_task,omitempty"`
 	Authority    *core.AuthorityV1 `json:"authority,omitempty"`
@@ -133,6 +137,17 @@ func buildDriveEnvelope(root, slug string, hostSandbox bool, now time.Time) (Dri
 	if session.ID != "" && !session.Expired(now) {
 		envelope.SessionID = session.ID
 		envelope.Driver = session.Driver
+		envelope.contextAcknowledged = session.ContextReceipt != nil && session.ContextReceipt.Complete()
+		envelope.authorityBound = session.AuthorityDigest != ""
+	}
+	route := routeContextForSpec(root, slug, core.RouteCLI, false)
+	route.Phase = guide.Phase
+	for _, action := range guide.NextActions {
+		decision := core.ProjectRoute(action.ID, route)
+		if decision.Handoff != nil {
+			envelope.Handoffs = append(envelope.Handoffs, *decision.Handoff)
+		}
+		envelope.RouteBlockers = append(envelope.RouteBlockers, decision.Blockers...)
 	}
 
 	// The selected task is the frontier head. Frontier order is deterministic,
@@ -185,6 +200,12 @@ func buildDriveEnvelope(root, slug string, hostSandbox bool, now time.Time) (Dri
 	if envelope.HumanOnly == nil {
 		envelope.HumanOnly = []string{}
 	}
+	if envelope.Handoffs == nil {
+		envelope.Handoffs = []core.RouteHandoff{}
+	}
+	if envelope.RouteBlockers == nil {
+		envelope.RouteBlockers = []core.RouteBlocker{}
+	}
 
 	envelope.PermittedActor, envelope.NextOperation = driveNextStep(envelope, slug)
 
@@ -219,9 +240,19 @@ func driveNextStep(e DriveEnvelope, slug string) (actor, operation string) {
 	if e.SessionID == "" && e.SelectedTask != nil {
 		return core.RefusalActorAgent, "specd session open " + slug + " --driver <host>"
 	}
+	if e.SelectedTask != nil && e.SessionID != "" && (!e.contextAcknowledged || !e.authorityBound) {
+		return core.RefusalActorAgent, "specd session ack " + slug + " " + e.SelectedTask.ID + " --tokens <n>"
+	}
+	if e.SelectedTask != nil && e.SessionID != "" && e.authorityBound {
+		return core.RefusalActorAgent, "specd session action " + slug + " --json"
+	}
 	if len(agentActions) == 0 {
-		if len(e.HumanOnly) > 0 {
-			return core.RefusalActorHuman, "specd " + e.HumanOnly[0] + " " + slug
+		if len(e.Handoffs) > 0 && e.Handoffs[0].Command != "" {
+			command := e.Handoffs[0].Command
+			if e.Handoffs[0].Actor == core.ActorHuman {
+				command += " " + slug
+			}
+			return string(e.Handoffs[0].Actor), command
 		}
 		return "", ""
 	}
