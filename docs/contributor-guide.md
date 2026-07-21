@@ -34,6 +34,11 @@ binary in a throwaway tree:
 ./scripts/regress-domains.sh  # per-domain black-box invariant checks
 ```
 
+Workflow feedback is append-only. Keep every dated heading in
+[workflow-regressions.md](workflow-regressions.md) associated with an owner and either an
+executable regression, an explicit deferral, or a resolved/superseded disposition.
+`./scripts/test-lint.sh` checks the inventory against both feedback logs.
+
 ## Architecture
 
 Entry: `main.go` → `internal/cli` (arg parsing) → `internal/cmd` (dispatch). One handler per
