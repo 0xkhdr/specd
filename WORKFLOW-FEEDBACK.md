@@ -41,6 +41,14 @@ stated plainly and stays a proposal — never a self-applied change.
 
 ---
 
+### 2026-07-22 — friction — next program spec opens on an over-budget approved task
+- **Context:** starting `workflow-03-state-foundations` at tasks phase, exact command `specd check workflow-03-state-foundations`
+- **Expected:** the newly unlocked program frontier is ready for its human tasks→executing approval.
+- **Actual:** `error context-budget: T16A: required context 40777 tokens exceeds budget 40000 — decompose the task or narrow declared files` followed by `GATE_FAILED: readiness plan 5083d7d5a8c97984b868ee731cfb62a3ade246c1c57dafb18e01749d8719bf3a has 1 blocker(s)`.
+- **Root cause:** task decomposition gap — T16A combines lifecycle/gate integration, status projection, compatibility, and generated docs in one context-bound task.
+- **Recommendation:** split T16A into an approval lifecycle/gate task and a dependent status/docs compatibility task, each with its own focused verify command.
+- **Status:** open
+
 ### 2026-07-22 — friction — observer feedback creates an undeclared inventory repair task
 - **Context:** final CI verification for `workflow-02-explicit-activation`, exact command `./scripts/test-lint.sh`
 - **Expected:** required observer-mode entries can be appended during scoped task execution without creating a new out-of-scope code change.
