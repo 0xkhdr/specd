@@ -22,10 +22,20 @@ func TestProductionSmokeLane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{"init", "new", "approve", "context", "verify", "complete-task", "review", "submit"} {
-		if !strings.Contains(string(script), command) {
-			t.Errorf("production smoke does not exercise %q", command)
+	for _, contract := range []string{
+		"profile: production",
+		`\"method\":\"initialize\"`,
+		`\"driver_capabilities\":{}`,
+		`\"capability\":\"sandbox\",\"status\":\"refused\"`,
+		"declare sandbox support or use read-only operations",
+		"test ! -e .specd",
+	} {
+		if !strings.Contains(string(script), contract) {
+			t.Errorf("production smoke omits %q", contract)
 		}
+	}
+	if strings.Contains(string(script), "profile: default") {
+		t.Fatal("production smoke changes to the default profile")
 	}
 
 	release, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "release.yml"))
@@ -84,7 +94,7 @@ func TestCITierContract(t *testing.T) {
 	}
 }
 
-func TestWorkflowCoherenceProduction(t *testing.T) {
+func TestProductionWorkflowJourney(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds and runs fresh production fixtures")
 	}
@@ -98,23 +108,16 @@ func TestWorkflowCoherenceProduction(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := string(raw)
-	for _, contract := range []string{
-		"profile: production",
-		"--criterion 1.1 --status pass",
-		"independent-auditor",
-		"<approve | reject | needs-changes>/approve/",
-		"status smoke",
-		"complete-task smoke T1",
-	} {
-		if !strings.Contains(script, contract) {
-			t.Fatalf("production fixture omitted %q", contract)
-		}
+	if strings.Count(script, "printf 'profile: production\\n' >project.yml") != 1 || strings.Contains(script, "profile: default") {
+		t.Fatal("production journey is not profile-pure")
 	}
-	for _, args := range [][]string{{"--negative"}, nil} {
-		command := exec.Command(scriptPath, args...)
-		command.Dir = root
-		if out, err := command.CombinedOutput(); err != nil {
-			t.Fatalf("production smoke %v: %v\n%s", args, err, out)
-		}
+	command := exec.Command(scriptPath)
+	command.Dir = root
+	out, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("production smoke: %v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); got != "production-smoke: refused before work; recovery: declare sandbox support or use read-only operations" {
+		t.Fatalf("production refusal/recovery = %q", got)
 	}
 }

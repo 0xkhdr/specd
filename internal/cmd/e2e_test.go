@@ -61,9 +61,9 @@ func TestLifecycleE2E(t *testing.T) {
 	if _, code := run("new", "demo"); code != 0 || !exists(".specd/specs/demo/state.json") {
 		t.Fatalf("new: code=%d state=%v", code, exists(".specd/specs/demo/state.json"))
 	}
-	// Swap in a trivially-passing verify so the verify step exercises the real
-	// runner without depending on a toolchain inside the temp repo.
-	tasks := "# Tasks\n\n| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | scout | spec.md | - | true | ok |\n"
+	// Two tasks exercise frontier ordering; T1 deliberately fails once before
+	// passing so the journey proves the evidence gate, not only the happy path.
+	tasks := "# Tasks\n\n| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | scout | spec.md | - | test -f ready | ok |\n| T2 | scout | spec.md | T1 | printf ok | ok |\n"
 	if err := os.WriteFile(filepath.Join(repo, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -92,8 +92,19 @@ func TestLifecycleE2E(t *testing.T) {
 	if out, code := run("next", "demo"); code != 0 || !strings.Contains(out, "T1") {
 		t.Fatalf("next: code=%d out=%s", code, out)
 	}
-	if _, code := run("verify", "demo", "T1"); code != 0 || !exists(".specd/specs/demo/evidence.jsonl") {
-		t.Fatalf("verify: code=%d evidence=%v", code, exists(".specd/specs/demo/evidence.jsonl"))
+	if _, code := run("verify", "demo", "T1"); code == 0 || !exists(".specd/specs/demo/evidence.jsonl") {
+		t.Fatalf("failing verify: code=%d evidence=%v", code, exists(".specd/specs/demo/evidence.jsonl"))
+	}
+	if _, code := run("complete-task", "demo", "T1"); code == 0 {
+		t.Fatal("completion with only failing evidence succeeded")
+	}
+	if err := os.WriteFile(filepath.Join(repo, "ready"), []byte("ready\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mustGit(t, repo, "add", ".")
+	mustGit(t, repo, "commit", "-m", "make verification pass", "--no-gpg-sign")
+	if _, code := run("verify", "demo", "T1"); code != 0 {
+		t.Fatalf("passing verify: code=%d", code)
 	}
 	if out, code := run("report", "demo"); code != 0 || strings.TrimSpace(out) == "" {
 		t.Fatalf("report: code=%d out=%q", code, out)
@@ -156,11 +167,20 @@ func TestLifecycleE2E(t *testing.T) {
 	if out, code := run("complete-task", "demo", "T1"); code != 0 || !strings.Contains(out, "completed") {
 		t.Fatalf("complete-task: code=%d out=%q", code, out)
 	}
+	if out, code := run("next", "demo"); code != 0 || !strings.Contains(out, "T2") || strings.Contains(out, "T1") {
+		t.Fatalf("second frontier: code=%d out=%q", code, out)
+	}
+	if _, code := run("verify", "demo", "T2"); code != 0 {
+		t.Fatalf("verify T2: code=%d", code)
+	}
+	if _, code := run("complete-task", "demo", "T2"); code != 0 {
+		t.Fatalf("complete T2: code=%d", code)
+	}
 	final, err := core.LoadState(filepath.Join(repo, ".specd/specs/demo/state.json"))
 	if err != nil {
 		t.Fatalf("reload state: %v", err)
 	}
-	if final.TaskStatus["T1"] != core.TaskComplete {
+	if final.TaskStatus["T1"] != core.TaskComplete || final.TaskStatus["T2"] != core.TaskComplete {
 		t.Fatalf("state.json task status not recorded: %+v", final.TaskStatus)
 	}
 	if _, code := run("check", "demo"); code != 0 {
@@ -172,43 +192,27 @@ func TestLifecycleE2E(t *testing.T) {
 		t.Fatalf("unknown verb exit = %d, want 2", code)
 	}
 
-	// R8.1 lifecycle-proof continuity: an amendment recorded on disk must survive
-	// a restart. Seed one that touches the requirements gate, then a fresh process
-	// must project it as a stale record and surface the amendment — proving the
-	// release binary preserves staleness/coverage across restart, deterministically.
-	statePath := filepath.Join(repo, ".specd/specs/demo/state.json")
-	proofState, err := core.LoadState(statePath)
-	if err != nil {
-		t.Fatalf("load state for amendment: %v", err)
-	}
-	if err := proofState.AppendAmendment(core.Amendment{
-		ChangeID: "chg-1", AffectedIDs: []string{"R1", "requirements"},
-		Rationale: "corrected accepted behaviour", RequiredRechecks: []string{"design"},
-	}); err != nil {
-		t.Fatalf("append amendment: %v", err)
-	}
-	if err := core.SaveStateCAS(statePath, proofState.Revision, proofState); err != nil {
-		t.Fatalf("persist amendment: %v", err)
-	}
-	proofOut, code := run("report", "demo", "--proof")
+	// History is a CLI projection over the state and ledgers created above; the
+	// journey never edits either store directly.
+	proofOut, code := run("report", "demo", "--history")
 	if code != 0 {
-		t.Fatalf("report --proof: code=%d out=%s", code, proofOut)
+		t.Fatalf("report --history: code=%d out=%s", code, proofOut)
 	}
-	for _, want := range []string{"stale: approval:requirements", "amendment chg-1"} {
+	for _, want := range []string{"verify:fail", "verify:pass", "completion"} {
 		if !strings.Contains(proofOut, want) {
-			t.Fatalf("proof continuity missing %q after restart:\n%s", want, proofOut)
+			t.Fatalf("history missing %q:\n%s", want, proofOut)
 		}
 	}
-	if again, _ := run("report", "demo", "--proof"); again != proofOut {
-		t.Fatalf("proof not deterministic across restart:\n--1--\n%s\n--2--\n%s", proofOut, again)
+	if again, _ := run("report", "demo", "--history"); again != proofOut {
+		t.Fatalf("history not deterministic across restart:\n--1--\n%s\n--2--\n%s", proofOut, again)
 	}
 }
 
-// TestWorkflowCoherenceDefault is the release proof for the generated default
+// TestLifecycleE2EDefaultScaffold is the release proof for the generated default
 // workflow. It intentionally treats the freshly built binary and files emitted
 // by init/new as the only driver contract: no package-internal lifecycle helper
 // chooses an action for the fixture.
-func TestWorkflowCoherenceDefault(t *testing.T) {
+func TestLifecycleE2EDefaultScaffold(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the binary; skipped in -short")
 	}

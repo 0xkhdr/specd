@@ -34,6 +34,17 @@ binary in a throwaway tree:
 ./scripts/regress-domains.sh  # per-domain black-box invariant checks
 ```
 
+Workflow journeys have two explicit postures:
+
+```bash
+go test ./internal/cmd -run TestLifecycleE2E -count=2
+go test ./internal/integration -run TestProductionWorkflowJourney -count=2
+```
+
+The default journey completes fresh one- and two-task workflows, including failed then passing
+evidence, using only CLI transitions. The production journey never changes profile: without a
+declared host sandbox it refuses before initialization and returns the supported recovery action.
+
 Workflow feedback is append-only. Keep every dated heading in
 [workflow-regressions.md](workflow-regressions.md) associated with an owner and either an
 executable regression, an explicit deferral, or a resolved/superseded disposition.
