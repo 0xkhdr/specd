@@ -75,6 +75,10 @@ func runCheck(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	stateChanged := false
+	if policy, policyErr := security.ResolvePolicy(loadSpecConfig(root).Security); policyErr == nil {
+		stateChanged = policy.Profile == "production"
+	}
 	if flags["json"] == "legacy" {
 		return json.NewEncoder(os.Stdout).Encode(result.Findings)
 	}
@@ -83,7 +87,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 			return err
 		}
 		if gates.HasErrors(result.Findings) {
-			return errors.New("check failed")
+			return readinessRefusal(slug, result, stateChanged)
 		}
 		return nil
 	}
@@ -91,7 +95,7 @@ func runCheck(root string, args []string, flags map[string]string) error {
 		fmt.Fprintf(os.Stdout, "%s %s: %s\n", finding.Severity, finding.Gate, finding.Message)
 	}
 	if gates.HasErrors(result.Findings) {
-		return errors.New("check failed")
+		return readinessRefusal(slug, result, stateChanged)
 	}
 	plan := result.Envelope.Plan
 	if plan.Terminal {
@@ -103,6 +107,23 @@ func runCheck(root string, args []string, flags map[string]string) error {
 		fmt.Fprintf(os.Stdout, "artifact %s %s\n", artifact.ID, artifact.Digest)
 	}
 	return nil
+}
+
+func readinessRefusal(slug string, result readinessResult, stateChanged bool) error {
+	plan := result.Envelope.Plan
+	codes := make([]string, 0, len(plan.Blockers))
+	for _, blocker := range plan.Blockers {
+		codes = append(codes, blocker.Code)
+	}
+	inputs := map[string]string{"config": plan.ConfigDigest, "policy": plan.PolicyDigest}
+	for _, input := range append(append([]core.TransitionDigest{}, plan.Inputs...), plan.ArtifactDigests...) {
+		inputs[input.ID] = input.Digest
+	}
+	return core.Refusef("GATE_FAILED", "readiness plan %s has %d blocker(s)", plan.PlanDigest, len(plan.Blockers)).
+		WithContext(slug, strings.Join(codes, ","), "no blocking gate findings").
+		WithInputDigests(inputs).
+		WithMutation(stateChanged, "").
+		WithRecovery(core.RefusalActorAgent, "specd check "+slug)
 }
 
 type readinessResult struct {

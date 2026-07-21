@@ -6,16 +6,37 @@ or fail-closed rejection.
 
 ## A task won't complete
 
-`specd task complete <spec> <id>` refuses unless a **passing** verify record exists — exit 0
+`specd complete-task <spec> <id>` refuses unless a **passing** verify record exists — exit 0
 pinned to a resolvable git HEAD. There is **no bypass flag** (by design).
 
 ```bash
 specd verify payments T3      # produce the evidence record first
-specd task complete payments T3
+specd complete-task payments T3
 ```
 
 If `verify` exited non-zero, fix the work (or the verify line) and re-run. The task stays
 incomplete until the record passes.
+
+Evidence refusals preserve the state that was actually inspected:
+
+- `EVIDENCE_MISSING` means no record exists; run the named producer.
+- `EVIDENCE_FAILING` means a record exists with a failing verdict; address the finding and
+  produce a fresh record. Removing the declared evidence requirement is never a recovery.
+- `EVIDENCE_STALE` means passing evidence exists but is not current for HEAD or its declared
+  subject digests; re-run the named producer against the current subject.
+
+## Reading a typed refusal
+
+Governed refusals expose a stable code and category, affected entity, observed and expected values,
+digests (never raw inspected inputs), whether durable state changed, any checkpoint identity,
+retryability, required actor, and structured recovery operations. The older `blocker`,
+`retry_safe`, and `recovery_command` fields remain for compatibility.
+
+Retry the refused operation only when `retryable` is true. When `state_changed` is true, inspect the
+named `checkpoint_id` first. A recovery with `in_place: false` is a successor or escalation route,
+not permission to repeat the failed command. For example, if Brain writes its dispatch checkpoint
+but the ledger append fails, the refusal names that mission checkpoint and the operator-only
+`specd brain resume <slug>` route; re-running `brain run` is not advertised as safe.
 
 ## A task is blocked (escalation ratchet)
 

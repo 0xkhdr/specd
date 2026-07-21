@@ -363,3 +363,27 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** the focused T05 parity matrix covered new classifications but did not initially include existing consumers that define compatibility semantics for supplied authority, granular guide counts, and mutually exclusive locator lists.
 - **Recommendation:** make the documented pre-verify command run all three touched packages, or include these compatibility cases under the T05 verify regex, so new route projections cannot pass focused parity while breaking legacy machine fields.
 - **Status:** resolved — `go test ./internal/core ./internal/cmd ./internal/mcp -count=1`.
+
+### 2026-07-22 — friction — feedback excerpt lookup built an invalid sed range after no match
+- **Context:** `workflow-01-truthful-control` T06 diagnosis. Exact command: `rg -n "EVIDENCE_MISSING says" AIDO-WORKFLOW-FEEDBACK.md && line=$(rg -n "EVIDENCE_MISSING says" AIDO-WORKFLOW-FEEDBACK.md | cut -d: -f1 | head -1); start=$((line-8)); end=$((line+36)); sed -n "${start},${end}p" AIDO-WORKFLOW-FEEDBACK.md`.
+- **Expected:** either print the matching feedback excerpt or stop cleanly when no heading matches.
+- **Actual:** `sed: invalid option -- '8'`; the empty line number became a negative range. No repository write occurred.
+- **Root cause:** the exploratory compound command did not validate the `rg` result before arithmetic.
+- **Recommendation:** use `rg -n` alone first, or guard `[ -n "$line" ]` before computing a sed range.
+- **Status:** resolved — operator command discipline; no product change.
+
+### 2026-07-22 — friction — MCP refusal mapping assumed a task field absent from adapter requests
+- **Context:** T06 focused preflight. Exact command: `gofmt -w internal/core/refusal.go internal/core/refusal_test.go internal/cmd/refusal_test.go internal/cmd/check.go internal/cmd/lifecycle.go internal/cmd/verify.go internal/cmd/brain_run.go internal/mcp/mapping.go && go test ./internal/core ./internal/cmd ./internal/mcp -run TestRefusalRecoveryContract -count=2`.
+- **Expected:** typed MCP refusal mapping compiles against the existing adapter request contract.
+- **Actual:** `internal/mcp/mapping.go:18:20: req.TaskID undefined (type adapter.Request has no field or method TaskID)`.
+- **Root cause:** refusal entity projection inferred a task-specific field instead of using the request's existing operation identity.
+- **Recommendation:** keep mapping limited to fields declared by `adapter.Request` and retain the cross-package refusal contract compile check.
+- **Status:** resolved — `go test ./internal/core ./internal/cmd ./internal/mcp -run TestRefusalRecoveryContract -count=2`.
+
+### 2026-07-22 — friction — typed evidence refusal initially broke a legacy dispatch detail contract
+- **Context:** T06 broader compatibility run. Exact command: `gofmt -w internal/core/refusal.go internal/core/refusal_test.go internal/cmd/refusal_test.go internal/cmd/check.go internal/cmd/lifecycle.go internal/cmd/verify.go internal/cmd/brain_run.go internal/mcp/mapping.go && go test ./internal/core ./internal/cmd ./internal/mcp -count=1`.
+- **Expected:** the additive typed refusal fields preserve legacy diagnostic substrings consumed by existing boundary tests.
+- **Actual:** `dispatch_test.go:94: authorized route did not reach evidence gate: EVIDENCE_MISSING: task T1: no task verify record`.
+- **Root cause:** the new truthful `observed` classification replaced the old `requires passing evidence` detail instead of preserving it as compatibility text.
+- **Recommendation:** keep stable legacy detail in `detail` while structured fields carry the normative missing/failing/stale classification; retain the broader affected-package run.
+- **Status:** resolved — `go test ./internal/core ./internal/cmd ./internal/mcp -count=1`.

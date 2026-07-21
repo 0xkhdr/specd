@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -97,9 +98,33 @@ func TestTypedRefusalSerializesEveryField(t *testing.T) {
 	}
 	// R4.2: one shape on every machine refusal path, so every field is always
 	// present — an absent key is indistinguishable from a false value.
-	for _, field := range []string{"code", "blocker", "authority_consumed", "retry_safe", "actor_required", "recovery_command"} {
+	for _, field := range []string{"code", "category", "entity", "observed", "expected", "input_digests", "state_changed", "checkpoint_id", "retryable", "actor_required", "recovery_operations", "detail", "blocker", "authority_consumed", "retry_safe", "recovery_command"} {
 		if _, ok := decoded[field]; !ok {
 			t.Fatalf("refusal JSON omits %q: %s", field, raw)
 		}
+	}
+}
+
+func TestRefusalRecoveryContract(t *testing.T) {
+	secret := "Bearer do-not-leak"
+	r := Refuse("EVIDENCE_FAILING", "verify exited 1").
+		WithContext("demo/T1", "exit_code=1", "exit_code=0 at current HEAD").
+		WithInput("evidence.jsonl", []byte(secret)).
+		WithMutation(true, "evidence.jsonl#T1")
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(raw); len(r.InputDigests["evidence.jsonl"]) != 64 || strings.Contains(got, secret) {
+		t.Fatalf("refusal leaked input instead of digest: %s", got)
+	}
+	if !r.StateChanged || r.CheckpointID == "" || !r.Retryable || len(r.RecoveryOperations) != 1 || r.RecoveryOperations[0].Operation != "verify.task" {
+		t.Fatalf("incomplete recovery contract: %#v", r)
+	}
+
+	terminal := Refuse("NO_SUCCESSOR", "released history is immutable").
+		WithSuccessor(RefusalActorHuman, "new", "specd new <successor>")
+	if terminal.Retryable || terminal.RecoveryOperations[0].InPlace || terminal.RecoveryOperations[0].Operation != "new" {
+		t.Fatalf("terminal refusal advertises in-place retry: %#v", terminal)
 	}
 }

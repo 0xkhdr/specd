@@ -172,6 +172,18 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	}
 	if decision.Action == orchestration.ActionDispatch || released {
 		if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, session); err != nil {
+			if decision.Action == orchestration.ActionDispatch {
+				checkpoint, exists, _ := orchestration.LoadCheckpoint(checkpointPath)
+				checkpointID := ""
+				if exists {
+					checkpointID = checkpoint.MissionID
+				}
+				return "", core.Refusef("SESSION_WRITE_FAILED", "dispatch %s is durable but session update failed: %v", checkpointID, err).
+					WithContext(slug, "checkpoint and dispatch ledger persisted; session CAS failed", "session reconciled with durable dispatch").
+					WithMutation(true, checkpointID).
+					WithSuccessor(core.RefusalActorOperator, "brain.resume", "specd brain resume "+slug).
+					Wrapping(err)
+			}
 			return "", err
 		}
 	}
@@ -294,7 +306,12 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 		MissionID: missionID,
 		Payload:   payload,
 	}); err != nil {
-		return err
+		return core.Refusef("DISPATCH_LEDGER_FAILED", "dispatch checkpoint %s persisted but ledger append failed: %v", missionID, err).
+			WithContext(missionID, "checkpoint persisted; dispatch ledger append failed", "checkpoint reconciled with the dispatch ledger").
+			WithInput("mission", []byte(payload)).
+			WithMutation(true, missionID).
+			WithSuccessor(core.RefusalActorOperator, "brain.resume", "specd brain resume "+d.slug).
+			Wrapping(err)
 	}
 	d.session.Step = step
 	d.session.PendingMissions = append(d.session.PendingMissions, mission)

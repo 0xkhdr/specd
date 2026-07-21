@@ -86,7 +86,9 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		}
 		plan := readiness.Envelope.Plan
 		if plan.Terminal {
-			return struct{}{}, fmt.Errorf("status %q has no lifecycle successor", current)
+			return struct{}{}, core.Refusef("NO_SUCCESSOR", "status %q has no lifecycle successor", current).
+				WithContext(slug, string(current), "a legal lifecycle successor").
+				WithSuccessor(core.RefusalActorAgent, "new", "specd new <successor>")
 		}
 		target := plan.Target
 		approvedPlan, approvedRevision = plan.PlanDigest, plan.StateRevision
@@ -105,7 +107,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 					fmt.Fprintf(os.Stderr, "%s %s: %s\n", finding.Severity, finding.Gate, finding.Message)
 				}
 			}
-			return struct{}{}, fmt.Errorf("approve refused: readiness plan %s has %d blocker(s)", plan.PlanDigest, len(plan.Blockers))
+			return struct{}{}, readinessRefusal(slug, readiness, false)
 		}
 		state.Status = target
 		state.Phase = phase
@@ -220,12 +222,18 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 			return struct{}{}, fmt.Errorf("task %s not found", id)
 		}
 		evidence, ok := spec.Evidence[id]
-		if !ok || !core.HeadPinned(evidence.GitHead) {
-			return struct{}{}, fmt.Errorf("task %s requires passing evidence pinned to current HEAD", id)
+		if !ok {
+			return struct{}{}, taskEvidenceRefusal("EVIDENCE_MISSING", slug, id, "no task verify record", "passing evidence pinned to current HEAD", nil)
+		}
+		if evidence.ExitCode != 0 {
+			return struct{}{}, taskEvidenceRefusal("EVIDENCE_FAILING", slug, id, fmt.Sprintf("verify exit_code=%d", evidence.ExitCode), "verify exit_code=0 at current HEAD", evidence)
+		}
+		if !core.HeadPinned(evidence.GitHead) {
+			return struct{}{}, taskEvidenceRefusal("EVIDENCE_STALE", slug, id, fmt.Sprintf("unresolvable git_head=%q", evidence.GitHead), "passing evidence pinned to current HEAD", evidence)
 		}
 		currentHead := gitHead(root)
 		if !core.HeadPinned(currentHead) || evidence.GitHead != currentHead {
-			return struct{}{}, fmt.Errorf("task %s evidence is stale: verified %s, current HEAD %s; re-run `specd verify %s %s`", id, evidence.GitHead, currentHead, slug, id)
+			return struct{}{}, taskEvidenceRefusal("EVIDENCE_STALE", slug, id, fmt.Sprintf("verified HEAD %s; current HEAD %s", evidence.GitHead, currentHead), "evidence pinned to current HEAD", evidence)
 		}
 		contract, err := core.ParseQualityContract(task)
 		if err != nil {
@@ -234,6 +242,9 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		evals, err := core.LoadEvals(core.EvalStorePath(root, slug))
 		if err != nil {
 			return struct{}{}, err
+		}
+		if refusal := qualityEvidenceRefusal(slug, id, contract, evals, currentHead); refusal != nil {
+			return struct{}{}, refusal
 		}
 		// R2.2/R2.3/R2.4 and R3.2: when a driver session is open, every protocol
 		// binding is required before the state mutation below.
@@ -294,6 +305,61 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 	}
 	fmt.Fprintf(os.Stdout, "completed %s %s\n", slug, id)
 	return nil
+}
+
+func taskEvidenceRefusal(code, slug, taskID, observed, expected string, evidence any) error {
+	detail := fmt.Sprintf("task %s: %s", taskID, observed)
+	if code == "EVIDENCE_MISSING" {
+		detail = fmt.Sprintf("task %s requires passing evidence pinned to current HEAD: %s", taskID, observed)
+	} else if code == "EVIDENCE_STALE" {
+		detail = fmt.Sprintf("task %s evidence is stale: %s", taskID, observed)
+	}
+	refusal := core.Refuse(code, detail).
+		WithContext(slug+"/"+taskID, observed, expected).
+		WithRecovery(core.RefusalActorAgent, "specd verify "+slug+" "+taskID)
+	if evidence != nil {
+		raw, _ := json.Marshal(evidence)
+		refusal = refusal.WithInput("evidence.jsonl", raw)
+	}
+	return refusal
+}
+
+func qualityEvidenceRefusal(slug, taskID string, contract core.QualityContract, evals []core.EvidenceEnvelopeV1, head string) error {
+	status := core.EvaluateQuality(contract, evals, core.FreshnessSubject{Revision: head})
+	var failing []string
+	var failingRequirements []core.EvidenceRequirement
+	for _, requirement := range append(append([]core.EvidenceRequirement{}, status.Missing...), status.Stale...) {
+		for i := len(evals) - 1; i >= 0; i-- {
+			record := evals[i]
+			if record.TaskID == taskID && record.EvidenceClass == requirement.EvidenceClass && record.CheckID == requirement.CheckID {
+				if record.Verdict != core.EvalPass {
+					failing = append(failing, string(requirement.EvidenceClass)+"/"+requirement.CheckID+"="+string(record.Verdict))
+					failingRequirements = append(failingRequirements, requirement)
+				}
+				break
+			}
+		}
+	}
+	code, observed, requirements := "", "", status.Missing
+	switch {
+	case len(failing) > 0:
+		code, observed, requirements = "EVIDENCE_FAILING", strings.Join(failing, ","), failingRequirements
+	case len(status.Missing) > 0:
+		code, observed = "EVIDENCE_MISSING", core.FormatRequirements(status.Missing)
+	case len(status.Stale) > 0:
+		code, observed, requirements = "EVIDENCE_STALE", core.FormatRequirements(status.Stale), status.Stale
+	default:
+		return nil
+	}
+	command := "specd verify " + slug + " " + taskID
+	if len(requirements) > 0 && requirements[0].EvidenceClass != core.EvidenceTest {
+		command = "specd eval import " + slug + " <workspace-relative-file> --task " + taskID + " --check " + requirements[0].CheckID
+	}
+	raw, _ := json.Marshal(evals)
+	return core.Refusef(code, "task %s evidence %s", taskID, observed).
+		WithContext(slug+"/"+taskID, observed, "fresh passing evidence for "+core.FormatRequirements(requirements)).
+		WithInput("eval evidence", raw).
+		WithRecovery(core.RefusalActorAgent, command)
 }
 
 // runSpike records a bounded exploratory-learning spike (spec 01 R7.3). It

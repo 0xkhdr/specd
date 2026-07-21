@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Refusal is the one shape every refusal path returns. An agent that hits a
@@ -15,16 +16,37 @@ import (
 // packet it was issued. A refusal raised before authority is issued reports
 // false, so a retry does not need a fresh packet.
 type Refusal struct {
-	Code              string `json:"code"`
+	Code               string              `json:"code"`
+	Category           string              `json:"category"`
+	Entity             string              `json:"entity"`
+	Observed           string              `json:"observed"`
+	Expected           string              `json:"expected"`
+	InputDigests       map[string]string   `json:"input_digests"`
+	StateChanged       bool                `json:"state_changed"`
+	CheckpointID       string              `json:"checkpoint_id"`
+	Retryable          bool                `json:"retryable"`
+	ActorRequired      string              `json:"actor_required"`
+	RecoveryOperations []RecoveryOperation `json:"recovery_operations"`
+	Detail             string              `json:"detail"`
+
+	// Compatibility fields retained for consumers of the first refusal shape.
 	Blocker           string `json:"blocker"`
 	AuthorityConsumed bool   `json:"authority_consumed"`
 	RetrySafe         bool   `json:"retry_safe"`
-	ActorRequired     string `json:"actor_required"`
 	RecoveryCommand   string `json:"recovery_command"`
 
 	// wrapped keeps the sentinel a call site already returned, so migrating a
 	// path to a typed refusal never breaks an existing errors.Is check.
 	wrapped error
+}
+
+// RecoveryOperation is an actor-legal next route. InPlace is false when the
+// current entity cannot be repaired and the route is a successor or escalation.
+type RecoveryOperation struct {
+	Operation string `json:"operation"`
+	Actor     string `json:"actor"`
+	Command   string `json:"command"`
+	InPlace   bool   `json:"in_place"`
 }
 
 // Wrapping returns a copy of the refusal that also satisfies errors.Is(err,
@@ -56,23 +78,37 @@ func AsRefusal(err error) (Refusal, bool) {
 	return Refusal{}, false
 }
 
-// refusalRecovery maps a refusal code to the actor who can clear it and the
-// exact command that does. A code absent from this table is still a valid
-// refusal; it just carries no canned recovery, which is honest — inventing one
-// is what R4.2 exists to prevent.
+// refusalRecovery maps known codes to an actor-legal next route. Unknown codes
+// use request-decision as an explicit non-retryable escalation; they never
+// invent a command that claims to repair an unclassified blocker.
 var refusalRecovery = map[string]Refusal{
-	"UNKNOWN_COMMAND":     {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd help"},
-	"PHASE_INVALID":       {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd status <slug> --guide"},
-	"OPERATION_UNKNOWN":   {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd help <command>"},
-	"FLAG_VALUE_INVALID":  {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd help <command>"},
-	"HUMAN_ONLY":          {ActorRequired: RefusalActorHuman, RecoveryCommand: "ask a human to run the operation"},
-	"AUTHORITY_DENIED":    {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd context <slug> <task> --json"},
-	"EVIDENCE_MISSING":    {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd verify <slug> <task>"},
-	"GATE_FAILED":         {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd check <slug>"},
-	"APPROVAL_REQUIRED":   {ActorRequired: RefusalActorHuman, RecoveryCommand: "specd approve <slug>"},
-	"SPEC_INVALID":        {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd status --json"},
-	"REVISION_CONFLICT":   {ActorRequired: RefusalActorAgent, RecoveryCommand: "specd status <slug> --json"},
-	"SANDBOX_UNAVAILABLE": {ActorRequired: RefusalActorOperator, RecoveryCommand: "declare sandbox support on the host"},
+	"UNKNOWN_COMMAND":     refusalTemplate("usage", "command exists", RefusalActorAgent, "help", "specd help", true),
+	"PHASE_INVALID":       refusalTemplate("lifecycle", "operation is legal in the current phase", RefusalActorAgent, "status", "specd status <slug> --guide", true),
+	"OPERATION_UNKNOWN":   refusalTemplate("usage", "declared command operation", RefusalActorAgent, "help", "specd help <command>", true),
+	"FLAG_VALUE_INVALID":  refusalTemplate("usage", "declared flag value", RefusalActorAgent, "help", "specd help <command>", true),
+	"HUMAN_ONLY":          refusalTemplate("authority", "required human actor", RefusalActorHuman, "handoff", "ask a human to run the operation", false),
+	"AUTHORITY_DENIED":    refusalTemplate("authority", "valid scoped authority", RefusalActorAgent, "context", "specd context <slug> <task> --json", true),
+	"EVIDENCE_MISSING":    refusalTemplate("evidence", "current passing evidence", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
+	"EVIDENCE_FAILING":    refusalTemplate("evidence", "passing evidence", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
+	"EVIDENCE_STALE":      refusalTemplate("evidence", "evidence pinned to current HEAD", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
+	"GATE_FAILED":         refusalTemplate("gate", "no blocking gate findings", RefusalActorAgent, "check", "specd check <slug>", true),
+	"APPROVAL_REQUIRED":   refusalTemplate("authority", "human approval", RefusalActorHuman, "approve", "specd approve <slug>", true),
+	"SPEC_INVALID":        refusalTemplate("usage", "valid spec identity", RefusalActorAgent, "status", "specd status --json", true),
+	"REVISION_CONFLICT":   refusalTemplate("conflict", "current state revision", RefusalActorAgent, "status", "specd status <slug> --json", true),
+	"SANDBOX_UNAVAILABLE": refusalTemplate("host", "declared verify sandbox", RefusalActorOperator, "host.configure", "declare sandbox support on the host", false),
+	"DISPATCH_LEDGER_FAILED": refusalTemplate("orchestration", "checkpoint reconciled with dispatch ledger", RefusalActorOperator,
+		"brain.resume", "specd brain resume <slug>", false),
+	"SESSION_WRITE_FAILED": refusalTemplate("orchestration", "session reconciled with durable dispatch", RefusalActorOperator,
+		"brain.resume", "specd brain resume <slug>", false),
+	"MISSION_INVALID": refusalTemplate("input", "valid mission identity and authority envelope", RefusalActorOperator,
+		"brain.status", "specd brain status <slug>", false),
+	"NO_SUCCESSOR": refusalTemplate("lifecycle", "supported successor or escalation", RefusalActorAgent,
+		"new", "specd new <successor>", false),
+}
+
+func refusalTemplate(category, expected, actor, operation, command string, inPlace bool) Refusal {
+	recovery := RecoveryOperation{Operation: operation, Actor: actor, Command: command, InPlace: inPlace}
+	return Refusal{Category: category, Expected: expected, ActorRequired: actor, RecoveryCommand: command, RecoveryOperations: []RecoveryOperation{recovery}}
 }
 
 // Refuse builds a typed refusal. Recovery defaults come from the code table;
@@ -80,17 +116,35 @@ var refusalRecovery = map[string]Refusal{
 // operation ran consumed nothing. Callers past that point set it explicitly
 // with Consumed.
 func Refuse(code, blocker string) Refusal {
-	refusal := Refusal{Code: code, Blocker: blocker, RetrySafe: true}
+	refusal := Refusal{
+		Code:         code,
+		Category:     "governance",
+		Entity:       "operation",
+		Observed:     blocker,
+		Expected:     "governed operation preconditions satisfied",
+		InputDigests: map[string]string{},
+		Retryable:    true,
+		Detail:       blocker,
+		Blocker:      blocker,
+		RetrySafe:    true,
+	}
 	if known, ok := refusalRecovery[code]; ok {
+		refusal.Category = known.Category
+		refusal.Expected = known.Expected
 		refusal.ActorRequired = known.ActorRequired
 		refusal.RecoveryCommand = known.RecoveryCommand
+		refusal.RecoveryOperations = append([]RecoveryOperation{}, known.RecoveryOperations...)
 	} else {
 		refusal.ActorRequired = RefusalActorAgent
-		refusal.RecoveryCommand = "specd status <slug> --guide"
+		refusal.RecoveryCommand = "specd request-decision <slug> --text <reason>"
+		refusal.RecoveryOperations = []RecoveryOperation{{Operation: "request-decision", Actor: RefusalActorAgent, Command: refusal.RecoveryCommand, InPlace: false}}
+		refusal.Retryable = false
+		refusal.RetrySafe = false
 	}
 	// Only the actor named on the refusal can clear it, so a refusal an agent
 	// cannot clear is never retry-safe for the agent that hit it.
 	if refusal.ActorRequired != RefusalActorAgent {
+		refusal.Retryable = false
 		refusal.RetrySafe = false
 	}
 	return refusal
@@ -105,6 +159,7 @@ func Refusef(code, format string, args ...any) Refusal {
 // needs a freshly issued one.
 func (r Refusal) Consumed() Refusal {
 	r.AuthorityConsumed = true
+	r.Retryable = false
 	r.RetrySafe = false
 	return r
 }
@@ -114,8 +169,66 @@ func (r Refusal) Consumed() Refusal {
 func (r Refusal) WithRecovery(actor, command string) Refusal {
 	r.ActorRequired = actor
 	r.RecoveryCommand = command
-	if actor != RefusalActorAgent {
-		r.RetrySafe = false
+	r.RecoveryOperations = []RecoveryOperation{{Operation: recoveryOperation(command), Actor: actor, Command: command, InPlace: true}}
+	r.Retryable, r.RetrySafe = actor == RefusalActorAgent, actor == RefusalActorAgent
+	return r
+}
+
+// WithContext names the governed entity and the observed/expected comparison.
+func (r Refusal) WithContext(entity, observed, expected string) Refusal {
+	r.Entity, r.Observed, r.Expected = entity, observed, expected
+	return r
+}
+
+// WithInput records only a digest of an inspected input; raw values and secrets
+// never enter the refusal envelope.
+func (r Refusal) WithInput(identity string, value []byte) Refusal {
+	if r.InputDigests == nil {
+		r.InputDigests = map[string]string{}
+	}
+	r.InputDigests[identity] = Digest(value)
+	return r
+}
+
+// WithInputDigests adds caller-resolved input identities without retaining the
+// source bytes. The map is copied so later caller mutation cannot alter an error.
+func (r Refusal) WithInputDigests(inputs map[string]string) Refusal {
+	if r.InputDigests == nil {
+		r.InputDigests = map[string]string{}
+	}
+	for identity, digest := range inputs {
+		r.InputDigests[identity] = digest
 	}
 	return r
+}
+
+// WithMutation reports durable effects left behind by a failed operation.
+func (r Refusal) WithMutation(stateChanged bool, checkpointID string) Refusal {
+	r.StateChanged, r.CheckpointID = stateChanged, checkpointID
+	return r
+}
+
+// WithRetryable overrides whether the refused operation itself may be retried.
+func (r Refusal) WithRetryable(retryable bool) Refusal {
+	r.Retryable, r.RetrySafe = retryable, retryable
+	return r
+}
+
+// WithSuccessor marks the recovery as a successor/escalation, not an in-place
+// repair of the refused entity.
+func (r Refusal) WithSuccessor(actor, operation, command string) Refusal {
+	r.ActorRequired, r.RecoveryCommand = actor, command
+	r.RecoveryOperations = []RecoveryOperation{{Operation: operation, Actor: actor, Command: command, InPlace: false}}
+	return r.WithRetryable(false)
+}
+
+func recoveryOperation(command string) string {
+	fields := strings.Fields(command)
+	if len(fields) > 1 && fields[0] == "specd" {
+		if operation, ok := ResolveOperation(fields[1], fields[2:], nil); ok {
+			return operation.ID
+		}
+		return fields[1]
+	}
+	return "handoff"
 }

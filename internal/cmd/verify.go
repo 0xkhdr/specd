@@ -79,8 +79,13 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this evidence cannot pin to a commit and will not count toward `complete-task`\n", head)
 	}
 	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head, Telemetry: annotations}
-	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil && err == nil {
-		err = appendErr
+	evidenceWritten := false
+	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil {
+		if err == nil {
+			err = appendErr
+		}
+	} else {
+		evidenceWritten = true
 	}
 	// Allocate this attempt's run/attempt identity through the shared core
 	// allocator (spec 07 R2.1/R2.2): a manual verify accrues an attempt on the
@@ -97,10 +102,25 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		fmt.Fprint(os.Stderr, core.TruncateEvidenceOutput(result.Stderr))
 	}
 	if err != nil {
-		return err
+		raw, _ := json.Marshal(record)
+		checkpointID := ""
+		if evidenceWritten {
+			checkpointID = "evidence.jsonl#" + taskID
+		}
+		return core.Refusef("EVIDENCE_FAILING", "verify execution failed: %v", err).
+			WithContext(slug+"/"+taskID, err.Error(), "verify command exits 0 and evidence persists").
+			WithInput("evidence record", raw).
+			WithMutation(evidenceWritten, checkpointID).
+			WithRecovery(core.RefusalActorAgent, "specd verify "+slug+" "+taskID).
+			Wrapping(err)
 	}
 	if result.ExitCode != 0 {
-		return fmt.Errorf("verify failed with exit code %d", result.ExitCode)
+		raw, _ := json.Marshal(record)
+		return core.Refusef("EVIDENCE_FAILING", "verify failed with exit code %d", result.ExitCode).
+			WithContext(slug+"/"+taskID, fmt.Sprintf("exit_code=%d", result.ExitCode), "exit_code=0 at current HEAD").
+			WithInput("evidence record", raw).
+			WithMutation(true, "evidence.jsonl#"+taskID).
+			WithRecovery(core.RefusalActorAgent, "specd verify "+slug+" "+taskID)
 	}
 	// Evidence-envelope stamping (spec R2.1): a passing verify on a task that
 	// declares test/<check-id> re-records the same exit-0 + pinned-HEAD fact as
