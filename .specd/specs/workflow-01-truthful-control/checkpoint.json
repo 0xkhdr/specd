@@ -1,0 +1,50 @@
+{
+  "session_id": "workflow-01-truthful-control",
+  "step": 7,
+  "wave": 0,
+  "decision": "dispatch",
+  "mission_id": "workflow-01-truthful-control.s7.T06",
+  "task_id": "T06",
+  "mission": {
+    "protocol_version": "1",
+    "session_id": "workflow-01-truthful-control",
+    "mission_id": "workflow-01-truthful-control.s7.T06",
+    "spec_slug": "workflow-01-truthful-control",
+    "task_id": "T06",
+    "attempt": 1,
+    "role": "craftsman",
+    "authority_ref": "approval:tasks",
+    "declared_files": [
+      "docs/command-reference.md",
+      "docs/troubleshooting.md",
+      "internal/cmd/brain_run.go",
+      "internal/cmd/check.go",
+      "internal/cmd/lifecycle.go",
+      "internal/cmd/refusal_test.go",
+      "internal/cmd/verify.go",
+      "internal/core/refusal.go",
+      "internal/core/refusal_test.go",
+      "internal/mcp/mapping.go"
+    ],
+    "acceptance": [
+      "R6.1 R6.2 R6.3 R7.1 R7.2: governed refusals are typed, truthful about evidence and mutation, and expose only legal recoveries"
+    ],
+    "verify": "go test ./internal/core ./internal/cmd ./internal/mcp -run TestRefusalRecoveryContract -count=2",
+    "context_ref": "context:workflow-01-truthful-control:T06",
+    "context_digest": "67a9630bab0179abb5c5dd2d63ddc6d73823e84e04092800d92fb5e2a4d72f0c",
+    "config_digest": "e803206b4f6021e7572df20570fe57ae27d21967cb6c8c40b138ab1e3f30901f",
+    "palette_digest": "bae489ae737d2843e04cf152892272cd769cc9ef661f71eb67fb2227b6e3fed6",
+    "policy_digest": "e803206b4f6021e7572df20570fe57ae27d21967cb6c8c40b138ab1e3f30901f",
+    "subject_head": "23b3dc400301681256cbbf70ba32e1234a1b553a",
+    "route_class": "default",
+    "route_reason": "policy=1 risk=high complexity=complex capabilities=context,eval,review,sandbox",
+    "limits": {
+      "max_attempts": 4,
+      "timeout_seconds": 900
+    },
+    "issued_at": "2026-07-22T01:53:50.851888958+03:00",
+    "expires_at": "2026-07-22T02:08:50.851888958+03:00",
+    "status": "pending"
+  },
+  "time": "2026-07-22T01:53:50.851888958+03:00"
+}

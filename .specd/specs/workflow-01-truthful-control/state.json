@@ -1,11 +1,20 @@
 {
   "schema_version": 1,
   "slug": "workflow-01-truthful-control",
-  "mode": "default",
-  "status": "tasks",
-  "phase": "plan",
-  "revision": 2,
+  "mode": "orchestrated",
+  "status": "complete",
+  "phase": "reflect",
+  "revision": 12,
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 11,
+      "timestamp": "2026-07-21T23:22:56Z",
+      "git_head": "0ac7fe6924843dca2ac453b5cddcdf80f486ca8d",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -16,6 +25,23 @@
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
     },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 10,
+      "timestamp": "2026-07-21T23:22:22Z",
+      "git_head": "0ac7fe6924843dca2ac453b5cddcdf80f486ca8d",
+      "actor": "xkhdr"
+    },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "approved_revision": 3,
+      "timestamp": "2026-07-21T21:36:48Z",
+      "git_head": "d634688e73d6566bfea81a52a422e64f6ed65b6c",
+      "actor": "xkhdr"
+    },
     "approval:requirements": {
       "kind": "approval",
       "text": "requirements → design",
@@ -24,6 +50,23 @@
       "timestamp": "2026-07-21T21:03:51Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 2,
+      "timestamp": "2026-07-21T21:36:42Z",
+      "git_head": "d634688e73d6566bfea81a52a422e64f6ed65b6c",
+      "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T01": "complete",
+    "T02": "complete",
+    "T03": "complete",
+    "T04": "complete",
+    "T05": "complete",
+    "T06": "complete"
   }
 }
