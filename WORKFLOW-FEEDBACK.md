@@ -339,3 +339,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Recommendation:** after recording evidence, inspect the parsed task marker. For an already completed task, print `evidence refreshed for <slug> <task>; task already complete` and omit `complete-task` guidance.
 - **Tradeoff:** one existing parsed-state branch; no gate or evidence semantics change.
 - **Status:** open
+
+### 2026-07-22 — friction — serial Brain missions cannot cross the previous task marker checkpoint
+- **Context:** `workflow-01-truthful-control` T02 under Brain/Pinky. T01 had completed through `brain report`, leaving the harness-written T01 marker dirty in `.specd/specs/workflow-01-truthful-control/tasks.md`. Exact first command: `./specd brain report workflow-01-truthful-control 386174e11d4cc23f16a4cff5a74066da pinky-t02`.
+- **Expected:** a serial Brain session can report T02 after Brain itself completed T01; controller-owned T01 state cannot become an outside-scope T02 mutation.
+- **Actual:** first report failed with `OUTSIDE_SCOPE: task T02 changed files outside its declared scope:` followed by `T02 modifies harness-owned state .specd/specs/workflow-01-truthful-control/tasks.md; task markers, roles, and steering are written by specd verbs, never edited directly`. The host committed only that harness-written marker, re-ran `./specd verify workflow-01-truthful-control T02` successfully, and retried once. Retry failed with `REPORT_BASELINE_STALE: report pins afd62f968e62e46b2f3aa9a74fd45f28711a0004 but mission workflow-01-truthful-control.s2.T02 pinned c2efdf017ca5e08658379f1fe49f7412a9a976ea` and named no recovery command.
+- **Root cause:** the next mission inherits a Git baseline that excludes the previous `brain report` task-marker mutation, but task completion later classifies that controller-owned dirty marker as a worker edit. Checkpointing it advances HEAD and invalidates the already-issued mission, producing a two-error dead end.
+- **Recommendation:** after a successful Brain report, persist a controller-owned post-completion baseline for subsequent mission scope checks, excluding the exact task/state mutation Brain just wrote. If HEAD changes after dispatch, `REPORT_BASELINE_STALE` must name and support one deterministic reissue command that revokes the stale lease and re-mints the same task at current HEAD.
+- **Status:** open
