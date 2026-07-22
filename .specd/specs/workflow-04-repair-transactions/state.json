@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "slug": "workflow-04-repair-transactions",
   "mode": "orchestrated",
-  "status": "tasks",
-  "phase": "plan",
-  "revision": 3,
+  "status": "executing",
+  "phase": "execute",
+  "cycle": 1,
+  "stage": "executing",
+  "condition": "active",
+  "revision": 5,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -32,6 +35,56 @@
       "timestamp": "2026-07-21T21:03:51Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-22T09:17:46Z",
+      "git_head": "627800d029da576bdc3d673031d8a2d694909488",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:0": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-04-repair-transactions",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "f871d997eb77d8d9ebbc2bafef79e7e1db7ebb00b40b52a41d63928c1f20ccaf",
+        "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T10:17:46Z",
+      "timestamp": "2026-07-22T09:17:46Z",
+      "git_head": "627800d029da576bdc3d673031d8a2d694909488",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:1": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-04-repair-transactions",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "f871d997eb77d8d9ebbc2bafef79e7e1db7ebb00b40b52a41d63928c1f20ccaf",
+        "config_digest": "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T10:17:46Z",
+      "timestamp": "2026-07-22T09:17:46Z",
+      "git_head": "627800d029da576bdc3d673031d8a2d694909488",
+      "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T17": "complete"
   }
 }

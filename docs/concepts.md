@@ -116,6 +116,25 @@ human and `--json` renderings, and names the drift, so a request that would be r
 visible before the approval is attempted. An already-approved request whose inputs drifted keeps
 its approval for what it pinned and is reported as drifted; it does not extend to the new inputs.
 
+## Impact preview before repair
+
+Repair — `undo`, `reopen` — never mutates before it has shown what it would touch. A **preview**
+is a pure function of the caller-resolved snapshot: it classifies every reachable artifact,
+approval, task, criterion, review, mission, submission, release, deployment, archive, and
+cross-spec link as exactly one of *current*, *stale*, *reopened*, *retained*, *superseded*,
+*cancelled*, or *forbidden*, each with a reason. Nothing is discovered or loaded during planning,
+so the same inputs always yield the same ordering and the same **impact digest**.
+
+**Immutable consumption forbids in-place repair.** When a release, deployment, archive, or
+externally accepted submission consumed the target, the preview names the consuming record and
+routes to a **linked successor** instead of proposing a rewrite. History is never deleted or
+decremented; an undo appends a compensation event and projects the prior effective state at a
+*higher* revision.
+
+**Preview equals commit.** Commit re-reads the snapshot and refuses when either the state
+revision or the recomputed impact digest moved, so a repair that raced another mutation is
+rejected with a fresh-preview route rather than applied to state it never described.
+
 ## Execution modes
 
 - **Base mode.** A human (or a single agent) drives the loop by hand: `new → approve →

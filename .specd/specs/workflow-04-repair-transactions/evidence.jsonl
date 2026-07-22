@@ -1,0 +1,2 @@
+{"task_id":"T17","command":"go test ./internal/core ./internal/cmd -run TestImpactPlan -count=2","exit_code":0,"git_head":"627800d029da576bdc3d673031d8a2d694909488","timestamp":"2026-07-22T09:25:44Z","actor":"xkhdr"}
+{"task_id":"T18","command":"go test ./internal/core ./internal/cmd -run TestUndoCompensation -count=2","exit_code":0,"git_head":"627800d029da576bdc3d673031d8a2d694909488","timestamp":"2026-07-22T09:37:27Z","actor":"xkhdr"}

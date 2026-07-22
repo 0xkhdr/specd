@@ -1,0 +1,1 @@
+{"kind":"work_without_bootstrap","slug":"workflow-04-repair-transactions","task_id":"T17","actor":"xkhdr","operation":"complete-task","detail":"mutable operation attempted without session bindings while session ds-cfad22ac5d9881bd0faa4d21c71707d5 was open","timestamp":"2026-07-22T09:26:31Z"}
