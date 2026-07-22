@@ -577,3 +577,19 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Observation:** `internal/core/refusal.go` owns the code table; a code that is not registered there produces the generic non-retryable template with no build or test warning, so the omission is invisible until someone reads the output.
 - **Recommendation:** fail a test (or `go vet`-style check) when `core.Refusef` is called with a code absent from the refusal table.
 - **Status:** open
+
+### 2026-07-22 — friction — a task that owns a CLI route cannot declare the one file that makes it dispatchable
+- **Context:** workflow-04-repair-transactions T20 and T21, craftsman, orchestrated. Exact command: `./specd complete-task workflow-04-repair-transactions T20 --session <id> --nonce <n>`.
+- **Expected:** the artifact/spec reopen route the task delivers would be reachable from the CLI.
+- **Actual:** `OPERATION_UNKNOWN: unknown operation for command "reopen"` — `core.ResolveOperation` fails closed, and `internal/core/commands.go` was absent from the task's `files:`. The gate's own recovery ("declare the path in the task's files cell") is then refused: `OUTSIDE_SCOPE: ... T20 modifies harness-owned state .specd/specs/.../tasks.md; task markers, roles, and steering are written by specd verbs, never edited directly`.
+- **Root cause:** missing verb — there is no in-harness scope amendment for a *running* task; `midreq` records prose only, and `reopen --scope` needs a task that already terminated. The only route out was a hand edit of `tasks.md` committed under a separate commit before the completion diff was taken.
+- **Recommendation:** either add `specd task amend-scope <spec> <task> --add <path> --reason <text>` (human/operator, appended as a workflow event so the amendment is auditable), or have the task-schema gate reject a plan whose row declares a `internal/cmd/<verb>.go` handler without `internal/core/commands.go`.
+- **Status:** open
+
+### 2026-07-22 — improvement — the driver-session baseline never advances, so every task after the first pays a close/open/re-verify cycle
+- **Context:** workflow-04-repair-transactions T17–T21, orchestrated, driver `claude-code`. Sequence that worked per task: `specd session close` → `specd session open <spec> <task>` → `specd session ack` → `specd verify` → `specd complete-task --session --nonce`.
+- **Observation:** `enforceDiffScope` measures the whole worktree against the session's git HEAD *at open*. The previous task's committed files therefore stay inside the diff for every later task in the same session, so completion refuses with `OUTSIDE_SCOPE` naming files the current task never touched. Rotating the session is the fix, and rotating invalidates the evidence pinned to the old HEAD, so `verify` has to run twice.
+- **Cost:** four extra commands and one redundant full test run per task — five tasks, ~20 avoidable invocations.
+- **Recommendation:** re-pin the session baseline to current HEAD when the driver acks a new task (or add `specd session rotate <spec> <task>` as one verb), so the baseline tracks the task the session is actually driving.
+- **Tradeoff:** none to evidence integrity — the baseline still comes from git and is still pinned before the work starts; it just tracks the task rather than the session.
+- **Status:** open
