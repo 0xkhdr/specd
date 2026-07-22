@@ -129,6 +129,36 @@ func CurrentPassing(records []CriterionRecord, since time.Time) map[string]bool 
 	return passing
 }
 
+// CriterionReassignment hands acceptance coverage of one criterion from a
+// superseded or cancelled task to the task that covers it now (spec 04 R5.2).
+// It is a planning input, not a record: the durable form is the impacted
+// entity list of the resolution event.
+type CriterionReassignment struct {
+	Criterion string `json:"criterion"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+}
+
+// UncoveredCriteria returns, sorted, every criterion of `from` that no
+// reassignment hands to another task. Reassigning a criterion back to the task
+// being disposed of covers nothing, so it does not count.
+func UncoveredCriteria(criteria []string, from string, reassignments []CriterionReassignment) []string {
+	covered := map[string]bool{}
+	for _, reassignment := range reassignments {
+		if reassignment.To != "" && reassignment.To != from {
+			covered[reassignment.Criterion] = true
+		}
+	}
+	var uncovered []string
+	for _, id := range criteria {
+		if !covered[id] {
+			uncovered = append(uncovered, id)
+		}
+	}
+	sort.Strings(uncovered)
+	return uncovered
+}
+
 type QualityCheck struct {
 	ID            string
 	EvidenceClass EvidenceClass

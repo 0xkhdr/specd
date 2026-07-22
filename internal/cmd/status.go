@@ -71,6 +71,7 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		return err
 	}
 	revisions := core.ArtifactVersions(events)
+	stale := core.StaleDescendants(events)
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
@@ -86,12 +87,14 @@ func runStatus(root string, args []string, flags map[string]string) error {
 			ApprovalRequests []gates.ApprovalRequestState `json:"approval_requests,omitempty"`
 			Cycle            int                          `json:"cycle,omitempty"`
 			ArtifactVersions map[string]int               `json:"artifact_versions,omitempty"`
+			StaleDescendants []core.StaleDescendant       `json:"stale_descendants,omitempty"`
 			Locator          core.Locator                 `json:"locator"`
-		}{model, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions,
+		}{model, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale,
 			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	fmt.Fprint(os.Stdout, renderArtifactVersions(specState.Cycle, revisions))
+	fmt.Fprint(os.Stdout, renderStaleDescendants(stale))
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
 	fmt.Fprint(os.Stdout, renderEscalated(escalated, ratchetActive))
 	fmt.Fprint(os.Stdout, renderApprovalRequests(approvals))
@@ -163,6 +166,31 @@ func renderArtifactVersions(cycle int, versions map[string]int) string {
 	}
 	for _, artifact := range slices.Sorted(maps.Keys(versions)) {
 		fmt.Fprintf(&b, "  %s.md — draft version %d (prior revisions under revisions/%s/)\n", artifact, versions[artifact], artifact)
+	}
+	return b.String()
+}
+
+// renderStaleDescendants formats the stale-descendant section: one line per
+// completed descendant a reopen invalidated, naming its parent, the revision it
+// went stale at, and the resolutions that are allowed to clear it — followed by
+// the gate's refusal for every one still unresolved (R5.1, R5.4). Silent on a
+// spec that never reopened a task.
+func renderStaleDescendants(stale []core.StaleDescendant) string {
+	if len(stale) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\nStale descendants (completed; explicit resolution required):\n")
+	for _, entry := range stale {
+		if entry.Unresolved() {
+			fmt.Fprintf(&b, "  %s — stale since revision %d (reopen of %s); resolve with: %s\n",
+				entry.TaskID, entry.StaleSinceRevision, entry.Parent, strings.Join(entry.Choices, ", "))
+			continue
+		}
+		fmt.Fprintf(&b, "  %s — resolved as %s at revision %d\n", entry.TaskID, entry.Resolution, entry.ResolvedRevision)
+	}
+	for _, finding := range gates.StaleDescendantFindings(stale) {
+		fmt.Fprintf(&b, "  %s: %s\n", finding.Severity, finding.Message)
 	}
 	return b.String()
 }

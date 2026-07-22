@@ -135,6 +135,32 @@ decremented; an undo appends a compensation event and projects the prior effecti
 revision or the recomputed impact digest moved, so a repair that raced another mutation is
 rejected with a fresh-preview route rather than applied to state it never described.
 
+## Staleness is explicit, and never auto-cleared
+
+A reopen invalidates more than its own task: every **completed descendant** that depends on it is
+now work whose proof was recorded against a revision that no longer exists. Specd records that as
+what it is — the descendant stays **completed *and* stale**. Its `tasks.md` marker is not
+rewritten to pending, nothing is silently reset to current, and no elapsed time, later commit, or
+re-run of the parent clears the staleness on its own.
+
+Only four things clear it, each an explicit, append-only event:
+
+- **revalidate** — fresh passing evidence for the descendant's *current* attempt, pinned to the
+  current HEAD;
+- **reopen** — the descendant enters a new attempt of its own (the reopen route does this itself);
+- **retain** — an approved impact approval **plus** fresh evidence;
+- **supersede / cancel** — the descendant is disposed of, and every acceptance criterion it
+  covered is reassigned to the task that covers it now.
+
+**Digest equality is not proof.** Unchanged bytes may narrow how much needs reviewing, but they
+never establish that behaviour is unchanged: the code the descendant depended on moved underneath
+it. A retain offered on digest equality alone is refused and asked for fresh evidence.
+
+**Parent readiness is blocked while any descendant is unresolved**, and readiness is proved from
+current revisions and current attempts only — never from a prior attempt's evidence and never from
+a digest comparison. Every resolution is an event beside the staleness it answers, so a replay of
+the ledger reconstructs exactly the same picture.
+
 ## Execution modes
 
 - **Base mode.** A human (or a single agent) drives the loop by hand: `new → approve →

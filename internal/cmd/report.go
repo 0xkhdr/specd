@@ -664,12 +664,20 @@ func runReport(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	// Stale descendants are part of the report's truth, not a status-only view:
+	// a report that omits them reads as complete work that is not (R5.1).
+	events, err := core.ReadWorkflowEvents(core.WorkflowEventPath(root, args[0]))
+	if err != nil {
+		return err
+	}
+	stale := core.StaleDescendants(events)
 	switch {
 	case flagEnabled(flags, "json"):
 		return writeJSON(struct {
 			core.ReportModel
-			Criteria []requirementCoverage `json:"criteria,omitempty"`
-		}{model, coverage})
+			Criteria         []requirementCoverage  `json:"criteria,omitempty"`
+			StaleDescendants []core.StaleDescendant `json:"stale_descendants,omitempty"`
+		}{model, coverage, stale})
 	case flagEnabled(flags, "metrics"):
 		fmt.Fprint(os.Stdout, core.RenderMetrics(model))
 		telemetry, err := aggregateTelemetry(root, args[0], model)
@@ -682,6 +690,7 @@ func runReport(root string, args []string, flags map[string]string) error {
 	default:
 		fmt.Fprint(os.Stdout, core.RenderStatus(model))
 		fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
+		fmt.Fprint(os.Stdout, renderStaleDescendants(stale))
 	}
 	return nil
 }

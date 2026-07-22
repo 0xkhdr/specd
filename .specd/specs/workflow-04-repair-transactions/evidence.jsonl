@@ -6,3 +6,6 @@
 {"task_id":"T20","command":"go test ./internal/core ./internal/cmd -run TestArtifactSpecReopen -count=2","exit_code":0,"git_head":"7ebe794f60393d0c77b8fa864e333020bf220254","timestamp":"2026-07-22T10:12:12Z","actor":"xkhdr"}
 {"task_id":"T20","command":"go test ./internal/core ./internal/cmd -run TestArtifactSpecReopen -count=2","exit_code":0,"git_head":"7ebe794f60393d0c77b8fa864e333020bf220254","timestamp":"2026-07-22T10:14:19Z","actor":"xkhdr"}
 {"task_id":"T20","command":"go test ./internal/core ./internal/cmd -run TestArtifactSpecReopen -count=2","exit_code":0,"git_head":"212f4584997f9e28c241b2fe5abf034e40d8191e","timestamp":"2026-07-22T10:14:41Z","actor":"xkhdr"}
+{"task_id":"T21","command":"go test ./internal/core ./internal/cmd -run TestStaleDescendantResolution -count=2","exit_code":0,"git_head":"242b8622bca46459b9819b69595722ede101e29e","timestamp":"2026-07-22T10:25:21Z","actor":"xkhdr"}
+{"task_id":"T21","command":"go test ./internal/core ./internal/cmd -run TestStaleDescendantResolution -count=2","exit_code":0,"git_head":"45ee807bac3259633f50f34486e5231be53098d5","timestamp":"2026-07-22T10:27:02Z","actor":"xkhdr"}
+{"task_id":"T21","command":"go test ./internal/core ./internal/cmd -run TestStaleDescendantResolution -count=2","exit_code":0,"git_head":"45ee807bac3259633f50f34486e5231be53098d5","timestamp":"2026-07-22T10:27:13Z","actor":"xkhdr"}

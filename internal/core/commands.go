@@ -286,7 +286,7 @@ var Commands = []Command{
 	},
 	{
 		Name:          "reopen",
-		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n>",
+		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n> | specd reopen <spec> descendant <id> <revalidate|retain|supersede|cancel> --reason <text> --expect-revision <n>",
 		Description:   "Open the next attempt of a completed, failed, or cancelled task, the next draft version of an unreleased artifact, or the next lifecycle cycle of an unreleased spec; prior-attempt evidence stops completing a reopened task and prior bytes are preserved as a content-addressed revision.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
@@ -790,6 +790,7 @@ var operationDefinitions = map[string][]operationDefinition{
 		{id: "reopen.task", subcommand: "task", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"},
 		{id: "reopen.artifact", subcommand: "artifact", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
 		{id: "reopen.spec", subcommand: "spec", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+		{id: "reopen.descendant", subcommand: "descendant", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"},
 	},
 	"recurring": {{id: "recurring.record", subcommand: "record", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
 	"report":    {{id: "report.render", effect: EffectRead, scopeSource: "arguments"}},
@@ -997,6 +998,8 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 			id = "reopen.artifact"
 		case len(args) == 2 && args[1] == "spec":
 			id = "reopen.spec"
+		case len(args) == 4 && args[1] == "descendant":
+			id = "reopen.descendant"
 		default:
 			return Operation{}, false
 		}

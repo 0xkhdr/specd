@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,8 @@ func runReopen(root string, args []string, flags map[string]string) error {
 		return reopenArtifact(root, slug, args[2], reason, expected)
 	case args[1] == "spec" && len(args) == 2:
 		return reopenArtifact(root, slug, "", reason, expected)
+	case args[1] == "descendant" && len(args) == 4:
+		return resolveDescendant(root, slug, args[2], args[3], reason, expected)
 	}
 	return usageError("reopen")
 }
@@ -174,6 +177,112 @@ func reopenTask(root, slug, taskID, reason string, expected int64, flags map[str
 		return err
 	}
 	return writeJSON(plan)
+}
+
+// resolveDescendant records the explicit resolution of one stale descendant
+// (R5.2). Everything the resolution must stand on is resolved from durable
+// state here — the descendant's current attempt, its attempt-current evidence
+// at the current HEAD, the approval that authorized a retain, and the
+// acceptance criteria tasks.md still routes only to it — and judged by the
+// planner. `reopen` is not accepted here: it is the reopen route itself.
+func resolveDescendant(root, slug, taskID, resolution, reason string, expected int64) error {
+	plan, err := core.WithSpecLock(root, func() (core.DescendantResolutionPlan, error) {
+		spec, err := loadSpec(root, slug)
+		if err != nil {
+			return core.DescendantResolutionPlan{}, err
+		}
+		statePath, eventPath := core.StatePath(root, slug), core.WorkflowEventPath(root, slug)
+		state, err := core.RecoverWorkflowState(statePath, eventPath)
+		if err != nil {
+			return core.DescendantResolutionPlan{}, err
+		}
+		events, err := core.ReadWorkflowEvents(eventPath)
+		if err != nil {
+			return core.DescendantResolutionPlan{}, err
+		}
+		evidence, err := core.LoadEvidence(core.EvidencePath(root, slug))
+		if err != nil {
+			return core.DescendantResolutionPlan{}, err
+		}
+		record, hasEvidence := evidence[taskID]
+		criteria, reassignments := descendantCoverage(spec.Tasks, taskID)
+		req := core.DescendantResolutionRequest{
+			TaskID:           taskID,
+			Resolution:       resolution,
+			Reason:           reason,
+			ActorID:          core.ReopenActor(),
+			ExpectedRevision: expected,
+			CurrentHead:      gitHead(root),
+			Attempt:          core.CurrentTaskAttempt(events, taskID),
+			Evidence:         record,
+			HasEvidence:      hasEvidence,
+			ApprovalRef:      approvedImpactRef(state, taskID),
+			Successor:        successorOf(reassignments),
+			Criteria:         criteria,
+			Reassignments:    reassignments,
+		}
+		preview := core.PlanDescendantResolution(slug, req, core.StaleDescendants(events), state.Revision)
+		if !preview.Eligible {
+			return preview, preview.Refusal()
+		}
+		return core.CommitDescendantResolution(statePath, eventPath, slug, req, preview)
+	})
+	if err != nil {
+		return err
+	}
+	return writeJSON(plan)
+}
+
+// descendantCoverage is the acceptance coverage this descendant carries and
+// where tasks.md already hands each criterion. A criterion another task also
+// declares in its `refs` column is reassigned by that task; one only this
+// descendant declares stays uncovered, which is what refuses a supersede or
+// cancel until tasks.md is amended.
+func descendantCoverage(tasks []core.TaskRow, taskID string) ([]string, []core.CriterionReassignment) {
+	var criteria []string
+	for _, task := range tasks {
+		if task.ID == taskID {
+			criteria = append(criteria, task.Refs...)
+		}
+	}
+	var reassignments []core.CriterionReassignment
+	for _, ref := range criteria {
+		for _, task := range tasks {
+			if task.ID == taskID || !slices.Contains(task.Refs, ref) {
+				continue
+			}
+			reassignments = append(reassignments, core.CriterionReassignment{Criterion: ref, From: taskID, To: task.ID})
+			break
+		}
+	}
+	return criteria, reassignments
+}
+
+// successorOf names the task that took over the descendant's coverage; with no
+// reassignment there is no successor and a supersede refuses.
+func successorOf(reassignments []core.CriterionReassignment) string {
+	if len(reassignments) == 0 {
+		return ""
+	}
+	return reassignments[0].To
+}
+
+// approvedImpactRef is the approved approval request covering this task, which
+// is the explicit impact approval a retain needs on top of fresh evidence.
+func approvedImpactRef(state core.State, taskID string) string {
+	requests, err := state.ApprovalRequests()
+	if err != nil {
+		return ""
+	}
+	for _, rec := range requests {
+		if rec.EntityID != taskID {
+			continue
+		}
+		if latest, count := core.LatestApprovalRequest(requests, rec.ID); count > 0 && latest.Transition == core.ApprovalApproved {
+			return rec.ID
+		}
+	}
+	return ""
 }
 
 func splitList(raw string) []string {

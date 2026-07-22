@@ -707,7 +707,7 @@ specd release candidate payments --artifact-digest sha256:abc --sbom-ref sbom://
 ### `reopen`
 
 ```
-specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n>
+specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n> | specd reopen <spec> descendant <id> <revalidate|retain|supersede|cancel> --reason <text> --expect-revision <n>
 ```
 
 Open the next attempt of a completed, failed, or cancelled task, the next draft version of an unreleased artifact, or the next lifecycle cycle of an unreleased spec; prior-attempt evidence stops completing a reopened task and prior bytes are preserved as a content-addressed revision.

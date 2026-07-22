@@ -354,7 +354,9 @@ func classifyImpact(candidate ImpactCandidate, requested, reachable, cyclic bool
 		return entity
 	}
 
-	staleChoices := []string{"cancel", "reopen", "retain", "revalidate", "supersede"}
+	// A stale entity's choices are exactly the resolutions that clear staleness
+	// (R5.2); the two must never drift apart, so there is one list.
+	staleChoices := DescendantResolutions
 	switch {
 	case candidate.Cancel:
 		entity.Classification = ImpactCancelled

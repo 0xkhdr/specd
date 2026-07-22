@@ -269,6 +269,52 @@ Reopen refuses, mutating nothing, when:
   be preserved is not reopened;
 - **the state revision moved** since the preview, as with undo and task reopen.
 
+## Resolve the stale descendants of a repair
+
+Reopening a task makes every completed task that depends on it **stale**: its evidence was
+recorded against a revision that no longer exists. The descendant stays *completed and stale* —
+its `tasks.md` marker is untouched — and `specd status` lists it with the resolutions it accepts:
+
+```bash
+specd status payments            # "Stale descendants (completed; explicit resolution required)"
+specd status payments --json     # same under "stale_descendants"
+specd report payments            # and in the report, so a report never reads more complete than it is
+```
+
+Nothing clears staleness implicitly. Pick one route per descendant:
+
+```bash
+# 1. revalidate — re-run its verify at the current HEAD, then record the resolution
+specd verify payments T9
+specd reopen payments descendant T9 revalidate --reason 'unchanged behaviour re-proved' --expect-revision 14
+
+# 2. reopen — repair it in a new attempt of its own; this resolves the staleness by itself
+specd reopen payments task T9 --reason 'the repair changed its rounding too' --expect-revision 14
+
+# 3. retain — needs an approved impact approval request *and* fresh evidence
+specd reopen payments descendant T9 retain --reason 'behaviour re-proved, scope unchanged' --expect-revision 14
+
+# 4. supersede / cancel — move its acceptance coverage in tasks.md first, then dispose of it
+specd reopen payments descendant T9 supersede --reason 'T12 now covers this' --expect-revision 14
+specd reopen payments descendant T9 cancel --reason 'requirement withdrawn' --expect-revision 14
+```
+
+The refusals tell you exactly what is missing:
+
+- **no fresh evidence** — the descendant has no passing verify record for its *current* attempt at
+  the current HEAD; run `specd verify` first. A read-only task is not exempt: its trivially
+  passing verify line still has to be re-recorded.
+- **digest-only retention** — unchanged bytes never prove behaviour unchanged, so a retain backed
+  by digest equality alone is refused and asked for evidence.
+- **unapproved retention** — retain also needs an approved impact approval request for the task.
+- **unassigned coverage** — a supersede or cancel refuses while any acceptance criterion is routed
+  only to that descendant; move the id to the covering task's `refs` column in `tasks.md` first.
+  A supersede additionally names the task that takes over.
+
+While any descendant is unresolved the **parent stays blocked** — `status` and the approval gate
+both say so, and readiness is proved from current revisions and attempts only. Every resolution is
+appended beside the staleness it answers; nothing in the ledger is rewritten or deleted.
+
 ## Open questions
 
 An unresolved question is recorded, not guessed. An agent may open one; only a human resolves

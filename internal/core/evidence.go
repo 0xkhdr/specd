@@ -279,6 +279,16 @@ func validateContextReceiptDigest(digest string) error {
 	return nil
 }
 
+// EvidenceProvesCurrent reports whether a record is a passing verify record for
+// this attempt pinned to the revision readiness is being proved against. It is
+// the "fresh evidence" test a stale descendant is revalidated or retained
+// against (spec 04 R5.2/R5.4) — attempt binding alone is not enough, because a
+// descendant that was never reopened keeps its prior attempt.
+func EvidenceProvesCurrent(record EvidenceRecord, attempt TaskAttempt, head string) bool {
+	return record.ExitCode == 0 && HeadPinned(record.GitHead) &&
+		record.GitHead == head && EvidenceBoundTo(record, attempt)
+}
+
 func HasPassingEvidence(records map[string]EvidenceRecord, taskID string) bool {
 	record, ok := records[taskID]
 	return ok && record.ExitCode == 0 && HeadPinned(record.GitHead)

@@ -81,6 +81,19 @@ func ApprovalRequestFindings(states []ApprovalRequestState) []Finding {
 	return findings
 }
 
+// StaleDescendantFindings is the parent-readiness half of the approval gate
+// (spec 04 R5.4): while a reopen has left a completed descendant stale, the
+// parent is not ready, and no digest comparison or elapsed revision changes
+// that. Readiness is proved only from the current revisions and attempts the
+// caller projected — this gate never re-derives them.
+func StaleDescendantFindings(stale []core.StaleDescendant) []Finding {
+	var findings []Finding
+	for _, blocker := range core.StaleDescendantBlockers(stale) {
+		findings = append(findings, Finding{Severity: Error, Message: blocker.Message})
+	}
+	return findings
+}
+
 // approvalRequestIDs lists each request id once, in the append order
 // core.ReadApprovalRequests guarantees (record key order, so id order).
 func approvalRequestIDs(requests []core.ApprovalRequestRecord) []string {
