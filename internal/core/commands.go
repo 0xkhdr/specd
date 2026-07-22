@@ -630,12 +630,12 @@ var Commands = []Command{
 	},
 	{
 		Name:          "brain",
-		Usage:         "specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args] [--authority]",
+		Usage:         "specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report|release> <spec> [args] [--authority]",
 		Description:   "Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker.",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(1),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd brain start payments --authority", "specd brain claim payments payments.s1.T1 worker-1 craftsman", "specd brain heartbeat payments <lease-id> worker-1", "specd brain report payments <lease-id> worker-1"},
+		Examples:      []string{"specd brain start payments --authority", "specd brain claim payments payments.s1.T1 worker-1 craftsman", "specd brain heartbeat payments <lease-id> worker-1", "specd brain report payments <lease-id> worker-1", "specd brain release payments payments.s1.T1"},
 		Flags: []Flag{
 			{Name: "authority", Type: "bool", Description: "Grant dispatch authority (fail-closed by default)."},
 		},
@@ -812,6 +812,7 @@ var operationDefinitions = map[string][]operationDefinition{
 		{id: "brain.claim", subcommand: "claim", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "authority"},
 		{id: "brain.heartbeat", subcommand: "heartbeat", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "authority"},
 		{id: "brain.report", subcommand: "report", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "authority"},
+		{id: "brain.release", subcommand: "release", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
 	},
 }
 

@@ -14,7 +14,7 @@ import (
 
 func brainWorkerReport(root, sessionPath, acpPath, slug string, args []string) error {
 	if len(args) != 2 {
-		return errors.New("usage: specd brain report <spec> <lease-id> <worker-id>")
+		return errors.New("usage: specd brain report <lease-id> <worker-id>")
 	}
 	leaseID, workerID := args[0], args[1]
 	s, err := orchestration.LoadSession(sessionPath)

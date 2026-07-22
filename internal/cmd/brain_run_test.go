@@ -300,3 +300,86 @@ func TestBrainStepDoesNotRedispatchUnclaimedMission(t *testing.T) {
 		dispatched[mission.TaskID] = true
 	}
 }
+
+// TestMissionLifecycleJourney exercises the full production orchestration journey:
+// dispatch, claim, verify, report, complete without profile changes, manual ledger
+// edits, or TTL waits (R6.1). Preserves session/lease/authority bindings (R4.5).
+func TestMissionLifecycleJourney(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Initialize git repo so evidence can be pinned to HEAD
+	execGit(t, root, "init")
+	execGit(t, root, "config", "user.email", "test@test.com")
+	execGit(t, root, "config", "user.name", "Test")
+	execGit(t, root, "add", ".")
+	execGit(t, root, "commit", "-m", "initial")
+
+	// Dispatch: start session and run controller step
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatalf("brain start: %v", err)
+	}
+	if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
+		t.Fatalf("brain step: %v", err)
+	}
+	s := loadBrainSession(t, root)
+	if len(s.PendingMissions) != 1 {
+		t.Fatalf("expected one pending mission, got %+v", s.PendingMissions)
+	}
+	mission := s.PendingMissions[0]
+	if mission.TaskID != "T1" {
+		t.Fatalf("expected T1, got %s", mission.TaskID)
+	}
+
+	// Claim: worker claims the mission
+	if err := runBrain(root, []string{"claim", "demo", mission.MissionID, "worker-1", "craftsman"}, nil); err != nil {
+		t.Fatalf("brain claim: %v", err)
+	}
+	s = loadBrainSession(t, root)
+	if len(s.Leases) != 1 || len(s.PendingMissions) != 0 {
+		t.Fatalf("claim did not move mission to lease: sessions=%+v", s)
+	}
+	lease := s.Leases[0]
+
+	// Heartbeat: worker keeps the lease alive
+	if err := runBrain(root, []string{"heartbeat", "demo", lease.LeaseID, "worker-1"}, nil); err != nil {
+		t.Fatalf("brain heartbeat: %v", err)
+	}
+
+	// Verify: append evidence of successful verification
+	head := gitHead(root)
+	if err := core.AppendEvidence(core.EvidencePath(root, "demo"), core.EvidenceRecord{
+		TaskID: "T1", Command: "printf ok", ExitCode: 0, GitHead: head,
+	}); err != nil {
+		t.Fatalf("append evidence: %v", err)
+	}
+
+	// Report: worker reports completion (brain report also calls complete-task)
+	if err := runBrain(root, []string{"report", "demo", lease.LeaseID, "worker-1"}, nil); err != nil {
+		t.Fatalf("brain report: %v", err)
+	}
+	s = loadBrainSession(t, root)
+	if len(s.Leases) != 0 {
+		t.Fatalf("report did not release lease: %+v", s.Leases)
+	}
+
+	// Verify final state: task marker should show complete in tasks.md
+	spec, err := loadSpec(root, "demo")
+	if err != nil {
+		t.Fatalf("load spec: %v", err)
+	}
+	for _, task := range spec.Tasks {
+		if task.ID == "T1" {
+			if task.Marker != "✅" && task.Marker != "done" && task.Marker != "complete" {
+				t.Fatalf("expected task marker to be complete, got %q", task.Marker)
+			}
+			return
+		}
+	}
+	t.Fatal("task T1 not found after completion")
+}

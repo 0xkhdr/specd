@@ -167,6 +167,15 @@ specd brain resume payments              # after a checkpoint/interruption
 specd brain cancel payments
 ```
 
+**Worker operations** under Brain:
+
+```bash
+specd brain claim payments <mission-id> <worker-id> <role>  # claim a dispatched mission
+specd brain heartbeat payments <lease-id> <worker-id>       # renew the lease (keep the mission alive)
+specd brain report payments <lease-id> <worker-id>          # report completion and mark task done
+specd brain release payments <mission-id>                   # immediately release a mission (R4.3)
+```
+
 Brain uses **leases** (a worker claims a mission), an append-only **ACP decision ledger**, and
 **brakes/checkpoints** for safe interruption and recovery. Critically, **no LLM sits in the
 decision path** — Brain's choices are deterministic functions of on-disk state. It dispatches
@@ -175,7 +184,9 @@ claims one mission, does exactly its role's work, and reports evidence back thro
 `specd verify` / `specd check` gates.
 
 `--authority` is required to grant dispatch authority; without it Brain fails closed and only
-plans.
+plans. Dispatch, claim, heartbeat, report, and release preserve session and lease authority
+bindings across invocations (R4.5). Zero-progress permanent halt returns non-success with durable
+checkpoint effects (R6.3).
 
 ## Cross-spec programs
 

@@ -13,7 +13,7 @@ import (
 
 func brainClaim(root, sessionPath, acpPath, slug string, args []string) error {
 	if len(args) != 3 {
-		return errors.New("usage: specd brain claim <spec> <mission-id> <worker-id> <role>")
+		return errors.New("usage: specd brain claim <mission-id> <worker-id> <role>")
 	}
 	missionID, workerID, role := args[0], args[1], args[2]
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {

@@ -31,6 +31,8 @@ func runBrain(root string, args []string, flags map[string]string) error {
 		return brainClaim(root, sessionPath, acpPath, slug, args[2:])
 	case "heartbeat":
 		return brainHeartbeat(root, sessionPath, acpPath, slug, args[2:])
+	case "release":
+		return brainRelease(root, sessionPath, acpPath, slug, args[2:])
 	case "report":
 		return brainWorkerReport(root, sessionPath, acpPath, slug, args[2:])
 	case "status":
@@ -449,6 +451,53 @@ func brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug string) 
 	}
 	fmt.Fprintf(os.Stdout, "brain resume: reconciled, no dispatch to re-issue for %s\n", slug)
 	return nil
+}
+
+// brainRelease immediately releases a mission without TTL wait (R4.3). The lease
+// is marked revoked and removed from the session.
+func brainRelease(root, sessionPath, acpPath, slug string, args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage: specd brain release <mission-id>")
+	}
+	missionID := args[0]
+	_, err := core.WithSpecLock(root, func() (struct{}, error) {
+		s, err := orchestration.LoadSession(sessionPath)
+		if err != nil {
+			return struct{}{}, err
+		}
+		leaseIdx := -1
+		var l orchestration.Lease
+		for i, candidate := range s.Leases {
+			if candidate.MissionID == missionID {
+				leaseIdx = i
+				l = candidate
+				break
+			}
+		}
+		if leaseIdx < 0 {
+			return struct{}{}, fmt.Errorf("MISSION_NOT_FOUND: %s", missionID)
+		}
+		now := time.Now()
+		released := orchestration.ReleaseMission(l, "released by controller")
+		s.Leases = append(s.Leases[:leaseIdx], s.Leases[leaseIdx+1:]...)
+		if err := orchestration.SaveSessionCAS(root, sessionPath, s.Revision, s); err != nil {
+			return struct{}{}, err
+		}
+		payload, _ := json.Marshal(released)
+		if err := orchestration.AppendACP(acpPath, orchestration.ACPEvent{
+			Time:      now,
+			Kind:      orchestration.ACPKindCancel,
+			MissionID: missionID,
+			TaskID:    l.TaskID,
+			Attempt:   l.Attempt,
+			Payload:   string(payload),
+		}); err != nil {
+			return struct{}{}, err
+		}
+		fmt.Fprintf(os.Stdout, "brain release: released mission %s (task %s) for %s\n", missionID, l.TaskID, slug)
+		return struct{}{}, nil
+	})
+	return err
 }
 
 // brainStatusView is the operator-facing status: the derived lifecycle state
