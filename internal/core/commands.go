@@ -272,6 +272,19 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "undo",
+		Usage:         "specd undo <spec> --reason <text> --expect-revision <n>",
+		Description:   "Compensate the latest unconsumed reversible workflow event by appending a compensation event; history is never deleted.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd undo payments --reason 'wrong stage approved' --expect-revision 7"},
+		SpecSlugArg:   argAt(0),
+		Flags: []Flag{
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Required audit reason recorded on the compensation event."},
+			{Name: "expect-revision", TakesValue: true, Type: "string", Description: "State revision the undo was previewed against; a moved revision refuses and requires a fresh preview."},
+		},
+	},
+	{
 		Name:          "approve",
 		Usage:         "specd approve <spec>",
 		Description:   "Advance a spec exactly one lifecycle step after human approval and passing readiness gates.",
@@ -753,6 +766,9 @@ var operationDefinitions = map[string][]operationDefinition{
 		{id: "exception.approve", subcommand: "approve", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "governed-exception"},
 		{id: "exception.revoke", subcommand: "revoke", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "governed-exception"},
 	},
+	// Undo is operator-only by default: an agent may request a repair but never
+	// compensates governed history itself (spec 04 design, security section).
+	"undo":      {{id: "undo", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
 	"recurring": {{id: "recurring.record", subcommand: "record", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
 	"report":    {{id: "report.render", effect: EffectRead, scopeSource: "arguments"}},
 	"task": {

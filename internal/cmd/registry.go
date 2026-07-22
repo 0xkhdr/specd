@@ -75,6 +75,7 @@ var executable = map[string]Handler{
 	"status":           runStatus,
 	"submit":           runSubmit,
 	"task":             runTask,
+	"undo":             runUndo,
 	"unlink":           runUnlink,
 	"verify":           runVerify,
 }

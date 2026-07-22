@@ -899,6 +899,27 @@ specd task T3 --json
 specd task T3 --override --reason 'flaky infra, verified manually'
 ```
 
+### `undo`
+
+```
+specd undo <spec> --reason <text> --expect-revision <n>
+```
+
+Compensate the latest unconsumed reversible workflow event by appending a compensation event; history is never deleted.
+
+**Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--expect-revision` | string | State revision the undo was previewed against; a moved revision refuses and requires a fresh preview. |
+| `--reason` | string | Required audit reason recorded on the compensation event. |
+
+**Examples:**
+
+```bash
+specd undo payments --reason 'wrong stage approved' --expect-revision 7
+```
+
 ### `unlink`
 
 ```

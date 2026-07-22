@@ -180,6 +180,30 @@ specd decision payments --text 'defer webhooks to v2' --scope design
 
 Both are stamped into `state.json` and replay in `specd report payments --history`.
 
+## Undo the last workflow event
+
+An operator can compensate the **latest** workflow event of a spec — and only that one:
+
+```bash
+specd status payments --json          # read the current revision
+specd undo payments --reason 'approved the wrong stage' --expect-revision 7
+```
+
+Undo never deletes or rewrites history. It appends a **compensation event** that references the
+original, re-projects the prior effective state at a higher revision, and records the reason,
+actor and authority digest, impact digest, affected identities, and every consumption guard it
+checked. The original event stays in the ledger, visible and unchanged.
+
+It refuses — mutating nothing — when the target is not the latest event, when the transition is
+irreversible (submission, release, deployment, archive, schema baseline, or a previous
+compensation), or when anything consumed it: passing evidence, a delivery ledger, or a
+delegation. The refusal names the consuming record and, for externally consumed work, points at
+a linked successor instead of an in-place repair.
+
+`--expect-revision` is the revision the undo was previewed against. If the revision moved (a
+concurrent repair, an approval), undo refuses with the fresh revision to re-run against, so at
+most one racing repair ever wins. There is no event-id flag: older history is not undoable.
+
 ## Open questions
 
 An unresolved question is recorded, not guessed. An agent may open one; only a human resolves
