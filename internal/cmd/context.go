@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	speccontext "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
@@ -19,6 +20,9 @@ func runContext(root string, args []string, flags map[string]string) error {
 		return err
 	}
 	if err := checkMemoryBeforeContext(root, args[0]); err != nil {
+		return err
+	}
+	if err := checkClarificationBeforeContext(root, args[0], args[1]); err != nil {
 		return err
 	}
 	manifest, err := speccontext.BuildManifest(root, args[0], spec.Tasks, args[1], contextBudget(root))
@@ -48,6 +52,23 @@ func runContext(root string, args []string, flags map[string]string) error {
 		}
 	}
 	return nil
+}
+
+// checkClarificationBeforeContext refuses to hand out working context for a task
+// an open blocking clarification is waiting on. The refusal is scoped to that
+// task: a question about another task, or a non-blocking one, changes nothing
+// (spec 03 R4.1). Answering, withdrawing, or expiring it restores eligibility.
+func checkClarificationBeforeContext(root, slug, task string) error {
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return err
+	}
+	ids, err := core.BlockingClarifications(state.Records, task)
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+	return core.Refusef("CLARIFICATION_OPEN", "task %s waits on open clarification(s): %s", task, strings.Join(ids, ", ")).
+		WithRecovery(core.RefusalActorHuman, "specd clarification answer "+slug+" "+ids[0]+" --answer <text>")
 }
 
 func checkMemoryBeforeContext(root, slug string) error {

@@ -152,6 +152,32 @@ specd check payments
 specd check payments --security --json
 ```
 
+### `clarification`
+
+```
+specd clarification <open|answer|withdraw|expire> <spec> [id] [flags]
+```
+
+Record an immutable clarification transition. Only a blocking task-scoped question affects that task's readiness.
+
+**Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--answer` | string | Answer text (required for answer). |
+| `--blocking` | bool | Block the affected task's readiness until the question is resolved. |
+| `--entity` | string | Entity the question is about as <spec|task|artifact>:<id>. Defaults to the spec. |
+| `--json` | bool | Emit the appended record as JSON. |
+| `--question` | string | Question to record (required for open). |
+| `--reason` | string | Reason for a withdrawal or expiry. |
+
+**Examples:**
+
+```bash
+specd clarification open payments --question 'which currency rounds up?' --entity task:T3 --blocking
+specd clarification answer payments C1 --answer 'round half up'
+```
+
 ### `complete-task`
 
 ```

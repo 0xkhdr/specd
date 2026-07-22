@@ -49,13 +49,18 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	// Clarifications are persisted readiness facts, so status projects them
+	// through the one readiness owner rather than re-deriving waits (R4.1).
+	specState, err := core.LoadState(core.StatePath(root, args[0]))
+	if err != nil {
+		return err
+	}
+	if err := core.ApplyClarificationReadiness(&model, spec.Tasks, taskStatus(spec.Tasks), specState.Records); err != nil {
+		return err
+	}
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
-		state, err := core.LoadState(core.StatePath(root, args[0]))
-		if err != nil {
-			return err
-		}
 		guidance, err := guidanceForSpec(root, args[0])
 		if err != nil {
 			return err
@@ -66,8 +71,8 @@ func runStatus(root string, args []string, flags map[string]string) error {
 			Criteria  []requirementCoverage      `json:"criteria,omitempty"`
 			Escalated map[string]int             `json:"escalated,omitempty"`
 			Locator   core.Locator               `json:"locator"`
-		}{model, state.Records, coverage, escalated,
-			core.NewLocator(args[0], state.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
+		}{model, specState.Records, coverage, escalated,
+			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))

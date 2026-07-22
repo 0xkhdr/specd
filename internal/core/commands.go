@@ -345,6 +345,28 @@ var Commands = []Command{
 		},
 	},
 	{
+		// Clarification records are immutable transitions (spec 03 R4.2): an
+		// agent may open a question, only a human resolves it, and every
+		// resolution appends rather than editing the record it resolves.
+		Name:          "clarification",
+		Usage:         "specd clarification <open|answer|withdraw|expire> <spec> [id] [flags]",
+		Description:   "Record an immutable clarification transition. Only a blocking task-scoped question affects that task's readiness.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples: []string{
+			"specd clarification open payments --question 'which currency rounds up?' --entity task:T3 --blocking",
+			"specd clarification answer payments C1 --answer 'round half up'",
+		},
+		Flags: []Flag{
+			{Name: "question", TakesValue: true, Type: "string", Description: "Question to record (required for open)."},
+			{Name: "entity", TakesValue: true, Type: "string", Description: "Entity the question is about as <spec|task|artifact>:<id>. Defaults to the spec."},
+			{Name: "blocking", Type: "bool", Description: "Block the affected task's readiness until the question is resolved."},
+			{Name: "answer", TakesValue: true, Type: "string", Description: "Answer text (required for answer)."},
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Reason for a withdrawal or expiry."},
+			{Name: "json", Type: "bool", Description: "Emit the appended record as JSON."},
+		},
+	},
+	{
 		Name:          "drift",
 		Usage:         "specd drift <spec> [--json]",
 		Description:   "Project declared invariants and active decisions against local verify evidence without writing.",
@@ -720,6 +742,12 @@ var operationDefinitions = map[string][]operationDefinition{
 		{id: "eval.import", subcommand: "import", effect: EffectStateWrite, scopeSource: "spec"},
 		{id: "eval.status", subcommand: "status", effect: EffectRead, scopeSource: "spec"},
 	},
+	"clarification": {
+		{id: "clarification.open", subcommand: "open", effect: EffectStateWrite, scopeSource: "spec"},
+		{id: "clarification.answer", subcommand: "answer", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+		{id: "clarification.withdraw", subcommand: "withdraw", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+		{id: "clarification.expire", subcommand: "expire", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+	},
 	"incident": {{id: "incident.seed", subcommand: "seed", actor: ActorOperator, effect: EffectWorkspaceWrite, authorityRequired: true, scopeSource: "spec"}},
 	"exception": {
 		{id: "exception.approve", subcommand: "approve", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "governed-exception"},
@@ -888,7 +916,7 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 		default:
 			return Operation{}, false
 		}
-	case "eval", "exception", "brain", "config":
+	case "eval", "exception", "brain", "config", "clarification":
 		if first == "" {
 			return Operation{}, false
 		}

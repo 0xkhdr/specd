@@ -180,6 +180,28 @@ specd decision payments --text 'defer webhooks to v2' --scope design
 
 Both are stamped into `state.json` and replay in `specd report payments --history`.
 
+## Open questions
+
+An unresolved question is recorded, not guessed. An agent may open one; only a human resolves
+it:
+
+```bash
+specd clarification open payments --question 'which currency rounds up?' --entity task:T3 --blocking
+specd clarification answer payments C1 --answer 'round half up'
+specd clarification withdraw payments C2 --reason 'duplicate'
+specd clarification expire payments C3 --reason 'no answer in time'
+```
+
+`--entity` takes `<spec|task|artifact>:<id>` and defaults to the spec. Only a **blocking**,
+task-scoped question changes readiness: that task reports `waiting_clarification` in
+`specd status --json`, and `specd context` refuses it until the question is resolved. Every other
+task is untouched.
+
+Records are immutable. A resolution is appended beside the question, never written over it, and a
+changed question takes a new id. If the task's contract is revised after it was answered, the
+answer is kept as history and the task reports a `clarification_stale` wait naming the review it
+now needs.
+
 ## Inspect progress
 
 ```bash
