@@ -3,6 +3,9 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -432,4 +435,309 @@ func TestBrainRunZeroProgressIsNonSuccess(t *testing.T) {
 	if err := runBrain(waiting, []string{"run", "demo"}, nil); err != nil {
 		t.Fatalf("a waiting run must not refuse: %v", err)
 	}
+}
+
+// newControllerApprovalRoot builds a spec whose execution is finished — one
+// task, marked complete — sitting at a lifecycle gate under an orchestrated
+// controller. That is the exact situation R4 is about.
+func newControllerApprovalRoot(t *testing.T) string {
+	t.Helper()
+	root := newDemoSpec(t)
+	if err := os.WriteFile(filepath.Join(root, "project.yml"), []byte(brainEnabledConfig+"delegation.enabled: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeTasks(t, root, "demo", "| T1 | scout | spec.md | - | printf ok | controller fixture |")
+	runGit(t, root, "init")
+	runGit(t, root, "config", "user.email", "specd@example.test")
+	runGit(t, root, "config", "user.name", "specd")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "commit", "-m", "controller fixture")
+	for range 2 {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("fixture approve: %v", err)
+		}
+	}
+	// The task is completed the only way a task ever is: passing evidence
+	// pinned to HEAD, then the gated completion. A marker written by hand
+	// would leave the readiness gates refusing, which is a different test.
+	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
+		t.Fatalf("fixture verify: %v", err)
+	}
+	if err := Run(root, "complete-task", []string{"demo", "T1"}, nil); err != nil {
+		t.Fatalf("fixture complete-task: %v", err)
+	}
+	if err := Run(root, "mode", []string{"demo", "orchestrated"}, nil); err != nil {
+		t.Fatalf("fixture mode: %v", err)
+	}
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatalf("brain start: %v", err)
+	}
+	return root
+}
+
+func controllerSession(t *testing.T, root string) orchestration.Session {
+	t.Helper()
+	session, err := orchestration.LoadSession(brainSessionPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return session
+}
+
+// runController runs the controller and returns its refusal (if any) plus the
+// printed decision line.
+func runController(t *testing.T, root string, flags map[string]string) (string, error) {
+	t.Helper()
+	all := map[string]string{"authority": ""}
+	for key, value := range flags {
+		all[key] = value
+	}
+	var runErr error
+	out, err := captureStdout(t, func() error {
+		runErr = runBrain(root, []string{"run", "demo"}, all)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out, runErr
+}
+
+// TestControllerApprovalHandoff pins R4.1 to R4.4 at the controller: reaching a
+// lifecycle gate is a distinct, reportable, non-success halt that names who must
+// act; either approval route resumes the same session; an expired, revoked, or
+// out-of-scope grant falls back to the human route instead of proceeding; and
+// the controller never mints or spends a grant itself.
+func TestControllerApprovalHandoff(t *testing.T) {
+	t.Run("nogranthaltsforahuman", func(t *testing.T) {
+		root := newControllerApprovalRoot(t)
+		before := controllerSession(t, root)
+
+		out, err := runController(t, root, nil)
+		if err == nil {
+			t.Fatal("a run that reached an unapproved lifecycle gate reported success")
+		}
+		refusal, ok := core.AsRefusal(err)
+		if !ok || refusal.Code != "APPROVAL_REQUIRED" {
+			t.Fatalf("refusal = %v, want APPROVAL_REQUIRED", err)
+		}
+		if refusal.ActorRequired != core.RefusalActorHuman || refusal.RecoveryCommand != "specd approve demo" {
+			t.Fatalf("refusal does not name the human route: %+v", refusal)
+		}
+		if refusal.StateChanged {
+			t.Fatalf("a halt with no dispatch claims a mutation: %+v", refusal)
+		}
+		if !strings.Contains(out, string(orchestration.ActionWaitApproval)) || !strings.Contains(out, "tasks") {
+			t.Fatalf("controller output does not name the waiting gate: %q", out)
+		}
+
+		// R4.3: the halt is a marker beside the session, not a reset of it.
+		session := controllerSession(t, root)
+		if session.WaitingApproval != "tasks" {
+			t.Fatalf("session waiting_approval = %q, want the gate", session.WaitingApproval)
+		}
+		if session.ID != before.ID || session.Step != before.Step || len(session.Leases) != len(before.Leases) ||
+			len(session.PendingMissions) != len(before.PendingMissions) || session.Status() != orchestration.SessionRunning {
+			t.Fatalf("halt discarded controller progress: before=%+v after=%+v", before, session)
+		}
+
+		// The halt is visible where an operator looks for it.
+		status, err := captureStdout(t, func() error { return Run(root, "status", []string{"demo"}, nil) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(status, "waiting_approval") || !strings.Contains(status, "specd delegate approve") {
+			t.Fatalf("status does not surface the halt: %q", status)
+		}
+	})
+
+	// R4.2: both routes converge — after either, the same session advances.
+	t.Run("resumesafterhumanapproval", func(t *testing.T) {
+		root := newControllerApprovalRoot(t)
+		if _, err := runController(t, root, nil); err == nil {
+			t.Fatal("expected the first run to halt")
+		}
+		halted := controllerSession(t, root)
+
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("human approve: %v", err)
+		}
+		if _, err := runController(t, root, nil); err == nil {
+			t.Fatal("expected a halt at the next gate")
+		}
+		resumed := controllerSession(t, root)
+		if resumed.WaitingApproval == halted.WaitingApproval {
+			t.Fatalf("controller did not advance past the approved gate: %q", resumed.WaitingApproval)
+		}
+		if resumed.ID != halted.ID || resumed.Step != halted.Step {
+			t.Fatalf("resume restarted the session: halted=%+v resumed=%+v", halted, resumed)
+		}
+	})
+
+	t.Run("resumesafterdelegatedapproval", func(t *testing.T) {
+		root := newControllerApprovalRoot(t)
+		token := issueGrant(t, root, "demo", "controller-grant", map[string]string{"transitions": "approve.tasks"})
+
+		out, err := runController(t, root, map[string]string{"grant": "controller-grant"})
+		if err == nil {
+			t.Fatal("a named grant made the controller approve by itself")
+		}
+		refusal, _ := core.AsRefusal(err)
+		if refusal.ActorRequired != core.RefusalActorOperator || !strings.Contains(refusal.RecoveryCommand, "specd delegate approve demo --grant controller-grant") {
+			t.Fatalf("valid grant did not surface the delegated route: %+v", refusal)
+		}
+		if !strings.Contains(out, "delegate approve") {
+			t.Fatalf("controller output omits the delegated route: %q", out)
+		}
+		// R4.4: naming a route is not spending one.
+		projection, err := core.LoadGrant(root, "controller-grant")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if projection.Uses() != 0 {
+			t.Fatalf("the controller spent a grant use: %+v", projection)
+		}
+		halted := controllerSession(t, root)
+
+		if err := Run(root, "delegate", []string{"approve", "demo"},
+			map[string]string{"grant": "controller-grant", "token": token, "reason": "unattended"}); err != nil {
+			t.Fatalf("delegated approve: %v", err)
+		}
+		if _, err := runController(t, root, map[string]string{"grant": "controller-grant"}); err == nil {
+			t.Fatal("expected a halt at the next gate")
+		}
+		resumed := controllerSession(t, root)
+		if resumed.WaitingApproval == halted.WaitingApproval {
+			t.Fatalf("controller did not resume past the delegated approval: %q", resumed.WaitingApproval)
+		}
+		if used := grantUses(t, root, "controller-grant"); used.Uses() != 1 {
+			t.Fatalf("uses = %d after one delegated approval, want 1", used.Uses())
+		}
+	})
+
+	// R4.3: a grant that stops being valid while the controller waits must not
+	// keep being offered, and must never become an approval.
+	t.Run("midrunexpiryandrevocationfallback", func(t *testing.T) {
+		for _, tc := range []struct {
+			name       string
+			invalidate func(t *testing.T, root string)
+			flags      map[string]string
+		}{
+			{"expiry", func(t *testing.T, root string) {}, map[string]string{"expires-in": "1h", "issued-in-the-past": "2h"}},
+			{"revocation", func(t *testing.T, root string) {
+				if err := Run(root, "delegate", []string{"revoke", "stale-grant"}, map[string]string{"reason": "window closed"}); err != nil {
+					t.Fatal(err)
+				}
+			}, nil},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				root := newControllerApprovalRoot(t)
+				flags := map[string]string{"transitions": "approve.tasks"}
+				for key, value := range tc.flags {
+					flags[key] = value
+				}
+				// An expired grant is minted by issuing it in the past: the
+				// grant's own clock is what makes it stale, not a test hook in
+				// the controller.
+				if rewind, ok := flags["issued-in-the-past"]; ok {
+					delete(flags, "issued-in-the-past")
+					offset, err := time.ParseDuration(rewind)
+					if err != nil {
+						t.Fatal(err)
+					}
+					restore := core.Clock
+					core.Clock = func() time.Time { return time.Now().UTC().Add(-offset) }
+					issueGrant(t, root, "demo", "stale-grant", flags)
+					core.Clock = restore
+				} else {
+					issueGrant(t, root, "demo", "stale-grant", flags)
+				}
+				tc.invalidate(t, root)
+
+				_, err := runController(t, root, map[string]string{"grant": "stale-grant"})
+				if err == nil {
+					t.Fatal("an unusable grant let the controller proceed")
+				}
+				refusal, _ := core.AsRefusal(err)
+				if refusal.ActorRequired != core.RefusalActorHuman || refusal.RecoveryCommand != "specd approve demo" {
+					t.Fatalf("unusable grant was still offered as a route: %+v", refusal)
+				}
+				if specState(t, root, "demo").Status != core.StatusTasks {
+					t.Fatal("the controller advanced the lifecycle without an approval")
+				}
+			})
+		}
+	})
+
+	// Gate drift outranks any authority: with failing gates no route approves.
+	t.Run("gatedrift", func(t *testing.T) {
+		root := newControllerApprovalRoot(t)
+		issueGrant(t, root, "demo", "drift-grant", map[string]string{"transitions": "approve.tasks"})
+		// Evidence disappears from under a completed task: the readiness gates
+		// now refuse, and no authority can approve past that.
+		if err := os.Remove(core.EvidencePath(root, "demo")); err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := runController(t, root, map[string]string{"grant": "drift-grant"})
+		if err == nil {
+			t.Fatal("a drifted spec reported success")
+		}
+		refusal, _ := core.AsRefusal(err)
+		if refusal.RecoveryCommand != "specd check demo" {
+			t.Fatalf("drifted gates still pointed at an approval route: %+v", refusal)
+		}
+		if !strings.Contains(out, "readiness gates refuse") {
+			t.Fatalf("controller output does not name the drift: %q", out)
+		}
+		if used := grantUses(t, root, "drift-grant"); used.Uses() != 0 {
+			t.Fatalf("drifted run touched the grant: %+v", used)
+		}
+	})
+
+	// R4.4, structurally: the controller command path contains no call that
+	// mints, revokes, or spends a grant, and holds no bearer token. This fails
+	// the moment someone wires issuance or consumption into it.
+	t.Run("controllerneverselfgrants", func(t *testing.T) {
+		assertNoGrantMutation(t, "brain_run.go")
+		root := newControllerApprovalRoot(t)
+		issueGrant(t, root, "demo", "audit-grant", map[string]string{"transitions": "approve.tasks"})
+		before, err := os.ReadFile(core.GrantLedgerPath(root))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runController(t, root, map[string]string{"grant": "audit-grant", "token": "irrelevant"}); err == nil {
+			t.Fatal("expected the controller to halt")
+		}
+		after, err := os.ReadFile(core.GrantLedgerPath(root))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(before) != string(after) {
+			t.Fatal("the controller wrote to the grant ledger")
+		}
+	})
+}
+
+// assertNoGrantMutation parses one source file and fails if it names any
+// delegation call that creates or spends authority. A comment promising the
+// controller never self-grants is not evidence; this is.
+func assertNoGrantMutation(t *testing.T, name string) {
+	t.Helper()
+	forbidden := map[string]bool{
+		"IssueDelegationGrant": true, "RevokeDelegationGrant": true, "ReserveGrantUse": true,
+		"ConsumeGrantUse": true, "ReleaseGrantUse": true, "NewDelegationToken": true,
+		"DelegationTokenDigest": true, "approveSpec": true,
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), name, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast.Inspect(file, func(node ast.Node) bool {
+		ident, ok := node.(*ast.Ident)
+		if ok && forbidden[ident.Name] {
+			t.Errorf("%s reaches %s: the controller must never create, widen, or spend approval authority", name, ident.Name)
+		}
+		return true
+	})
 }

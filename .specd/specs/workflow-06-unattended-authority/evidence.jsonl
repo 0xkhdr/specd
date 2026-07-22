@@ -2,3 +2,4 @@
 {"task_id":"T28","command":"go test ./internal/core -run TestDelegationGrant -count=2","exit_code":0,"git_head":"26ade4d6812ddca55735b765bbb7e795e4f71fb1","timestamp":"2026-07-22T20:56:03Z","actor":"xkhdr"}
 {"task_id":"T28A","command":"go test ./internal/cmd -run TestDelegatedApprovalTransaction -count=2","exit_code":0,"git_head":"7592f918fbfc0b220aa424a7126b261cfbb2458b","timestamp":"2026-07-22T21:27:34Z","actor":"xkhdr"}
 {"task_id":"T28A","command":"go test ./internal/cmd -run TestDelegatedApprovalTransaction -count=2","exit_code":0,"git_head":"ea828ab8c9be8f3f505761c973403b600c9b6680","timestamp":"2026-07-22T21:45:30Z","actor":"xkhdr"}
+{"task_id":"T29","command":"go test ./internal/orchestration ./internal/cmd -run TestControllerApprovalHandoff -count=2","exit_code":0,"git_head":"9b6b959aa5f88f8abe5ef6140b6f5e6e43ef2be8","timestamp":"2026-07-22T21:57:23Z","actor":"xkhdr"}

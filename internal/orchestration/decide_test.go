@@ -3,8 +3,12 @@ package orchestration
 import (
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -232,4 +236,116 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+// TestControllerApprovalHandoff pins R4.1 and R4.4 in the decision package: an
+// exhausted frontier at a lifecycle gate is a distinct decision that names the
+// gate and the route, ordinary frontier waits are untouched, and no code here
+// can create or spend approval authority.
+func TestControllerApprovalHandoff(t *testing.T) {
+	now := time.Unix(100, 0).UTC()
+	dispatchable := DecisionLimits{AllowDispatch: true}
+
+	t.Run("emptyfrontierwithoutagatestillwaits", func(t *testing.T) {
+		decision := Decide(Snapshot{Now: now}, dispatchable)
+		if decision.Action != ActionWait || decision.Reason != ReasonWaitFrontierEmpty {
+			t.Fatalf("decision = %#v, want the ordinary frontier wait", decision)
+		}
+	})
+
+	t.Run("humanroute", func(t *testing.T) {
+		limits := dispatchable
+		limits.Approval = &ApprovalHandoff{Gate: "tasks", Route: "specd approve demo", Actor: "human"}
+		decision := Decide(Snapshot{Now: now}, limits)
+		if decision.Action != ActionWaitApproval {
+			t.Fatalf("action = %q, want waiting_approval", decision.Action)
+		}
+		if decision.Handoff == nil || decision.Handoff.Gate != "tasks" {
+			t.Fatalf("decision carries no handoff: %#v", decision)
+		}
+		for _, want := range []string{"tasks", "human", "specd approve demo"} {
+			if !strings.Contains(decision.Reason, want) {
+				t.Errorf("reason %q omits %q", decision.Reason, want)
+			}
+		}
+	})
+
+	t.Run("delegatedroute", func(t *testing.T) {
+		limits := dispatchable
+		limits.Approval = &ApprovalHandoff{Gate: "tasks", Route: "specd delegate approve demo --grant nightly", Actor: "operator"}
+		decision := Decide(Snapshot{Now: now}, limits)
+		if decision.Action != ActionWaitApproval || !strings.Contains(decision.Reason, "delegate approve") {
+			t.Fatalf("decision = %#v, want the delegated route named", decision)
+		}
+	})
+
+	t.Run("blockedgatesnameneitherapproval", func(t *testing.T) {
+		limits := dispatchable
+		limits.Approval = &ApprovalHandoff{Gate: "tasks", Route: "specd check demo", Actor: "agent", Blocked: true}
+		decision := Decide(Snapshot{Now: now}, limits)
+		if !strings.Contains(decision.Reason, "readiness gates refuse") || !strings.Contains(decision.Reason, "specd check demo") {
+			t.Fatalf("blocked reason = %q", decision.Reason)
+		}
+		if strings.Contains(decision.Reason, "requires") {
+			t.Fatalf("a blocked gate was still presented as approvable: %q", decision.Reason)
+		}
+	})
+
+	// A brake still outranks the handoff: an approval gate is not a way around
+	// a cost, token, or deadline stop.
+	t.Run("brakesoutrankthehandoff", func(t *testing.T) {
+		limits := dispatchable
+		limits.Approval = &ApprovalHandoff{Gate: "tasks", Route: "specd approve demo", Actor: "human"}
+		limits.Deadline = now
+		if decision := Decide(Snapshot{Now: now}, limits); decision.Action != ActionTimeout {
+			t.Fatalf("action = %q, want the deadline brake", decision.Action)
+		}
+	})
+
+	// A frontier with work is unaffected: the handoff only ever fires when
+	// there is nothing left to dispatch.
+	t.Run("readyfrontierstilldispatches", func(t *testing.T) {
+		limits := dispatchable
+		limits.Approval = &ApprovalHandoff{Gate: "tasks", Route: "specd approve demo", Actor: "human"}
+		decision := Decide(Snapshot{Now: now, Frontier: []core.FrontierTask{{ID: "T1"}}}, limits)
+		if decision.Action != ActionDispatch || decision.TaskID != "T1" {
+			t.Fatalf("decision = %#v, want dispatch", decision)
+		}
+	})
+
+	// R4.4: the controller cannot self-grant because it has no code that could.
+	// This walks the package's own source, so wiring issuance or consumption in
+	// later fails here rather than in review.
+	t.Run("packageneverspendsapprovalauthority", func(t *testing.T) {
+		forbidden := map[string]bool{
+			"IssueDelegationGrant": true, "RevokeDelegationGrant": true, "ReserveGrantUse": true,
+			"ConsumeGrantUse": true, "ReleaseGrantUse": true, "NewDelegationToken": true,
+			"DelegationTokenDigest": true, "AuthorizeDelegatedTransition": true, "DelegationGrantV1": true,
+		}
+		entries, err := os.ReadDir(".")
+		if err != nil {
+			t.Fatal(err)
+		}
+		scanned := 0
+		for _, entry := range entries {
+			name := entry.Name()
+			if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), name, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scanned++
+			ast.Inspect(file, func(node ast.Node) bool {
+				if ident, ok := node.(*ast.Ident); ok && forbidden[ident.Name] {
+					t.Errorf("%s reaches %s: the controller must never create, widen, or spend approval authority", name, ident.Name)
+				}
+				return true
+			})
+		}
+		if scanned == 0 {
+			t.Fatal("no source scanned — the assertion proves nothing")
+		}
+	})
 }

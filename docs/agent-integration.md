@@ -188,6 +188,35 @@ plans. Dispatch, claim, heartbeat, report, and release preserve session and leas
 bindings across invocations (R4.5). Zero-progress permanent halt returns non-success with durable
 checkpoint effects (R6.3).
 
+### Reaching an approval gate
+
+When the last task completes, Brain runs out of work but the spec still cannot advance: a
+lifecycle gate needs approving. That is not a finished run and not an error, so Brain halts with
+its own outcome, `waiting_approval`, and returns **non-success** — a pipeline reading exit 0 there
+would call an unapproved spec done.
+
+```
+brain run: waiting_approval  (waiting_approval: lifecycle gate tasks requires human approval; run `specd approve payments`)
+APPROVAL_REQUIRED: brain run reached the tasks approval gate after 2 dispatch(es); ...
+```
+
+The halt is recorded on the session as `waiting_approval` and shown by `specd status <spec>`.
+Nothing else about the session changes: leases, missions, and the step counter survive, so the
+next run resumes where this one stopped rather than restarting.
+
+Two routes clear it, and both converge on the same approval record:
+
+- a human runs `specd approve <spec>`;
+- an operator-issued grant is used with `specd delegate approve <spec> --grant <id> --token <bearer>`
+  (see [unattended-approval.md](unattended-approval.md)).
+
+Passing `--grant <id>` to `brain run` makes the controller *name* the delegated route when that
+grant already covers the transition. It never mints, widens, or spends one — the controller is
+never given the bearer token, and a grant that is expired, revoked, exhausted, or out of scope is
+simply not offered, leaving the human route standing. If the readiness gates are failing, neither
+route is offered: the halt names `specd check <spec>` instead, because no authority approves past
+a failing gate.
+
 ## Cross-spec programs
 
 Large efforts span multiple specs with ordering constraints. Record them:

@@ -15,6 +15,12 @@ const (
 	ActionHalt     Action = "halt"
 	ActionTimeout  Action = "timeout"
 	ActionEscalate Action = "escalate"
+	// ActionWaitApproval is the explicit lifecycle stop (R4.1): execution is
+	// finished and the spec cannot advance until someone approves. It is
+	// separate from ActionWait because the two need different answers — a wait
+	// clears when workers report, this one clears only when a human or an
+	// operator-authorized grant acts.
+	ActionWaitApproval Action = "waiting_approval"
 )
 
 type WorkerState string
@@ -46,9 +52,36 @@ type WorkerPresence interface {
 }
 
 type Decision struct {
-	Action Action
-	TaskID string
-	Reason string
+	Action  Action
+	TaskID  string
+	Reason  string
+	Handoff *ApprovalHandoff
+}
+
+// ApprovalHandoff is the lifecycle approval a controller run is blocked on. The
+// caller resolves it — reading gates, state, and any grant an operator named —
+// and hands it in; this package only reports it. That split is what keeps R4.4
+// structural: the controller has no code that mints, widens, or spends a grant,
+// because it never holds one. It names the route and stops.
+type ApprovalHandoff struct {
+	// Gate is the lifecycle gate awaiting approval.
+	Gate string
+	// Route is the exact command that unblocks the run, and Actor is who may
+	// run it. A delegated route is named only when an operator supplied a grant
+	// that already covers this transition — naming one is not issuing one.
+	Route string
+	Actor string
+	// Blocked is true when the readiness gates currently refuse. Then no
+	// approval route works, delegated or not, and the route names the check
+	// instead of pretending an approval would land (R4.3 gate drift).
+	Blocked bool
+}
+
+func (h ApprovalHandoff) Reason() string {
+	if h.Blocked {
+		return "waiting_approval: lifecycle gate " + h.Gate + " cannot be approved by anyone while its readiness gates refuse; run `" + h.Route + "`"
+	}
+	return "waiting_approval: lifecycle gate " + h.Gate + " requires " + h.Actor + " approval; run `" + h.Route + "`"
 }
 
 type DecisionLimits struct {
@@ -59,6 +92,9 @@ type DecisionLimits struct {
 	MaxTokens        int64
 	RequireTelemetry bool
 	Workers          WorkerPresence
+	// Approval is set only when execution has nothing left to run and the spec
+	// is sitting at a lifecycle gate. Nil keeps today's frontier wait.
+	Approval *ApprovalHandoff
 }
 
 func Decide(snapshot Snapshot, limits DecisionLimits) Decision {
@@ -76,6 +112,12 @@ func Decide(snapshot Snapshot, limits DecisionLimits) Decision {
 		return Decision{Action: ActionWait, Reason: ReasonWaitAuthorityAbsent}
 	}
 	if len(snapshot.Frontier) == 0 {
+		// An empty frontier because the work is done and the lifecycle is
+		// blocked is a different stop from an empty frontier because no task is
+		// ready yet, and the operator needs a different lever for each (R4.1).
+		if limits.Approval != nil {
+			return Decision{Action: ActionWaitApproval, Reason: limits.Approval.Reason(), Handoff: limits.Approval}
+		}
 		return Decision{Action: ActionWait, Reason: ReasonWaitFrontierEmpty}
 	}
 	if limits.Workers != nil && !limits.Workers.WorkerAvailable() {

@@ -208,3 +208,21 @@ func statusApprovalRequests(t *testing.T, root string) []gates.ApprovalRequestSt
 	}
 	return payload.ApprovalRequests
 }
+
+// TestControllerApprovalHandoffStatusSection pins the status surface of R4.1: a
+// spec with no halted controller renders exactly what it always did, and a
+// halted one names the gate and both routes out of it.
+func TestControllerApprovalHandoffStatusSection(t *testing.T) {
+	if got := waitingApprovalGate(t.TempDir(), "demo"); got != "" {
+		t.Fatalf("a project with no session reports a halt: %q", got)
+	}
+	if got := renderWaitingApproval(""); got != "" {
+		t.Fatalf("status added a section with nothing to report: %q", got)
+	}
+	section := renderWaitingApproval("tasks")
+	for _, want := range []string{"waiting_approval", "tasks", "specd approve", "specd delegate approve"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("halt section %q omits %q", section, want)
+		}
+	}
+}

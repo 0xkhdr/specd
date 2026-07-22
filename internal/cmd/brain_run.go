@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
@@ -73,10 +75,10 @@ func runBrain(root string, args []string, flags map[string]string) error {
 // session. Tasks that already hold a live lease are withheld from the frontier so
 // a repeated step never double-dispatches the same task. Returns the decision
 // action so `run` can loop until the controller brakes.
-func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags map[string]string, sub string) (orchestration.Action, error) {
+func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags map[string]string, sub string) (orchestration.Decision, error) {
 	session, err := orchestration.LoadSession(sessionPath)
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
 	if session.ID == "" {
 		session.ID = slug
@@ -84,20 +86,20 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	// A cancelled or complete session refuses further stepping (spec 07 R2). Fail
 	// closed (exit 1) rather than silently no-op.
 	if session.IsTerminal() {
-		return "", fmt.Errorf("brain %s refused: session is %s", sub, session.Status())
+		return orchestration.Decision{}, fmt.Errorf("brain %s refused: session is %s", sub, session.Status())
 	}
 
 	state, err := core.LoadState(core.StatePath(root, slug))
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
 	spec, err := loadSpec(root, slug)
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
 	escalated, err := escalatedCounts(root, slug, spec.Tasks)
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
 	status := taskStatus(spec.Tasks)
 
@@ -141,14 +143,14 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	}
 	frontier, err := core.FrontierExcluding(spec.Tasks, status, withheld)
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
 	// Fold accepted worker/host/adapter reports off the mission ledger into the
 	// honest cost brake input. Absent reports stay unknown (never zero-filled),
 	// so an unconfigured limit keeps today's behavior (spec 07 R4.1, R4.2).
 	acpEvents, err := orchestration.ReadACP(acpPath)
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
 	telemetry := orchestration.AccrueTelemetry(acpEvents)
 	snapshot := orchestration.Sense(state, frontier, reservations, telemetry, now)
@@ -156,7 +158,7 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	config, diagnostics := core.LoadConfig(configPaths(root), getenv())
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Severity == "error" {
-			return "", fmt.Errorf("load config: %s", diagnostic.Message)
+			return orchestration.Decision{}, fmt.Errorf("load config: %s", diagnostic.Message)
 		}
 	}
 	limits := orchestration.DecisionLimitsForAuthority(authority, orchestration.DecisionLimits{
@@ -167,12 +169,21 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 	if config.Routing.DeadlineSeconds > 0 {
 		limits.Deadline = now.Add(time.Duration(config.Routing.DeadlineSeconds) * time.Second)
 	}
+	if len(frontier) == 0 {
+		limits.Approval = approvalHandoff(root, slug, state, spec.Tasks, status, flags["grant"], now)
+	}
 	dispatcher := &sessionDispatcher{root: root, slug: slug, tasks: spec.Tasks, config: config, acpPath: acpPath, checkpointPath: checkpointPath, now: now, session: &session}
 	decision, err := orchestration.DispatchFrontier(snapshot, limits, dispatcher)
 	if err != nil {
-		return "", err
+		return orchestration.Decision{}, err
 	}
-	if decision.Action == orchestration.ActionDispatch || released {
+	waiting := ""
+	if decision.Action == orchestration.ActionWaitApproval && decision.Handoff != nil {
+		waiting = decision.Handoff.Gate
+	}
+	waitingChanged := session.WaitingApproval != waiting
+	session.WaitingApproval = waiting
+	if decision.Action == orchestration.ActionDispatch || released || waitingChanged {
 		if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, session); err != nil {
 			if decision.Action == orchestration.ActionDispatch {
 				checkpoint, exists, _ := orchestration.LoadCheckpoint(checkpointPath)
@@ -180,17 +191,17 @@ func runBrainStep(root, sessionPath, acpPath, checkpointPath, slug string, flags
 				if exists {
 					checkpointID = checkpoint.MissionID
 				}
-				return "", core.Refusef("SESSION_WRITE_FAILED", "dispatch %s is durable but session update failed: %v", checkpointID, err).
+				return orchestration.Decision{}, core.Refusef("SESSION_WRITE_FAILED", "dispatch %s is durable but session update failed: %v", checkpointID, err).
 					WithContext(slug, "checkpoint and dispatch ledger persisted; session CAS failed", "session reconciled with durable dispatch").
 					WithMutation(true, checkpointID).
 					WithSuccessor(core.RefusalActorOperator, "brain.resume", "specd brain resume "+slug).
 					Wrapping(err)
 			}
-			return "", err
+			return orchestration.Decision{}, err
 		}
 	}
 	fmt.Fprintf(os.Stdout, "brain %s: %s %s (%s)\n", sub, decision.Action, decision.TaskID, decision.Reason)
-	return decision.Action, nil
+	return decision, nil
 }
 
 // runBrainRun steps the controller until it brakes: it dispatches every currently
@@ -207,13 +218,21 @@ func runBrainRun(root, sessionPath, acpPath, checkpointPath, slug string, flags 
 	}
 	dispatched := 0
 	for range spec.Tasks {
-		action, err := runBrainStep(root, sessionPath, acpPath, checkpointPath, slug, flags, "run")
+		decision, err := runBrainStep(root, sessionPath, acpPath, checkpointPath, slug, flags, "run")
 		if err != nil {
 			return err
 		}
+		action := decision.Action
 		if action == orchestration.ActionDispatch {
 			dispatched++
 			continue
+		}
+		// R4.1: reaching an approval gate is neither an error nor a finished
+		// run. It is a distinct outcome that names the gate and who must act,
+		// reported as non-success for the same reason a brake is (R6.3) — a
+		// pipeline that reads exit 0 here would call an unapproved spec done.
+		if action == orchestration.ActionWaitApproval {
+			return approvalHandoffRefusal(slug, decision, dispatched)
 		}
 		// R6.3: a brake is permanent — no amount of waiting clears a cost/token
 		// limit, a deadline, or an escalated task. Returning success here would
@@ -587,4 +606,75 @@ func brainStatus(sessionPath, checkpointPath, acpPath, slug string) error {
 		})
 	}
 	return writeJSON(view)
+}
+
+// approvalHandoff resolves what the controller is actually blocked on when the
+// frontier empties (R4.1). It returns nil unless execution is genuinely done —
+// at least one task, all of them complete — so a spec with no tasks, or one
+// whose frontier is empty because work is escalated or withheld, keeps the
+// ordinary frontier wait it has always reported.
+//
+// The controller never approves and never spends a grant. When an operator
+// names one with --grant, this reads it — identity and scope only, no bearer
+// token ever enters the controller — and reports the delegated route if that
+// grant already covers this transition. A grant that is expired, revoked,
+// exhausted, or out of scope simply is not named, and the human route stands
+// (R4.3). Naming a route is not authorizing one (R4.4).
+func approvalHandoff(root, slug string, state core.State, tasks []core.TaskRow, status map[string]core.TaskRunStatus, grantID string, now time.Time) *orchestration.ApprovalHandoff {
+	if len(tasks) == 0 {
+		return nil
+	}
+	for _, task := range tasks {
+		if status[task.ID] != core.TaskComplete {
+			return nil
+		}
+	}
+	if core.NextStatus(state.Status) == "" {
+		return nil // terminal: there is no approval left to wait for
+	}
+	handoff := &orchestration.ApprovalHandoff{
+		Gate:  approvalGateFor(state.Status),
+		Route: "specd approve " + slug,
+		Actor: core.RefusalActorHuman,
+	}
+	// Gate drift outranks every authority: if the readiness gates refuse now,
+	// no approval route works, and pointing at one would be a lie the operator
+	// only discovers by running it.
+	readiness, err := buildReadiness(root, slug, state)
+	if err != nil || gates.HasErrors(readiness.Findings) {
+		handoff.Blocked = true
+		handoff.Route = "specd check " + slug
+		handoff.Actor = core.RefusalActorAgent
+		return handoff
+	}
+	if grantID == "" {
+		return handoff
+	}
+	projection, err := core.LoadGrant(root, grantID)
+	if err != nil || projection.Status(now) != "active" {
+		return handoff
+	}
+	if !slices.Contains(projection.Grant.SpecIDs, slug) ||
+		!slices.Contains(projection.Grant.Transitions, "approve."+handoff.Gate) ||
+		slices.Contains(projection.Grant.Prohibitions, handoff.Gate) {
+		return handoff
+	}
+	handoff.Route = "specd delegate approve " + slug + " --grant " + grantID + " --token <bearer> --reason <why>"
+	handoff.Actor = core.RefusalActorOperator
+	return handoff
+}
+
+// approvalHandoffRefusal reports a run that reached a lifecycle gate: distinct
+// from a brake, distinct from success, and carrying the exact route and actor
+// the halt needs. Progress already made is untouched and stays in the session.
+func approvalHandoffRefusal(slug string, decision orchestration.Decision, dispatched int) error {
+	handoff := decision.Handoff
+	if handoff == nil {
+		handoff = &orchestration.ApprovalHandoff{Gate: string(orchestration.ActionWaitApproval), Route: "specd approve " + slug, Actor: core.RefusalActorHuman}
+	}
+	return core.Refusef("APPROVAL_REQUIRED", "brain run reached the %s approval gate after %d dispatch(es); %s",
+		handoff.Gate, dispatched, decision.Reason).
+		WithContext(slug, "lifecycle gate "+handoff.Gate+" is unapproved", "an approved lifecycle transition").
+		WithMutation(dispatched > 0, "").
+		WithRecovery(handoff.Actor, handoff.Route)
 }

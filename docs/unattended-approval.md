@@ -146,3 +146,43 @@ to parse a sentence:
 | `GRANT_REASON_REQUIRED` | The grant requires a reason and none was given. |
 | `GRANT_REPLAY` | This transition already has a use. |
 | `GATE_FAILED` | The readiness gates refused — the same refusal `specd approve` returns. No use consumed. |
+
+## Under the controller
+
+The deterministic controller (`specd brain run`) executes tasks; it does not approve them. When
+the last task completes and the spec sits at a lifecycle gate, the run halts with its own outcome
+rather than exiting as if it had finished:
+
+```
+brain run: waiting_approval  (waiting_approval: lifecycle gate tasks requires human approval; run `specd approve payments`)
+APPROVAL_REQUIRED: brain run reached the tasks approval gate after 2 dispatch(es); ...
+```
+
+The halt is **non-success**, for the same reason a cost brake is: a caller that reads exit 0 here
+would treat an unapproved spec as a completed one. It is recorded on the session and surfaced by
+`specd status <spec>`:
+
+```
+Controller: waiting_approval at the tasks gate
+  approve with `specd approve <spec>`, or with an operator-issued grant via `specd delegate approve <spec> --grant <id> --token <bearer>`
+```
+
+**Progress is preserved.** The halt writes one marker beside the session; leases, missions, and the
+step counter are untouched. Whichever route clears the gate, the next `brain run` continues from
+where it stopped — the two routes converge because both write the same approval record.
+
+### The controller never grants itself anything
+
+`specd brain run <spec> --grant <id>` tells the controller that a grant exists. That is all it
+does. The controller:
+
+- is never given the bearer token, so it *cannot* spend a grant even if asked to;
+- has no code path that issues, revokes, widens, or consumes one (asserted by a test that walks
+  the package source, not by this paragraph);
+- names the delegated route only when the supplied grant already covers this exact transition.
+
+A grant that expires or is revoked while the controller waits stops being named, and the human
+route stands. The controller never falls back to approving without one.
+
+And gate drift outranks every authority: if the readiness gates refuse, the halt names
+`specd check <spec>` and neither approval route is offered, because neither would work.

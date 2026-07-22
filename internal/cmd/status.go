@@ -12,6 +12,7 @@ import (
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
+	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
 func runStatus(root string, args []string, flags map[string]string) error {
@@ -72,6 +73,7 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	}
 	revisions := core.ArtifactVersions(events)
 	stale := core.StaleDescendants(events)
+	waitingApproval := waitingApprovalGate(root, args[0])
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
@@ -88,8 +90,9 @@ func runStatus(root string, args []string, flags map[string]string) error {
 			Cycle            int                          `json:"cycle,omitempty"`
 			ArtifactVersions map[string]int               `json:"artifact_versions,omitempty"`
 			StaleDescendants []core.StaleDescendant       `json:"stale_descendants,omitempty"`
+			WaitingApproval  string                       `json:"waiting_approval,omitempty"`
 			Locator          core.Locator                 `json:"locator"`
-		}{model, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale,
+		}{model, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale, waitingApproval,
 			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
@@ -98,7 +101,30 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
 	fmt.Fprint(os.Stdout, renderEscalated(escalated, ratchetActive))
 	fmt.Fprint(os.Stdout, renderApprovalRequests(approvals))
+	fmt.Fprint(os.Stdout, renderWaitingApproval(waitingApproval))
 	return nil
+}
+
+// waitingApprovalGate reports the lifecycle gate a controller session halted
+// on, or "" when there is no session or it is not waiting (R4.1). A missing or
+// unreadable session is simply not a halt: status never invents one.
+func waitingApprovalGate(root, slug string) string {
+	session, err := orchestration.LoadSession(filepath.Join(core.SpecdDir(root), "specs", slug, "session.json"))
+	if err != nil {
+		return ""
+	}
+	return session.WaitingApproval
+}
+
+// renderWaitingApproval adds one section, and only when a controller is
+// actually halted — every other spec's status output is byte-identical to
+// before.
+func renderWaitingApproval(gate string) string {
+	if gate == "" {
+		return ""
+	}
+	return "\nController: waiting_approval at the " + gate + " gate\n" +
+		"  approve with `specd approve <spec>`, or with an operator-issued grant via `specd delegate approve <spec> --grant <id> --token <bearer>`\n"
 }
 
 // approvalRequestStates projects the immutable approval requests in state

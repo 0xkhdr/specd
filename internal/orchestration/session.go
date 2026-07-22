@@ -38,6 +38,12 @@ type Session struct {
 	Leases          []Lease     `json:"leases,omitempty"`
 	PendingMissions []MissionV1 `json:"pending_missions,omitempty"`
 	Missions        []MissionV1 `json:"missions,omitempty"`
+	// WaitingApproval names the lifecycle gate the controller halted on, or is
+	// empty when it is not waiting on one (R4.1). It is a marker beside the
+	// session, never a replacement for it: leases, missions, and the step
+	// counter are untouched by the halt, so the run resumes where it stopped
+	// once the approval lands (R4.3).
+	WaitingApproval string `json:"waiting_approval,omitempty"`
 }
 
 // Status returns the effective lifecycle state, treating the empty zero value as
