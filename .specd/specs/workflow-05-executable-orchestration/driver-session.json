@@ -1,46 +1,43 @@
 {
-  "id": "ds-5495bc2b3ce6d4e9230f060a42f6f9c0",
+  "id": "ds-cc03a0b2bcbc6122eafc45b8ef972bbf",
   "slug": "workflow-05-executable-orchestration",
   "driver": "claude-code",
-  "baseline_revision": 25,
+  "baseline_revision": 26,
   "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
-  "baseline_head": "81c10bc6f65428fcc80ed06e315f6915333e6102",
+  "baseline_head": "7bff39cb3b563a66a3c6e2d870d5622c924f0c7d",
   "context_receipt": {
     "schema_version": "1",
-    "manifest_digest": "dc6c18e8838750d8b864f1e514be1e36ce514996c00aff863c1d9bbfd052ac1f",
+    "manifest_digest": "24d96b757db1201122bef7e233de22a297fa212464d7a4664b462cb40c9c6199",
     "host_id": "claude-code",
     "driver_id": "claude-code",
     "supplied_digests": [
-      "08804ea37f52f1e481c46fceb320d94a9a7634279ad48bbee54400df56d326af",
-      "0ab66a573bb1d00a54979ad5716538873b3bfb90c6f5d0ccd0af22d26eb38b18",
+      "014ba214d3d340de62535e73c6e7ffb6f04b15dbb067659ee08173bc308307a9",
       "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809",
-      "38411e013a43cfe39ebb71ee622452c3bd872eb0e21d8694f606e0908eb21c9c",
-      "4d52b94d04c8f67c62e3df61d4a413d5599c06d67c92d325e611e5fd45a95ce1",
-      "57889d978846ab662579c4bce15d000d043059a89a6564ac0122fdd6686334bf",
       "5bdbc16a8b60fa21d15458e7991fc02a1852985a2dbf03451529d2f7fac17a15",
-      "6d8f2a4a50cf49d913f6d9724d339bc8870ede5ead436edaa0bbba5f50a1c2c9",
-      "6f6ac86a92fd0e06a1ce3ff050c0c3fc787a3f3b232040b9f5569e1096eee077",
-      "71516dcbece38ae41612a8831721f45421a41fe96136151b49dc1b4c48fe25fd",
-      "72d7148297900bd666c2d8a88c905c0d36608b02f28476fa1f85a8491058cbab",
-      "7885427cb8a0d8f34c266cd4237e1c16da7a9529f783d7ae370d5690bf578984",
-      "871ccc2c4662e6602c1a0cedf9769ed75e3b7bb46867e4fb068e9aff10293ba4",
+      "61b0e10d3f2a5cbbfef9ee8c85af0304c3c2d9c9f387751fa7496b0de6038297",
+      "6bc840ff554df5a30fca4e80fbd85df8e1edac0c8e98dcd6197d3523c1862635",
       "8dcebd17ceeb919dc83b5740a01b7477b35f7c8820909aa7fff816b3a8c820c3",
-      "915df5b36464f5b32e912cbbc135fcef576bf2876de321f98e9546dc0e4efdfe",
+      "a59cebea8829b234b3ddea669456cc63e76c3dbbedca523bdc948f285c6cc2ed",
+      "ab94cb278ae9887bb832b59b1a68d0efebc0d428d0dc3b9750dd3c27f5c8cd00",
+      "af08517431d0a902d43142ed3aa2defb69af1420d53768924bf7ca88211979c6",
+      "b3f58540b8c08760c527271eae7256aae2af4bcfe40abcf6f681b18a185312c5",
+      "b51e8d7aaefc10b784a3d5fc919ef663fcaba0fb8a4bada91d7170ef4642ba11",
+      "b9ab85f67d5fb876c299accc1923fcaa0999afbaec2ffde59bc7a5702774ec09",
       "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
-      "c3fbaf4733fa3eb66df9b62c39fe5cd3109334e6d3f6c6c71509236064da5cf8",
-      "c4a7d13beb2ae0b4071f984330f7c5228ac038bfc1d57cc990f87f437423b165",
-      "d1c79c40a72cda40dc9a41a929354f5a410f7c006afd41f22aa3f7aa5ccc9dae",
-      "f4a5529adcebbf0f1ceaee05f872ee88ec9e36c729b27ee6b00e56ff2e437d34"
+      "ce7adc21458c78039e59c8c5c1f3a48d03b7968cf68d3dfb98fbe4f6577081f7",
+      "d7bb00521000bbd10f6ea47d139f172380a1c09b4cd836df31d3eddfec2739e2",
+      "df3ee7b646096d535af4eb0357addd50905a1bbd0a302a627c4c640fe5851883",
+      "f52c607d1a278a7a64a5950e100124ab6558f7a886924568de3eff7cf4b6c553"
     ],
     "missing_digests": [],
     "reported_tokens": 24000,
-    "receipt_digest": "60c4f6b0409da53f96bff8c38f6140c6e914860267d1c557e686a90c6eedb060"
+    "receipt_digest": "d8146f7798a218a469494730b3314c3ed5efb7f638e6fe5d1b64142f1816847b"
   },
-  "authority_digest": "2d16dc47da700b97580bb200e2c26756ffced17320724e57b70641e0e9e6cbfe",
-  "issued_at": "2026-07-22T20:14:06.086962982Z",
-  "expires_at": "2026-07-22T22:14:06.086962982Z",
+  "authority_digest": "890e74272896bcb9410c6f3fd9eec1fdad365174518ccbec00fef8dd555282a8",
+  "issued_at": "2026-07-22T20:15:03.150921127Z",
+  "expires_at": "2026-07-22T22:15:03.150921127Z",
   "spent_nonces": [
-    "995110360957d728f266e1ab232c60a7"
+    "b8b6c9559657a2ab581ca2284a20d04a"
   ],
   "revision": 4
 }

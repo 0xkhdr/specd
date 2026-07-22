@@ -199,21 +199,24 @@ func isZeroTestGoSelector(command string, result verifyexec.Result) bool {
 	}
 	output := result.Stdout + result.Stderr
 
-	// Split output into lines and check for "ok" package lines
-	var hasOkLine bool
-	var allNoTests bool = true
+	// Per-package result lines are host-agnostic: `ok  \tpkg\t0.001s` for a
+	// package that built and ran, `?   \tpkg\t[no test files]` for one with no
+	// test files at all. A package counts as having executed the selector only
+	// on an `ok` line without the `[no tests to run]` marker.
+	var sawPackage, anyExecuted bool
 	for _, line := range strings.Split(output, "\n") {
-		// Look for lines like: "ok  	github.com/package	0.001s"
-		if strings.Contains(line, "ok") && strings.Contains(line, "github.com") {
-			hasOkLine = true
-			// If the line doesn't contain "[no tests to run]", this package executed tests
+		switch {
+		case strings.HasPrefix(line, "ok "):
+			sawPackage = true
 			if !strings.Contains(line, "[no tests to run]") {
-				allNoTests = false
+				anyExecuted = true
 			}
+		case strings.HasPrefix(line, "?"):
+			sawPackage = true
 		}
 	}
-	// Invalid only if we saw ok lines AND all of them are "[no tests to run]"
-	return hasOkLine && allNoTests
+	// Invalid only when packages reported but none executed a selected test.
+	return sawPackage && !anyExecuted
 }
 
 func requireTaskGate(root, slug string) error {

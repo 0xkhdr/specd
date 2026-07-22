@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
+	verifyexec "github.com/0xkhdr/specd/internal/core/verify"
 )
 
 func TestRevertOnFail(t *testing.T) {
@@ -237,6 +238,32 @@ func TestVerifyEvidenceSemantics(t *testing.T) {
 	})
 
 	// R3.1: Zero-test evidence blocks completion
+	// R3.1: a Go selector that no package executed is invalid, whatever the
+	// module host. A multi-package run stays valid when any package executed.
+	t.Run("R3.1_ZeroTestSelectorDetection", func(t *testing.T) {
+		const cmd = "go test ./a ./b -run TestX"
+		for _, tt := range []struct {
+			name    string
+			command string
+			stdout  string
+			want    bool
+		}{
+			{"single_package_no_tests", cmd, "ok  \texample.test/a\t0.001s [no tests to run]\n", true},
+			{"non_github_host_no_tests", cmd, "ok  \tgit.example.org/x/a\t0.001s [no tests to run]\n", true},
+			{"no_test_files_only", cmd, "?   \texample.test/a\t[no test files]\n", true},
+			{"one_package_executed", cmd, "ok  \texample.test/a\t0.010s\nok  \texample.test/b\t0.001s [no tests to run]\n", false},
+			{"all_packages_executed", cmd, "ok  \texample.test/a\t0.010s\n", false},
+			{"not_a_selector_command", "go test ./...", "ok  \texample.test/a\t0.001s [no tests to run]\n", false},
+			{"non_go_command", "printf ok", "ok", false},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := isZeroTestGoSelector(tt.command, verifyexec.Result{Stdout: tt.stdout}); got != tt.want {
+					t.Fatalf("isZeroTestGoSelector = %v, want %v for %q", got, tt.want, tt.stdout)
+				}
+			})
+		}
+	})
+
 	t.Run("R3.1_InvalidEvidenceBlocksCompletion", func(t *testing.T) {
 		root := t.TempDir()
 		runGit(t, root, "init")
