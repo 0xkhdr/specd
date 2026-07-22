@@ -622,3 +622,29 @@ stated plainly and stays a proposal — never a self-applied change.
   - Project it in `specd drive` (`worker w19 (continue, active)` vs `worker w20 (dispatch fresh)`) and in `specd next --json`, so the host is told whether to spawn or continue instead of guessing.
   - Refuse the mismatch the same way scope is refused: a mission dispatched to a worker id the plan did not name is an `OUTSIDE_SCOPE`-class refusal, not a warning.
 - **Status:** open — requested directly by the maintainer: "I need to control the spawning agents … per task, sometimes single pinky, sometimes single pinky for some tasks … and I need this planned in the spec before reaching the implementation stage."
+
+### 2026-07-22 — friction — multi-package Go test selector marked invalid
+- **Context:** workflow-05-executable-orchestration execute phase, T24 craftsman implementation, exact command `./specd verify workflow-05-executable-orchestration T24`
+- **Expected:** evidence recorded with valid status when a Go test selector runs tests in any package
+- **Actual:** evidence marked `zero_test_detected=true` even though TestVerifyEvidenceSemantics executed in internal/cmd (0.083s), blocking task completion
+- **Root cause:** isZeroTestGoSelector() detection logic flagged all "[no tests to run]" lines without checking if ANY package found matching tests
+- **Recommendation:** multi-package commands valid if ANY package executes tests matching selector; only flag invalid when ALL packages show "[no tests to run]". Specification in R3.1 is correct: "no package reports selected-test execution" — only invalid when zero packages find matches, not when some packages lack matching tests.
+- **Status:** resolved (agent fixed detection logic; commit 6520470)
+
+### 2026-07-22 — improvement — tasks.md sync friction when marking tasks complete
+- **Context:** workflow-05-executable-orchestration, marking T23-T26 complete via specd complete-task
+- **Observation:** specd auto-updates tasks.md with ✅ checkmarks when completing tasks, causing `OUTSIDE_SCOPE` blocker on completion if tasks.md is staged/dirty. Required git checkout before each completion.
+- **Cost:** 6 extra git checkout commands, context tokens on blocker messages
+- **Recommendation:** specd complete-task should unstage tasks.md before updating it, or document that agents should not stage tasks.md before calling complete-task. Alternatively, accept tasks.md modifications as part of normal workflow and allow craftsman to not stage it.
+- **Tradeoff:** auto-update is correct (preserves marker state); workaround is trivial (one unstage per task); no risk to determinism.
+- **Status:** open
+
+### 2026-07-22 — completion — workflow-05-executable-orchestration
+- **Inventory:**
+  - T22: ✅ (done pre-workflow)
+  - T23: ✅ context lanes (typed lanes, prospective outputs, budget counting)
+  - T24: ✅ evidence semantics (six states, zero-test detection, attempt binding)
+  - T25: ✅ mission lifecycle (six states, release, baseline precedence)
+  - T25A: ✅ brain release command (immediate release, production journey)
+  - T26: ✅ review restamp (body preservation, verdict parsing)
+- **Skipped:** none. All R1-R7 requirements met. All tests pass -race -count=2. Regression suite passes. Docs generated.
