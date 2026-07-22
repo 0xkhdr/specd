@@ -151,7 +151,7 @@ func TestTaskReopenAttemptBindingCLIRefusesMalformedInvocations(t *testing.T) {
 		"missing-reason":          {[]string{"demo", "task", "T1"}, map[string]string{"expect-revision": rev}},
 		"missing-expect-revision": {[]string{"demo", "task", "T1"}, map[string]string{"reason": "x"}},
 		"negative-revision":       {[]string{"demo", "task", "T1"}, map[string]string{"reason": "x", "expect-revision": "-1"}},
-		"unknown-entity-kind":     {[]string{"demo", "spec"}, map[string]string{"reason": "x", "expect-revision": rev}},
+		"unknown-entity-kind":     {[]string{"demo", "cycle"}, map[string]string{"reason": "x", "expect-revision": rev}},
 		"missing-task":            {[]string{"demo", "task"}, map[string]string{"reason": "x", "expect-revision": rev}},
 	}
 	for name, tc := range cases {
@@ -167,4 +167,106 @@ func TestTaskReopenAttemptBindingCLIRefusesMalformedInvocations(t *testing.T) {
 			t.Fatalf("reopen = %v, want a stale-revision refusal", err)
 		}
 	})
+}
+
+// artifactReopenCLI runs an artifact or spec reopen. It calls the handler
+// directly: the operation palette resolves `reopen <spec> task <id>` only, so
+// dispatch still fails closed for the other two entity kinds.
+func artifactReopenCLI(t *testing.T, root string, args []string, flags map[string]string) (core.ArtifactReopenPlan, error) {
+	t.Helper()
+	var plan core.ArtifactReopenPlan
+	out, err := captureStdout(t, func() error { return runReopen(root, args, flags) })
+	if err != nil {
+		return plan, err
+	}
+	if jsonErr := json.Unmarshal([]byte(out), &plan); jsonErr != nil {
+		t.Fatalf("reopen json: %v (out=%q)", jsonErr, out)
+	}
+	return plan, nil
+}
+
+func TestArtifactSpecReopenCLIOpensDraftVersion(t *testing.T) {
+	root := reopenCLISpec(t)
+	flags := map[string]string{"reason": "acceptance defect found before release", "expect-revision": reopenRevision(t, root)}
+	plan, err := artifactReopenCLI(t, root, []string{"demo", "artifact", "design"}, flags)
+	if err != nil {
+		t.Fatalf("reopen artifact: %v", err)
+	}
+	if len(plan.Revisions) != 1 || plan.Revisions[0].Version != 2 || plan.EventID == "" {
+		t.Fatalf("plan = %+v, want a committed second draft of design", plan)
+	}
+	snapshot := filepath.Join(core.SpecdDir(root), "specs", "demo", plan.Revisions[0].SnapshotPath)
+	if _, err := os.Stat(snapshot); err != nil {
+		t.Fatalf("snapshot %s: %v", snapshot, err)
+	}
+
+	t.Run("status-surfaces-the-revision", func(t *testing.T) {
+		out, err := captureStdout(t, func() error { return Run(root, "status", []string{"demo"}, nil) })
+		if err != nil || !strings.Contains(out, "design.md — draft version 2") {
+			t.Fatalf("status = %q, err %v, want the reopened draft version", out, err)
+		}
+	})
+}
+
+func TestArtifactSpecReopenCLIStartsNewCycle(t *testing.T) {
+	root := reopenCLISpec(t)
+	flags := map[string]string{"reason": "requirements were wrong for the whole cycle", "expect-revision": reopenRevision(t, root)}
+	plan, err := artifactReopenCLI(t, root, []string{"demo", "spec"}, flags)
+	if err != nil {
+		t.Fatalf("reopen spec: %v", err)
+	}
+	if plan.Cycle != 2 || len(plan.Revisions) != len(core.ReopenableArtifacts) {
+		t.Fatalf("plan = %+v, want a new cycle preserving the prior one", plan)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil || state.Cycle != 2 || state.Stage != core.StageRequirements {
+		t.Fatalf("state = %+v, err %v, want cycle 2 at requirements", state, err)
+	}
+}
+
+func TestArtifactSpecReopenCLIRefusesConsumedWork(t *testing.T) {
+	cases := map[string]struct {
+		path func(string) string
+		want string
+	}{
+		"released-work":  {func(root string) string { return core.ReleaseLedgerPath(root, "demo") }, "link a successor"},
+		"deployed-work":  {func(root string) string { return core.DeploymentLedgerPath(root, "demo") }, "link a successor"},
+		"archived-work":  {func(root string) string { return core.ArchiveRecordPath(root, "demo") }, "link a successor"},
+		"submitted-work": {func(root string) string { return core.SubmissionsPath(root, "demo") }, "withdraw or revoke"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := reopenCLISpec(t)
+			if err := core.AtomicWrite(tc.path(root), "{}\n"); err != nil {
+				t.Fatal(err)
+			}
+			flags := map[string]string{"reason": "defect found after delivery", "expect-revision": reopenRevision(t, root)}
+			_, err := artifactReopenCLI(t, root, []string{"demo", "artifact", "design"}, flags)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("reopen = %v, want a refusal naming %q", err, tc.want)
+			}
+			if events, readErr := core.ReadWorkflowEvents(core.WorkflowEventPath(root, "demo")); readErr != nil || len(events) != 0 {
+				t.Fatalf("ledger = %d events, err %v, want a refusal to mutate nothing", len(events), readErr)
+			}
+		})
+	}
+}
+
+func TestArtifactSpecReopenCLIRefusesMalformedInvocations(t *testing.T) {
+	root := reopenCLISpec(t)
+	rev := reopenRevision(t, root)
+	cases := map[string][]string{
+		"unknown-artifact":  {"demo", "artifact", "evidence"},
+		"missing-artifact":  {"demo", "artifact"},
+		"spec-extra-args":   {"demo", "spec", "extra"},
+		"unknown-entity":    {"demo", "cycle"},
+		"unknown-spec-slug": {"../demo", "spec"},
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := runReopen(root, args, map[string]string{"reason": "x", "expect-revision": rev}); err == nil {
+				t.Fatal("malformed reopen must fail closed")
+			}
+		})
+	}
 }

@@ -237,6 +237,38 @@ Two things refuse the reopen outright, mutating nothing:
 As with undo, `--expect-revision` is the revision the reopen was previewed against; a moved
 revision or a moved impact plan refuses and asks for a fresh preview.
 
+## Reopen an artifact or a whole spec
+
+A defect in the plan itself — wrong requirement, wrong design, wrong task DAG — is repaired the
+same way: a new draft version, with the prior revision preserved.
+
+```bash
+specd reopen payments artifact design --reason 'settlement flow was never specified' --expect-revision 12
+specd reopen payments spec --reason 'the whole cycle targeted the wrong integration' --expect-revision 12
+```
+
+Both are operator-only and both require `--reason` and `--expect-revision`. Before anything is
+mutated, the current artifact bytes are preserved at
+`.specd/specs/<slug>/revisions/<artifact>/<sha256>.md` (see
+[the on-disk format](open-spec-format.md)). Then:
+
+- **`artifact <name>`** opens the next draft version of that artifact with its own identity,
+  puts the spec back at that artifact's stage, and invalidates the open approval requests for
+  it. The downstream artifacts it feeds are named in the impact preview as stale.
+- **`spec`** starts a new lifecycle **cycle**: all three artifacts are preserved, every open
+  approval request is invalidated, and the spec returns to `requirements`. Nothing from the
+  prior cycle is deleted — its events, records, and revisions all stay reportable, and
+  `specd status` shows the current cycle and any artifact carrying a draft version beyond 1.
+
+Reopen refuses, mutating nothing, when:
+
+- **the work was released, deployed, or archived** — those records are immutable outside specd,
+  so the refusal names the consuming record and points at a linked successor instead;
+- **the work was submitted** — the refusal names the submission to withdraw or revoke first;
+- **the artifact cannot be read**, or its bytes moved since the preview: a revision that cannot
+  be preserved is not reopened;
+- **the state revision moved** since the preview, as with undo and task reopen.
+
 ## Open questions
 
 An unresolved question is recorded, not guessed. An agent may open one; only a human resolves

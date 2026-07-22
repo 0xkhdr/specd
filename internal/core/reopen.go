@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -141,6 +143,446 @@ func reopenEntities(event WorkflowEventV1) (amendment, descendants []string) {
 
 func reopenScopeDigest(amendment []string) string {
 	return Digest([]byte(strings.Join(amendment, "\n")))
+}
+
+// Artifact and spec reopen transitions (R4.1, R4.2). The artifact name or the
+// slug follows the prefix, so a ledger scan reads as `reopen.artifact.design`.
+const (
+	ReopenArtifactTransitionPrefix = "reopen.artifact."
+	ReopenSpecTransitionPrefix     = "reopen.spec."
+	ReopenArtifactEntityKind       = "artifact"
+	ReopenSpecEntityKind           = "spec"
+)
+
+// Impacted-entity prefixes of an artifact or spec reopen event: the artifact
+// revisions the transaction opened and the approval requests it invalidated.
+const (
+	ReopenRevisionEntityPrefix = "revision:"
+	ReopenApprovalEntityPrefix = "approval_request:"
+)
+
+// CurrentArtifactVersion projects an artifact's current draft version from the
+// ledger. An artifact that was never reopened is version 1; every reopen event
+// names the version it opened in its impacted entities, so the ledger is the
+// only counter (R4.1).
+func CurrentArtifactVersion(events []WorkflowEventV1, artifact string) int {
+	version := 1
+	prefix := ReopenRevisionEntityPrefix + artifact + "@"
+	for _, event := range events {
+		for _, entity := range event.ImpactedEntities {
+			if !strings.HasPrefix(entity, prefix) {
+				continue
+			}
+			if n, err := strconv.Atoi(strings.TrimPrefix(entity, prefix)); err == nil && n > version {
+				version = n
+			}
+		}
+	}
+	return version
+}
+
+// ArtifactVersions is CurrentArtifactVersion for every reopenable artifact that
+// has actually been reopened; unlisted artifacts are on version 1.
+func ArtifactVersions(events []WorkflowEventV1) map[string]int {
+	versions := map[string]int{}
+	for _, artifact := range ReopenableArtifacts {
+		if version := CurrentArtifactVersion(events, artifact); version > 1 {
+			versions[artifact] = version
+		}
+	}
+	return versions
+}
+
+// ArtifactReopenRequest is the caller-resolved artifact or spec reopen intent.
+// An empty Artifact reopens the whole spec into a new lifecycle cycle (R4.2).
+type ArtifactReopenRequest struct {
+	Artifact         string
+	ExpectedRevision int64
+	Reason           string
+	ActorID          string
+	GitHead          string
+	// Digests are the current artifact bytes digests the caller read, keyed by
+	// artifact name. Planning stays pure; commit re-snapshots and refuses when
+	// the bytes moved since the preview.
+	Digests map[string]string
+	// Consumptions are the durable records that already consumed this work.
+	// External ones (release, deployment, archive) make in-place reopen
+	// forbidden and successor-only (R4.3).
+	Consumptions []ImpactConsumption
+}
+
+// ArtifactRevision is one artifact's move from its prior revision to a fresh
+// draft version with its own identity (R4.1).
+type ArtifactRevision struct {
+	Artifact     string `json:"artifact"`
+	PriorVersion int    `json:"prior_version"`
+	Version      int    `json:"version"`
+	PriorDigest  string `json:"prior_digest"`
+	VersionID    string `json:"version_id"`
+	SnapshotPath string `json:"snapshot_path"`
+}
+
+// ArtifactReopenPlan is the deterministic preview of one artifact or spec
+// reopen, and the receipt CommitArtifactReopen returns.
+type ArtifactReopenPlan struct {
+	SchemaVersion        string              `json:"schema_version"`
+	Eligible             bool                `json:"eligible"`
+	Slug                 string              `json:"slug"`
+	Kind                 string              `json:"kind"`
+	Artifact             string              `json:"artifact,omitempty"`
+	PriorCycle           int                 `json:"prior_cycle"`
+	Cycle                int                 `json:"cycle"`
+	Revisions            []ArtifactRevision  `json:"revisions"`
+	InvalidatedApprovals []string            `json:"invalidated_approvals"`
+	CurrentRevision      int64               `json:"current_revision"`
+	NewRevision          int64               `json:"new_revision"`
+	EventID              string              `json:"event_id,omitempty"`
+	SuccessorRoute       string              `json:"successor_route,omitempty"`
+	ImpactDigest         string              `json:"impact_digest,omitempty"`
+	Impact               ImpactPlan          `json:"impact"`
+	Blockers             []TransitionBlocker `json:"blockers"`
+}
+
+// PlanArtifactReopen is pure: it classifies the request against the caller's
+// state and ledger snapshot and returns every blocker instead of raising the
+// first one.
+func PlanArtifactReopen(slug string, req ArtifactReopenRequest, state State, events []WorkflowEventV1) ArtifactReopenPlan {
+	cycle := state.Cycle
+	if cycle < 1 {
+		cycle = 1
+	}
+	plan := ArtifactReopenPlan{
+		SchemaVersion:        ReopenPlanSchemaVersion,
+		Slug:                 slug,
+		Kind:                 ReopenSpecEntityKind,
+		Artifact:             req.Artifact,
+		PriorCycle:           cycle,
+		Cycle:                cycle + 1,
+		Revisions:            []ArtifactRevision{},
+		InvalidatedApprovals: []string{},
+		CurrentRevision:      state.Revision,
+		NewRevision:          state.Revision + 1,
+		Blockers:             []TransitionBlocker{},
+	}
+	targets := ReopenableArtifacts
+	if req.Artifact != "" {
+		// An artifact reopen stays inside the current cycle: only the spec
+		// lifecycle itself starts a new one (R4.2).
+		plan.Kind, plan.Cycle, targets = ReopenArtifactEntityKind, cycle, []string{req.Artifact}
+	}
+	if strings.TrimSpace(req.Reason) == "" {
+		plan.addBlocker("REOPEN_REASON_REQUIRED", "reason", "reopen requires a reason; re-run with --reason <text>")
+	}
+	if strings.TrimSpace(req.ActorID) == "" {
+		plan.addBlocker("REOPEN_ACTOR_REQUIRED", "actor", "reopen requires an accountable actor; set SPECD_ACTOR")
+	}
+	if req.ExpectedRevision != state.Revision {
+		plan.addBlocker("REOPEN_REVISION_STALE", plan.target(), fmt.Sprintf(
+			"expected state revision %d but current is %d; re-preview and re-run with --expect-revision %d",
+			req.ExpectedRevision, state.Revision, state.Revision))
+	}
+	if req.Artifact != "" && !ReopenableArtifact(req.Artifact) {
+		plan.addBlocker("REOPEN_ARTIFACT_UNKNOWN", req.Artifact, fmt.Sprintf(
+			"%q is not a spec artifact; reopen one of %s", req.Artifact, strings.Join(ReopenableArtifacts, ", ")))
+		targets = nil
+	}
+
+	for _, artifact := range targets {
+		digest := req.Digests[artifact]
+		if !hexDigest(digest) {
+			plan.addBlocker("REOPEN_ARTIFACT_UNREADABLE", artifact, fmt.Sprintf(
+				"cannot read the current bytes of %s.md; a revision cannot be preserved for an artifact that is missing or unreadable", artifact))
+			continue
+		}
+		version := CurrentArtifactVersion(events, artifact) + 1
+		plan.Revisions = append(plan.Revisions, ArtifactRevision{
+			Artifact:     artifact,
+			PriorVersion: version - 1,
+			Version:      version,
+			PriorDigest:  digest,
+			SnapshotPath: RevisionSnapshotRelPath(artifact, digest),
+			// The new draft's identity is minted here: it is distinct from the
+			// preserved revision even while the bytes are still identical.
+			VersionID: Digest([]byte(strings.Join([]string{
+				slug, artifact, strconv.Itoa(version), digest, req.ActorID, req.Reason,
+			}, "|"))),
+		})
+	}
+
+	requests, err := state.ApprovalRequests()
+	if err != nil {
+		plan.addBlocker("REOPEN_APPROVALS_INVALID", plan.target(), fmt.Sprintf("cannot project approval requests: %v", err))
+	}
+	plan.InvalidatedApprovals = invalidatedApprovals(requests, req.Artifact)
+
+	plan.Impact = buildArtifactReopenImpact(slug, req, state, events)
+	plan.ImpactDigest = plan.Impact.ImpactDigest
+	for _, blocker := range plan.Impact.Blockers {
+		plan.addBlocker(blocker.Code, blocker.Entity, blocker.Message)
+	}
+	for _, entity := range plan.Impact.Entities {
+		if entity.Classification != ImpactForbidden {
+			continue
+		}
+		plan.SuccessorRoute = entity.SuccessorRoute
+		plan.addBlocker("REOPEN_CONSUMED_EXTERNALLY", entity.ID, fmt.Sprintf("%s; %s", entity.Reason, entity.SuccessorRoute))
+	}
+	for _, consumption := range plan.Impact.Consumptions {
+		if consumption.External {
+			continue
+		}
+		plan.addBlocker("REOPEN_CONSUMED", plan.target(), fmt.Sprintf(
+			"%s record %s consumed this work; withdraw or revoke it before reopening, or link a successor instead",
+			consumption.Kind, consumption.Record))
+	}
+
+	plan.Eligible = len(plan.Blockers) == 0
+	return plan
+}
+
+// target is the entity a blocker is reported against: the artifact for an
+// artifact reopen, the spec itself otherwise.
+func (p ArtifactReopenPlan) target() string {
+	if p.Artifact != "" {
+		return p.Artifact
+	}
+	return p.Slug
+}
+
+// Command is the exact invocation that produced (or re-previews) this plan.
+func (p ArtifactReopenPlan) Command() string {
+	if p.Artifact != "" {
+		return fmt.Sprintf("specd reopen %s artifact %s --reason <text> --expect-revision %d", p.Slug, p.Artifact, p.CurrentRevision)
+	}
+	return fmt.Sprintf("specd reopen %s spec --reason <text> --expect-revision %d", p.Slug, p.CurrentRevision)
+}
+
+// Refusal renders the plan's first blocker as the operator-actionable refusal.
+func (p ArtifactReopenPlan) Refusal() error {
+	if len(p.Blockers) == 0 {
+		return nil
+	}
+	blocker := p.Blockers[0]
+	return Refusef(blocker.Code, "%s", blocker.Message).
+		WithRecovery(RefusalActorOperator, p.Command()).
+		WithContext(blocker.Entity, "reopen target", "eligible unreleased artifact or spec")
+}
+
+// invalidatedApprovals names every still-open approval request the reopen
+// invalidates: the requests for that artifact's gate, or — when the whole spec
+// starts a new cycle — every open request (R4.1, R4.2).
+func invalidatedApprovals(requests []ApprovalRequestRecord, artifact string) []string {
+	var ids []string
+	seen := map[string]bool{}
+	for _, rec := range requests {
+		if seen[rec.ID] || !ApprovalRequestPending(requests, rec.ID) {
+			continue
+		}
+		if artifact != "" && rec.EntityVersion != artifact && !(rec.EntityKind == ApprovalEntityArtifact && rec.EntityID == artifact) {
+			continue
+		}
+		seen[rec.ID] = true
+		ids = append(ids, rec.ID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// buildArtifactReopenImpact previews the reopened artifact plus the artifacts
+// derived from it — design depends on requirements, tasks on design — so a
+// requirements reopen names the downstream drafts it makes stale through the
+// same shared preview undo and task reopen use (R1, R4.1).
+func buildArtifactReopenImpact(slug string, req ArtifactReopenRequest, state State, events []WorkflowEventV1) ImpactPlan {
+	input := ImpactInput{
+		Operation:             ImpactOperationReopen,
+		RequestedKind:         ReopenSpecEntityKind,
+		RequestedID:           slug,
+		RequestedSpec:         slug,
+		RequestedVersion:      strconv.Itoa(state.Cycle),
+		ExpectedStateRevision: req.ExpectedRevision,
+		Actor:                 ActorOperator,
+		ActorID:               req.ActorID,
+	}
+	if req.Artifact == "" {
+		input.Candidates = []ImpactCandidate{{
+			Kind: ReopenSpecEntityKind, ID: slug, Spec: slug,
+			Version: strconv.Itoa(state.Cycle), State: string(state.Stage),
+			Consumptions: req.Consumptions, SnapshotRequired: true,
+		}}
+		return BuildImpactPlan(input)
+	}
+	input.RequestedKind = ReopenArtifactEntityKind
+	input.RequestedID = req.Artifact
+	input.RequestedVersion = strconv.Itoa(CurrentArtifactVersion(events, req.Artifact))
+	prior := ""
+	for _, artifact := range ReopenableArtifacts {
+		candidate := ImpactCandidate{
+			Kind: ReopenArtifactEntityKind, ID: artifact, Spec: slug,
+			Version: strconv.Itoa(CurrentArtifactVersion(events, artifact)),
+			State:   string(state.Stage),
+		}
+		if prior != "" {
+			candidate.DependsOn = []string{ImpactRef(ReopenArtifactEntityKind, slug, prior)}
+		}
+		if artifact == req.Artifact {
+			candidate.Consumptions = req.Consumptions
+			candidate.SnapshotRequired = true
+		}
+		input.Candidates = append(input.Candidates, candidate)
+		prior = artifact
+	}
+	return BuildImpactPlan(input)
+}
+
+func (p *ArtifactReopenPlan) addBlocker(code, entity, message string) {
+	blocker := TransitionBlocker{Code: code, Gate: "reopen", Entity: entity, Message: message}
+	for _, existing := range p.Blockers {
+		if existing == blocker {
+			return
+		}
+	}
+	p.Blockers = append(p.Blockers, blocker)
+	sort.SliceStable(p.Blockers, func(i, j int) bool { return p.Blockers[i].Code < p.Blockers[j].Code })
+}
+
+// ArtifactReopenProjection is the state an eligible plan commits: the new draft
+// stage (or the new cycle), with every invalidated approval request closed by an
+// appended expiry transition. Nothing is deleted — the prior cycle stays fully
+// reportable in its records, events, and revision snapshots (R4.2).
+func ArtifactReopenProjection(plan ArtifactReopenPlan, req ArtifactReopenRequest, state State) (State, error) {
+	next := state
+	next.Records = maps.Clone(state.Records)
+	if next.Records == nil {
+		next.Records = map[string]json.RawMessage{}
+	}
+	requests, err := ReadApprovalRequests(next.Records)
+	if err != nil {
+		return State{}, err
+	}
+	for _, id := range plan.InvalidatedApprovals {
+		rec := ApprovalRequestRecord{ID: id, Transition: ApprovalExpired, Reason: "invalidated by " + plan.Transition()}
+		rec = StampApprovalRequest(rec, req.GitHead)
+		key, planned, err := PlanApprovalRequest(requests, rec)
+		if err != nil {
+			return State{}, err
+		}
+		raw, err := json.Marshal(planned)
+		if err != nil {
+			return State{}, err
+		}
+		next.Records[key] = raw
+		requests = append(requests, planned)
+	}
+	next.CurrentRequest = ""
+	next.Cycle = plan.Cycle
+	next.Stage = StageRequirements
+	if plan.Artifact != "" {
+		next.Stage = Stage(plan.Artifact)
+	}
+	next.Condition = ConditionActive
+	next.Status = ProjectStatus(StageCondition{Stage: next.Stage, Condition: next.Condition})
+	next.Phase = PhaseForStatus(next.Status)
+	return next, next.Validate()
+}
+
+// Transition is the ledger transition name this reopen appends.
+func (p ArtifactReopenPlan) Transition() string {
+	if p.Artifact != "" {
+		return ReopenArtifactTransitionPrefix + p.Artifact
+	}
+	return ReopenSpecTransitionPrefix + p.Slug
+}
+
+// BuildArtifactReopenEvent returns the append-only event that opens the new
+// draft version or lifecycle cycle. The prior version stays in the ledger and is
+// linked by BeforeEntityVersion (R4.1, R4.2).
+func BuildArtifactReopenEvent(plan ArtifactReopenPlan, req ArtifactReopenRequest, state State) (WorkflowEventV1, error) {
+	if !plan.Eligible {
+		return WorkflowEventV1{}, plan.Refusal()
+	}
+	projection, err := ArtifactReopenProjection(plan, req, state)
+	if err != nil {
+		return WorkflowEventV1{}, err
+	}
+	inputs := map[string]string{"impact_plan": plan.ImpactDigest}
+	impacted := make([]string, 0, len(plan.Revisions)+len(plan.InvalidatedApprovals))
+	for _, revision := range plan.Revisions {
+		inputs["revision."+revision.Artifact] = revision.PriorDigest
+		impacted = append(impacted, fmt.Sprintf("%s%s@%d", ReopenRevisionEntityPrefix, revision.Artifact, revision.Version))
+	}
+	for _, id := range plan.InvalidatedApprovals {
+		impacted = append(impacted, ReopenApprovalEntityPrefix+id)
+	}
+	entityKind, entityID := ReopenSpecEntityKind, plan.Slug
+	before, after := int64(plan.PriorCycle), int64(plan.Cycle)
+	if plan.Artifact != "" {
+		entityKind, entityID = ReopenArtifactEntityKind, plan.Artifact
+		before, after = int64(plan.Revisions[0].PriorVersion), int64(plan.Revisions[0].Version)
+	}
+	return NewWorkflowEvent(WorkflowEventV1{
+		EntityKind:          entityKind,
+		EntityID:            entityID,
+		BeforeEntityVersion: before,
+		AfterEntityVersion:  after,
+		ExpectedRevision:    plan.CurrentRevision,
+		Transition:          plan.Transition(),
+		Actor:               req.ActorID,
+		AuthorityDigest: Digest([]byte(strings.Join([]string{
+			"reopen", req.ActorID, plan.Transition(), strconv.Itoa(plan.Cycle), req.Reason,
+		}, "|"))),
+		Reason:           req.Reason,
+		InputDigests:     inputs,
+		ImpactedEntities: sortedTransitionSet(impacted),
+		GitHead:          req.GitHead,
+		Timestamp:        Clock().Format(time.RFC3339),
+		Projection:       projection,
+	})
+}
+
+// CommitArtifactReopen reloads durable state, re-plans against it, refuses on
+// drift from the preview, preserves every artifact revision as a snapshot, and
+// only then appends the transition. A snapshot failure mutates nothing: no
+// event is appended and no state is written (R4.4).
+func CommitArtifactReopen(root, slug string, req ArtifactReopenRequest, preview ArtifactReopenPlan) (ArtifactReopenPlan, error) {
+	statePath, eventPath := StatePath(root, slug), WorkflowEventPath(root, slug)
+	state, err := RecoverWorkflowState(statePath, eventPath)
+	if err != nil {
+		return ArtifactReopenPlan{}, err
+	}
+	events, err := ReadWorkflowEvents(eventPath)
+	if err != nil {
+		return ArtifactReopenPlan{}, err
+	}
+	fresh := PlanArtifactReopen(slug, req, state, events)
+	if preview.ImpactDigest != "" {
+		if err := GuardImpactCommit(preview.Impact, state.Revision, fresh.Impact); err != nil {
+			return fresh, err
+		}
+	}
+	if !fresh.Eligible {
+		return fresh, fresh.Refusal()
+	}
+	for _, revision := range fresh.Revisions {
+		snapshot, err := SnapshotArtifactRevision(root, slug, revision.Artifact)
+		if err != nil {
+			return fresh, err
+		}
+		if snapshot.Digest != revision.PriorDigest {
+			return fresh, Refusef("REOPEN_ARTIFACT_MOVED",
+				"%s.md changed from %s to %s after the preview; re-run %s",
+				revision.Artifact, revision.PriorDigest, snapshot.Digest, fresh.Command())
+		}
+	}
+	event, err := BuildArtifactReopenEvent(fresh, req, state)
+	if err != nil {
+		return fresh, err
+	}
+	if err := CommitWorkflowTransition(TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
+		return fresh, err
+	}
+	fresh.EventID = event.ID
+	fresh.NewRevision = event.ResultingRevision
+	return fresh, nil
 }
 
 // TaskLease is a caller-resolved live claim on a task. Planning stays pure: the

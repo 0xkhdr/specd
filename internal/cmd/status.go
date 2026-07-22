@@ -64,6 +64,13 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	// Reopened artifacts carry a draft version beyond 1; the ledger is the only
+	// counter, so status projects it rather than storing a second one (R4.1).
+	events, err := core.ReadWorkflowEvents(core.WorkflowEventPath(root, args[0]))
+	if err != nil {
+		return err
+	}
+	revisions := core.ArtifactVersions(events)
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
@@ -77,11 +84,14 @@ func runStatus(root string, args []string, flags map[string]string) error {
 			Criteria         []requirementCoverage        `json:"criteria,omitempty"`
 			Escalated        map[string]int               `json:"escalated,omitempty"`
 			ApprovalRequests []gates.ApprovalRequestState `json:"approval_requests,omitempty"`
+			Cycle            int                          `json:"cycle,omitempty"`
+			ArtifactVersions map[string]int               `json:"artifact_versions,omitempty"`
 			Locator          core.Locator                 `json:"locator"`
-		}{model, specState.Records, coverage, escalated, approvals,
+		}{model, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions,
 			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
+	fmt.Fprint(os.Stdout, renderArtifactVersions(specState.Cycle, revisions))
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
 	fmt.Fprint(os.Stdout, renderEscalated(escalated, ratchetActive))
 	fmt.Fprint(os.Stdout, renderApprovalRequests(approvals))
@@ -135,6 +145,24 @@ func renderApprovalRequests(states []gates.ApprovalRequestState) string {
 	}
 	for _, finding := range gates.ApprovalRequestFindings(states) {
 		fmt.Fprintf(&b, "  %s: %s\n", finding.Severity, finding.Message)
+	}
+	return b.String()
+}
+
+// renderArtifactVersions formats the reopened-revision section: the lifecycle
+// cycle and every artifact that carries a draft version beyond its first. Both
+// are silent on a spec that was never reopened.
+func renderArtifactVersions(cycle int, versions map[string]int) string {
+	if len(versions) == 0 && cycle < 2 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\nReopened:\n")
+	if cycle > 1 {
+		fmt.Fprintf(&b, "  spec — lifecycle cycle %d\n", cycle)
+	}
+	for _, artifact := range slices.Sorted(maps.Keys(versions)) {
+		fmt.Fprintf(&b, "  %s.md — draft version %d (prior revisions under revisions/%s/)\n", artifact, versions[artifact], artifact)
 	}
 	return b.String()
 }

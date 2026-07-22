@@ -286,8 +286,8 @@ var Commands = []Command{
 	},
 	{
 		Name:          "reopen",
-		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>]",
-		Description:   "Open the next attempt of a completed, failed, or cancelled task with a fresh baseline, scope, and authority; prior-attempt evidence stops completing it.",
+		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n>",
+		Description:   "Open the next attempt of a completed, failed, or cancelled task, the next draft version of an unreleased artifact, or the next lifecycle cycle of an unreleased spec; prior-attempt evidence stops completing a reopened task and prior bytes are preserved as a content-addressed revision.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd reopen payments task T7 --reason 'rounding defect found in review' --expect-revision 12"},
@@ -786,7 +786,11 @@ var operationDefinitions = map[string][]operationDefinition{
 	"undo": {{id: "undo", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
 	// Reopen is operator-only for the same reason undo is: an agent may request
 	// a repair but never re-authorizes its own work (spec 04 design, security).
-	"reopen":    {{id: "reopen.task", subcommand: "task", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"}},
+	"reopen": {
+		{id: "reopen.task", subcommand: "task", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"},
+		{id: "reopen.artifact", subcommand: "artifact", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+		{id: "reopen.spec", subcommand: "spec", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+	},
 	"recurring": {{id: "recurring.record", subcommand: "record", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
 	"report":    {{id: "report.render", effect: EffectRead, scopeSource: "arguments"}},
 	"task": {
@@ -983,13 +987,19 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 	case "report":
 		id = "report.render"
 	case "reopen":
-		// The entity kind is the second argument (`reopen <spec> task <id>`).
-		// Artifact and spec reopen are not wired yet, so anything else fails
-		// closed rather than resolving to the task operation.
-		if len(args) < 2 || args[1] != "task" {
+		// The entity kind is the second argument (`reopen <spec> task <id>`,
+		// `reopen <spec> artifact <name>`, `reopen <spec> spec`). An unknown
+		// kind fails closed rather than resolving to the task operation.
+		switch {
+		case len(args) >= 2 && args[1] == "task":
+			id = "reopen.task"
+		case len(args) == 3 && args[1] == "artifact":
+			id = "reopen.artifact"
+		case len(args) == 2 && args[1] == "spec":
+			id = "reopen.spec"
+		default:
 			return Operation{}, false
 		}
-		id = "reopen.task"
 	}
 	return OperationByID(id)
 }

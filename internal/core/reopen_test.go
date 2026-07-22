@@ -1,9 +1,12 @@
 package core
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // reopenTasks is a two-task chain: T2 depends on T1, so reopening T1 must mark
@@ -319,6 +322,313 @@ func TestTaskReopenAttemptBindingRefusesStaleAndUnpinnedRequests(t *testing.T) {
 }
 
 func reopenBlocked(plan ReopenPlan, code string) bool {
+	for _, blocker := range plan.Blockers {
+		if blocker.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+// artifactReopenRoot seeds a spec whose three artifacts exist on disk, with a
+// pending approval request for the design gate.
+func artifactReopenRoot(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, artifact := range ReopenableArtifacts {
+		if err := AtomicWrite(filepath.Join(SpecdDir(root), "specs", "demo", artifact+".md"), "# "+artifact+"\n"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	state := InitialState("demo")
+	state.Stage, state.Status, state.Phase = StageDesign, StatusDesign, PhaseForStatus(StatusDesign)
+	rec := StampApprovalRequest(ApprovalRequestRecord{
+		ID: "approve:design", Transition: ApprovalRequested,
+		EntityKind: ApprovalEntitySpec, EntityID: "demo", EntityVersion: "design",
+		Pins:      ApprovalPins{ArtifactDigest: "a", PlanDigest: "p", ConfigDigest: "c"},
+		Requester: "operator:alice", ExpiresAt: Clock().Add(time.Hour).Format(time.RFC3339),
+	}, strings.Repeat("b", 40))
+	key, planned, err := PlanApprovalRequest(nil, rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(planned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Records[key] = raw
+	if err := SaveState(StatePath(root, "demo"), state); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// artifactReopenRequest is a well-formed reopen of artifact ("" reopens the spec).
+func artifactReopenRequest(t *testing.T, root, artifact string) ArtifactReopenRequest {
+	t.Helper()
+	digests := map[string]string{}
+	for _, name := range ReopenableArtifacts {
+		path, err := SpecArtifactPath(root, "demo", name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if raw, readErr := os.ReadFile(path); readErr == nil {
+			digests[name] = Digest(raw)
+		}
+	}
+	return ArtifactReopenRequest{
+		Artifact: artifact,
+		Reason:   "acceptance defect found before release",
+		ActorID:  "operator:alice",
+		GitHead:  strings.Repeat("b", 40),
+		Digests:  digests,
+	}
+}
+
+// artifactReopenCommit previews and commits req against the durable spec.
+func artifactReopenCommit(t *testing.T, root string, req ArtifactReopenRequest) (ArtifactReopenPlan, error) {
+	t.Helper()
+	statePath, eventPath := StatePath(root, "demo"), WorkflowEventPath(root, "demo")
+	state, err := RecoverWorkflowState(statePath, eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err := ReadWorkflowEvents(eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ExpectedRevision = state.Revision
+	preview := PlanArtifactReopen("demo", req, state, events)
+	if !preview.Eligible {
+		return preview, preview.Refusal()
+	}
+	return CommitArtifactReopen(root, "demo", req, preview)
+}
+
+// artifactReopenLedger is the spec's current state and event count.
+func artifactReopenLedger(t *testing.T, root string) (State, int) {
+	t.Helper()
+	state, err := LoadState(StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err := ReadWorkflowEvents(WorkflowEventPath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state, len(events)
+}
+
+func TestArtifactSpecReopenCreatesDraftVersion(t *testing.T) {
+	root := artifactReopenRoot(t)
+	prior := Digest([]byte("# design\n"))
+	plan, err := artifactReopenCommit(t, root, artifactReopenRequest(t, root, "design"))
+	if err != nil {
+		t.Fatalf("reopen design: %v", err)
+	}
+	if len(plan.Revisions) != 1 {
+		t.Fatalf("revisions = %+v, want exactly the reopened artifact", plan.Revisions)
+	}
+	revision := plan.Revisions[0]
+	switch {
+	case revision.Version != 2 || revision.PriorVersion != 1:
+		t.Fatalf("version = %d (prior %d), want 2 after 1", revision.Version, revision.PriorVersion)
+	case revision.PriorDigest != prior:
+		t.Fatalf("prior digest = %q, want the preserved bytes %q", revision.PriorDigest, prior)
+	case revision.VersionID == "" || revision.VersionID == revision.PriorDigest:
+		t.Fatalf("version id = %q, want a fresh identity distinct from the preserved digest", revision.VersionID)
+	case plan.Kind != ReopenArtifactEntityKind || plan.Cycle != plan.PriorCycle:
+		t.Fatalf("plan = %+v, want an artifact reopen inside the same cycle", plan)
+	}
+
+	// R4.1: the prior revision is preserved byte-for-byte under its digest.
+	raw, err := os.ReadFile(filepath.Join(SpecdDir(root), "specs", "demo", revision.SnapshotPath))
+	if err != nil || string(raw) != "# design\n" {
+		t.Fatalf("snapshot = %q, err %v, want the prior revision preserved", raw, err)
+	}
+
+	state, count := artifactReopenLedger(t, root)
+	if count != 1 || state.Revision != plan.NewRevision {
+		t.Fatalf("ledger = %d events at revision %d, want one event at %d", count, state.Revision, plan.NewRevision)
+	}
+	if state.Stage != StageDesign || state.Condition != ConditionActive {
+		t.Fatalf("stage/condition = %s/%s, want the new draft active at its own stage", state.Stage, state.Condition)
+	}
+	// R4.1: the open approval request for that artifact no longer holds.
+	requests, err := state.ApprovalRequests()
+	if err != nil || ApprovalRequestPending(requests, "approve:design") {
+		t.Fatalf("requests = %+v, err %v, want approve:design invalidated", requests, err)
+	}
+	if len(requests) != 2 || requests[0].Transition != ApprovalRequested {
+		t.Fatalf("requests = %+v, want the original transition retained beside the invalidation", requests)
+	}
+	if versions := ArtifactVersions(mustEvents(t, root)); versions["design"] != 2 {
+		t.Fatalf("versions = %+v, want design on draft version 2", versions)
+	}
+}
+
+func mustEvents(t *testing.T, root string) []WorkflowEventV1 {
+	t.Helper()
+	events, err := ReadWorkflowEvents(WorkflowEventPath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return events
+}
+
+func TestArtifactSpecReopenStartsNewCycle(t *testing.T) {
+	root := artifactReopenRoot(t)
+	plan, err := artifactReopenCommit(t, root, artifactReopenRequest(t, root, ""))
+	if err != nil {
+		t.Fatalf("reopen spec: %v", err)
+	}
+	if plan.Kind != ReopenSpecEntityKind || plan.Cycle != 2 || plan.PriorCycle != 1 {
+		t.Fatalf("plan = %+v, want cycle 2 referencing cycle 1", plan)
+	}
+	if len(plan.Revisions) != len(ReopenableArtifacts) {
+		t.Fatalf("revisions = %+v, want the complete prior cycle preserved", plan.Revisions)
+	}
+	for _, revision := range plan.Revisions {
+		if _, err := os.Stat(filepath.Join(SpecdDir(root), "specs", "demo", revision.SnapshotPath)); err != nil {
+			t.Fatalf("snapshot %s: %v", revision.SnapshotPath, err)
+		}
+	}
+	state, count := artifactReopenLedger(t, root)
+	if state.Cycle != 2 || state.Stage != StageRequirements || count != 1 {
+		t.Fatalf("state = %+v (%d events), want a fresh cycle at requirements", state, count)
+	}
+	// R4.2: the prior cycle stays fully reportable — its event, its projection,
+	// and its approval history are all still on disk.
+	events := mustEvents(t, root)
+	if events[0].BeforeEntityVersion != 1 || events[0].AfterEntityVersion != 2 || events[0].Projection.Cycle != 2 {
+		t.Fatalf("event = %+v, want the new cycle linked to the prior one", events[0])
+	}
+	if requests, err := state.ApprovalRequests(); err != nil || len(requests) != 2 {
+		t.Fatalf("requests = %+v, err %v, want the prior cycle's request history retained", requests, err)
+	}
+}
+
+func TestArtifactSpecReopenRefusesConsumedWork(t *testing.T) {
+	cases := map[string]struct {
+		consumption ImpactConsumption
+		want        string
+	}{
+		"released-work":  {ImpactConsumption{Record: "releases.jsonl", Kind: "release", External: true}, "REOPEN_CONSUMED_EXTERNALLY"},
+		"deployed-work":  {ImpactConsumption{Record: "deployments.jsonl", Kind: "deployment", External: true}, "REOPEN_CONSUMED_EXTERNALLY"},
+		"archived-work":  {ImpactConsumption{Record: "archive.json", Kind: "archive", External: true}, "REOPEN_CONSUMED_EXTERNALLY"},
+		"submitted-work": {ImpactConsumption{Record: "submissions.jsonl", Kind: "submission"}, "REOPEN_CONSUMED"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			root := artifactReopenRoot(t)
+			req := artifactReopenRequest(t, root, "design")
+			req.Consumptions = []ImpactConsumption{tc.consumption}
+			plan, err := artifactReopenCommit(t, root, req)
+			if err == nil {
+				t.Fatal("consumed work must refuse in-place reopen")
+			}
+			if !artifactReopenBlocked(plan, tc.want) {
+				t.Fatalf("blockers = %+v, want %s", plan.Blockers, tc.want)
+			}
+			if tc.consumption.External && !strings.Contains(err.Error(), "link a successor") {
+				t.Fatalf("refusal = %v, want the linked-successor route", err)
+			}
+			if !tc.consumption.External && !strings.Contains(err.Error(), "withdraw or revoke") {
+				t.Fatalf("refusal = %v, want the withdrawal requirement", err)
+			}
+			state, count := artifactReopenLedger(t, root)
+			if count != 0 || state.Revision != 0 {
+				t.Fatalf("ledger = %d events at revision %d, want a refusal to mutate nothing", count, state.Revision)
+			}
+		})
+	}
+}
+
+func TestArtifactSpecReopenSnapshotFailureMutatesNothing(t *testing.T) {
+	root := artifactReopenRoot(t)
+	req := artifactReopenRequest(t, root, "design")
+	state, err := RecoverWorkflowState(StatePath(root, "demo"), WorkflowEventPath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ExpectedRevision = state.Revision
+	preview := PlanArtifactReopen("demo", req, state, nil)
+	if !preview.Eligible {
+		t.Fatalf("blockers = %+v, want an eligible preview", preview.Blockers)
+	}
+
+	t.Run("snapshot-failure", func(t *testing.T) {
+		// The artifact disappears between preview and commit, so its prior
+		// revision can no longer be preserved (R4.4).
+		path, err := SpecArtifactPath(root, "demo", "design")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := CommitArtifactReopen(root, "demo", req, preview); err == nil {
+			t.Fatal("a failed snapshot must refuse the whole transaction")
+		}
+		current, count := artifactReopenLedger(t, root)
+		if count != 0 || current.Revision != state.Revision {
+			t.Fatalf("ledger = %d events at revision %d, want no mutation at all", count, current.Revision)
+		}
+		if requests, err := current.ApprovalRequests(); err != nil || !ApprovalRequestPending(requests, "approve:design") {
+			t.Fatalf("requests = %+v, err %v, want the approval request untouched", requests, err)
+		}
+	})
+
+	t.Run("unreadable-artifact-refuses-preview", func(t *testing.T) {
+		blocked := PlanArtifactReopen("demo", artifactReopenRequest(t, root, "design"), state, nil)
+		if blocked.Eligible || !artifactReopenBlocked(blocked, "REOPEN_ARTIFACT_UNREADABLE") {
+			t.Fatalf("blockers = %+v, want REOPEN_ARTIFACT_UNREADABLE", blocked.Blockers)
+		}
+	})
+}
+
+func TestArtifactSpecReopenRefusesMalformedRequests(t *testing.T) {
+	root := artifactReopenRoot(t)
+	state, err := LoadState(StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]struct {
+		mutate func(*ArtifactReopenRequest)
+		want   string
+	}{
+		"missing-reason":   {func(r *ArtifactReopenRequest) { r.Reason = "  " }, "REOPEN_REASON_REQUIRED"},
+		"missing-actor":    {func(r *ArtifactReopenRequest) { r.ActorID = "" }, "REOPEN_ACTOR_REQUIRED"},
+		"stale-revision":   {func(r *ArtifactReopenRequest) { r.ExpectedRevision = 9 }, "REOPEN_REVISION_STALE"},
+		"unknown-artifact": {func(r *ArtifactReopenRequest) { r.Artifact = "evidence" }, "REOPEN_ARTIFACT_UNKNOWN"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			req := artifactReopenRequest(t, root, "design")
+			req.ExpectedRevision = state.Revision
+			tc.mutate(&req)
+			plan := PlanArtifactReopen("demo", req, state, nil)
+			if plan.Eligible || !artifactReopenBlocked(plan, tc.want) {
+				t.Fatalf("blockers = %+v, want %s", plan.Blockers, tc.want)
+			}
+		})
+	}
+
+	t.Run("commit-refuses-drifted-preview", func(t *testing.T) {
+		fresh := artifactReopenRoot(t)
+		req := artifactReopenRequest(t, fresh, "design")
+		req.ExpectedRevision = 0
+		preview := PlanArtifactReopen("demo", req, state, nil)
+		if _, err := artifactReopenCommit(t, fresh, artifactReopenRequest(t, fresh, "design")); err != nil {
+			t.Fatalf("first reopen: %v", err)
+		}
+		if _, err := CommitArtifactReopen(fresh, "demo", req, preview); err == nil {
+			t.Fatal("a preview from a superseded revision must refuse")
+		}
+	})
+}
+
+func artifactReopenBlocked(plan ArtifactReopenPlan, code string) bool {
 	for _, blocker := range plan.Blockers {
 		if blocker.Code == code {
 			return true

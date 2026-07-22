@@ -32,6 +32,8 @@ malformed complete lines, future schemas, duplicate identities, and revision div
 │       ├── design.md         # design (author)
 │       ├── tasks.md          # the task DAG (author)
 │       ├── state.json        # machine truth (harness-owned)
+│       ├── revisions/        # content-addressed prior artifact revisions
+│       │   └── <artifact>/<sha256>.md
 │       └── .lock             # per-spec reentrant lock
 ├── roles/*.md                # scout / craftsman / validator / auditor
 └── steering/*.md             # durable project constitution + memory
@@ -53,6 +55,22 @@ here never applies outside that tree.
 without reformatting, so hand edits and tool edits coexist without diff noise. Each task
 declares an id, a role, the files it may touch, its dependencies, and a **verify command**.
 Read-only tasks still carry a trivially-passing verify line (e.g. `printf ok`).
+
+## `revisions/` — preserved artifact revisions
+
+`specd reopen <spec> artifact <requirements|design|tasks>` and `specd reopen <spec> spec`
+preserve the artifact bytes **before** anything is mutated, at
+`.specd/specs/<slug>/revisions/<artifact>/<sha256>.md`. The file name is the sha256 of its own
+contents, so:
+
+- writing the same bytes twice is idempotent — the existing snapshot is reused;
+- a snapshot whose bytes do not hash to its own name fails closed rather than being overwritten;
+- `<artifact>` is one of `requirements`, `design`, `tasks` and every path component is
+  normalized inside the spec's revision directory, so no reopen can write outside it.
+
+Snapshots are additive and never deleted: they are how a prior draft version — and the complete
+prior lifecycle cycle after a spec reopen — stays reportable. If snapshot creation fails, the
+reopen appends no workflow event and writes no state.
 
 ## `state.json` — the machine truth
 

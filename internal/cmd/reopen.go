@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -11,30 +12,125 @@ import (
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
 
-// runReopen opens the next attempt of a terminal task. Only `task` is wired:
-// artifact and spec reopen resolve to no operation and fail closed before
-// dispatch, so this handler never sees them.
+// runReopen opens the next attempt of a terminal task (`task`), the next draft
+// version of a spec artifact (`artifact`), or the next lifecycle cycle of the
+// whole spec (`spec`).
 func runReopen(root string, args []string, flags map[string]string) error {
-	if len(args) != 3 || args[1] != "task" {
+	if len(args) < 2 {
 		return usageError("reopen")
 	}
-	slug, taskID := args[0], args[2]
+	slug := args[0]
 	if err := core.ValidateSlug(slug); err != nil {
 		return core.Refusef("SPEC_INVALID", "%v", err)
 	}
+	reason, expected, err := reopenIntent(flags)
+	if err != nil {
+		return err
+	}
+	switch {
+	case args[1] == "task" && len(args) == 3:
+		return reopenTask(root, slug, args[2], reason, expected, flags)
+	case args[1] == "artifact" && len(args) == 3:
+		return reopenArtifact(root, slug, args[2], reason, expected)
+	case args[1] == "spec" && len(args) == 2:
+		return reopenArtifact(root, slug, "", reason, expected)
+	}
+	return usageError("reopen")
+}
+
+// reopenIntent parses the two flags every reopen requires.
+func reopenIntent(flags map[string]string) (string, int64, error) {
 	reason := strings.TrimSpace(flags["reason"])
 	if reason == "" {
-		return fmt.Errorf("%w: reopen requires --reason <text>", ErrUsage)
+		return "", 0, fmt.Errorf("%w: reopen requires --reason <text>", ErrUsage)
 	}
 	raw := strings.TrimSpace(flags["expect-revision"])
 	if raw == "" {
-		return fmt.Errorf("%w: reopen requires --expect-revision <n>", ErrUsage)
+		return "", 0, fmt.Errorf("%w: reopen requires --expect-revision <n>", ErrUsage)
 	}
 	expected, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || expected < 0 {
-		return fmt.Errorf("%w: --expect-revision must be a non-negative integer, got %q", ErrUsage, raw)
+		return "", 0, fmt.Errorf("%w: --expect-revision must be a non-negative integer, got %q", ErrUsage, raw)
 	}
+	return reason, expected, nil
+}
 
+// reopenArtifact preserves the current artifact bytes as a content-addressed
+// revision and opens a new draft version (or, with no artifact, a new lifecycle
+// cycle). Released, deployed, and archived work refuses here with the successor
+// route (R4.1-R4.3).
+func reopenArtifact(root, slug, artifact, reason string, expected int64) error {
+	plan, err := core.WithSpecLock(root, func() (core.ArtifactReopenPlan, error) {
+		statePath, eventPath := core.StatePath(root, slug), core.WorkflowEventPath(root, slug)
+		state, err := core.RecoverWorkflowState(statePath, eventPath)
+		if err != nil {
+			return core.ArtifactReopenPlan{}, err
+		}
+		events, err := core.ReadWorkflowEvents(eventPath)
+		if err != nil {
+			return core.ArtifactReopenPlan{}, err
+		}
+		req := core.ArtifactReopenRequest{
+			Artifact:         artifact,
+			ExpectedRevision: expected,
+			Reason:           reason,
+			ActorID:          core.ReopenActor(),
+			GitHead:          gitHead(root),
+			Digests:          artifactDigests(root, slug),
+			Consumptions:     externalConsumptions(root, slug),
+		}
+		preview := core.PlanArtifactReopen(slug, req, state, events)
+		if !preview.Eligible {
+			return preview, preview.Refusal()
+		}
+		return core.CommitArtifactReopen(root, slug, req, preview)
+	})
+	if err != nil {
+		return err
+	}
+	return writeJSON(plan)
+}
+
+// artifactDigests reads the current bytes digest of every reopenable artifact.
+// A missing or unreadable artifact contributes nothing, so planning refuses it
+// rather than reopening work whose prior revision cannot be preserved (R4.4).
+func artifactDigests(root, slug string) map[string]string {
+	digests := map[string]string{}
+	for _, artifact := range core.ReopenableArtifacts {
+		path, err := core.SpecArtifactPath(root, slug, artifact)
+		if err != nil {
+			continue
+		}
+		if raw, readErr := os.ReadFile(path); readErr == nil {
+			digests[artifact] = core.Digest(raw)
+		}
+	}
+	return digests
+}
+
+// externalConsumptions resolves what has already consumed this spec's work from
+// durable delivery records only. Release, deployment, and archive records are
+// immutable outside specd, so they make in-place reopen forbidden; a submission
+// is withdrawable, so it blocks without being successor-only (R4.3).
+func externalConsumptions(root, slug string) []core.ImpactConsumption {
+	var consumptions []core.ImpactConsumption
+	for _, record := range []struct {
+		kind, path string
+		external   bool
+	}{
+		{"release", core.ReleaseLedgerPath(root, slug), true},
+		{"deployment", core.DeploymentLedgerPath(root, slug), true},
+		{"archive", core.ArchiveRecordPath(root, slug), true},
+		{"submission", core.SubmissionsPath(root, slug), false},
+	} {
+		if info, err := os.Stat(record.path); err == nil && info.Size() > 0 {
+			consumptions = append(consumptions, core.ImpactConsumption{Record: record.path, Kind: record.kind, External: record.external})
+		}
+	}
+	return consumptions
+}
+
+func reopenTask(root, slug, taskID, reason string, expected int64, flags map[string]string) error {
 	plan, err := core.WithSpecLock(root, func() (core.ReopenPlan, error) {
 		spec, err := loadSpec(root, slug)
 		if err != nil {
