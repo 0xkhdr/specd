@@ -48,10 +48,14 @@ type WaitReason struct {
 // clarification, and schedule records; CoverageResolved is the explicit
 // disposition that a cancelled or superseded task's acceptance is covered
 // elsewhere, without which descendants stay unresolved.
+// Attempt is the task's current attempt number, set by a reopen (spec 04 R3.1).
+// Zero means the first attempt, so a task that was never reopened projects
+// exactly as it did before attempts existed.
 type TaskFacts struct {
 	Activity         TaskActivity `json:"activity,omitempty"`
 	Waits            []WaitReason `json:"waits,omitempty"`
 	CoverageResolved bool         `json:"coverage_resolved,omitempty"`
+	Attempt          int          `json:"attempt,omitempty"`
 }
 
 // TaskState is the projected activity plus readiness pair for one task (R3.1).
@@ -60,6 +64,8 @@ type TaskState struct {
 	Activity  TaskActivity `json:"activity"`
 	Readiness Readiness    `json:"readiness"`
 	Waits     []WaitReason `json:"waits,omitempty"`
+	// Attempt is omitted on the first attempt: only reopened work carries one.
+	Attempt int `json:"attempt,omitempty"`
 }
 
 // Runnable reports whether the task may be picked up: accepted, unattempted,
@@ -85,7 +91,7 @@ func ProjectTaskStates(tasks []TaskRow, status map[string]TaskRunStatus, facts m
 		sort.SliceStable(waits, func(i, j int) bool {
 			return readinessPriority[waits[i].Readiness] < readinessPriority[waits[j].Readiness]
 		})
-		state := TaskState{ID: task.ID, Activity: activity[task.ID], Readiness: ReadinessReady, Waits: waits}
+		state := TaskState{ID: task.ID, Activity: activity[task.ID], Readiness: ReadinessReady, Waits: waits, Attempt: facts[task.ID].Attempt}
 		if len(waits) > 0 {
 			state.Readiness = waits[0].Readiness
 		}

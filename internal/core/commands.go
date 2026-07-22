@@ -285,6 +285,21 @@ var Commands = []Command{
 		},
 	},
 	{
+		Name:          "reopen",
+		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>]",
+		Description:   "Open the next attempt of a completed, failed, or cancelled task with a fresh baseline, scope, and authority; prior-attempt evidence stops completing it.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples:      []string{"specd reopen payments task T7 --reason 'rounding defect found in review' --expect-revision 12"},
+		SpecSlugArg:   argAt(0),
+		Flags: []Flag{
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Required audit reason recorded on the attempt event."},
+			{Name: "expect-revision", TakesValue: true, Type: "string", Description: "State revision the reopen was previewed against; a moved revision refuses and requires a fresh preview."},
+			{Name: "scope", TakesValue: true, Type: "string", Description: "Comma-separated bounded scope amendment approved inside this transaction, for repair that spans the task's declared files."},
+			{Name: "revoke-lease", TakesValue: true, Type: "string", Description: "Lease id the operator authorizes revoking inside this transaction; a live lease otherwise refuses the reopen."},
+		},
+	},
+	{
 		Name:          "approve",
 		Usage:         "specd approve <spec>",
 		Description:   "Advance a spec exactly one lifecycle step after human approval and passing readiness gates.",
@@ -768,7 +783,10 @@ var operationDefinitions = map[string][]operationDefinition{
 	},
 	// Undo is operator-only by default: an agent may request a repair but never
 	// compensates governed history itself (spec 04 design, security section).
-	"undo":      {{id: "undo", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
+	"undo": {{id: "undo", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
+	// Reopen is operator-only for the same reason undo is: an agent may request
+	// a repair but never re-authorizes its own work (spec 04 design, security).
+	"reopen":    {{id: "reopen.task", subcommand: "task", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"}},
 	"recurring": {{id: "recurring.record", subcommand: "record", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"}},
 	"report":    {{id: "report.render", effect: EffectRead, scopeSource: "arguments"}},
 	"task": {
@@ -964,6 +982,14 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 		}
 	case "report":
 		id = "report.render"
+	case "reopen":
+		// The entity kind is the second argument (`reopen <spec> task <id>`).
+		// Artifact and spec reopen are not wired yet, so anything else fails
+		// closed rather than resolving to the task operation.
+		if len(args) < 2 || args[1] != "task" {
+			return Operation{}, false
+		}
+		id = "reopen.task"
 	}
 	return OperationByID(id)
 }

@@ -204,6 +204,39 @@ a linked successor instead of an in-place repair.
 concurrent repair, an approval), undo refuses with the fresh revision to re-run against, so at
 most one racing repair ever wins. There is no event-id flag: older history is not undoable.
 
+## Reopen a task for repair
+
+A defect found after a task completed is repaired in a **new attempt**, not by editing history:
+
+```bash
+specd status payments --json          # read the current revision
+specd reopen payments task T7 --reason 'rounding defect found in review' --expect-revision 12
+```
+
+Reopen is operator-only and works on a completed, failed, or cancelled task. It appends an
+attempt event carrying the task id, the new attempt number, its plan and scope revision, a fresh
+current git baseline, a fresh authority digest, pending activity with a derived readiness, and
+links to both the prior attempt and the completed descendants the repair makes stale. The
+tasks.md marker is not rewritten — the pending activity is projected, so the file stays
+byte-stable.
+
+Evidence is bound to the attempt it was recorded under. After a reopen, the prior attempt's
+verify record no longer completes the task **even when its command, files, and git HEAD are
+identical** — the record stays in the ledger as history, and `complete-task` refuses until you
+run `specd verify` again against the new attempt.
+
+Two things refuse the reopen outright, mutating nothing:
+
+- **A live lease or mission owns the task.** The refusal names the holder and the exact
+  `--revoke-lease <id>` that authorizes surrendering it inside the same transaction. A lease you
+  hold yourself is released automatically.
+- **The repair spans the task's declared files.** Approve the bounded amendment in the same
+  transaction with `--scope internal/pricing.go,internal/tax.go`. The amendment is durable: the
+  new attempt's write scope is the task's declared files plus what you approved here.
+
+As with undo, `--expect-revision` is the revision the reopen was previewed against; a moved
+revision or a moved impact plan refuses and asks for a fresh preview.
+
 ## Open questions
 
 An unresolved question is recorded, not guessed. An agent may open one; only a human resolves

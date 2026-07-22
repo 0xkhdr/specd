@@ -20,9 +20,13 @@ func HeadPinned(gitHead string) bool {
 // record passed and is pinned to a real commit. This is the no-bypass test gate
 // (spec 04 R3.4): a failing deterministic test always blocks completion.
 func verifyEvidenceReady(taskID string, records map[string]EvidenceRecord) error {
+	// records is attempt-filtered by LoadEvidence, so a reopened task reaches
+	// here with its prior attempt's records already dropped: the same refusal
+	// covers "never verified" and "verified under a superseded attempt", and
+	// the recovery is identical in both cases (spec 04 R3.2).
 	record, ok := records[taskID]
 	if !ok || record.ExitCode != 0 {
-		return fmt.Errorf("task %s requires passing evidence", taskID)
+		return fmt.Errorf("task %s requires passing evidence recorded for its current attempt; run `specd verify` again", taskID)
 	}
 	if !HeadPinned(record.GitHead) {
 		return fmt.Errorf("task %s evidence is not pinned to a commit (git_head %q); re-run `specd verify %s` in a repo with a resolvable HEAD", taskID, record.GitHead, taskID)

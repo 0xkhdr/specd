@@ -704,6 +704,29 @@ Freeze an immutable, reproducible release candidate identity into releases.jsonl
 specd release candidate payments --artifact-digest sha256:abc --sbom-ref sbom://payments --provenance-ref prov://payments
 ```
 
+### `reopen`
+
+```
+specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>]
+```
+
+Open the next attempt of a completed, failed, or cancelled task with a fresh baseline, scope, and authority; prior-attempt evidence stops completing it.
+
+**Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--expect-revision` | string | State revision the reopen was previewed against; a moved revision refuses and requires a fresh preview. |
+| `--reason` | string | Required audit reason recorded on the attempt event. |
+| `--revoke-lease` | string | Lease id the operator authorizes revoking inside this transaction; a live lease otherwise refuses the reopen. |
+| `--scope` | string | Comma-separated bounded scope amendment approved inside this transaction, for repair that spans the task's declared files. |
+
+**Examples:**
+
+```bash
+specd reopen payments task T7 --reason 'rounding defect found in review' --expect-revision 12
+```
+
 ### `report`
 
 ```
