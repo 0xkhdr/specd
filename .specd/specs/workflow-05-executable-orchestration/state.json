@@ -2,12 +2,12 @@
   "schema_version": 2,
   "slug": "workflow-05-executable-orchestration",
   "mode": "orchestrated",
-  "status": "executing",
-  "phase": "execute",
+  "status": "verifying",
+  "phase": "verify",
   "cycle": 1,
-  "stage": "executing",
+  "stage": "verifying",
   "condition": "active",
-  "revision": 5,
+  "revision": 6,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -17,6 +17,15 @@
       "source_digest": "8dcebd17ceeb919dc83b5740a01b7477b35f7c8820909aa7fff816b3a8c820c3",
       "timestamp": "2026-07-21T21:19:33Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 5,
+      "timestamp": "2026-07-22T19:18:30Z",
+      "git_head": "3e70fc6b77191a12e8d9123ca35fcd32c59448c8",
       "actor": "xkhdr"
     },
     "approval:orchestrated": {
@@ -43,6 +52,44 @@
       "approved_revision": 3,
       "timestamp": "2026-07-22T10:56:20Z",
       "git_head": "31a43312cb032da6227103954522413c07be52e4",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:0": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-05-executable-orchestration",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 5,
+        "plan_digest": "3c726f8095648377ff4a81c2e79a2000a07131685374d2b6d8eb9ebbea5da731",
+        "config_digest": "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T20:18:30Z",
+      "timestamp": "2026-07-22T19:18:30Z",
+      "git_head": "3e70fc6b77191a12e8d9123ca35fcd32c59448c8",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:1": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-05-executable-orchestration",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 5,
+        "plan_digest": "3c726f8095648377ff4a81c2e79a2000a07131685374d2b6d8eb9ebbea5da731",
+        "config_digest": "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T20:18:30Z",
+      "timestamp": "2026-07-22T19:18:30Z",
+      "git_head": "3e70fc6b77191a12e8d9123ca35fcd32c59448c8",
       "actor": "xkhdr"
     },
     "approval_request:approve:tasks:0": {
