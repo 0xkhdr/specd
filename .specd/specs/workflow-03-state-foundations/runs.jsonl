@@ -1,1 +1,3 @@
 {"envelope_version":"v1","run_id":"b1b6a8ae7ec8e525","spec_id":"workflow-03-state-foundations","task_id":"T12","attempt":1,"started_at":"2026-07-22T00:09:47Z","git_head":"761dc4e23c6b4d093cf8945180d1234862670a27","actor":"xkhdr","telemetry_source":"worker"}
+{"envelope_version":"v1","run_id":"b1b6a8ae7ec8e525","spec_id":"workflow-03-state-foundations","task_id":"T12","attempt":2,"started_at":"2026-07-22T01:02:19Z","git_head":"56e337b29acec1b1c5e452f05c510bceb12d4089","actor":"xkhdr","telemetry_source":"worker"}
+{"envelope_version":"v1","run_id":"42ee78132fd67b67","spec_id":"workflow-03-state-foundations","task_id":"T13","attempt":1,"started_at":"2026-07-22T01:16:15Z","git_head":"56e337b29acec1b1c5e452f05c510bceb12d4089","actor":"xkhdr","telemetry_source":"worker"}

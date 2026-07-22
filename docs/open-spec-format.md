@@ -62,15 +62,28 @@ shape (`internal/core/state.go`, `type State`):
 
 | Field | Type | Meaning |
 |---|---|---|
-| `schema_version` | int | On-disk schema (**1**; any other value fails closed on load). |
+| `schema_version` | int | On-disk schema (**2**; `1` still loads through the compatibility projection, anything newer fails closed). |
 | `slug` | string | Spec slug. |
 | `mode` | `default` \| `agent` | Execution mode. |
-| `status` | string | `requirements → design → tasks → executing → verifying → complete` (+ `blocked`). |
+| `status` | string | Compatibility projection of `stage`/`condition` for schema-1 readers: `requirements → design → tasks → executing → verifying → complete` (+ `blocked`). |
+| `cycle` | int | Delivery cycle; every migrated v1 spec is cycle `1`. |
+| `stage` | string | Canonical lifecycle stage: `requirements → design → tasks → executing → verifying → complete`. |
+| `condition` | string | Canonical condition: `active`, `waiting_approval`, `waiting_clarification`, `paused`, `blocked`, `cancelled`, `complete`. |
+| `current_request` | string | Approval request identity a `waiting_approval` condition requires. |
 | `phase` | string | Derived phase: `perceive → analyze → plan → execute → verify → reflect`. |
 | `revision` | int64 | Monotonic counter; mutations **compare-and-swap** on it. |
 | `records` | object | Append-only ledger of stamped records (approvals, decisions, verify records, …). |
 | `task_status` | object | Per-task run status — the machine truth the `sync` gate reconciles against `tasks.md` markers. |
 | `extra` | object | Forward-compatible escape hatch. |
+
+`core.ValidateStageCondition` is the single owner of the legal `stage`/`condition` pairs — a
+combination it rejects (complete plus paused, `waiting_approval` without a `current_request`)
+can neither be saved nor loaded — and `core.ProjectStatus` derives `status` from that pair.
+Migration maps a v1 spec to cycle 1, preserves `state.v1.json.bak` with the original file
+permissions, writes the baseline `workflow-events.jsonl` entry, replays it, proves the
+effective meaning is unchanged, and only then activates schema 2. A legacy `blocked` state
+cannot reveal the stage it was blocked in, so migration refuses it with a repair diagnostic
+instead of guessing.
 
 Every ledger `record` carries a provenance triple — `timestamp` (RFC 3339 UTC), `git_head`,
 and `actor` (`$SPECD_ACTOR`, else OS user, else `unknown`). The actor is host-reported and

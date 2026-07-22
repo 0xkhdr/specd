@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -40,5 +41,55 @@ func TestStatusGuideSuppressesTaskVerify(t *testing.T) {
 	}
 	if containsStr(g.LegalCommands, "verify") {
 		t.Fatalf("verify must not be suggested without an executable task: %v", g.LegalCommands)
+	}
+}
+
+// TestStageConditionMigrationCompatibilityProjection pins spec 03 R2.3/R6.4: a
+// schema-1 state.json and its migrated schema-2 form drive identical guidance,
+// so legacy projects keep working while the canonical pair becomes the truth.
+func TestStageConditionMigrationCompatibilityProjection(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	current, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"guide": "", "json": ""})
+	})
+	if err != nil {
+		t.Fatalf("status --guide --json: %v", err)
+	}
+
+	raw, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	fields["schema_version"] = json.RawMessage("1")
+	delete(fields, "cycle")
+	delete(fields, "stage")
+	delete(fields, "condition")
+	legacy, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(statePath, legacy, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	projected, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"guide": "", "json": ""})
+	})
+	if err != nil {
+		t.Fatalf("legacy status --guide --json: %v", err)
+	}
+	if projected != current {
+		t.Fatalf("legacy guidance = %q, want the schema-2 guidance %q", projected, current)
+	}
+	state, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatalf("load legacy state: %v", err)
+	}
+	if state.Cycle != 1 || state.Stage != core.StageRequirements || state.Condition != core.ConditionActive {
+		t.Fatalf("legacy state projection = %+v", state)
 	}
 }

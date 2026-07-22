@@ -11,7 +11,13 @@ import (
 	"time"
 )
 
-const StateSchemaVersion = 1
+const (
+	StateSchemaVersion = 2
+	// LegacyStateSchemaVersion is the v1 on-disk shape. It is still readable
+	// during the compatibility window: loading projects it onto the canonical
+	// schema-2 fields in memory. Only `specd` migration writes v2 durably.
+	LegacyStateSchemaVersion = 1
+)
 
 // PreflightStateSchema checks compatibility without decoding or mutating state.
 // Installers use it before replacing a binary so future state cannot be opened
@@ -104,14 +110,22 @@ func ValidMode(mode Mode) bool {
 }
 
 type State struct {
-	SchemaVersion int                        `json:"schema_version"`
-	Slug          string                     `json:"slug"`
-	Mode          Mode                       `json:"mode"`
-	Status        Status                     `json:"status"`
-	Phase         Phase                      `json:"phase"`
-	Revision      int64                      `json:"revision"`
-	LastEventID   string                     `json:"last_event_id,omitempty"`
-	Records       map[string]json.RawMessage `json:"records,omitempty"`
+	SchemaVersion int    `json:"schema_version"`
+	Slug          string `json:"slug"`
+	Mode          Mode   `json:"mode"`
+	// Status is the schema-1 compatibility projection of Stage/Condition. It
+	// stays on disk for legacy readers; ProjectStatus owns its value.
+	Status Status `json:"status"`
+	Phase  Phase  `json:"phase"`
+	// Cycle, Stage, Condition, and CurrentRequest are the canonical schema-2
+	// lifecycle facts (spec 03 R2.1). Cycle is 1 for every migrated v1 spec.
+	Cycle          int                        `json:"cycle,omitempty"`
+	Stage          Stage                      `json:"stage,omitempty"`
+	Condition      Condition                  `json:"condition,omitempty"`
+	CurrentRequest string                     `json:"current_request,omitempty"`
+	Revision       int64                      `json:"revision"`
+	LastEventID    string                     `json:"last_event_id,omitempty"`
+	Records        map[string]json.RawMessage `json:"records,omitempty"`
 	// TaskStatus is the machine truth for per-task run status (ADR-1: status
 	// lives in state.json, tasks.md stays clean Markdown). The Sync gate
 	// enforces that tasks.md markers agree with this map.
@@ -126,6 +140,9 @@ func InitialState(slug string) State {
 		Mode:          ModeDefault,
 		Status:        StatusRequirements,
 		Phase:         PhaseForStatus(StatusRequirements),
+		Cycle:         1,
+		Stage:         StageRequirements,
+		Condition:     ConditionActive,
 		Revision:      0,
 		Records:       map[string]json.RawMessage{},
 	}
@@ -140,22 +157,75 @@ func LoadState(path string) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
+	state, err := DecodeState(raw)
+	if err != nil {
+		return State{}, fmt.Errorf("decode %s: %w", path, err)
+	}
+	// A v1 file is read through the compatibility projection so existing
+	// projects keep working before migration commits (spec 03 R6.1).
+	state.SchemaVersion = StateSchemaVersion
+	state.projectCanonical()
+	return state, state.Validate()
+}
+
+// DecodeState decodes on-disk state bytes without projecting or validating.
+// Schema newer than this binary fails here, before any mutation (spec 03 R1.4).
+func DecodeState(raw []byte) (State, error) {
 	var state State
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&state); err != nil {
-		return State{}, fmt.Errorf("decode %s: %w", path, err)
+		return State{}, err
 	}
-	if state.SchemaVersion != StateSchemaVersion {
-		return State{}, fmt.Errorf("unsupported state schema %d (specd v1 requires schema %d)", state.SchemaVersion, StateSchemaVersion)
+	if state.SchemaVersion > StateSchemaVersion || state.SchemaVersion < LegacyStateSchemaVersion {
+		return State{}, fmt.Errorf("unsupported state schema %d (this binary supports %d and %d)", state.SchemaVersion, LegacyStateSchemaVersion, StateSchemaVersion)
 	}
 	if state.Records == nil {
 		state.Records = map[string]json.RawMessage{}
 	}
-	return state, state.Validate()
+	return state, nil
+}
+
+// projectCanonical derives the canonical pair for a state that a schema-1
+// mutator wrote. During the compatibility window the legacy status is still the
+// mutation surface, so stage is adopted from it and the unremarkable conditions
+// (absent, active, complete, stale block) follow the stage. A deliberate
+// condition — paused, waiting, cancelled — is never repaired: it must reach
+// ValidateStageCondition and be rejected there if the combination is illegal.
+func (s *State) projectCanonical() {
+	if s.Cycle == 0 {
+		s.Cycle = 1
+	}
+	if s.Status == StatusBlocked {
+		// The stage a legacy blocked state was blocked in is unrecoverable;
+		// Validate refuses it with the repair diagnostic (spec 03 R6.2).
+		s.Condition = ConditionBlocked
+		return
+	}
+	if !ValidStatus(s.Status) {
+		return
+	}
+	s.Stage = Stage(s.Status)
+	switch s.Condition {
+	case "", ConditionActive, ConditionComplete, ConditionBlocked:
+		s.Condition = ConditionActive
+		if s.Stage == StageComplete {
+			s.Condition = ConditionComplete
+		}
+	}
+}
+
+// MarshalJSON projects the canonical fields on the way out so every serialized
+// state — file bytes, event projection, report — carries the same derived pair
+// and replay stays byte-for-field equivalent (spec 03 R1.2, R2.3).
+func (s State) MarshalJSON() ([]byte, error) {
+	type stateFields State
+	s.projectCanonical()
+	return json.Marshal(stateFields(s))
 }
 
 func SaveState(path string, state State) error {
+	state.SchemaVersion = StateSchemaVersion
 	if err := state.Validate(); err != nil {
 		return err
 	}
@@ -184,6 +254,7 @@ func SaveStateCAS(path string, expectedRevision int64, state State) error {
 }
 
 func (s State) Validate() error {
+	s.projectCanonical()
 	if s.SchemaVersion != StateSchemaVersion {
 		return fmt.Errorf("unsupported state schema %d", s.SchemaVersion)
 	}
@@ -195,6 +266,19 @@ func (s State) Validate() error {
 	}
 	if !ValidStatus(s.Status) {
 		return fmt.Errorf("invalid state status %q", s.Status)
+	}
+	if s.Cycle < 1 {
+		return fmt.Errorf("invalid state cycle %d", s.Cycle)
+	}
+	if s.Stage == "" && s.Status == StatusBlocked {
+		return errors.New("legacy blocked state does not reveal its prior stage: repair it by recording the stage the spec was blocked in, then migrate")
+	}
+	sc := StageCondition{Stage: s.Stage, Condition: s.Condition, CurrentRequest: s.CurrentRequest}
+	if err := ValidateStageCondition(sc); err != nil {
+		return err
+	}
+	if projected := ProjectStatus(sc); projected != s.Status {
+		return fmt.Errorf("state status %q is not the projection %q of stage %q and condition %q", s.Status, projected, s.Stage, s.Condition)
 	}
 	if !ValidPhase(s.Phase) {
 		return fmt.Errorf("invalid state phase %q", s.Phase)

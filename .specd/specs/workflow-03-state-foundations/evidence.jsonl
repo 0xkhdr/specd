@@ -1,1 +1,3 @@
 {"task_id":"T12","command":"go test ./internal/core -run TestWorkflowEventReplay -count=2","exit_code":0,"git_head":"761dc4e23c6b4d093cf8945180d1234862670a27","timestamp":"2026-07-22T00:09:47Z","actor":"xkhdr"}
+{"task_id":"T12","command":"go test ./internal/core -run TestWorkflowEventReplay -count=2","exit_code":0,"git_head":"56e337b29acec1b1c5e452f05c510bceb12d4089","timestamp":"2026-07-22T01:02:19Z","actor":"xkhdr"}
+{"task_id":"T13","command":"go test ./internal/core ./internal/cmd -run TestStageConditionMigration -count=2","exit_code":0,"git_head":"56e337b29acec1b1c5e452f05c510bceb12d4089","timestamp":"2026-07-22T01:16:15Z","actor":"xkhdr"}

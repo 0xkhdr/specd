@@ -188,14 +188,14 @@ func TestLoadStateAcceptsCurrentSchema(t *testing.T) {
 	}
 }
 
-func TestLoadStateRejectsNonV1Schema(t *testing.T) {
+func TestLoadStateRejectsFutureSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	raw := `{"schema_version":2,"slug":"demo","mode":"agent","status":"requirements","phase":"perceive","revision":1}`
+	raw := `{"schema_version":3,"slug":"demo","mode":"agent","status":"requirements","phase":"perceive","revision":1}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write state: %v", err)
 	}
 	if _, err := LoadState(path); err == nil {
-		t.Fatal("LoadState accepted non-v1 schema")
+		t.Fatal("LoadState accepted a schema newer than this binary")
 	}
 }
 
@@ -239,5 +239,38 @@ func TestSchemaPreflight(t *testing.T) {
 				t.Fatalf("preflight error = %v, want %q", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+// TestStageConditionMigrationProjectsLegacyState pins spec 03 R2.1/R2.3: a
+// schema-1 file still loads, gains the canonical pair, and keeps the same
+// projected status; an illegal pair is refused on load and on save.
+func TestStageConditionMigrationProjectsLegacyState(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	raw := `{"schema_version":1,"slug":"demo","mode":"default","status":"executing","phase":"execute","revision":2}`
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state, err := LoadState(path)
+	if err != nil {
+		t.Fatalf("legacy state must remain readable: %v", err)
+	}
+	if state.Cycle != 1 || state.Stage != StageExecuting || state.Condition != ConditionActive || state.Status != StatusExecuting {
+		t.Fatalf("legacy projection = %+v", state)
+	}
+
+	paused := InitialState("demo")
+	paused.Status, paused.Phase, paused.Stage, paused.Condition = StatusComplete, PhaseReflect, StageComplete, ConditionPaused
+	if err := SaveState(filepath.Join(dir, "paused.json"), paused); err == nil {
+		t.Fatal("SaveState accepted a complete spec that is also paused")
+	}
+	blocked := filepath.Join(dir, "blocked.json")
+	legacyBlocked := `{"schema_version":1,"slug":"demo","mode":"default","status":"blocked","phase":"reflect","revision":1}`
+	if err := os.WriteFile(blocked, []byte(legacyBlocked), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadState(blocked); err == nil || !strings.Contains(err.Error(), "prior stage") {
+		t.Fatalf("legacy blocked load error = %v, want a prior-stage repair diagnostic", err)
 	}
 }

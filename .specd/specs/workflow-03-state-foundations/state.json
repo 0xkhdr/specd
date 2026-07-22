@@ -4,7 +4,7 @@
   "mode": "orchestrated",
   "status": "complete",
   "phase": "reflect",
-  "revision": 6,
+  "revision": 7,
   "records": {
     "approval:complete": {
       "kind": "approval",
@@ -60,5 +60,8 @@
       "git_head": "eb8ac62eae790833443d7d72c9f49ff7e316e6c2",
       "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T12": "complete"
   }
 }

@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Status string
 
@@ -89,6 +92,87 @@ func AdvanceStatus(current, next Status) (Phase, error) {
 		return "", fmt.Errorf("lifecycle approval from %q requires exact successor %q, got %q", current, statusOrder[currentIndex+1], next)
 	}
 	return PhaseForStatus(next), nil
+}
+
+// Stage is where a spec sits in its lifecycle; Condition is what it is doing
+// there. Schema 2 stores the pair independently (spec 03 R2.1) so a blocked or
+// paused spec no longer loses the stage it was blocked in.
+type Stage string
+
+const (
+	StageRequirements Stage = "requirements"
+	StageDesign       Stage = "design"
+	StageTasks        Stage = "tasks"
+	StageExecuting    Stage = "executing"
+	StageVerifying    Stage = "verifying"
+	StageComplete     Stage = "complete"
+)
+
+type Condition string
+
+const (
+	ConditionActive               Condition = "active"
+	ConditionWaitingApproval      Condition = "waiting_approval"
+	ConditionWaitingClarification Condition = "waiting_clarification"
+	ConditionPaused               Condition = "paused"
+	ConditionBlocked              Condition = "blocked"
+	ConditionCancelled            Condition = "cancelled"
+	ConditionComplete             Condition = "complete"
+)
+
+// StageCondition is the canonical lifecycle pair plus the identity a condition
+// may require. ValidateStageCondition is the single owner of the legal
+// combinations (spec 03 R2.2): proposal and load both route through it, and no
+// second table of combinations may exist.
+type StageCondition struct {
+	Stage          Stage
+	Condition      Condition
+	CurrentRequest string
+}
+
+var validStages = map[Stage]bool{
+	StageRequirements: true, StageDesign: true, StageTasks: true,
+	StageExecuting: true, StageVerifying: true, StageComplete: true,
+}
+
+var validConditions = map[Condition]bool{
+	ConditionActive: true, ConditionWaitingApproval: true, ConditionWaitingClarification: true,
+	ConditionPaused: true, ConditionBlocked: true, ConditionCancelled: true, ConditionComplete: true,
+}
+
+func ValidStage(stage Stage) bool { return validStages[stage] }
+
+func ValidCondition(condition Condition) bool { return validConditions[condition] }
+
+func ValidateStageCondition(sc StageCondition) error {
+	if !ValidStage(sc.Stage) {
+		return fmt.Errorf("invalid spec stage %q", sc.Stage)
+	}
+	if !ValidCondition(sc.Condition) {
+		return fmt.Errorf("invalid spec condition %q", sc.Condition)
+	}
+	// A finished lifecycle and a finished condition imply each other; only
+	// cancellation may end a spec at any other stage. This is what makes
+	// complete plus paused (or executing plus complete) unrepresentable.
+	if sc.Condition != ConditionCancelled && (sc.Stage == StageComplete) != (sc.Condition == ConditionComplete) {
+		return fmt.Errorf("invalid spec stage %q with condition %q", sc.Stage, sc.Condition)
+	}
+	if sc.Condition == ConditionWaitingApproval && sc.CurrentRequest == "" {
+		return errors.New("condition waiting_approval requires a current approval request")
+	}
+	return nil
+}
+
+// ProjectStatus is the deterministic compatibility projection of the canonical
+// pair onto the legacy status field (spec 03 R2.3). Legacy readers keep reading
+// status; nothing mutates it as an independent fact.
+func ProjectStatus(sc StageCondition) Status {
+	switch sc.Condition {
+	case ConditionBlocked, ConditionCancelled:
+		return StatusBlocked
+	default:
+		return Status(sc.Stage)
+	}
 }
 
 func statusIndex(status Status) int {
