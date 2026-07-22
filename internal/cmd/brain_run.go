@@ -205,16 +205,42 @@ func runBrainRun(root, sessionPath, acpPath, checkpointPath, slug string, flags 
 	if err != nil {
 		return err
 	}
+	dispatched := 0
 	for range spec.Tasks {
 		action, err := runBrainStep(root, sessionPath, acpPath, checkpointPath, slug, flags, "run")
 		if err != nil {
 			return err
 		}
-		if action != orchestration.ActionDispatch {
-			return nil
+		if action == orchestration.ActionDispatch {
+			dispatched++
+			continue
 		}
+		// R6.3: a brake is permanent — no amount of waiting clears a cost/token
+		// limit, a deadline, or an escalated task. Returning success here would
+		// report a blocked run as a finished one. A wait is different: workers
+		// are still running, so the run legitimately ends with nothing to do.
+		switch action {
+		case orchestration.ActionHalt, orchestration.ActionTimeout, orchestration.ActionEscalate:
+			return zeroProgressRefusal(checkpointPath, slug, action, dispatched)
+		}
+		return nil
 	}
 	return nil
+}
+
+// zeroProgressRefusal reports a permanently braked run as a distinct non-success
+// outcome, naming the durable checkpoint effects so the operator knows whether
+// any mission became visible before the brake (R6.3).
+func zeroProgressRefusal(checkpointPath, slug string, action orchestration.Action, dispatched int) error {
+	checkpoint, exists, _ := orchestration.LoadCheckpoint(checkpointPath)
+	checkpointID := ""
+	if exists {
+		checkpointID = checkpoint.MissionID
+	}
+	return core.Refusef("BRAIN_ZERO_PROGRESS", "brain run braked on %s after %d dispatch(es); no further task can proceed", action, dispatched).
+		WithContext(slug, fmt.Sprintf("durable checkpoint mission %q; %d dispatch(es) recorded in the ledger", checkpointID, dispatched), "resolve the brake, then re-run").
+		WithMutation(dispatched > 0, checkpointID).
+		WithSuccessor(core.RefusalActorOperator, "brain.status", "specd brain status "+slug)
 }
 
 // sessionDispatcher records a dispatch as ACP evidence and a session lease. It is

@@ -1,40 +1,41 @@
 {
-  "id": "ds-36330bbda0c05e9a2528fa7205319e7b",
+  "id": "ds-95c4d83e26f1fff63d2fd3f949579333",
   "slug": "workflow-05-executable-orchestration",
   "driver": "claude-code",
-  "baseline_revision": 27,
+  "baseline_revision": 28,
   "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
-  "baseline_head": "4d6ec039269823d0a3b9420657bf7e0b48a1f2d1",
+  "baseline_head": "95fcef426e6cd1a2b4a80ee7b3ed0cb079ee0280",
   "context_receipt": {
     "schema_version": "1",
-    "manifest_digest": "63b1a558a8d2e012d3e0bab876b7cb3bf479f784d4e1728247b9f9a8c9d8b665",
+    "manifest_digest": "2dff42140bcfca9df564545fa2b8682e58831e26ce37fa477630bb10f43936b7",
     "host_id": "claude-code",
     "driver_id": "claude-code",
     "supplied_digests": [
-      "045700bce7be946d729ee595b168f04d9acc237197d12ada6314477ed041ccbc",
+      "018958e5d9b56d3fd6077ea6b48689e2d379d8cf2acb28980a316c387057e60e",
       "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809",
-      "357b33cb036cd59f7fd2be10984178781fb3c655b84f9444e7f1ef3b3572ddd1",
+      "1cbf1203a7064d005ceff46c2beb42d6f234a04584eb4012b10a4f9cc8f50cc9",
+      "28d518c5d7de749790c5c480b2060ebc415ed7f021aeac9b389611213514befd",
+      "35aa4e323efca56b381209f24d57ac95a409fc358092765aea48a68e28824298",
       "3b0cae43b4514ac5168fd40db244246965f95446b00c89c65ebcf5b1f5727f4b",
-      "48e0cc62ea4ef9b431f0e93fab16139e2325a4615056e969279e5545a886044c",
+      "40a6b38febc8b0ef9ed25688720793f9bdb7d8187a48fcdea9ed5b7a09452434",
       "4c774cd4fbd6aef1b0b05d46ffc85cc0492e5b0f90ce23df63c815b0154bab41",
-      "5751e0eabf5cbc586205a419b668f0d8232052d38e531754ff4f0af9c29773e7",
-      "58d2e2539c26a3f0019f00ea5b660fc9f1b5627184ed332ce02915470167e437",
+      "4d52b94d04c8f67c62e3df61d4a413d5599c06d67c92d325e611e5fd45a95ce1",
       "5bdbc16a8b60fa21d15458e7991fc02a1852985a2dbf03451529d2f7fac17a15",
+      "5e78c591790357897d15173419e3cef917bddbfb5b2bc67067fff6bf816b032c",
+      "86fc20967785523a114992e6bf30074c770cc48835ae1dd65ee4d80ed22dd9e2",
       "8dcebd17ceeb919dc83b5740a01b7477b35f7c8820909aa7fff816b3a8c820c3",
-      "ad132aff07a7bc0a1cdf12a69e0068b4d47574fb65b12adb1e7fa451294b921a",
-      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
-      "d34d3f8f6576aa78f9c475a478344d29e615a425b6472f855b5fec8e887d5646",
-      "fb7a67894a40e7071782041335acd37f84840e00b753b80cabc5bec9d32e0c29"
+      "a9ebc5faa361abf9856b72c810ad8335227af43f9a805b19e45ae282096b9d29",
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6"
     ],
     "missing_digests": [],
     "reported_tokens": 24000,
-    "receipt_digest": "88e0bffab65c997ce0a0cefb002d31936f4b49fc8ccfabb62e84cc7810a620ae"
+    "receipt_digest": "fecb2500a74b252c41fc020362684c4e305b75dc8d37093fe8589692c48e09f0"
   },
-  "authority_digest": "ef8b707e27951928840e7a7ed40ffebb48a4f4697d29920176903ca395a07425",
-  "issued_at": "2026-07-22T20:17:47.077438002Z",
-  "expires_at": "2026-07-22T22:17:47.077438002Z",
+  "authority_digest": "46c3a80317ebcaf6869555756585ded81d30d6bfac220bc03740354d59569e9a",
+  "issued_at": "2026-07-22T20:21:06.160471721Z",
+  "expires_at": "2026-07-22T22:21:06.160471721Z",
   "spent_nonces": [
-    "879444509efb1634d09cf4441e192039"
+    "06f0ffcdc46445701770c0df26183450"
   ],
   "revision": 4
 }

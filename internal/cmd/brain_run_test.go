@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -190,8 +191,14 @@ func TestBrainRunHaltsOnConfiguredCostBrake(t *testing.T) {
 	out, err := captureStdout(t, func() error {
 		return runBrain(root, []string{"run", "demo"}, map[string]string{"authority": ""})
 	})
-	if err != nil {
-		t.Fatal(err)
+	// The brake is permanent, so the run reports non-success (R6.3) while still
+	// printing the exact reason.
+	if err == nil {
+		t.Fatal("cost brake reported success")
+	}
+	var refusal core.Refusal
+	if !errors.As(err, &refusal) || refusal.Code != "BRAIN_ZERO_PROGRESS" {
+		t.Fatalf("want BRAIN_ZERO_PROGRESS refusal, got %T: %v", err, err)
 	}
 	if !strings.Contains(out, "halt") || !strings.Contains(out, "cost limit exceeded") {
 		t.Fatalf("expected cost brake halt reason, got %q", out)
@@ -382,4 +389,47 @@ func TestMissionLifecycleJourney(t *testing.T) {
 		}
 	}
 	t.Fatal("task T1 not found after completion")
+}
+
+// TestBrainRunZeroProgressIsNonSuccess pins R6.3: a permanently braked run is a
+// distinct non-success outcome that names its durable checkpoint effects, not a
+// silent exit 0 that reads like a finished run.
+func TestBrainRunZeroProgressIsNonSuccess(t *testing.T) {
+	// Requiring telemetry with no reports yet brakes on the very first step.
+	config := brainEnabledConfig + "routing:\n  allow_unknown_telemetry: false\n"
+	root := newBrainTestRoot(t, "orchestrated", config)
+	writeBrainSingleTask(t, root)
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatalf("brain start: %v", err)
+	}
+
+	err := runBrain(root, []string{"run", "demo"}, map[string]string{"authority": ""})
+	if err == nil {
+		t.Fatal("a permanently braked run reported success")
+	}
+	var refusal core.Refusal
+	if !errors.As(err, &refusal) {
+		t.Fatalf("want a structured refusal, got %T: %v", err, err)
+	}
+	if refusal.Code != "BRAIN_ZERO_PROGRESS" {
+		t.Errorf("refusal code = %q, want BRAIN_ZERO_PROGRESS", refusal.Code)
+	}
+	// Zero dispatches happened, so the run must not claim a mutation.
+	if refusal.StateChanged {
+		t.Errorf("no dispatch occurred but refusal claims a mutation: %+v", refusal)
+	}
+	if !strings.Contains(refusal.Error(), "halt") {
+		t.Errorf("refusal does not name the braking action: %v", refusal)
+	}
+
+	// A wait is not a brake: with telemetry allowed and no authority to dispatch,
+	// the same run ends legitimately rather than refusing.
+	waiting := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	writeBrainSingleTask(t, waiting)
+	if err := runBrain(waiting, []string{"start", "demo"}, nil); err != nil {
+		t.Fatalf("brain start: %v", err)
+	}
+	if err := runBrain(waiting, []string{"run", "demo"}, nil); err != nil {
+		t.Fatalf("a waiting run must not refuse: %v", err)
+	}
 }
