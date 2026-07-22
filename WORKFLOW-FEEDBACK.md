@@ -648,3 +648,35 @@ stated plainly and stays a proposal — never a self-applied change.
   - T25A: ✅ brain release command (immediate release, production journey)
   - T26: ✅ review restamp (body preservation, verdict parsing)
 - **Skipped:** none. All R1-R7 requirements met. All tests pass -race -count=2. Regression suite passes. Docs generated.
+
+### 2026-07-22 — friction — reopening a spec leaves every task complete, so executing cannot be re-entered
+- **Context:** `workflow-05-executable-orchestration`, reflect phase, operator resetting the spec to the start of executing; exact commands `specd reopen workflow-05-executable-orchestration spec --reason ... --expect-revision 12` then `specd reopen workflow-05-executable-orchestration task T22 --reason ... --expect-revision 13` for each of T22–T26.
+- **Expected:** `reopen spec` opens lifecycle cycle 2 and `reopen task` opens the next attempt, so the tasks become re-executable and the spec can be walked back to executing through `approve`.
+- **Actual:** both reopens succeeded and correctly invalidated prior evidence — `error evidence: T24 is complete without passing evidence` — but `state.json.task_status` stayed `{"T22":"complete",…}` and the `✅` markers stayed in `tasks.md`. `specd check` then reported `GATE_FAILED: readiness plan … has 6 blocker(s)` in a state no verb can leave: the tasks cannot be completed (evidence is invalidated) and cannot be re-run (they are already complete). `specd task <id> --override` refuses with `task T22 is not escalated (0 consecutive verify fails); override only clears an escalated task`.
+- **Root cause:** harness bug — `internal/core/reopen.go` never touches `task_status`; `grep` for it in that file returns nothing.
+- **Recommendation:** have `reopen.task` set the task's status back to pending and rewrite its `tasks.md` marker in the same transaction, since it already invalidates the attempt's evidence; `reopen.spec` should do the same for every task in the cycle. Until then a reset is only reachable by hand-editing `state.json`, which the host contract forbids.
+- **Status:** open
+
+### 2026-07-22 — friction — a reopened cycle keeps cycle-1 approval requests and deadlocks re-approval
+- **Context:** same reset, `specd approve workflow-05-executable-orchestration` after re-approving requirements and design in cycle 2.
+- **Expected:** cycle 2 re-requests and re-approves each gate the same way requirements and design had just done.
+- **Actual:** `approval request approve:tasks is approved and cannot transition to "requested"`. The `approval_request:approve:{tasks,executing,complete}:*` records and the `approval:executing` / `approval:complete` records survived `reopen spec`, so the tasks gate could not be re-requested. Recovery again required deleting those records from `state.json` by hand.
+- **Root cause:** harness bug — cycle rollover does not reset approval-request lifecycle records, though it does reset artifact versions.
+- **Recommendation:** clear approval and approval-request records for gates at or after the reopened phase when `reopen.spec` opens a new cycle, keyed by cycle so history is retained rather than deleted.
+- **Status:** open
+
+### 2026-07-22 — friction — an unrelated untracked file fails complete-task as out of scope
+- **Context:** `workflow-05-executable-orchestration`, executing, driver; `specd complete-task workflow-05-executable-orchestration T22 --session ds-… --nonce …` with the operator's own `SPECD_PROMPT.md` sitting untracked in the repo root.
+- **Expected:** diff scope judges files the task's work touched.
+- **Actual:** `OUTSIDE_SCOPE: task T22 changed files outside its declared scope:` / `SPECD_PROMPT.md is not declared by task T22 (created, untracked); declare the path in the task's files cell or narrow the change`. The file predates the session baseline and no task created it.
+- **Root cause:** harness bug — untracked files are attributed to the task regardless of whether they appeared after `session open`, so any stray scratch file in the worktree blocks every completion.
+- **Recommendation:** attribute an untracked file to the task only when it appears after the session baseline, or ignore paths matched by `.git/info/exclude`. The workaround used here was adding the file to `.git/info/exclude`, which is invisible to a reader of the repo.
+- **Status:** open
+
+### 2026-07-22 — improvement — a refused complete-task spends the nonce
+- **Context:** `workflow-05-executable-orchestration`, executing, driver; `specd session action … complete-task` then `specd complete-task … --nonce <n>`, which refused with `OUTSIDE_SCOPE`, then retried after clearing the cause.
+- **Observation:** the retry failed with `NONCE_REPLAYED: nonce 1391537f3cac2882cb0346e8bfd2f02f was already spent by this session`, so every refused completion costs a second `session action` round trip before it can be retried.
+- **Cost:** one extra command per refused completion, and the failure mode is only discoverable by hitting it — the refusal text does not mention that the nonce is gone.
+- **Recommendation:** either leave the nonce unspent when the operation refuses without mutating state, or have the refusal print the next nonce inline, the way `session action` does.
+- **Tradeoff:** single-use nonces exist to stop replay of a *mutating* operation; not spending one on a refusal that changed nothing preserves that property. If the safer direction is preferred, the message fix alone removes the surprise.
+- **Status:** open
