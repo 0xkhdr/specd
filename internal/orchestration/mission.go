@@ -19,6 +19,19 @@ type MissionStatus string
 // field — so there is deliberately no enum of later states here.
 const MissionPending MissionStatus = "pending"
 
+type MissionState string
+
+// MissionState constants represent the effective lifecycle states derived from
+// ledger events and lease state (R4.1-R4.4).
+const (
+	MissionStatePending   MissionState = "pending"   // dispatched but not claimed
+	MissionStateClaimed   MissionState = "claimed"   // claimed and lease is active
+	MissionStateReleased  MissionState = "released"  // released by controller
+	MissionStateExpired   MissionState = "expired"   // lease expired without release
+	MissionStateFailed    MissionState = "failed"    // worker reported failure
+	MissionStateCompleted MissionState = "completed" // worker reported success
+)
+
 type MissionLimits struct {
 	MaxAttempts    int   `json:"max_attempts"`
 	TimeoutSeconds int   `json:"timeout_seconds"`
@@ -126,4 +139,119 @@ func ValidateMissionPins(m MissionV1, p DispatchPins) error {
 		return fmt.Errorf("MISSION_PIN_MISMATCH: re-bootstrap and dispatch a fresh mission")
 	}
 	return nil
+}
+
+// ComputeMissionState derives the effective mission state from ledger events
+// and lease state (R4.1-R4.4). A mission progresses through:
+//   - pending: dispatched, not yet claimed
+//   - claimed: claimed by a worker and lease is active
+//   - released: released by controller (explicit release reason)
+//   - expired: lease expired without explicit release
+//   - failed: worker reported failure
+//   - completed: worker reported success
+func ComputeMissionState(missionID string, lease *Lease, events []ACPEvent, now time.Time) MissionState {
+	// Find events related to this mission
+	var reportEvent ACPEvent
+	hasReport := false
+
+	for _, e := range events {
+		if e.MissionID != missionID {
+			continue
+		}
+		if e.Kind == ACPKindReport && !hasReport {
+			reportEvent = e
+			hasReport = true
+		}
+	}
+
+	// If no lease, the mission was never claimed
+	if lease == nil {
+		return MissionStatePending
+	}
+
+	// Mission was claimed, now determine its current state
+	// Check if mission completed (report exists with success status)
+	if hasReport && reportEvent.Payload != "" {
+		// Need to parse report to check status
+		var rep WorkerReportV1
+		if err := json.Unmarshal([]byte(reportEvent.Payload), &rep); err == nil {
+			if rep.Status == "complete" {
+				return MissionStateCompleted
+			}
+			if rep.Status == "failed" {
+				return MissionStateFailed
+			}
+		}
+	}
+
+	// Check if mission was explicitly released
+	if lease.State == LeaseRevoked && lease.RevocationReason != "" {
+		return MissionStateReleased
+	}
+
+	// Check if lease expired
+	if lease.State == LeaseExpired || !now.Before(lease.ExpiresAt) {
+		return MissionStateExpired
+	}
+
+	// Lease is active
+	if lease.State == LeaseActive && now.Before(lease.ExpiresAt) {
+		return MissionStateClaimed
+	}
+
+	// Default to pending if uncertain
+	return MissionStatePending
+}
+
+// SelectBaseline returns the mission to use as baseline, preferring live claimed
+// missions over expired or abandoned ones (R4.4). Returns nil if no suitable
+// baseline exists.
+func SelectBaseline(missions []MissionV1, leases []Lease, events []ACPEvent, now time.Time) *MissionV1 {
+	// Build a map of mission -> lease for quick lookup
+	leaseByMissionID := make(map[string]*Lease)
+	for i, l := range leases {
+		leaseByMissionID[l.MissionID] = &leases[i]
+	}
+
+	// Sort by descending priority: claimed > released > expired > pending
+	// Among same priority, prefer most recent
+	best := -1
+	bestState := ""
+	bestTime := time.Time{}
+
+	stateRank := map[MissionState]int{
+		MissionStateClaimed:   100,
+		MissionStateReleased:  80,
+		MissionStateExpired:   60,
+		MissionStatePending:   40,
+		MissionStateFailed:    20,
+		MissionStateCompleted: 10,
+	}
+
+	for i, m := range missions {
+		lease := leaseByMissionID[m.MissionID]
+		state := ComputeMissionState(m.MissionID, lease, events, now)
+		rank := stateRank[state]
+
+		// Prefer higher rank, or same rank but more recent
+		if best == -1 || rank > stateRank[MissionState(bestState)] ||
+			(rank == stateRank[MissionState(bestState)] && m.IssuedAt.After(bestTime)) {
+			best = i
+			bestState = string(state)
+			bestTime = m.IssuedAt
+		}
+	}
+
+	if best >= 0 {
+		return &missions[best]
+	}
+	return nil
+}
+
+// ReleaseMission creates a cancel event to immediately release a mission
+// without TTL wait (R4.3). The lease is marked as revoked with the given reason.
+func ReleaseMission(lease Lease, reason string) Lease {
+	lease.State = LeaseRevoked
+	lease.RevocationReason = reason
+	return lease
 }
