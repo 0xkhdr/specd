@@ -108,7 +108,7 @@ specd archive payments-v1 --successor payments-v2 --owner platform --evidence re
 ### `brain`
 
 ```
-specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report> <spec> [args] [--authority]
+specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report|release> <spec> [args] [--authority]
 ```
 
 Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker.
@@ -126,6 +126,7 @@ specd brain start payments --authority
 specd brain claim payments payments.s1.T1 worker-1 craftsman
 specd brain heartbeat payments <lease-id> worker-1
 specd brain report payments <lease-id> worker-1
+specd brain release payments payments.s1.T1
 ```
 
 ### `check`
@@ -786,22 +787,24 @@ specd request-decision payments --text 'webhook retry needs a backoff not in the
 ### `review`
 
 ```
-specd review <spec> [--force]
+specd review <spec> [--force] [--restamp]
 ```
 
-Scaffold the review report the auditor fills before completion.
+Scaffold the review report the auditor fills before completion. Use --restamp to update an existing report to a new git HEAD while preserving human-authored findings.
 
 **Phases:** execute · verify · reflect.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--force` | bool | Overwrite an existing report for the current git HEAD. |
+| `--restamp` | bool | Update an existing report to a new git HEAD while preserving human findings. |
 
 **Examples:**
 
 ```bash
 specd review payments
 specd review payments --force
+specd review payments --restamp
 ```
 
 ### `session`

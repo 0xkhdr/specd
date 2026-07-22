@@ -358,6 +358,19 @@ specd review payments
 # fill review_report.md with an approve verdict at the current HEAD
 ```
 
+If the review is already filled and you need to update it to a new git HEAD while preserving
+the auditor's human findings, use `--restamp`:
+
+```bash
+specd review payments --restamp  # update HEAD, preserve findings
+```
+
+To overwrite an existing report (for the same HEAD without overwriting findings), use `--force`:
+
+```bash
+specd review payments --force    # re-scaffold, overwrite existing
+```
+
 Then submit — `submit` runs **every** gate and streams the PR summary to your configured
 submit command:
 

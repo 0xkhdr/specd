@@ -683,14 +683,15 @@ var Commands = []Command{
 	},
 	{
 		Name:          "review",
-		Usage:         "specd review <spec> [--force]",
-		Description:   "Scaffold the review report the auditor fills before completion.",
+		Usage:         "specd review <spec> [--force] [--restamp]",
+		Description:   "Scaffold the review report the auditor fills before completion. Use --restamp to update an existing report to a new git HEAD while preserving human-authored findings.",
 		AllowedPhases: postExecutionPhases(),
 		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd review payments", "specd review payments --force"},
+		Examples:      []string{"specd review payments", "specd review payments --force", "specd review payments --restamp"},
 		Flags: []Flag{
 			{Name: "force", Type: "bool", Description: "Overwrite an existing report for the current git HEAD."},
+			{Name: "restamp", Type: "bool", Description: "Update an existing report to a new git HEAD while preserving human findings."},
 		},
 	},
 	{

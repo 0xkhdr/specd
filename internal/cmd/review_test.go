@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -33,6 +35,87 @@ func TestReviewCmd(t *testing.T) {
 		return Run(root, "review", []string{"demo"}, map[string]string{"force": ""})
 	}); err != nil {
 		t.Fatalf("--force re-scaffold should succeed: %v", err)
+	}
+}
+
+func TestReviewRestamp(t *testing.T) {
+	root := newDemoSpec(t)
+	gitInitRepo(t, root)
+	advanceToExecuting(t, root)
+
+	// Create initial review report with old HEAD
+	if _, err := captureStdout(t, func() error { return Run(root, "review", []string{"demo"}, nil) }); err != nil {
+		t.Fatalf("initial review scaffold: %v", err)
+	}
+	oldReport, err := os.ReadFile(core.ReviewReportPath(root, "demo"))
+	if err != nil {
+		t.Fatalf("read initial report: %v", err)
+	}
+	oldHeadLine := "- **Git HEAD:** " + gitHead(root)
+
+	// Fill in the review with human findings
+	// Find the verdict line and replace just the placeholder
+	humanReport := string(oldReport)
+	lines := strings.Split(humanReport, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "- **Verdict:**") && strings.Contains(line, "<") {
+			lines[i] = "- **Verdict:** approve"
+		}
+		if strings.Contains(line, "<Required when the verdict") {
+			lines[i] = "Reviewed logic carefully."
+		}
+	}
+	humanReport = strings.Join(lines, "\n")
+	humanReport = humanReport + "\nAdded edge case tests."
+	if err := os.WriteFile(core.ReviewReportPath(root, "demo"), []byte(humanReport), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Make a new commit to get a different HEAD
+	if err := os.WriteFile(filepath.Join(root, "new_file.txt"), []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "-C", root, "add", "new_file.txt")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+	cmd = exec.Command("git", "-C", root, "commit", "-m", "test: new commit")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+
+	newHead := gitHead(root)
+	if oldHeadLine == "- **Git HEAD:** "+newHead {
+		t.Fatal("test setup: git HEAD should have changed")
+	}
+
+	// Restamp should update the HEAD while preserving human findings
+	if _, err := captureStdout(t, func() error {
+		return Run(root, "review", []string{"demo"}, map[string]string{"restamp": ""})
+	}); err != nil {
+		t.Fatalf("restamp failed: %v", err)
+	}
+
+	restampedReport, err := os.ReadFile(core.ReviewReportPath(root, "demo"))
+	if err != nil {
+		t.Fatalf("read restamped report: %v", err)
+	}
+
+	restampedStr := string(restampedReport)
+
+	// Should have new HEAD
+	if !strings.Contains(restampedStr, "- **Git HEAD:** "+newHead) {
+		t.Fatalf("new HEAD not in restamped report: %s", restampedStr)
+	}
+
+	// Should not have old HEAD
+	if strings.Contains(restampedStr, oldHeadLine) {
+		t.Fatalf("old HEAD still in restamped report: %s", restampedStr)
+	}
+
+	// Should preserve human findings
+	if !strings.Contains(restampedStr, "Reviewed logic carefully") {
+		t.Fatalf("human findings lost in restamp: %s", restampedStr)
 	}
 }
 

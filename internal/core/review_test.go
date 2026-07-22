@@ -74,6 +74,87 @@ func TestReviewParse(t *testing.T) {
 	}
 }
 
+func TestReviewRestampPreservesBody(t *testing.T) {
+	// R5.2: restamp preserves human body bytes byte-for-byte, updates only machine
+	// fields (Git HEAD). Verdict and note are parsed separately (R5.3).
+	oldHead := "abc123def456"
+	newHead := "fedcba654321"
+	humanBody := `# Review Report — demo
+
+- **Git HEAD:** {{HEAD}}
+- **Reviewer:** alice
+- **Verdict:** approve needs-update
+
+## Tasks under review
+
+### T1
+
+- files: main.go
+- acceptance: works
+
+## Findings
+
+Checked the logic carefully.
+Updated test coverage.
+Found edge case in error handling.
+`
+
+	// Fill in the old HEAD
+	oldReport := strings.ReplaceAll(humanBody, "{{HEAD}}", oldHead)
+
+	// Restamp to new HEAD
+	newReport, err := RestampReviewReport(oldReport, newHead)
+	if err != nil {
+		t.Fatalf("restamp failed: %v", err)
+	}
+
+	// The new report should have the new HEAD
+	if !strings.Contains(newReport, "- **Git HEAD:** "+newHead) {
+		t.Fatalf("new HEAD not found in restamped report:\n%s", newReport)
+	}
+
+	// The new report should NOT have the old HEAD
+	if strings.Contains(newReport, "- **Git HEAD:** "+oldHead) {
+		t.Fatalf("old HEAD still in restamped report:\n%s", newReport)
+	}
+
+	// Extract the human body (everything except the HEAD line) from both reports
+	extractBody := func(report string) string {
+		lines := strings.Split(report, "\n")
+		var result []string
+		for _, line := range lines {
+			if !strings.Contains(line, "- **Git HEAD:**") {
+				result = append(result, line)
+			}
+		}
+		return strings.Join(result, "\n")
+	}
+
+	oldBody := extractBody(oldReport)
+	newBody := extractBody(newReport)
+
+	// The human-written parts (everything except HEAD) should be identical
+	if oldBody != newBody {
+		t.Fatalf("body not preserved:\nold:\n%s\n\nnew:\n%s", oldBody, newBody)
+	}
+
+	// Parse the restamped report - verdict should have a note
+	parsed, err := ParseReviewReport(newReport)
+	if err != nil {
+		t.Fatalf("parse restamped report failed: %v", err)
+	}
+	if parsed.Head != newHead {
+		t.Fatalf("parsed HEAD = %q, want %q", parsed.Head, newHead)
+	}
+	// Verdict should be strict token "approve" separate from note "needs-update"
+	if parsed.Verdict != ReviewApprove {
+		t.Fatalf("verdict = %q, want %q", parsed.Verdict, ReviewApprove)
+	}
+	if parsed.Note != "needs-update" {
+		t.Fatalf("note = %q, want %q", parsed.Note, "needs-update")
+	}
+}
+
 func TestReviewContractHardRisksAndRequiredTest(t *testing.T) {
 	contract := BuildReviewContract(QualityContract{TaskID: "T1", Required: []EvidenceRequirement{{EvidenceClass: EvidenceTest, CheckID: "unit"}, {EvidenceClass: EvidenceReview, CheckID: "audit"}}}, "head", nil)
 	if contract.TaskID != "T1" || contract.SubjectRevision != "head" || len(contract.HardRisks) != 4 {

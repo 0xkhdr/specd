@@ -73,9 +73,11 @@ func ValidateReviewContract(contract ReviewContract, status QualityStatus) error
 // is human-edited, so — unlike the tasks parser — the parser does not require
 // byte-stability or round-tripping; it extracts three load-bearing fields and
 // the findings prose. The Head field is what makes an approval a *fact about
-// this code* (spec 09 R3), mirroring evidence pinning.
+// this code* (spec 09 R3), mirroring evidence pinning. R5.3: Verdict is a strict
+// token (approve|reject|needs-changes); any following note is stored separately.
 type ReviewReport struct {
 	Verdict  string
+	Note     string
 	Head     string
 	Findings string
 }
@@ -137,6 +139,8 @@ func ReviewReportHead(raw string) string {
 // report. It is strict (R5): a missing/unknown verdict or a missing HEAD line is
 // an error, never a silent approve. It is tolerant of surrounding human edits —
 // it scans for the labelled fields rather than requiring a fixed byte layout.
+// R5.3: The verdict line is parsed to extract the strict token and any following
+// note separately.
 func ParseReviewReport(raw string) (ReviewReport, error) {
 	var report ReviewReport
 	inFindings := false
@@ -155,7 +159,14 @@ func ParseReviewReport(raw string) (ReviewReport, error) {
 			continue
 		}
 		if v, ok := fieldValue(trimmed, "Verdict"); ok {
-			report.Verdict = strings.ToLower(v)
+			// R5.3: Parse verdict line as "token note" where token is strict
+			parts := strings.Fields(v)
+			if len(parts) > 0 {
+				report.Verdict = strings.ToLower(parts[0])
+				if len(parts) > 1 {
+					report.Note = strings.ToLower(strings.Join(parts[1:], " "))
+				}
+			}
 		}
 		if v, ok := fieldValue(trimmed, "Git HEAD"); ok {
 			report.Head = v
@@ -174,6 +185,37 @@ func ParseReviewReport(raw string) (ReviewReport, error) {
 		return ReviewReport{}, fmt.Errorf("review report verdict %q is not one of approve|reject|needs-changes", report.Verdict)
 	}
 	return report, nil
+}
+
+// RestampReviewReport updates a review report to a new git HEAD while preserving
+// all human-authored body bytes. R5.2: Only machine-owned provenance (Git HEAD) is
+// updated; the human findings are preserved exactly. Returns an error if the
+// report cannot be parsed.
+func RestampReviewReport(raw string, newHead string) (string, error) {
+	// Validate the new HEAD is resolvable
+	if !HeadPinned(newHead) {
+		return "", fmt.Errorf("new git HEAD %q is not resolvable", newHead)
+	}
+
+	// Parse once to validate structure; extract HEAD line format
+	_, err := ParseReviewReport(raw)
+	if err != nil {
+		return "", fmt.Errorf("existing report cannot be restamped: %v", err)
+	}
+
+	// Replace only the Git HEAD line; preserve everything else byte-for-byte
+	var result []string
+	for _, line := range strings.Split(raw, "\n") {
+		if v, ok := fieldValue(strings.TrimSpace(line), "Git HEAD"); ok && v != "" {
+			// Reconstruct the HEAD line with the same format as the original
+			// Keep the original indentation and markup
+			result = append(result, "- **Git HEAD:** "+newHead)
+		} else {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n"), nil
 }
 
 // fieldValue extracts the value of a "- **Label:** value" or "Label: value"
