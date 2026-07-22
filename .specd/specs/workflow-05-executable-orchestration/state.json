@@ -2,13 +2,22 @@
   "schema_version": 2,
   "slug": "workflow-05-executable-orchestration",
   "mode": "orchestrated",
-  "status": "verifying",
-  "phase": "verify",
+  "status": "complete",
+  "phase": "reflect",
   "cycle": 1,
-  "stage": "verifying",
-  "condition": "active",
-  "revision": 6,
+  "stage": "complete",
+  "condition": "complete",
+  "revision": 12,
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 11,
+      "timestamp": "2026-07-22T20:00:18Z",
+      "git_head": "dc5cd1ab1c85c571e5e7088fdb153f7a04dd6e94",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -52,6 +61,44 @@
       "approved_revision": 3,
       "timestamp": "2026-07-22T10:56:20Z",
       "git_head": "31a43312cb032da6227103954522413c07be52e4",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:0": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-05-executable-orchestration",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 11,
+        "plan_digest": "01b667aafdd819709eeb0b7062abe465011c85e49d92f5fa290d4807f8ecc250",
+        "config_digest": "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T21:00:18Z",
+      "timestamp": "2026-07-22T20:00:18Z",
+      "git_head": "dc5cd1ab1c85c571e5e7088fdb153f7a04dd6e94",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:1": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-05-executable-orchestration",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 11,
+        "plan_digest": "01b667aafdd819709eeb0b7062abe465011c85e49d92f5fa290d4807f8ecc250",
+        "config_digest": "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T21:00:18Z",
+      "timestamp": "2026-07-22T20:00:18Z",
+      "git_head": "dc5cd1ab1c85c571e5e7088fdb153f7a04dd6e94",
       "actor": "xkhdr"
     },
     "approval_request:approve:executing:0": {
@@ -132,6 +179,11 @@
     }
   },
   "task_status": {
-    "T22": "complete"
+    "T22": "complete",
+    "T23": "complete",
+    "T24": "complete",
+    "T25": "complete",
+    "T25A": "complete",
+    "T26": "complete"
   }
 }
