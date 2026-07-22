@@ -19,3 +19,4 @@
 {"task_id":"T26","command":"go test ./internal/core ./internal/core/gates ./internal/cmd -run TestReviewRestampPreservesBody -count=2","exit_code":0,"git_head":"b1ab4155c4afdbe327f82370b3ad394b14a61278","timestamp":"2026-07-22T19:58:04Z","actor":"xkhdr"}
 {"task_id":"T25","command":"go test ./internal/orchestration -run TestMissionLifecycle -count=2","exit_code":0,"git_head":"dc5cd1ab1c85c571e5e7088fdb153f7a04dd6e94","timestamp":"2026-07-22T19:59:51Z","actor":"xkhdr"}
 {"task_id":"T25A","command":"go test ./internal/cmd -run TestMissionLifecycleJourney -count=2","exit_code":0,"git_head":"dc5cd1ab1c85c571e5e7088fdb153f7a04dd6e94","timestamp":"2026-07-22T20:00:13Z","actor":"xkhdr"}
+{"task_id":"T22","command":"go test ./internal/core ./internal/orchestration -run TestTaskContractConformance -count=2","exit_code":0,"git_head":"4eca1637fe83f6aacf0c1f62de0836c1ff71f6e8","timestamp":"2026-07-22T20:13:23Z","actor":"xkhdr","attempt":2,"plan_revision":14}

@@ -1,1 +1,2 @@
 {"kind":"context_ack_skipped","slug":"workflow-05-executable-orchestration","task_id":"T23","actor":"xkhdr","operation":"complete-task","detail":"no context receipt recorded for session ds-69ff0d449f791d8f73bab2199f65516e","timestamp":"2026-07-22T19:19:07Z"}
+{"kind":"stale_action_replayed","slug":"workflow-05-executable-orchestration","task_id":"T22","actor":"xkhdr","operation":"complete-task","detail":"NONCE_REPLAYED: nonce 1391537f3cac2882cb0346e8bfd2f02f was already spent by this session","timestamp":"2026-07-22T20:13:52Z"}

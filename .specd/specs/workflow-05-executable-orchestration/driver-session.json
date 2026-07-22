@@ -1,0 +1,45 @@
+{
+  "id": "ds-28e7d1d0340e500aa2fcedafb209261b",
+  "slug": "workflow-05-executable-orchestration",
+  "driver": "claude-code",
+  "baseline_revision": 24,
+  "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
+  "baseline_head": "4eca1637fe83f6aacf0c1f62de0836c1ff71f6e8",
+  "context_receipt": {
+    "schema_version": "1",
+    "manifest_digest": "246cb12c1a7405e3e653db8d992f4a58aa56539c5f8e0b4e883ddf6d73a49aa6",
+    "host_id": "claude-code",
+    "driver_id": "claude-code",
+    "supplied_digests": [
+      "03f95ef12d738cbb823627bcf985d61a5b8c218b366af56ddd6021dff536d24e",
+      "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809",
+      "29b912048f04a95edc74beb137d70c6be77f6fa9ec09af214baa9c6d7748db9c",
+      "3483229c507da4fbc33cd6f682fcdf23592f7d97ea8be336c0ce38546de295b9",
+      "38411e013a43cfe39ebb71ee622452c3bd872eb0e21d8694f606e0908eb21c9c",
+      "4d755b5fa2659c6822c5d17e3765a2167e53f9d589a87932fdd9d67701b29b95",
+      "5797a1f436227656280a3929e0209185b35f37bf2d17d16983ba9d32371c616b",
+      "5bdbc16a8b60fa21d15458e7991fc02a1852985a2dbf03451529d2f7fac17a15",
+      "66c84fb0525b5dfa1ca0ef594bf8e2a0239fbf9c0160a35ba27a5fde32a99c3d",
+      "6f6ac86a92fd0e06a1ce3ff050c0c3fc787a3f3b232040b9f5569e1096eee077",
+      "7b388a35575b3f914dfa8015f2fee5f04ebfc3cf8246ff0328eaec3ea42bc146",
+      "893872239940b663334511335335472d89da3b9bc8b6994e0ee3dccbd558f6b0",
+      "8dcebd17ceeb919dc83b5740a01b7477b35f7c8820909aa7fff816b3a8c820c3",
+      "8ecddf77f799052e1fe66755ebd14ded768086786e66824497f290ac2735141b",
+      "9ba1786b16beb1b6717984363990c0a7b599a4867677cee75424a5ca245d5a55",
+      "9d11b87d3b7729831ad491e56f919f86ca18e3c9760eca2554b7ab50e78875dc",
+      "a04dd97a8cefdc4ada0d656936cf81105fa7bd4d6af252bb00597e8af67727bf",
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6"
+    ],
+    "missing_digests": [],
+    "reported_tokens": 24000,
+    "receipt_digest": "2af92c5e033b4af8a54da21b38a74809b945ce2e7668e346d973deb560dd82ff"
+  },
+  "authority_digest": "30618f4e3c695cd1e21191217b2111c88956b8feb8b801461384718215dcec4e",
+  "issued_at": "2026-07-22T20:12:25.999642062Z",
+  "expires_at": "2026-07-22T22:12:25.999642062Z",
+  "spent_nonces": [
+    "1391537f3cac2882cb0346e8bfd2f02f",
+    "9fdd37853721f5d7a25c96417a7b9306"
+  ],
+  "revision": 5
+}
