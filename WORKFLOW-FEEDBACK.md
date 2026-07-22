@@ -485,3 +485,59 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Recommendation:** include per-source token contributions and an authorized next action in context-budget refusals.
 - **Tradeoff:** diagnostic output only; the deterministic budget and authority remain unchanged.
 - **Status:** open
+
+### 2026-07-22 — friction — orchestrated mode has no read-only query
+- **Context:** starting the requested Brain/Pinky execution for `workflow-03-state-foundations`. Exact command: `./specd mode workflow-03-state-foundations --show`.
+- **Expected:** confirm whether orchestrated mode was already enabled without invoking a human-only mutation.
+- **Actual:** command failed with `usage: specd mode <spec> orchestrated`.
+- **Cost:** the agent cannot distinguish an already-enabled mode from a required human handoff before choosing the Brain/drive route.
+- **Recommendation:** expose the current mode in `status --json`, or add a non-mutating `mode <spec> --show` route available to agents.
+- **Tradeoff:** read-only projection only; mode mutation remains human-only.
+- **Status:** open
+
+### 2026-07-22 — friction — unmatched source glob aborted T12 inspection
+- **Context:** T12 craftsman inspection. Exact command fragment: `ls -l internal/core/workflow_event*`.
+- **Expected:** show any existing workflow-event files or an ordinary no-match result.
+- **Actual:** command failed with `zsh:4: no matches found: internal/core/workflow_event*` because the task's new files do not exist yet.
+- **Recommendation:** use `rg --files internal/core | rg 'workflow_event'` for optional file discovery under zsh.
+- **Status:** resolved — operator command discipline; no product change.
+
+### 2026-07-22 — friction — T12 assumed a nonexistent generic spec-path helper
+- **Context:** T12 focused verification. Exact command: `go test ./internal/core -run TestWorkflowEventReplay -count=2`.
+- **Expected:** compile and run the workflow-event replay tests.
+- **Actual:** command failed with `internal/core/workflow_event.go:40:9: undefined: SpecPath`.
+- **Root cause:** the first implementation inferred a generic helper instead of following the existing explicit `filepath.Join(SpecdDir(root), "specs", slug, ...)` pattern.
+- **Recommendation:** use the established direct path pattern for new per-spec ledgers unless a real shared helper already exists.
+- **Status:** resolved — replaced the inferred helper with direct path composition.
+
+### 2026-07-22 — friction — T12 replay test compared nil-map representation instead of persisted bytes
+- **Context:** T12 focused verification retry. Exact command: `go test ./internal/core -run TestWorkflowEventReplay -count=2`.
+- **Expected:** recovered projection compares equal to the event projection.
+- **Actual:** `TestWorkflowEventReplay` failed at `workflow_event_test.go:42` although the rendered state fields matched; JSON reload normalized an empty map to nil.
+- **Root cause:** the test used `reflect.DeepEqual` for an on-disk byte-equivalence contract.
+- **Recommendation:** compare canonical JSON bytes for persisted projection equivalence.
+- **Status:** resolved — test now compares marshaled projection bytes.
+
+### 2026-07-22 — friction — structural lint requires a second feedback inventory outside task scope
+- **Context:** T12 pre-completion check. Exact command: `./scripts/test-lint.sh`.
+- **Expected:** structural test lint passes after the task's Go tests pass.
+- **Actual:** command failed with six `test-lint: missing feedback inventory entry` lines for the headings `first unfinished spec is not directly executable`, `context-budget refusal omits a decomposition route`, `orchestrated mode has no read-only query`, `unmatched source glob aborted T12 inspection`, `T12 assumed a nonexistent generic spec-path helper`, and `T12 replay test compared nil-map representation instead of persisted bytes`.
+- **Cost:** repository-mandated observer notes make the broader lint red until a separate inventory is synchronized, but that inventory is outside T12 authority.
+- **Recommendation:** generate the feedback inventory from `WORKFLOW-FEEDBACK.md`, or exempt append-only observer entries from task-scope lint until a dedicated maintenance task updates the inventory.
+- **Status:** open — not changed because T12 does not declare the inventory file.
+
+### 2026-07-22 — friction — host-session nonce arrives after the documented completion command
+- **Context:** T12 completion after `specd session open ... --driver host` and passing verify. Exact command: `./specd complete-task workflow-03-state-foundations T12`.
+- **Expected:** the host session either binds completion automatically or its open response tells the caller which binding arguments to retain.
+- **Actual:** command failed with `BINDING_MISSING: driver session ds-ae99a36f511e0d5b5b041c34275e0b8c is open, so T12 requires --session and --nonce`.
+- **Cost:** one extra failed completion and a session-inspection round trip after evidence was already recorded.
+- **Recommendation:** include the completion nonce and exact bound completion command in `session open --json` and `drive --json` next-operation guidance.
+- **Status:** open
+
+### 2026-07-22 — friction — bound completion requires an undisclosed context acknowledgement
+- **Context:** T12's one permitted completion retry after obtaining the session nonce. Exact command: `./specd complete-task workflow-03-state-foundations T12 --session ds-ae99a36f511e0d5b5b041c34275e0b8c --nonce 566ce5ea7567e42973d2aafe7160aa3a`.
+- **Expected:** consume the current passing evidence through the host-session binding.
+- **Actual:** command failed with `BINDING_MISSING: session ds-ae99a36f511e0d5b5b041c34275e0b8c has acknowledged no context; mutable authority is withheld`.
+- **Cost:** the craftsman must stop after its one retry even though `session action` issued a nonce; neither `session open` nor the refusal's recovery text supplied the required acknowledgement command.
+- **Recommendation:** have `session action` return an ordered executable sequence (`context`, `session ack`, bound mutation), and include the exact recovery command in `BINDING_MISSING`.
+- **Status:** open — T12 remains evidenced but incomplete.

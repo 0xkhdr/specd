@@ -1,0 +1,2 @@
+{"kind":"work_without_bootstrap","slug":"workflow-03-state-foundations","task_id":"T12","actor":"xkhdr","operation":"complete-task","detail":"mutable operation attempted without session bindings while session ds-ae99a36f511e0d5b5b041c34275e0b8c was open","timestamp":"2026-07-22T00:10:01Z"}
+{"kind":"context_ack_skipped","slug":"workflow-03-state-foundations","task_id":"T12","actor":"xkhdr","operation":"complete-task","detail":"no context receipt recorded for session ds-ae99a36f511e0d5b5b041c34275e0b8c","timestamp":"2026-07-22T00:10:21Z"}

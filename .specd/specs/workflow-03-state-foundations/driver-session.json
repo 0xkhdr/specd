@@ -1,0 +1,11 @@
+{
+  "id": "ds-ae99a36f511e0d5b5b041c34275e0b8c",
+  "slug": "workflow-03-state-foundations",
+  "driver": "host",
+  "baseline_revision": 4,
+  "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
+  "baseline_head": "761dc4e23c6b4d093cf8945180d1234862670a27",
+  "issued_at": "2026-07-22T00:06:15.299984779Z",
+  "expires_at": "2026-07-22T02:06:15.299984779Z",
+  "revision": 1
+}

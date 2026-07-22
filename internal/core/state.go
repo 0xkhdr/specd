@@ -110,6 +110,7 @@ type State struct {
 	Status        Status                     `json:"status"`
 	Phase         Phase                      `json:"phase"`
 	Revision      int64                      `json:"revision"`
+	LastEventID   string                     `json:"last_event_id,omitempty"`
 	Records       map[string]json.RawMessage `json:"records,omitempty"`
 	// TaskStatus is the machine truth for per-task run status (ADR-1: status
 	// lives in state.json, tasks.md stays clean Markdown). The Sync gate

@@ -16,6 +16,12 @@ Quality context is reference-only: class/check IDs, verify command, artifact ref
 subject revision, freshness labels, and dataset/rubric/output/trace digests. It never embeds
 dataset cases, raw outputs, traces, prompts, or secrets.
 
+Governed state transitions may also create `workflow-events.jsonl`. Each fsynced JSON line contains
+the transition identity, entity and revision versions, actor and authority provenance, reason,
+input digests, impacted identities, and the resulting state projection. Raw source content, prompts,
+command output, and secrets are forbidden. A final incomplete line is ignored during recovery;
+malformed complete lines, future schemas, duplicate identities, and revision divergence fail closed.
+
 ## Layout
 
 ```

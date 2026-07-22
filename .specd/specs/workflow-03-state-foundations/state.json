@@ -2,10 +2,19 @@
   "schema_version": 1,
   "slug": "workflow-03-state-foundations",
   "mode": "orchestrated",
-  "status": "executing",
-  "phase": "execute",
-  "revision": 4,
+  "status": "complete",
+  "phase": "reflect",
+  "revision": 6,
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 5,
+      "timestamp": "2026-07-22T00:58:17Z",
+      "git_head": "761dc4e23c6b4d093cf8945180d1234862670a27",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -14,6 +23,15 @@
       "source_digest": "9b66a8c117026427062add083870cbd711578c4c906dd3580bd8207956772bf2",
       "timestamp": "2026-07-21T21:19:33Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 4,
+      "timestamp": "2026-07-22T00:58:13Z",
+      "git_head": "761dc4e23c6b4d093cf8945180d1234862670a27",
       "actor": "xkhdr"
     },
     "approval:orchestrated": {
