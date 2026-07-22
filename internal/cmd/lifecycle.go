@@ -122,6 +122,14 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		if err := appendRecord(root, &state, "approval:"+gate, rec); err != nil {
 			return struct{}{}, err
 		}
+		if err := recordCompatibilityApproval(root, &state, gate, core.ApprovalPins{
+			ArtifactDigest: approvalArtifactDigest(rec.SourceDigest),
+			StateRevision:  plan.StateRevision,
+			PlanDigest:     plan.PlanDigest,
+			ConfigDigest:   plan.ConfigDigest,
+		}); err != nil {
+			return struct{}{}, err
+		}
 		return struct{}{}, core.SaveStateCAS(statePath, state.Revision, state)
 	})
 	if err != nil {
@@ -580,6 +588,75 @@ func approvalArtifact(gate string) string {
 		return "design.md"
 	}
 	return ""
+}
+
+// approvalRequestTTL bounds the compatibility request opened by `specd approve`.
+// The request is opened and answered inside one invocation, so the window only
+// has to outlive that call.
+const approvalRequestTTL = time.Hour
+
+// approvalArtifactDigest is the artifact identity a compatibility request pins.
+// Gates that govern no source artifact (tasks/executing/verifying/complete) pin
+// the explicit "none" so the pin is still a value that can be compared for
+// drift rather than an empty field (R5.1).
+func approvalArtifactDigest(sourceDigest string) string {
+	if sourceDigest == "" {
+		return "none"
+	}
+	return sourceDigest
+}
+
+// recordCompatibilityApproval keeps the interactive `specd approve` on the
+// immutable request model (R5.4): it reuses a request that is still open for
+// this gate — so the inputs it pinned are checked against current and refuse as
+// stale when they drifted (R5.3) — and otherwise opens one pinned to the
+// current identities, then appends the approved transition. Both transitions
+// are separate append-only records; neither edits the other.
+func recordCompatibilityApproval(root string, state *core.State, gate string, pins core.ApprovalPins) error {
+	id := "approve:" + gate
+	existing, err := state.ApprovalRequests()
+	if err != nil {
+		return err
+	}
+	if !core.ApprovalRequestPending(existing, id) {
+		if err := appendApprovalRequest(root, state, core.ApprovalRequestRecord{
+			ID:            id,
+			Transition:    core.ApprovalRequested,
+			EntityKind:    core.ApprovalEntitySpec,
+			EntityID:      state.Slug,
+			EntityVersion: gate,
+			Pins:          pins,
+			ExpiresAt:     core.Clock().Add(approvalRequestTTL).Format(time.RFC3339),
+		}); err != nil {
+			return err
+		}
+	}
+	return appendApprovalRequest(root, state, core.ApprovalRequestRecord{ID: id, Transition: core.ApprovalApproved, Pins: pins})
+}
+
+// appendApprovalRequest stamps rec, validates the transition against the chain
+// already in state, and stores it under the key core.PlanApprovalRequest chose.
+// Keys are never reused, so an approval can only add history.
+func appendApprovalRequest(root string, state *core.State, rec core.ApprovalRequestRecord) error {
+	existing, err := state.ApprovalRequests()
+	if err != nil {
+		return err
+	}
+	rec = core.StampApprovalRequest(rec, gitHead(root))
+	rec.Requester = rec.Actor
+	key, planned, err := core.PlanApprovalRequest(existing, rec)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(planned)
+	if err != nil {
+		return err
+	}
+	if state.Records == nil {
+		state.Records = map[string]json.RawMessage{}
+	}
+	state.Records[key] = raw
+	return nil
 }
 
 func countPrefix(records map[string]json.RawMessage, prefix string) int {

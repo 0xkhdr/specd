@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
@@ -73,6 +74,106 @@ func TestNextGatedOnApproval(t *testing.T) {
 	}
 	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {
 		t.Fatalf("verify after approval: %v", err)
+	}
+}
+
+// TestApprovalRequestIntegrationCompatibility asserts the interactive approve
+// path records an explicit request identity and an immutable two-transition
+// history pinned to the identities current at approval time (R5.1, R5.4),
+// without dropping the legacy approval record older projections still read.
+func TestApprovalRequestIntegrationCompatibility(t *testing.T) {
+	root := newDemoSpec(t)
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := state.Records["approval:requirements"]; !ok {
+		t.Fatalf("legacy approval record dropped: %v", state.Records)
+	}
+	requests, err := state.ApprovalRequests()
+	if err != nil {
+		t.Fatalf("approval requests: %v", err)
+	}
+	if len(requests) != 2 || requests[0].Transition != core.ApprovalRequested || requests[1].Transition != core.ApprovalApproved {
+		t.Fatalf("compatibility approval history = %+v", requests)
+	}
+	created := requests[0]
+	if created.ID == "" || created.ID != requests[1].ID {
+		t.Fatalf("approval transitions do not share one request identity: %+v", requests)
+	}
+	if created.EntityKind != core.ApprovalEntitySpec || created.EntityID != "demo" || created.EntityVersion != "requirements" {
+		t.Fatalf("request entity identity = %+v", created)
+	}
+	if created.Requester == "" || created.ExpiresAt == "" {
+		t.Fatalf("request missing requester/expiry: %+v", created)
+	}
+	raw, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", "demo", "requirements.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Pins.ArtifactDigest != core.Digest(raw) {
+		t.Fatalf("request pinned artifact digest %q, want %q", created.Pins.ArtifactDigest, core.Digest(raw))
+	}
+	if created.Pins.PlanDigest == "" || created.Pins.ConfigDigest == "" || created.Pins.StateRevision != 0 {
+		t.Fatalf("request pins incomplete: %+v", created.Pins)
+	}
+	// The approved transition inherits the pins verbatim: approval appends, it
+	// never rewrites what the request governs.
+	if requests[1].Pins != created.Pins || requests[1].ExpiresAt != created.ExpiresAt {
+		t.Fatalf("approval rewrote pinned identity: %+v -> %+v", created, requests[1])
+	}
+}
+
+// TestApprovalRequestIntegrationStaleDigest asserts approve refuses when an
+// already-open request pinned inputs that have since drifted, and leaves state
+// untouched (R5.3). Recovery is a new or superseding request; there is no
+// bypass.
+func TestApprovalRequestIntegrationStaleDigest(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	before, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending := core.StampApprovalRequest(core.ApprovalRequestRecord{
+		ID:            "approve:requirements",
+		Transition:    core.ApprovalRequested,
+		EntityKind:    core.ApprovalEntitySpec,
+		EntityID:      "demo",
+		EntityVersion: "requirements",
+		Pins:          core.ApprovalPins{ArtifactDigest: "stale", StateRevision: 0, PlanDigest: "stale", ConfigDigest: "stale"},
+		Requester:     "human",
+		ExpiresAt:     core.Clock().Add(time.Hour).Format(time.RFC3339),
+	}, "head")
+	raw, err := json.Marshal(pending)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before.Records["approval_request:approve:requirements:0"] = raw
+	if err := core.SaveStateCAS(statePath, before.Revision, before); err != nil {
+		t.Fatal(err)
+	}
+	seeded, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	approveErr := Run(root, "approve", []string{"demo"}, nil)
+	if approveErr == nil || !strings.Contains(approveErr.Error(), "stale") {
+		t.Fatalf("approve on drifted request = %v, want stale refusal", approveErr)
+	}
+	if !strings.Contains(approveErr.Error(), "superseding request") {
+		t.Fatalf("stale refusal does not name the recovery: %v", approveErr)
+	}
+	after, err := core.LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Revision != seeded.Revision || after.Status != seeded.Status || len(after.Records) != len(seeded.Records) {
+		t.Fatalf("refused approval mutated state: %+v -> %+v", seeded, after)
 	}
 }
 
