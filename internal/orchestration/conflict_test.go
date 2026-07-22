@@ -17,8 +17,14 @@ func TestConflictOverlappingWriteScopes(t *testing.T) {
 	if err := CheckParallelConflict(candidate, active, leases, rule, now); err != nil {
 		t.Fatalf("approved ordering should permit claim: %v", err)
 	}
+	// Disjoint scopes are only safe once the host proves isolation. In a shared
+	// worktree the second mission's diff would carry the first one's edits, so
+	// R4.1 serializes it regardless of declared files.
 	candidate.DeclaredFiles = []string{"internal/b.go"}
-	if err := CheckParallelConflict(candidate, active, leases, CoordinationRule{}, now); err != nil {
-		t.Fatalf("disjoint scopes should permit claim: %v", err)
+	if err := CheckParallelConflict(candidate, active, leases, CoordinationRule{}, now); err == nil {
+		t.Fatal("disjoint scopes still share the worktree; expected serialization")
+	}
+	if err := CheckParallelConflict(candidate, active, leases, CoordinationRule{IsolationID: "wt-1"}, now); err != nil {
+		t.Fatalf("disjoint scopes under proven isolation should permit claim: %v", err)
 	}
 }

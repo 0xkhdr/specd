@@ -10,6 +10,12 @@ import (
 type CoordinationRule struct {
 	Digest       string   `json:"digest,omitempty"`
 	OrderedTasks []string `json:"ordered_tasks,omitempty"`
+	// IsolationID is the host's proven worktree isolation identity. Empty means
+	// the host did not declare isolation, so all missions share one worktree
+	// (R4.1): a second concurrent write mission cannot satisfy diff scope there,
+	// because its diff would contain the other mission's uncommitted edits.
+	// Disjoint declared files do not make that safe — only isolation does.
+	IsolationID string `json:"isolation_id,omitempty"`
 }
 
 func CheckParallelConflict(candidate MissionV1, missions []MissionV1, leases []Lease, rule CoordinationRule, now time.Time) error {
@@ -25,13 +31,20 @@ func CheckParallelConflict(candidate MissionV1, missions []MissionV1, leases []L
 		if !ok {
 			return fmt.Errorf("PARALLEL_MISSION_UNKNOWN: %s", lease.MissionID)
 		}
-		if !scopesOverlap(candidate.DeclaredFiles, active.DeclaredFiles) {
+		if active.MissionID == candidate.MissionID {
 			continue
 		}
 		if coordinated(active.TaskID, candidate.TaskID, rule) {
 			continue
 		}
-		return fmt.Errorf("WRITE_SCOPE_CONFLICT: %s and %s", active.TaskID, candidate.TaskID)
+		// Without proven isolation the frontier is serial: one active write
+		// mission per shared worktree, whatever the declared files.
+		if rule.IsolationID == "" {
+			return fmt.Errorf("SHARED_WORKTREE_SERIAL: %s is active; %s must wait for an isolated worktree or a coordination rule", active.TaskID, candidate.TaskID)
+		}
+		if scopesOverlap(candidate.DeclaredFiles, active.DeclaredFiles) {
+			return fmt.Errorf("WRITE_SCOPE_CONFLICT: %s and %s", active.TaskID, candidate.TaskID)
+		}
 	}
 	return nil
 }

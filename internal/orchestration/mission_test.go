@@ -2,6 +2,7 @@ package orchestration
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -284,21 +285,43 @@ func TestMissionLifecycle(t *testing.T) {
 			State:     LeaseActive,
 			ExpiresAt: now.Add(1 * time.Hour),
 		}
-		// Dispatching T2 should be blocked due to overlap
-		err := CheckParallelConflict(mission2, []MissionV1{mission1}, []Lease{activeLease}, rule, now)
-		if err == nil {
-			// But it's allowed if coordinated (T2 comes after T1 in rule)
-			// Actually, the coordinated check says: if both are in rule and in order, it's OK
-			// So this should NOT error
-		} else {
-			t.Logf("overlap detected (expected with coordination): %v", err)
+		// An approved coordination rule is the one way past serialization.
+		if err := CheckParallelConflict(mission2, []MissionV1{mission1}, []Lease{activeLease}, rule, now); err != nil {
+			t.Errorf("coordinated ordering should permit dispatch: %v", err)
 		}
 
-		// Without coordination rule, overlap should be detected
+		// Without a coordination rule and without proven isolation, the shared
+		// worktree serializes the frontier — overlap or not, since the second
+		// mission's diff would otherwise contain the first mission's edits.
 		rule.Digest = "" // disable coordination
-		err = CheckParallelConflict(mission2, []MissionV1{mission1}, []Lease{activeLease}, rule, now)
-		if err == nil {
-			t.Errorf("overlapping missions without coordination should error")
+		disjoint := mission2
+		disjoint.DeclaredFiles = []string{"unrelated.go"}
+		for _, tc := range []struct {
+			name      string
+			candidate MissionV1
+		}{{"overlapping", mission2}, {"disjoint", disjoint}} {
+			err := CheckParallelConflict(tc.candidate, []MissionV1{mission1}, []Lease{activeLease}, rule, now)
+			if err == nil {
+				t.Errorf("%s: shared worktree must serialize a second active mission", tc.name)
+			} else if !strings.Contains(err.Error(), "SHARED_WORKTREE_SERIAL") {
+				t.Errorf("%s: unexpected refusal: %v", tc.name, err)
+			}
+		}
+
+		// A host that proves isolation may run the disjoint mission concurrently.
+		isolated := CoordinationRule{IsolationID: "wt-2"}
+		if err := CheckParallelConflict(disjoint, []MissionV1{mission1}, []Lease{activeLease}, isolated, now); err != nil {
+			t.Errorf("proven isolation should permit a disjoint mission: %v", err)
+		}
+		if err := CheckParallelConflict(mission2, []MissionV1{mission1}, []Lease{activeLease}, isolated, now); err == nil {
+			t.Error("proven isolation must still refuse overlapping write scopes")
+		}
+
+		// An expired lease holds nothing: it must not serialize the frontier.
+		stale := activeLease
+		stale.ExpiresAt = now.Add(-time.Minute)
+		if err := CheckParallelConflict(disjoint, []MissionV1{mission1}, []Lease{stale}, rule, now); err != nil {
+			t.Errorf("expired lease should not block dispatch: %v", err)
 		}
 	})
 
