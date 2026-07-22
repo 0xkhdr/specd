@@ -3,19 +3,42 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
 
 // runReview scaffolds review_report.md for a spec (spec 09 R1): the spec slug,
 // the git HEAD under review, a per-task section (id/files/acceptance), and the
-// verdict/reviewer/findings fields the auditor fills. It refuses to overwrite a
-// report already written for the current HEAD unless --force (R5.1) — an auditor's
-// in-progress notes are not clobbered by a re-scaffold. With --restamp (R5.2), it
-// preserves human findings while updating the git HEAD pin.
+// verdict/reviewer/findings fields the auditor fills. It refuses to overwrite an
+// existing report — at any HEAD — unless --force (R5.1), so an auditor's notes
+// are never clobbered by a re-scaffold. With --restamp (R5.2), it preserves the
+// human-authored body byte-for-byte while updating the git HEAD pin.
 func runReview(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
 		return usageError("review")
+	}
+	// An undeclared flag is a typo, and silently ignoring it is destructive here:
+	// `--restmap` would fall through to scaffold mode and overwrite the very
+	// findings the author meant to restamp. Fail closed against the palette.
+	// ponytail: scoped to this verb because dispatch has no global flag check;
+	// lift it into dispatch when another verb needs the same guard.
+	if declared, ok := core.CommandByName("review"); ok {
+		known := make(map[string]bool, len(declared.Flags))
+		for _, flag := range declared.Flags {
+			known[flag.Name] = true
+		}
+		names := make([]string, 0, len(flags))
+		for name := range flags {
+			if !known[name] {
+				names = append(names, name)
+			}
+		}
+		sort.Strings(names)
+		if len(names) > 0 {
+			return fmt.Errorf("%w: unknown flag(s) for review: --%s; %s", ErrUsage, strings.Join(names, ", --"), declared.Usage)
+		}
 	}
 	slug := args[0]
 	spec, err := loadSpec(root, slug)
@@ -47,15 +70,17 @@ func runReview(root string, args []string, flags map[string]string) error {
 		return nil
 	}
 
-	// Scaffold mode: create new or update stale report (R5.1)
+	// Scaffold mode: any existing report blocks a re-scaffold (R5.1). A stale
+	// report is not safe to replace — it holds the auditor's findings just as a
+	// current one does, and moving HEAD is not operator authorization to destroy
+	// them. --restamp carries that body forward; --force is the explicit
+	// destructive action.
 	if existing, readErr := os.ReadFile(path); readErr == nil && !flagEnabled(flags, "force") {
-		// Only a report already written for the current HEAD blocks a re-scaffold;
-		// a stale report from an older commit is safe to replace. The guard keys on
-		// the HEAD line alone so it protects an in-progress report whose verdict is
-		// not yet filled (R5.1).
-		if core.HeadPinned(head) && core.ReviewReportHead(string(existing)) == head {
-			return fmt.Errorf("review report already exists for HEAD %s; pass --force to overwrite or --restamp to preserve findings", head)
+		existingHead := core.ReviewReportHead(string(existing))
+		if existingHead == "" {
+			existingHead = "unresolved"
 		}
+		return fmt.Errorf("review report already exists (HEAD %s); pass --restamp to update it to HEAD %s preserving findings, or --force to overwrite", existingHead, head)
 	}
 
 	content := core.RenderReviewScaffold(slug, head, spec.Tasks)

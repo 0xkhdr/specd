@@ -153,6 +153,59 @@ Found edge case in error handling.
 	if parsed.Note != "needs-update" {
 		t.Fatalf("note = %q, want %q", parsed.Note, "needs-update")
 	}
+
+	// R5.3: the token is normalized because it is matched; the note is human
+	// prose and must survive verbatim, case included.
+	t.Run("qualified_verdict_keeps_note_verbatim", func(t *testing.T) {
+		report, err := ParseReviewReport("- **Git HEAD:** " + newHead + "\n- **Verdict:** APPROVE Minor NITs in Foo.go\n")
+		if err != nil {
+			t.Fatalf("qualified verdict refused: %v", err)
+		}
+		if report.Verdict != ReviewApprove {
+			t.Errorf("verdict = %q, want %q", report.Verdict, ReviewApprove)
+		}
+		if report.Note != "Minor NITs in Foo.go" {
+			t.Errorf("note = %q, want it preserved verbatim", report.Note)
+		}
+		// A note must never widen a non-approve token into an approve.
+		rejected, err := ParseReviewReport("- **Git HEAD:** " + newHead + "\n- **Verdict:** reject approve later\n")
+		if err != nil {
+			t.Fatalf("qualified reject refused: %v", err)
+		}
+		if rejected.Verdict != ReviewReject {
+			t.Errorf("verdict = %q, want %q", rejected.Verdict, ReviewReject)
+		}
+	})
+
+	// R5.2/R7.1: restamping must not touch a single byte outside the HEAD line.
+	t.Run("restamp_changes_only_the_head_line", func(t *testing.T) {
+		want := strings.Replace(oldReport, oldHead, newHead, 1)
+		got, err := RestampReviewReport(oldReport, newHead)
+		if err != nil {
+			t.Fatalf("restamp failed: %v", err)
+		}
+		if got != want {
+			t.Fatalf("restamp altered bytes outside the HEAD line:\ngot:\n%q\nwant:\n%q", got, want)
+		}
+	})
+
+	// unresolved-head / stale-head: an unresolvable new HEAD cannot be stamped,
+	// and a report whose HEAD is still a placeholder cannot be restamped at all.
+	t.Run("unresolved_head_refuses_restamp", func(t *testing.T) {
+		if _, err := RestampReviewReport(oldReport, ""); err == nil {
+			t.Error("restamped to an empty HEAD")
+		}
+		if _, err := RestampReviewReport(oldReport, "unknown"); err == nil {
+			t.Error("restamped to an unresolved HEAD")
+		}
+		placeholder := strings.ReplaceAll(humanBody, "{{HEAD}}", "<git HEAD>")
+		if _, err := RestampReviewReport(placeholder, newHead); err == nil {
+			t.Error("restamped a report whose HEAD was never resolved")
+		}
+		if h := ReviewReportHead(placeholder); h != "" {
+			t.Errorf("ReviewReportHead(placeholder) = %q, want empty", h)
+		}
+	})
 }
 
 func TestReviewContractHardRisksAndRequiredTest(t *testing.T) {

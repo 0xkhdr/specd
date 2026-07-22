@@ -796,7 +796,7 @@ Scaffold the review report the auditor fills before completion. Use --restamp to
 
 | Flag | Value | Description |
 |---|---|---|
-| `--force` | bool | Overwrite an existing report for the current git HEAD. |
+| `--force` | bool | Overwrite an existing report, discarding its findings. |
 | `--restamp` | bool | Update an existing report to a new git HEAD while preserving human findings. |
 
 **Examples:**

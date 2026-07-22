@@ -38,6 +38,105 @@ func TestReviewCmd(t *testing.T) {
 	}
 }
 
+// TestReviewRestampPreservesBody pins the command-side half of R5.1/R5.2: an
+// existing report is never clobbered by a re-scaffold, whatever HEAD it names,
+// and --restamp is the non-destructive way forward.
+func TestReviewRestampPreservesBody(t *testing.T) {
+	root := newDemoSpec(t)
+	gitInitRepo(t, root)
+	advanceToExecuting(t, root)
+	path := core.ReviewReportPath(root, "demo")
+
+	if _, err := captureStdout(t, func() error { return Run(root, "review", []string{"demo"}, nil) }); err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	findings := "Audited the rounding path by hand."
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(raw), "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "- **Verdict:**") && strings.Contains(line, "<") {
+			lines[i] = "- **Verdict:** approve"
+		}
+		if strings.Contains(line, "<Required when the verdict") {
+			lines[i] = findings
+		}
+	}
+	filled := strings.Join(lines, "\n")
+	if err := os.WriteFile(path, []byte(filled), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Move HEAD so the filled report becomes stale.
+	if err := os.WriteFile(filepath.Join(root, "moved.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "moved.txt"}, {"commit", "-m", "move head"}} {
+		if out, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	// existing-report + stale-head: a stale report still holds human findings, so
+	// a bare re-scaffold must refuse rather than destroy them.
+	err = Run(root, "review", []string{"demo"}, nil)
+	if err == nil {
+		t.Fatal("re-scaffold over a stale filled report should refuse")
+	}
+	if !strings.Contains(err.Error(), "--restamp") || !strings.Contains(err.Error(), "--force") {
+		t.Errorf("refusal does not name both recoveries: %v", err)
+	}
+	after, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(after) != filled {
+		t.Fatal("refused re-scaffold still modified the report")
+	}
+
+	// --restamp carries the body to the new HEAD.
+	if _, err := captureStdout(t, func() error {
+		return Run(root, "review", []string{"demo"}, map[string]string{"restamp": ""})
+	}); err != nil {
+		t.Fatalf("restamp: %v", err)
+	}
+	restamped, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(restamped), findings) {
+		t.Error("restamp dropped the human findings")
+	}
+	report, err := core.ParseReviewReport(string(restamped))
+	if err != nil {
+		t.Fatalf("restamped report does not parse: %v", err)
+	}
+	if report.Head != gitHead(root) {
+		t.Errorf("restamped HEAD = %q, want current HEAD", report.Head)
+	}
+
+	// unknown-flag: a typo must be refused, not silently ignored. Checked on a
+	// fresh root with no report, so an accepted flag would scaffold successfully
+	// and the assertion cannot pass for the wrong reason.
+	t.Run("unknown_flag_refused", func(t *testing.T) {
+		fresh := newDemoSpec(t)
+		gitInitRepo(t, fresh)
+		advanceToExecuting(t, fresh)
+		err := Run(fresh, "review", []string{"demo"}, map[string]string{"restmap": ""})
+		if err == nil {
+			t.Fatal("typo'd --restmap accepted; it would have overwritten the report")
+		}
+		if !strings.Contains(err.Error(), "restmap") {
+			t.Errorf("refusal does not name the offending flag: %v", err)
+		}
+		if _, statErr := os.Stat(core.ReviewReportPath(fresh, "demo")); statErr == nil {
+			t.Error("refused invocation still wrote a report")
+		}
+	})
+}
+
 func TestReviewRestamp(t *testing.T) {
 	root := newDemoSpec(t)
 	gitInitRepo(t, root)

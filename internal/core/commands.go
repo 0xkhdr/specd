@@ -690,7 +690,7 @@ var Commands = []Command{
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd review payments", "specd review payments --force", "specd review payments --restamp"},
 		Flags: []Flag{
-			{Name: "force", Type: "bool", Description: "Overwrite an existing report for the current git HEAD."},
+			{Name: "force", Type: "bool", Description: "Overwrite an existing report, discarding its findings."},
 			{Name: "restamp", Type: "bool", Description: "Update an existing report to a new git HEAD while preserving human findings."},
 		},
 	},

@@ -7,7 +7,7 @@
   "cycle": 2,
   "stage": "executing",
   "condition": "active",
-  "revision": 29,
+  "revision": 30,
   "last_event_id": "9d9d6335335c30ada8d31137a9283e7dbeda4fa5350b706b3f3d8be6f76b4f2c",
   "records": {
     "approval:design": {
@@ -167,6 +167,7 @@
     "T23": "complete",
     "T24": "complete",
     "T25": "complete",
-    "T25A": "complete"
+    "T25A": "complete",
+    "T26": "complete"
   }
 }

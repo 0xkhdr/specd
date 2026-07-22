@@ -164,7 +164,9 @@ func ParseReviewReport(raw string) (ReviewReport, error) {
 			if len(parts) > 0 {
 				report.Verdict = strings.ToLower(parts[0])
 				if len(parts) > 1 {
-					report.Note = strings.ToLower(strings.Join(parts[1:], " "))
+					// The token is normalized because it is matched; the note is
+					// human prose and is kept exactly as written (R5.2/R5.3).
+					report.Note = strings.Join(parts[1:], " ")
 				}
 			}
 		}
