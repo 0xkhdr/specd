@@ -237,6 +237,7 @@ func (e HistoryEvent) SpanKind() (SpanKind, bool) {
 // timestamp; they are an internal ordering key, not a public contract.
 const (
 	HistorySourceApproval = iota
+	HistorySourceApprovalRequest
 	HistorySourceDecision
 	HistorySourceMidReq
 	HistorySourceProvenance

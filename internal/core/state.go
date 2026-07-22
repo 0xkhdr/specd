@@ -292,5 +292,14 @@ func (s State) Validate() error {
 	if _, err := s.Spikes(); err != nil {
 		return fmt.Errorf("invalid spike record: %w", err)
 	}
+	// A stage waiting on approval must name a request that can still be
+	// answered; a closed request leaves the wait unresolvable (spec 03 R5.2).
+	requests, err := s.ApprovalRequests()
+	if err != nil {
+		return fmt.Errorf("invalid approval request record: %w", err)
+	}
+	if s.CurrentRequest != "" && !ApprovalRequestPending(requests, s.CurrentRequest) {
+		return fmt.Errorf("current approval request %q is not an open request", s.CurrentRequest)
+	}
 	return nil
 }

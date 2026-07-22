@@ -1,41 +1,35 @@
 {
-  "id": "ds-a498c054ff9a3d358058a59bf6a7c627",
+  "id": "ds-33e0bdd790c1cc5c4d1510281b792004",
   "slug": "workflow-03-state-foundations",
   "driver": "claude-code",
-  "baseline_revision": 9,
+  "baseline_revision": 10,
   "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
-  "baseline_head": "7cf732529d613ba95123cf135965fa35fab020bd",
+  "baseline_head": "ec47fa66b4c8f6e477dddb6857040b2eb9ce7f4f",
   "context_receipt": {
     "schema_version": "1",
-    "manifest_digest": "a5aa86d554984849978b3641ca92ed589f7fc5f45b35c3eea2b566a4d69cc7f3",
+    "manifest_digest": "90485065ee6a870bf8fe164af70f1a452c5b19662a2e5a2b78b13d971f7d2d33",
     "host_id": "claude-code",
     "driver_id": "claude-code",
     "supplied_digests": [
-      "11d246c706236c0fc73deff2da0ef15d39c4632a4416bbca454a93ef4b7bf5c2",
-      "14cae47e5b98d78b6db994dadd8f5c5809f46c131c0e4c4ad4c272819b015806",
-      "1ea988d4c1bbe34647e92271ec3e948f0714de0f5ac7eddb51bc30cb96190a66",
-      "1ef846c1e55101ba0ed558623dfff2bf8416a13152db3c888669a02ecc1ab30b",
-      "2153fd4940ffdf765b3b613693d7bd7fcc284dd7b967e10d9d3fca81d94eccb1",
-      "264ec97931067cb196b454c2cf37c06610f40745aed8b0d96620123427ba9956",
-      "33ccaa9efa102a08455a3abcd80ce492a1b9aff5e0af1d8143ac4c32ed7abc86",
-      "37ed19a44ef68d60d722bab2862bbec86bb2f37bee0f9546e7dab13d78ae8e13",
-      "6b1beca61c6738ed69efc288b6efc454f82359634a521ac49ac752b6da170dd2",
+      "29a8c98107ea7345a28df69e0aa52e01eabce22bae637c647f11fbada545038d",
       "9b66a8c117026427062add083870cbd711578c4c906dd3580bd8207956772bf2",
-      "a0f79d94681dc3b1f3bb7cadccf7433c2015084dbbf88875eaff798df5898d5f",
+      "aa7184adacd9e8a1a3cadf077586b27707e98c7955214e783fbf7ee9baa9625e",
       "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
+      "bba902264e329613860bd7d7beb67723ce8a59933d26fe7821e94ddadf937ad0",
+      "bbb15a7ddae00a7c2d7fb43089b14014467df6b919b8e7618cac51060b9ed9a2",
       "be3fd9d0f44dabe3150b144b288877cd31aa431405a91387a3d48e6222ed1ba5",
-      "dfb1f2b797c1f1d302ae5eae5c32165d045daaad586ce4fa63b473cafed79846",
+      "ca4373dbbe4de997b2df4c65047fb855025849174641b7ad454f0bbae197d64b",
       "e3485d0726b997ea5cf3aa84c66521b518971c75e69dfe95787b08ca2e4b9216"
     ],
     "missing_digests": [],
     "reported_tokens": 8000,
-    "receipt_digest": "01eeca8ff31471eeb01b662c25866e5203a847efec60de28a4bd0a6404ecd507"
+    "receipt_digest": "926fbf02286adcfa1dc54b7620eef1037ef80c247158dd7fbbb00c7cf66837c3"
   },
-  "authority_digest": "9e0cfaa29ed2970b327c9b18f89eaf06af65b4fc8483b71d63c946c8eec4c8fd",
-  "issued_at": "2026-07-22T01:32:22.533497623Z",
-  "expires_at": "2026-07-22T03:32:22.533497623Z",
+  "authority_digest": "14b46887f8bb065da3f443e3fcd854c233ccef1794704d48e8ad8920cb8ba046",
+  "issued_at": "2026-07-22T01:43:09.986964475Z",
+  "expires_at": "2026-07-22T03:43:09.986964475Z",
   "spent_nonces": [
-    "951d80cfc1c723d4178f1e599f76c09c"
+    "dc6930e786dd5040632110ede2c8d01b"
   ],
   "revision": 4
 }

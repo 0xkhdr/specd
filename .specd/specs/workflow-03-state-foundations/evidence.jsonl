@@ -4,3 +4,4 @@
 {"task_id":"T13","command":"go test ./internal/core ./internal/cmd -run TestStageConditionMigration -count=2","exit_code":0,"git_head":"b8488a508e2cbd4c0500b695a74e781c6e77e5f3","timestamp":"2026-07-22T01:18:24Z","actor":"xkhdr"}
 {"task_id":"T14","command":"go test ./internal/core ./internal/cmd -run TestTaskActivityReadiness -count=2","exit_code":0,"git_head":"17875d8cdd5b1d23c04a60a530dd39de2602a9c2","timestamp":"2026-07-22T01:31:51Z","actor":"xkhdr"}
 {"task_id":"T15","command":"go test ./internal/core ./internal/cmd -run TestClarificationLifecycle -count=2","exit_code":0,"git_head":"7cf732529d613ba95123cf135965fa35fab020bd","timestamp":"2026-07-22T01:42:32Z","actor":"xkhdr"}
+{"task_id":"T16","command":"go test ./internal/core -run TestApprovalRequestLifecycle -count=2","exit_code":0,"git_head":"ec47fa66b4c8f6e477dddb6857040b2eb9ce7f4f","timestamp":"2026-07-22T01:48:53Z","actor":"xkhdr"}
