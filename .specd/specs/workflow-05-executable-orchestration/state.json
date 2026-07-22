@@ -7,7 +7,7 @@
   "cycle": 2,
   "stage": "executing",
   "condition": "active",
-  "revision": 25,
+  "revision": 26,
   "last_event_id": "9d9d6335335c30ada8d31137a9283e7dbeda4fa5350b706b3f3d8be6f76b4f2c",
   "records": {
     "approval:design": {
@@ -163,6 +163,7 @@
     }
   },
   "task_status": {
-    "T22": "complete"
+    "T22": "complete",
+    "T23": "complete"
   }
 }
