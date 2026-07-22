@@ -70,6 +70,39 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	if err := core.ValidateSlug(slug); err != nil {
 		return err
 	}
+	return approveSpec(root, slug, nil)
+}
+
+// delegatedApproval is the delegation identity a delegated approval records. It
+// is nil for interactive approval, and that nil is the *only* difference
+// between the two paths: both run approveSpec, so an operator's grant can never
+// advance a spec that a human standing at the same commit could not (R3.1).
+type delegatedApproval struct {
+	GrantID   string
+	RequestID string
+	Reason    string
+	Actor     core.ActorContext
+	// ExpectedRevision is the revision the grant use was authorized against.
+	// The reservation is taken before the spec lock, so the approval refuses
+	// rather than committing against a state that moved underneath it.
+	ExpectedRevision int64
+}
+
+// approvalGateFor is the gate name an approval of current records under. Shared
+// so the delegated path names the same gate the interactive path will write,
+// and the grant's transition scope is checked against the real one.
+func approvalGateFor(current core.Status) string {
+	if core.NextStatus(current) == core.StatusComplete {
+		return string(core.StatusComplete)
+	}
+	return string(current)
+}
+
+// approveSpec is the one approval transaction. Interactive approval and
+// delegated approval differ only in the audit they record and in the grant
+// bookkeeping the caller wraps around it — never in which gates run or in what
+// a passing gate set permits.
+func approveSpec(root, slug string, delegated *delegatedApproval) error {
 	var approvedFrom, approvedTarget core.Status
 	var approvedPlan string
 	var approvedRevision int64
@@ -80,6 +113,10 @@ func runApprove(root string, args []string, flags map[string]string) error {
 			return struct{}{}, err
 		}
 		current := state.Status
+		if delegated != nil && state.Revision != delegated.ExpectedRevision {
+			return struct{}{}, core.Refusef("REVISION_CONFLICT", "delegated approval authorized revision %d, spec %s is at %d",
+				delegated.ExpectedRevision, slug, state.Revision)
+		}
 		readiness, err := buildReadiness(root, slug, state)
 		if err != nil {
 			return struct{}{}, err
@@ -97,10 +134,7 @@ func runApprove(root string, args []string, flags map[string]string) error {
 			return struct{}{}, err
 		}
 		approvedFrom, approvedTarget = current, target
-		gate := string(current)
-		if target == core.StatusComplete {
-			gate = string(target)
-		}
+		gate := approvalGateFor(current)
 		if gates.HasErrors(readiness.Findings) {
 			for _, finding := range readiness.Findings {
 				if finding.Severity == gates.Error {
@@ -112,6 +146,23 @@ func runApprove(root string, args []string, flags map[string]string) error {
 		state.Status = target
 		state.Phase = phase
 		rec := core.Record{Kind: "approval", Gate: gate, Text: fmt.Sprintf("%s → %s", current, target), ApprovedRevision: state.Revision}
+		if delegated != nil {
+			// Scope marks the approval delegated on the record every reader
+			// already reads, and the companion record carries the grant
+			// identity. A reader that ignores both still sees "scope=delegated"
+			// on the approval itself, so a delegated approval can never be
+			// mistaken for a human one (R3.4, R6.3).
+			rec.Scope = "delegated"
+			if err := appendRecord(root, &state, "delegation:"+gate, core.Record{
+				Kind:             "delegation",
+				Gate:             gate,
+				Scope:            delegated.GrantID,
+				Text:             delegated.audit(),
+				ApprovedRevision: state.Revision,
+			}); err != nil {
+				return struct{}{}, err
+			}
+		}
 		// Pin the approved artifact's source digest so a later amendment can
 		// detect drift (spec 01 R2.1 "and digest", R5 staleness).
 		if artifact := approvalArtifact(gate); artifact != "" {
@@ -134,6 +185,11 @@ func runApprove(root string, args []string, flags map[string]string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if delegated != nil {
+		fmt.Fprintf(os.Stdout, "approved %s (delegated): %s → %s revision %d plan %s grant %s\n",
+			slug, approvedFrom, approvedTarget, approvedRevision, approvedPlan, delegated.GrantID)
+		return nil
 	}
 	fmt.Fprintf(os.Stdout, "approved %s: %s → %s revision %d plan %s\n", slug, approvedFrom, approvedTarget, approvedRevision, approvedPlan)
 	return nil

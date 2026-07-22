@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,24 +139,28 @@ func writeTasks(t *testing.T, root, slug, row string) {
 	}
 }
 
+// captureStdout runs fn with os.Stdout redirected to a pipe and returns what it
+// wrote. The reader is drained by a goroutine started *before* fn runs: a pipe
+// buffers ~64KiB, and reading only after fn returns deadlocks the moment a verb
+// prints more than that (`help --json` is already past it). Same shape as
+// captureRunOutput in mcp_exec.go, for the same reason.
 func captureStdout(t *testing.T, fn func() error) (string, error) {
 	t.Helper()
 	orig := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
+	done := make(chan string, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.String()
+	}()
 	err := fn()
 	w.Close()
 	os.Stdout = orig
-	buf := make([]byte, 0, 4096)
-	tmp := make([]byte, 1024)
-	for {
-		n, readErr := r.Read(tmp)
-		buf = append(buf, tmp[:n]...)
-		if readErr != nil {
-			break
-		}
-	}
-	return string(buf), err
+	out := <-done
+	r.Close()
+	return out, err
 }
 
 func TestApproveGatesE2E(t *testing.T) {

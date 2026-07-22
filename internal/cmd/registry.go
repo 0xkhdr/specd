@@ -50,6 +50,7 @@ var executable = map[string]Handler{
 	"config":           runConfig,
 	"context":          runContext,
 	"decision":         runDecision,
+	"delegate":         runDelegate,
 	"request-decision": runRequestDecision,
 	"drift":            runDrift,
 	"handshake":        runHandshake,

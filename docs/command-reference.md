@@ -279,6 +279,35 @@ Record an explicit human decision.
 specd decision payments --text 'defer webhooks' --scope design
 ```
 
+### `delegate`
+
+```
+specd delegate issue <spec> --grant <id> --transitions <t,...> | specd delegate revoke <grant> | specd delegate approve <spec> --grant <id> --token <t>
+```
+
+Operator-scoped delegation of approval authority: issue, revoke, or use a bounded grant. Delegated approval runs the same readiness gates as interactive approval and weakens none of them.
+
+**Phases:** any.
+
+| Flag | Value | Description |
+|---|---|---|
+| `--expires-in` | string | Grant lifetime as a Go duration (e.g. 12h). |
+| `--grant` | string | Grant identity to issue or use. |
+| `--production` | bool | Permit production-profile transitions. Off unless asked for explicitly. |
+| `--reason` | string | Why the delegation was used or revoked. |
+| `--reason-required` | bool | Refuse a use of this grant that carries no reason. |
+| `--token` | the bearer value printed once by `delegate issue` | Bearer token for the grant. Never stored in the repository. |
+| `--transitions` | approve.<gate>[,approve.<gate>] | Exact transitions the grant may approve. No patterns. |
+| `--uses` | string | Maximum number of approvals the grant authorizes. |
+
+**Examples:**
+
+```bash
+specd delegate issue payments --grant nightly --transitions approve.design --uses 2 --expires-in 12h
+specd delegate approve payments --grant nightly --token $SPECD_GRANT_TOKEN --reason "nightly unattended run"
+specd delegate revoke nightly --reason "run finished"
+```
+
 ### `deploy`
 
 ```

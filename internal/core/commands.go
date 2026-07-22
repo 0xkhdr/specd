@@ -310,6 +310,29 @@ var Commands = []Command{
 		SpecSlugArg:   argAt(0),
 	},
 	{
+		Name:  "delegate",
+		Usage: "specd delegate issue <spec> --grant <id> --transitions <t,...> | specd delegate revoke <grant> | specd delegate approve <spec> --grant <id> --token <t>",
+		Description: "Operator-scoped delegation of approval authority: issue, revoke, or use a bounded grant. " +
+			"Delegated approval runs the same readiness gates as interactive approval and weakens none of them.",
+		AllowedPhases: anyPhase(),
+		ExitCodes:     stdCodes(),
+		Examples: []string{
+			"specd delegate issue payments --grant nightly --transitions approve.design --uses 2 --expires-in 12h",
+			"specd delegate approve payments --grant nightly --token $SPECD_GRANT_TOKEN --reason \"nightly unattended run\"",
+			"specd delegate revoke nightly --reason \"run finished\"",
+		},
+		Flags: []Flag{
+			{Name: "grant", TakesValue: true, Type: "string", Description: "Grant identity to issue or use."},
+			{Name: "transitions", TakesValue: true, Type: "string", Values: "approve.<gate>[,approve.<gate>]", Description: "Exact transitions the grant may approve. No patterns."},
+			{Name: "uses", TakesValue: true, Type: "string", Default: "1", Description: "Maximum number of approvals the grant authorizes."},
+			{Name: "expires-in", TakesValue: true, Type: "string", Default: "24h", Description: "Grant lifetime as a Go duration (e.g. 12h)."},
+			{Name: "token", TakesValue: true, Type: "string", Values: "the bearer value printed once by `delegate issue`", Description: "Bearer token for the grant. Never stored in the repository."},
+			{Name: "reason", TakesValue: true, Type: "string", Description: "Why the delegation was used or revoked."},
+			{Name: "reason-required", Type: "bool", Description: "Refuse a use of this grant that carries no reason."},
+			{Name: "production", Type: "bool", Description: "Permit production-profile transitions. Off unless asked for explicitly."},
+		},
+	},
+	{
 		Name:          "mode",
 		Usage:         "specd mode <spec> orchestrated",
 		Description:   "Record human approval for the separate opt-in orchestration mode transition.",
@@ -767,6 +790,15 @@ var operationDefinitions = map[string][]operationDefinition{
 		{id: "agents.doctor", subcommand: "doctor", effect: EffectRead, scopeSource: "workspace"},
 		{id: "agents.guide", subcommand: "guide", effect: EffectRead, scopeSource: "spec"},
 	},
+	// Every delegate operation is operator-facing: an agent may run under a
+	// grant an operator issued, but never mints, revokes, or self-authorizes
+	// one. The route projection turns that into a handoff on every non-CLI
+	// transport rather than a tool an agent can see and try.
+	"delegate": {
+		{id: "delegate.issue", subcommand: "issue", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "delegate.revoke", subcommand: "revoke", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
+		{id: "delegate.approve", subcommand: "approve", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+	},
 	"eval": {
 		{id: "eval.import", subcommand: "import", effect: EffectStateWrite, scopeSource: "spec"},
 		{id: "eval.status", subcommand: "status", effect: EffectRead, scopeSource: "spec"},
@@ -957,7 +989,7 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 		default:
 			return Operation{}, false
 		}
-	case "eval", "exception", "brain", "config", "clarification":
+	case "eval", "exception", "brain", "config", "clarification", "delegate":
 		if first == "" {
 			return Operation{}, false
 		}
