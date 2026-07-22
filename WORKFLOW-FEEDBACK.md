@@ -680,3 +680,27 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Recommendation:** either leave the nonce unspent when the operation refuses without mutating state, or have the refusal print the next nonce inline, the way `session action` does.
 - **Tradeoff:** single-use nonces exist to stop replay of a *mutating* operation; not spending one on a refusal that changed nothing preserves that property. If the safer direction is preferred, the message fix alone removes the surprise.
 - **Status:** open
+
+### 2026-07-23 — friction — planning gates approve a task `kind` the task parser refuses
+- **Context:** `workflow-06-unattended-authority`, tasks phase, driver; `./specd check workflow-06-unattended-authority`, `./specd approve workflow-06-unattended-authority`, then `./specd session ack workflow-06-unattended-authority T27 --tokens 60000`
+- **Expected:** a tasks.md that `check` reports as `ready` and `approve` advances is dispatchable; the tasks→executing gate is the point where task-row schema is meant to be proven.
+- **Actual:** `check` printed `ready workflow-06-unattended-authority: tasks → executing revision 3 ... gates 24 readiness_checked=true` and `approve` advanced the phase, but the first `session ack` refused with `TASK_FIELD_UNKNOWN: task T27 column kind value "implement" is not one of chore, deferred, docs, feature, fix, refactor, spike, test`. All four rows carried `kind = implement`, so no task in the spec could be dispatched after the gate that should have caught it had already passed.
+- **Root cause:** harness bug — the canonical `kind` vocabulary in `internal/core/tasksparser.go` (`knownTaskKinds`) is enforced by `TaskContract` on dispatch but not by the tasks-phase gate registry, so an unparseable tasks.md can reach `executing`. `workflow-06` and `workflow-07` were authored against an older vocabulary that included `implement` and `migration`; `workflow-01`..`05` still contain both values and would fail the same way.
+- **Recommendation:** run the same `TaskContract` conversion the dispatcher uses over every row inside the tasks→executing gate, so a row that cannot be dispatched cannot be approved. The refusal already names the accepted set — surfacing it one phase earlier is the whole fix.
+- **Status:** open
+
+### 2026-07-23 — friction — adding a palette verb deadlocks the documented-examples test
+- **Context:** `workflow-06-unattended-authority` T28A, executing, craftsman; declaring the `delegate` verb in `internal/core/commands.go`, then `go test ./internal/cmd -run TestDocumentedExamplesRun -count=1`
+- **Expected:** adding a verb to the palette changes generated docs and help output, both of which are regenerated and linted.
+- **Actual:** exit 124 (hang, no output). `captureStdout` in `internal/cmd/lifecycle_test.go` swapped `os.Stdout` for an `os.Pipe()` and drained the reader only after the function returned; `./specd help --json | wc -c` → `67311`, past the 64 KiB pipe buffer, so the writer blocked forever inside the help flag-print loop. Latent since the helper was written; the palette merely crossed the line.
+- **Root cause:** harness bug — a test helper with an undrained pipe, whose failure mode is a silent hang attributed to whatever change happened to grow the payload rather than to the helper.
+- **Recommendation:** fixed in this spec by draining into a buffer from a goroutine started before the call, matching `captureRunOutput` in `internal/cmd/mcp_exec.go`. The general fix is to keep one capture helper for the whole `internal/cmd` package instead of two with different safety, and let `test-lint.sh` reject a second `os.Pipe()` capture that reads after its callee returns.
+- **Status:** resolved (9b6b959)
+
+### 2026-07-23 — improvement — a spec's mode can be set but never read
+- **Context:** `workflow-06-unattended-authority`, tasks phase, driver, starting an orchestrated run; `./specd status --program`, `./specd status workflow-06-unattended-authority --guide`, `./specd status workflow-06-unattended-authority --json`, `./specd mode workflow-06-unattended-authority`
+- **Observation:** the instruction was to confirm the spec was in orchestrated mode. No status surface reports mode — not `--program`, not `--guide`, not `--json` — and `specd mode <spec>` with no value answers `usage: specd mode <spec> orchestrated` rather than reporting the current one. Reading the mode meant `grep '"mode"' .specd/specs/<slug>/state.json`, which is exactly the file agents are told never to touch. It turned out to be `default`, while every prior spec in the program was `orchestrated`.
+- **Cost:** four commands that could not answer the question, then a direct read of `state.json` to answer it; and a mode divergence that would otherwise have gone unnoticed for the whole run.
+- **Recommendation:** emit `mode` in `status --json` and on the `status --guide` header line, and make a bare `specd mode <spec>` print the current mode instead of a usage error.
+- **Tradeoff:** none — mode already drives routing decisions the guide reports, so reporting it is strictly less surprising than hiding it.
+- **Status:** open
