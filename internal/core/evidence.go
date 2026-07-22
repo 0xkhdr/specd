@@ -38,6 +38,27 @@ func validateEvidenceRef(ref string) error {
 
 const EvidenceOutputLimit = 64 * 1024
 
+// EvidenceStatusType enumerates the six states evidence can be loaded into (spec 05 R3.2):
+// missing, failing, stale, malformed, incompatible, or passing.
+type EvidenceStatusType string
+
+const (
+	// EvidenceMissing: no evidence record exists for this task
+	EvidenceMissing EvidenceStatusType = "missing"
+	// EvidenceFailing: evidence record exists but exit code is nonzero
+	EvidenceFailing EvidenceStatusType = "failing"
+	// EvidenceStale: evidence record exists but is not current for the subject
+	EvidenceStale EvidenceStatusType = "stale"
+	// EvidenceMalformed: evidence record exists but is malformed (missing git_head, etc)
+	EvidenceMalformed EvidenceStatusType = "malformed"
+	// EvidenceIncompatible: evidence record exists but is incompatible (zero-test Go selector)
+	EvidenceIncompatible EvidenceStatusType = "incompatible"
+	// EvidencePassing: evidence record is valid, current, and exit code is zero
+	EvidencePassing EvidenceStatusType = "passing"
+	// EvidenceInvalid is an alias for incompatible, used when detected at verify time (spec 05 R3.1)
+	EvidenceInvalid EvidenceStatusType = "invalid"
+)
+
 type EvidenceRecord struct {
 	TaskID      string `json:"task_id"`
 	Command     string `json:"command"`
@@ -67,6 +88,9 @@ type EvidenceRecord struct {
 	// nil pointer means the worker reported none — never imputed as zero. Old
 	// records predating telemetry decode to nil, so they stay fully valid (R5).
 	Telemetry *Annotations `json:"telemetry,omitempty"`
+	// ZeroTestDetected marks a Go test command that matched zero tests (spec 05 R3.1).
+	// When true, evidence is invalid/incompatible and blocks completion.
+	ZeroTestDetected bool `json:"zero_test_detected,omitempty"`
 }
 
 func EvidencePath(root, slug string) string {
@@ -277,6 +301,28 @@ func validateContextReceiptDigest(digest string) error {
 		}
 	}
 	return nil
+}
+
+// EvidenceStatus classifies a record into one of six states (spec 05 R3.2).
+// An empty record is missing; an existing record is classified by its exit code
+// and git_head pinning. A zero-test Go selector is marked invalid/incompatible.
+func EvidenceStatus(record EvidenceRecord) EvidenceStatusType {
+	if record.TaskID == "" {
+		return EvidenceMissing
+	}
+	// Check for incompatible: zero-test Go selector (spec 05 R3.1)
+	if record.ZeroTestDetected {
+		return EvidenceInvalid
+	}
+	// Check for malformed: missing or unpinned git_head
+	if !HeadPinned(record.GitHead) {
+		return EvidenceMalformed
+	}
+	// Check exit code
+	if record.ExitCode != 0 {
+		return EvidenceFailing
+	}
+	return EvidencePassing
 }
 
 // EvidenceProvesCurrent reports whether a record is a passing verify record for

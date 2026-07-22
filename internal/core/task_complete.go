@@ -18,20 +18,37 @@ func HeadPinned(gitHead string) bool {
 
 // verifyEvidenceReady refuses completion unless the task's deterministic verify
 // record passed and is pinned to a real commit. This is the no-bypass test gate
-// (spec 04 R3.4): a failing deterministic test always blocks completion.
+// (spec 05 R3.1, R3.2, R3.4): a failing deterministic test always blocks completion,
+// as does invalid/malformed evidence.
 func verifyEvidenceReady(taskID string, records map[string]EvidenceRecord) error {
 	// records is attempt-filtered by LoadEvidence, so a reopened task reaches
 	// here with its prior attempt's records already dropped: the same refusal
 	// covers "never verified" and "verified under a superseded attempt", and
-	// the recovery is identical in both cases (spec 04 R3.2).
+	// the recovery is identical in both cases (spec 05 R3.3).
 	record, ok := records[taskID]
-	if !ok || record.ExitCode != 0 {
+	if !ok {
 		return fmt.Errorf("task %s requires passing evidence recorded for its current attempt; run `specd verify` again", taskID)
 	}
-	if !HeadPinned(record.GitHead) {
+	// Check evidence status to distinguish failing, invalid, and malformed (spec 05 R3.2)
+	status := EvidenceStatus(record)
+	switch status {
+	case EvidencePassing:
+		return nil
+	case EvidenceMissing:
+		return fmt.Errorf("task %s requires passing evidence recorded for its current attempt; run `specd verify` again", taskID)
+	case EvidenceFailing:
+		return fmt.Errorf("task %s requires passing evidence recorded for its current attempt; run `specd verify` again", taskID)
+	case EvidenceMalformed:
 		return fmt.Errorf("task %s evidence is not pinned to a commit (git_head %q); re-run `specd verify %s` in a repo with a resolvable HEAD", taskID, record.GitHead, taskID)
+	case EvidenceInvalid:
+		return fmt.Errorf("task %s evidence is invalid: go test selector matched zero tests; fix the test selector or rerun verify with a valid selector", taskID)
+	case EvidenceStale:
+		return fmt.Errorf("task %s evidence is stale; re-run `specd verify %s` to refresh it", taskID, taskID)
+	case EvidenceIncompatible:
+		return fmt.Errorf("task %s evidence is incompatible; re-run `specd verify %s` to revalidate it", taskID, taskID)
+	default:
+		return fmt.Errorf("task %s has unknown evidence status %v; run `specd verify` again", taskID, status)
 	}
-	return nil
 }
 
 // CompleteTask advances a task to done. Completion authority is verify/eval

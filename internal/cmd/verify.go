@@ -79,6 +79,10 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		fmt.Fprintf(os.Stderr, "warning: git HEAD unresolved (%q); this evidence cannot pin to a commit and will not count toward `complete-task`\n", head)
 	}
 	record := core.EvidenceRecord{TaskID: taskID, Command: task.Verify, ExitCode: result.ExitCode, GitHead: head, Telemetry: annotations}
+	// Detect zero-test Go selectors (spec 05 R3.1): mark as invalid if no tests ran
+	if isZeroTestGoSelector(task.Verify, result) {
+		record.ZeroTestDetected = true
+	}
 	evidenceWritten := false
 	if appendErr := core.AppendEvidence(core.EvidencePath(root, slug), record); appendErr != nil {
 		if err == nil {
@@ -181,6 +185,35 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	}
 	fmt.Fprintf(os.Stdout, "evidence recorded for %s %s; task not complete; run `specd complete-task %s %s`\n", slug, taskID, slug, taskID)
 	return nil
+}
+
+// isZeroTestGoSelector detects Go test commands that matched zero tests (spec 05 R3.1).
+// For multi-package commands: invalid only if ALL packages report "[no tests to run]"
+// (spec: "no package reports selected-test execution"). Single-package zero-tests
+// are invalid. Non-selector test commands are never zero-test invalid (exit code only).
+// ponytail: Parse output line-by-line for "ok" lines; if any package executed (non-zero
+// time or actual test output), it's valid. Flag invalid only when all packages are "[no tests to run]".
+func isZeroTestGoSelector(command string, result verifyexec.Result) bool {
+	if !strings.Contains(command, "go test") || !strings.Contains(command, "-run") {
+		return false
+	}
+	output := result.Stdout + result.Stderr
+
+	// Split output into lines and check for "ok" package lines
+	var hasOkLine bool
+	var allNoTests bool = true
+	for _, line := range strings.Split(output, "\n") {
+		// Look for lines like: "ok  	github.com/package	0.001s"
+		if strings.Contains(line, "ok") && strings.Contains(line, "github.com") {
+			hasOkLine = true
+			// If the line doesn't contain "[no tests to run]", this package executed tests
+			if !strings.Contains(line, "[no tests to run]") {
+				allNoTests = false
+			}
+		}
+	}
+	// Invalid only if we saw ok lines AND all of them are "[no tests to run]"
+	return hasOkLine && allNoTests
 }
 
 func requireTaskGate(root, slug string) error {
