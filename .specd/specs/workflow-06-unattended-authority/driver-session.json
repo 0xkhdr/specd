@@ -1,0 +1,42 @@
+{
+  "id": "ds-8dbe11b15a9376a7ed7f81365a897298",
+  "slug": "workflow-06-unattended-authority",
+  "driver": "claude-code",
+  "baseline_revision": 4,
+  "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
+  "baseline_head": "ec6f645806b180496fc3fc8111aea3bf22e68961",
+  "context_receipt": {
+    "schema_version": "1",
+    "manifest_digest": "4eec1802a8ccd6a285f57151a5955a94cb64ced54b92643407f11f0cc2307fd4",
+    "host_id": "claude-code",
+    "driver_id": "claude-code",
+    "supplied_digests": [
+      "0004d65e3deee363dbdf11ee8b96c80b3fabfa1363a2462d8dba5dfc4a2e5f90",
+      "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809",
+      "14f6195f35df0d14314dbc9633048140aca8b7168d9998dfd128b69ba4856b9a",
+      "1704a46a80f5bbdb6dd2dc32050ca6582300c1c53ba3c8e57fde223d94a804c8",
+      "23d4d15fcb1ef492f4aa138a4a4d017a3e1d083f2cc7b032fb973ac830b16871",
+      "35aa4e323efca56b381209f24d57ac95a409fc358092765aea48a68e28824298",
+      "4b2b192014b924c2e9e2bdf5784b3b14e88d60136aae152ddcd43b5f4a316866",
+      "4e7037d9d0755096b4d4a0e4ff689396df434dfe1518112d74cc6399ee4d5b99",
+      "63b7823fbafb5022d513a05c8a8d6130942b767e8b17fb3d34325eda2270d803",
+      "6b535702dcb3f1722beeefdb60fa2cb49c9d5e91338fadbb3821ac219564219d",
+      "7838c728de71574f610427e2cc559a100eb78b0e1aec068a4d41e3a9054e2272",
+      "890de1d8a5c9018ea69206ff7af46695aac14e33be1eebd67518cb7340adf0b2",
+      "9be7501b4b49e0492fbb29975cc485ae258dddf7e50398f693d2bb664ff2fb98",
+      "b6524313e079d7cab209f1d035809c02455b32f94292c2d81f97d62412b4445a",
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
+      "e0a605d430e035b06e783607eaac97069f44e340789835f3c3d813f2a439953a"
+    ],
+    "missing_digests": [],
+    "reported_tokens": 60000,
+    "receipt_digest": "67fcbf0a317244baf84b4db6f4ce239fde44872dbae22a1b833efdda068dc205"
+  },
+  "authority_digest": "30f74d308be8394075251386628b45e0a41de5e0d5d5f3db53c7272c5f309c99",
+  "issued_at": "2026-07-22T20:38:24.726150937Z",
+  "expires_at": "2026-07-22T22:38:24.726150937Z",
+  "spent_nonces": [
+    "n-fb6b3870436f7246"
+  ],
+  "revision": 4
+}

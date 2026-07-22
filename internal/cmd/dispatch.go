@@ -36,7 +36,27 @@ func usageError(verb string) error {
 // (exit 2); unknown verbs wrap ErrUnknownCommand (exit 2). This is the one
 // place the harness turns command metadata into enforcement (spec 03).
 func Run(root, name string, args []string, flags map[string]string) error {
-	return runDispatch(root, name, args, flags, nil, time.Time{}, nil)
+	return runDispatch(root, name, args, flags, nil, time.Time{}, nil, cliActorContext())
+}
+
+// RunAsActor is Run with an actor context a trusted host resolved for this
+// invocation (R1.1). Hosts that attest nothing keep calling Run and stay on the
+// advisory path.
+func RunAsActor(root, name string, args []string, flags map[string]string, actor core.ActorContext) error {
+	return runDispatch(root, name, args, flags, nil, time.Time{}, nil, actor)
+}
+
+// cliActorContext is the actor a bare CLI process can honestly claim: none.
+// Nothing about a shell invocation proves who is at the keyboard — the OS
+// username and SPECD_ACTOR are text anyone in the process tree can set — so the
+// claim is carried as provenance and resolves to unknown/advisory (R1.3).
+func cliActorContext() core.ActorContext {
+	return core.ResolveActorContext(core.ActorClaim{
+		Class:       os.Getenv("SPECD_ACTOR"),
+		Subject:     os.Getenv("USER"),
+		Transport:   core.RouteCLI,
+		Attestation: core.ActorAttestationEnvironment,
+	}, core.HostContract{}, time.Now())
 }
 
 // routeContextForSpec mirrors the dispatcher's production-task authority
@@ -56,7 +76,7 @@ func routeContextForSpec(root, slug string, transport core.RouteTransport, autho
 	return core.RouteContext{Transport: transport, Actor: core.ActorAgent, Authority: authority, Issuer: issuer, IssuerAvailable: issuerAvailable}
 }
 
-func runDispatch(root, name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time, changedPaths []string) error {
+func runDispatch(root, name string, args []string, flags map[string]string, authority *core.AuthorityV1, now time.Time, changedPaths []string, actor core.ActorContext) error {
 	handler, ok := Registry[name]
 	if !ok || handler == nil {
 		return RefuseUnknownCommand(name)
@@ -75,6 +95,12 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 		if !ok {
 			return core.Refusef("OPERATION_UNKNOWN", "unknown operation for command %q", name).
 				WithRecovery(core.RefusalActorAgent, "specd help "+name).Wrapping(ErrUsage)
+		}
+		// Actor enforcement precedes every other check that could mutate: a
+		// governed agent must not reach an operator-only handler at all (R1.1,
+		// R1.2). An unattested actor is unknown and passes through advisory.
+		if err := core.AuthorizeActorOperation(actor, operation); err != nil {
+			return err
 		}
 		if name == "agents" && len(args) > 0 && args[0] == "inspect" {
 			// `agents inspect` aliases bare `agents` (spec R4.2): the alias token
@@ -285,7 +311,7 @@ func checkFreshDispatch(root, name string, args []string) error {
 
 // RunAuthorized enforces a mission authority packet before normal dispatch.
 func RunAuthorized(root, name string, args []string, flags map[string]string, authority core.AuthorityV1, changedPaths []string, now time.Time) error {
-	return runDispatch(root, name, args, flags, &authority, now, changedPaths)
+	return runDispatch(root, name, args, flags, &authority, now, changedPaths, cliActorContext())
 }
 
 // checkFlagEnums fails closed (exit 2) when a flag carrying a declared enum is

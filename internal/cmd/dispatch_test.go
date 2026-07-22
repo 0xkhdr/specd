@@ -347,3 +347,62 @@ func TestUsageErrorMatchesPalette(t *testing.T) {
 		}
 	})
 }
+
+// TestActorOperationEnforcement pins R1.1/R1.2 at the dispatcher: a governed
+// agent is refused an operator-only verb before the handler can mutate
+// anything, while an unattested caller keeps the pre-existing advisory path
+// (R1.3, R6.1).
+func TestActorOperationEnforcement(t *testing.T) {
+	root := newDemoSpec(t)
+	statePath := core.StatePath(root, "demo")
+	before, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	governedActor := func(class string) core.ActorContext {
+		actor := core.ResolveActorContext(core.ActorClaim{
+			Class:       class,
+			Subject:     "worker",
+			Transport:   core.RouteCLI,
+			Attestation: core.ActorAttestationHost,
+		}, core.ReferenceHostContract(), time.Now())
+		if !actor.Governed {
+			t.Fatalf("%s claim did not resolve as governed: %+v", class, actor)
+		}
+		return actor
+	}
+
+	err = RunAsActor(root, "approve", []string{"demo"}, nil, governedActor("agent"))
+	refusal, ok := core.AsRefusal(err)
+	if !ok || refusal.Code != "HUMAN_ONLY" {
+		t.Fatalf("governed agent approve = %v, want HUMAN_ONLY refusal", err)
+	}
+	if refusal.ActorRequired != core.RefusalActorHuman || refusal.RecoveryCommand == "" {
+		t.Fatalf("refusal does not name the handoff: %+v", refusal)
+	}
+	after, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("state.json mutated on an actor-refused dispatch")
+	}
+
+	// R1.3/R6.1: an unattested caller (OS username, TTY, legacy host that
+	// supplies nothing) resolves to unknown and is not refused on actor class.
+	if err := RunAsActor(root, "approve", []string{"demo"}, nil, core.ActorContext{}); err != nil {
+		t.Fatalf("unattested approve refused: %v", err)
+	}
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("plain CLI approve refused: %v", err)
+	}
+
+	// A governed operator is the actor the verb is reserved for, and a governed
+	// agent keeps every operation the palette does not reserve.
+	if err := RunAsActor(root, "status", []string{"demo"}, nil, governedActor("agent")); err != nil {
+		t.Fatalf("governed agent refused a read verb: %v", err)
+	}
+	if err := RunAsActor(root, "approve", []string{"demo"}, nil, governedActor("operator")); err != nil {
+		t.Fatalf("governed operator refused: %v", err)
+	}
+}

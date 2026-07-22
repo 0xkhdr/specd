@@ -1,0 +1,1 @@
+{"task_id":"T27","command":"go test ./internal/core ./internal/cmd ./internal/mcp -run TestActorOperationEnforcement -count=2","exit_code":0,"git_head":"ec6f645806b180496fc3fc8111aea3bf22e68961","timestamp":"2026-07-22T20:45:18Z","actor":"xkhdr"}

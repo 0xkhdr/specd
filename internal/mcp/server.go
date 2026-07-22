@@ -38,6 +38,11 @@ type Handoff struct {
 	Code    string `json:"code"`
 	Actor   string `json:"actor"`
 	Command string `json:"command"`
+	// ObservedActor and Assurance report what the caller's context actually
+	// resolved to, so a client reading the refusal sees why the handoff stands
+	// rather than only that it does (R1.2, R1.4).
+	ObservedActor core.ActorClass     `json:"observed_actor"`
+	Assurance     core.AssuranceLevel `json:"assurance"`
 }
 
 type toolCallParams struct {
@@ -116,13 +121,14 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 			resp.Error = &ResponseError{Code: -32602, Message: "invalid params"}
 			return resp
 		}
+		actor := callerActor(params.Arguments)
 		if command, ok := core.CommandByName(params.Name); ok && command.HumanOnly {
 			args, _ := splitArguments(params.Arguments)
 			commandLine := "specd " + params.Name
 			if len(args) > 0 {
 				commandLine += " " + strings.Join(args, " ")
 			}
-			handoff := Handoff{Code: "MCP_HANDOFF_REQUIRED", Actor: "human", Command: commandLine}
+			handoff := Handoff{Code: "MCP_HANDOFF_REQUIRED", Actor: "human", Command: commandLine, ObservedActor: actor.Class, Assurance: actor.Assurance}
 			resp.Error = &ResponseError{Code: MCPHandoffRequiredCode, Message: handoff.Code + ": actor=" + handoff.Actor + " command=" + handoff.Command, Data: handoff}
 			return resp
 		}
@@ -184,6 +190,22 @@ func DispatchAuthorized(req Request, tools []Tool, exec Executor, authority *cor
 		resp.Error = &ResponseError{Code: -32601, Message: "method not found"}
 	}
 	return resp
+}
+
+// callerActor resolves the actor for one tool call and strips the claim from
+// the arguments so it can never reach the dispatcher as a flag.
+//
+// An MCP client speaks over stdio: it can put any class in `arguments` and
+// nothing on the wire attests it. So the claim is carried as provenance and
+// resolves to unknown at advisory assurance — the transport preserves the
+// actor's source, it does not widen it (R1.3, R1.4).
+func callerActor(arguments map[string]any) core.ActorContext {
+	claim := core.ActorClaim{Transport: core.RouteMCP, Attestation: core.ActorAttestationNone}
+	if raw, ok := arguments["actor"]; ok {
+		claim.Class, claim.Attestation = valueToString(raw), core.ActorAttestationRequest
+		delete(arguments, "actor")
+	}
+	return core.ResolveActorContext(claim, core.HostContract{}, time.Now())
 }
 
 // splitArguments maps an MCP tool-call `arguments` object onto the dispatcher's

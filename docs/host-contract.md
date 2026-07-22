@@ -114,6 +114,34 @@ snake_case and the response key is camelCase). A host that declares nothing gets
 unrecognized value to advisory rather than guessing upward, so a typo cannot
 advertise containment that does not exist.
 
+## Who is calling
+
+The contract also decides whether specd will believe a host about *who* is
+driving an invocation. `core.ActorContext` carries a class (`operator`, `agent`,
+`service`, `unknown`), the subject, the transport, the attestation source, and
+the assurance the class is worth.
+
+`core.ResolveActorContext` only ever lowers. A class survives resolution only
+when a host attested it **and** that host's contract evaluates as governed — a
+host that does not contain the agent cannot vouch for who the agent is. Every
+other route keeps the subject as display provenance and reports `unknown` at
+`advisory`:
+
+- OS username, TTY, `SPECD_ACTOR` and other environment text;
+- an `actor` value supplied in an MCP tool call;
+- repository files, task prose, and skill text;
+- an approval record written before the field existed (`ParseActorClass("")`
+  is `unknown`, never human or delegated proof);
+- a host attestation whose `expires_at` has passed.
+
+Enforcement follows from that one bit. `core.AuthorizeActorOperation` refuses a
+**governed** non-operator actor invoking an operation the palette reserves for a
+human or operator, before dispatch reaches the handler — naming the required
+actor and the legal handoff. An `unknown` actor is reported, not refused: it is
+what every unattested host resolves to today, and refusing on it would break
+those hosts while proving nothing. The human-only palette, the gates, and the
+diff-scope check still hold underneath.
+
 ## Unmet controls are reported, not hidden
 
 `HostConformance.Unmet` names each missing control with its clause — for example

@@ -35,6 +35,14 @@ digest-pinned `AuthorityV1` packet. MCP validates it, forwards it unchanged to c
 and dispatch derives changed paths from the mission baseline; missing, expired, wrong-spec,
 wrong-task, wrong-role, or out-of-scope packets fail closed.
 
+An optional `actor` argument carries the caller's claimed actor class. It is **provenance, not
+attestation**: stdio proves nothing about who is on the other end, so a claim of `"operator"`
+resolves to class `unknown` at `advisory` assurance and is stripped before dispatch — it never
+becomes a `--actor` flag. Human-only verbs still return `MCP_HANDOFF_REQUIRED`, and the handoff
+now reports `observed_actor` and `assurance` so a client can see why the refusal stands. Only a
+configured host that declares a conformant contract can raise an actor above `unknown`
+(`core.ResolveActorContext`).
+
 Tool discovery and execution use the same route projection as CLI guidance. Each advertised
 operation is checked against MCP dispatch, phase, actor, and authority preconditions before the
 executor runs it. A human or operator operation is a handoff, not agent authority; absent or stale
