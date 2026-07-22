@@ -10,13 +10,23 @@ func BoundaryEvidenceFindings(design DesignDoc, tasks []TaskRow, production bool
 	}
 	integration, errorPath := false, false
 	for _, task := range tasks {
-		for _, class := range strings.FieldsFunc(task.Evidence, func(r rune) bool { return r == ',' || r == ';' }) {
-			if strings.EqualFold(strings.TrimSpace(class), "integration") {
+		// Evidence tokens come from the canonical splitter (spec 05 R1.1), and the
+		// integration intent is read from the check-id half of `class/check-id` so
+		// the canonical spelling `test/integration-payments` counts — previously
+		// only a bare legacy `integration` token did.
+		evidence, _ := SplitTaskField(task.Evidence)
+		for _, token := range evidence {
+			class, check, ok := strings.Cut(token, "/")
+			if !ok {
+				check = class
+			}
+			if strings.Contains(strings.ToLower(check), "integration") {
 				integration = true
 			}
 		}
-		checks := strings.ToLower(task.Checks)
-		if strings.Contains(checks, "error") || strings.Contains(checks, "failure") || strings.Contains(checks, "negative") {
+		checks, _ := SplitTaskField(task.Checks)
+		joined := strings.ToLower(strings.Join(checks, ","))
+		if strings.Contains(joined, "error") || strings.Contains(joined, "failure") || strings.Contains(joined, "negative") {
 			errorPath = true
 		}
 	}

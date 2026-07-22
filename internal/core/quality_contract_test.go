@@ -40,6 +40,19 @@ func TestQualityContractMinimalAndMalformed(t *testing.T) {
 	}
 }
 
+// Legacy `;` separators are an unambiguous spelling of the canonical `,`
+// (spec 05 R1.3): the quality contract normalizes them instead of collapsing the
+// cell into one unparsable token.
+func TestQualityContractLegacyDelimiter(t *testing.T) {
+	c, err := ParseQualityContract(TaskRow{ID: "T1", Evidence: "test/unit;review/design-review", Checks: "empty;error"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Required) != 2 || len(c.Checks) != 2 {
+		t.Fatalf("contract = %+v", c)
+	}
+}
+
 func TestQualityContractCarriesVerifyCommand(t *testing.T) {
 	c, err := ParseQualityContract(TaskRow{ID: "T1", Verify: "go test ./...", Evidence: "test/unit"})
 	if err != nil {

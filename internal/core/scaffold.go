@@ -26,16 +26,47 @@ func RequirementsScaffold(slug string) string {
 }
 
 // TasksScaffold is the single source for the tasks.md starter document. Its
-// example-values comment must teach an `evidence=` value the quality-declaration
-// gate accepts — class/check-id, never a bare class (R2.2). The
-// template-conformance suite pins the example against ParseQualityContract.
+// example-values comment must teach values every armed consumer accepts —
+// `evidence=` as class/check-id and never a bare class (R2.2), and `kind`,
+// `risk`, and `capabilities` drawn from the canonical vocabularies so the
+// example also routes (spec 05 R1.2). TestTaskContractConformance pins the
+// example against ParseTaskContract and RouteTask.
 func TasksScaffold(slug string) string {
 	return "# Tasks — " + slug + "\n\n" +
 		"> Add only real work. The optional columns beyond the six required ones may be omitted.\n" +
 		"> Production rows declare full trace, risk, routing, context, capability, evidence, and edge-check intent.\n\n" +
 		"| id | role | files | depends-on | verify | acceptance | refs | kind | risk | complexity | capabilities | context | evidence | checks |\n" +
 		"|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n\n" +
-		"<!-- Example field values (not a runnable task): id=T<n>; role=craftsman; files=<paths>; depends-on=-; verify=<command>; acceptance=<criterion IDs>; refs=R1.1; kind=feature; risk=medium; complexity=standard; capabilities=read,write; context=<required sources>; evidence=test/readme-purpose; checks=<negative and edge cases>. -->\n"
+		"<!-- Example field values (not a runnable task): id=T<n>; role=craftsman; files=<paths>; depends-on=-; verify=<command>; acceptance=<criterion IDs>; refs=R1.1; kind=feature; risk=medium; complexity=standard; capabilities=context,sandbox; context=<required sources>; evidence=test/readme-purpose; checks=<negative and edge cases>. -->\n"
+}
+
+// TasksScaffoldExampleRow parses the tasks scaffold's example-values comment
+// into a TaskRow, so every armed consumer can be run against the shipped bytes
+// instead of a hand-copied duplicate that silently drifts (spec 05 R1.2).
+// Fields are `key=value` pairs separated by "; " on one comment line.
+func TasksScaffoldExampleRow() TaskRow {
+	fields := map[string]string{}
+	for _, line := range strings.Split(TasksScaffold("demo"), "\n") {
+		_, rest, ok := strings.Cut(line, "Example field values (not a runnable task):")
+		if !ok {
+			continue
+		}
+		rest = strings.TrimSuffix(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "-->")), ".")
+		for _, pair := range strings.Split(rest, "; ") {
+			if key, value, ok := strings.Cut(pair, "="); ok {
+				fields[strings.TrimSpace(key)] = strings.TrimSpace(value)
+			}
+		}
+	}
+	files := fields["files"]
+	declared, _ := normalizeDeclaredFiles(files)
+	return TaskRow{
+		ID: fields["id"], Role: fields["role"], Files: files, DeclaredFiles: declared,
+		DependsOn: splitCanonical(fields["depends-on"]), Verify: fields["verify"], Acceptance: fields["acceptance"],
+		Refs: splitCanonical(fields["refs"]), Kind: fields["kind"], Risk: fields["risk"],
+		Complexity: fields["complexity"], Capabilities: sortedUnique(splitCanonical(fields["capabilities"])),
+		Context: fields["context"], Evidence: fields["evidence"], Checks: fields["checks"],
+	}
 }
 
 func WriteScaffold(root string, agents ...string) error {

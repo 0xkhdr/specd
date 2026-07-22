@@ -160,6 +160,27 @@ A declared `refs` requirement that does not resolve, or an unknown `risk` tier
 (`low`/`medium`/`high`/`critical`), is always refused. Declaring the full set on every task
 is required only under the production planning profile.
 
+**One typed task contract.** Every typed cell is parsed exactly once, by
+`core.ParseTaskContract`. Planning gates, routing, evidence policy, review, and context read
+that result; none of them re-splits a raw cell. Closed vocabularies:
+
+| column | accepted values |
+|---|---|
+| `kind` | `chore`, `deferred`, `docs`, `feature`, `fix`, `refactor`, `spike`, `test` |
+| `risk` | `low`, `medium`, `high`, `critical` |
+| `capabilities` | `context`, `eval`, `review`, `sandbox` |
+| `evidence` | `class/check-id` where class is `test`, `output_eval`, `trajectory_eval`, or `review` |
+
+An unrecognized value is refused as `TASK_FIELD_UNKNOWN` naming the task id, the column, the
+value, and the accepted set. The capability vocabulary is the same identity routing classes
+declare (`routing.class_capabilities`), so a legal task row can always be routed; a
+`kind: deferred` row records a deliberate deferral and carries no evidence or edge-check
+obligation.
+
+**Delimiters.** The canonical list separator in every list-shaped cell is `,`. The legacy `;`
+is still normalized, and the contract carries a stable
+`TASK_FIELD_LEGACY_DELIMITER` warning naming the task and column. Rewrite the cell with commas.
+
 ## Machine context manifest and receipts
 
 The machine manifest (`kind: context_manifest`, `schema_version: "1"`) is the typed machine

@@ -96,7 +96,14 @@ func RenderReviewScaffold(slug, head string, tasks []TaskRow) string {
 	}
 	var b strings.Builder
 	for _, task := range tasks {
-		fmt.Fprintf(&b, "### %s\n\n- files: %s\n- acceptance: %s\n\n", task.ID, task.Files, task.Acceptance)
+		// Declared files come from the canonical projection (spec 05 R1.1) so the
+		// auditor audits the same normalized, de-duplicated path set the diff-scope
+		// check enforces, whatever delimiter the author used.
+		files := task.Files
+		if paths, err := TaskDeclaredPaths(task); err == nil && len(paths) != 0 {
+			files = strings.Join(paths, ", ")
+		}
+		fmt.Fprintf(&b, "### %s\n\n- files: %s\n- acceptance: %s\n\n", task.ID, files, task.Acceptance)
 	}
 	tasksSection := strings.TrimRight(b.String(), "\n")
 	if tasksSection == "" {

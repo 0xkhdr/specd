@@ -30,6 +30,13 @@ func TestReviewScaffold(t *testing.T) {
 	if _, err := ParseReviewReport(out); err == nil {
 		t.Fatal("unedited scaffold must not parse as a valid verdict")
 	}
+
+	// The auditor sees the canonical declared-path projection (spec 05 R1.1), not
+	// the raw cell: duplicates collapse, order is stable, delimiters agree.
+	legacy := RenderReviewScaffold("payments", "abc123", []TaskRow{{ID: "T1", Files: "b.go;./a.go;b.go"}})
+	if !strings.Contains(legacy, "- files: a.go, b.go\n") {
+		t.Fatalf("review scaffold did not normalize declared files:\n%s", legacy)
+	}
 }
 
 func TestReviewParse(t *testing.T) {

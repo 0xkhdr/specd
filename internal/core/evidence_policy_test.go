@@ -12,6 +12,13 @@ func TestBoundaryEvidenceFindingsProductionRequiresBothEvidenceKinds(t *testing.
 	if got := BoundaryEvidenceFindings(design, []TaskRow{{Evidence: "integration", Checks: "error path"}}, true); len(got) != 0 {
 		t.Fatalf("complete boundary plan rejected: %+v", got)
 	}
+	// The canonical class/check-id spelling (spec 05 R1.1) must satisfy the same
+	// planning intent as the bare legacy token, whichever delimiter is used.
+	for _, evidence := range []string{"test/integration-payments", "test/unit;test/integration-payments"} {
+		if got := BoundaryEvidenceFindings(design, []TaskRow{{Evidence: evidence, Checks: "error-path"}}, true); len(got) != 0 {
+			t.Fatalf("canonical evidence %q rejected: %+v", evidence, got)
+		}
+	}
 }
 
 func TestBoundaryEvidenceFindingsDefaultAndLocalPlansAreInert(t *testing.T) {

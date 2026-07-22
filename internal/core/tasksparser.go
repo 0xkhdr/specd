@@ -104,16 +104,16 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 				Role:          cell(cells, indexes["role"]),
 				Files:         files,
 				DeclaredFiles: declaredFiles,
-				DependsOn:     splitTaskList(cell(cells, indexes["depends-on"])),
+				DependsOn:     splitCanonical(cell(cells, indexes["depends-on"])),
 				Verify:        strings.Trim(cell(cells, indexes["verify"]), "`"),
 				Acceptance:    cell(cells, indexes["acceptance"]),
 				// Optional trace/risk columns (spec 01 R3.1). headerIndex returns
 				// -1 for a column the header omits, which cell() reads as empty.
-				Refs:         splitTaskList(cell(cells, headerIndex(header, "refs"))),
+				Refs:         splitCanonical(cell(cells, headerIndex(header, "refs"))),
 				Kind:         cell(cells, headerIndex(header, "kind")),
 				Risk:         cell(cells, headerIndex(header, "risk")),
 				Complexity:   cell(cells, headerIndex(header, "complexity")),
-				Capabilities: sortedUnique(splitTaskList(cell(cells, headerIndex(header, "capabilities")))),
+				Capabilities: sortedUnique(splitCanonical(cell(cells, headerIndex(header, "capabilities")))),
 				Context:      cell(cells, headerIndex(header, "context")),
 				Evidence:     cell(cells, headerIndex(header, "evidence")),
 				Checks:       cell(cells, headerIndex(header, "checks")),
@@ -268,6 +268,166 @@ func missingTraceFields(task TaskRow) []string {
 		}
 	}
 	return missing
+}
+
+// Canonical task-field vocabularies (spec 05 R1.4). One registry per typed
+// column, shared by planning gates, routing, review, mission authority, and the
+// tasks scaffold, so a value one consumer accepts cannot be refused by another.
+var (
+	knownTaskKinds = map[string]bool{
+		"feature": true, "fix": true, "refactor": true, "docs": true,
+		"test": true, "chore": true, "spike": true, "deferred": true,
+	}
+	// knownTaskCapabilities is the provider-neutral capability vocabulary a task
+	// row may require. It is the same set the default routing class supplies and
+	// the same set RouteTask escalates to for high/critical risk — parity is
+	// pinned by TestTaskContractConformance.
+	knownTaskCapabilities = map[string]bool{"context": true, "eval": true, "review": true, "sandbox": true}
+)
+
+// DeferredTaskKind marks a task row that records a deliberate deferral rather
+// than work to dispatch. Coverage analysis treats its refs as intentionally
+// uncovered, so it carries no evidence or edge-check obligation.
+const DeferredTaskKind = "deferred"
+
+func sortedKeys(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for key := range set {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// CanonicalTaskCapabilities returns the sorted capability vocabulary shared by
+// task rows, routing class capabilities, and the tasks scaffold example.
+func CanonicalTaskCapabilities() []string { return sortedKeys(knownTaskCapabilities) }
+
+// CanonicalTaskKinds returns the sorted work-kind vocabulary.
+func CanonicalTaskKinds() []string { return sortedKeys(knownTaskKinds) }
+
+// CanonicalRiskTiers returns the sorted risk-tier vocabulary.
+func CanonicalRiskTiers() []string { return sortedKeys(knownRiskTiers) }
+
+// SplitTaskField splits one list-shaped task cell into canonical tokens. The
+// canonical delimiter is the comma; `;` is a legacy delimiter that is still
+// normalized, and legacy reports whether it was used so the caller can attach a
+// stable deprecation warning (spec 05 R1.3). Every list-shaped column goes
+// through here so consumers cannot disagree about delimiters.
+func SplitTaskField(value string) (items []string, legacy bool) {
+	return splitCanonical(value), strings.ContainsRune(value, ';')
+}
+
+// splitCanonical normalizes the legacy `;` separator onto the canonical `,`
+// before the shared list splitter runs, so every list-shaped column — declared
+// files, refs, depends-on, capabilities, context, evidence, checks — agrees on
+// one delimiter set.
+func splitCanonical(value string) []string {
+	return splitTaskList(strings.ReplaceAll(value, ";", ","))
+}
+
+// TaskDeclaredPaths is the canonical declared-file projection of a task row:
+// the parsed DeclaredFiles when the row came from ParseTasksMd, otherwise the
+// same normalization applied to the raw cell.
+func TaskDeclaredPaths(task TaskRow) ([]string, error) {
+	if len(task.DeclaredFiles) != 0 {
+		return task.DeclaredFiles, nil
+	}
+	return normalizeDeclaredFiles(task.Files)
+}
+
+// TaskContract is the single typed projection of one task row (spec 05 R1.1).
+// Planning gates, routing, evidence policy, review, and docs read these fields
+// instead of splitting the raw cells themselves.
+type TaskContract struct {
+	TaskID       string          `json:"task_id"`
+	Role         string          `json:"role,omitempty"`
+	Kind         string          `json:"kind,omitempty"`
+	Risk         string          `json:"risk,omitempty"`
+	Complexity   string          `json:"complexity,omitempty"`
+	Deferred     bool            `json:"deferred,omitempty"`
+	WriteRole    bool            `json:"write_role"`
+	OutputPaths  []string        `json:"output_paths,omitempty"`
+	Context      []string        `json:"context,omitempty"`
+	DependsOn    []string        `json:"depends_on,omitempty"`
+	Capabilities []string        `json:"capabilities,omitempty"`
+	Refs         []string        `json:"refs,omitempty"`
+	Verify       string          `json:"verify,omitempty"`
+	Acceptance   string          `json:"acceptance,omitempty"`
+	Quality      QualityContract `json:"quality"`
+	Checks       []string        `json:"checks,omitempty"`
+	// Warnings carry deterministic deprecation notices (legacy delimiters). They
+	// never block: an unambiguous legacy spelling is normalized, not refused.
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+// taskFieldUnknown is the one refusal shape for an unrecognized typed value: it
+// names the task id, the column, the offending value, and the accepted set, so
+// the author can repair the cell without a second lookup (spec 05 R1.3).
+func taskFieldUnknown(id, column, value string, accepted []string) error {
+	return fmt.Errorf("TASK_FIELD_UNKNOWN: task %s column %s value %q is not one of %s", id, column, value, strings.Join(accepted, ", "))
+}
+
+func taskFieldLegacy(id, column string) string {
+	return fmt.Sprintf("TASK_FIELD_LEGACY_DELIMITER: task %s column %s uses ';'; the canonical delimiter is ','", id, column)
+}
+
+// ParseTaskContract parses every typed field of a task row exactly once. Pure:
+// no disk, no clock. Unknown values in a closed vocabulary fail against the task
+// id and column; unambiguous legacy delimiters are normalized with a warning.
+func ParseTaskContract(task TaskRow) (TaskContract, error) {
+	c := TaskContract{
+		TaskID:     task.ID,
+		Role:       task.Role,
+		Kind:       strings.ToLower(strings.TrimSpace(task.Kind)),
+		Risk:       strings.ToLower(strings.TrimSpace(task.Risk)),
+		Complexity: strings.TrimSpace(task.Complexity),
+		Verify:     task.Verify,
+		Acceptance: task.Acceptance,
+		WriteRole:  IsWriteRole(task.Role),
+		DependsOn:  task.DependsOn,
+		Refs:       task.Refs,
+	}
+	if c.Kind != "" && !knownTaskKinds[c.Kind] {
+		return TaskContract{}, taskFieldUnknown(task.ID, "kind", task.Kind, CanonicalTaskKinds())
+	}
+	c.Deferred = c.Kind == DeferredTaskKind
+	if c.Risk != "" && !knownRiskTiers[c.Risk] {
+		return TaskContract{}, taskFieldUnknown(task.ID, "risk", task.Risk, CanonicalRiskTiers())
+	}
+	paths, err := TaskDeclaredPaths(task)
+	if err != nil {
+		return TaskContract{}, fmt.Errorf("task %s column files: %w", task.ID, err)
+	}
+	c.OutputPaths = paths
+	if strings.ContainsRune(task.Files, ';') {
+		c.Warnings = append(c.Warnings, taskFieldLegacy(task.ID, "files"))
+	}
+	for _, capability := range task.Capabilities {
+		if !knownTaskCapabilities[capability] {
+			return TaskContract{}, taskFieldUnknown(task.ID, "capabilities", capability, CanonicalTaskCapabilities())
+		}
+	}
+	c.Capabilities = task.Capabilities
+	context, legacyContext := SplitTaskField(task.Context)
+	if legacyContext {
+		c.Warnings = append(c.Warnings, taskFieldLegacy(task.ID, "context"))
+	}
+	c.Context = context
+	quality, err := ParseQualityContract(task)
+	if err != nil {
+		return TaskContract{}, fmt.Errorf("task %s column evidence: %w", task.ID, err)
+	}
+	c.Quality = quality
+	c.Checks = quality.Checks
+	if strings.ContainsRune(task.Evidence, ';') {
+		c.Warnings = append(c.Warnings, taskFieldLegacy(task.ID, "evidence"))
+	}
+	if strings.ContainsRune(task.Checks, ';') {
+		c.Warnings = append(c.Warnings, taskFieldLegacy(task.ID, "checks"))
+	}
+	sort.Strings(c.Warnings)
+	return c, nil
 }
 
 func splitMarkedTaskID(value string) (string, string) {

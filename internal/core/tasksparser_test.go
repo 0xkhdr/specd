@@ -262,3 +262,125 @@ func FuzzParseTasksMdRoundTrip(f *testing.F) {
 		}
 	})
 }
+
+// TestTaskContractConformance pins the one typed task contract every consumer
+// reads (spec 05 R1.1–R1.4). Each subtest names a required check: legacy
+// delimiters normalize with a warning, unknown values in a closed vocabulary are
+// refused against task id and column, a deferred task carries no evidence
+// obligation, and the shipped scaffold example satisfies every armed consumer
+// with capability ids that intersect the routing vocabulary.
+func TestTaskContractConformance(t *testing.T) {
+	t.Run("legacy_delimiter_normalizes_with_warning", func(t *testing.T) {
+		row := TaskRow{
+			ID: "T1", Role: "craftsman", Files: "b.go;a.go", Kind: "feature", Risk: "high",
+			Context: "design;requirements", Evidence: "test/unit;review/design-review", Checks: "empty;error",
+		}
+		c, err := ParseTaskContract(row)
+		if err != nil {
+			t.Fatalf("legacy `;` delimiter refused: %v", err)
+		}
+		if !reflect.DeepEqual(c.OutputPaths, []string{"a.go", "b.go"}) {
+			t.Fatalf("files not normalized: %#v", c.OutputPaths)
+		}
+		if !reflect.DeepEqual(c.Context, []string{"design", "requirements"}) {
+			t.Fatalf("context not normalized: %#v", c.Context)
+		}
+		if len(c.Quality.Required) != 2 || !reflect.DeepEqual(c.Checks, []string{"empty", "error"}) {
+			t.Fatalf("evidence/checks not normalized: %#v", c.Quality)
+		}
+		for _, column := range []string{"files", "context", "evidence", "checks"} {
+			if !strings.Contains(strings.Join(c.Warnings, "\n"), "column "+column+" uses ';'") {
+				t.Fatalf("no deprecation warning for column %s: %#v", column, c.Warnings)
+			}
+		}
+		// Same authored intent through the canonical delimiter must produce the
+		// identical contract apart from the warnings.
+		canonical, err := ParseTaskContract(TaskRow{
+			ID: "T1", Role: "craftsman", Files: "b.go,a.go", Kind: "feature", Risk: "high",
+			Context: "design,requirements", Evidence: "test/unit,review/design-review", Checks: "empty,error",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Warnings = nil
+		if !reflect.DeepEqual(c, canonical) {
+			t.Fatalf("legacy and canonical spellings disagree:\n%#v\n%#v", c, canonical)
+		}
+	})
+
+	t.Run("unknown_value_fails_against_task_and_column", func(t *testing.T) {
+		for column, row := range map[string]TaskRow{
+			"kind":         {ID: "T7", Kind: "widget"},
+			"risk":         {ID: "T7", Risk: "spicy"},
+			"capabilities": {ID: "T7", Capabilities: []string{"telepathy"}},
+		} {
+			_, err := ParseTaskContract(row)
+			if err == nil {
+				t.Fatalf("unknown %s value accepted", column)
+			}
+			for _, want := range []string{"TASK_FIELD_UNKNOWN", "task T7", "column " + column, "is not one of"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("%s error missing %q: %v", column, want, err)
+				}
+			}
+		}
+	})
+
+	t.Run("deferred_task_carries_no_evidence_obligation", func(t *testing.T) {
+		row := TaskRow{ID: "T9", Role: "craftsman", Files: "-", Kind: DeferredTaskKind, Risk: "low", Refs: []string{"R1.1"}}
+		c, err := ParseTaskContract(row)
+		if err != nil {
+			t.Fatalf("deferred task refused: %v", err)
+		}
+		if !c.Deferred {
+			t.Fatal("kind=deferred did not project Deferred")
+		}
+		if len(c.Quality.Required) != 0 {
+			t.Fatalf("deferred task carries evidence requirements: %#v", c.Quality.Required)
+		}
+		// Coverage analysis must agree with the contract's deferral identity:
+		// both read the same kind token, so a deferred task suppresses the
+		// missing-task-coverage finding for its requirement.
+		requirements := RequirementsDoc{Requirements: []Requirement{{ID: "R1", Criteria: []Criterion{{ID: "R1.1"}}}}}
+		design := DesignDoc{Refs: []string{"R1"}}
+		if findings := AnalyzeCoverage(requirements, design, []TaskRow{row}); len(findings) != 0 {
+			t.Fatalf("coverage disagrees with contract deferral: %+v", findings)
+		}
+		if findings := AnalyzeCoverage(requirements, design, []TaskRow{{ID: "T9", Kind: "feature", Refs: []string{"R1.1"}}}); len(findings) != 0 {
+			t.Fatalf("non-deferred control produced findings: %+v", findings)
+		}
+	})
+
+	t.Run("capability_parity_across_registry_and_routing", func(t *testing.T) {
+		canonical := CanonicalTaskCapabilities()
+		if len(canonical) == 0 {
+			t.Fatal("capability registry is empty")
+		}
+		defaultClass := DefaultConfig.Routing.ClassCapabilities[DefaultConfig.Routing.DefaultClass]
+		if !reflect.DeepEqual(canonical, sortedUnique(defaultClass)) {
+			t.Fatalf("task capability registry %v != default routing class capabilities %v", canonical, defaultClass)
+		}
+		for _, capability := range canonical {
+			if _, err := ParseTaskContract(TaskRow{ID: "T1", Capabilities: []string{capability}}); err != nil {
+				t.Fatalf("routing capability %q is not a legal task capability: %v", capability, err)
+			}
+		}
+	})
+
+	t.Run("scaffold_example_satisfies_every_armed_consumer", func(t *testing.T) {
+		row := TasksScaffoldExampleRow()
+		if row.Role == "" || row.Kind == "" || row.Risk == "" || len(row.Capabilities) == 0 {
+			t.Fatalf("scaffold example row did not parse: %#v", row)
+		}
+		c, err := ParseTaskContract(row)
+		if err != nil {
+			t.Fatalf("scaffold example rejected by ParseTaskContract: %v", err)
+		}
+		if len(c.Warnings) != 0 {
+			t.Fatalf("scaffold example teaches a deprecated spelling: %v", c.Warnings)
+		}
+		if findings := ValidateTaskTrace([]TaskRow{row}, map[string]bool{"R1": true, "R1.1": true}, true); len(findings) != 0 {
+			t.Fatalf("scaffold example fails the production task-trace gate: %+v", findings)
+		}
+	})
+}

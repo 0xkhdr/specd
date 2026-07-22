@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "slug": "workflow-05-executable-orchestration",
-  "mode": "default",
-  "status": "tasks",
-  "phase": "plan",
-  "revision": 2,
+  "mode": "orchestrated",
+  "status": "executing",
+  "phase": "execute",
+  "cycle": 1,
+  "stage": "executing",
+  "condition": "active",
+  "revision": 5,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -16,6 +19,14 @@
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
     },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "approved_revision": 2,
+      "timestamp": "2026-07-22T10:56:17Z",
+      "git_head": "31a43312cb032da6227103954522413c07be52e4",
+      "actor": "xkhdr"
+    },
     "approval:requirements": {
       "kind": "approval",
       "text": "requirements → design",
@@ -24,6 +35,56 @@
       "timestamp": "2026-07-21T21:03:51Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-22T10:56:20Z",
+      "git_head": "31a43312cb032da6227103954522413c07be52e4",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:0": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-05-executable-orchestration",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "991f696ca449db86bf166bf280592c507d8f718abc436a89e502fdd50939053b",
+        "config_digest": "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T11:56:20Z",
+      "timestamp": "2026-07-22T10:56:20Z",
+      "git_head": "31a43312cb032da6227103954522413c07be52e4",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:1": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-05-executable-orchestration",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "991f696ca449db86bf166bf280592c507d8f718abc436a89e502fdd50939053b",
+        "config_digest": "10c8b0e503a04a296c039bfa12f25ab0d1d5a5f658f0f5cecefc65aabd5a6809"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-22T11:56:20Z",
+      "timestamp": "2026-07-22T10:56:20Z",
+      "git_head": "31a43312cb032da6227103954522413c07be52e4",
+      "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T22": "complete"
   }
 }

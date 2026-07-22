@@ -26,9 +26,9 @@ func qualityDeclarationHint() string {
 }
 
 func ParseQualityContract(task TaskRow) (QualityContract, error) {
-	c := QualityContract{TaskID: task.ID, Verify: task.Verify, Checks: splitTaskList(task.Checks)}
+	c := QualityContract{TaskID: task.ID, Verify: task.Verify, Checks: splitCanonical(task.Checks)}
 	seen := map[string]bool{}
-	for _, raw := range splitTaskList(task.Evidence) {
+	for _, raw := range splitCanonical(task.Evidence) {
 		class, check, ok := strings.Cut(raw, "/")
 		if !ok || check == "" {
 			return QualityContract{}, fmt.Errorf("QUALITY_DECLARATION_INVALID: %q must be class/check-id (%s)", raw, qualityDeclarationHint())

@@ -17,9 +17,16 @@ type Route struct {
 // RouteTask selects provider-neutral capability classes using policy order.
 // Provider/model resolution remains outside trusted core.
 func RouteTask(task core.TaskRow, policy core.RoutingConfig) (Route, error) {
-	required := append([]string(nil), task.Capabilities...)
-	if strings.EqualFold(task.Risk, "high") || strings.EqualFold(task.Risk, "critical") {
-		required = append(required, "review", "eval", "sandbox", "context")
+	// One typed contract (spec 05 R1.1/R1.4): routing does not re-split or
+	// re-normalize raw cells, and an unknown capability id or risk tier is
+	// refused here against the task id and column rather than silently routed.
+	contract, err := core.ParseTaskContract(task)
+	if err != nil {
+		return Route{}, err
+	}
+	required := append([]string(nil), contract.Capabilities...)
+	if contract.Risk == "high" || contract.Risk == "critical" {
+		required = append(required, core.CanonicalTaskCapabilities()...)
 	}
 	required = uniqueSorted(required)
 	var eligible []string
@@ -31,7 +38,7 @@ func RouteTask(task core.TaskRow, policy core.RoutingConfig) (Route, error) {
 	if len(eligible) == 0 {
 		return Route{}, fmt.Errorf("ROUTE_UNSUPPORTED: task %s requires %s", task.ID, strings.Join(required, ","))
 	}
-	return Route{Class: eligible[0], Reason: fmt.Sprintf("policy=%s risk=%s complexity=%s capabilities=%s", policy.Version, task.Risk, task.Complexity, strings.Join(required, ",")), Fallback: append([]string(nil), eligible[1:]...)}, nil
+	return Route{Class: eligible[0], Reason: fmt.Sprintf("policy=%s risk=%s complexity=%s capabilities=%s", policy.Version, contract.Risk, contract.Complexity, strings.Join(required, ",")), Fallback: append([]string(nil), eligible[1:]...)}, nil
 }
 
 func uniqueSorted(values []string) []string {
