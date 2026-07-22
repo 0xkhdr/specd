@@ -85,6 +85,17 @@ func applyConfigMap(cfg *Config, values map[string]string, path string, diagnost
 				continue
 			}
 			cfg.Orchestration.Enabled = parsed
+		case "delegation.enabled":
+			// Config file only: no environment override. An environment
+			// variable is exactly the untrusted text R1.3 refuses to treat as
+			// authority, and enabling delegation from one would let any caller
+			// arm the feature for a project that never opted in.
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				*diagnostics = append(*diagnostics, Diagnostic{Severity: "error", Path: path, Message: "delegation.enabled must be boolean"})
+				continue
+			}
+			cfg.Delegation.Enabled = parsed
 		case "orchestration.model":
 			cfg.Orchestration.Model = value
 		case "routing.version":

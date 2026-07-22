@@ -21,11 +21,15 @@ type Config struct {
 	// per-flag (R7.1). "production" raises the whole bar: it arms the criterion,
 	// review, and integration/negative-path evidence gates together (R7.2),
 	// regardless of the individual criteria.required / review.required switches.
-	Profile            string
-	Gates              GatesConfig
-	Verify             VerifyConfig
-	Context            ContextConfig
-	Orchestration      OrchestrationConfig
+	Profile       string
+	Gates         GatesConfig
+	Verify        VerifyConfig
+	Context       ContextConfig
+	Orchestration OrchestrationConfig
+	// Delegation is the opt-in scoped-approval-delegation policy (R6.2). The
+	// zero value is off, so a project that says nothing keeps interactive
+	// approval and every delegation path stays inert.
+	Delegation         DelegationConfig
 	Routing            RoutingConfig
 	Criteria           CriteriaConfig
 	Review             ReviewConfig
@@ -183,6 +187,13 @@ type ReviewConfig struct {
 
 type ContextConfig struct {
 	MaxTokens int
+}
+
+// DelegationConfig gates scoped delegation of approval authority. It carries
+// one switch on purpose: what a delegation may do is bound by the grant, not by
+// project-wide configuration, so there is nothing here to widen.
+type DelegationConfig struct {
+	Enabled bool
 }
 
 type OrchestrationConfig struct {
@@ -373,6 +384,7 @@ var DefaultConfig = Config{
 		Enabled: false,
 		Model:   "",
 	},
+	Delegation: DelegationConfig{Enabled: false},
 	Routing: RoutingConfig{
 		Version:               "1",
 		Classes:               []string{"default"},
