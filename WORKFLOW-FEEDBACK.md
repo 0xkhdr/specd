@@ -467,3 +467,21 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** `contextBudget` iterated every task without consulting the marker-derived completion status already present in `CheckCtx`.
 - **Recommendation:** skip completed tasks in the shared context-budget gate and pin the terminal-work case directly.
 - **Status:** resolved — `go test ./internal/core/gates -run TestContextBudget -count=2`.
+
+### 2026-07-22 — friction — first unfinished spec is not directly executable
+- **Context:** starting the requested Brain/Pinky run for `workflow-03-state-foundations`. Exact command: `specd status workflow-03-state-foundations --guide --json`.
+- **Expected:** status identifies the next legal task or a single human handoff needed to enter execution.
+- **Actual:** status remained at plan/tasks and reported `T16A: required context 40777 tokens exceeds budget 40000 — decompose the task or narrow declared files`, while `mode` and `approve` were only listed separately as human-only operations.
+- **Cost:** the host must inspect task decomposition before it can tell the human whether mode activation, artifact repair, or approval comes first.
+- **Recommendation:** when a pre-execution gate blocks, `--guide` should emit one ordered recovery sequence, including the artifact/role authorized to fix the blocker and the subsequent human-only commands.
+- **Tradeoff:** guidance-only projection; no authority or gate semantics change.
+- **Status:** open
+
+### 2026-07-22 — friction — context-budget refusal omits a decomposition route
+- **Context:** Pinky scout inspection of the blocked plan. Exact command: `./specd context workflow-03-state-foundations T16A --json`.
+- **Expected:** refusal names the oversized contributors or a legal command/role for narrowing the task.
+- **Actual:** command failed with `required context 40777 tokens exceeds budget 40000`; resolving it required manually measuring the nine declared files and deriving a two-task split.
+- **Cost:** one extra repository-analysis round trip before the operator can approve the plan.
+- **Recommendation:** include per-source token contributions and an authorized next action in context-budget refusals.
+- **Tradeoff:** diagnostic output only; the deterministic budget and authority remain unchanged.
+- **Status:** open
