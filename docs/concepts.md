@@ -80,6 +80,23 @@ whose dependencies are all resolved — a *wave* of concurrently runnable work. 
 computes it. Agents work a wave, verify, and the next wave unlocks. This is what lets multiple
 workers act in parallel without stepping on ordering constraints.
 
+## Activity and readiness
+
+A task carries two separate values. **Activity** is what the task is —
+`draft | pending | in_progress | paused | blocked | failed | completed | cancelled | superseded`
+— and the tasks.md marker stays its view. **Readiness** is whether it may start —
+`ready | waiting_dependency | waiting_approval | waiting_clarification | waiting_schedule` — and
+is projected, never stored twice: dependency waits are derived from the DAG plus task activity,
+and only manual approval, clarification, schedule, pause, and block facts persist.
+
+`pending` therefore means only "accepted, no active attempt, no terminal disposition"; it never
+implies runnable. Only **pending plus ready** reaches the frontier. Every applicable wait is
+reported, in the stable order dependency → approval → clarification → schedule, each with a
+stable code, the ids it refers to, an owner, and a recovery. A cancelled or superseded
+dependency keeps its descendants waiting (`dependency_terminal_unresolved`) until someone
+records an explicit acceptance-coverage disposition. Any task still pending blocks parent
+completion until it completes or takes an accepted terminal disposition.
+
 ## Execution modes
 
 - **Base mode.** A human (or a single agent) drives the loop by hand: `new → approve →

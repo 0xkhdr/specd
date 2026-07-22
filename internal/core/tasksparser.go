@@ -42,6 +42,40 @@ const (
 	TaskBlocked  TaskRunStatus = "blocked"
 )
 
+// TaskActivity is what a task *is* — accepted, attempted, or terminally
+// disposed — as distinct from whether it may start (Readiness, spec 03 R3.1).
+// The legacy tasks.md marker stays the activity view; states no marker can
+// express are carried by TaskFacts.Activity, so tasks.md remains byte-stable.
+type TaskActivity string
+
+const (
+	ActivityDraft      TaskActivity = "draft"
+	ActivityPending    TaskActivity = "pending"
+	ActivityInProgress TaskActivity = "in_progress"
+	ActivityPaused     TaskActivity = "paused"
+	ActivityBlocked    TaskActivity = "blocked"
+	ActivityFailed     TaskActivity = "failed"
+	ActivityCompleted  TaskActivity = "completed"
+	ActivityCancelled  TaskActivity = "cancelled"
+	ActivitySuperseded TaskActivity = "superseded"
+)
+
+// ActivityFromStatus projects the legacy run status (itself the marker view)
+// onto the canonical activity. Unknown or empty status is an accepted task with
+// no attempt and no disposition: pending.
+func ActivityFromStatus(status TaskRunStatus) TaskActivity {
+	switch status {
+	case TaskComplete:
+		return ActivityCompleted
+	case TaskRunning:
+		return ActivityInProgress
+	case TaskBlocked:
+		return ActivityBlocked
+	default:
+		return ActivityPending
+	}
+}
+
 func ParseTasksMd(raw []byte) (TasksMd, error) {
 	doc := TasksMd{Raw: append([]byte(nil), raw...)}
 	seen := map[string]bool{}

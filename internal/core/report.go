@@ -9,13 +9,19 @@ import (
 )
 
 type ReportTask struct {
-	ID          string        `json:"id"`
-	Status      TaskRunStatus `json:"status"`
-	Role        string        `json:"role,omitempty"`
-	Files       string        `json:"files,omitempty"`
-	Verify      string        `json:"verify,omitempty"`
-	Acceptance  string        `json:"acceptance,omitempty"`
-	EvidenceRef string        `json:"evidence_ref,omitempty"`
+	ID     string        `json:"id"`
+	Status TaskRunStatus `json:"status"`
+	// Activity and Readiness are the canonical pair (spec 03 R3.1); Status stays
+	// as the legacy projection so existing readers are unchanged. Waits lists
+	// every applicable cause in stable priority order (R3.3).
+	Activity    TaskActivity `json:"activity,omitempty"`
+	Readiness   Readiness    `json:"readiness,omitempty"`
+	Waits       []WaitReason `json:"waits,omitempty"`
+	Role        string       `json:"role,omitempty"`
+	Files       string       `json:"files,omitempty"`
+	Verify      string       `json:"verify,omitempty"`
+	Acceptance  string       `json:"acceptance,omitempty"`
+	EvidenceRef string       `json:"evidence_ref,omitempty"`
 }
 
 type ReportModel struct {
@@ -26,6 +32,8 @@ type ReportModel struct {
 	Blocked  int          `json:"blocked"`
 	Running  int          `json:"running"`
 	Tasks    []ReportTask `json:"tasks"`
+	// PendingBlockers are the tasks that still block parent completion (R3.4).
+	PendingBlockers []string `json:"pending_blockers,omitempty"`
 }
 
 type QualityReport struct {
@@ -65,15 +73,28 @@ func RenderQualityReport(q QualityReport) string {
 
 func BuildReportModel(slug string, tasks []TaskRow, status map[string]TaskRunStatus, evidence map[string]EvidenceRecord) ReportModel {
 	model := ReportModel{Slug: slug, Total: len(tasks), Tasks: make([]ReportTask, 0, len(tasks))}
+	// An unprojectable graph (cycle, unknown dependency) is the DAG gate's
+	// finding, not this report's: counts still render, readiness stays empty.
+	projected := map[string]TaskState{}
+	if states, err := ProjectTaskStates(tasks, status, nil); err == nil {
+		for _, state := range states {
+			projected[state.ID] = state
+		}
+		model.PendingBlockers = PendingCompletionBlockers(states)
+	}
 	for _, task := range tasks {
 		taskStatus := status[task.ID]
 		if taskStatus == "" {
 			taskStatus = statusFromMarker(task.Marker)
 		}
 		record := evidence[task.ID]
+		state := projected[task.ID]
 		model.Tasks = append(model.Tasks, ReportTask{
 			ID:          task.ID,
 			Status:      taskStatus,
+			Activity:    state.Activity,
+			Readiness:   state.Readiness,
+			Waits:       state.Waits,
 			Role:        task.Role,
 			Files:       task.Files,
 			Verify:      task.Verify,
@@ -100,6 +121,14 @@ func RenderStatus(model ReportModel) string {
 	fmt.Fprintf(&b, "tasks: %d complete, %d running, %d blocked, %d pending, %d total\n", model.Complete, model.Running, model.Blocked, model.Pending, model.Total)
 	for _, task := range model.Tasks {
 		fmt.Fprintf(&b, "%s %s", task.ID, task.Status)
+		// A ready task adds nothing; a waiting one names every cause so the
+		// reader never has to re-derive why it cannot start (R3.3).
+		for _, wait := range task.Waits {
+			fmt.Fprintf(&b, " %s=%s", wait.Readiness, wait.Code)
+			if len(wait.Refs) > 0 {
+				fmt.Fprintf(&b, "(%s)", strings.Join(wait.Refs, ","))
+			}
+		}
 		if task.Verify != "" {
 			fmt.Fprintf(&b, " verify=%q", task.Verify)
 		}

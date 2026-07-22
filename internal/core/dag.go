@@ -67,22 +67,18 @@ func (dag TaskDAG) TopologicalWaves() ([][]string, error) {
 	return waves, nil
 }
 
+// RunnableFrontier is the pending-and-ready projection (spec 03 R3.2). It owns
+// no eligibility rules of its own: activity and readiness come from
+// ProjectTaskStates so dependency truth exists in exactly one place.
 func (dag TaskDAG) RunnableFrontier(status map[string]TaskRunStatus) ([]string, error) {
-	frontier := make([]string, 0)
-	for _, task := range dag.Tasks {
-		current := status[task.ID]
-		if current != "" && current != TaskPending {
-			continue
-		}
-		ready := true
-		for _, dep := range task.DependsOn {
-			if status[dep] != TaskComplete {
-				ready = false
-				break
-			}
-		}
-		if ready {
-			frontier = append(frontier, task.ID)
+	states, err := ProjectTaskStates(dag.Tasks, status, nil)
+	if err != nil {
+		return nil, err
+	}
+	frontier := make([]string, 0, len(states))
+	for _, state := range states {
+		if state.Runnable() {
+			frontier = append(frontier, state.ID)
 		}
 	}
 	sort.Strings(frontier)

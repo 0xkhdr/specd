@@ -93,3 +93,38 @@ func TestStageConditionMigrationCompatibilityProjection(t *testing.T) {
 		t.Fatalf("legacy state projection = %+v", state)
 	}
 }
+
+// TestTaskActivityReadinessStatusProjection pins spec 03 R3.1/R3.3/R3.4 at the
+// CLI edge: `status` reports each task's activity and readiness as separate
+// values, names the derived dependency wait with its refs, and lists the pending
+// tasks that block parent completion.
+func TestTaskActivityReadinessStatusProjection(t *testing.T) {
+	root := newDemoSpec(t)
+	writeTasks(t, root, "demo", "| T1 | scout | spec.md | - | true | ok |\n| T2 | scout | spec.md | T1 | true | ok |")
+	out, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"json": ""})
+	})
+	if err != nil {
+		t.Fatalf("status --json: %v", err)
+	}
+	var model core.ReportModel
+	if err := json.Unmarshal([]byte(out), &model); err != nil {
+		t.Fatalf("status json: %v (out=%q)", err, out)
+	}
+	if len(model.Tasks) != 2 {
+		t.Fatalf("tasks = %#v, want two", model.Tasks)
+	}
+	if model.Tasks[0].Activity != core.ActivityPending || model.Tasks[0].Readiness != core.ReadinessReady {
+		t.Fatalf("T1 = %#v, want pending and ready", model.Tasks[0])
+	}
+	waits := model.Tasks[1].Waits
+	if model.Tasks[1].Readiness != core.ReadinessWaitingDependency || len(waits) != 1 || waits[0].Code != core.WaitDependencyIncomplete {
+		t.Fatalf("T2 = %#v, want a named dependency wait", model.Tasks[1])
+	}
+	if len(waits[0].Refs) != 1 || waits[0].Refs[0] != "T1" {
+		t.Fatalf("dependency wait refs = %v, want T1", waits[0].Refs)
+	}
+	if !containsStr(model.PendingBlockers, "T1") || !containsStr(model.PendingBlockers, "T2") {
+		t.Fatalf("pending blockers = %v, want both pending tasks", model.PendingBlockers)
+	}
+}
