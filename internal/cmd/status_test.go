@@ -3,9 +3,12 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates"
 )
 
 // TestStatusGuideJSON pins spec 01 R6.1: `status --guide --json` emits the
@@ -127,4 +130,81 @@ func TestTaskActivityReadinessStatusProjection(t *testing.T) {
 	if !containsStr(model.PendingBlockers, "T1") || !containsStr(model.PendingBlockers, "T2") {
 		t.Fatalf("pending blockers = %v, want both pending tasks", model.PendingBlockers)
 	}
+}
+
+// TestApprovalRequestIntegrationStatusProjection pins spec 03 R5.3/R5.4:
+// `status` projects the immutable approval-request identity — id, current
+// transition, entity, pinned identities, expiry — in both renderings, and once
+// the pinned artifact drifts the projection names the drift so the next
+// approval attempt's refusal is visible before it is attempted.
+func TestApprovalRequestIntegrationStatusProjection(t *testing.T) {
+	root := newDemoSpec(t)
+	if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+
+	states := statusApprovalRequests(t, root)
+	if len(states) != 1 {
+		t.Fatalf("status projected %d approval requests, want 1: %+v", len(states), states)
+	}
+	projected := states[0]
+	if projected.ID != "approve:requirements" || projected.State != core.ApprovalApproved || projected.Entity != "spec:demo" {
+		t.Fatalf("approval request projection = %+v", projected)
+	}
+	if projected.ExpiresAt == "" || projected.Pins.ArtifactDigest == "" || projected.Pins.PlanDigest == "" {
+		t.Fatalf("projection dropped the pinned identity: %+v", projected)
+	}
+	if len(projected.Drift) != 0 {
+		t.Fatalf("fresh request reported as drifted: %+v", projected)
+	}
+	text, err := captureStdout(t, func() error { return Run(root, "status", []string{"demo"}, nil) })
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if !strings.Contains(text, "Approval requests:") || !strings.Contains(text, "approve:requirements — approved (spec:demo)") {
+		t.Fatalf("human status missing approval request identity: %s", text)
+	}
+
+	// Amending the approved artifact drifts the identity the request pinned.
+	path := filepath.Join(core.SpecdDir(root), "specs", "demo", "requirements.md")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(raw, []byte("\n- **R2** When a user amends, the system shall drift.\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	drifted := statusApprovalRequests(t, root)
+	if len(drifted) != 1 || len(drifted[0].Drift) != 1 || drifted[0].Drift[0] != "artifact digest" {
+		t.Fatalf("drifted artifact not projected: %+v", drifted)
+	}
+	if drifted[0].ID != projected.ID || drifted[0].Pins != projected.Pins {
+		t.Fatalf("drift rewrote the immutable request identity: %+v -> %+v", projected, drifted[0])
+	}
+	text, err = captureStdout(t, func() error { return Run(root, "status", []string{"demo"}, nil) })
+	if err != nil {
+		t.Fatalf("status after drift: %v", err)
+	}
+	if !strings.Contains(text, "approved inputs drifted (artifact digest)") || !strings.Contains(text, "new or superseding request") {
+		t.Fatalf("human status did not name the drift: %s", text)
+	}
+}
+
+// statusApprovalRequests reads the approval-request projection out of
+// `status --json`.
+func statusApprovalRequests(t *testing.T, root string) []gates.ApprovalRequestState {
+	t.Helper()
+	out, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"json": ""})
+	})
+	if err != nil {
+		t.Fatalf("status --json: %v", err)
+	}
+	var payload struct {
+		ApprovalRequests []gates.ApprovalRequestState `json:"approval_requests"`
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("status json: %v (out=%q)", err, out)
+	}
+	return payload.ApprovalRequests
 }

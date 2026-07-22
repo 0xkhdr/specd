@@ -541,3 +541,39 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Cost:** the craftsman must stop after its one retry even though `session action` issued a nonce; neither `session open` nor the refusal's recovery text supplied the required acknowledgement command.
 - **Recommendation:** have `session action` return an ordered executable sequence (`context`, `session ack`, bound mutation), and include the exact recovery command in `BINDING_MISSING`.
 - **Status:** open — T12 remains evidenced but incomplete.
+
+### 2026-07-22 — friction — spec reached terminal `complete` with zero tasks complete
+- **Context:** workflow-03-state-foundations, resuming a prior session. Exact command: `./specd check workflow-03-state-foundations`.
+- **Expected:** a spec cannot be approved through `executing → verifying → complete` while 7 of 7 tasks are still `pending` with one evidence record on disk.
+- **Actual:** `checked workflow-03-state-foundations: terminal at complete revision 6 plan eb012e97... gates 23 readiness_checked=true` — while `./specd status workflow-03-state-foundations --json` reported `"complete": 0, "pending": 7`.
+- **Root cause:** harness bug — the `executing` and `complete` approval gates do not assert task completion against the DAG, so a human `approve` can strand a spec terminal with unimplemented tasks and no way back to `executing`.
+- **Recommendation:** add a readiness gate to the `executing → verifying` transition that refuses while any task is not in an accepted terminal disposition (this is exactly R3.4, now implemented as `core.PendingCompletionBlockers` in T14 — wire it into the approval gate registry).
+- **Status:** open
+
+### 2026-07-22 — friction — diff-scope attributes the previous task's uncommitted harness-written marker to the current task
+- **Context:** workflow-03-state-foundations T13, craftsman, after a passing verify. Exact command: `./specd complete-task workflow-03-state-foundations T13 --session ds-be0ca05366c4a8c9762ca515fb8e9665 --nonce <n>`.
+- **Expected:** the scope check measures only files this task changed.
+- **Actual:** `OUTSIDE_SCOPE: task T13 changed files outside its declared scope:\n  T13 modifies harness-owned state .specd/specs/workflow-03-state-foundations/tasks.md; task markers, roles, and steering are written by specd verbs, never edited directly`.
+- **Root cause:** harness bug — `enforceDiffScope` measures from the driver session's `BaselineHead`, so the `✅ T12` marker that `complete-task` itself wrote and left uncommitted is attributed to T13. The message accuses the agent of editing a file it never touched.
+- **Recommendation:** exempt harness-owned paths whose worktree content matches what specd verbs wrote, or name the owning task and the commit/re-baseline remedy in the refusal. Every task in a serial chain currently requires a manual `git commit` + `session close`/`open` between tasks.
+- **Status:** open
+
+### 2026-07-22 — improvement — every task needs the same four-command completion preamble
+- **Context:** workflow-03-state-foundations, T12–T16B, craftsman. Working sequence per task: `./specd verify <slug> <task>` → `./specd session ack <slug> <task> --tokens <n>` → `./specd session action <slug> <task>` (scrape nonce) → `./specd complete-task <slug> <task> --session <s> --nonce <n>`.
+- **Observation:** the nonce must be scraped out of human-formatted `session action` output with `awk`, and the ack/action ordering is discoverable only by failing. Six tasks meant six identical hand-rolled shell pipelines.
+- **Recommendation:** have `specd verify` emit the fully-bound `complete-task` command (session, nonce, ack state) in its success line and in `--json`, so the completion step is copy-pasteable rather than reconstructed.
+- **Status:** open
+
+### 2026-07-22 — friction — repo-wide test-lint failure that no task can legally fix
+- **Context:** workflow-03-state-foundations T13–T16B, craftsman. Exact command: `./scripts/test-lint.sh`.
+- **Expected:** a green lint, or a failure the current task can act on.
+- **Actual:** 9 × `test-lint: missing feedback inventory entry: WORKFLOW-FEEDBACK.md :: 2026-07-22 — friction — ...`, exit 1.
+- **Root cause:** ambiguous docs / process gap — `WORKFLOW-FEEDBACK.md` and `docs/workflow-regressions.md` are outside every task's declared file set, so each craftsman must `git stash` to prove the red lint is pre-existing and then justify shipping against it.
+- **Recommendation:** generate the inventory from `WORKFLOW-FEEDBACK.md`, or exempt entries whose `Status:` is `open` until a dedicated maintenance task dispositions them.
+- **Status:** open — duplicate of an earlier T12 entry, re-observed on five consecutive tasks.
+
+### 2026-07-22 — improvement — a new refusal code silently falls back to the generic template
+- **Context:** workflow-03-state-foundations T15, craftsman, adding the `CLARIFICATION_OPEN` refusal.
+- **Observation:** `internal/core/refusal.go` owns the code table; a code that is not registered there produces the generic non-retryable template with no build or test warning, so the omission is invisible until someone reads the output.
+- **Recommendation:** fail a test (or `go vet`-style check) when `core.Refusef` is called with a code absent from the refusal table.
+- **Status:** open

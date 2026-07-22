@@ -97,6 +97,25 @@ dependency keeps its descendants waiting (`dependency_terminal_unresolved`) unti
 records an explicit acceptance-coverage disposition. Any task still pending blocks parent
 completion until it completes or takes an accepted terminal disposition.
 
+## Approval request identity and staleness
+
+An approval is never a bare flag. Every approval runs against an **immutable request**: a
+record opened once under a stable id (the interactive `specd approve` uses `approve:<gate>`)
+that pins the governing inputs of the decision — the **artifact digest**, the **state
+revision**, the **transition-plan digest**, and the **config digest** — plus the requester and
+an expiry. The request is never edited: `draft`, `requested`, `approved`, `rejected`,
+`withdrawn`, `expired`, `revoked`, and `superseded` are separate appended transitions, and each
+one inherits the pinned identities verbatim. Approval history is therefore append-only and
+replayable, and the inputs an approval governed can never be rewritten after the fact.
+
+**Staleness is a refusal, not a warning.** When any pinned input drifts from current, the
+request no longer describes what is being approved, so approving it is refused: the only legal
+continuation is a **new or superseding request**. The same holds past the expiry. `specd status`
+projects the current transition of every request — id, state, entity, pins, expiry — in both the
+human and `--json` renderings, and names the drift, so a request that would be refused is
+visible before the approval is attempted. An already-approved request whose inputs drifted keeps
+its approval for what it pinned and is reported as drifted; it does not extend to the new inputs.
+
 ## Execution modes
 
 - **Base mode.** A human (or a single agent) drives the loop by hand: `new → approve →

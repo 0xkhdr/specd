@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/core/gates"
 )
 
 func runStatus(root string, args []string, flags map[string]string) error {
@@ -58,6 +60,10 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	if err := core.ApplyClarificationReadiness(&model, spec.Tasks, taskStatus(spec.Tasks), specState.Records); err != nil {
 		return err
 	}
+	approvals, err := approvalRequestStates(root, args[0], specState)
+	if err != nil {
+		return err
+	}
 	if flagEnabled(flags, "json") {
 		// Records are projected verbatim (RawMessage), never re-synthesized, so
 		// decision/midreq text/scope/actor/timestamp round-trip exactly (R3.4).
@@ -67,17 +73,70 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		}
 		return writeJSON(struct {
 			core.ReportModel
-			Records   map[string]json.RawMessage `json:"records,omitempty"`
-			Criteria  []requirementCoverage      `json:"criteria,omitempty"`
-			Escalated map[string]int             `json:"escalated,omitempty"`
-			Locator   core.Locator               `json:"locator"`
-		}{model, specState.Records, coverage, escalated,
+			Records          map[string]json.RawMessage   `json:"records,omitempty"`
+			Criteria         []requirementCoverage        `json:"criteria,omitempty"`
+			Escalated        map[string]int               `json:"escalated,omitempty"`
+			ApprovalRequests []gates.ApprovalRequestState `json:"approval_requests,omitempty"`
+			Locator          core.Locator                 `json:"locator"`
+		}{model, specState.Records, coverage, escalated, approvals,
 			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	fmt.Fprint(os.Stdout, renderCriterionCoverage(coverage))
 	fmt.Fprint(os.Stdout, renderEscalated(escalated, ratchetActive))
+	fmt.Fprint(os.Stdout, renderApprovalRequests(approvals))
 	return nil
+}
+
+// approvalRequestStates projects the immutable approval requests in state
+// against the identities that are current on disk (R5.3/R5.4). Only the
+// artifact and config digests are re-read: the pinned state revision is the
+// pre-approval one by construction, and the transition-plan digest only exists
+// inside an approval attempt, so both are carried through unchanged rather than
+// reported as permanent drift. Whatever status cannot recompute is still
+// checked by core.PlanApprovalRequest when an approval is actually written.
+func approvalRequestStates(root, slug string, state core.State) ([]gates.ApprovalRequestState, error) {
+	requests, err := state.ApprovalRequests()
+	if err != nil {
+		return nil, err
+	}
+	if len(requests) == 0 {
+		return nil, nil
+	}
+	cfg, _ := core.LoadConfig(configPaths(root), getenv())
+	configDigest := core.ConfigDigest(cfg)
+	current := make(map[string]core.ApprovalPins, len(requests))
+	for _, rec := range requests {
+		pins := rec.Pins
+		pins.ConfigDigest = configDigest
+		pins.ArtifactDigest = "none"
+		if artifact := approvalArtifact(rec.EntityVersion); artifact != "" {
+			if raw, readErr := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", slug, artifact)); readErr == nil {
+				pins.ArtifactDigest = core.Digest(raw)
+			}
+		}
+		current[rec.ID] = pins
+	}
+	return gates.ApprovalRequestStates(requests, current, core.Clock()), nil
+}
+
+// renderApprovalRequests formats the approval-request identity section for
+// `status` text output: one deterministic line per request naming the id, the
+// current transition, and the entity, plus the gate's refusal text for any
+// request whose pinned inputs no longer hold.
+func renderApprovalRequests(states []gates.ApprovalRequestState) string {
+	if len(states) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\nApproval requests:\n")
+	for _, state := range states {
+		fmt.Fprintf(&b, "  %s — %s (%s) expires %s\n", state.ID, state.State, state.Entity, state.ExpiresAt)
+	}
+	for _, finding := range gates.ApprovalRequestFindings(states) {
+		fmt.Fprintf(&b, "  %s: %s\n", finding.Severity, finding.Message)
+	}
+	return b.String()
 }
 
 // renderEscalated formats the escalated-task section for `status` text output.

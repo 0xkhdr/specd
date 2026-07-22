@@ -3,9 +3,98 @@ package gates
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+// ApprovalRequestState is the current identity of one immutable approval
+// request (spec 03 R5.4): the id it was opened under, the transition it is in
+// now, the entity and the governing inputs it pinned, plus the drift and
+// expiry the gate refuses on. It is a projection — nothing here is ever
+// written back onto the request records.
+type ApprovalRequestState struct {
+	ID        string                  `json:"id"`
+	State     core.ApprovalTransition `json:"state"`
+	Entity    string                  `json:"entity"`
+	Pins      core.ApprovalPins       `json:"pins"`
+	ExpiresAt string                  `json:"expires_at,omitempty"`
+	Drift     []string                `json:"drift,omitempty"`
+	Expired   bool                    `json:"expired,omitempty"`
+}
+
+// ApprovalRequestStates projects the newest transition of every approval
+// request in requests, in request-id order. current supplies the governing
+// identities as they are now, keyed by request id; a request absent from it is
+// projected without drift (the caller could not read its current inputs).
+// Pure: the caller owns the disk reads.
+func ApprovalRequestStates(requests []core.ApprovalRequestRecord, current map[string]core.ApprovalPins, now time.Time) []ApprovalRequestState {
+	states := make([]ApprovalRequestState, 0, len(requests))
+	for _, id := range approvalRequestIDs(requests) {
+		latest, _ := core.LatestApprovalRequest(requests, id)
+		state := ApprovalRequestState{
+			ID:        id,
+			State:     latest.Transition,
+			Entity:    latest.EntityKind + ":" + latest.EntityID,
+			Pins:      latest.Pins,
+			ExpiresAt: latest.ExpiresAt,
+		}
+		if pins, ok := current[id]; ok {
+			state.Drift = core.ApprovalDrift(latest.Pins, pins)
+		}
+		if expires, err := time.Parse(time.RFC3339, latest.ExpiresAt); err == nil && now.After(expires) {
+			state.Expired = true
+		}
+		states = append(states, state)
+	}
+	return states
+}
+
+// ApprovalRequestFindings is the staleness half of the approval gate (R5.3): a
+// request that can still be answered (draft, requested) but whose pinned inputs
+// drifted, or whose expiry passed, is refused — the only legal continuation is
+// a new or superseding request, the same refusal core.PlanApprovalRequest
+// enforces on write. An already-approved request whose inputs have since
+// drifted is a warning: it stands for what it pinned, but no longer covers
+// current inputs. Terminal requests are silent.
+func ApprovalRequestFindings(states []ApprovalRequestState) []Finding {
+	var findings []Finding
+	for _, state := range states {
+		switch state.State {
+		case core.ApprovalDraft, core.ApprovalRequested:
+			if state.Expired {
+				findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf(
+					"approval request %s (%s) expired at %s: open a new or superseding request", state.ID, state.Entity, state.ExpiresAt)})
+				continue
+			}
+			if len(state.Drift) > 0 {
+				findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf(
+					"approval request %s (%s) is stale (%s changed since it was pinned): open a new or superseding request", state.ID, state.Entity, strings.Join(state.Drift, ", "))})
+			}
+		case core.ApprovalApproved:
+			if len(state.Drift) > 0 {
+				findings = append(findings, Finding{Severity: Warn, Message: fmt.Sprintf(
+					"approval request %s (%s) approved inputs drifted (%s): a further approval needs a new or superseding request", state.ID, state.Entity, strings.Join(state.Drift, ", "))})
+			}
+		}
+	}
+	return findings
+}
+
+// approvalRequestIDs lists each request id once, in the append order
+// core.ReadApprovalRequests guarantees (record key order, so id order).
+func approvalRequestIDs(requests []core.ApprovalRequestRecord) []string {
+	seen := make(map[string]bool, len(requests))
+	ids := make([]string, 0, len(requests))
+	for _, rec := range requests {
+		if seen[rec.ID] {
+			continue
+		}
+		seen[rec.ID] = true
+		ids = append(ids, rec.ID)
+	}
+	return ids
+}
 
 // approvalGate enforces P6: no task may show progress before requirements and
 // design are approved. It fires only when the caller loaded state.json

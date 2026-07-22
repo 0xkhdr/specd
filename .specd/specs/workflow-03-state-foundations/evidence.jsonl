@@ -6,3 +6,4 @@
 {"task_id":"T15","command":"go test ./internal/core ./internal/cmd -run TestClarificationLifecycle -count=2","exit_code":0,"git_head":"7cf732529d613ba95123cf135965fa35fab020bd","timestamp":"2026-07-22T01:42:32Z","actor":"xkhdr"}
 {"task_id":"T16","command":"go test ./internal/core -run TestApprovalRequestLifecycle -count=2","exit_code":0,"git_head":"ec47fa66b4c8f6e477dddb6857040b2eb9ce7f4f","timestamp":"2026-07-22T01:48:53Z","actor":"xkhdr"}
 {"task_id":"T16A","command":"go test ./internal/cmd -run TestApprovalRequestIntegration -count=2","exit_code":0,"git_head":"13d4a65838467fa78abe5aa81f5938106e491960","timestamp":"2026-07-22T01:54:54Z","actor":"xkhdr"}
+{"task_id":"T16B","command":"go test ./internal/core/gates ./internal/cmd -run TestApprovalRequestIntegration -count=2","exit_code":0,"git_head":"75251967811b92e7a115bacdf7e30858843d970a","timestamp":"2026-07-22T02:03:25Z","actor":"xkhdr"}
