@@ -130,6 +130,25 @@ raises a warning; a single dropped file stays silent.)
 `specd next <slug> --dispatch` emits that manifest for the first frontier task — a ready-to-run
 dispatch packet for a worker.
 
+**Typed lanes.** Every `--json` item carries a `lane`, and an `existence` plus `loaded` pair, so
+"absent" and "shed" stop looking alike:
+
+| lane | meaning |
+|---|---|
+| `required_input` | a `context`-column file the task must read; missing or unreadable fails closed |
+| `optional_existing_output` | a declared output that already exists — current content is loaded |
+| `prospective_output` | a declared output that does not exist yet — write authority, no content, no digest, no budget cost |
+| `directory_query` | one file matched by an explicit bounded selector |
+| `managed_policy` | harness-owned metadata (selected task, role, steering, skills, config) |
+
+A greenfield task therefore dispatches normally: its unwritten outputs arrive as
+`prospective_output` lanes rather than failing context. Budget counts only required and loaded
+lanes, and a prospective lane is never shed — shedding it would silently revoke write authority.
+
+The manifest also carries `assurance`. `specd` cannot prove host containment from inside the
+process, so the packet reports the fail-safe `advisory`: gates ran, nothing was isolated. Treat a
+higher level as claimed only when a host proves isolation; nothing in the manifest can raise it.
+
 Quality declarations add compact packet metadata: class/check IDs, verify command, artifact
 refs/digests, freshness, and subject digests. Raw datasets, outputs, and traces stay external.
 Auditor review checks integration/error/concurrency/rollback risks; required test evidence stays

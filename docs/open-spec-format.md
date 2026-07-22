@@ -177,6 +177,26 @@ declare (`routing.class_capabilities`), so a legal task row can always be routed
 `kind: deferred` row records a deliberate deferral and carries no evidence or edge-check
 obligation.
 
+**`files` vs `context`.** The two columns are different lanes, not two spellings of the same
+list. `files` is the task's authorized **write** scope: an entry that does not exist yet is a
+`prospective_output` — authorized, uncontented, and free of budget cost — so a greenfield task
+dispatches without pre-created placeholder files. `context` is the task's **required reference
+input**: every entry must resolve to a readable file inside the repository, and a missing one
+fails closed as `CONTEXT_REQUIRED_INPUT_MISSING` naming the task, the column, the path, and the
+recovery.
+
+A `context` entry may also be a **bounded directory selector**:
+
+| entry | result |
+|---|---|
+| `internal/core/*.go` | one directory level, sorted |
+| `internal/core/**/*.go` | recursive, sorted |
+| `internal/core` | refused — `CONTEXT_BARE_DIRECTORY`; declare a selector |
+
+A selector that matches nothing (`CONTEXT_QUERY_EMPTY`) or more than 50 files / 256 KiB
+(`CONTEXT_QUERY_UNBOUNDED`) is an authoring error, never a silent truncation. Symlinks that leave
+the repository never enter a lane.
+
 **Delimiters.** The canonical list separator in every list-shaped cell is `,`. The legacy `;`
 is still normalized, and the contract carries a stable
 `TASK_FIELD_LEGACY_DELIMITER` warning naming the task and column. Rewrite the cell with commas.
@@ -184,7 +204,10 @@ is still normalized, and the contract carries a stable
 ## Machine context manifest and receipts
 
 The machine manifest (`kind: context_manifest`, `schema_version: "1"`) is the typed machine
-contract; the human-readable renderer remains the default output. Unknown versions, item kinds,
+contract; the human-readable renderer remains the default output. Items carry `lane`,
+`existence`, and `loaded` (see [agent-integration.md](agent-integration.md)) and the manifest
+carries `assurance` — all additive to `schema_version: "1"`, so a consumer that ignores them
+still reads a well-formed manifest, and an unknown lane never widens authority on its own. Unknown versions, item kinds,
 routes, trust labels, and missing required lanes fail closed rather than being reinterpreted.
 The machine manifest requires canonical item ordering, source digests, selected-task identity,
 driver route/capability metadata, and explicit omission records. Required context overflow is

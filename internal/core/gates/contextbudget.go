@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	speccontext "github.com/0xkhdr/specd/internal/context"
-	"github.com/0xkhdr/specd/internal/core"
 )
 
 func contextBudget(ctx CheckCtx) []Finding {
@@ -13,7 +12,11 @@ func contextBudget(ctx CheckCtx) []Finding {
 	}
 	var findings []Finding
 	for _, task := range ctx.Tasks {
-		if ctx.Status[task.ID] == core.TaskComplete {
+		// R2.5: only active or reopened tasks carry a live context cost. The
+		// terminal-task predicate lives with the budget rules in internal/context
+		// so the sweep and the manifest builder cannot disagree about which tasks
+		// are still selectable.
+		if !speccontext.SelectableForContext(ctx.Status[task.ID]) {
 			continue
 		}
 		// R3.2: BuildManifest fails closed when the required set exceeds budget,

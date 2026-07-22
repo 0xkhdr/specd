@@ -38,7 +38,7 @@ func RenderMachineHUD(m MachineManifest) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "schema: %s  spec: %s  task: %s\n\n", copyManifest.SchemaVersion, copyManifest.Slug, copyManifest.TaskID)
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "PATH\tREASON\tPRIORITY\tDIGEST\tREQUIRED\tTOKENS")
+	fmt.Fprintln(tw, "PATH\tLANE\tEXISTS\tREASON\tPRIORITY\tDIGEST\tREQUIRED\tTOKENS")
 	for _, item := range copyManifest.Items {
 		path := item.Source
 		if path == "" {
@@ -48,10 +48,23 @@ func RenderMachineHUD(m MachineManifest) string {
 		if digest == "" {
 			digest = item.SourceDigest
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%t\t%d\n", path, item.Reason, item.Priority, digest, item.Required, item.EstimatedTokens)
+		// Lane and existence are shown because they are what an operator needs to
+		// tell "not loaded because it does not exist yet" (an authorized
+		// prospective output) from "not loaded because it was shed" (R2.1/R2.2).
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%t\t%d\n", path, dash(item.Lane), dash(item.Existence), item.Reason, item.Priority, digest, item.Required, item.EstimatedTokens)
 	}
 	tw.Flush()
+	if copyManifest.Assurance != "" {
+		fmt.Fprintf(&b, "\nassurance: %s\n", copyManifest.Assurance)
+	}
 	return b.String()
+}
+
+func dash(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return value
 }
 
 // RenderHUDQuality renders only quality metadata and proof labels. It is a

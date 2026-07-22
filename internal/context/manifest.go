@@ -444,6 +444,36 @@ const (
 	ContentTrustUntrustedData      = "untrusted_data"
 )
 
+// Context lanes (spec 05 R2.1). A lane states what a path *is* to the task, so
+// existence, authority, and budget cost stop being inferred from the same flat
+// "required source" list:
+//
+//   - required_input: a bounded file the task must be able to read. Missing or
+//     unreadable fails closed with column, path, and recovery (R2.3).
+//   - optional_existing_output: a declared output that already exists; its
+//     current content is loaded so the task can modify it.
+//   - prospective_output: a declared output that does not exist yet. Write
+//     authority is retained, content and digest are omitted, and context does
+//     not fail (R2.2) — this is the greenfield lane.
+//   - directory_query: an explicitly bounded selector over a directory. A bare
+//     directory is an authoring error (R2.4).
+//   - managed_policy: harness-owned metadata (selected task, role, steering,
+//     skills, config) pinned by digest.
+const (
+	LaneRequiredInput          = "required_input"
+	LaneOptionalExistingOutput = "optional_existing_output"
+	LaneProspectiveOutput      = "prospective_output"
+	LaneDirectoryQuery         = "directory_query"
+	LaneManagedPolicy          = "managed_policy"
+)
+
+// Existence states for a lane. Absent is legal only for prospective outputs.
+const (
+	ExistencePresent    = "present"
+	ExistenceAbsent     = "absent"
+	ExistenceUnreadable = "unreadable"
+)
+
 // MachineItem is one typed context reference. Fields mirror design.md ("Item"): the
 // harness emits references and compact metadata, never inlined content.
 type MachineItem struct {
@@ -465,6 +495,13 @@ type MachineItem struct {
 	Route                string `json:"route,omitempty"`
 	Capability           string `json:"capability,omitempty"`
 	OmissionReason       string `json:"omission_reason,omitempty"`
+	// Lane, Existence, and Loaded are the typed lane projection (R2.1). They are
+	// additive to schema_version 1: an older consumer that ignores them still
+	// reads a well-formed manifest, and a lane it does not know never widens
+	// authority on its own.
+	Lane      string `json:"lane,omitempty"`
+	Existence string `json:"existence,omitempty"`
+	Loaded    bool   `json:"loaded,omitempty"`
 }
 
 // Omission records one deterministically shed optional item (R3.3): the item
@@ -495,6 +532,11 @@ type MachineManifest struct {
 	Omissions      []Omission          `json:"omissions,omitempty"`
 	Provenance     string              `json:"provenance,omitempty"`
 	ManifestDigest string              `json:"manifest_digest,omitempty"`
+	// Assurance is how much the authority packet is actually worth (R2.6). The
+	// manifest builder has no proof of host containment, so it reports the
+	// fail-safe ceiling for a host that declares none: advisory. Nothing here
+	// can raise it — only a host that proves isolation can, and it must say so.
+	Assurance string `json:"assurance,omitempty"`
 }
 
 // MachineSelectedTask carries exact machine-readable task scope. DeclaredFiles is
@@ -526,6 +568,11 @@ var (
 	}
 	knownMachineSensitivity  = map[string]bool{"public": true, "internal": true, "secret": true}
 	knownMachineContentTrust = map[string]bool{ContentTrustTrustedInstruction: true, ContentTrustUntrustedData: true}
+	knownMachineLanes        = map[string]bool{
+		LaneRequiredInput: true, LaneOptionalExistingOutput: true, LaneProspectiveOutput: true,
+		LaneDirectoryQuery: true, LaneManagedPolicy: true,
+	}
+	knownMachineExistence = map[string]bool{ExistencePresent: true, ExistenceAbsent: true, ExistenceUnreadable: true}
 )
 
 // ValidateMachineManifest fails closed on an unknown required version, kind, field
@@ -576,7 +623,24 @@ func ValidateMachineManifest(m MachineManifest) error {
 		if !knownMachineContentTrust[it.ContentTrust] {
 			return fmt.Errorf("item %d (%s): unknown content_trust %q", i, it.Kind, it.ContentTrust)
 		}
-		if it.SourceDigest == "" {
+		if it.Lane != "" && !knownMachineLanes[it.Lane] {
+			return fmt.Errorf("item %d (%s): unknown lane %q", i, it.Kind, it.Lane)
+		}
+		if it.Existence != "" && !knownMachineExistence[it.Existence] {
+			return fmt.Errorf("item %d (%s): unknown existence %q", i, it.Kind, it.Existence)
+		}
+		// A prospective output has no content by definition (R2.2), so it carries
+		// no digest and must never be marked required or loaded — that is what
+		// keeps a greenfield task from failing context or paying budget for a
+		// file it is about to create.
+		if it.Lane == LaneProspectiveOutput {
+			if it.SourceDigest != "" || it.Loaded || it.Required {
+				return fmt.Errorf("item %d (%s): a prospective output cannot be required, loaded, or digested", i, it.Kind)
+			}
+			if it.Existence != ExistenceAbsent && it.Existence != ExistenceUnreadable {
+				return fmt.Errorf("item %d (%s): a prospective output must record an absent or unreadable existence", i, it.Kind)
+			}
+		} else if it.SourceDigest == "" {
 			return fmt.Errorf("item %d (%s): source_digest is required", i, it.Kind)
 		}
 		if it.Sensitivity != "" && !knownMachineSensitivity[it.Sensitivity] {
@@ -632,6 +696,9 @@ func (e BudgetError) Error() string {
 func EnforceMachineBudget(items []MachineItem, budget int) (kept []MachineItem, omissions []Omission, requiredTokens, optionalTokens int, err error) {
 	total := 0
 	for _, it := range items {
+		if !CountsAgainstBudget(it) {
+			continue
+		}
 		total += it.EstimatedTokens
 		if it.Required {
 			requiredTokens += it.EstimatedTokens
@@ -656,7 +723,7 @@ func EnforceMachineBudget(items []MachineItem, budget int) (kept []MachineItem, 
 		kept = append(kept[:idx], kept[idx+1:]...)
 	}
 	for _, it := range kept {
-		if !it.Required {
+		if !it.Required && CountsAgainstBudget(it) {
 			optionalTokens += it.EstimatedTokens
 		}
 	}
@@ -669,7 +736,11 @@ func EnforceMachineBudget(items []MachineItem, budget int) (kept []MachineItem, 
 func leastImportantOptional(items []MachineItem) int {
 	best := -1
 	for i, it := range items {
-		if it.Required {
+		// A prospective output is optional only in the sense that it has no
+		// content: it carries the task's write authority for a path that does not
+		// exist yet. Shedding it would silently revoke that authority, so it is
+		// never a shedding candidate (R2.2/R2.5).
+		if it.Required || !CountsAgainstBudget(it) {
 			continue
 		}
 		if best < 0 {
@@ -756,7 +827,7 @@ func BuildMachineManifest(root, slug string, tasks []core.TaskRow, taskID, actio
 		return MachineManifest{}, err
 	}
 	omissions = append(append(append(append(steeringOmissions, memoryOmissions...), exampleOmissions...), skillOmissions...), omissions...)
-	m := MachineManifest{SchemaVersion: MachineManifestVersion, Kind: machineManifestKind, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: MachineSelectedTask{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection"}
+	m := MachineManifest{SchemaVersion: MachineManifestVersion, Kind: machineManifestKind, Root: filepath.Clean(root), Slug: slug, Action: action, Phase: phase, TaskID: taskID, SelectedTask: MachineSelectedTask{ID: task.ID, Role: task.Role, DeclaredFiles: append([]string(nil), task.DeclaredFiles...), Verify: task.Verify, Acceptance: task.Acceptance}, ConfigDigest: handshake.ConfigDigest, PaletteDigest: handshake.PaletteDigest, Items: kept, RequiredTokens: required, OptionalTokens: optional, Budget: budget, Omissions: omissions, Provenance: "local deterministic selection", Assurance: string(core.AssuranceCeiling(core.HostCapabilities{}))}
 	CanonicalizeMachineManifest(&m)
 	if err := ValidateMachineManifest(m); err != nil {
 		return MachineManifest{}, err
