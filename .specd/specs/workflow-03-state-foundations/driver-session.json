@@ -1,10 +1,10 @@
 {
-  "id": "ds-be0ca05366c4a8c9762ca515fb8e9665",
+  "id": "ds-538fc3be6f807571505443289c3e6393",
   "slug": "workflow-03-state-foundations",
   "driver": "claude-code",
-  "baseline_revision": 6,
+  "baseline_revision": 7,
   "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
-  "baseline_head": "56e337b29acec1b1c5e452f05c510bceb12d4089",
+  "baseline_head": "b8488a508e2cbd4c0500b695a74e781c6e77e5f3",
   "context_receipt": {
     "schema_version": "1",
     "manifest_digest": "033ec31ee201fbcb52fa58bd587f77ace43c59381937a4812e6a7f7fa473b1b6",
@@ -33,13 +33,11 @@
     "reported_tokens": 8000,
     "receipt_digest": "d145c44613f86e96a5816063baad0ede79a893f24d59e03d2906f10547b78ff2"
   },
-  "authority_digest": "3527bb1e9b1955746a68266f255da9aca6a4d5984235e4d3aec256c3078de0b4",
-  "issued_at": "2026-07-22T01:02:53.266829696Z",
-  "expires_at": "2026-07-22T03:02:53.266829696Z",
+  "authority_digest": "ec2ea8586e44c02552b230c9f68073b8d24f0d23bd0dd62e9c7d457e3b194259",
+  "issued_at": "2026-07-22T01:18:23.987161254Z",
+  "expires_at": "2026-07-22T03:18:23.987161254Z",
   "spent_nonces": [
-    "1611a080b1242dc5c331d635484a559a",
-    "a8d0802b09114d3073e70c6153e56b8b",
-    "6c88e5b737483b820665a73238627eaa"
+    "4740018e0ceeeab37a013d9bb71902b9"
   ],
-  "revision": 8
+  "revision": 4
 }

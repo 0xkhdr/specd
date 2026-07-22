@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "slug": "workflow-03-state-foundations",
   "mode": "orchestrated",
   "status": "complete",
   "phase": "reflect",
-  "revision": 7,
+  "cycle": 1,
+  "stage": "complete",
+  "condition": "complete",
+  "revision": 8,
   "records": {
     "approval:complete": {
       "kind": "approval",
@@ -62,6 +65,7 @@
     }
   },
   "task_status": {
-    "T12": "complete"
+    "T12": "complete",
+    "T13": "complete"
   }
 }
