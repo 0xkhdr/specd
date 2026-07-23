@@ -939,3 +939,19 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task decomposition gap — the task named the new helper location but omitted every existing caller that must adopt it.
 - **Recommendation:** when acceptance requires “every” caller to route through a sink, declare the grep-derived caller set or split mechanical migration into a dependent task.
 - **Status:** open
+
+### 2026-07-24 — friction — scope-amendment test started with a missing fmt import
+- **Context:** executing `workflow-12-reset-hygiene` T67, craftsman, exact targeted test command declared by the task
+- **Expected:** the new lifecycle scope-amendment test compiles before exercising the transaction.
+- **Actual:** exit 1 with `internal/cmd/lifecycle_test.go:290:10: undefined: fmt`.
+- **Root cause:** test authoring error — the test used formatted setup text without adding the standard-library import.
+- **Recommendation:** keep the focused compile/run as the regression check and run it before the full task verify.
+- **Status:** resolved (workflow-12-reset-hygiene T67)
+
+### 2026-07-24 — friction — docs lint caught a hand-written midreq usage string
+- **Context:** executing `workflow-12-reset-hygiene` T67, craftsman, exact command `./specd verify workflow-12-reset-hygiene T67`
+- **Expected:** handler usage errors derive from the canonical command palette after adding midreq flags.
+- **Actual:** verify failed with `internal/cmd/lifecycle.go:521: handler hand-writes a usage string; call usageError(<verb>)`.
+- **Root cause:** implementation error — the midreq handler retained a literal usage error instead of using the existing palette-backed helper.
+- **Recommendation:** use `usageError("midreq")`; retain docs lint as the executable parity regression.
+- **Status:** resolved (workflow-12-reset-hygiene T67)

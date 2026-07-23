@@ -151,3 +151,5 @@ executable invariant; `deferred` rows name the release or task that owns the mis
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — coverage gate blames tasks for missing design references | project maintainers | deferred | Next authoring-gates pass — preserve coverage cause and artifact-specific recovery. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — tasks approval accepts kinds that session ack rejects | project maintainers | deferred | Next authoring-gates pass — validate task kind with the canonical context enum before approval. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — sink-hardening task declared the sink but not its callers | project maintainers | deferred | Task authoring guidance — derive and declare all shared-sink callers before approval. | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — scope-amendment test started with a missing fmt import | project maintainers | resolved | go test ./internal/cmd -run TestScopeAmend -count=2 | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — docs lint caught a hand-written midreq usage string | project maintainers | resolved | ./scripts/docs-lint.sh | - |
