@@ -867,3 +867,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — ack reports mutable authority active but completion still compares against the earlier session-open baseline for committed observer changes.
 - **Recommendation:** either rotate the completion diff baseline on successful re-ack or automatically treat the mandated feedback log and inventory as scoped observer outputs.
 - **Status:** open
+
+### 2026-07-24 — friction — declared-flag test started with an unused import
+- **Context:** `workflow-11-template-config` T60, craftsman, exact command `go test ./internal/core ./internal/cmd -run TestDeclaredFlagsAreConsumed -count=2`
+- **Expected:** the new conformance test compiles before exercising palette/handler parity.
+- **Actual:** initial run failed with `internal/core/commands_test.go:8:2: "os" imported and not used`; the cmd package passed.
+- **Root cause:** test authoring error — an unused standard-library import remained after the test implementation was simplified.
+- **Recommendation:** keep the minimal import set and let the focused compile/run remain the regression check.
+- **Status:** resolved (workflow-11-template-config T60)
