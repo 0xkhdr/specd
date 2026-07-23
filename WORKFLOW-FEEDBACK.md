@@ -891,3 +891,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** observer authoring error — the inventory marked an agent shell mistake resolved but supplied guidance text rather than an executable regression command.
 - **Recommendation:** classify non-product agent mistakes as deferred inventory items, and reserve resolved rows for entries with runnable checks.
 - **Status:** resolved (workflow-11-template-config observer sync)
+
+### 2026-07-24 — friction — program status hides mode and labels a requirements spec complete
+- **Context:** starting `workflow-12-reset-hygiene`, driver, exact command `./specd status --program`
+- **Expected:** the setup check confirms `mode=orchestrated` and reports the spec at its direct lifecycle state.
+- **Actual:** exit 0 printed `workflow-12-reset-hygiene  phase=perceive (complete)` with no mode, while `jq '{status,phase,mode,revision}' .specd/specs/workflow-12-reset-hygiene/state.json` showed `"status": "requirements"` and `"mode": "default"`.
+- **Root cause:** harness bug — the program projection uses a separate completion predicate and omits the configured execution mode.
+- **Recommendation:** derive program completion from loaded lifecycle state and include `mode=<value>` for each spec, so the documented setup check is decisive.
+- **Status:** open

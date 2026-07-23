@@ -144,3 +144,4 @@ the missing regression. A `superseded` row must also name the replacement feedba
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — declared-flag test started with an unused import | project maintainers | resolved | go test ./internal/core ./internal/cmd -run TestDeclaredFlagsAreConsumed -count=2 | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — unmatched zsh glob aborted T61 inspection | project maintainers | deferred | Agent workflow guidance — use `rg --files` or explicit existing paths instead of unmatched shell globs. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — resolved feedback inventory used prose instead of an executable check | project maintainers | resolved | ./scripts/test-lint.sh | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — program status hides mode and labels a requirements spec complete | project maintainers | deferred | workflow-12-reset-hygiene R3 — unify program projection with lifecycle state and expose mode. | - |
