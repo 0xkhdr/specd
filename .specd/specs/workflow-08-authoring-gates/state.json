@@ -2,13 +2,22 @@
   "schema_version": 2,
   "slug": "workflow-08-authoring-gates",
   "mode": "orchestrated",
-  "status": "executing",
-  "phase": "execute",
+  "status": "complete",
+  "phase": "reflect",
   "cycle": 1,
-  "stage": "executing",
-  "condition": "active",
-  "revision": 11,
+  "stage": "complete",
+  "condition": "complete",
+  "revision": 13,
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 12,
+      "timestamp": "2026-07-23T15:03:36Z",
+      "git_head": "d1134e74bfe81e7aec4652f868dd163f71a57918",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -17,6 +26,15 @@
       "source_digest": "68eb93594911bdcfa2424ab5273030f43b8f616498fdf5a8fcad8031003c9638",
       "timestamp": "2026-07-23T13:19:02Z",
       "git_head": "53469e84f71f6d9ed19d9a1f2879db341a267d41",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 11,
+      "timestamp": "2026-07-23T15:03:22Z",
+      "git_head": "d1134e74bfe81e7aec4652f868dd163f71a57918",
       "actor": "xkhdr"
     },
     "approval:orchestrated": {
@@ -43,6 +61,44 @@
       "approved_revision": 3,
       "timestamp": "2026-07-23T13:21:33Z",
       "git_head": "53469e84f71f6d9ed19d9a1f2879db341a267d41",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:0": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-08-authoring-gates",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 12,
+        "plan_digest": "6ad483ccf36bb57ac206db4c28515fae2ae0c6d04f3e4f23dbebf4aa7ea108d7",
+        "config_digest": "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T16:03:36Z",
+      "timestamp": "2026-07-23T15:03:36Z",
+      "git_head": "d1134e74bfe81e7aec4652f868dd163f71a57918",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:1": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-08-authoring-gates",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 12,
+        "plan_digest": "6ad483ccf36bb57ac206db4c28515fae2ae0c6d04f3e4f23dbebf4aa7ea108d7",
+        "config_digest": "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T16:03:36Z",
+      "timestamp": "2026-07-23T15:03:36Z",
+      "git_head": "d1134e74bfe81e7aec4652f868dd163f71a57918",
       "actor": "xkhdr"
     },
     "approval_request:approve:design:0": {
@@ -81,6 +137,44 @@
       "expires_at": "2026-07-23T14:19:02Z",
       "timestamp": "2026-07-23T13:19:02Z",
       "git_head": "53469e84f71f6d9ed19d9a1f2879db341a267d41",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:0": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-08-authoring-gates",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 11,
+        "plan_digest": "3b2044c85366608c9b9f96fec8e034e80b274204cbedb111ee111f0d0d46250e",
+        "config_digest": "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T16:03:22Z",
+      "timestamp": "2026-07-23T15:03:22Z",
+      "git_head": "d1134e74bfe81e7aec4652f868dd163f71a57918",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:1": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-08-authoring-gates",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 11,
+        "plan_digest": "3b2044c85366608c9b9f96fec8e034e80b274204cbedb111ee111f0d0d46250e",
+        "config_digest": "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T16:03:22Z",
+      "timestamp": "2026-07-23T15:03:22Z",
+      "git_head": "d1134e74bfe81e7aec4652f868dd163f71a57918",
       "actor": "xkhdr"
     },
     "approval_request:approve:requirements:0": {
