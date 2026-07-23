@@ -1,5 +1,7 @@
 package core
 
+import "strings"
+
 // HelpSchemaVersion versions the machine-readable help palette (`help --json`).
 // Consumers (MCP, role prompts, external tools) pin against it and can detect a
 // shape change; bump it whenever the Command/Flag JSON contract changes (spec
@@ -63,6 +65,16 @@ type Flag struct {
 	// surfaced verbatim by `help --json` and per-command text help; unlike
 	// Enum it is documentation only — dispatch never validates against it.
 	Values string `json:"values,omitempty"`
+}
+
+// ValueHint is the human-facing value set or provenance note. Enum is the
+// fallback so fixed value sets cannot disappear from text help or generated
+// docs when Values is omitted.
+func (f Flag) ValueHint() string {
+	if f.Values != "" {
+		return f.Values
+	}
+	return strings.Join(f.Enum, "|")
 }
 
 // ExitCode documents one exit status a command can return. The convention is
@@ -237,12 +249,13 @@ var Commands = []Command{
 	},
 	{
 		Name:          "new",
-		Usage:         "specd new <name> [--agent=<name>]",
+		Usage:         "specd new <name> [--title <title>] [--agent=<name>]",
 		Description:   "Create a new spec workspace.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd new payments", "specd new payments --agent=codex", "specd new payments --agent=pinky"},
 		Flags: []Flag{
+			{Name: "title", TakesValue: true, Type: "string", Description: "Optional human-readable spec title."},
 			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
 		},
 	},
@@ -363,6 +376,7 @@ var Commands = []Command{
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd midreq payments --text 'add refund path' --scope requirements"},
 		HumanOnly:     true,
+		SpecSlugArg:   argAt(0),
 		Flags: []Flag{
 			{Name: "text", TakesValue: true, Type: "string", Description: "Change description (required)."},
 			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
@@ -376,6 +390,7 @@ var Commands = []Command{
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd decision payments --text 'defer webhooks' --scope design"},
 		HumanOnly:     true,
+		SpecSlugArg:   argAt(0),
 		Flags: []Flag{
 			{Name: "text", TakesValue: true, Type: "string", Description: "Decision rationale (required)."},
 			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
@@ -468,6 +483,7 @@ var Commands = []Command{
 		Usage:         "specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program",
 		Description:   "Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view.",
 		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd status payments", "specd status payments --json", "specd status payments --guide --json", "specd status --program"},
 		Flags: []Flag{
@@ -520,6 +536,7 @@ var Commands = []Command{
 		Usage:         "specd check <spec> [--security] [--schema] [--schema-only] [--json]",
 		Description:   "Run the validation gate registry against a spec.",
 		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd check payments", "specd check payments --security --json"},
 		Flags: []Flag{
@@ -559,6 +576,7 @@ var Commands = []Command{
 			{Name: "pricing-ref", TakesValue: true, Type: "string", Description: "Pricing reference required with canonical cost."},
 			{Name: "telemetry-source", TakesValue: true, Type: "string", Enum: []string{"worker", "provider_adapter", "operator"}, Description: "Telemetry provenance."},
 			{Name: "attestation-ref", TakesValue: true, Type: "string", Description: "Optional external attestation reference."},
+			{Name: "json", Type: "bool", Description: "Emit machine-readable verification output."},
 		},
 	},
 	{
@@ -579,6 +597,7 @@ var Commands = []Command{
 		Usage:         "specd memory <slug> <add|promote> [flags]",
 		Description:   "Append or promote steering-memory patterns (learning flywheel).",
 		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd memory payments add --key 'atomic writes' --pattern 'use AtomicWrite'"},
 		Flags: []Flag{
@@ -671,6 +690,7 @@ var Commands = []Command{
 		Usage:         "specd report <spec> [--pr|--metrics|--efficiency|--rollup|--delivery|--outcome-review|--json|--history|--trace|--format prometheus|event] | specd report --portfolio",
 		Description:   "Render evidence-backed status, PR, history, trace, and metrics reports.",
 		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd report payments --pr", "specd report payments --metrics", "specd report payments --history", "specd report payments --trace", "specd report payments --format prometheus", "specd report payments --format event"},
 		Flags: []Flag{
@@ -695,6 +715,7 @@ var Commands = []Command{
 		Usage:         "specd link <from-slug> <to-slug> [--kind <kind>] [--reason <text>]",
 		Description:   "Record a typed, traceable cross-spec dependency link.",
 		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd link api auth", "specd link api-v2 api --kind supersedes --reason 'replace obsolete contract'"},
 		Flags: []Flag{
@@ -707,6 +728,7 @@ var Commands = []Command{
 		Usage:         "specd unlink <from-slug> <to-slug>",
 		Description:   "Remove a cross-spec dependency link.",
 		AllowedPhases: anyPhase(),
+		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd unlink api auth"},
 	},

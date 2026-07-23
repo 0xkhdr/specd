@@ -1,1 +1,2 @@
 {"task_id":"T51","command":"go test ./internal/core ./internal/cmd -run TestModeAndCriterionReadSurfaces -count=2","exit_code":0,"git_head":"85713cde51300d4e5619e81b4bbe0f4a0bebe097","timestamp":"2026-07-23T18:25:20Z","actor":"xkhdr"}
+{"task_id":"T52","command":"go test ./internal/cli ./internal/core ./internal/cmd -run TestCanonicalHelpRouting -count=2","exit_code":0,"git_head":"a83579492aad5b16ae1902c107cbb399e01e9417","timestamp":"2026-07-23T18:33:27Z","actor":"xkhdr"}

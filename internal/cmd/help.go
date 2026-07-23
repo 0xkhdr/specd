@@ -8,8 +8,8 @@ import "github.com/0xkhdr/specd/internal/core"
 // `help --json` expose the same contract.
 func flagHelpLine(flag core.Flag) string {
 	line := "  --" + flag.Name
-	if flag.Values != "" {
-		line += "  <" + flag.Values + ">"
+	if hint := flag.ValueHint(); hint != "" {
+		line += "  <" + hint + ">"
 	}
 	if flag.Description != "" {
 		line += "  " + flag.Description

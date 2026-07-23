@@ -33,7 +33,9 @@ func ParseArgs(argv []string) (Args, error) {
 				return args, fmt.Errorf("empty flag")
 			}
 			if !hasValue {
-				if i+1 < len(argv) && !strings.HasPrefix(argv[i+1], "-") {
+				if name == "help" {
+					value = "true"
+				} else if i+1 < len(argv) && !strings.HasPrefix(argv[i+1], "-") {
 					i++
 					value = argv[i]
 				} else {
@@ -41,6 +43,10 @@ func ParseArgs(argv []string) (Args, error) {
 				}
 			}
 			args.Flags[name] = value
+			continue
+		}
+		if token == "-h" {
+			args.Flags["help"] = "true"
 			continue
 		}
 		if strings.HasPrefix(token, "-") {

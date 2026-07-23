@@ -83,10 +83,25 @@ func runDispatch(root, name string, args []string, flags map[string]string, auth
 	}
 	meta, hasMeta := core.CommandByName(name)
 	if hasMeta {
-		// Additive help surface (spec R4.1): on a multi-operation verb, --help
-		// or a missing subcommand prints the verb's palette operations and
-		// exits 0 instead of failing closed. Unknown subcommands still fail
-		// closed below (exit 2) — only the discoverability path changed.
+		// Help is a read-only route for every known verb. Resolve it before
+		// operation, actor, phase, freshness, or handler validation so even an
+		// otherwise incomplete invocation can explain itself.
+		if flagEnabled(flags, "help") {
+			if wantsOperationPalette(name, args, flags) {
+				printOperationPalette(meta)
+				return nil
+			}
+			return runHelp(root, []string{name}, nil)
+		}
+		if err := validateSpecArgs(meta, args); err != nil {
+			return err
+		}
+		if err := checkUnknownFlags(meta, flags); err != nil {
+			return err
+		}
+		// Additive help surface (spec R4.1): a missing subcommand on a
+		// multi-operation verb prints its palette instead of failing closed.
+		// Unknown subcommands still fail closed below (exit 2).
 		if wantsOperationPalette(name, args, flags) {
 			printOperationPalette(meta)
 			return nil
@@ -196,7 +211,7 @@ func printOperationPalette(meta core.Command) {
 	if len(meta.Flags) > 0 {
 		fmt.Fprintln(os.Stdout, "\nflags:")
 		for _, flag := range meta.Flags {
-			fmt.Fprintf(os.Stdout, "  --%-16s %s\n", flag.Name, flag.Description)
+			fmt.Fprintln(os.Stdout, flagHelpLine(flag))
 		}
 	}
 }
@@ -326,6 +341,40 @@ func checkFlagEnums(meta core.Command, flags map[string]string) error {
 		if !slices.Contains(flag.Enum, value) {
 			return core.Refusef("FLAG_VALUE_INVALID", "flag --%s=%q not allowed; expected one of %v", name, value, flag.Enum).
 				WithRecovery(core.RefusalActorAgent, "specd help "+meta.Name).Wrapping(ErrUsage)
+		}
+	}
+	return nil
+}
+
+func checkUnknownFlags(meta core.Command, flags map[string]string) error {
+	var unknown []string
+	for name := range flags {
+		if name != "help" && meta.FlagByName(name) == nil {
+			unknown = append(unknown, name)
+		}
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	sort.Strings(unknown)
+	return core.Refusef("FLAG_UNKNOWN", "unknown flag --%s for command %q", unknown[0], meta.Name).
+		WithRecovery(core.RefusalActorAgent, "specd help "+meta.Name).Wrapping(ErrUsage)
+}
+
+func validateSpecArgs(meta core.Command, args []string) error {
+	var indices []int
+	if meta.SpecSlugArg != nil {
+		indices = append(indices, *meta.SpecSlugArg)
+	}
+	if meta.Name == "link" || meta.Name == "unlink" {
+		indices = append(indices, 1)
+	}
+	for _, index := range indices {
+		if index >= len(args) {
+			continue
+		}
+		if err := core.ValidateSlug(args[index]); err != nil {
+			return core.Refusef("SPEC_INVALID", "%v", err).Wrapping(ErrUsage)
 		}
 	}
 	return nil

@@ -204,7 +204,7 @@ Complete one task by consuming current passing evidence through the gated comple
 | `--pricing-ref` | string | Pricing reference required with canonical cost. |
 | `--provider` | string | Optional bounded provider identifier. |
 | `--session` | id minted by `specd session open` | Driver session id. Required while a session is open; mint the accompanying nonce with `specd session action`. |
-| `--telemetry-source` | string | Telemetry provenance. |
+| `--telemetry-source` | worker|provider_adapter|operator | Telemetry provenance. |
 | `--tokens` | string | Optional worker-reported token count, stored verbatim. |
 
 **Examples:**
@@ -547,7 +547,7 @@ Record a typed, traceable cross-spec dependency link.
 
 | Flag | Value | Description |
 |---|---|---|
-| `--kind` | string | Link kind (default: follows). |
+| `--kind` | follows|regresses|maintains|supersedes | Link kind (default: follows). |
 | `--reason` | string | Optional human-authored reason stored with the link. |
 
 **Examples:**
@@ -593,7 +593,7 @@ Append or promote steering-memory patterns (learning flywheel).
 | Flag | Value | Description |
 |---|---|---|
 | `--body` | string | Detail of the pattern (add). |
-| `--criticality` | string | minor|important|critical (add). |
+| `--criticality` | minor|important|critical | minor|important|critical (add). |
 | `--force` | bool | Promote past the threshold (promote). |
 | `--key` | string | Pattern key (H2 heading). |
 | `--pattern` | string | One-line pattern statement (add). |
@@ -647,7 +647,7 @@ specd mode payments orchestrated
 ### `new`
 
 ```
-specd new <name> [--agent=<name>]
+specd new <name> [--title <title>] [--agent=<name>]
 ```
 
 Create a new spec workspace.
@@ -657,6 +657,7 @@ Create a new spec workspace.
 | Flag | Value | Description |
 |---|---|---|
 | `--agent` | string | Select agent harness. |
+| `--title` | string | Optional human-readable spec title. |
 
 **Examples:**
 
@@ -774,7 +775,7 @@ Render evidence-backed status, PR, history, trace, and metrics reports.
 | `--compat-removal` | bool | Emit the read-only compatibility-removal readiness report. |
 | `--delivery` | bool | Emit deterministic deployment status with adapter and trust source labeled separately. |
 | `--efficiency` | bool | Emit deterministic context-efficiency report with explicit unknown values. |
-| `--format` | string | Alternate output format; event emits neutral local JSONL, prometheus emits metrics. |
+| `--format` | prometheus|event | Alternate output format; event emits neutral local JSONL, prometheus emits metrics. |
 | `--history` | bool | Replay the spec's audit trail from existing records in timestamp order. |
 | `--json` | bool | Emit machine-readable report (JSON Lines with --history). |
 | `--metrics` | bool | Emit metrics summary. |
@@ -1016,6 +1017,7 @@ Run and record task verification (task mode), or record a per-acceptance-criteri
 | `--duration-ms` | string | Optional worker-reported wall-clock milliseconds, stored verbatim. |
 | `--evidence` | string | Evidence text or path backing the criterion verdict (with --criterion). |
 | `--input-tokens` | string | Optional provider-neutral input token count. |
+| `--json` | bool | Emit machine-readable verification output. |
 | `--model` | string | Optional bounded model identifier. |
 | `--nonce` | minted by `specd session action` | Single-use operation nonce. Spent on use; a replay is refused. |
 | `--output-tokens` | string | Optional provider-neutral output token count. |
@@ -1026,7 +1028,7 @@ Run and record task verification (task mode), or record a per-acceptance-criteri
 | `--sandbox-binary` | string | Path to sandbox binary (overrides auto-detect). |
 | `--session` | id minted by `specd session open` | Driver session id. Required while a session is open; mint the accompanying nonce with `specd session action`. |
 | `--status` | pass|fail | Criterion verdict (with --criterion): pass|fail. |
-| `--telemetry-source` | string | Telemetry provenance. |
+| `--telemetry-source` | worker|provider_adapter|operator | Telemetry provenance. |
 | `--tokens` | string | Optional worker-reported token count, stored verbatim. |
 
 **Examples:**

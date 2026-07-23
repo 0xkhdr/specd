@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/0xkhdr/specd/internal/cli"
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
@@ -228,6 +229,53 @@ func TestDispatchHelpPalette(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCanonicalHelpRouting(t *testing.T) {
+	for _, command := range core.Commands {
+		t.Run(command.Name, func(t *testing.T) {
+			out, err := captureStdout(t, func() error {
+				return Run(t.TempDir(), command.Name, nil, map[string]string{"help": "true"})
+			})
+			if err != nil {
+				t.Fatalf("%s --help: %v", command.Name, err)
+			}
+			if !strings.Contains(out, command.Usage) {
+				t.Fatalf("%s --help = %q, want palette usage %q", command.Name, out, command.Usage)
+			}
+
+			err = Run(t.TempDir(), command.Name, nil, map[string]string{"unknown": "true"})
+			if !errors.Is(err, ErrUsage) || !strings.Contains(err.Error(), "--unknown") {
+				t.Fatalf("%s unknown flag = %v, want named exit-2 refusal", command.Name, err)
+			}
+		})
+	}
+
+	parsed, err := cli.ParseArgs([]string{"verify", "-h", "not-a-task"})
+	if err != nil || parsed.Flags["help"] != "true" || len(parsed.Pos) != 1 {
+		t.Fatalf("short help parse = %+v, %v", parsed, err)
+	}
+	if _, err := captureStdout(t, func() error {
+		return Run(t.TempDir(), parsed.Command, parsed.Pos, parsed.Flags)
+	}); err != nil {
+		t.Fatalf("verify -h routed to handler validation: %v", err)
+	}
+	if _, err := cli.ParseArgs([]string{"status", "--unknown"}); err == nil {
+		t.Fatal("CLI accepted an unknown long flag")
+	}
+	if _, err := cli.ParseArgs([]string{"status", "-x"}); err == nil {
+		t.Fatal("CLI accepted an unknown short flag")
+	}
+
+	out, err := captureStdout(t, func() error {
+		return Run(t.TempDir(), "memory", nil, map[string]string{"help": "true"})
+	})
+	if err != nil {
+		t.Fatalf("memory --help: %v", err)
+	}
+	if !strings.Contains(out, "--criticality  <minor|important|critical>") {
+		t.Fatalf("enum values missing from help: %q", out)
 	}
 }
 

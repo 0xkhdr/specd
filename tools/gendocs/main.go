@@ -163,8 +163,8 @@ func renderCommand(b *strings.Builder, c core.Command) {
 // else the declared type, else "bool".
 func flagValue(f core.Flag) string {
 	switch {
-	case f.Values != "":
-		return f.Values
+	case f.ValueHint() != "":
+		return f.ValueHint()
 	case f.Type != "":
 		return f.Type
 	default:

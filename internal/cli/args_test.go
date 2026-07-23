@@ -41,11 +41,11 @@ func TestArgs(t *testing.T) {
 // a genuinely-global flag (--help) is always allowed. An unknown command is left
 // to the dispatcher's fail-closed path (flags not judged here).
 func TestArgsRejectsUndocumentedFlags(t *testing.T) {
-	_, err := ParseArgs([]string{"new", "my-spec", "--title", "x"})
+	_, err := ParseArgs([]string{"new", "my-spec", "--subtitle", "x"})
 	if err == nil {
-		t.Fatal("undocumented --title on new was accepted")
+		t.Fatal("undocumented --subtitle on new was accepted")
 	}
-	if !strings.Contains(err.Error(), "--title") || !strings.Contains(err.Error(), `"new"`) {
+	if !strings.Contains(err.Error(), "--subtitle") || !strings.Contains(err.Error(), `"new"`) {
 		t.Fatalf("refusal does not name flag and command: %v", err)
 	}
 
