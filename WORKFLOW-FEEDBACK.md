@@ -777,6 +777,7 @@ stated plainly and stays a proposal — never a self-applied change.
   - T47: ✅ ack rotates the driver baseline and pre-existing-untracked snapshot; open/verify disclose the bound completion sequence
   - T48: ✅ non-mutating refusals preserve the nonce; exact harness marker sync and pre-existing untracked files do not self-refuse
   - T49: ✅ stale Brain missions refuse with deterministic resume/reissue; Brain-only serial marker writes do not bleed scope
+  - T50: ✅ repair pins pre-existing-untracked attribution at session open; AD-R8 remains fail-closed between open and ack
 - **Skipped:** new `session rotate` verb; existing `session ack` is the task-boundary rotation interface. No dependency, migration, feature flag, or scope bypass added.
 
 ### 2026-07-23 — friction — ack snapshot exempts task-created untracked files
@@ -785,4 +786,4 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Actual:** exit 1 with `VIOLATION AD-R8: completion accepted an undeclared file on the default profile`
 - **Root cause:** harness bug — T47 refreshed `PreexistingUntracked` during `session ack`, so an undeclared path created after open but before ack was misclassified as pre-existing.
 - **Recommendation:** snapshot untracked paths only at `session open`; baseline rotation may re-pin tracked HEAD but must not move the attribution time boundary.
-- **Status:** open
+- **Status:** resolved (5b681ae)

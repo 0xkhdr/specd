@@ -130,4 +130,4 @@ the missing regression. A `superseded` row must also name the replacement feedba
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — approved T49 requires a nonexistent source file | project maintainers | deferred | Next authoring-gates pass — validate required context path existence before tasks approval. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — T49 cannot satisfy Brain-only marker acceptance in declared scope | project maintainers | deferred | Next authoring-gates pass — couple acceptance edges to declared shared-path ownership. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — completion — workflow-09-driver-session | project maintainers | deferred | Release J — feedback disposition is owned by the analysis pass, not by the completed spec. | - |
-| WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — ack snapshot exempts task-created untracked files | project maintainers | active | workflow-09-driver-session T50 — pin untracked attribution at session open and rerun AD-R8. | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — ack snapshot exempts task-created untracked files | project maintainers | resolved | ./scripts/regress-domains.sh | - |
