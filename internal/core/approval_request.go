@@ -35,6 +35,16 @@ const (
 
 const approvalRequestRecordPrefix = "approval_request:"
 
+// ApprovalRequestID keeps cycle 1 compatible with existing request identities
+// and gives every later lifecycle cycle a fresh chain.
+func ApprovalRequestID(gate string, cycle int) string {
+	id := "approve:" + gate
+	if cycle > 1 {
+		id += fmt.Sprintf(":cycle:%d", cycle)
+	}
+	return id
+}
+
 // approvalTransitions is the canonical model: the legal successors of each
 // state. The empty key is creation. States absent from the map (rejected,
 // withdrawn, expired, revoked, superseded) are terminal, so a repeated

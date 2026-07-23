@@ -485,6 +485,16 @@ func ArtifactReopenProjection(plan ArtifactReopenPlan, req ArtifactReopenRequest
 	next.Status = ProjectStatus(StageCondition{Stage: next.Stage, Condition: next.Condition})
 	next.Phase = PhaseForStatus(next.Status)
 	if plan.Artifact == "" {
+		for _, gate := range []Status{
+			StatusRequirements, StatusDesign, StatusTasks,
+			StatusExecuting, StatusVerifying, StatusComplete,
+		} {
+			key := "approval:" + string(gate)
+			if raw, ok := next.Records[key]; ok {
+				next.Records[fmt.Sprintf("%s:cycle:%d", key, plan.PriorCycle)] = raw
+				delete(next.Records, key)
+			}
+		}
 		for id := range next.TaskStatus {
 			next.TaskStatus[id] = TaskPending
 		}

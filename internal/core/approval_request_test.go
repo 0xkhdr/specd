@@ -97,6 +97,23 @@ func TestApprovalRequestLifecycle(t *testing.T) {
 		}
 	})
 
+	t.Run("CycleIdentity", func(t *testing.T) {
+		if got := ApprovalRequestID("requirements", 1); got != "approve:requirements" {
+			t.Fatalf("cycle 1 id = %q, want the compatibility identity", got)
+		}
+		first, second := ApprovalRequestID("requirements", 1), ApprovalRequestID("requirements", 2)
+		records := plan(t, nil, create(first))
+		records = plan(t, records, ApprovalRequestRecord{ID: first, Transition: ApprovalApproved, Pins: pins})
+		records = plan(t, records, create(second))
+		records = plan(t, records, ApprovalRequestRecord{ID: second, Transition: ApprovalApproved, Pins: pins})
+		if latest, count := LatestApprovalRequest(records, first); latest.Transition != ApprovalApproved || count != 2 {
+			t.Fatalf("cycle 1 chain = %+v after %d transitions", latest, count)
+		}
+		if latest, count := LatestApprovalRequest(records, second); latest.Transition != ApprovalApproved || count != 2 {
+			t.Fatalf("cycle 2 chain = %+v after %d transitions", latest, count)
+		}
+	})
+
 	t.Run("Revocation", func(t *testing.T) {
 		records := plan(t, nil, create("AR1"))
 		records = plan(t, records, ApprovalRequestRecord{ID: "AR1", Transition: ApprovalApproved, Pins: pins})

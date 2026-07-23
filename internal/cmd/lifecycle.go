@@ -720,7 +720,7 @@ func approvalArtifactDigest(sourceDigest string) string {
 // current identities, then appends the approved transition. Both transitions
 // are separate append-only records; neither edits the other.
 func recordCompatibilityApproval(root string, state *core.State, gate string, pins core.ApprovalPins) error {
-	id := "approve:" + gate
+	id := core.ApprovalRequestID(gate, state.Cycle)
 	existing, err := state.ApprovalRequests()
 	if err != nil {
 		return err

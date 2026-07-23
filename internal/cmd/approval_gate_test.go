@@ -127,6 +127,46 @@ func TestApprovalRequestIntegrationCompatibility(t *testing.T) {
 	}
 }
 
+func TestApprovalReopenedCycleRetainsHistoryAndApprovesFresh(t *testing.T) {
+	root := reopenCLISpec(t)
+	flags := map[string]string{"reason": "requirements changed for a new cycle", "expect-revision": reopenRevision(t, root)}
+	if _, err := artifactReopenCLI(t, root, []string{"demo", "spec"}, flags); err != nil {
+		t.Fatalf("reopen spec: %v", err)
+	}
+	for _, gate := range []string{"requirements", "design", "tasks"} {
+		if err := Run(root, "approve", []string{"demo"}, nil); err != nil {
+			t.Fatalf("approve %s in cycle 2: %v", gate, err)
+		}
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Cycle != 2 || state.Status != core.StatusExecuting {
+		t.Fatalf("state = %+v, want cycle 2 executing", state)
+	}
+	for _, gate := range []string{"requirements", "design", "tasks"} {
+		if _, ok := state.Records["approval:"+gate+":cycle:1"]; !ok {
+			t.Fatalf("records = %+v, want prior %s approval history", state.Records, gate)
+		}
+		if _, ok := state.Records["approval:"+gate]; !ok {
+			t.Fatalf("records = %+v, want current %s approval", state.Records, gate)
+		}
+	}
+	requests, err := state.ApprovalRequests()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gate := range []string{"requirements", "design", "tasks"} {
+		for _, id := range []string{core.ApprovalRequestID(gate, 1), core.ApprovalRequestID(gate, 2)} {
+			latest, count := core.LatestApprovalRequest(requests, id)
+			if latest.Transition != core.ApprovalApproved || count != 2 {
+				t.Fatalf("request %s = %+v after %d transitions, want retained approved history", id, latest, count)
+			}
+		}
+	}
+}
+
 // TestApprovalRequestIntegrationStaleDigest asserts approve refuses when an
 // already-open request pinned inputs that have since drifted, and leaves state
 // untouched (R5.3). Recovery is a new or superseding request; there is no

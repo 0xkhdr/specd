@@ -382,6 +382,11 @@ func artifactReopenRoot(t *testing.T) string {
 		t.Fatal(err)
 	}
 	state.Records[key] = raw
+	approval, err := json.Marshal(StampRecord(Record{Kind: "approval", Gate: "design"}, strings.Repeat("b", 40)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Records["approval:design"] = approval
 	if err := SaveState(StatePath(root, "demo"), state); err != nil {
 		t.Fatal(err)
 	}
@@ -537,6 +542,12 @@ func TestReopenSpecStartsNewCycle(t *testing.T) {
 	}
 	if requests, err := state.ApprovalRequests(); err != nil || len(requests) != 2 {
 		t.Fatalf("requests = %+v, err %v, want the prior cycle's request history retained", requests, err)
+	}
+	if _, ok := state.Records["approval:design:cycle:1"]; !ok {
+		t.Fatalf("records = %+v, want the prior cycle approval retained", state.Records)
+	}
+	if _, ok := state.Records["approval:design"]; ok {
+		t.Fatalf("records = %+v, want the current-cycle design approval cleared", state.Records)
 	}
 }
 
