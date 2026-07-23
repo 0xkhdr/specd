@@ -704,3 +704,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Recommendation:** emit `mode` in `status --json` and on the `status --guide` header line, and make a bare `specd mode <spec>` print the current mode instead of a usage error.
 - **Tradeoff:** none — mode already drives routing decisions the guide reports, so reporting it is strictly less surprising than hiding it.
 - **Status:** open
+
+### 2026-07-23 — friction — new command flags can never reach the palette because commands.go is undeclared in every task
+- **Context:** `workflow-07-compatibility-cleanup` T30/T31, executing, craftsman; T30 added `agents doctor --compat` and `report --workflow-metrics`, T31 added `report --compat-removal`; verify gauntlet includes `./scripts/docs-lint.sh`
+- **Expected:** a spec whose whole point is user-facing diagnostic surfaces (`--compat`, `--workflow-metrics`, `--compat-removal`) would land those flags in the generated `docs/command-reference.md` and the MCP palette, and docs-lint would enforce that.
+- **Actual:** all three flags are functional but invisible to `specd help`, the command reference, and the MCP palette, because verbs/flags are declared in `internal/core/commands.go`, which is **not** in T30's or T31's `files` cell. docs-lint stays green — it checks generated-vs-committed parity, and regress `W5` counts verbs, not flags — so nothing flags the divergence. No task in the spec could legally register them.
+- **Root cause:** task scope gap — the spec adds command-surface flags but never declares the one file (`internal/core/commands.go`) that publishes them, and no gate/lint couples handler-recognized flags to the palette.
+- **Recommendation:** any flag/verb-adding task should declare `internal/core/commands.go` + `tools/gendocs/main.go`, and docs-lint (or a gate) should assert handler-recognized flags appear in the canonical palette, so a shipped-but-undocumented flag fails closed.
+- **Status:** open
