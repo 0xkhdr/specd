@@ -2,14 +2,23 @@
   "schema_version": 2,
   "slug": "workflow-11-template-config",
   "mode": "default",
-  "status": "verifying",
-  "phase": "verify",
+  "status": "complete",
+  "phase": "reflect",
   "cycle": 1,
-  "stage": "verifying",
-  "condition": "active",
-  "revision": 11,
+  "stage": "complete",
+  "condition": "complete",
+  "revision": 12,
   "last_event_id": "65fad29ab3591a1f1a09a1d2ff727fdcea50675654de36d1c9423f67328edec4",
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 11,
+      "timestamp": "2026-07-23T22:26:13Z",
+      "git_head": "70414371807548ab3ba6a68beae869af5ce713da",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -45,6 +54,44 @@
       "approved_revision": 2,
       "timestamp": "2026-07-23T20:42:05Z",
       "git_head": "5d3ada36033a7e52174dcb38323926b97650a92d",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:0": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-11-template-config",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 11,
+        "plan_digest": "3ad2942e8fcd16ab4c7313c35108cd801046b2d4a52ac2db572a9dd64423ac5f",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:26:13Z",
+      "timestamp": "2026-07-23T22:26:13Z",
+      "git_head": "70414371807548ab3ba6a68beae869af5ce713da",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:1": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-11-template-config",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 11,
+        "plan_digest": "3ad2942e8fcd16ab4c7313c35108cd801046b2d4a52ac2db572a9dd64423ac5f",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:26:13Z",
+      "timestamp": "2026-07-23T22:26:13Z",
+      "git_head": "70414371807548ab3ba6a68beae869af5ce713da",
       "actor": "xkhdr"
     },
     "approval_request:approve:design:0": {
