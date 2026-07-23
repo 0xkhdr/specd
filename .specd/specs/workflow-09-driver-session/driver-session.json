@@ -1,0 +1,33 @@
+{
+  "id": "ds-dcf81ad4e549d1d3734c42f2aa22b0f9",
+  "slug": "workflow-09-driver-session",
+  "driver": "claude-code",
+  "baseline_revision": 8,
+  "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
+  "baseline_head": "26e60ed5215e378601475c0bc4578b5ded5fe515",
+  "context_receipt": {
+    "schema_version": "1",
+    "manifest_digest": "9132fa0c0fb711b49c4ff224a375442fa9ece14631f20144b2e1b670ada6806f",
+    "host_id": "claude-code",
+    "driver_id": "claude-code",
+    "supplied_digests": [
+      "8270c6324e4913031dd84fc09d439043f4f2847f4014326b1302982631589ddb",
+      "88a08160bc8a87388c3c3e2749747bb5f040aebb4a52ef5cab199c12ca43334a",
+      "b0c301bb4a2ae2ee100a5ca3745bc8d5a28bce10a9a7957d3ae057a97b0af311",
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
+      "c44e53c9fae7074b18dfba84227912bc9f45a48449fd2d51680252acac2118ca",
+      "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649",
+      "ea3fc03fa834ed78c4d8dfc73dc08a45d97a34f51568090eb88271334ead5b40"
+    ],
+    "missing_digests": [],
+    "reported_tokens": 30000,
+    "receipt_digest": "f85626ae3d10c27af20481777259a5240aeca2c974f9af1a0547084b9cb6ff61"
+  },
+  "authority_digest": "bca7560269b8f26529e81d7502e629d792f90604850c4ef03277601ea2c3d341",
+  "issued_at": "2026-07-23T17:07:14.137354422Z",
+  "expires_at": "2026-07-23T19:07:14.137354422Z",
+  "spent_nonces": [
+    "7896a319e4add876861bbd091bc07a92"
+  ],
+  "revision": 4
+}

@@ -163,14 +163,12 @@ func SnapshotUntracked(root string) ([]string, error) {
 }
 
 // RotateDriverSession atomically pins the baseline for a newly acknowledged
-// task and clears the prior task's receipt and authority.
+// task and clears the prior task's receipt and authority. The untracked
+// attribution boundary stays fixed at session open: moving it here would let a
+// worker exempt files created between open and acknowledgement.
 func RotateDriverSession(root, slug, sessionID, baselineHead string, baselineRevision int64, now time.Time) (DriverSession, error) {
 	if !HeadPinned(baselineHead) {
 		return DriverSession{}, Refuse("BASELINE_UNPINNED", "session ack requires a resolvable git HEAD; commit or initialize git before acknowledging context")
-	}
-	untracked, err := SnapshotUntracked(root)
-	if err != nil {
-		return DriverSession{}, err
 	}
 	path := DriverSessionPath(root, slug)
 	return WithSpecLock(root, func() (DriverSession, error) {
@@ -187,7 +185,6 @@ func RotateDriverSession(root, slug, sessionID, baselineHead string, baselineRev
 		next := session
 		next.BaselineHead = baselineHead
 		next.BaselineRevision = baselineRevision
-		next.PreexistingUntracked = untracked
 		next.ContextReceipt = nil
 		next.AuthorityDigest = ""
 		if err := SaveDriverSessionCAS(root, path, session.Revision, next); err != nil {

@@ -58,8 +58,45 @@ func TestDriverSessionTaskRotation(t *testing.T) {
 	if rotated.ContextReceipt != nil || rotated.AuthorityDigest != "" {
 		t.Fatalf("prior task binding survived rotation: %+v", rotated)
 	}
-	if !slices.Equal(rotated.PreexistingUntracked, []string{".specd/specs/demo/driver-session.json", "scratch.txt"}) {
+	if len(rotated.PreexistingUntracked) != 0 {
 		t.Fatalf("untracked snapshot = %v", rotated.PreexistingUntracked)
+	}
+}
+
+func TestDriverSessionPreexistingUntrackedBoundary(t *testing.T) {
+	root := driverSessionRoot(t)
+	git := func(args ...string) string {
+		t.Helper()
+		out, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	git("init", "-q")
+	git("config", "user.email", "test@example.com")
+	git("config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(root, "tracked.txt"), []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "tracked.txt")
+	git("commit", "-qm", "baseline")
+	if err := os.WriteFile(filepath.Join(root, "before-open.txt"), []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	session, err := OpenDriverSession(root, "demo", "host", "handshake", git("rev-parse", "HEAD"), 1, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "after-open.txt"), []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rotated, err := RotateDriverSession(root, "demo", session.ID, git("rev-parse", "HEAD"), 2, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(rotated.PreexistingUntracked, []string{"before-open.txt"}) {
+		t.Fatalf("rotation moved attribution boundary: %v", rotated.PreexistingUntracked)
 	}
 }
 

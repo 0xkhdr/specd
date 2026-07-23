@@ -7,7 +7,7 @@
   "cycle": 1,
   "stage": "complete",
   "condition": "complete",
-  "revision": 8,
+  "revision": 9,
   "records": {
     "approval:complete": {
       "kind": "approval",
@@ -247,6 +247,7 @@
   "task_status": {
     "T47": "complete",
     "T48": "complete",
-    "T49": "complete"
+    "T49": "complete",
+    "T50": "complete"
   }
 }
