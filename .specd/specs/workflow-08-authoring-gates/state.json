@@ -7,7 +7,7 @@
   "cycle": 1,
   "stage": "executing",
   "condition": "active",
-  "revision": 4,
+  "revision": 5,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -159,5 +159,8 @@
       "git_head": "53469e84f71f6d9ed19d9a1f2879db341a267d41",
       "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T40": "complete"
   }
 }

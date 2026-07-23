@@ -1,0 +1,6 @@
+{"task_id":"T40","command":"go test ./internal/core/gates -run TestDispatchParity -count=2","exit_code":0,"git_head":"4f945c4c8e41deaea8ed7b8844ff24906854d18c","timestamp":"2026-07-23T13:25:10Z","actor":"xkhdr"}
+{"task_id":"T40","command":"go test ./internal/core/gates -run TestDispatchParity -count=2","exit_code":0,"git_head":"b85e67e00fd22fc995c081b8624cd383f94409de","timestamp":"2026-07-23T13:26:29Z","actor":"xkhdr"}
+{"task_id":"T40","command":"go test ./internal/core/gates -run TestDispatchParity -count=2","exit_code":0,"git_head":"b85e67e00fd22fc995c081b8624cd383f94409de","timestamp":"2026-07-23T13:26:53Z","actor":"xkhdr"}
+{"task_id":"T40","command":"go test ./internal/core/gates -run TestDispatchParity -count=2","exit_code":0,"git_head":"b85e67e00fd22fc995c081b8624cd383f94409de","timestamp":"2026-07-23T13:26:57Z","actor":"xkhdr"}
+{"task_id":"T40","command":"go test ./internal/core/gates -run TestDispatchParity -count=2","exit_code":0,"git_head":"fba0f216061b354096163787234d90251b4d4c8e","timestamp":"2026-07-23T13:27:54Z","actor":"xkhdr"}
+{"task_id":"T40","command":"go test ./internal/core/gates -run TestDispatchParity -count=2","exit_code":0,"git_head":"fba0f216061b354096163787234d90251b4d4c8e","timestamp":"2026-07-23T13:27:57Z","actor":"xkhdr"}

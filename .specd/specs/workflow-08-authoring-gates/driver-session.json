@@ -1,0 +1,37 @@
+{
+  "id": "ds-a0a7611395bad86a4095a99ef1aa8041",
+  "slug": "workflow-08-authoring-gates",
+  "driver": "claude-code",
+  "baseline_revision": 4,
+  "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
+  "baseline_head": "fba0f216061b354096163787234d90251b4d4c8e",
+  "context_receipt": {
+    "schema_version": "1",
+    "manifest_digest": "4387874b73517783194f402f9a6cc51bddeeb3b77a9d00a9f119ee0517183e0b",
+    "host_id": "claude-code",
+    "driver_id": "claude-code",
+    "supplied_digests": [
+      "17105e3bf2868fb9edea358da28c2183bb6df0f23fa6b85c8bfc76ea9a47d131",
+      "212d80d8576ebe4a8817e5397830fedbeaf9849bac2462c3016408ff920d4bf9",
+      "68eb93594911bdcfa2424ab5273030f43b8f616498fdf5a8fcad8031003c9638",
+      "6bf598634353b71267d07b123ed5395be1db1caf9428a3fef6f8cda4ebb779ac",
+      "6f6ac86a92fd0e06a1ce3ff050c0c3fc787a3f3b232040b9f5569e1096eee077",
+      "9b28da8915268f5bf13b04dc0e04ff2433e33ef121f52780ebcbc2b1791a4a28",
+      "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a",
+      "a3fdaf04836e3988714ec71d10b222f6692350f3fc36a58d328be78f2d81d9de",
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
+      "d1c0f0b9505e7df935ef81742dc93b2106fb8e10a2068e4a93c606812e04cbaf",
+      "dfc426e662468bfedd75a215d255dd9fe9db738c0996b20c0d8b3f90e922618b"
+    ],
+    "missing_digests": [],
+    "reported_tokens": 12000,
+    "receipt_digest": "f96859ca9f2c27837157e6b3598c24eb0cdea511b3f9ea144745a2d0c6271284"
+  },
+  "authority_digest": "f47876e96ac36de9404ac5f997928e232a45e9af7bfb05d8e3e678237d1034a3",
+  "issued_at": "2026-07-23T13:27:31.581784848Z",
+  "expires_at": "2026-07-23T15:27:31.581784848Z",
+  "spent_nonces": [
+    "c2f69c4a55c901bf"
+  ],
+  "revision": 4
+}
