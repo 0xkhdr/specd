@@ -3,11 +3,106 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/orchestration"
 )
+
+func TestBrainStaleBaselineReissue(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	tasks := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 |\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("one\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitInitRepo(t, root)
+	execGit(t, root, "add", ".")
+	execGit(t, root, "commit", "-m", "baseline")
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"claim", "demo", "demo.s1.T1", "worker-1", "craftsman"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	old := loadBrainSession(t, root)
+	oldMission, oldLease := old.Missions[0], old.Leases[0]
+	if err := os.WriteFile(filepath.Join(root, "a.go"), []byte("two\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	execGit(t, root, "add", "a.go")
+	execGit(t, root, "commit", "-m", "head moved")
+	currentHead := gitHead(root)
+
+	err := runBrain(root, []string{"report", "demo", oldLease.LeaseID, "worker-1"}, nil)
+	refusal, ok := core.AsRefusal(err)
+	if !ok || refusal.Code != "BASELINE_DRIFTED" {
+		t.Fatalf("stale report = %v, want BASELINE_DRIFTED", err)
+	}
+	if !strings.Contains(err.Error(), oldMission.SubjectHead) || !strings.Contains(err.Error(), currentHead) ||
+		refusal.RecoveryCommand != "specd brain resume demo" {
+		t.Fatalf("stale refusal lacks heads or deterministic route: %+v", refusal)
+	}
+	if err := runBrain(root, []string{"resume", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	got := loadBrainSession(t, root)
+	if got.Leases[0].State != orchestration.LeaseRevoked || got.Leases[0].RevocationReason != "stale baseline" {
+		t.Fatalf("old lease not revoked: %+v", got.Leases)
+	}
+	if len(got.PendingMissions) != 1 {
+		t.Fatalf("pending missions = %+v", got.PendingMissions)
+	}
+	reissued := got.PendingMissions[0]
+	if reissued.TaskID != oldMission.TaskID || reissued.SubjectHead != currentHead || reissued.Attempt != oldMission.Attempt+1 {
+		t.Fatalf("reissued mission = %+v", reissued)
+	}
+
+	// Brain-only serial completion has no driver session. A marker that is
+	// exactly reproducible from state is controller-owned and must not bleed
+	// into the next mission's worker scope.
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.TaskStatus = map[string]core.TaskRunStatus{"T1": core.TaskComplete}
+	if err := core.SaveStateCAS(core.StatePath(root, "demo"), state.Revision, state); err != nil {
+		t.Fatal(err)
+	}
+	tasksPath := filepath.Join(root, ".specd/specs/demo/tasks.md")
+	raw, err := os.ReadFile(tasksPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marked, err := core.RewriteTaskStatusLine(raw, "T1", "✅")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tasksPath, marked, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	spec, err := loadSpec(root, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, _ := findTaskRow(spec.Tasks, "T1")
+	if err := enforceDiffScope(root, "demo", "T1", task); err != nil {
+		t.Fatalf("Brain-owned marker bled into worker scope: %v", err)
+	}
+	if err := os.WriteFile(tasksPath, append(marked, []byte("\ndirect edit\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := enforceDiffScope(root, "demo", "T1", task); err == nil {
+		t.Fatal("direct tasks edit was hidden as a controller marker")
+	}
+}
 
 // TestBrainResumeRaceDispatchesExactlyOnce scaffolds a crashed controller (a
 // checkpoint whose mission never reached the ledger) and races N concurrent

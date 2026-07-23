@@ -817,13 +817,13 @@ func enforceDiffScope(root, slug, id string, task core.TaskRow) error {
 		changes = slices.DeleteFunc(changes, func(change corescope.Change) bool {
 			return change.Kind == "untracked" && slices.Contains(session.PreexistingUntracked, change.Path)
 		})
-		if attributable, err := attributableTasksMarker(root, slug, baseline); err != nil {
-			return err
-		} else if attributable {
-			changes = slices.DeleteFunc(changes, func(change corescope.Change) bool {
-				return change.Path == filepath.Join(".specd", "specs", slug, "tasks.md")
-			})
-		}
+	}
+	if attributable, err := attributableTasksMarker(root, slug, baseline); err != nil {
+		return err
+	} else if attributable {
+		changes = slices.DeleteFunc(changes, func(change corescope.Change) bool {
+			return change.Path == filepath.Join(".specd", "specs", slug, "tasks.md")
+		})
 	}
 
 	findings := gates.CheckDiffScope(gates.DiffScopeInput{

@@ -108,6 +108,30 @@ func MissionPayload(m MissionV1) (string, error) {
 	return string(raw), err
 }
 
+// ReissueMission clones a stale mission for the same task at currentHead. The
+// original mission remains immutable evidence of what was dispatched.
+func ReissueMission(m MissionV1, step int, currentHead string, now time.Time) (MissionV1, error) {
+	if step < 1 || !core.HeadPinned(currentHead) {
+		return MissionV1{}, fmt.Errorf("MISSION_REISSUE_BASELINE_INVALID")
+	}
+	if m.Attempt >= m.Limits.MaxAttempts {
+		return MissionV1{}, fmt.Errorf("MISSION_REISSUE_ATTEMPTS_EXHAUSTED")
+	}
+	next := m
+	next.MissionID = MissionID(m.SessionID, step, m.TaskID)
+	next.Attempt++
+	next.SubjectHead = currentHead
+	next.DispatchDigest = ""
+	next.DiffDigest = ""
+	next.IssuedAt = now
+	next.ExpiresAt = now.Add(time.Duration(m.Limits.TimeoutSeconds) * time.Second)
+	next.Status = MissionPending
+	if err := ValidateMission(next); err != nil {
+		return MissionV1{}, err
+	}
+	return next, nil
+}
+
 type DispatchPins struct {
 	TaskID         string
 	Role           string

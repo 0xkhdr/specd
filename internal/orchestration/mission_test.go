@@ -11,6 +11,24 @@ func validMission() MissionV1 {
 	return MissionV1{ProtocolVersion: MissionProtocolVersion, SessionID: "s1", MissionID: "m1", SpecSlug: "demo", TaskID: "T1", Attempt: 1, Role: "craftsman", AuthorityRef: "approval:tasks", DeclaredFiles: []string{"b.go", "a.go"}, Acceptance: []string{"R2", "R1"}, Verify: "go test ./...", ContextRef: "ctx:r1", ContextDigest: "ctx", ConfigDigest: "cfg", PaletteDigest: "pal", PolicyDigest: "pol", SubjectHead: "abc", RouteClass: "local", RouteReason: "default", Limits: MissionLimits{MaxAttempts: 2, TimeoutSeconds: 60}, IssuedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), ExpiresAt: time.Date(2026, 1, 1, 1, 0, 0, 0, time.UTC), Status: MissionPending}
 }
 
+func TestBrainStaleBaselineReissue(t *testing.T) {
+	mission := validMission()
+	now := mission.IssuedAt.Add(10 * time.Minute)
+	reissued, err := ReissueMission(mission, 2, "def", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reissued.TaskID != mission.TaskID || reissued.MissionID == mission.MissionID {
+		t.Fatalf("reissue changed task identity or reused mission: %+v", reissued)
+	}
+	if reissued.SubjectHead != "def" || reissued.Attempt != mission.Attempt+1 {
+		t.Fatalf("reissue pins = %+v", reissued)
+	}
+	if mission.SubjectHead != "abc" || mission.Attempt != 1 {
+		t.Fatalf("original mission mutated: %+v", mission)
+	}
+}
+
 func TestMissionCanonicalDigest(t *testing.T) {
 	a, b := validMission(), validMission()
 	b.DeclaredFiles[0], b.DeclaredFiles[1] = b.DeclaredFiles[1], b.DeclaredFiles[0]

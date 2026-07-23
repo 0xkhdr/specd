@@ -440,6 +440,49 @@ func brainResumeLocked(root, sessionPath, checkpointPath, acpPath, slug string) 
 	if session.IsTerminal() {
 		return fmt.Errorf("brain resume refused: session is %s", session.Status())
 	}
+	currentHead := gitHead(root)
+	for li := range session.Leases {
+		lease := session.Leases[li]
+		if lease.State != orchestration.LeaseActive {
+			continue
+		}
+		for _, mission := range session.Missions {
+			if mission.MissionID != lease.MissionID || mission.SubjectHead == currentHead {
+				continue
+			}
+			now := time.Now()
+			step := session.Step + 1
+			reissued, err := orchestration.ReissueMission(mission, step, currentHead, now)
+			if err != nil {
+				return fmt.Errorf("brain resume refused: %w", err)
+			}
+			payload, err := orchestration.MissionPayload(reissued)
+			if err != nil {
+				return err
+			}
+			if err := orchestration.SaveCheckpoint(root, checkpointPath, orchestration.Checkpoint{
+				SessionID: session.ID, Step: step, Decision: orchestration.ACPKindDispatch,
+				MissionID: reissued.MissionID, TaskID: reissued.TaskID, Mission: &reissued, Time: now,
+			}); err != nil {
+				return err
+			}
+			if err := orchestration.AppendDispatch(acpPath, orchestration.ACPEvent{
+				Time: now, Kind: orchestration.ACPKindDispatch, TaskID: reissued.TaskID,
+				MissionID: reissued.MissionID, Payload: payload,
+			}); err != nil {
+				return err
+			}
+			session.Leases[li] = orchestration.ReleaseMission(lease, "stale baseline")
+			session.PendingMissions = append(session.PendingMissions, reissued)
+			session.Step = step
+			if err := orchestration.SaveSessionCAS(root, sessionPath, session.Revision, session); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stdout, "brain resume: revoked stale mission %s at %s and re-issued %s for task %s at current HEAD %s\n",
+				mission.MissionID, mission.SubjectHead, reissued.MissionID, mission.TaskID, currentHead)
+			return nil
+		}
+	}
 	cp, cpExists, err := orchestration.LoadCheckpoint(checkpointPath)
 	if err != nil {
 		return err

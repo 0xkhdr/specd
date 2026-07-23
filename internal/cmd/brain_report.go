@@ -59,6 +59,10 @@ func brainWorkerReport(root, sessionPath, acpPath, slug string, args []string) e
 			return err
 		}
 	}
+	if head != m.SubjectHead {
+		return core.Refusef("BASELINE_DRIFTED", "mission %s for task %s pinned HEAD %s but current HEAD is %s", m.MissionID, m.TaskID, m.SubjectHead, head).
+			WithRecovery(core.RefusalActorOperator, "specd brain resume "+slug)
+	}
 	if err := orchestration.ValidateWorkerReport(r, m, l, now); err != nil {
 		return err
 	}
