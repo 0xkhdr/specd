@@ -227,6 +227,44 @@ func TestTaskActivityReadinessStatusProjection(t *testing.T) {
 	}
 }
 
+func TestProgramStatusUsesLifecycleState(t *testing.T) {
+	root := t.TempDir()
+	if err := Run(root, "init", nil, nil); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	for _, slug := range []string{"root", "middle", "later"} {
+		if err := Run(root, "new", []string{slug}, nil); err != nil {
+			t.Fatalf("new %s: %v", slug, err)
+		}
+	}
+	if err := Run(root, "link", []string{"later", "middle"}, nil); err != nil {
+		t.Fatalf("link later: %v", err)
+	}
+	if err := Run(root, "link", []string{"middle", "root"}, nil); err != nil {
+		t.Fatalf("link middle: %v", err)
+	}
+
+	out, err := captureStdout(t, func() error {
+		return Run(root, "status", nil, map[string]string{"program": ""})
+	})
+	if err != nil {
+		t.Fatalf("status --program: %v", err)
+	}
+	for _, want := range []string{
+		"root  phase=perceive mode=default",
+		"depends on middle [pending]",
+		"depends on root [pending]",
+		"program frontier (actionable now): root",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("program status missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "(complete)") {
+		t.Fatalf("requirements-stage spec reported complete:\n%s", out)
+	}
+}
+
 // TestApprovalRequestIntegrationStatusProjection pins spec 03 R5.3/R5.4:
 // `status` projects the immutable approval-request identity — id, current
 // transition, entity, pinned identities, expiry — in both renderings, and once

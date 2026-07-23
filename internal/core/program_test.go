@@ -285,6 +285,37 @@ func TestProgramFrontierAndIncompleteDeps(t *testing.T) {
 	}
 }
 
+func TestProgramStatusDerivesChainFromLifecycleState(t *testing.T) {
+	var program Program
+	program.AddLink("later", "middle")
+	program.AddLink("middle", "root")
+	states := []State{
+		InitialState("later"),
+		InitialState("root"),
+		InitialState("middle"),
+	}
+
+	got := BuildProgramStatus(program, states)
+	if !reflect.DeepEqual(got.Frontier, []string{"root"}) {
+		t.Fatalf("frontier = %v, want [root]", got.Frontier)
+	}
+	if got.Specs[0].Complete || got.Specs[1].Complete || got.Specs[2].Complete {
+		t.Fatalf("requirements-stage specs reported complete: %+v", got.Specs)
+	}
+	if got.Specs[0].Dependencies[0].Complete || got.Specs[1].Dependencies[0].Complete {
+		t.Fatalf("requirements-stage dependency reported complete: %+v", got.Specs)
+	}
+
+	states[1].Status = StatusComplete
+	states[1].Stage = StageComplete
+	states[1].Condition = ConditionComplete
+	states[1].Phase = PhaseReflect
+	got = BuildProgramStatus(program, states)
+	if !reflect.DeepEqual(got.Frontier, []string{"middle"}) || !got.Specs[1].Dependencies[0].Complete || !got.Specs[2].Complete {
+		t.Fatalf("completed root did not advance the lifecycle projection: %+v", got)
+	}
+}
+
 func TestProgramLoadSaveRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "program.json")
 

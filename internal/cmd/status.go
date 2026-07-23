@@ -21,7 +21,7 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		if len(args) != 0 {
 			return errors.New("usage: specd status --program (takes no spec)")
 		}
-		view, err := renderProgram(root)
+		view, err := renderProgramLifecycle(root)
 		if err != nil {
 			return err
 		}
@@ -111,6 +111,41 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	fmt.Fprint(os.Stdout, renderApprovalRequests(approvals))
 	fmt.Fprint(os.Stdout, renderWaitingApproval(waitingApproval))
 	return nil
+}
+
+func renderProgramLifecycle(root string) (string, error) {
+	program, err := core.LoadProgram(core.ProgramPath(root))
+	if err != nil {
+		return "", err
+	}
+	slugs := core.ListSpecs(root)
+	states := make([]core.State, 0, len(slugs))
+	for _, slug := range slugs {
+		state, err := core.LoadState(core.StatePath(root, slug))
+		if err != nil {
+			return "", err
+		}
+		states = append(states, state)
+	}
+	status := core.BuildProgramStatus(program, states)
+	var b strings.Builder
+	b.WriteString("program specs:\n")
+	for _, spec := range status.Specs {
+		done := ""
+		if spec.Complete {
+			done = " (complete)"
+		}
+		fmt.Fprintf(&b, "  %s  phase=%s mode=%s%s\n", spec.SpecID, spec.Phase, spec.Mode, done)
+		for _, dep := range spec.Dependencies {
+			mark := "pending"
+			if dep.Complete {
+				mark = "complete"
+			}
+			fmt.Fprintf(&b, "    depends on %s [%s]\n", dep.SpecID, mark)
+		}
+	}
+	fmt.Fprintf(&b, "program frontier (actionable now): %s\n", strings.Join(status.Frontier, ", "))
+	return b.String(), nil
 }
 
 func statusReview(root, slug string) (*core.ReviewReport, error) {

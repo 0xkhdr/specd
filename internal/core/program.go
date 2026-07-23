@@ -394,6 +394,60 @@ type Program struct {
 	Links         []ProgramLink `json:"links"`
 }
 
+// ProgramStatus is the deterministic program view derived from loaded spec
+// lifecycle states.
+type ProgramStatus struct {
+	Specs    []ProgramSpecStatus
+	Frontier []string
+}
+
+type ProgramSpecStatus struct {
+	SpecID       string
+	Phase        Phase
+	Mode         Mode
+	Complete     bool
+	Dependencies []ProgramDependencyStatus
+}
+
+type ProgramDependencyStatus struct {
+	SpecID   string
+	Complete bool
+}
+
+// BuildProgramStatus projects completion, dependency satisfaction, and the
+// actionable frontier from one direct lifecycle predicate.
+func BuildProgramStatus(program Program, states []State) ProgramStatus {
+	loaded := make(map[string]State, len(states))
+	specs := make([]string, 0, len(states))
+	for _, state := range states {
+		loaded[state.Slug] = state
+		specs = append(specs, state.Slug)
+	}
+	sort.Strings(specs)
+	complete := func(slug string) bool {
+		state, ok := loaded[slug]
+		return ok && state.Status == StatusComplete
+	}
+	out := ProgramStatus{Frontier: program.Frontier(specs, complete)}
+	for _, slug := range specs {
+		state := loaded[slug]
+		projected := ProgramSpecStatus{
+			SpecID:   slug,
+			Phase:    state.Phase,
+			Mode:     state.Mode,
+			Complete: complete(slug),
+		}
+		for _, dep := range program.Deps(slug) {
+			projected.Dependencies = append(projected.Dependencies, ProgramDependencyStatus{
+				SpecID:   dep,
+				Complete: complete(dep),
+			})
+		}
+		out.Specs = append(out.Specs, projected)
+	}
+	return out
+}
+
 // ProgramPath is the program-level link store.
 func ProgramPath(root string) string {
 	return filepath.Join(SpecdDir(root), "program.json")
