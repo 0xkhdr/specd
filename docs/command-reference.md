@@ -136,7 +136,7 @@ specd brain release payments payments.s1.T1
 specd check <spec> [--security] [--schema] [--schema-only] [--json]
 ```
 
-Run the validation gate registry against a spec.
+Run the validation gate registry against a spec; error-severity findings return exit 1 in text and JSON modes.
 
 **Phases:** any.
 

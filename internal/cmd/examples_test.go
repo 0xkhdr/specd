@@ -72,10 +72,17 @@ var readOnlyVerbs = map[string]bool{
 	"report": true, "context": true, "next": true, "handshake": true,
 }
 
+// expectedExampleErrors pins diagnostic examples whose documented contract is
+// to fail when they find an error. All other read-only examples must run green.
+var expectedExampleErrors = map[string]string{
+	"specd check payments --security --json": "check failed",
+}
+
 // TestDocumentedExamplesRun covers SPEC-07 T-07-01: every concrete (placeholder-
 // free) example declared in the command palette (the SPEC-02 feature-map SOT)
-// dispatches and succeeds against a fresh `specd init`'d, executing project. A
-// stale example that names a removed flag or verb fails here.
+// dispatches with its documented result against a fresh `specd init`'d,
+// executing project. A stale example that names a removed flag or verb fails
+// here.
 func TestDocumentedExamplesRun(t *testing.T) {
 	root := newDemoSpec(t)
 	gitInitRepo(t, root)
@@ -106,7 +113,12 @@ func TestDocumentedExamplesRun(t *testing.T) {
 				continue // an alt-form line under another verb's entry
 			}
 			args := normaliseOperands(parsed.Pos)
-			if _, err := captureStdout(t, func() error { return Run(root, parsed.Command, args, parsed.Flags) }); err != nil {
+			_, err = captureStdout(t, func() error { return Run(root, parsed.Command, args, parsed.Flags) })
+			if want := expectedExampleErrors[ex]; want != "" {
+				if err == nil || err.Error() != want {
+					t.Errorf("documented example %q error = %v, want %q", ex, err, want)
+				}
+			} else if err != nil {
 				t.Errorf("documented example %q failed: %v", ex, err)
 			}
 			ran++

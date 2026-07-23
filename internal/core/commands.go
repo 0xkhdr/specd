@@ -539,7 +539,7 @@ var Commands = []Command{
 	{
 		Name:          "check",
 		Usage:         "specd check <spec> [--security] [--schema] [--schema-only] [--json]",
-		Description:   "Run the validation gate registry against a spec.",
+		Description:   "Run the validation gate registry against a spec; error-severity findings return exit 1 in text and JSON modes.",
 		AllowedPhases: anyPhase(),
 		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
@@ -1170,7 +1170,7 @@ func GuidanceForRoutes(status Status, blockers []string, route RouteContext) Gui
 		if legal[cmd.Name] {
 			g.LegalCommands = append(g.LegalCommands, cmd.Name)
 		}
-		if human[cmd.Name] {
+		if human[cmd.Name] && !legal[cmd.Name] {
 			g.HumanOnly = append(g.HumanOnly, cmd.Name)
 		}
 	}
