@@ -89,6 +89,30 @@ func TestNewDesignScaffoldParsesReferences(t *testing.T) {
 	}
 }
 
+func TestDeclaredFlagsAreConsumed(t *testing.T) {
+	root := t.TempDir()
+	if _, err := captureStdout(t, func() error {
+		return Run(root, "new", []string{"payments"}, map[string]string{"title": "Payments API"})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	specDir := filepath.Join(core.SpecdDir(root), "specs", "payments")
+	for _, artifact := range []struct{ file, heading string }{{"requirements.md", "Requirements"}, {"design.md", "Design"}, {"tasks.md", "Tasks"}} {
+		raw, err := os.ReadFile(filepath.Join(specDir, artifact.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(raw), "# "+artifact.heading+" — Payments API") {
+			t.Fatalf("%s did not consume --title:\n%s", artifact.file, raw)
+		}
+	}
+
+	err := Run(t.TempDir(), "new", []string{"ignored-agent"}, map[string]string{"agent": "codex"})
+	if !errors.Is(err, ErrUsage) || !strings.Contains(err.Error(), "--agent") {
+		t.Fatalf("removed new --agent flag = %v, want fail-closed unknown flag", err)
+	}
+}
+
 func TestApproveModeOperationIsSeparate(t *testing.T) {
 	root := newDemoSpec(t)
 	statePath := core.StatePath(root, "demo")

@@ -254,15 +254,12 @@ var Commands = []Command{
 	},
 	{
 		Name:          "new",
-		Usage:         "specd new <name> [--title <title>] [--agent=<name>]",
+		Usage:         "specd new <name> [--title <title>]",
 		Description:   "Create a new spec workspace.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd new payments", "specd new payments --agent=codex", "specd new payments --agent=pinky"},
-		Flags: []Flag{
-			{Name: "title", TakesValue: true, Type: "string", Description: "Optional human-readable spec title."},
-			{Name: "agent", TakesValue: true, Type: "string", Description: "Select agent harness."},
-		},
+		Examples:      []string{"specd new payments", `specd new payments --title "Payments API"`},
+		Flags:         []Flag{{Name: "title", TakesValue: true, Type: "string", Description: "Optional human-readable spec title."}},
 	},
 	{
 		Name:          "incident",

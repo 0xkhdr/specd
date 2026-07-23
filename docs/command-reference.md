@@ -647,7 +647,7 @@ specd mode payments orchestrated
 ### `new`
 
 ```
-specd new <name> [--title <title>] [--agent=<name>]
+specd new <name> [--title <title>]
 ```
 
 Create a new spec workspace.
@@ -656,15 +656,13 @@ Create a new spec workspace.
 
 | Flag | Value | Description |
 |---|---|---|
-| `--agent` | string | Select agent harness. |
 | `--title` | string | Optional human-readable spec title. |
 
 **Examples:**
 
 ```bash
 specd new payments
-specd new payments --agent=codex
-specd new payments --agent=pinky
+specd new payments --title "Payments API"
 ```
 
 ### `next`

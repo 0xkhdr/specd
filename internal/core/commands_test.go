@@ -1,13 +1,82 @@
 package core_test
 
 import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
 	command "github.com/0xkhdr/specd/internal/cmd"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+func TestDeclaredFlagsAreConsumed(t *testing.T) {
+	command, ok := core.CommandByName("new")
+	if !ok {
+		t.Fatal("new command missing")
+	}
+	for _, text := range append([]string{command.Usage}, command.Examples...) {
+		if strings.Contains(text, "--agent") {
+			t.Fatalf("removed new --agent flag remains in %q", text)
+		}
+	}
+	consumed := consumedFlags(t, "../cmd/lifecycle.go", "runNew")
+	if err := unconsumedFlags(command, consumed); err != nil {
+		t.Fatal(err)
+	}
+
+	synthetic := command
+	synthetic.Flags = append(append([]core.Flag(nil), command.Flags...), core.Flag{Name: "ignored"})
+	if err := unconsumedFlags(synthetic, consumed); err == nil {
+		t.Fatal("synthetic handler-ignored flag passed conformance")
+	}
+}
+
+func consumedFlags(t *testing.T, filename, function string) map[string]bool {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), filename, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumed := map[string]bool{}
+	for _, declaration := range file.Decls {
+		fn, ok := declaration.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != function {
+			continue
+		}
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			index, ok := node.(*ast.IndexExpr)
+			if !ok {
+				return true
+			}
+			flags, ok := index.X.(*ast.Ident)
+			literal, literalOK := index.Index.(*ast.BasicLit)
+			if !ok || flags.Name != "flags" || !literalOK || literal.Kind != token.STRING {
+				return true
+			}
+			if name, err := strconv.Unquote(literal.Value); err == nil {
+				consumed[name] = true
+			}
+			return true
+		})
+		return consumed
+	}
+	t.Fatalf("%s missing %s", filename, function)
+	return nil
+}
+
+func unconsumedFlags(command core.Command, consumed map[string]bool) error {
+	for _, flag := range command.Flags {
+		if !consumed[flag.Name] {
+			return fmt.Errorf("%s declares handler-ignored flag --%s", command.Name, flag.Name)
+		}
+	}
+	return nil
+}
 
 func TestRegistryMatchesHelp(t *testing.T) {
 	seen := make(map[string]bool)

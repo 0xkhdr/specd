@@ -30,6 +30,13 @@ func runNew(root string, args []string, flags map[string]string) error {
 	if err := core.ValidateSlug(slug); err != nil {
 		return err
 	}
+	title := strings.TrimSpace(flags["title"])
+	if title == "" {
+		title = slug
+	}
+	if strings.ContainsAny(title, "\r\n") {
+		return errors.New("usage: --title must be one line")
+	}
 	specDir := filepath.Join(core.SpecdDir(root), "specs", slug)
 	statePath := core.StatePath(root, slug)
 	_, err := core.WithSpecLock(root, func() (struct{}, error) {
@@ -39,13 +46,13 @@ func runNew(root string, args []string, flags map[string]string) error {
 		if err := os.MkdirAll(specDir, 0o755); err != nil {
 			return struct{}{}, err
 		}
-		if err := core.AtomicWrite(filepath.Join(specDir, "requirements.md"), requirementsStub(slug)); err != nil {
+		if err := core.AtomicWrite(filepath.Join(specDir, "requirements.md"), requirementsStub(title)); err != nil {
 			return struct{}{}, err
 		}
-		if err := core.AtomicWrite(filepath.Join(specDir, "design.md"), designStub(slug)); err != nil {
+		if err := core.AtomicWrite(filepath.Join(specDir, "design.md"), designStub(title)); err != nil {
 			return struct{}{}, err
 		}
-		if err := core.AtomicWrite(filepath.Join(specDir, "tasks.md"), tasksStub(slug)); err != nil {
+		if err := core.AtomicWrite(filepath.Join(specDir, "tasks.md"), tasksStub(title)); err != nil {
 			return struct{}{}, err
 		}
 		if err := core.AtomicWrite(core.SpecMemoryPath(root, slug), memoryStub(slug)); err != nil {
