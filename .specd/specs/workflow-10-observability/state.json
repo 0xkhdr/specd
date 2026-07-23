@@ -2,12 +2,12 @@
   "schema_version": 2,
   "slug": "workflow-10-observability",
   "mode": "default",
-  "status": "executing",
-  "phase": "execute",
+  "status": "verifying",
+  "phase": "verify",
   "cycle": 1,
-  "stage": "executing",
+  "stage": "verifying",
   "condition": "active",
-  "revision": 8,
+  "revision": 9,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -17,6 +17,15 @@
       "source_digest": "48218956f2743fd59dfa74b21fa386d2f34a9654d5284081d061af95dbc6ef51",
       "timestamp": "2026-07-23T18:09:18Z",
       "git_head": "c999e0addaeea88a2f0f4357392b9018f2268dfa",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 8,
+      "timestamp": "2026-07-23T18:52:45Z",
+      "git_head": "74aebe73d2da1ecc5a580aa2fbb4690ff897a85c",
       "actor": "xkhdr"
     },
     "approval:requirements": {
@@ -73,6 +82,44 @@
       "expires_at": "2026-07-23T19:09:18Z",
       "timestamp": "2026-07-23T18:09:18Z",
       "git_head": "c999e0addaeea88a2f0f4357392b9018f2268dfa",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:0": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-10-observability",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 8,
+        "plan_digest": "fab39c348872f81c018f007fe573466cd78542d90ba5818b282100a31c0d0bb6",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T19:52:45Z",
+      "timestamp": "2026-07-23T18:52:45Z",
+      "git_head": "74aebe73d2da1ecc5a580aa2fbb4690ff897a85c",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:1": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-10-observability",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 8,
+        "plan_digest": "fab39c348872f81c018f007fe573466cd78542d90ba5818b282100a31c0d0bb6",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T19:52:45Z",
+      "timestamp": "2026-07-23T18:52:45Z",
+      "git_head": "74aebe73d2da1ecc5a580aa2fbb4690ff897a85c",
       "actor": "xkhdr"
     },
     "approval_request:approve:requirements:0": {
