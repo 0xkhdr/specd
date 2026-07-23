@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -452,6 +453,7 @@ func (p *ArtifactReopenPlan) addBlocker(code, entity, message string) {
 func ArtifactReopenProjection(plan ArtifactReopenPlan, req ArtifactReopenRequest, state State) (State, error) {
 	next := state
 	next.Records = maps.Clone(state.Records)
+	next.TaskStatus = maps.Clone(state.TaskStatus)
 	if next.Records == nil {
 		next.Records = map[string]json.RawMessage{}
 	}
@@ -482,6 +484,11 @@ func ArtifactReopenProjection(plan ArtifactReopenPlan, req ArtifactReopenRequest
 	next.Condition = ConditionActive
 	next.Status = ProjectStatus(StageCondition{Stage: next.Stage, Condition: next.Condition})
 	next.Phase = PhaseForStatus(next.Status)
+	if plan.Artifact == "" {
+		for id := range next.TaskStatus {
+			next.TaskStatus[id] = TaskPending
+		}
+	}
 	return next, next.Validate()
 }
 
@@ -573,11 +580,42 @@ func CommitArtifactReopen(root, slug string, req ArtifactReopenRequest, preview 
 				revision.Artifact, revision.PriorDigest, snapshot.Digest, fresh.Command())
 		}
 	}
+	var tasksPath string
+	var taskIDs []string
+	if fresh.Artifact == "" {
+		var pathErr error
+		tasksPath, pathErr = SpecArtifactPath(root, slug, "tasks")
+		if pathErr != nil {
+			return fresh, pathErr
+		}
+		raw, readErr := os.ReadFile(tasksPath)
+		if readErr != nil {
+			return fresh, readErr
+		}
+		doc, parseErr := ParseTasksMd(raw)
+		if parseErr != nil {
+			return fresh, parseErr
+		}
+		state.TaskStatus = maps.Clone(state.TaskStatus)
+		if state.TaskStatus == nil {
+			state.TaskStatus = map[string]TaskRunStatus{}
+		}
+		for _, task := range doc.Tasks {
+			taskIDs = append(taskIDs, task.ID)
+			state.TaskStatus[task.ID] = TaskPending
+		}
+	}
 	event, err := BuildArtifactReopenEvent(fresh, req, state)
 	if err != nil {
 		return fresh, err
 	}
-	if err := CommitWorkflowTransition(TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
+	commit := TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}
+	if fresh.Artifact == "" {
+		err = commitReopenMarkers(tasksPath, taskIDs, commit)
+	} else {
+		err = CommitWorkflowTransition(commit)
+	}
+	if err != nil {
 		return fresh, err
 	}
 	fresh.EventID = event.ID
@@ -855,6 +893,11 @@ func BuildTaskReopenEvent(plan ReopenPlan, req ReopenRequest, projection State) 
 	if !plan.Eligible {
 		return WorkflowEventV1{}, plan.Refusal()
 	}
+	projection.TaskStatus = maps.Clone(projection.TaskStatus)
+	if projection.TaskStatus == nil {
+		projection.TaskStatus = map[string]TaskRunStatus{}
+	}
+	projection.TaskStatus[plan.TaskID] = TaskPending
 	impacted := []string{ReopenTaskEntityPrefix + plan.TaskID}
 	for _, id := range plan.Attempt.ImpactedDescendants {
 		impacted = append(impacted, ReopenTaskEntityPrefix+id)
@@ -886,7 +929,7 @@ func BuildTaskReopenEvent(plan ReopenPlan, req ReopenRequest, projection State) 
 // CommitTaskReopen reloads durable state, re-plans against it, refuses on drift
 // from the preview, and appends the attempt event under the same event-first
 // CAS as any other transition. A refusal mutates nothing.
-func CommitTaskReopen(statePath, eventPath, slug string, req ReopenRequest, tasks []TaskRow, status map[string]TaskRunStatus, preview ReopenPlan) (ReopenPlan, error) {
+func CommitTaskReopen(tasksPath, statePath, eventPath, slug string, req ReopenRequest, tasks []TaskRow, status map[string]TaskRunStatus, preview ReopenPlan) (ReopenPlan, error) {
 	state, err := RecoverWorkflowState(statePath, eventPath)
 	if err != nil {
 		return ReopenPlan{}, err
@@ -908,10 +951,40 @@ func CommitTaskReopen(statePath, eventPath, slug string, req ReopenRequest, task
 	if err != nil {
 		return fresh, err
 	}
-	if err := CommitWorkflowTransition(TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
+	if err := commitReopenMarkers(tasksPath, []string{fresh.TaskID}, TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
 		return fresh, err
 	}
 	fresh.EventID = event.ID
 	fresh.NewRevision = event.ResultingRevision
 	return fresh, nil
+}
+
+// commitReopenMarkers applies the byte-stable pending markers and the
+// event/state CAS as one locked command transaction. A refused commit restores
+// the original task bytes.
+func commitReopenMarkers(tasksPath string, taskIDs []string, commit TransitionCommit) error {
+	original, err := os.ReadFile(tasksPath)
+	if err != nil {
+		return err
+	}
+	updated := original
+	for _, id := range taskIDs {
+		updated, err = RewriteTaskStatusLine(updated, id, "")
+		if err != nil {
+			return err
+		}
+	}
+	if string(updated) == string(original) {
+		return CommitWorkflowTransition(commit)
+	}
+	if err := AtomicWrite(tasksPath, string(updated)); err != nil {
+		return err
+	}
+	if err := CommitWorkflowTransition(commit); err != nil {
+		if rollbackErr := AtomicWrite(tasksPath, string(original)); rollbackErr != nil {
+			return fmt.Errorf("reopen commit failed: %v; marker rollback failed: %w", err, rollbackErr)
+		}
+		return err
+	}
+	return nil
 }

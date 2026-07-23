@@ -51,7 +51,7 @@ func reopenCLI(t *testing.T, root string, flags map[string]string) (core.ReopenP
 	return plan, nil
 }
 
-func TestTaskReopenAttemptBindingCLICreatesAttempt(t *testing.T) {
+func TestReopenTaskResetCLICreatesAttempt(t *testing.T) {
 	root := reopenCLISpec(t)
 	plan, err := reopenCLI(t, root, map[string]string{"reason": "rounding defect found in review", "expect-revision": reopenRevision(t, root)})
 	if err != nil {
@@ -67,10 +67,9 @@ func TestTaskReopenAttemptBindingCLICreatesAttempt(t *testing.T) {
 	if err != nil || state.Revision != plan.NewRevision {
 		t.Fatalf("state = %+v, err %v, want the attempt committed at revision %d", state, err, plan.NewRevision)
 	}
-	// tasks.md is never rewritten by a reopen.
 	raw, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", "demo", "tasks.md"))
-	if err != nil || !strings.Contains(string(raw), "✅ T1") {
-		t.Fatalf("tasks.md = %q, err %v, want the marker untouched", raw, err)
+	if err != nil || strings.Contains(string(raw), "✅ T1") || state.TaskStatus["T1"] != core.TaskPending {
+		t.Fatalf("tasks/state = %q/%+v, err %v, want T1 reset to pending", raw, state.TaskStatus, err)
 	}
 }
 
@@ -208,7 +207,7 @@ func TestArtifactSpecReopenCLIOpensDraftVersion(t *testing.T) {
 	})
 }
 
-func TestArtifactSpecReopenCLIStartsNewCycle(t *testing.T) {
+func TestReopenSpecCLIStartsNewCycle(t *testing.T) {
 	root := reopenCLISpec(t)
 	flags := map[string]string{"reason": "requirements were wrong for the whole cycle", "expect-revision": reopenRevision(t, root)}
 	plan, err := artifactReopenCLI(t, root, []string{"demo", "spec"}, flags)
@@ -221,6 +220,21 @@ func TestArtifactSpecReopenCLIStartsNewCycle(t *testing.T) {
 	state, err := core.LoadState(core.StatePath(root, "demo"))
 	if err != nil || state.Cycle != 2 || state.Stage != core.StageRequirements {
 		t.Fatalf("state = %+v, err %v, want cycle 2 at requirements", state, err)
+	}
+	raw, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", "demo", "tasks.md"))
+	if err != nil || strings.Contains(string(raw), "✅ T1") || state.TaskStatus["T1"] != core.TaskPending {
+		t.Fatalf("tasks/state = %q/%+v, err %v, want every task reset to pending", raw, state.TaskStatus, err)
+	}
+	state.Stage = core.StageExecuting
+	state.Status = core.StatusExecuting
+	state.Phase = core.PhaseExecute
+	state.Condition = core.ConditionActive
+	if err := core.SaveState(core.StatePath(root, "demo"), state); err != nil {
+		t.Fatal(err)
+	}
+	err = Run(root, "approve", []string{"demo"}, nil)
+	if err == nil || !strings.Contains(err.Error(), "pending-completion") || !strings.Contains(err.Error(), "T1") {
+		t.Fatalf("approve reopened executing = %v, want pending-completion refusal naming T1", err)
 	}
 }
 

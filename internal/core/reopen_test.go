@@ -45,6 +45,19 @@ func reopenSpec(t *testing.T) (string, string, string) {
 // receipt plan.
 func reopenCommit(t *testing.T, statePath, eventPath string, req ReopenRequest, tasks []TaskRow, status map[string]TaskRunStatus) ReopenPlan {
 	t.Helper()
+	var body strings.Builder
+	body.WriteString("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n")
+	for _, task := range tasks {
+		deps := strings.Join(task.DependsOn, ",")
+		if deps == "" {
+			deps = "-"
+		}
+		body.WriteString("| " + strings.TrimSpace(task.Marker+" "+task.ID) + " | " + task.Role + " | " + task.Files + " | " + deps + " | " + task.Verify + " | ok |\n")
+	}
+	tasksPath := filepath.Join(filepath.Dir(statePath), "tasks.md")
+	if err := AtomicWrite(tasksPath, body.String()); err != nil {
+		t.Fatal(err)
+	}
 	state, err := RecoverWorkflowState(statePath, eventPath)
 	if err != nil {
 		t.Fatal(err)
@@ -58,14 +71,14 @@ func reopenCommit(t *testing.T, statePath, eventPath string, req ReopenRequest, 
 	if !preview.Eligible {
 		t.Fatalf("preview blocked: %+v", preview.Blockers)
 	}
-	plan, err := CommitTaskReopen(statePath, eventPath, "demo", req, tasks, status, preview)
+	plan, err := CommitTaskReopen(tasksPath, statePath, eventPath, "demo", req, tasks, status, preview)
 	if err != nil {
 		t.Fatalf("commit reopen: %v", err)
 	}
 	return plan
 }
 
-func TestTaskReopenAttemptBindingCreatesNextAttempt(t *testing.T) {
+func TestReopenTaskResetCreatesNextAttempt(t *testing.T) {
 	statePath, eventPath, _ := reopenSpec(t)
 	plan := reopenCommit(t, statePath, eventPath, reopenRequest(), reopenTasks(), nil)
 
@@ -97,7 +110,14 @@ func TestTaskReopenAttemptBindingCreatesNextAttempt(t *testing.T) {
 	if replayed.Attempt != 2 || replayed.PriorAttempt != 1 || replayed.PlanRevision != plan.NewRevision {
 		t.Fatalf("replayed attempt = %+v, want the committed attempt", replayed)
 	}
-	// Reopen never rewrites the marker; the pending activity is a projected fact.
+	raw, err := os.ReadFile(filepath.Join(filepath.Dir(statePath), "tasks.md"))
+	if err != nil || strings.Contains(string(raw), "✅ T1") {
+		t.Fatalf("tasks.md = %q, err %v, want T1 reset to pending", raw, err)
+	}
+	state, err := LoadState(statePath)
+	if err != nil || state.TaskStatus["T1"] != TaskPending {
+		t.Fatalf("state = %+v, err %v, want T1 reset to pending", state, err)
+	}
 	states, err := ProjectTaskStates(reopenTasks(), nil, ReopenTaskFacts(events, nil))
 	if err != nil || states[0].Activity != ActivityPending || states[0].Attempt != 2 {
 		t.Fatalf("projected state = %+v, err %v, want pending at attempt 2", states[0], err)
@@ -315,7 +335,7 @@ func TestTaskReopenAttemptBindingRefusesStaleAndUnpinnedRequests(t *testing.T) {
 		}
 		// Land one attempt, then commit the now-stale preview.
 		reopenCommit(t, statePath, eventPath, reopenRequest(), reopenTasks(), nil)
-		if _, err := CommitTaskReopen(statePath, eventPath, "demo", req, reopenTasks(), nil, preview); err == nil {
+		if _, err := CommitTaskReopen(filepath.Join(filepath.Dir(statePath), "tasks.md"), statePath, eventPath, "demo", req, reopenTasks(), nil, preview); err == nil {
 			t.Fatal("a preview from a superseded revision must refuse")
 		}
 	})
@@ -336,12 +356,17 @@ func artifactReopenRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for _, artifact := range ReopenableArtifacts {
-		if err := AtomicWrite(filepath.Join(SpecdDir(root), "specs", "demo", artifact+".md"), "# "+artifact+"\n"); err != nil {
+		body := "# " + artifact + "\n"
+		if artifact == "tasks" {
+			body = "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| ✅ T1 | craftsman | a.go | - | printf ok | ok |\n| ✅ T2 | craftsman | b.go | T1 | printf ok | ok |\n"
+		}
+		if err := AtomicWrite(filepath.Join(SpecdDir(root), "specs", "demo", artifact+".md"), body); err != nil {
 			t.Fatal(err)
 		}
 	}
 	state := InitialState("demo")
 	state.Stage, state.Status, state.Phase = StageDesign, StatusDesign, PhaseForStatus(StatusDesign)
+	state.TaskStatus = map[string]TaskRunStatus{"T1": TaskComplete, "T2": TaskComplete}
 	rec := StampApprovalRequest(ApprovalRequestRecord{
 		ID: "approve:design", Transition: ApprovalRequested,
 		EntityKind: ApprovalEntitySpec, EntityID: "demo", EntityVersion: "design",
@@ -476,7 +501,7 @@ func mustEvents(t *testing.T, root string) []WorkflowEventV1 {
 	return events
 }
 
-func TestArtifactSpecReopenStartsNewCycle(t *testing.T) {
+func TestReopenSpecStartsNewCycle(t *testing.T) {
 	root := artifactReopenRoot(t)
 	plan, err := artifactReopenCommit(t, root, artifactReopenRequest(t, root, ""))
 	if err != nil {
@@ -496,6 +521,13 @@ func TestArtifactSpecReopenStartsNewCycle(t *testing.T) {
 	state, count := artifactReopenLedger(t, root)
 	if state.Cycle != 2 || state.Stage != StageRequirements || count != 1 {
 		t.Fatalf("state = %+v (%d events), want a fresh cycle at requirements", state, count)
+	}
+	if state.TaskStatus["T1"] != TaskPending || state.TaskStatus["T2"] != TaskPending {
+		t.Fatalf("task status = %+v, want every task reset to pending", state.TaskStatus)
+	}
+	raw, err := os.ReadFile(filepath.Join(SpecdDir(root), "specs", "demo", "tasks.md"))
+	if err != nil || strings.Contains(string(raw), "✅ T1") || strings.Contains(string(raw), "✅ T2") {
+		t.Fatalf("tasks.md = %q, err %v, want every marker reset to pending", raw, err)
 	}
 	// R4.2: the prior cycle stays fully reportable — its event, its projection,
 	// and its approval history are all still on disk.

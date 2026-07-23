@@ -171,7 +171,11 @@ func reopenTask(root, slug, taskID, reason string, expected int64, flags map[str
 		if err := surrenderLeases(root, slug, preview); err != nil {
 			return preview, err
 		}
-		return core.CommitTaskReopen(statePath, eventPath, slug, req, spec.Tasks, status, preview)
+		tasksPath, err := core.SpecArtifactPath(root, slug, "tasks")
+		if err != nil {
+			return preview, err
+		}
+		return core.CommitTaskReopen(tasksPath, statePath, eventPath, slug, req, spec.Tasks, status, preview)
 	})
 	if err != nil {
 		return err

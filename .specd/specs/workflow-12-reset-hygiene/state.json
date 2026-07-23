@@ -2,12 +2,12 @@
   "schema_version": 2,
   "slug": "workflow-12-reset-hygiene",
   "mode": "orchestrated",
-  "status": "tasks",
-  "phase": "plan",
+  "status": "executing",
+  "phase": "execute",
   "cycle": 1,
-  "stage": "tasks",
+  "stage": "executing",
   "condition": "active",
-  "revision": 3,
+  "revision": 5,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -34,6 +34,15 @@
       "source_digest": "7e8949af429fdde1da58afece5791889db4976f3472f247739fb6396af323142",
       "timestamp": "2026-07-23T22:29:54Z",
       "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-23T22:34:31Z",
+      "git_head": "36376409ba1bb123e1f7baa7a0fab38ad03fb3ff",
       "actor": "xkhdr"
     },
     "approval_request:approve:design:0": {
@@ -111,6 +120,47 @@
       "timestamp": "2026-07-23T22:29:54Z",
       "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
       "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:0": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "5e5f36f95dffbe8c4431afce5118ac7b710f84261871ec50217bcbef8263bb65",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:34:31Z",
+      "timestamp": "2026-07-23T22:34:31Z",
+      "git_head": "36376409ba1bb123e1f7baa7a0fab38ad03fb3ff",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:1": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "5e5f36f95dffbe8c4431afce5118ac7b710f84261871ec50217bcbef8263bb65",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:34:31Z",
+      "timestamp": "2026-07-23T22:34:31Z",
+      "git_head": "36376409ba1bb123e1f7baa7a0fab38ad03fb3ff",
+      "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T62": "complete"
   }
 }

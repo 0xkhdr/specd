@@ -125,6 +125,35 @@ func approveSpec(root, slug string, delegated *delegatedApproval) error {
 			return struct{}{}, core.Refusef("REVISION_CONFLICT", "delegated approval authorized revision %d, spec %s is at %d",
 				delegated.ExpectedRevision, slug, state.Revision)
 		}
+		if current == core.StatusExecuting {
+			events, err := core.ReadWorkflowEvents(core.WorkflowEventPath(root, slug))
+			if err != nil {
+				return struct{}{}, err
+			}
+			reopened := false
+			for _, event := range events {
+				if strings.HasPrefix(event.Transition, core.ReopenSpecTransitionPrefix) {
+					reopened = true
+					break
+				}
+			}
+			if reopened {
+				spec, err := loadSpec(root, slug)
+				if err != nil {
+					return struct{}{}, err
+				}
+				states, err := core.ProjectTaskStates(spec.Tasks, state.TaskStatus, core.ReopenTaskFacts(events, nil))
+				if err != nil {
+					return struct{}{}, err
+				}
+				if pending := core.PendingCompletionBlockers(states); len(pending) > 0 {
+					return struct{}{}, core.Refusef("GATE_FAILED",
+						"pending-completion gate: tasks %s are pending; complete them or record an accepted terminal disposition before approving executing",
+						strings.Join(pending, ", ")).
+						WithRecovery(core.RefusalActorAgent, "specd status "+slug+" --guide")
+				}
+			}
+		}
 		readiness, err := buildReadiness(root, slug, state)
 		if err != nil {
 			return struct{}{}, err
