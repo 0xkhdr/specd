@@ -955,3 +955,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** implementation error — the midreq handler retained a literal usage error instead of using the existing palette-backed helper.
 - **Recommendation:** use `usageError("midreq")`; retain docs lint as the executable parity regression.
 - **Status:** resolved (workflow-12-reset-hygiene T67)
+
+### 2026-07-24 — friction — later task bypassed the refusal registry conformance
+- **Context:** executing `workflow-12-reset-hygiene` T68, craftsman, broader command `go test ./internal/core -count=1`
+- **Expected:** T66's refusal-code conformance remains green when later tasks construct new typed refusals.
+- **Actual:** exit 1 with `TestRefusalCodesRegistered`: `internal/core/reopen.go:136: refusal code "SCOPE_AMEND_REFUSED" is absent from refusalRecovery`.
+- **Root cause:** task ordering/scope gap — T67 introduced a new refusal code after T66 completed, but T67 did not declare `internal/core/refusal.go` and its exact verify selector did not run the registry conformance.
+- **Recommendation:** make any task touching `Refuse`/`Refusef` run `TestRefusalCodesRegistered`, and declare `internal/core/refusal.go` when adding a code.
+- **Status:** open
