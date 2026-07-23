@@ -843,3 +843,19 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — reopen attempt projection is not the canonical source for task status/activity even though evidence invalidation observes the reopen.
 - **Recommendation:** project the active reopen attempt into status, frontier, guide, context, and session resolution atomically; refuse reopen without revision mutation if any consumer would still see the prior completed activity.
 - **Status:** open
+
+### 2026-07-24 — friction — inline-comment normalization erased nested indentation
+- **Context:** `workflow-11-template-config` T59, craftsman, exact command `go test ./internal/core -run TestConfigListAndCommentConformance -count=2`
+- **Expected:** stripping an unquoted trailing comment preserves the YAML line's leading indentation so nested keys remain under their section.
+- **Actual:** initial implementation failed with `config_test.go:129: commented diagnostics = []core.Diagnostic{... Message:"config line 7: nested key without section"}`.
+- **Root cause:** implementation bug — the new inline-comment helper used `TrimSpace`, conflating comment/value normalization with structural indentation.
+- **Recommendation:** keep indentation parsing on the original line and trim only the comment-free value slice; retain this nested-key case in the focused regression.
+- **Status:** resolved (workflow-11-template-config T59)
+
+### 2026-07-24 — friction — inline-comment test fixture did not quote the scalar
+- **Context:** `workflow-11-template-config` T59, craftsman, exact command `go test ./internal/core -run TestConfigListAndCommentConformance -count=2`
+- **Expected:** the quoted-hash fixture follows the documented scalar form and proves `#` inside quotes is preserved.
+- **Actual:** second run failed with `config_test.go:147: quoted hashes were stripped: ... "submit.command":"echo \\\"double#hash\\\" # comment"`.
+- **Root cause:** test authoring error — the fixture escaped an inner quote but left the whole scalar unquoted, so the trailing comment boundary was ambiguous.
+- **Recommendation:** quote the whole scalar as `submit.command: 'echo "double#hash"' # comment` and keep both single- and double-quoted hash cases.
+- **Status:** resolved (workflow-11-template-config T59)
