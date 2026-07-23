@@ -835,3 +835,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task verification gap — T57's selector required `TestShippedSteeringConformance`, but the repository structural test forbids that token anywhere under `internal/core/gates`.
 - **Recommendation:** make task authoring lint test selectors against repository naming constraints, or include the package structural/conformance test in any gate-test task's verify command.
 - **Status:** open
+
+### 2026-07-24 — friction — reopen response and status disagree on task activity
+- **Context:** `workflow-11-template-config` T57 repair, driver after operator ran `./specd reopen workflow-11-template-config task T57 --reason "rename the gate test to satisfy TestConformanceEventsNoGateReferencesTheLog" --expect-revision 5 --scope internal/core/gates/steering_applicability_test.go`; exact read command `./specd status workflow-11-template-config --json`
+- **Expected:** the reopen response's `attempt.activity: pending` and `readiness: ready` appear identically in status so a driver session can bind attempt 2.
+- **Actual:** status reports `"status": "complete", "activity": "completed"` for T57, while the guide says `blocker: T57 is complete without passing evidence`.
+- **Root cause:** harness bug — reopen attempt projection is not the canonical source for task status/activity even though evidence invalidation observes the reopen.
+- **Recommendation:** project the active reopen attempt into status, frontier, guide, context, and session resolution atomically; refuse reopen without revision mutation if any consumer would still see the prior completed activity.
+- **Status:** open

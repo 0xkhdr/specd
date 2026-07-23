@@ -7,7 +7,8 @@
   "cycle": 1,
   "stage": "executing",
   "condition": "active",
-  "revision": 5,
+  "revision": 6,
+  "last_event_id": "65fad29ab3591a1f1a09a1d2ff727fdcea50675654de36d1c9423f67328edec4",
   "records": {
     "approval:design": {
       "kind": "approval",
