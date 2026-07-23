@@ -209,6 +209,76 @@ func removalEligible(active bool, s CompatSurface, currentVersion, today string)
 	return true, ""
 }
 
+// RemovalInputs is the explicit, pre-loaded release audit a removal proposal is
+// judged against (spec R2.1). Every field is a governed fact loaded elsewhere;
+// the gate performs no I/O and reaches no network. A field left at its zero
+// value fails closed — removal is never granted on missing proof, so a surface
+// with no recorded release-owner decision or unproven journeys stays supported.
+type RemovalInputs struct {
+	CurrentVersion  string          // this binary's version
+	Today           string          // YYYY-MM-DD, evaluated in UTC
+	ActiveUse       map[string]bool // code -> unsupported active use found in release fixtures
+	ReleaseDecision map[string]bool // code -> explicit release-owner removal decision recorded
+	JourneysPass    bool            // upgrade, downgrade-preflight, archive, default, and production journeys passed
+	DocsSynced      bool            // command-reference, upgrade guide, archival guide, examples, and changelog regenerated
+}
+
+// RemovalReadiness is the exit verdict for one tracked surface: whether it may
+// be removed and, when not, the first unmet gate plus the code path retained.
+type RemovalReadiness struct {
+	Code         string `json:"code"`
+	Surface      string `json:"surface"`
+	Eligible     bool   `json:"eligible"`
+	BlockingGate string `json:"blocking_gate,omitempty"`
+	RetainedPath string `json:"retained_path,omitempty"`
+	Owner        string `json:"owner"`
+}
+
+// RemovalPlan judges every tracked surface against the release audit, sorted by
+// code. It is the deterministic removal-exit gate: time alone never deletes —
+// window (two-minor-release minimum by version AND date), zero unsupported
+// active use, an explicit release-owner decision, passing upgrade/downgrade/
+// archive/default/production journeys, and synchronized generated docs must all
+// pass. The first failed prerequisite blocks removal and names the retained
+// path (spec R2.2). It reads nothing and writes nothing.
+func RemovalPlan(in RemovalInputs) []RemovalReadiness {
+	out := make([]RemovalReadiness, 0, len(CompatRegistry()))
+	for _, s := range CompatRegistry() {
+		r := RemovalReadiness{Code: s.Code, Surface: s.Surface, Owner: s.Owner}
+		if gate := removalExitGate(s, in); gate != "" {
+			r.BlockingGate = gate
+			r.RetainedPath = s.Surface + " (" + s.Replacement + ")"
+		} else {
+			r.Eligible = true
+		}
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
+	return out
+}
+
+// removalExitGate returns the first unmet removal prerequisite for a surface, or
+// "" when every prerequisite passes. The order is fixed so the reported gate is
+// deterministic: window before usage before governance before proof before docs.
+func removalExitGate(s CompatSurface, in RemovalInputs) string {
+	switch {
+	case versionLess(in.CurrentVersion, s.MinRemovalVersion):
+		return "unmet-window-version"
+	case in.Today < s.MinRemovalDate:
+		return "unmet-window-date"
+	case in.ActiveUse[s.Code]:
+		return "active-use"
+	case !in.ReleaseDecision[s.Code]:
+		return "release-decision"
+	case !in.JourneysPass:
+		return "journeys"
+	case !in.DocsSynced:
+		return "docs-sync"
+	default:
+		return ""
+	}
+}
+
 // versionLess reports whether dotted-numeric version a precedes b. Non-numeric
 // or missing components compare as zero; this is enough for the internal
 // release scheme and adds no dependency.

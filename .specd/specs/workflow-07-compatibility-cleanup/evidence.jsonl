@@ -1,1 +1,2 @@
 {"task_id":"T30","command":"go test ./internal/core ./internal/cmd -run TestCompatibilityInventory -count=2","exit_code":0,"git_head":"41f71d2a644c928692ae04ebefdc19c4a5b02f3e","timestamp":"2026-07-23T00:58:12Z","actor":"xkhdr"}
+{"task_id":"T31","command":"go test ./... -race -count=1 \u0026\u0026 go test ./... -count=2 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh","exit_code":0,"git_head":"7dc8156bfe1fe421f0a98c76593fcfa1600186bb","timestamp":"2026-07-23T01:12:51Z","actor":"xkhdr"}

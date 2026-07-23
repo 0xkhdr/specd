@@ -52,6 +52,47 @@ retained and the unmet gate is named (`unmet-window-version`, `unmet-window-date
 Time alone never deletes support. A migrated surface stops being reported as active but stays in the
 inventory as migration history.
 
+## Release exit gate
+
+Removing a compatibility surface is a deliberate, breaking-release change, never a side effect of
+one being old. `specd report <slug> --compat-removal` projects the deterministic removal-exit gate
+(`core.RemovalPlan`) for every tracked surface and **fails closed** — a surface is eligible only when
+*all* of these pass, in order:
+
+1. **window** — the published two-minor-release minimum is reached by both version and date;
+2. **active-use** — zero unsupported active use remains in the release fixtures;
+3. **release-decision** — an explicit release-owner removal decision is recorded;
+4. **journeys** — the upgrade, downgrade-preflight, archive, default, and production journeys pass
+   (`scripts/upgrade-matrix.sh`, `scripts/production-smoke.sh`);
+5. **docs-sync** — command reference, upgrade guide, archival guide, examples, and changelog are
+   regenerated.
+
+The first unmet prerequisite blocks removal and names the retained path; the projection reads only
+local state and reaches no network. Because the current binary has no recorded release-owner decision
+and its journeys are proven only in CI, this release removes **nothing** — every surface reports
+blocked. `scripts/upgrade-matrix.sh` asserts exactly that: a dev binary blocks on `unmet-window`, a
+release-stamped binary past the window blocks on `release-decision`, and archive inspection never
+rewrites the manifest.
+
+### Compatibility branches still present
+
+Each remaining compatibility branch is owned by a registry entry (`internal/core/compatibility.go`)
+that records its removal condition; none is eligible yet:
+
+| code | branch | removal condition |
+|---|---|---|
+| `LEGACY_CONFIG_SOURCE` | legacy `project.yml`/`project.yaml` discovery | window + `specd config migrate` adoption |
+| `LEGACY_STATE_SCHEMA` | schema-1 `state.json` read/projection | window + `specd migrate` adoption |
+| `LEGACY_STATUS_PROJECTION` | schema-1 `status` field write | window + readers on `specd status --json` |
+| `LEGACY_OUTPUT_SCHEMA` | deprecated machine-output route | window + clients on `specd report --json` |
+| `UNKNOWN_ACTOR_PROVENANCE` | actor without handshake provenance | window + `specd handshake bootstrap` adoption |
+| `LEGACY_TASK_GRAMMAR` | deprecated task-grammar alias | window + `specd check`-clean tasks |
+
+Downgrade is guarded independently of removal: `core.PreflightStateSchema` reads only the schema
+header and refuses to let an older binary open upgraded state before any write, and the same guard
+fails future schemas closed. Config and state backups keep their permissions and are never deleted by
+cleanup.
+
 ---
 
 **See also:** [../CHANGELOG.md](../CHANGELOG.md) · [../TESTING.md](../TESTING.md) ·

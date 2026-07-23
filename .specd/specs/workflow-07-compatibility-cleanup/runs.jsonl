@@ -1,1 +1,2 @@
 {"envelope_version":"v1","run_id":"8c11fb92cfbf19a5","spec_id":"workflow-07-compatibility-cleanup","task_id":"T30","attempt":1,"started_at":"2026-07-23T00:58:12Z","git_head":"41f71d2a644c928692ae04ebefdc19c4a5b02f3e","actor":"xkhdr","telemetry_source":"worker"}
+{"envelope_version":"v1","run_id":"363ecbc911ec3c92","spec_id":"workflow-07-compatibility-cleanup","task_id":"T31","attempt":1,"started_at":"2026-07-23T01:12:51Z","git_head":"7dc8156bfe1fe421f0a98c76593fcfa1600186bb","actor":"xkhdr","telemetry_source":"worker"}

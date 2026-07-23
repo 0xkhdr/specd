@@ -553,7 +553,31 @@ func runReport(root string, args []string, flags map[string]string) error {
 		return writeJSON(export)
 	}
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--workflow-metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event] | report --portfolio")
+		return errors.New("usage: report slug [--pr|--metrics|--workflow-metrics|--compat-removal|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event] | report --portfolio")
+	}
+	// --compat-removal projects the deterministic removal-exit gate (R2.1/R2.2)
+	// for every tracked compatibility surface. It reads only local state and
+	// fails closed: with no recorded release-owner decision and unproven release
+	// journeys, every surface is reported blocked with its retained path, so
+	// nothing is ever removed by mere passage of time. It writes nothing and, by
+	// reading only the compat facts, works before a spec has full artifacts.
+	if flagEnabled(flags, "compat-removal") {
+		today := time.Now().UTC().Format("2006-01-02")
+		inv := core.CompatInventory(core.LoadCompatFacts(root, args[0]), version.Get().Version, today)
+		active := map[string]bool{}
+		for _, d := range inv {
+			if d.Active {
+				active[d.Code] = true
+			}
+		}
+		// Release-owner decisions and release-journey proof are not derivable from
+		// read-only state, so they stay empty/false here: the gate fails closed.
+		plan := core.RemovalPlan(core.RemovalInputs{
+			CurrentVersion: version.Get().Version,
+			Today:          today,
+			ActiveUse:      active,
+		})
+		return writeJSON(plan)
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
