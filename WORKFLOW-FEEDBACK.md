@@ -747,3 +747,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — `coverageGate` discards `AnalyzeCoverage.Message`, deduplicates only `CoverageFinding.Requirement`, and always renders the task-coverage remedy for design-coverage findings.
 - **Recommendation:** preserve and group coverage findings by cause, rendering `design.md references` remediation separately from `tasks.md refs`; reject unsupported range syntax at the design gate.
 - **Status:** open
+
+### 2026-07-23 — friction — Pinky role rejects inherited-context dispatch
+- **Context:** `workflow-09-driver-session` T47, driver dispatch to the required Pinky pool using `spawn_agent(agent_type="pinky-craftsman", fork_turns="all", ...)`
+- **Expected:** the specialized craftsman receives the current governed workflow context and executes only the briefed task.
+- **Actual:** dispatch refused with `Full-history forked agents inherit the parent agent type; omit agent_type, or spawn without a full-history fork.`
+- **Root cause:** host-tool constraint — specialized role selection and inherited conversation context are mutually exclusive, but the worker policy does not disclose that combination.
+- **Recommendation:** document that Pinky roles require `fork_turns="none"` (and a self-contained brief), or allow a specialized role with inherited read-only context.
+- **Status:** open
