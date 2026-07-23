@@ -2,12 +2,12 @@
   "schema_version": 2,
   "slug": "workflow-10-observability",
   "mode": "default",
-  "status": "tasks",
-  "phase": "plan",
+  "status": "executing",
+  "phase": "execute",
   "cycle": 1,
-  "stage": "tasks",
+  "stage": "executing",
   "condition": "active",
-  "revision": 2,
+  "revision": 3,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -26,6 +26,15 @@
       "source_digest": "4519b5b2a6ac98f7d68e7c71b1e83daaf67e455e9399e3cf19c8092ff28fffbf",
       "timestamp": "2026-07-23T17:39:17Z",
       "git_head": "36d75cc7e77d82391ffc3eaa6c8992d1a9e31252",
+      "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 2,
+      "timestamp": "2026-07-23T18:17:27Z",
+      "git_head": "414d7faad6dc7a08cfa34701642a53de78024062",
       "actor": "xkhdr"
     },
     "approval_request:approve:design:0": {
@@ -100,6 +109,44 @@
       "expires_at": "2026-07-23T18:39:17Z",
       "timestamp": "2026-07-23T17:39:17Z",
       "git_head": "36d75cc7e77d82391ffc3eaa6c8992d1a9e31252",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:0": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-10-observability",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 2,
+        "plan_digest": "e0dec700ca9f229c17199a483187a547644ea3355778bfc9cb9b717138f20b20",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T19:17:27Z",
+      "timestamp": "2026-07-23T18:17:27Z",
+      "git_head": "414d7faad6dc7a08cfa34701642a53de78024062",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:1": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-10-observability",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 2,
+        "plan_digest": "e0dec700ca9f229c17199a483187a547644ea3355778bfc9cb9b717138f20b20",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T19:17:27Z",
+      "timestamp": "2026-07-23T18:17:27Z",
+      "git_head": "414d7faad6dc7a08cfa34701642a53de78024062",
       "actor": "xkhdr"
     }
   }
