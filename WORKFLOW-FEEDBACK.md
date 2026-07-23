@@ -819,3 +819,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** missing guidance — the phase guide exposes a task-only verb before tasks exist and does not print its required argument shape.
 - **Recommendation:** omit `context` from pre-task legal commands, or add an artifact context route such as `specd context <slug> design --json` and print that exact next command.
 - **Status:** open
+
+### 2026-07-23 — friction — tasks gate accepts a bare context directory that ack refuses
+- **Context:** `workflow-11-template-config` T57, executing, driver, exact command `./specd session ack workflow-11-template-config T57 --tokens 40000`
+- **Expected:** the approved task's context sources were valid because `specd check workflow-11-template-config` passed the tasks gate.
+- **Actual:** exit 1 with `CONTEXT_BARE_DIRECTORY: task T57 column context path "internal/core/embed_templates/steering": a bare directory is not a bounded context source — declare an explicit selector such as "internal/core/embed_templates/steering/*.go"`.
+- **Root cause:** harness bug — tasks readiness validates context syntax incompletely and permits a source that execution deterministically refuses.
+- **Recommendation:** run the same bounded-context path validation during tasks approval and report the task ID, column, and explicit-file/glob remedy before execution.
+- **Status:** open
