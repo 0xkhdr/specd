@@ -132,3 +132,4 @@ the missing regression. A `superseded` row must also name the replacement feedba
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — completion — workflow-09-driver-session | project maintainers | deferred | Release J — feedback disposition is owned by the analysis pass, not by the completed spec. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — ack snapshot exempts task-created untracked files | project maintainers | resolved | ./scripts/regress-domains.sh | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — program status labels an unapproved spec complete | project maintainers | deferred | Next observability pass — align program completion with the direct lifecycle predicate. | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — full race suite leaks a one-second verify timeout into session rotation | project maintainers | deferred | Next test-isolation pass — pin the fixture timeout and assert config isolation. | - |

@@ -795,3 +795,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — the program projection's completion label does not represent the spec's actual lifecycle completion.
 - **Recommendation:** derive `(complete)` from the same terminal lifecycle predicate used by direct spec status; if the label instead means dependency satisfaction, rename it to `(dependency-satisfied)` and keep the unfinished spec actionable in the frontier.
 - **Status:** open
+
+### 2026-07-23 — friction — full race suite leaks a one-second verify timeout into session rotation
+- **Context:** `workflow-10-observability` final verification, driver, exact command `go test ./... -race -count=1`
+- **Expected:** the full race suite passes after every task's exact verify and the neighboring lint/regression checks pass.
+- **Actual:** exit 1 in `TestDriverSessionTaskRotation` with `[specd: verify timed out after 1s]`; `go test ./internal/cmd -race -run '^TestDriverSessionTaskRotation$' -count=2` then passed.
+- **Root cause:** test isolation bug — the session-rotation fixture observes a one-second verify timeout only in the full-suite order, while its isolated configuration uses the scaffold default.
+- **Recommendation:** make the fixture's verify timeout explicit and non-flaky, and add a config-isolation assertion proving another timeout test cannot affect it.
+- **Status:** open
