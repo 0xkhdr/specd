@@ -778,3 +778,11 @@ stated plainly and stays a proposal — never a self-applied change.
   - T48: ✅ non-mutating refusals preserve the nonce; exact harness marker sync and pre-existing untracked files do not self-refuse
   - T49: ✅ stale Brain missions refuse with deterministic resume/reissue; Brain-only serial marker writes do not bleed scope
 - **Skipped:** new `session rotate` verb; existing `session ack` is the task-boundary rotation interface. No dependency, migration, feature flag, or scope bypass added.
+
+### 2026-07-23 — friction — ack snapshot exempts task-created untracked files
+- **Context:** `workflow-09-driver-session` final verification, driver, exact command `./scripts/regress-domains.sh`
+- **Expected:** AD-R8 refuses `ad-diffscope-undeclared.txt`, created after `session open`, as outside task scope.
+- **Actual:** exit 1 with `VIOLATION AD-R8: completion accepted an undeclared file on the default profile`
+- **Root cause:** harness bug — T47 refreshed `PreexistingUntracked` during `session ack`, so an undeclared path created after open but before ack was misclassified as pre-existing.
+- **Recommendation:** snapshot untracked paths only at `session open`; baseline rotation may re-pin tracked HEAD but must not move the attribution time boundary.
+- **Status:** open
