@@ -859,3 +859,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** test authoring error — the fixture escaped an inner quote but left the whole scalar unquoted, so the trailing comment boundary was ambiguous.
 - **Recommendation:** quote the whole scalar as `submit.command: 'echo "double#hash"' # comment` and keep both single- and double-quoted hash cases.
 - **Status:** resolved (workflow-11-template-config T59)
+
+### 2026-07-24 — friction — re-ack does not exclude committed observer feedback from task scope
+- **Context:** `workflow-11-template-config` T59, driver after committing feedback and rerunning `./specd session ack workflow-11-template-config T59 --tokens 40000`; exact command `./specd complete-task workflow-11-template-config T59 --session ds-b9267709edc7286f65d2cade0580c071 --nonce a25fc7f7879d41b6903b9852acb83ace`
+- **Expected:** re-acknowledging after the observer-only commit rotates the session baseline so mandatory feedback files are not attributed to the task implementation diff.
+- **Actual:** exit 1 with `OUTSIDE_SCOPE: task T59 changed files outside its declared scope:` for `WORKFLOW-FEEDBACK.md` and `docs/workflow-regressions.md`.
+- **Root cause:** harness bug — ack reports mutable authority active but completion still compares against the earlier session-open baseline for committed observer changes.
+- **Recommendation:** either rotate the completion diff baseline on successful re-ack or automatically treat the mandated feedback log and inventory as scoped observer outputs.
+- **Status:** open
