@@ -1,6 +1,9 @@
 package core
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // Readiness answers whether a task may start. It is projected, never a second
 // copy of dependency truth (spec 03 R3.5): dependency waits are derived from the
@@ -164,6 +167,63 @@ type FrontierTask struct {
 	Role     string `json:"role,omitempty"`
 	Verify   string `json:"verify,omitempty"`
 	Terminal string `json:"terminal,omitempty"`
+	// Worker is the row's dispatch-policy id (spec R6.3); empty or `-` means
+	// host-chooses. Continues reports whether that worker is already active on an
+	// earlier task (so the dispatch continues an active worker rather than
+	// spinning up a fresh one). Continues is meaningless when Worker is
+	// host-chooses.
+	Worker    string `json:"worker,omitempty"`
+	Continues bool   `json:"continues,omitempty"`
+}
+
+// hostChoosesWorker reports whether a worker cell is the host-chooses sentinel
+// (empty or `-`), for which dispatch is unchanged (spec R6 edge).
+func hostChoosesWorker(worker string) bool {
+	worker = strings.TrimSpace(worker)
+	return worker == "" || worker == "-"
+}
+
+// WorkerDisposition renders a frontier task's dispatch policy for `next`/`drive`
+// (spec R6.3): host-chooses, a fresh worker, or a continued active worker.
+func WorkerDisposition(t FrontierTask) string {
+	if hostChoosesWorker(t.Worker) {
+		return "host-chooses"
+	}
+	if t.Continues {
+		return "worker=" + t.Worker + " (continues)"
+	}
+	return "worker=" + t.Worker + " (fresh)"
+}
+
+// activeWorkers is the set of worker ids already carried by a running or
+// complete task, so a frontier task sharing one of them continues it (spec
+// R6.3). Pure over the rows plus status.
+func activeWorkers(tasks []TaskRow, status map[string]TaskRunStatus) map[string]bool {
+	active := map[string]bool{}
+	for _, task := range tasks {
+		if hostChoosesWorker(task.Worker) {
+			continue
+		}
+		switch status[task.ID] {
+		case TaskRunning, TaskComplete:
+			active[strings.TrimSpace(task.Worker)] = true
+		}
+	}
+	return active
+}
+
+// PlanWorkers is the set of worker ids the approved plan names (spec R6.4),
+// excluding the host-chooses sentinel. It is the reference set a dispatcher
+// checks a mission's target worker id against before binding a lease.
+func PlanWorkers(tasks []TaskRow) map[string]bool {
+	named := map[string]bool{}
+	for _, task := range tasks {
+		if hostChoosesWorker(task.Worker) {
+			continue
+		}
+		named[strings.TrimSpace(task.Worker)] = true
+	}
+	return named
 }
 
 type Wave struct {
@@ -188,17 +248,21 @@ func FrontierExcluding(tasks []TaskRow, status map[string]TaskRunStatus, escalat
 	if err != nil {
 		return nil, err
 	}
+	active := activeWorkers(dag.Tasks, status)
 	out := make([]FrontierTask, 0, len(ids))
 	for _, id := range ids {
 		if escalated[id] {
 			continue
 		}
 		task := dag.ByID[id]
+		worker := strings.TrimSpace(task.Worker)
 		out = append(out, FrontierTask{
-			ID:       task.ID,
-			Role:     task.Role,
-			Verify:   task.Verify,
-			Terminal: string(status[task.ID]),
+			ID:        task.ID,
+			Role:      task.Role,
+			Verify:    task.Verify,
+			Terminal:  string(status[task.ID]),
+			Worker:    worker,
+			Continues: !hostChoosesWorker(worker) && active[worker],
 		})
 	}
 	return out, nil

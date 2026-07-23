@@ -129,3 +129,42 @@ func TestFrontierAndWaves(t *testing.T) {
 		t.Fatalf("waves = %#v, want two waves with T2/T3 in second", waves)
 	}
 }
+
+// TestWorkerColumnFreshVsContinues pins spec R6.3: the frontier marks a task
+// whose worker is already active as continuing, a task with an unseen worker as
+// fresh, and a dash row as host-chooses; PlanWorkers names only real ids (R6.4).
+func TestWorkerColumnFreshVsContinues(t *testing.T) {
+	tasks := []TaskRow{
+		{ID: "T1", Worker: "w1"},
+		{ID: "T2", Worker: "w1", DependsOn: []string{"T1"}},
+		{ID: "T3", Worker: "w2", DependsOn: []string{"T1"}},
+		{ID: "T4", Worker: "-", DependsOn: []string{"T1"}},
+	}
+	status := map[string]TaskRunStatus{"T1": TaskComplete}
+	frontier, err := Frontier(tasks, status)
+	if err != nil {
+		t.Fatalf("frontier: %v", err)
+	}
+	byID := map[string]FrontierTask{}
+	for _, f := range frontier {
+		byID[f.ID] = f
+	}
+	if got := WorkerDisposition(byID["T2"]); got != "worker=w1 (continues)" {
+		t.Fatalf("T2 should continue active worker w1: %q (%+v)", got, byID["T2"])
+	}
+	if got := WorkerDisposition(byID["T3"]); got != "worker=w2 (fresh)" {
+		t.Fatalf("T3 should be a fresh worker: %q", got)
+	}
+	if got := WorkerDisposition(byID["T4"]); got != "host-chooses" {
+		t.Fatalf("dash row must be host-chooses (dispatch unchanged): %q", got)
+	}
+
+	named := PlanWorkers(tasks)
+	if !named["w1"] || !named["w2"] || named["-"] || len(named) != 2 {
+		t.Fatalf("PlanWorkers must name only w1,w2: %v", named)
+	}
+	// R6.4 primitive: a worker id the plan did not name is out of scope.
+	if named["ghost"] {
+		t.Fatal("unnamed worker id must not be in the plan's named set")
+	}
+}

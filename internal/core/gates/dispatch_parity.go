@@ -6,8 +6,11 @@ import (
 
 // dispatchParity proves every task row against the same contract the dispatcher
 // and session-ack consume, so a closed-vocabulary fact (kind, risk,
-// capabilities, files) is rejected at tasks-phase approval instead of at
-// dispatch or session ack (spec R1.1). Each row is parsed with
+// capabilities, files) — and the worker dispatch-policy id (spec R6.2) — is
+// rejected at tasks-phase approval instead of at dispatch or session ack (spec
+// R1.1). core.ParseTaskContract validates the worker charset, so a malformed
+// worker column is refused here like every other pinned task fact. Each row is
+// parsed with
 // core.ParseTaskContract; a parse error becomes an Error finding carrying the
 // parser's own TASK_FIELD_UNKNOWN message verbatim, which already names the
 // offending row, the rejected value, and the accepted vocabulary (R1.2). Every

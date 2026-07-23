@@ -69,6 +69,10 @@ type DriveTask struct {
 	Verify        string   `json:"verify"`
 	DeclaredFiles []string `json:"declared_files"`
 	Acceptance    string   `json:"acceptance"`
+	// Worker/WorkerDisposition project the row's dispatch policy (spec R6.3):
+	// host-chooses, a fresh worker, or a continued active worker.
+	Worker            string `json:"worker,omitempty"`
+	WorkerDisposition string `json:"worker_disposition,omitempty"`
 }
 
 func runDrive(root string, args []string, flags map[string]string) error {
@@ -162,11 +166,13 @@ func buildDriveEnvelope(root, slug string, hostSandbox bool, now time.Time) (Dri
 	if len(guide.Frontier) > 0 {
 		if task, ok := findTaskRow(spec.Tasks, guide.Frontier[0]); ok {
 			envelope.SelectedTask = &DriveTask{
-				ID:            task.ID,
-				Role:          task.Role,
-				Verify:        task.Verify,
-				DeclaredFiles: append([]string(nil), task.DeclaredFiles...),
-				Acceptance:    task.Acceptance,
+				ID:                task.ID,
+				Role:              task.Role,
+				Verify:            task.Verify,
+				DeclaredFiles:     append([]string(nil), task.DeclaredFiles...),
+				Acceptance:        task.Acceptance,
+				Worker:            strings.TrimSpace(task.Worker),
+				WorkerDisposition: core.WorkerDisposition(selectedFrontierTask(spec.Tasks, task.ID)),
 			}
 			if manifest, err := speccontext.BuildManifest(root, slug, spec.Tasks, task.ID, contextBudget(root)); err == nil {
 				envelope.ContextManifestDigest = speccontext.ManifestDigest(manifest)
@@ -295,6 +301,23 @@ func findTaskRow(tasks []core.TaskRow, id string) (core.TaskRow, bool) {
 	return core.TaskRow{}, false
 }
 
+// selectedFrontierTask returns the projected frontier entry for id (spec R6.3),
+// so its worker continuation is derived from active-worker state exactly as
+// `next` derives it. A task absent from the frontier (or a projection error)
+// falls back to a bare entry, so host-chooses/fresh still render.
+func selectedFrontierTask(tasks []core.TaskRow, id string) core.FrontierTask {
+	frontier, err := core.Frontier(tasks, taskStatus(tasks))
+	if err == nil {
+		for _, ft := range frontier {
+			if ft.ID == id {
+				return ft
+			}
+		}
+	}
+	row, _ := findTaskRow(tasks, id)
+	return core.FrontierTask{ID: id, Worker: strings.TrimSpace(row.Worker)}
+}
+
 func renderDrive(out *os.File, e DriveEnvelope) error {
 	fmt.Fprintf(out, "spec %s (revision %d)\nphase %s (status %s)\nassurance %s\n", e.Slug, e.Revision, e.Phase, e.Status, e.Assurance)
 	if e.SessionID != "" {
@@ -303,8 +326,8 @@ func renderDrive(out *os.File, e DriveEnvelope) error {
 		fmt.Fprintln(out, "session none")
 	}
 	if e.SelectedTask != nil {
-		fmt.Fprintf(out, "task %s (role %s)\n  files %s\n  verify %s\n",
-			e.SelectedTask.ID, e.SelectedTask.Role, strings.Join(e.SelectedTask.DeclaredFiles, ", "), e.SelectedTask.Verify)
+		fmt.Fprintf(out, "task %s (role %s)\n  files %s\n  verify %s\n  dispatch %s\n",
+			e.SelectedTask.ID, e.SelectedTask.Role, strings.Join(e.SelectedTask.DeclaredFiles, ", "), e.SelectedTask.Verify, e.SelectedTask.WorkerDisposition)
 	}
 	for _, blocker := range e.Blockers {
 		fmt.Fprintf(out, "blocker %s: %s\n", blocker.Code, blocker.Message)

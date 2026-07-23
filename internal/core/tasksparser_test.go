@@ -384,3 +384,51 @@ func TestTaskContractConformance(t *testing.T) {
 		}
 	})
 }
+
+// TestWorkerColumnParsesByteStable pins spec R6.1: an optional `worker` column
+// is read into TaskRow.Worker, a minimal 6-column tasks.md round-trips
+// unchanged, and ParseTaskContract validates the worker charset.
+func TestWorkerColumnParsesByteStable(t *testing.T) {
+	minimal := []byte("| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok |\n")
+	parsed, err := ParseTasksMd(minimal)
+	if err != nil {
+		t.Fatalf("parse minimal: %v", err)
+	}
+	if string(parsed.Raw) != string(minimal) {
+		t.Fatal("minimal 6-column tasks.md did not round-trip byte-for-byte")
+	}
+	if parsed.Tasks[0].Worker != "" {
+		t.Fatalf("absent worker column must be empty, got %q", parsed.Tasks[0].Worker)
+	}
+
+	withWorker := []byte("| id | role | files | depends-on | verify | acceptance | worker |\n|---|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | go test ./... | ok | w1 |\n| T2 | craftsman | b.go | - | go test ./... | ok | - |\n")
+	pw, err := ParseTasksMd(withWorker)
+	if err != nil {
+		t.Fatalf("parse with worker: %v", err)
+	}
+	if string(pw.Raw) != string(withWorker) {
+		t.Fatal("worker-column tasks.md did not round-trip byte-for-byte")
+	}
+	if pw.Tasks[0].Worker != "w1" || pw.Tasks[1].Worker != "-" {
+		t.Fatalf("worker column mis-parsed: %q %q", pw.Tasks[0].Worker, pw.Tasks[1].Worker)
+	}
+}
+
+// TestWorkerColumnContractValidation pins spec R6.2: ParseTaskContract accepts a
+// well-formed worker id and the host-chooses sentinels, and refuses a malformed
+// value with a nameable finding.
+func TestWorkerColumnContractValidation(t *testing.T) {
+	for _, ok := range []string{"", "-", "w1", "worker-A_2"} {
+		c, err := ParseTaskContract(TaskRow{ID: "T1", Role: "craftsman", Worker: ok})
+		if err != nil {
+			t.Fatalf("worker %q rejected: %v", ok, err)
+		}
+		if c.Worker != strings.TrimSpace(ok) {
+			t.Fatalf("worker %q not carried into contract: %q", ok, c.Worker)
+		}
+	}
+	_, err := ParseTaskContract(TaskRow{ID: "T7", Role: "craftsman", Worker: "bad id!"})
+	if err == nil || !strings.Contains(err.Error(), "T7") || !strings.Contains(err.Error(), "worker") {
+		t.Fatalf("malformed worker not refused with a nameable finding: %v", err)
+	}
+}

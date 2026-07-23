@@ -285,3 +285,27 @@ func TestDriveAgreesWithGranularGuide(t *testing.T) {
 		}
 	}
 }
+
+// TestWorkerColumnDriveDisposition pins spec R6.3 in the cmd layer: drive's
+// selected-task projection renders the worker disposition, a dash row stays
+// host-chooses (dispatch unchanged), and a continued worker is reported.
+func TestWorkerColumnDriveDisposition(t *testing.T) {
+	tasks := []core.TaskRow{
+		{ID: "T1", Worker: "w1"},
+		{ID: "T2", Worker: "w1", DependsOn: []string{"T1"}},
+		{ID: "T3", Worker: "-", DependsOn: []string{"T1"}},
+	}
+	// T1 complete → w1 active, so T2 continues; T3 dash → host-chooses.
+	cases := map[string]string{
+		"T2": "worker=w1 (continues)",
+		"T3": "host-chooses",
+	}
+	// selectedFrontierTask derives from status; simulate T1 complete via marker.
+	tasks[0].Marker = "✅"
+	for id, want := range cases {
+		got := core.WorkerDisposition(selectedFrontierTask(tasks, id))
+		if got != want {
+			t.Fatalf("drive disposition for %s = %q, want %q", id, got, want)
+		}
+	}
+}

@@ -56,7 +56,7 @@ func runNext(root string, args []string, flags map[string]string) error {
 		return writeJSON(frontier)
 	}
 	for _, task := range frontier {
-		fmt.Fprintln(os.Stdout, task.ID)
+		fmt.Fprintf(os.Stdout, "%s\t%s\n", task.ID, core.WorkerDisposition(task))
 	}
 	return nil
 }

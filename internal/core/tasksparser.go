@@ -31,6 +31,11 @@ type TaskRow struct {
 	Context      string   // required context declaration
 	Evidence     string   // evidence classes planned
 	Checks       string   // negative/edge checks planned
+	// Worker is the optional dispatch-policy id (spec R6.1): a distinct id per row
+	// dispatches a fresh worker, a shared id lets one worker carry that sub-chain,
+	// and `-`/empty retains host-chooses. Parsed from an optional named column so a
+	// minimal tasks.md stays byte-stable.
+	Worker string
 }
 
 type TaskRunStatus string
@@ -117,6 +122,7 @@ func ParseTasksMd(raw []byte) (TasksMd, error) {
 				Context:      cell(cells, headerIndex(header, "context")),
 				Evidence:     cell(cells, headerIndex(header, "evidence")),
 				Checks:       cell(cells, headerIndex(header, "checks")),
+				Worker:       cell(cells, headerIndex(header, "worker")),
 			})
 		}
 		return nil
@@ -354,6 +360,7 @@ type TaskContract struct {
 	Refs         []string        `json:"refs,omitempty"`
 	Verify       string          `json:"verify,omitempty"`
 	Acceptance   string          `json:"acceptance,omitempty"`
+	Worker       string          `json:"worker,omitempty"`
 	Quality      QualityContract `json:"quality"`
 	Checks       []string        `json:"checks,omitempty"`
 	// Warnings carry deterministic deprecation notices (legacy delimiters). They
@@ -366,6 +373,29 @@ type TaskContract struct {
 // the author can repair the cell without a second lookup (spec 05 R1.3).
 func taskFieldUnknown(id, column, value string, accepted []string) error {
 	return fmt.Errorf("TASK_FIELD_UNKNOWN: task %s column %s value %q is not one of %s", id, column, value, strings.Join(accepted, ", "))
+}
+
+// ValidWorkerID reports whether v is a well-formed worker id: it starts with an
+// alphanumeric and contains only [A-Za-z0-9_-] (spec R6.1). The `-`/empty
+// host-chooses sentinels are handled by the caller, not here.
+func ValidWorkerID(v string) bool {
+	if v == "" {
+		return false
+	}
+	for i, r := range v {
+		alnum := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		if !alnum && r != '_' && r != '-' {
+			return false
+		}
+		if i == 0 && !alnum {
+			return false
+		}
+	}
+	return true
+}
+
+func taskWorkerMalformed(id, value string) error {
+	return fmt.Errorf("TASK_FIELD_MALFORMED: task %s column worker value %q must be an id [A-Za-z0-9][A-Za-z0-9_-]* or '-' for host-chooses", id, value)
 }
 
 func taskFieldLegacy(id, column string) string {
@@ -395,6 +425,11 @@ func ParseTaskContract(task TaskRow) (TaskContract, error) {
 	if c.Risk != "" && !knownRiskTiers[c.Risk] {
 		return TaskContract{}, taskFieldUnknown(task.ID, "risk", task.Risk, CanonicalRiskTiers())
 	}
+	worker := strings.TrimSpace(task.Worker)
+	if worker != "" && worker != "-" && !ValidWorkerID(worker) {
+		return TaskContract{}, taskWorkerMalformed(task.ID, task.Worker)
+	}
+	c.Worker = worker
 	paths, err := TaskDeclaredPaths(task)
 	if err != nil {
 		return TaskContract{}, fmt.Errorf("task %s column files: %w", task.ID, err)
