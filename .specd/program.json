@@ -36,6 +36,36 @@
       "to": "workflow-06-unattended-authority",
       "kind": "follows",
       "reason": "Compatibility removal waits for all replacement workflows and the published window"
+    },
+    {
+      "from": "workflow-08-authoring-gates",
+      "to": "workflow-07-compatibility-cleanup",
+      "kind": "follows",
+      "reason": "Release H authoring gates follow the compatibility-cleanup exit"
+    },
+    {
+      "from": "workflow-09-driver-session",
+      "to": "workflow-08-authoring-gates",
+      "kind": "follows",
+      "reason": "Driver-session ergonomics follow dispatchable-plan gates"
+    },
+    {
+      "from": "workflow-10-observability",
+      "to": "workflow-09-driver-session",
+      "kind": "follows",
+      "reason": "Read surfaces follow the execution-loop fixes they report on"
+    },
+    {
+      "from": "workflow-11-template-config",
+      "to": "workflow-10-observability",
+      "kind": "follows",
+      "reason": "Template/config conformance follows the observability surfaces"
+    },
+    {
+      "from": "workflow-12-reset-hygiene",
+      "to": "workflow-11-template-config",
+      "kind": "follows",
+      "reason": "Reset and hygiene follow template/config conformance"
     }
   ]
 }

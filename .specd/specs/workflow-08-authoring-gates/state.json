@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "slug": "workflow-08-authoring-gates",
+  "mode": "default",
+  "status": "requirements",
+  "phase": "perceive",
+  "cycle": 1,
+  "stage": "requirements",
+  "condition": "active",
+  "revision": 0
+}

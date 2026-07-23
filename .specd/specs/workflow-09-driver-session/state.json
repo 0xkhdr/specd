@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "slug": "workflow-09-driver-session",
+  "mode": "default",
+  "status": "requirements",
+  "phase": "perceive",
+  "cycle": 1,
+  "stage": "requirements",
+  "condition": "active",
+  "revision": 0
+}
