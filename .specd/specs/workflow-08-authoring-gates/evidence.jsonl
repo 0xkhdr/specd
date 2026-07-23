@@ -14,3 +14,5 @@
 {"task_id":"T43","command":"go test ./internal/core/gates -run TestAcceptanceReachability -count=2","exit_code":0,"git_head":"7de0481d171f5376a05ab824e5565b0677a1101c","timestamp":"2026-07-23T14:28:46Z","actor":"xkhdr"}
 {"task_id":"T44","command":"go test ./internal/core ./internal/cmd -run TestWorkerColumn -count=2","exit_code":0,"git_head":"7de0481d171f5376a05ab824e5565b0677a1101c","timestamp":"2026-07-23T14:38:22Z","actor":"xkhdr"}
 {"task_id":"T44","command":"go test ./internal/core ./internal/cmd -run TestWorkerColumn -count=2","exit_code":0,"git_head":"7de0481d171f5376a05ab824e5565b0677a1101c","timestamp":"2026-07-23T14:38:30Z","actor":"xkhdr"}
+{"task_id":"T45","command":"go test ./internal/core -run TestSharedEvidenceParser -count=2","exit_code":0,"git_head":"aa331d4d3b7bd243a8b22014c9ef9e47c268f2e6","timestamp":"2026-07-23T14:44:32Z","actor":"xkhdr"}
+{"task_id":"T45","command":"go test ./internal/core -run TestSharedEvidenceParser -count=2","exit_code":0,"git_head":"aa331d4d3b7bd243a8b22014c9ef9e47c268f2e6","timestamp":"2026-07-23T14:47:02Z","actor":"xkhdr"}

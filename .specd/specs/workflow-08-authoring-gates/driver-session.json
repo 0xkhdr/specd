@@ -1,39 +1,35 @@
 {
-  "id": "ds-8fca9ab72d18e2bf422faecd74780f77",
+  "id": "ds-fcccac3aa53cfb7950539f69cc9c91c5",
   "slug": "workflow-08-authoring-gates",
   "driver": "claude-code",
-  "baseline_revision": 8,
+  "baseline_revision": 9,
   "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
-  "baseline_head": "7de0481d171f5376a05ab824e5565b0677a1101c",
+  "baseline_head": "aa331d4d3b7bd243a8b22014c9ef9e47c268f2e6",
   "context_receipt": {
     "schema_version": "1",
-    "manifest_digest": "c82deb0878f19b7729456ee4c6b8059442c0f0b07c2fea4acab62ba4660498b6",
+    "manifest_digest": "82eedf41530d54a5cf0780019201d9c75d49d84429e60d235e27d4d82a3681dc",
     "host_id": "claude-code",
     "driver_id": "claude-code",
     "supplied_digests": [
-      "1637ff5e2619bbdef00c1d40784adbacc34dd916401862392d2b295dd6227d0b",
-      "3033bdfce8d197f65e3ff2ca8cf133f13e7c1563cbe87bcb6026f66f590c0f3c",
-      "66c84fb0525b5dfa1ca0ef594bf8e2a0239fbf9c0160a35ba27a5fde32a99c3d",
+      "29b912048f04a95edc74beb137d70c6be77f6fa9ec09af214baa9c6d7748db9c",
+      "48807efa4ba946d1cd0bb05124f65472ab9c82af87a1bdb0cc091a1bec7943d4",
       "68eb93594911bdcfa2424ab5273030f43b8f616498fdf5a8fcad8031003c9638",
-      "6bf598634353b71267d07b123ed5395be1db1caf9428a3fef6f8cda4ebb779ac",
-      "6f6ac86a92fd0e06a1ce3ff050c0c3fc787a3f3b232040b9f5569e1096eee077",
-      "7b7dfeb84eb84acccd81fececcd372a238a6ad439cfe60723e1aca70b2dcd078",
+      "8ecddf77f799052e1fe66755ebd14ded768086786e66824497f290ac2735141b",
       "9b28da8915268f5bf13b04dc0e04ff2433e33ef121f52780ebcbc2b1791a4a28",
+      "9ba1786b16beb1b6717984363990c0a7b599a4867677cee75424a5ca245d5a55",
+      "9d11b87d3b7729831ad491e56f919f86ca18e3c9760eca2554b7ab50e78875dc",
       "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a",
-      "a30f320c3a777c3bcb235cd8bf083e84e1d13771d34b02d4ef79912d65593919",
-      "ad217c92f2b61306c85f492677ab50a77e0ffca2f42c316d52d4f3e9c0d97f01",
-      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
-      "c29be74050bc6760e1aa328ffc6285f2c2179e9d7e728dc39fd6c64e7033fdd0"
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6"
     ],
     "missing_digests": [],
-    "reported_tokens": 16000,
-    "receipt_digest": "d91a5415e2ce6e695db7601444835601afa2c46e3ec1f28d674e4262e58533cf"
+    "reported_tokens": 14000,
+    "receipt_digest": "d71c8bbcd7cf602fafebcf4b405bde7212bcc0707e498aca00d747aa5b8f8555"
   },
-  "authority_digest": "c773b3ea9ce48926b2fe2641a00c21a0924e4e03fdb0e8f3b91e5b20af1e067e",
-  "issued_at": "2026-07-23T14:28:41.167572785Z",
-  "expires_at": "2026-07-23T16:28:41.167572785Z",
+  "authority_digest": "e330de65c50d127d53a0742cd34ec8cadb03bcc9f0375da789245a18ff429a2a",
+  "issued_at": "2026-07-23T14:39:00.541389264Z",
+  "expires_at": "2026-07-23T16:39:00.541389264Z",
   "spent_nonces": [
-    "ad6ed0aef7ab4185"
+    "9e5dd7e03fff38e1"
   ],
   "revision": 4
 }

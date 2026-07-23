@@ -56,6 +56,29 @@ func ParseQualityContract(task TaskRow) (QualityContract, error) {
 	return c, nil
 }
 
+// IntegrationEquivalentClasses are the evidence classes that count as
+// integration evidence at an external boundary (spec R7.2): a trajectory eval
+// exercises the wired system end to end, so it is integration-equivalent to a
+// check id that names integration.
+var IntegrationEquivalentClasses = map[EvidenceClass]bool{EvidenceTrajectoryEval: true}
+
+// EvidenceSatisfiesIntegration reports whether one parsed evidence requirement
+// counts as integration evidence at a boundary: its class is
+// integration-equivalent, or its check id names integration (spec R7.2). It
+// reads the SAME parsed requirement ParseQualityContract produces, so the
+// boundary-evidence gate and the quality-declaration gate can never disagree
+// about a cell (spec R7.1).
+func EvidenceSatisfiesIntegration(req EvidenceRequirement) bool {
+	return IntegrationEquivalentClasses[req.EvidenceClass] || strings.Contains(strings.ToLower(req.CheckID), "integration")
+}
+
+// IntegrationEvidenceForms names the exact evidence forms that satisfy an
+// integration boundary, so a refusal always carries a nameable remedy (spec
+// R7.2/R7.3).
+func IntegrationEvidenceForms() string {
+	return `a trajectory_eval evidence class, or an evidence check id containing "integration" (e.g. test/integration-payments)`
+}
+
 func MissingQualityEvidence(c QualityContract, records []EvidenceEnvelopeV1) []EvidenceRequirement {
 	passed := map[string]bool{}
 	for _, record := range records {
