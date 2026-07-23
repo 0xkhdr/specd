@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates"
@@ -83,6 +84,7 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		}
 		return writeJSON(struct {
 			core.ReportModel
+			Mode             core.Mode                    `json:"mode"`
 			Records          map[string]json.RawMessage   `json:"records,omitempty"`
 			Criteria         []requirementCoverage        `json:"criteria,omitempty"`
 			Escalated        map[string]int               `json:"escalated,omitempty"`
@@ -92,9 +94,10 @@ func runStatus(root string, args []string, flags map[string]string) error {
 			StaleDescendants []core.StaleDescendant       `json:"stale_descendants,omitempty"`
 			WaitingApproval  string                       `json:"waiting_approval,omitempty"`
 			Locator          core.Locator                 `json:"locator"`
-		}{model, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale, waitingApproval,
+		}{model, specState.Mode, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale, waitingApproval,
 			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
+	fmt.Fprintf(os.Stdout, "mode: %s\n", specState.Mode)
 	fmt.Fprint(os.Stdout, core.RenderStatus(model))
 	fmt.Fprint(os.Stdout, renderArtifactVersions(specState.Cycle, revisions))
 	fmt.Fprint(os.Stdout, renderStaleDescendants(stale))
@@ -250,20 +253,26 @@ func emitGuidance(root, slug string, asJSON bool) error {
 	if err != nil {
 		return err
 	}
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return err
+	}
+	g.Mode = state.Mode
+	criterionBlockers, err := criterionGuidanceBlockers(root, slug, state)
+	if err != nil {
+		return err
+	}
+	g.Blockers = append(g.Blockers, criterionBlockers...)
 	if asJSON {
 		// Additive: the Guidance fields stay at the top level exactly where they
 		// were, and `locator` is a new sibling key. A consumer that predates it
 		// still parses this response unchanged (R5.1).
-		state, err := core.LoadState(core.StatePath(root, slug))
-		if err != nil {
-			return err
-		}
 		return writeJSON(struct {
 			core.Guidance
 			Locator core.Locator `json:"locator"`
 		}{g, core.NewLocator(slug, state.Revision, g, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
-	fmt.Fprintf(os.Stdout, "phase: %s (status %s)\n", g.Phase, g.Status)
+	fmt.Fprintf(os.Stdout, "phase: %s (status %s, mode %s)\n", g.Phase, g.Status, g.Mode)
 	if g.RequiredArtifact != "" {
 		fmt.Fprintf(os.Stdout, "required artifact: %s\n", g.RequiredArtifact)
 	}
@@ -289,4 +298,60 @@ func emitGuidance(root, slug string, asJSON bool) error {
 		fmt.Fprintf(os.Stdout, "blocker: %s\n", blocker)
 	}
 	return nil
+}
+
+func criterionGuidanceBlockers(root, slug string, state core.State) ([]string, error) {
+	spec, err := loadSpec(root, slug)
+	if err != nil {
+		return nil, err
+	}
+	requirements, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", slug, "requirements.md"))
+	if err != nil {
+		return nil, err
+	}
+	records, err := core.LoadCriteria(core.CriteriaPath(root, slug))
+	if err != nil {
+		return nil, err
+	}
+	passing := core.CurrentPassing(records, requirementsApprovedAt(root, slug))
+	status := taskStatus(spec.Tasks)
+	for id, current := range state.TaskStatus {
+		status[id] = current
+	}
+	operation, ok := core.OperationByID("verify.criterion")
+	if !ok {
+		return nil, errors.New("verify.criterion operation missing from palette")
+	}
+
+	seen := map[string]bool{}
+	var blockers []string
+	for _, task := range spec.Tasks {
+		if status[task.ID] != core.TaskComplete {
+			continue
+		}
+		for _, criterion := range gates.CriterionIDs(string(requirements)) {
+			id, ref := criterion.String(), "R"+criterion.String()
+			if passing[id] || seen[id] || !taskReferencesCriterion(task, ref) {
+				continue
+			}
+			seen[id] = true
+			command := strings.NewReplacer("<slug>", slug, "<r>.<n>", id).Replace(operation.Usage)
+			blockers = append(blockers, fmt.Sprintf("criterion %s lacks current passing evidence; run `%s`", ref, command))
+		}
+	}
+	return blockers, nil
+}
+
+func taskReferencesCriterion(task core.TaskRow, ref string) bool {
+	if slices.Contains(task.Refs, ref) {
+		return true
+	}
+	for _, token := range strings.FieldsFunc(task.Acceptance, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.'
+	}) {
+		if strings.EqualFold(token, ref) {
+			return true
+		}
+	}
+	return false
 }

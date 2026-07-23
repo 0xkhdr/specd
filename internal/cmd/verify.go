@@ -268,7 +268,7 @@ func withRevertOnFail(root string, run func() (verifyexec.Result, error)) (verif
 // verify (spec 04 R1, R7). Unknown criterion ids fail closed (exit 2, R2).
 func runVerifyCriterion(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("%w: specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>", ErrUsage)
+		return usageError("verify")
 	}
 	slug := args[0]
 	if err := requireTaskGate(root, slug); err != nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +45,100 @@ func TestStatusGuideSuppressesTaskVerify(t *testing.T) {
 	}
 	if containsStr(g.LegalCommands, "verify") {
 		t.Fatalf("verify must not be suggested without an executable task: %v", g.LegalCommands)
+	}
+}
+
+func TestModeAndCriterionReadSurfaces(t *testing.T) {
+	root := newCriterionSpec(t)
+	writeTasks(t, root, "demo", "| ✅ T1 | scout | spec.md | - | true | R1.1 |")
+	statePath := core.StatePath(root, "demo")
+	before, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mode, err := captureStdout(t, func() error { return Run(root, "mode", []string{"demo"}, nil) })
+	if err != nil || mode != "mode: default\n" {
+		t.Fatalf("mode read = %q, %v", mode, err)
+	}
+	operation, ok := core.ResolveOperation("mode", []string{"demo"}, nil)
+	if !ok || operation.ID != "mode.read" || operation.Effect != core.EffectRead {
+		t.Fatalf("mode read operation = %+v, found=%v", operation, ok)
+	}
+
+	text, err := captureStdout(t, func() error { return Run(root, "status", []string{"demo"}, nil) })
+	if err != nil || !strings.Contains(text, "mode: default") {
+		t.Fatalf("status mode = %q, %v", text, err)
+	}
+	jsonStatus, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"json": ""})
+	})
+	if err != nil {
+		t.Fatalf("status --json: %v", err)
+	}
+	var status struct {
+		Mode core.Mode `json:"mode"`
+	}
+	if err := json.Unmarshal([]byte(jsonStatus), &status); err != nil || status.Mode != core.ModeDefault {
+		t.Fatalf("status json mode = %+v, %v", status, err)
+	}
+
+	verifyOperation, ok := core.OperationByID("verify.criterion")
+	if !ok {
+		t.Fatal("verify.criterion missing from palette")
+	}
+	verifyRoute := strings.NewReplacer("<slug>", "demo", "<r>.<n>", "1.1").Replace(verifyOperation.Usage)
+	guideText, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"guide": ""})
+	})
+	if err != nil || !strings.Contains(guideText, "(status tasks, mode default)") || !strings.Contains(guideText, verifyRoute) {
+		t.Fatalf("status guide = %q, %v; want route %q", guideText, err, verifyRoute)
+	}
+	guideJSON, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"guide": "", "json": ""})
+	})
+	if err != nil {
+		t.Fatalf("status --guide --json: %v", err)
+	}
+	var guide core.Guidance
+	if err := json.Unmarshal([]byte(guideJSON), &guide); err != nil {
+		t.Fatalf("guide json: %v", err)
+	}
+	if guide.Mode != core.ModeDefault || !strings.Contains(strings.Join(guide.Blockers, "\n"), verifyRoute) {
+		t.Fatalf("guide = %+v, want mode and route %q", guide, verifyRoute)
+	}
+
+	after, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("mode/status reads mutated state")
+	}
+
+	verifyCommand, ok := core.CommandByName("verify")
+	if !ok {
+		t.Fatal("verify missing from palette")
+	}
+	for _, flags := range []map[string]string{nil, {"criterion": "1.1"}} {
+		err := runVerify(root, nil, flags)
+		if !errors.Is(err, ErrUsage) || !strings.Contains(err.Error(), verifyCommand.Usage) {
+			t.Fatalf("verify arity error = %v, want palette usage %q", err, verifyCommand.Usage)
+		}
+	}
+
+	if err := Run(root, "verify", []string{"demo"}, map[string]string{
+		"criterion": "1.1",
+		"status":    "pass",
+		"evidence":  "covered",
+	}); err != nil {
+		t.Fatalf("cover criterion: %v", err)
+	}
+	covered, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"guide": ""})
+	})
+	if err != nil || strings.Contains(covered, verifyRoute) {
+		t.Fatalf("covered criterion guide = %q, %v; route must be silent", covered, err)
 	}
 }
 

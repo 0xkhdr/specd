@@ -630,16 +630,17 @@ specd midreq payments --text 'add refund path' --scope requirements
 ### `mode`
 
 ```
-specd mode <spec> orchestrated
+specd mode <spec> [orchestrated]
 ```
 
-Record human approval for the separate opt-in orchestration mode transition.
+Read the current mode, or record human approval for the opt-in orchestration mode transition.
 
 **Phases:** any. **Human only.**
 
 **Examples:**
 
 ```bash
+specd mode payments
 specd mode payments orchestrated
 ```
 

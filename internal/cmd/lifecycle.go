@@ -197,6 +197,17 @@ func approveSpec(root, slug string, delegated *delegatedApproval) error {
 }
 
 func runMode(root string, args []string, flags map[string]string) error {
+	if len(args) == 1 {
+		if err := core.ValidateSlug(args[0]); err != nil {
+			return err
+		}
+		state, err := core.LoadState(core.StatePath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stdout, "mode: %s\n", state.Mode)
+		return nil
+	}
 	if len(args) != 2 || args[1] != string(core.ModeOrchestrated) {
 		return usageError("mode")
 	}

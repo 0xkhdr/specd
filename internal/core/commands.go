@@ -337,11 +337,11 @@ var Commands = []Command{
 	},
 	{
 		Name:          "mode",
-		Usage:         "specd mode <spec> orchestrated",
-		Description:   "Record human approval for the separate opt-in orchestration mode transition.",
+		Usage:         "specd mode <spec> [orchestrated]",
+		Description:   "Read the current mode, or record human approval for the opt-in orchestration mode transition.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
-		Examples:      []string{"specd mode payments orchestrated"},
+		Examples:      []string{"specd mode payments", "specd mode payments orchestrated"},
 		HumanOnly:     true,
 		SpecSlugArg:   argAt(0),
 	},
@@ -786,6 +786,10 @@ type operationDefinition struct {
 // materialized from their Command declaration by buildOperations.
 var operationDefinitions = map[string][]operationDefinition{
 	"complete-task": {{id: "complete-task", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"}},
+	"mode": {
+		{id: "mode.read", usage: "specd mode <spec>", actor: ActorAgent, effect: EffectRead, scopeSource: "spec"},
+		{id: "mode.set", usage: "specd mode <spec> orchestrated", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
+	},
 	"config": {
 		{id: "config.show", subcommand: "show", effect: EffectRead, scopeSource: "workspace"},
 		{id: "config.validate", subcommand: "validate", effect: EffectRead, scopeSource: "workspace"},
@@ -838,8 +842,8 @@ var operationDefinitions = map[string][]operationDefinition{
 		{id: "task.override", actor: ActorHuman, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
 	},
 	"verify": {
-		{id: "verify.task", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
-		{id: "verify.criterion", effect: EffectStateWrite, authorityRequired: true, scopeSource: "criterion"},
+		{id: "verify.task", usage: "specd verify <slug> <task-id> [--revert-on-fail] [--sandbox] [--sandbox-binary=<path>]", effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
+		{id: "verify.criterion", usage: "specd verify <slug> --criterion <r>.<n> --status pass|fail --evidence <text>", effect: EffectStateWrite, authorityRequired: true, scopeSource: "criterion"},
 	},
 	"brain": {
 		{id: "brain.start", subcommand: "start", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "authority"},
@@ -1025,6 +1029,12 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 		} else {
 			id = "verify.task"
 		}
+	case "mode":
+		if len(args) == 1 {
+			id = "mode.read"
+		} else {
+			id = "mode.set"
+		}
 	case "report":
 		id = "report.render"
 	case "reopen":
@@ -1080,6 +1090,7 @@ func CommandByName(name string) (Command, bool) {
 type Guidance struct {
 	Status           Status         `json:"status"`
 	Phase            Phase          `json:"phase"`
+	Mode             Mode           `json:"mode,omitempty"`
 	RequiredArtifact string         `json:"required_artifact,omitempty"`
 	NextGate         Status         `json:"next_gate,omitempty"`
 	LegalCommands    []string       `json:"legal_commands"`
