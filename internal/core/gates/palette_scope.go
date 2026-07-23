@@ -52,22 +52,28 @@ func paletteScope(ctx CheckCtx) []Finding {
 	return findings
 }
 
-// paletteScopeArmed arms the check for plain `specd check` and the tasks-phase
-// approval, where command-surface scope is authored.
+// paletteScopeArmed arms the check ONLY at the tasks→executing approval, where
+// command-surface scope is authored and R4.1/R4.3 belong. It deliberately does
+// NOT arm at plain check (target ""), so specComplete's full-registry run does
+// not Error on any historical spec whose plan legitimately declares an
+// internal/cmd handler; the tasks-phase approval is where a verb/flag-adding row
+// must declare the palette and gendocs source.
 func paletteScopeArmed(target string) bool {
-	switch target {
-	case "", string(core.StatusTasks):
-		return true
-	}
-	return false
+	return target == string(core.StatusTasks)
 }
 
 // declaresCommandHandler reports whether any declared path is a CLI handler
 // source file. ponytail: a non-test .go file under internal/cmd/ is treated as
 // a verb/flag registrar — the deterministic planning-time proxy for "registers
-// a verb/flag" (the file may not exist on disk yet). Upgrade path: parse the
-// file for a core.Commands/dispatch registration once new-file rows carry
-// on-disk content at approval.
+// a verb/flag" (the file may not exist on disk yet). This is conservative: a row
+// that only edits an existing handler is also flagged, because there is no clean
+// pure signal to derive the candidate verb from the filename — handlers are not
+// named after verbs (runNew lives in lifecycle.go, runReport in report.go), so a
+// path→palette-verb map would be brittle guesswork. Armed only at the
+// tasks→executing approval (paletteScopeArmed), so the blast radius is the one
+// gate where declaring the palette + gendocs source is the intended policy.
+// Upgrade path: parse the file for a core.Commands/dispatch registration once
+// new-file rows carry on-disk content at approval.
 func declaresCommandHandler(paths []string) bool {
 	for _, p := range paths {
 		if strings.HasPrefix(p, "internal/cmd/") && strings.HasSuffix(p, ".go") && !strings.HasSuffix(p, "_test.go") {

@@ -33,6 +33,19 @@ func TestPaletteAndProducerScopeRefusals(t *testing.T) {
 	if f := paletteScope(CheckCtx{ApproveTarget: arm, Tasks: clean}); len(f) != 0 {
 		t.Fatalf("clean command-surface plan refused: %+v", f)
 	}
+
+	// Armed ONLY at the tasks approval — plain check / specComplete (target "")
+	// must not fire, so a handler row never blocks completion of a historical
+	// spec.
+	if paletteScopeArmed("") {
+		t.Fatal("palette-scope must not arm at plain check (target \"\")")
+	}
+	if !paletteScopeArmed(arm) {
+		t.Fatal("palette-scope must arm at the tasks approval target")
+	}
+	if f := paletteScope(CheckCtx{ApproveTarget: "", Tasks: missingPalette}); len(f) != 0 {
+		t.Fatalf("palette-scope fired at target \"\": %+v", f)
+	}
 }
 
 // TestPaletteAndProducerFlagLint pins spec R4.2: a handler-recognized flag
