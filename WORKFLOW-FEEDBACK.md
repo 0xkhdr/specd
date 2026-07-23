@@ -771,3 +771,10 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task scope gap — T49 declared Brain report/resume files but omitted the shared completion scope implementation needed by its marker-bleed acceptance.
 - **Recommendation:** acceptance-reachability should follow shared function ownership for named execution paths, or task review should require every acceptance edge to map to at least one declared production file.
 - **Status:** open
+
+### 2026-07-23 — completion — workflow-09-driver-session
+- **Inventory:**
+  - T47: ✅ ack rotates the driver baseline and pre-existing-untracked snapshot; open/verify disclose the bound completion sequence
+  - T48: ✅ non-mutating refusals preserve the nonce; exact harness marker sync and pre-existing untracked files do not self-refuse
+  - T49: ✅ stale Brain missions refuse with deterministic resume/reissue; Brain-only serial marker writes do not bleed scope
+- **Skipped:** new `session rotate` verb; existing `session ack` is the task-boundary rotation interface. No dependency, migration, feature flag, or scope bypass added.
