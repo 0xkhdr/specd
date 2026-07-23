@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -310,9 +311,9 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 		if refusal := qualityEvidenceRefusal(slug, id, contract, evals, currentHead); refusal != nil {
 			return struct{}{}, refusal
 		}
-		// R2.2/R2.3/R2.4 and R3.2: when a driver session is open, every protocol
-		// binding is required before the state mutation below.
-		if err := enforceSessionBinding(root, slug, id, state, flags, time.Now()); err != nil {
+		// Validate bindings before the non-mutating gates, but spend the nonce
+		// only once those gates pass.
+		if err := validateSessionBinding(root, slug, id, state, flags, time.Now()); err != nil {
 			return struct{}{}, err
 		}
 		// R4.5: diff-scope is a core invariant, not a production-profile extra.
@@ -329,6 +330,9 @@ func runTaskComplete(root string, args []string, flags map[string]string) error 
 			return struct{}{}, err
 		} else if core.IsEscalated(count, escalationMaxFails(root)) {
 			return struct{}{}, fmt.Errorf("task %s is escalated after %d consecutive verify failures; clear it with `specd task %s --override --reason <text>` first", id, count, id)
+		}
+		if err := enforceSessionBinding(root, slug, id, state, flags, time.Now()); err != nil {
+			return struct{}{}, err
 		}
 		updated, err := core.CompleteTaskWithQuality(raw, id, spec.Evidence, contract, evals, core.FreshnessSubject{Revision: currentHead})
 		if err != nil {
@@ -780,8 +784,10 @@ func tasksStub(slug string) string {
 // exist.
 func enforceDiffScope(root, slug, id string, task core.TaskRow) error {
 	baseline := missionBaseline(root, slug, id)
+	var session core.DriverSession
 	if baseline == "" {
-		session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+		var err error
+		session, err = core.LoadDriverSession(core.DriverSessionPath(root, slug))
 		if err != nil {
 			return err
 		}
@@ -806,11 +812,24 @@ func enforceDiffScope(root, slug, id string, task core.TaskRow) error {
 		return core.Refusef("BASELINE_UNRESOLVABLE", "cannot derive the diff for task %s against baseline %s: %v", id, baseline, err).
 			WithRecovery(core.RefusalActorAgent, "specd session open "+slug+" --driver <host>").Wrapping(err)
 	}
+	changes := diff.Changes
+	if session.BaselineHead == baseline {
+		changes = slices.DeleteFunc(changes, func(change corescope.Change) bool {
+			return change.Kind == "untracked" && slices.Contains(session.PreexistingUntracked, change.Path)
+		})
+		if attributable, err := attributableTasksMarker(root, slug, baseline); err != nil {
+			return err
+		} else if attributable {
+			changes = slices.DeleteFunc(changes, func(change corescope.Change) bool {
+				return change.Path == filepath.Join(".specd", "specs", slug, "tasks.md")
+			})
+		}
+	}
 
 	findings := gates.CheckDiffScope(gates.DiffScopeInput{
 		TaskID:             id,
 		Baseline:           baseline,
-		Changes:            diff.Changes,
+		Changes:            changes,
 		DeclaredPaths:      task.DeclaredFiles,
 		BaselineIsAncestor: isAncestor(root, baseline),
 		BaselineResolvable: true,
@@ -827,6 +846,36 @@ func enforceDiffScope(root, slug, id string, task core.TaskRow) error {
 	// change, which is a task edit, not a flag.
 	return core.Refusef("OUTSIDE_SCOPE", "task %s changed files outside its declared scope:\n  %s", id, strings.Join(messages, "\n  ")).
 		WithRecovery(core.RefusalActorAgent, "specd status "+slug+" --guide")
+}
+
+func attributableTasksMarker(root, slug, baseline string) (bool, error) {
+	path := filepath.Join(".specd", "specs", slug, "tasks.md")
+	baselineRaw, err := exec.Command("git", "-C", root, "show", baseline+":"+path).Output()
+	if err != nil {
+		return false, nil
+	}
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	expected := baselineRaw
+	for taskID, status := range state.TaskStatus {
+		if status != core.TaskComplete {
+			continue
+		}
+		expected, err = core.RewriteTaskStatusLine(expected, taskID, "✅")
+		if err != nil {
+			return false, err
+		}
+	}
+	current, err := os.ReadFile(filepath.Join(root, path))
+	if err != nil {
+		return false, err
+	}
+	return slices.Equal(current, expected), nil
 }
 
 // missionBaseline returns the SubjectHead a brain mission pinned for this task,
@@ -892,19 +941,39 @@ func isAncestor(root, baseline string) bool {
 // The nonce is spent here, inside the same spec lock the caller holds, so two
 // concurrent operations cannot both observe it unspent.
 func enforceSessionBinding(root, slug, id string, state core.State, flags map[string]string, now time.Time) error {
-	session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
-	if err != nil {
+	binding, session, err := sessionBinding(root, slug, id, state, flags, now)
+	if err != nil || session.ID == "" {
 		return err
 	}
+	if _, err := core.SpendNonce(root, slug, binding, state.Revision, now); err != nil {
+		recordConformanceForRefusal(root, slug, id, err)
+		return err
+	}
+	return nil
+}
+
+func validateSessionBinding(root, slug, id string, state core.State, flags map[string]string, now time.Time) error {
+	binding, session, err := sessionBinding(root, slug, id, state, flags, now)
+	if err != nil || session.ID == "" {
+		return err
+	}
+	return session.ValidateOperation(binding, state.Revision, now)
+}
+
+func sessionBinding(root, slug, id string, state core.State, flags map[string]string, now time.Time) (core.OperationBinding, core.DriverSession, error) {
+	session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+	if err != nil {
+		return core.OperationBinding{}, session, err
+	}
 	if session.ID == "" || session.Expired(now) {
-		return nil
+		return core.OperationBinding{}, session, nil
 	}
 
 	sessionID, nonce := flags["session"], flags["nonce"]
 	if sessionID == "" || nonce == "" {
 		recordConformance(root, slug, id, core.ConformanceWorkWithoutBootstrap,
 			"mutable operation attempted without session bindings while session "+session.ID+" was open")
-		return core.Refusef("BINDING_MISSING", "driver session %s is open, so %s requires --session and --nonce", session.ID, id).
+		return core.OperationBinding{}, session, core.Refusef("BINDING_MISSING", "driver session %s is open, so %s requires --session and --nonce", session.ID, id).
 			WithRecovery(core.RefusalActorAgent, "specd session action "+slug+" --json")
 	}
 
@@ -913,13 +982,13 @@ func enforceSessionBinding(root, slug, id string, state core.State, flags map[st
 	// acknowledged does not burn one discovering that.
 	if session.ContextReceipt == nil {
 		recordConformance(root, slug, id, core.ConformanceContextAckSkipped, "no context receipt recorded for session "+session.ID)
-		return core.Refusef("BINDING_MISSING", "session %s has acknowledged no context; mutable authority is withheld", session.ID).
+		return core.OperationBinding{}, session, core.Refusef("BINDING_MISSING", "session %s has acknowledged no context; mutable authority is withheld", session.ID).
 			WithRecovery(core.RefusalActorAgent, "specd session ack "+slug+" "+id+" --tokens <n>")
 	}
 	if !session.ContextReceipt.Complete() {
 		recordConformance(root, slug, id, core.ConformanceContextAckSkipped,
 			fmt.Sprintf("%d required context lanes unacknowledged", len(session.ContextReceipt.MissingDigests)))
-		return core.Refusef("AUTHORITY_DENIED", "session %s is missing %d required context lane(s); mutable authority is withheld",
+		return core.OperationBinding{}, session, core.Refusef("AUTHORITY_DENIED", "session %s is missing %d required context lane(s); mutable authority is withheld",
 			session.ID, len(session.ContextReceipt.MissingDigests)).
 			WithRecovery(core.RefusalActorAgent, "specd session ack "+slug+" "+id+" --tokens <n>")
 	}
@@ -933,11 +1002,7 @@ func enforceSessionBinding(root, slug, id string, state core.State, flags map[st
 		BaselineRevision:     session.BaselineRevision,
 		Nonce:                nonce,
 	}
-	if _, err := core.SpendNonce(root, slug, binding, state.Revision, now); err != nil {
-		recordConformanceForRefusal(root, slug, id, err)
-		return err
-	}
-	return nil
+	return binding, session, nil
 }
 
 // recordConformance observes a protocol violation (R7.1). The error is

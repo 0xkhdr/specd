@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -157,4 +158,101 @@ func TestSessionBindingCloseReturnsToUnenforced(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, ".specd", "specs", "demo", "driver-session.json")); !os.IsNotExist(err) {
 		t.Error("closed session left its file behind")
 	}
+}
+
+func TestBoundCompletionTransaction(t *testing.T) {
+	t.Run("scope_refusal_preserves_nonce_and_untracked_baseline", func(t *testing.T) {
+		root := diffScopeRepo(t)
+		if err := os.WriteFile(filepath.Join(root, "preexisting.txt"), []byte("scratch\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		session, err := core.OpenDriverSession(root, "demo", "host", "hs", gitHead(root), 0, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		session = ackSession(t, root, "demo", "T1", session)
+		state := core.State{Slug: "demo", Status: core.StatusExecuting, Phase: core.PhaseExecute, Revision: 0}
+		flags := map[string]string{"session": session.ID, "nonce": "retry-me"}
+		spec, err := loadSpec(root, "demo")
+		if err != nil {
+			t.Fatal(err)
+		}
+		task, _ := findTaskRow(spec.Tasks, "T1")
+
+		if err := validateSessionBinding(root, "demo", "T1", state, flags, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		if err := enforceDiffScope(root, "demo", "T1", task); err != nil {
+			t.Fatalf("pre-existing untracked path refused: %v", err)
+		}
+		later := filepath.Join(root, "later.txt")
+		if err := os.WriteFile(later, []byte("new\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := enforceDiffScope(root, "demo", "T1", task); err == nil {
+			t.Fatal("later untracked path accepted")
+		}
+		loaded, err := core.LoadDriverSession(core.DriverSessionPath(root, "demo"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(loaded.SpentNonces, "retry-me") {
+			t.Fatal("non-mutating scope refusal spent nonce")
+		}
+		if err := os.Remove(later); err != nil {
+			t.Fatal(err)
+		}
+		if err := enforceSessionBinding(root, "demo", "T1", state, flags, time.Now()); err != nil {
+			t.Fatalf("corrected retry with same nonce refused: %v", err)
+		}
+	})
+
+	t.Run("exact_harness_marker_is_not_worker_scope", func(t *testing.T) {
+		root := diffScopeRepo(t)
+		session, err := core.OpenDriverSession(root, "demo", "host", "hs", gitHead(root), 0, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = session
+		state := core.State{
+			SchemaVersion: core.StateSchemaVersion,
+			Slug:          "demo",
+			Mode:          core.ModeDefault,
+			Status:        core.StatusExecuting,
+			Phase:         core.PhaseExecute,
+			Cycle:         1,
+			Stage:         core.StageExecuting,
+			Condition:     core.ConditionActive,
+			TaskStatus:    map[string]core.TaskRunStatus{"T1": core.TaskComplete},
+		}
+		if err := core.SaveState(core.StatePath(root, "demo"), state); err != nil {
+			t.Fatal(err)
+		}
+		tasksPath := filepath.Join(root, ".specd", "specs", "demo", "tasks.md")
+		raw, err := os.ReadFile(tasksPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		marked, err := core.RewriteTaskStatusLine(raw, "T1", "✅")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(tasksPath, marked, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		spec, err := loadSpec(root, "demo")
+		if err != nil {
+			t.Fatal(err)
+		}
+		task, _ := findTaskRow(spec.Tasks, "T1")
+		if err := enforceDiffScope(root, "demo", "T1", task); err != nil {
+			t.Fatalf("exact harness marker refused: %v", err)
+		}
+		if err := os.WriteFile(tasksPath, append(marked, []byte("\ndirect edit\n")...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := enforceDiffScope(root, "demo", "T1", task); err == nil {
+			t.Fatal("direct harness edit accepted")
+		}
+	})
 }
