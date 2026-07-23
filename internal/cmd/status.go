@@ -82,6 +82,10 @@ func runStatus(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return err
 		}
+		review, err := statusReview(root, args[0])
+		if err != nil {
+			return err
+		}
 		return writeJSON(struct {
 			core.ReportModel
 			Mode             core.Mode                    `json:"mode"`
@@ -93,8 +97,9 @@ func runStatus(root string, args []string, flags map[string]string) error {
 			ArtifactVersions map[string]int               `json:"artifact_versions,omitempty"`
 			StaleDescendants []core.StaleDescendant       `json:"stale_descendants,omitempty"`
 			WaitingApproval  string                       `json:"waiting_approval,omitempty"`
+			Review           *core.ReviewReport           `json:"review,omitempty"`
 			Locator          core.Locator                 `json:"locator"`
-		}{model, specState.Mode, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale, waitingApproval,
+		}{model, specState.Mode, specState.Records, coverage, escalated, approvals, specState.Cycle, revisions, stale, waitingApproval, review,
 			core.NewLocator(args[0], specState.Revision, guidance, core.ActorAgent, core.AuthorityNone, core.HostCapabilities{})})
 	}
 	fmt.Fprintf(os.Stdout, "mode: %s\n", specState.Mode)
@@ -106,6 +111,22 @@ func runStatus(root string, args []string, flags map[string]string) error {
 	fmt.Fprint(os.Stdout, renderApprovalRequests(approvals))
 	fmt.Fprint(os.Stdout, renderWaitingApproval(waitingApproval))
 	return nil
+}
+
+func statusReview(root, slug string) (*core.ReviewReport, error) {
+	path := core.ReviewReportPath(root, slug)
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read review report %s: %w", path, err)
+	}
+	report, err := core.ParseReviewReport(string(raw))
+	if err != nil {
+		return nil, fmt.Errorf("parse review report %s: %w", path, err)
+	}
+	return &report, nil
 }
 
 // waitingApprovalGate reports the lifecycle gate a controller session halted

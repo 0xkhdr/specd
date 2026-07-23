@@ -356,6 +356,7 @@ auditor's report first:
 ```bash
 specd review payments
 # fill review_report.md with an approve verdict at the current HEAD
+specd status payments --json  # read parsed review verdict, note, reviewer, and HEAD
 ```
 
 If the review is already filled and you need to update it to a new git HEAD while preserving
@@ -365,10 +366,12 @@ the auditor's human findings, use `--restamp`:
 specd review payments --restamp  # update HEAD, preserve findings
 ```
 
-To overwrite an existing report (for the same HEAD without overwriting findings), use `--force`:
+To replace an existing report, use explicit `--force`. The command first preserves the exact
+prior bytes in `review_report.md.bak`; if that backup cannot be written, the original report is
+left untouched:
 
 ```bash
-specd review payments --force    # re-scaffold, overwrite existing
+specd review payments --force    # backup existing bytes, then re-scaffold
 ```
 
 Then submit — `submit` runs **every** gate and streams the PR summary to your configured

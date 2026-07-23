@@ -71,20 +71,27 @@ func ValidateReviewContract(contract ReviewContract, status QualityStatus) error
 
 // ReviewReport is the field-extraction result of a review_report.md. The report
 // is human-edited, so — unlike the tasks parser — the parser does not require
-// byte-stability or round-tripping; it extracts three load-bearing fields and
+// byte-stability or round-tripping; it extracts the load-bearing fields and
 // the findings prose. The Head field is what makes an approval a *fact about
 // this code* (spec 09 R3), mirroring evidence pinning. R5.3: Verdict is a strict
 // token (approve|reject|needs-changes); any following note is stored separately.
 type ReviewReport struct {
-	Verdict  string
-	Note     string
-	Head     string
-	Findings string
+	Verdict  string `json:"verdict"`
+	Note     string `json:"note"`
+	Reviewer string `json:"reviewer"`
+	Head     string `json:"head"`
+	Findings string `json:"findings,omitempty"`
 }
 
 // ReviewReportPath is the per-spec review report the auditor role fills.
 func ReviewReportPath(root, slug string) string {
 	return filepath.Join(SpecdDir(root), "specs", slug, "review_report.md")
+}
+
+// ReviewReportBackupPath is the deterministic prior-version slot used by a
+// forced re-scaffold. A force never replaces an existing backup.
+func ReviewReportBackupPath(root, slug string) string {
+	return ReviewReportPath(root, slug) + ".bak"
 }
 
 // RenderReviewScaffold builds the review report from the embedded template,
@@ -135,7 +142,7 @@ func ReviewReportHead(raw string) string {
 	return ""
 }
 
-// ParseReviewReport extracts the verdict, HEAD, and findings from a review
+// ParseReviewReport extracts the verdict, note, reviewer, HEAD, and findings
 // report. It is strict (R5): a missing/unknown verdict or a missing HEAD line is
 // an error, never a silent approve. It is tolerant of surrounding human edits —
 // it scans for the labelled fields rather than requiring a fixed byte layout.
@@ -172,6 +179,9 @@ func ParseReviewReport(raw string) (ReviewReport, error) {
 		}
 		if v, ok := fieldValue(trimmed, "Git HEAD"); ok {
 			report.Head = v
+		}
+		if v, ok := fieldValue(trimmed, "Reviewer"); ok {
+			report.Reviewer = v
 		}
 	}
 	report.Findings = strings.Join(findings, "\n")

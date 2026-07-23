@@ -1,9 +1,34 @@
 package core
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestSafeReviewReadAndWrite(t *testing.T) {
+	raw := "- **Git HEAD:** deadbeef\n- **Reviewer:** Alice Example\n- **Verdict:** APPROVE Minor NITs in Foo.go\n"
+	report, err := ParseReviewReport(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != ReviewApprove || report.Note != "Minor NITs in Foo.go" || report.Reviewer != "Alice Example" || report.Head != "deadbeef" {
+		t.Fatalf("parsed report = %+v", report)
+	}
+	encoded, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{`"verdict":"approve"`, `"note":"Minor NITs in Foo.go"`, `"reviewer":"Alice Example"`, `"head":"deadbeef"`} {
+		if !strings.Contains(string(encoded), field) {
+			t.Fatalf("review JSON missing %s: %s", field, encoded)
+		}
+	}
+	if got := ReviewReportBackupPath("/repo", "demo"); got != filepath.Join("/repo", ".specd", "specs", "demo", "review_report.md.bak") {
+		t.Fatalf("backup path = %q", got)
+	}
+}
 
 func TestReviewScaffold(t *testing.T) {
 	tasks := []TaskRow{

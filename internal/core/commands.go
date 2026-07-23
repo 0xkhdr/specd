@@ -486,13 +486,13 @@ var Commands = []Command{
 	{
 		Name:          "status",
 		Usage:         "specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program",
-		Description:   "Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view.",
+		Description:   "Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view. JSON status includes parsed review verdict, note, reviewer, and HEAD when a report exists.",
 		AllowedPhases: anyPhase(),
 		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd status payments", "specd status payments --json", "specd status payments --guide --json", "specd status --program"},
 		Flags: []Flag{
-			{Name: "json", Type: "bool", Description: "Emit machine-readable status."},
+			{Name: "json", Type: "bool", Description: "Emit machine-readable status, including parsed review metadata when present."},
 			{Name: "guide", Type: "bool", Description: "Emit machine driving guidance: phase, required artifact, legal commands, human-only actions, and blockers."},
 			{Name: "program", Type: "bool", Description: "Show the cross-spec program view: specs, links, phases, and frontier."},
 		},
@@ -740,13 +740,13 @@ var Commands = []Command{
 	{
 		Name:          "review",
 		Usage:         "specd review <spec> [--force] [--restamp]",
-		Description:   "Scaffold the review report the auditor fills before completion. Use --restamp to update an existing report to a new git HEAD while preserving human-authored findings.",
+		Description:   "Scaffold the review report the auditor fills before completion. Existing reports refuse unless --restamp preserves their findings or --force preserves their exact bytes in review_report.md.bak before replacement.",
 		AllowedPhases: postExecutionPhases(),
 		SpecSlugArg:   argAt(0),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd review payments", "specd review payments --force", "specd review payments --restamp"},
 		Flags: []Flag{
-			{Name: "force", Type: "bool", Description: "Overwrite an existing report, discarding its findings."},
+			{Name: "force", Type: "bool", Description: "Replace an existing report only after preserving its exact bytes in review_report.md.bak."},
 			{Name: "restamp", Type: "bool", Description: "Update an existing report to a new git HEAD while preserving human findings."},
 		},
 	},

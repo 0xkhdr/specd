@@ -825,13 +825,13 @@ specd request-decision payments --text 'webhook retry needs a backoff not in the
 specd review <spec> [--force] [--restamp]
 ```
 
-Scaffold the review report the auditor fills before completion. Use --restamp to update an existing report to a new git HEAD while preserving human-authored findings.
+Scaffold the review report the auditor fills before completion. Existing reports refuse unless --restamp preserves their findings or --force preserves their exact bytes in review_report.md.bak before replacement.
 
 **Phases:** execute · verify · reflect.
 
 | Flag | Value | Description |
 |---|---|---|
-| `--force` | bool | Overwrite an existing report, discarding its findings. |
+| `--force` | bool | Replace an existing report only after preserving its exact bytes in review_report.md.bak. |
 | `--restamp` | bool | Update an existing report to a new git HEAD while preserving human findings. |
 
 **Examples:**
@@ -897,14 +897,14 @@ specd spike payments --question 'is webhook retry idempotent?' --scope 'payments
 specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program
 ```
 
-Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view.
+Report current spec and task state, route-complete machine guidance with separate handoffs, or the cross-spec program view. JSON status includes parsed review verdict, note, reviewer, and HEAD when a report exists.
 
 **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--guide` | bool | Emit machine driving guidance: phase, required artifact, legal commands, human-only actions, and blockers. |
-| `--json` | bool | Emit machine-readable status. |
+| `--json` | bool | Emit machine-readable status, including parsed review metadata when present. |
 | `--program` | bool | Show the cross-spec program view: specs, links, phases, and frontier. |
 
 **Examples:**

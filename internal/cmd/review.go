@@ -13,8 +13,9 @@ import (
 // the git HEAD under review, a per-task section (id/files/acceptance), and the
 // verdict/reviewer/findings fields the auditor fills. It refuses to overwrite an
 // existing report — at any HEAD — unless --force (R5.1), so an auditor's notes
-// are never clobbered by a re-scaffold. With --restamp (R5.2), it preserves the
-// human-authored body byte-for-byte while updating the git HEAD pin.
+// are never clobbered by a re-scaffold. Force preserves an exact backup before
+// replacement; --restamp (R5.2) preserves the human-authored body byte-for-byte
+// while updating the git HEAD pin.
 func runReview(root string, args []string, flags map[string]string) error {
 	if len(args) != 1 {
 		return usageError("review")
@@ -73,18 +74,32 @@ func runReview(root string, args []string, flags map[string]string) error {
 	// Scaffold mode: any existing report blocks a re-scaffold (R5.1). A stale
 	// report is not safe to replace — it holds the auditor's findings just as a
 	// current one does, and moving HEAD is not operator authorization to destroy
-	// them. --restamp carries that body forward; --force is the explicit
-	// destructive action.
-	if existing, readErr := os.ReadFile(path); readErr == nil && !flagEnabled(flags, "force") {
-		existingHead := core.ReviewReportHead(string(existing))
-		if existingHead == "" {
-			existingHead = "unresolved"
-		}
-		return fmt.Errorf("review report already exists (HEAD %s); pass --restamp to update it to HEAD %s preserving findings, or --force to overwrite", existingHead, head)
-	}
-
+	// them. --restamp carries that body forward; --force first preserves the
+	// exact prior bytes in a deterministic backup and only then replaces it.
 	content := core.RenderReviewScaffold(slug, head, spec.Tasks)
 	if _, err := core.WithSpecLock(root, func() (struct{}, error) {
+		existing, readErr := os.ReadFile(path)
+		switch {
+		case readErr == nil:
+			if !flagEnabled(flags, "force") {
+				existingHead := core.ReviewReportHead(string(existing))
+				if existingHead == "" {
+					existingHead = "unresolved"
+				}
+				return struct{}{}, fmt.Errorf("review report %s already exists (HEAD %s); pass --restamp to update it to HEAD %s preserving findings, or --force to replace it after backup", path, existingHead, head)
+			}
+			backup := core.ReviewReportBackupPath(root, slug)
+			if _, statErr := os.Stat(backup); statErr == nil {
+				return struct{}{}, fmt.Errorf("review report backup already exists: %s", backup)
+			} else if !os.IsNotExist(statErr) {
+				return struct{}{}, fmt.Errorf("inspect review report backup %s: %w", backup, statErr)
+			}
+			if err := core.AtomicWrite(backup, string(existing)); err != nil {
+				return struct{}{}, fmt.Errorf("preserve review report backup %s: %w", backup, err)
+			}
+		case !os.IsNotExist(readErr):
+			return struct{}{}, fmt.Errorf("inspect review report %s: %w", path, readErr)
+		}
 		return struct{}{}, core.AtomicWrite(path, content)
 	}); err != nil {
 		return err

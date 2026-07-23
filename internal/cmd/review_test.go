@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,96 @@ import (
 
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+func TestSafeReviewReadAndWrite(t *testing.T) {
+	root := newDemoSpec(t)
+	gitInitRepo(t, root)
+	advanceToExecuting(t, root)
+	path := core.ReviewReportPath(root, "demo")
+
+	unresolved := []byte("- **Git HEAD:**\n- **Reviewer:** alice\n- **Verdict:** approve\n")
+	if err := os.WriteFile(path, unresolved, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := Run(root, "review", []string{"demo"}, nil)
+	if err == nil || !strings.Contains(err.Error(), path) {
+		t.Fatalf("existing unresolved report refusal = %v, want path %s", err, path)
+	}
+	if after, readErr := os.ReadFile(path); readErr != nil || string(after) != string(unresolved) {
+		t.Fatalf("refused review changed report: %q, %v", after, readErr)
+	}
+	if _, statusErr := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"json": "true"})
+	}); statusErr == nil || !strings.Contains(statusErr.Error(), path) {
+		t.Fatalf("malformed review status error = %v, want source path", statusErr)
+	}
+
+	head := gitHead(root)
+	prior := []byte("- **Git HEAD:** " + head + "\n- **Reviewer:** Alice Example\n- **Verdict:** APPROVE Minor NITs in Foo.go\n\n## Findings\n\nChecked.\n")
+	if err := os.WriteFile(path, prior, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	statePath := core.StatePath(root, "demo")
+	stateBefore, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := captureStdout(t, func() error {
+		return Run(root, "status", []string{"demo"}, map[string]string{"json": "true"})
+	})
+	if err != nil {
+		t.Fatalf("status --json: %v", err)
+	}
+	var projected struct {
+		Review *core.ReviewReport `json:"review"`
+	}
+	if err := json.Unmarshal([]byte(status), &projected); err != nil {
+		t.Fatalf("decode status: %v\n%s", err, status)
+	}
+	if projected.Review == nil || projected.Review.Verdict != core.ReviewApprove || projected.Review.Note != "Minor NITs in Foo.go" ||
+		projected.Review.Reviewer != "Alice Example" || projected.Review.Head != head {
+		t.Fatalf("status review = %+v", projected.Review)
+	}
+	stateAfter, _ := os.ReadFile(statePath)
+	reportAfter, _ := os.ReadFile(path)
+	if string(stateAfter) != string(stateBefore) || string(reportAfter) != string(prior) {
+		t.Fatal("status review projection mutated state or report")
+	}
+
+	if _, err := captureStdout(t, func() error {
+		return Run(root, "review", []string{"demo"}, map[string]string{"force": "true"})
+	}); err != nil {
+		t.Fatalf("force review: %v", err)
+	}
+	backup, err := os.ReadFile(core.ReviewReportBackupPath(root, "demo"))
+	if err != nil || string(backup) != string(prior) {
+		t.Fatalf("backup = %q, %v; want exact prior bytes", backup, err)
+	}
+	replacement, err := os.ReadFile(path)
+	if err != nil || string(replacement) == string(prior) || !strings.Contains(string(replacement), "Review Report — demo") {
+		t.Fatalf("forced replacement = %q, %v", replacement, err)
+	}
+
+	t.Run("backup_failure_preserves_original", func(t *testing.T) {
+		failed := newDemoSpec(t)
+		gitInitRepo(t, failed)
+		advanceToExecuting(t, failed)
+		failedPath := core.ReviewReportPath(failed, "demo")
+		if err := os.WriteFile(failedPath, prior, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(core.ReviewReportBackupPath(failed, "demo"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := Run(failed, "review", []string{"demo"}, map[string]string{"force": "true"}); err == nil {
+			t.Fatal("force succeeded without preserving a backup")
+		}
+		after, err := os.ReadFile(failedPath)
+		if err != nil || string(after) != string(prior) {
+			t.Fatalf("backup failure changed original: %q, %v", after, err)
+		}
+	})
+}
 
 func TestReviewCmd(t *testing.T) {
 	root := newDemoSpec(t)
