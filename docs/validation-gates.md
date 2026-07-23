@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 25 core gates
+## The 26 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -61,8 +61,9 @@ Registered by `CoreRegistry()` in the order they run:
 | 21 | `quality-declaration` | Each task's `evidence=` declaration is well-formed `class/check-id` (valid classes: test/output_eval/trajectory_eval/review); a non-test class also warns that a plain verify cannot satisfy it and names the `specd eval import` producer. |
 | 22 | `dispatch-parity` | Every task row parses through the same `core.ParseTaskContract` the dispatcher uses, so a closed-vocabulary field (e.g. `kind`) outside the canonical set is rejected at the tasks gate rather than at dispatch; every nonconforming row is reported. |
 | 23 | `palette-scope` | A row declaring a CLI handler under `internal/cmd/` must also declare the command palette (`internal/core/commands.go`) and the gendocs source (`tools/gendocs/main.go`); the arg parser separately rejects any flag absent from a command's palette, fail-closed, so a functional-but-undocumented flag cannot ship. |
-| 24 | `verify-lint` | A write task's verify command is not a trivially-passing no-op; a `go test -run` selector must declare a matching test file and name a real `func Test`. |
-| 25 | `steering-applicability` | *(warning)* Warns when every `.specd/steering/*.md` is dropped from the machine manifest for missing `specd-context` metadata; per-file omission stays silent. |
+| 24 | `acceptance-reach` | *(warning + scope error)* Warns when a cited requirement id is already referenced in Go sources only outside the row's declared files (the criterion may be unreachable within declared scope); errors when a production-kind row's acceptance names a Go path no declared file can produce (a distinct scope-versus-acceptance finding). |
+| 25 | `verify-lint` | A write task's verify command is not a trivially-passing no-op; a `go test -run` selector must declare a matching test file and name a real `func Test`. |
+| 26 | `steering-applicability` | *(warning)* Warns when every `.specd/steering/*.md` is dropped from the machine manifest for missing `specd-context` metadata; per-file omission stays silent. |
 
 ### Notes on individual gates
 
