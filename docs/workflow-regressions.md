@@ -1,9 +1,10 @@
 # Workflow feedback regression inventory
 
-This inventory gives every dated heading in `WORKFLOW-FEEDBACK.md` and
-`AIDO-WORKFLOW-FEEDBACK.md` an owner and a current disposition. `regression`, `resolved`, and
-`superseded` rows name an executable invariant; `deferred` rows name the release or task that owns
-the missing regression. A `superseded` row must also name the replacement feedback identity.
+This inventory gives dispositioned feedback in `WORKFLOW-FEEDBACK.md` and
+`AIDO-WORKFLOW-FEEDBACK.md` an owner and a current disposition. Open entries need no row until a
+maintenance task dispositions them. `regression`, `resolved`, and `superseded` rows name an
+executable invariant; `deferred` rows name the release or task that owns the missing regression. A
+`superseded` row must also name the replacement feedback identity.
 
 | Feedback | Owner | Disposition | Regression or explicit deferral | Superseded by |
 |---|---|---|---|---|

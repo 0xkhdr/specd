@@ -53,12 +53,18 @@ FILENAME != ARGV[1] && /^### [0-9][0-9][0-9][0-9]-/ {
 	sub(/^.*\//, "", source)
 	feedback = source " :: " substr($0, 5)
 	actual[feedback] = 1
-	if (!(feedback in listed)) {
-		print "test-lint: missing feedback inventory entry: " feedback > "/dev/stderr"
-		bad = 1
-	}
+	next
+}
+FILENAME != ARGV[1] && /^- \*\*Status:\*\* open([[:space:]]|$)/ {
+	open[feedback] = 1
 }
 END {
+	for (feedback in actual) {
+		if (!(feedback in listed) && !(feedback in open)) {
+			print "test-lint: missing feedback inventory entry: " feedback > "/dev/stderr"
+			bad = 1
+		}
+	}
 	for (feedback in listed) {
 		if (!(feedback in actual)) {
 			print "test-lint: inventory entry has no feedback heading: " feedback > "/dev/stderr"
