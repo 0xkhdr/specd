@@ -1,11 +1,15 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/version"
 )
 
 func TestDoctorReportsManagedRepairFailure(t *testing.T) {
@@ -91,4 +95,104 @@ func TestDoctorReportsConfigSourceConflict(t *testing.T) {
 		}
 	}
 	t.Fatalf("config conflict missing: %+v", result.Findings)
+}
+
+func TestMCPCommandResolutionPrefersLocalThenInstalled(t *testing.T) {
+	root := t.TempDir()
+	installedDir := t.TempDir()
+	local := filepath.Join(root, "specd")
+	installed := filepath.Join(installedDir, "specd")
+	writeMCPVersionBinary(t, local, version.Info{Version: "local"})
+	writeMCPVersionBinary(t, installed, version.Info{Version: "installed"})
+	t.Setenv("PATH", installedDir)
+
+	got, err := ResolveMCPCommand(root)
+	if err != nil || got != local {
+		t.Fatalf("local resolution = %q, %v; want %q", got, err, local)
+	}
+	if err := os.Remove(local); err != nil {
+		t.Fatal(err)
+	}
+	got, err = ResolveMCPCommand(root)
+	if err != nil || got != installed {
+		t.Fatalf("installed fallback = %q, %v; want %q", got, err, installed)
+	}
+	snippet, err := MCPConfigSnippet("claude-code", root, "")
+	if err != nil || !strings.Contains(snippet, installed) {
+		t.Fatalf("generated config did not use installed fallback: %v\n%s", err, snippet)
+	}
+	if config := MergePinkyCodexConfig("", root); !strings.Contains(config, strconv.Quote(installed)) {
+		t.Fatalf("generated Pinky config did not use installed fallback: %s", config)
+	}
+}
+
+func TestMCPDoctorReportsVersionAndCommitMismatchReadOnly(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".specd", "specs", "demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	command := filepath.Join(root, "specd")
+	writeMCPVersionBinary(t, command, version.Info{Version: "wrong-version", Commit: "wrong-commit"})
+	if err := os.MkdirAll(filepath.Join(root, ".codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	config := MergePinkyCodexConfig("", root)
+	configPath := filepath.Join(root, ".codex", "config.toml")
+	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result := Doctor(root, "demo")
+	seen := map[string]bool{}
+	for _, finding := range result.Findings {
+		if strings.HasPrefix(finding.Code, "MCP_BINARY_") {
+			seen[finding.Code] = strings.Contains(finding.Message, "active handshake pins") &&
+				strings.Contains(finding.RecoveryAction, "init --agent=pinky") &&
+				strings.Contains(finding.RecoveryAction, "re-bootstrap")
+		}
+	}
+	for _, code := range []string{"MCP_BINARY_VERSION_MISMATCH", "MCP_BINARY_COMMIT_MISMATCH"} {
+		if !seen[code] {
+			t.Fatalf("missing actionable %s: %+v", code, result.Findings)
+		}
+	}
+	after, err := os.ReadFile(configPath)
+	if err != nil || string(after) != config {
+		t.Fatalf("doctor mutated MCP config: %v", err)
+	}
+}
+
+func TestMCPDoctorAcceptsHandshakeIdentity(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteScaffold(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".specd", "specs", "demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeMCPVersionBinary(t, filepath.Join(root, "specd"), version.Get())
+	if err := os.MkdirAll(filepath.Join(root, ".codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".codex", "config.toml"), []byte(MergePinkyCodexConfig("", root)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if result := Doctor(root, "demo"); !result.Healthy {
+		t.Fatalf("matching MCP binary reported unhealthy: %+v", result.Findings)
+	}
+}
+
+func writeMCPVersionBinary(t *testing.T, path string, info version.Info) {
+	t.Helper()
+	raw, err := json.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' '" + string(raw) + "'\n"
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -19,7 +19,7 @@ func runMCP(root string, args []string, flags map[string]string) error {
 		if len(args) != 0 {
 			return errors.New("usage: specd mcp --config <host> [--root <path>] [--spec <slug>]")
 		}
-		snippet, err := core.MCPConfigSnippet(host, flags["root"], flags["spec"])
+		snippet, err := core.MCPConfigSnippet(host, flags["root"], flags["spec"], root)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrUsage, err)
 		}

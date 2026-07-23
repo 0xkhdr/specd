@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -54,12 +55,16 @@ func MergePinkyCodexConfig(existing, root string) string {
 	// per-role agent definitions from .codex/agents/*.toml, so declaring them
 	// again in config.toml made codex see each role twice ("duplicate agent
 	// role name ... in the same config layer") and drop them.
+	command, err := ResolveMCPCommand(root)
+	if err != nil {
+		command = "specd"
+	}
 	block := strings.Join([]string{
 		pinkyCodexBegin,
 		`[mcp_servers.specd]`,
-		`command = "specd"`,
+		`command = ` + strconv.Quote(command),
 		`args = ["mcp"]`,
-		`cwd = "` + root + `"`,
+		`cwd = ` + strconv.Quote(root),
 		pinkyCodexEnd,
 	}, "\n")
 	start := strings.Index(existing, pinkyCodexBegin)

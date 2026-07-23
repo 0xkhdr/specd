@@ -98,6 +98,10 @@ func TestInitDryRun(t *testing.T) {
 
 func TestMCPConfig(t *testing.T) {
 	root := t.TempDir()
+	local := filepath.Join(root, "specd")
+	if err := os.WriteFile(local, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	out, err := captureStdout(t, func() error {
 		return Run(root, "mcp", nil, map[string]string{"config": "claude-code", "spec": "demo", "root": "/proj"})
@@ -108,7 +112,7 @@ func TestMCPConfig(t *testing.T) {
 	if !json.Valid([]byte(out)) {
 		t.Fatalf("snippet is not valid JSON:\n%s", out)
 	}
-	for _, want := range []string{`"mcpServers"`, `"specd"`, `"mcp"`, "/proj"} {
+	for _, want := range []string{`"mcpServers"`, `"specd"`, `"mcp"`, "/proj", local} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("snippet missing %q:\n%s", want, out)
 		}

@@ -3,6 +3,9 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -22,18 +25,42 @@ func MCPHosts() []string {
 // The snippet is built from a typed structure and marshaled, so it is always
 // valid JSON with stable (sorted) key order — golden-testable and never a
 // hand-concatenated string that can drift into invalid JSON.
-func MCPConfigSnippet(host, root, spec string) (string, error) {
-	switch host {
-	case "claude-code":
-		return claudeCodeSnippet(root, spec)
-	default:
+func MCPConfigSnippet(host, root, spec string, resolutionRoots ...string) (string, error) {
+	if host != "claude-code" {
 		return "", fmt.Errorf("unknown host %q; known hosts: %s", host, strings.Join(MCPHosts(), ", "))
 	}
+	resolutionRoot := root
+	if len(resolutionRoots) > 0 {
+		resolutionRoot = resolutionRoots[0]
+	}
+	command, err := ResolveMCPCommand(resolutionRoot)
+	if err != nil {
+		return "", err
+	}
+	return claudeCodeSnippet(command, root, spec)
 }
 
-func claudeCodeSnippet(root, spec string) (string, error) {
+// ResolveMCPCommand prefers the repository binary and otherwise returns the
+// installed binary's resolved path. Generated hosting never relies on a later,
+// potentially different PATH lookup.
+func ResolveMCPCommand(root string) (string, error) {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	if local, err := exec.LookPath(filepath.Join(absRoot, "specd")); err == nil {
+		return local, nil
+	}
+	installed, err := exec.LookPath("specd")
+	if err != nil {
+		return "", fmt.Errorf("resolve specd executable for MCP hosting: %w", err)
+	}
+	return installed, nil
+}
+
+func claudeCodeSnippet(command, root, spec string) (string, error) {
 	server := map[string]any{
-		"command": "specd",
+		"command": command,
 		"args":    []string{"mcp"},
 	}
 	if root != "" {
@@ -48,4 +75,24 @@ func claudeCodeSnippet(root, spec string) (string, error) {
 		return "", err
 	}
 	return string(raw) + "\n", nil
+}
+
+func mcpCommandFromCodexConfig(config string) (string, bool) {
+	start := strings.Index(config, pinkyCodexBegin)
+	if start < 0 {
+		return "", false
+	}
+	end := strings.Index(config[start:], pinkyCodexEnd)
+	if end < 0 {
+		return "", false
+	}
+	for _, line := range strings.Split(config[start:start+end], "\n") {
+		key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
+		if !ok || strings.TrimSpace(key) != "command" {
+			continue
+		}
+		command, err := strconv.Unquote(strings.TrimSpace(value))
+		return command, err == nil && command != ""
+	}
+	return "", false
 }

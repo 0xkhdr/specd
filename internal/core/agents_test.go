@@ -3,8 +3,11 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/0xkhdr/specd/internal/version"
 )
 
 func TestAgentRegistry(t *testing.T) {
@@ -58,6 +61,7 @@ func TestDoctorChecksOrchestrationWorkerAlignment(t *testing.T) {
 	result := Doctor(root, "demo")
 	assertDoctorWorkerRepair(t, result, "WORKER_DEFINITION_MISSING")
 
+	writeMCPVersionBinary(t, filepath.Join(root, "specd"), version.Get())
 	if err := WriteScaffold(root, "pinky"); err != nil {
 		t.Fatal(err)
 	}
@@ -94,5 +98,23 @@ func TestAgentsMergePreservesUser(t *testing.T) {
 	}
 	if strings.Contains(got, "old") || !strings.Contains(got, "new") {
 		t.Fatalf("MergeAgents did not replace managed block: %q", got)
+	}
+}
+
+func TestMCPAgentConfigPinsLocalExecutable(t *testing.T) {
+	root := t.TempDir()
+	local := filepath.Join(root, "specd")
+	if err := os.WriteFile(local, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteScaffold(root, "pinky"); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "command = "+strconv.Quote(local)) {
+		t.Fatalf("generated MCP config does not pin local executable: %s", raw)
 	}
 }

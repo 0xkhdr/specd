@@ -1,9 +1,13 @@
 package core
 
 import (
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+
+	"github.com/0xkhdr/specd/internal/version"
 )
 
 var planManagedRepair = PlanManagedRepair
@@ -93,6 +97,9 @@ func Doctor(root, pinned string) DoctorResultV1 {
 			findings = append(findings, DriverFinding{Code: "WORKER_HARNESS_MISMATCH", Severity: "error", Ref: ref, Message: "orchestration worker definitions are inconsistent with handshake agent " + config.Agent, RecoveryAction: "run `specd init --repair`"})
 		}
 	}
+	if handshake, err := BootstrapHandshakeForRoot(root, config, nil, nil); err == nil {
+		findings = append(findings, doctorMCPBinary(root, handshake.Binary)...)
+	}
 	sort.Slice(findings, func(i, j int) bool {
 		if findings[i].Code != findings[j].Code {
 			return findings[i].Code < findings[j].Code
@@ -109,4 +116,38 @@ func Doctor(root, pinned string) DoctorResultV1 {
 		Findings:        findings,
 		NextAction:      nextAction,
 	}
+}
+
+func doctorMCPBinary(root string, expected version.Info) []DriverFinding {
+	const ref = ".codex/config.toml"
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ref)))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return []DriverFinding{{Code: "MCP_BINARY_UNAVAILABLE", Severity: "error", Ref: ref, Message: err.Error(), RecoveryAction: "repair MCP config permissions, then run `specd agents doctor --json` again"}}
+	}
+	command, configured := mcpCommandFromCodexConfig(string(raw))
+	if !configured {
+		return nil
+	}
+	cmd := exec.Command(command, "version", "--json")
+	cmd.Dir = root
+	output, err := cmd.Output()
+	if err != nil {
+		return []DriverFinding{{Code: "MCP_BINARY_UNAVAILABLE", Severity: "error", Ref: ref, Message: "configured MCP command " + command + " cannot report its identity: " + err.Error(), RecoveryAction: "run `specd init --agent=pinky` with the bootstrap-pinned binary, then re-bootstrap"}}
+	}
+	var actual version.Info
+	if err := json.Unmarshal(output, &actual); err != nil || actual.Version == "" {
+		return []DriverFinding{{Code: "MCP_BINARY_IDENTITY_INVALID", Severity: "error", Ref: ref, Message: "configured MCP command " + command + " returned an invalid `version --json` identity", RecoveryAction: "run `specd init --agent=pinky` with the bootstrap-pinned binary, then re-bootstrap"}}
+	}
+	recovery := "run `specd init --agent=pinky` with the bootstrap-pinned binary, then re-bootstrap"
+	findings := make([]DriverFinding, 0, 2)
+	if actual.Version != expected.Version {
+		findings = append(findings, DriverFinding{Code: "MCP_BINARY_VERSION_MISMATCH", Severity: "error", Ref: ref, Message: "configured MCP command reports version " + actual.Version + "; active handshake pins " + expected.Version, RecoveryAction: recovery})
+	}
+	if actual.Commit != expected.Commit {
+		findings = append(findings, DriverFinding{Code: "MCP_BINARY_COMMIT_MISMATCH", Severity: "error", Ref: ref, Message: "configured MCP command reports commit " + actual.Commit + "; active handshake pins " + expected.Commit, RecoveryAction: recovery})
+	}
+	return findings
 }
