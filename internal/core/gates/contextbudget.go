@@ -19,10 +19,10 @@ func contextBudget(ctx CheckCtx) []Finding {
 		if !speccontext.SelectableForContext(ctx.Status[task.ID]) {
 			continue
 		}
-		// R3.2: BuildManifest fails closed when the required set exceeds budget,
-		// carrying the concise remediation (decompose / narrow declared files). A
-		// successful build already fits budget — optional items shed, required
-		// items never truncated — so the error is the only over-budget signal.
+		// BuildManifest fails closed when the required set exceeds budget and
+		// carries its stable, required-only source contributions. A successful
+		// build already fits budget — optional items shed, required items never
+		// truncate — so the error is the only over-budget signal.
 		if _, err := speccontext.BuildManifest(ctx.Root, ctx.Slug, ctx.Tasks, task.ID, ctx.MaxContextTokens); err != nil {
 			findings = append(findings, Finding{
 				Severity: Error,

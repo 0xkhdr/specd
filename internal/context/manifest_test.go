@@ -419,6 +419,51 @@ func TestBuildManifestRequiredOverflowFailsClosed(t *testing.T) {
 	}
 }
 
+func TestActionableContextBudgetRefusal(t *testing.T) {
+	root := t.TempDir()
+	for path, body := range map[string]string{
+		"a.go":                        "aaaa",
+		"z.go":                        "zzzzzzzz",
+		".specd/steering/optional.md": strings.Repeat("o", 400),
+	} {
+		full := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tasks := []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"z.go", "a.go"}}}
+	_, firstErr := BuildManifest(root, "demo", tasks, "T1", 1)
+	_, secondErr := BuildManifest(root, "demo", tasks, "T1", 1)
+	first, ok := firstErr.(BudgetError)
+	if !ok {
+		t.Fatalf("first build error = %T %v, want BudgetError", firstErr, firstErr)
+	}
+	second, ok := secondErr.(BudgetError)
+	if !ok {
+		t.Fatalf("second build error = %T %v, want BudgetError", secondErr, secondErr)
+	}
+	firstJSON, _ := json.Marshal(first.Contributions)
+	secondJSON, _ := json.Marshal(second.Contributions)
+	if string(firstJSON) != string(secondJSON) {
+		t.Fatalf("contributions are unstable:\n%s\n%s", firstJSON, secondJSON)
+	}
+	message := first.Error()
+	if strings.Contains(message, "optional.md") {
+		t.Fatalf("optional source reported as required contributor: %s", message)
+	}
+	if a, z := strings.Index(message, "a.go="), strings.Index(message, "z.go="); a < 0 || z < 0 || a >= z {
+		t.Fatalf("source contributions are not in stable source order: %s", message)
+	}
+	for _, want := range []string{"required source contributions:", ".specd/specs/demo/tasks.md owner", "task T1", "narrow declared files"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("refusal missing %q: %s", want, message)
+		}
+	}
+}
+
 // TestManifestByteIdentical (R3.4): identical inputs yield a byte-identical
 // manifest and a stable canonical digest across repeated builds.
 func TestManifestByteIdentical(t *testing.T) {

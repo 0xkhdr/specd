@@ -263,6 +263,9 @@ func emitGuidance(root, slug string, asJSON bool) error {
 		return err
 	}
 	g.Blockers = append(g.Blockers, criterionBlockers...)
+	for i, blocker := range g.Blockers {
+		g.Blockers[i] = actionableGateMessage(slug, gates.Finding{Gate: "context-budget", Message: blocker})
+	}
 	if asJSON {
 		// Additive: the Guidance fields stay at the top level exactly where they
 		// were, and `locator` is a new sibling key. A consumer that predates it

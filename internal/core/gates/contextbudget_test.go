@@ -62,3 +62,31 @@ func TestContextBudgetIgnoresCompletedTasks(t *testing.T) {
 		t.Fatalf("completed task findings = %+v", findings)
 	}
 }
+
+func TestActionableContextBudgetRefusal(t *testing.T) {
+	root := t.TempDir()
+	for path, body := range map[string]string{"a.go": "aaaa", "z.go": "zzzzzzzz"} {
+		full := filepath.Join(root, path)
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	findings := contextBudget(CheckCtx{
+		Root:             root,
+		Slug:             "demo",
+		Tasks:            []core.TaskRow{{ID: "T1", Role: "craftsman", DeclaredFiles: []string{"z.go", "a.go"}}},
+		MaxContextTokens: 1,
+	})
+	if len(findings) != 1 {
+		t.Fatalf("findings = %+v", findings)
+	}
+	message := findings[0].Message
+	if a, z := strings.Index(message, "a.go="), strings.Index(message, "z.go="); a < 0 || z < 0 || a >= z {
+		t.Fatalf("contributions are not source ordered: %s", message)
+	}
+	for _, want := range []string{"T1:", "required source contributions:", ".specd/specs/demo/tasks.md owner"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("finding missing %q: %s", want, message)
+		}
+	}
+}

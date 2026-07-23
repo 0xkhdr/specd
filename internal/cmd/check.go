@@ -178,7 +178,9 @@ func buildReadiness(root, slug string, state core.State) (readinessResult, error
 		MutationIntent:        core.TransitionMutationAdvanceStatus,
 	}
 	readinessFindings := make([]core.ReadinessFinding, 0, len(findings))
-	for _, finding := range findings {
+	for i, finding := range findings {
+		finding.Message = actionableGateMessage(slug, finding)
+		findings[i] = finding
 		code := strings.ToUpper(strings.ReplaceAll(finding.Gate, "-", "_")) + "_GATE"
 		item := core.TransitionBlocker{Code: code, Gate: finding.Gate, Message: finding.Message}
 		readinessFindings = append(readinessFindings, core.ReadinessFinding{Gate: finding.Gate, Severity: string(finding.Severity), Message: finding.Message})
@@ -194,6 +196,13 @@ func buildReadiness(root, slug string, state core.State) (readinessResult, error
 		Envelope: core.ReadinessEnvelope{SchemaVersion: core.ReadinessSchemaVersion, Plan: plan, Findings: readinessFindings},
 		Findings: findings,
 	}, nil
+}
+
+func actionableGateMessage(slug string, finding gates.Finding) string {
+	if finding.Gate != "context-budget" || !strings.Contains(finding.Message, "required source contributions:") {
+		return finding.Message
+	}
+	return fmt.Sprintf("%s; recovery: 1. the tasks.md owner edits .specd/specs/%s/tasks.md as directed; 2. an agent runs `specd check %s`; 3. a human runs `specd approve %s`", finding.Message, slug, slug, slug)
 }
 
 func transitionDigests(root, slug string, state core.State) (map[string]string, map[string]string, error) {
@@ -260,6 +269,9 @@ func runDiagnosticCheck(root string, args []string, flags map[string]string, sec
 	}
 	if flagEnabled(flags, "schema") || flagEnabled(flags, "schema-only") {
 		findings = append(findings, schemaFindings(root, slug)...)
+	}
+	for i, finding := range findings {
+		findings[i].Message = actionableGateMessage(slug, finding)
 	}
 	if flagEnabled(flags, "json") {
 		return json.NewEncoder(os.Stdout).Encode(findings)
@@ -359,6 +371,7 @@ func driverGuideForSpec(root, slug string) (core.DriverGuideV1, error) {
 	}
 	var blockers []core.DriverFinding
 	for i, message := range guidance.Blockers {
+		message = actionableGateMessage(slug, gates.Finding{Gate: "context-budget", Message: message})
 		blockers = append(blockers, core.DriverFinding{Code: fmt.Sprintf("GATE_BLOCKER_%03d", i+1), Severity: "error", Ref: slug, Message: message, RecoveryAction: "fix artifact and run `specd check " + slug + "`"})
 	}
 	return core.ProjectDriverGuide(filepath.Clean(root), slug, state.Status, approvals, frontier, blockers), nil

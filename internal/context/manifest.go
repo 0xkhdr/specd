@@ -187,7 +187,13 @@ func BuildManifest(root, slug string, tasks []core.TaskRow, taskID string, maxTo
 			}
 		}
 		if required > maxTokens {
-			return Manifest{}, BudgetError{RequiredTokens: required, Budget: maxTokens}
+			return Manifest{}, BudgetError{
+				RequiredTokens: required,
+				Budget:         maxTokens,
+				Contributions:  itemContributions(items),
+				TaskID:         taskID,
+				TasksArtifact:  fmt.Sprintf(".specd/specs/%s/tasks.md", slug),
+			}
 		}
 	}
 	items, omissions := enforceBudget(items, maxTokens)
@@ -675,15 +681,73 @@ func CanonicalizeMachineManifest(m *MachineManifest) {
 }
 
 // BudgetError signals that the required context alone exceeds the configured
-// budget (R3.2). Required context is never truncated to fit; the task must be
-// decomposed or its declared files narrowed instead.
+// budget. Required context is never truncated to fit; the error names every
+// required contribution and the task artifact owner authorized to narrow it.
 type BudgetError struct {
 	RequiredTokens int
 	Budget         int
+	Contributions  []TokenContribution
+	TaskID         string
+	TasksArtifact  string
 }
 
 func (e BudgetError) Error() string {
-	return fmt.Sprintf("required context %d tokens exceeds budget %d — decompose the task or narrow declared files", e.RequiredTokens, e.Budget)
+	parts := make([]string, 0, len(e.Contributions))
+	for _, contribution := range e.Contributions {
+		parts = append(parts, fmt.Sprintf("%s=%d", contribution.Source, contribution.EstimatedTokens))
+	}
+	detail := ""
+	if len(parts) > 0 {
+		detail = "; required source contributions: " + strings.Join(parts, ", ")
+	}
+	artifact, task := e.TasksArtifact, e.TaskID
+	if artifact == "" {
+		artifact = "tasks.md"
+	}
+	if task != "" {
+		task = " " + task
+	}
+	return fmt.Sprintf("required context %d tokens exceeds budget %d%s; authorized next action: %s owner may decompose task%s or narrow declared files for it", e.RequiredTokens, e.Budget, detail, artifact, task)
+}
+
+// TokenContribution is one required source's deterministic share of a context
+// budget. Optional lanes are deliberately absent from a refusal: they can be
+// shed and therefore cannot be the cause of required-context overflow.
+type TokenContribution struct {
+	Source          string `json:"source"`
+	EstimatedTokens int    `json:"estimated_tokens"`
+}
+
+func itemContributions(items []Item) []TokenContribution {
+	contributions := make([]TokenContribution, 0, len(items))
+	for _, item := range items {
+		if !item.Required {
+			continue
+		}
+		source := item.Path
+		if source == "" {
+			source = item.Kind + ":" + item.TaskID
+		}
+		contributions = append(contributions, TokenContribution{Source: source, EstimatedTokens: item.EstimatedTokens})
+	}
+	sort.Slice(contributions, func(i, j int) bool { return contributions[i].Source < contributions[j].Source })
+	return contributions
+}
+
+func machineContributions(items []MachineItem) []TokenContribution {
+	contributions := make([]TokenContribution, 0, len(items))
+	for _, item := range items {
+		if !item.Required || !CountsAgainstBudget(item) {
+			continue
+		}
+		source := item.Source
+		if source == "" {
+			source = item.Kind + ":" + item.Selector
+		}
+		contributions = append(contributions, TokenContribution{Source: source, EstimatedTokens: item.EstimatedTokens})
+	}
+	sort.Slice(contributions, func(i, j int) bool { return contributions[i].Source < contributions[j].Source })
+	return contributions
 }
 
 // EnforceMachineBudget fits items within budget truthfully (R3): the required total
@@ -705,7 +769,7 @@ func EnforceMachineBudget(items []MachineItem, budget int) (kept []MachineItem, 
 		}
 	}
 	if budget > 0 && requiredTokens > budget {
-		return nil, nil, requiredTokens, 0, BudgetError{RequiredTokens: requiredTokens, Budget: budget}
+		return nil, nil, requiredTokens, 0, BudgetError{RequiredTokens: requiredTokens, Budget: budget, Contributions: machineContributions(items)}
 	}
 	kept = append(kept, items...)
 	for budget > 0 && total > budget {
@@ -824,6 +888,11 @@ func BuildMachineManifest(root, slug string, tasks []core.TaskRow, taskID, actio
 	items = append(items, skills...)
 	kept, omissions, required, optional, err := EnforceMachineBudget(items, budget)
 	if err != nil {
+		if budgetErr, ok := err.(BudgetError); ok {
+			budgetErr.TaskID = taskID
+			budgetErr.TasksArtifact = fmt.Sprintf(".specd/specs/%s/tasks.md", slug)
+			err = budgetErr
+		}
 		return MachineManifest{}, err
 	}
 	omissions = append(append(append(append(steeringOmissions, memoryOmissions...), exampleOmissions...), skillOmissions...), omissions...)
