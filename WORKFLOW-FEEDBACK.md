@@ -811,3 +811,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — the reopen attempt/scope record does not affect task activity or context projection.
 - **Recommendation:** make reopen task atomically project the new pending attempt and amended scope into status, frontier, context, session authority, and completion; refuse without revision mutation if that projection cannot be produced.
 - **Status:** open
+
+### 2026-07-23 — friction — design guidance advertises a task-only context command
+- **Context:** `workflow-11-template-config`, analyze/design phase, driver, exact command `./specd context workflow-11-template-config --json`
+- **Expected:** `status --guide` listed `context` as legal, so the command would return bounded design-authoring context or explain the applicable design route.
+- **Actual:** exit 2 with `usage: specd context <slug> <task-id> [--json|--hud]`.
+- **Root cause:** missing guidance — the phase guide exposes a task-only verb before tasks exist and does not print its required argument shape.
+- **Recommendation:** omit `context` from pre-task legal commands, or add an artifact context route such as `specd context <slug> design --json` and print that exact next command.
+- **Status:** open
