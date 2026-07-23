@@ -1,18 +1,14 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/0xkhdr/specd/internal/core"
 )
 
-// TestScaffoldedSteeringSelects pins the steering-template → SelectSteering
-// contract (R1.1, R5.1): a freshly scaffolded project must load every shipped
-// steering file into the machine manifest with zero "missing explicit
-// applicability metadata" omissions. It asserts through the real consumer, not a
-// hand-copied expected string, so a template that drops its specd-context block
-// fails here naming both the template and this consumer.
-func TestScaffoldedSteeringSelects(t *testing.T) {
+func TestShippedSteeringConformance(t *testing.T) {
 	root := t.TempDir()
 	if err := core.WriteScaffold(root); err != nil {
 		t.Fatal(err)
@@ -26,12 +22,35 @@ func TestScaffoldedSteeringSelects(t *testing.T) {
 			t.Fatalf("shipped steering template omitted for missing metadata: %s", o.Source)
 		}
 	}
-	if len(items) == 0 {
-		t.Fatal("no steering items selected from a freshly scaffolded root")
+	want := map[string]struct {
+		id       string
+		priority int
+	}{
+		"product.md":   {"product", 10},
+		"reasoning.md": {"reasoning", 5},
+		"structure.md": {"structure", 20},
+		"tech.md":      {"tech", 20},
+		"workflow.md":  {"workflow", 5},
+	}
+	if len(items) != len(want) {
+		t.Fatalf("selected %d steering templates, want %d: %+v", len(items), len(want), items)
 	}
 	for _, it := range items {
-		if it.Source == ".specd/steering/memory.md" {
-			t.Fatalf("memory.md must be excluded from SelectSteering (R1.1), got %s", it.Source)
+		name := filepath.Base(it.Source)
+		canonical, ok := want[name]
+		if !ok {
+			t.Fatalf("unexpected steering template selected: %s", it.Source)
+		}
+		raw, err := os.ReadFile(filepath.Join(root, it.Source))
+		if err != nil {
+			t.Fatal(err)
+		}
+		metadata, err := parseMetadata(raw, "specd-context")
+		if err != nil {
+			t.Fatalf("%s: %v", it.Source, err)
+		}
+		if metadata.ID != canonical.id || metadata.Version != "1" || metadata.Priority != canonical.priority {
+			t.Fatalf("%s metadata = id:%q version:%q priority:%d", it.Source, metadata.ID, metadata.Version, metadata.Priority)
 		}
 	}
 }

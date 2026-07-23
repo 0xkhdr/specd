@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSteeringTotalOmission(t *testing.T) {
+func TestShippedSteeringConformanceTotalOmission(t *testing.T) {
 	metadataLess := "# Steering\nno block here\n"
 	withBlock := "<!-- specd-context\nid: ok\nversion: 1\npriority: 10\n-->\n# Steering\n"
 

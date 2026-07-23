@@ -1,0 +1,1 @@
+{"task_id":"T57","command":"go test ./internal/context ./internal/core/gates -run TestShippedSteeringConformance -count=2","exit_code":0,"git_head":"b3f948b9b6f86e0ffc5bca8f063f69aa73981d07","timestamp":"2026-07-23T20:45:57Z","actor":"xkhdr"}
