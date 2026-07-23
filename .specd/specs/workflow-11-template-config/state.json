@@ -2,12 +2,12 @@
   "schema_version": 2,
   "slug": "workflow-11-template-config",
   "mode": "default",
-  "status": "executing",
-  "phase": "execute",
+  "status": "verifying",
+  "phase": "verify",
   "cycle": 1,
-  "stage": "executing",
+  "stage": "verifying",
   "condition": "active",
-  "revision": 10,
+  "revision": 11,
   "last_event_id": "65fad29ab3591a1f1a09a1d2ff727fdcea50675654de36d1c9423f67328edec4",
   "records": {
     "approval:design": {
@@ -18,6 +18,15 @@
       "source_digest": "05ed4e91179d59c8b834eed352cbad2850c496ff4cd6ed3d86a702b4c2853719",
       "timestamp": "2026-07-23T20:40:54Z",
       "git_head": "5d3ada36033a7e52174dcb38323926b97650a92d",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 10,
+      "timestamp": "2026-07-23T21:43:47Z",
+      "git_head": "70da96d5f8f7932a8a4daea44490c4ee8c9b57a1",
       "actor": "xkhdr"
     },
     "approval:requirements": {
@@ -74,6 +83,44 @@
       "expires_at": "2026-07-23T21:40:54Z",
       "timestamp": "2026-07-23T20:40:54Z",
       "git_head": "5d3ada36033a7e52174dcb38323926b97650a92d",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:0": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-11-template-config",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 10,
+        "plan_digest": "42feca69cc138e313a8b1ccaf3caf1ee6e05db2f0d84d94055140fb737804f93",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T22:43:47Z",
+      "timestamp": "2026-07-23T21:43:47Z",
+      "git_head": "70da96d5f8f7932a8a4daea44490c4ee8c9b57a1",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:1": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-11-template-config",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 10,
+        "plan_digest": "42feca69cc138e313a8b1ccaf3caf1ee6e05db2f0d84d94055140fb737804f93",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T22:43:47Z",
+      "timestamp": "2026-07-23T21:43:47Z",
+      "git_head": "70da96d5f8f7932a8a4daea44490c4ee8c9b57a1",
       "actor": "xkhdr"
     },
     "approval_request:approve:requirements:0": {
