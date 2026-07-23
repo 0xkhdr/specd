@@ -1,2 +1,3 @@
 {"task_id":"T57","command":"go test ./internal/context ./internal/core/gates -run TestShippedSteeringConformance -count=2","exit_code":0,"git_head":"b3f948b9b6f86e0ffc5bca8f063f69aa73981d07","timestamp":"2026-07-23T20:45:57Z","actor":"xkhdr"}
 {"task_id":"T58","command":"go test ./internal/core ./internal/cmd -run TestFreshScaffoldConsumerConformance -count=2","exit_code":0,"git_head":"5a12e069c5f34e485ec2848cfaef345e31df8472","timestamp":"2026-07-23T20:51:21Z","actor":"xkhdr"}
+{"task_id":"T57","command":"go test ./internal/context ./internal/core/gates -run TestShippedSteeringConformance -count=2","exit_code":0,"git_head":"ee299d8fe0ec7a12fbd00cb3ecf5d952f208ba4d","timestamp":"2026-07-23T21:18:31Z","actor":"xkhdr","attempt":2,"plan_revision":6,"scope_revision":6}

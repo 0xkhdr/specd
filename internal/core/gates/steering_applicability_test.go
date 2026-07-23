@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestShippedSteeringConformance(t *testing.T) {
+func TestSteeringApplicabilityWarning(t *testing.T) {
 	metadataLess := "# Steering\nno block here\n"
 	withBlock := "<!-- specd-context\nid: ok\nversion: 1\npriority: 10\n-->\n# Steering\n"
 	const remedy = "every steering file is dropped from the machine manifest for missing `specd-context` metadata; add a `specd-context` block (id, version, priority) to each `.specd/steering/*.md` or drivers run with no project steering"
