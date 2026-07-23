@@ -763,3 +763,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task authoring error — `brainResume` lives in `internal/cmd/brain_run.go`; the tasks gate validates context syntax but not required-path existence.
 - **Recommendation:** at tasks approval, require every non-output `context` path to exist and name the row/path; permit missing paths only when explicitly marked as task outputs.
 - **Status:** open
+
+### 2026-07-23 — friction — T49 cannot satisfy Brain-only marker acceptance in declared scope
+- **Context:** `workflow-09-driver-session` T49, executing, craftsman, after `./specd verify workflow-09-driver-session T49`
+- **Expected:** the task's declared files contain the shared scope path needed to prove R2.2 for a Brain-only serial run.
+- **Actual:** the worker reported `T48's exact-marker exclusion currently runs only when the driver-session baseline equals the selected baseline; a Brain-only serial run with no driver session may still need that T48 helper made baseline-agnostic` and the required owner is undeclared `internal/cmd/lifecycle.go`.
+- **Root cause:** task scope gap — T49 declared Brain report/resume files but omitted the shared completion scope implementation needed by its marker-bleed acceptance.
+- **Recommendation:** acceptance-reachability should follow shared function ownership for named execution paths, or task review should require every acceptance edge to map to at least one declared production file.
+- **Status:** open
