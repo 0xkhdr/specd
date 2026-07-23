@@ -712,3 +712,22 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task scope gap — the spec adds command-surface flags but never declares the one file (`internal/core/commands.go`) that publishes them, and no gate/lint couples handler-recognized flags to the palette.
 - **Recommendation:** any flag/verb-adding task should declare `internal/core/commands.go` + `tools/gendocs/main.go`, and docs-lint (or a gate) should assert handler-recognized flags appear in the canonical palette, so a shipped-but-undocumented flag fails closed.
 - **Status:** open
+
+### 2026-07-23 — friction — palette-scope gate armed at the empty target retroactively blocks every completed spec
+- **Context:** `workflow-08-authoring-gates` T42, driver, reflect/complete; `./specd status --program`, `./specd check workflow-07-compatibility-cleanup`
+- **Expected:** the new palette-scope gate (R4.1/R4.3) enforces at the tasks approval gate that a verb/flag-adding row also declares `internal/core/commands.go` + `tools/gendocs/main.go`; already-complete specs stay complete.
+- **Actual:** `error palette-scope: T30 declares a CLI handler under internal/cmd/ but not the canonical command palette internal/core/commands.go` (and the same for workflow-08's own T44/T46). The gate arms at `ApproveTarget == ""` and matches ANY `internal/cmd/*.go` path — not only rows adding a verb/flag — so `specComplete` (which runs the full registry at target "") fails for every historical spec that touches a command handler. `./specd status --program` dropped the `(complete)` marker for all twelve specs and every dependency reads `[pending]`.
+- **Root cause:** harness bug — regression introduced by this spec (`internal/core/gates/palette_scope.go` `paletteScopeArmed` includes `""`; the detector flags any cmd handler file, not only newly-registered verbs/flags).
+- **Recommendation:** arm palette-scope only at the tasks approval target (`StatusTasks`), and narrow detection to rows whose declared handler introduces a verb/flag absent from `core.Commands`, so editing an existing handler is not flagged. The in-spec fix was blocked by the already-logged `reopen leaves task_status complete` bug, which prevents re-entering executing on a finished spec.
+- **Status:** open
+
+### 2026-07-23 — completion — workflow-08-authoring-gates
+- **Inventory:**
+  - T40: ✅ dispatch-parity gate (every row through ParseTaskContract at approval; R1)
+  - T41: ✅ verify/run-selector coupling + empty-run refused as evidence (R2)
+  - T42: ✅ palette-scope gate + fail-closed flag enforcement + palette reconciliation (R3, R4) — see regression above
+  - T43: ✅ acceptance-reachability gate (ref-outside-declared + scope-vs-acceptance; R5)
+  - T44: ✅ worker column parse/validate/projection, byte-stable (R6.1–6.3)
+  - T45: ✅ one shared evidence-cell parser for both boundary gates (R7)
+  - T46: ✅ mission worker rides the plan; ClaimMission refuses an unnamed worker (R6.4)
+- **Skipped:** the palette-scope arming/detection regression (logged above) leaves `status --program` without the `(complete)` marker; all seven tasks complete, all phase gates approved, and gofmt/vet/`go test ./... -race`/docs-lint/regress-domains all pass.
