@@ -7,7 +7,8 @@
   "cycle": 1,
   "stage": "complete",
   "condition": "complete",
-  "revision": 13,
+  "revision": 18,
+  "last_event_id": "dad32e3f131db40802428f6c1e754376c419a648bdd279c28e445ee0a805ecbd",
   "records": {
     "approval:complete": {
       "kind": "approval",
