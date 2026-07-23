@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -46,6 +48,11 @@ type DriverSession struct {
 	// baseline of its own, which is the ordinary case outside the production
 	// profile. Empty means the work is ungoverned and reports as advisory.
 	BaselineHead string `json:"baseline_head,omitempty"`
+
+	// PreexistingUntracked is the sorted set of untracked paths present when
+	// BaselineHead was pinned. Only untracked paths absent from this snapshot
+	// are attributable to the task.
+	PreexistingUntracked []string `json:"preexisting_untracked,omitempty"`
 
 	// ContextReceipt is the host's acknowledgement of the context it loaded for
 	// the task currently in flight (R3.1). Nil means no lane was ever
@@ -110,15 +117,23 @@ func OpenDriverSession(root, slug, driver, handshakeDigest, baselineHead string,
 	if err != nil {
 		return DriverSession{}, err
 	}
+	var untracked []string
+	if HeadPinned(baselineHead) {
+		untracked, err = SnapshotUntracked(root)
+		if err != nil {
+			return DriverSession{}, err
+		}
+	}
 	session := DriverSession{
-		ID:               "ds-" + id,
-		Slug:             slug,
-		Driver:           driver,
-		BaselineRevision: baselineRevision,
-		HandshakeDigest:  handshakeDigest,
-		BaselineHead:     baselineHead,
-		IssuedAt:         now.UTC(),
-		ExpiresAt:        now.UTC().Add(DriverSessionTTL),
+		ID:                   "ds-" + id,
+		Slug:                 slug,
+		Driver:               driver,
+		BaselineRevision:     baselineRevision,
+		HandshakeDigest:      handshakeDigest,
+		BaselineHead:         baselineHead,
+		PreexistingUntracked: untracked,
+		IssuedAt:             now.UTC(),
+		ExpiresAt:            now.UTC().Add(DriverSessionTTL),
 	}
 	path := DriverSessionPath(root, slug)
 	current, err := LoadDriverSession(path)
@@ -130,6 +145,57 @@ func OpenDriverSession(root, slug, driver, handshakeDigest, baselineHead string,
 	}
 	session.Revision = current.Revision + 1
 	return session, nil
+}
+
+// SnapshotUntracked returns the deterministic set of untracked paths currently
+// present in root.
+func SnapshotUntracked(root string) ([]string, error) {
+	out, err := exec.Command("git", "-C", root, "ls-files", "--others", "--exclude-standard", "-z").Output()
+	if err != nil {
+		return nil, fmt.Errorf("snapshot untracked paths: %w", err)
+	}
+	paths := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+	if len(paths) == 1 && paths[0] == "" {
+		return nil, nil
+	}
+	slices.Sort(paths)
+	return paths, nil
+}
+
+// RotateDriverSession atomically pins the baseline for a newly acknowledged
+// task and clears the prior task's receipt and authority.
+func RotateDriverSession(root, slug, sessionID, baselineHead string, baselineRevision int64, now time.Time) (DriverSession, error) {
+	if !HeadPinned(baselineHead) {
+		return DriverSession{}, Refuse("BASELINE_UNPINNED", "session ack requires a resolvable git HEAD; commit or initialize git before acknowledging context")
+	}
+	untracked, err := SnapshotUntracked(root)
+	if err != nil {
+		return DriverSession{}, err
+	}
+	path := DriverSessionPath(root, slug)
+	return WithSpecLock(root, func() (DriverSession, error) {
+		session, err := LoadDriverSession(path)
+		if err != nil {
+			return DriverSession{}, err
+		}
+		if session.ID == "" || session.ID != sessionID {
+			return DriverSession{}, Refusef("SESSION_UNKNOWN", "no open session %q for spec %s", sessionID, slug)
+		}
+		if session.Expired(now) {
+			return DriverSession{}, Refusef("SESSION_EXPIRED", "session %s expired at %s", session.ID, session.ExpiresAt.Format(time.RFC3339))
+		}
+		next := session
+		next.BaselineHead = baselineHead
+		next.BaselineRevision = baselineRevision
+		next.PreexistingUntracked = untracked
+		next.ContextReceipt = nil
+		next.AuthorityDigest = ""
+		if err := SaveDriverSessionCAS(root, path, session.Revision, next); err != nil {
+			return DriverSession{}, err
+		}
+		next.Revision = session.Revision + 1
+		return next, nil
+	})
 }
 
 // LoadDriverSession reads the session for a spec. A missing file is not an

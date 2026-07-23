@@ -1,0 +1,1 @@
+{"task_id":"T47","command":"go test ./internal/core ./internal/cmd -run TestDriverSessionTaskRotation -count=2","exit_code":0,"git_head":"fcf0ac671eb00b3bc905bb4d8b04df0e4bd0fa3f","timestamp":"2026-07-23T16:52:20Z","actor":"xkhdr"}

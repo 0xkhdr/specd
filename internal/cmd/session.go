@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,6 +10,42 @@ import (
 	speccontext "github.com/0xkhdr/specd/internal/context"
 	"github.com/0xkhdr/specd/internal/core"
 )
+
+type sessionGuidance struct {
+	core.DriverSession
+	NextCommands []string `json:"next_commands"`
+}
+
+func sessionAction(root, slug string) (core.OperationBinding, string, error) {
+	session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+	if err != nil {
+		return core.OperationBinding{}, "", err
+	}
+	if session.ID == "" || session.Expired(time.Now()) {
+		return core.OperationBinding{}, "", core.Refusef("SESSION_UNKNOWN", "no live driver session for %s", slug).
+			WithRecovery(core.RefusalActorAgent, "specd session open "+slug+" --driver <host>")
+	}
+	state, err := core.LoadState(core.StatePath(root, slug))
+	if err != nil {
+		return core.OperationBinding{}, "", err
+	}
+	nonce, err := core.NewNonce()
+	if err != nil {
+		return core.OperationBinding{}, "", err
+	}
+	binding := core.OperationBinding{
+		SessionID:        session.ID,
+		ExpectedRevision: state.Revision,
+		HandshakeDigest:  session.HandshakeDigest,
+		AuthorityDigest:  session.AuthorityDigest,
+		BaselineRevision: session.BaselineRevision,
+		Nonce:            nonce,
+	}
+	if session.ContextReceipt != nil {
+		binding.ContextReceiptDigest = session.ContextReceipt.ReceiptDigest
+	}
+	return binding, fmt.Sprintf("specd complete-task %s %%s --session %s --nonce %s", slug, session.ID, nonce), nil
+}
 
 func runSession(root string, args []string, flags map[string]string) error {
 	if len(args) < 2 || len(args) > 3 {
@@ -37,10 +74,17 @@ func runSession(root string, args []string, flags map[string]string) error {
 			return err
 		}
 		if asJSON {
-			return writeJSON(session)
+			return writeJSON(sessionGuidance{DriverSession: session, NextCommands: []string{
+				"specd session ack " + slug + " <task> --tokens <n>",
+				"specd verify " + slug + " <task>",
+				"specd session action " + slug,
+				"specd complete-task " + slug + " <task> --session <session> --nonce <nonce>",
+			}})
 		}
 		fmt.Fprintf(os.Stdout, "opened driver session %s for %s (driver %s, baseline revision %d, expires %s)\n",
 			session.ID, slug, session.Driver, session.BaselineRevision, session.ExpiresAt.Format(time.RFC3339))
+		fmt.Fprintf(os.Stdout, "next: specd session ack %s <task> --tokens <n>\nthen: specd verify %s <task>\nthen: specd session action %s\nthen: specd complete-task %s <task> --session <session> --nonce <nonce>\n",
+			slug, slug, slug, slug)
 		return nil
 
 	case "show":
@@ -71,38 +115,16 @@ func runSession(root string, args []string, flags map[string]string) error {
 		// R2.2: mint the single-use nonce and hand back the bindings a mutable
 		// operation must carry. The nonce is minted here rather than by the host
 		// so that "single use" is the harness's fact, not the host's promise.
-		session, err := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+		binding, command, err := sessionAction(root, slug)
 		if err != nil {
 			return err
-		}
-		if session.ID == "" || session.Expired(time.Now()) {
-			return core.Refusef("SESSION_UNKNOWN", "no live driver session for %s", slug).
-				WithRecovery(core.RefusalActorAgent, "specd session open "+slug+" --driver <host>")
-		}
-		state, err := core.LoadState(core.StatePath(root, slug))
-		if err != nil {
-			return err
-		}
-		nonce, err := core.NewNonce()
-		if err != nil {
-			return err
-		}
-		binding := core.OperationBinding{
-			SessionID:        session.ID,
-			ExpectedRevision: state.Revision,
-			HandshakeDigest:  session.HandshakeDigest,
-			AuthorityDigest:  session.AuthorityDigest,
-			BaselineRevision: session.BaselineRevision,
-			Nonce:            nonce,
-		}
-		if session.ContextReceipt != nil {
-			binding.ContextReceiptDigest = session.ContextReceipt.ReceiptDigest
 		}
 		if asJSON {
 			return writeJSON(binding)
 		}
 		fmt.Fprintf(os.Stdout, "session %s\nnonce %s\nexpected revision %d\nrun: specd complete-task %s <task> --session %s --nonce %s\n",
-			session.ID, nonce, state.Revision, slug, session.ID, nonce)
+			binding.SessionID, binding.Nonce, binding.ExpectedRevision, slug, binding.SessionID, binding.Nonce)
+		_ = command
 		return nil
 
 	case "ack":
@@ -151,7 +173,15 @@ func runSession(root string, args []string, flags map[string]string) error {
 		if err != nil {
 			return err
 		}
-		updated, err := core.RecordContextReceipt(root, slug, session.ID, receipt, time.Now())
+		state, err := core.LoadState(core.StatePath(root, slug))
+		if err != nil {
+			return err
+		}
+		updated, err := core.RotateDriverSession(root, slug, session.ID, gitHead(root), state.Revision, time.Now())
+		if err != nil {
+			return err
+		}
+		updated, err = core.RecordContextReceipt(root, slug, session.ID, receipt, time.Now())
 		if err != nil {
 			return err
 		}
@@ -162,10 +192,6 @@ func runSession(root string, args []string, flags map[string]string) error {
 			task, ok := findTaskRow(spec.Tasks, taskID)
 			if !ok {
 				return core.Refusef("SPEC_INVALID", "task %s is not in %s", taskID, slug)
-			}
-			state, err := core.LoadState(core.StatePath(root, slug))
-			if err != nil {
-				return err
 			}
 			now := time.Now()
 			authority, err := core.BuildAuthority(task, session.Driver, session.Driver, slug, string(state.Phase),
@@ -191,7 +217,12 @@ func runSession(root string, args []string, flags map[string]string) error {
 			}
 		}
 		if asJSON {
-			return writeJSON(updated.ContextReceipt)
+			raw, _ := json.Marshal(updated.ContextReceipt)
+			var result map[string]any
+			_ = json.Unmarshal(raw, &result)
+			result["baseline_head"] = updated.BaselineHead
+			result["preexisting_untracked"] = updated.PreexistingUntracked
+			return writeJSON(result)
 		}
 		status := "complete; mutable authority active"
 		if !receipt.Complete() {

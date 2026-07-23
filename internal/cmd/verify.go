@@ -99,7 +99,7 @@ func runVerify(root string, args []string, flags map[string]string) error {
 	if allocErr != nil && err == nil {
 		err = allocErr
 	}
-	if result.Stdout != "" {
+	if result.Stdout != "" && !flagEnabled(flags, "json") {
 		fmt.Fprint(os.Stdout, core.TruncateEvidenceOutput(result.Stdout))
 	}
 	if result.Stderr != "" {
@@ -183,7 +183,14 @@ func runVerify(root string, args []string, flags map[string]string) error {
 		fmt.Fprintln(os.Stdout)
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "evidence recorded for %s %s; task not complete; run `specd complete-task %s %s`\n", slug, taskID, slug, taskID)
+	command := fmt.Sprintf("specd complete-task %s %s", slug, taskID)
+	if binding, template, bindingErr := sessionAction(root, slug); bindingErr == nil && binding.AuthorityDigest != "" && binding.ContextReceiptDigest != "" {
+		command = fmt.Sprintf(template, taskID)
+	}
+	if flagEnabled(flags, "json") {
+		return writeJSON(map[string]any{"slug": slug, "task_id": taskID, "evidence_recorded": true, "complete_task_command": command})
+	}
+	fmt.Fprintf(os.Stdout, "evidence recorded for %s %s; task not complete; run `%s`\n", slug, taskID, command)
 	return nil
 }
 

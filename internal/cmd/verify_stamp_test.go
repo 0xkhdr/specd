@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,5 +104,46 @@ func TestVerifyStampsNothingWithoutDeclaration(t *testing.T) {
 	}
 	if len(evals) != 0 {
 		t.Fatalf("undeclared task must not be stamped, got %d records", len(evals))
+	}
+}
+
+func TestDriverSessionTaskRotation(t *testing.T) {
+	root := stampableDemo(t, "")
+	openOut, err := captureStdout(t, func() error {
+		return Run(root, "session", []string{"open", "demo"}, map[string]string{"driver": "host", "json": "true"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var opened struct {
+		NextCommands []string `json:"next_commands"`
+	}
+	if err := json.Unmarshal([]byte(openOut), &opened); err != nil {
+		t.Fatal(err)
+	}
+	if len(opened.NextCommands) != 4 {
+		t.Fatalf("open guidance = %v", opened.NextCommands)
+	}
+	if _, err := captureStdout(t, func() error {
+		return Run(root, "session", []string{"ack", "demo", "T1"}, map[string]string{"tokens": "100"})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := captureStdout(t, func() error {
+		return Run(root, "verify", []string{"demo", "T1"}, map[string]string{"json": "true"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Command string `json:"complete_task_command"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"specd complete-task demo T1", "--session ds-", "--nonce "} {
+		if !strings.Contains(result.Command, want) {
+			t.Fatalf("bound command %q missing %q", result.Command, want)
+		}
 	}
 }
