@@ -73,6 +73,9 @@ func WriteScaffold(root string, agents ...string) error {
 	if err := writeManagedAssets(root); err != nil {
 		return err
 	}
+	if _, err := EnsureSpecsRoot(root); err != nil {
+		return err
+	}
 	if err := writeAgents(root); err != nil {
 		return err
 	}
@@ -88,6 +91,21 @@ func WriteScaffold(root string, agents ...string) error {
 		}
 	}
 	return nil
+}
+
+// EnsureSpecsRoot creates the tracked placeholder required for an initialized
+// project to carry its empty specs directory.
+func EnsureSpecsRoot(root string) (bool, error) {
+	target := filepath.Join(root, ".specd", "specs", ".gitkeep")
+	if _, err := os.Stat(target); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+	if err := AtomicWrite(target, ""); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func writeSkillsRoot(root string) error {

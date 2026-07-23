@@ -9,7 +9,7 @@ import (
 // contract (R2.2, R5.1): the `evidence=` value the scaffold teaches must parse
 // through the real ParseQualityContract, and a bare class (no check-id) must
 // still be rejected so the guard has teeth.
-func TestScaffoldTasksQualityDeclaration(t *testing.T) {
+func TestFreshScaffoldConsumerConformanceTasks(t *testing.T) {
 	value := exampleField(t, TasksScaffold("demo"), "evidence")
 	if _, err := ParseQualityContract(TaskRow{ID: "T1", Evidence: value}); err != nil {
 		t.Fatalf("scaffold example evidence=%q rejected by quality-declaration gate: %v", value, err)

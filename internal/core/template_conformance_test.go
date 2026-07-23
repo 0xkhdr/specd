@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// TestTemplateConformance is the suite whose absence let four template/consumer
+// TestFreshScaffoldConsumerConformance is the suite whose absence let four template/consumer
 // contracts drift (R5.1): each subtest asserts that a shipped template's bytes
 // satisfy the consumer that parses them, named in the failure. The steering
 // template's case lives in internal/context (SelectSteering is there); the pinky
 // agent-definition case lives in pinky_agents_test.go.
-func TestTemplateConformance(t *testing.T) {
+func TestFreshScaffoldConsumerConformance(t *testing.T) {
 	t.Run("requirements_template_satisfies_ParseRequirements", func(t *testing.T) {
 		doc, err := ParseRequirements([]byte(RequirementsScaffold("demo")))
 		if err != nil {

@@ -6,7 +6,7 @@ import "testing"
 // contract (R2.1, R5.1): the shipped scaffold must yield a non-empty requirement
 // ID set through the real consumer, and its criteria must be EARS-shaped so the
 // filled-in scaffold passes its own gate.
-func TestScaffoldRequirementsParse(t *testing.T) {
+func TestFreshScaffoldConsumerConformanceRequirements(t *testing.T) {
 	stub := RequirementsScaffold("demo")
 
 	ids := RequirementIDSet(stub)

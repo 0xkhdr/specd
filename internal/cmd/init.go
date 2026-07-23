@@ -36,13 +36,20 @@ func runInit(root string, args []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
+	specsRootCreated, err := core.EnsureSpecsRoot(root)
+	if err != nil {
+		return err
+	}
 	verb := "repaired"
 	if refresh {
 		verb = "refreshed"
 	}
-	if len(changes) == 0 {
+	if len(changes) == 0 && !specsRootCreated {
 		fmt.Fprintln(os.Stdout, "all managed regions already in sync")
 		return nil
+	}
+	if specsRootCreated {
+		fmt.Fprintf(os.Stdout, "%s .specd/specs/.gitkeep\n", verb)
 	}
 	for _, change := range changes {
 		fmt.Fprintf(os.Stdout, "%s %s\n", verb, change.RelPath)
@@ -68,6 +75,11 @@ func previewManaged(root string) error {
 	}
 	if !configExists {
 		fmt.Fprintln(os.Stdout, "+ .specd/config.yaml (new operator config)")
+	}
+	if _, err := os.Stat(filepath.Join(root, ".specd", "specs", ".gitkeep")); os.IsNotExist(err) {
+		fmt.Fprintln(os.Stdout, "+ .specd/specs/.gitkeep (required layout)")
+	} else if err != nil {
+		return err
 	}
 	if len(changes) == 0 {
 		fmt.Fprintln(os.Stdout, "no managed-region changes")
