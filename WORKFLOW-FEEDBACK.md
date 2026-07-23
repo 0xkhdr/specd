@@ -731,3 +731,11 @@ stated plainly and stays a proposal — never a self-applied change.
   - T45: ✅ one shared evidence-cell parser for both boundary gates (R7)
   - T46: ✅ mission worker rides the plan; ClaimMission refuses an unnamed worker (R6.4)
 - **Skipped:** none. All seven tasks complete, all phase gates approved. The palette-scope/dispatch-parity/acceptance-reach empty-target arming regression (logged above) was fixed with operator approval; `status --program` shows every spec `(complete)` with an empty frontier. gofmt/vet/`go test ./... -race`/docs-lint/regress-domains all pass.
+
+### 2026-07-23 — friction — program status rejects its documented JSON flag
+- **Context:** completed orchestrated program, driver, exact command `./specd status --program --json`
+- **Expected:** machine-readable program status because the status usage advertises `[--json]` and `--program`.
+- **Actual:** exit 2 with `specd status [spec] [--json] | specd status <spec> --guide [--json] | specd status --program`
+- **Root cause:** ambiguous docs — usage does not state that `--json` is unavailable with `--program`, and the program view has no machine-readable equivalent.
+- **Recommendation:** support `status --program --json`; alternatively render `--program [--json]` only after implementing it and explicitly reject the combination as unsupported until then.
+- **Status:** open
