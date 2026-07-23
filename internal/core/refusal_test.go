@@ -3,6 +3,13 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -39,6 +46,37 @@ func TestTypedRefusalUnknownCodeStillStructured(t *testing.T) {
 	if refusal.Code != "NOT_IN_TABLE" {
 		t.Fatalf("code=%q", refusal.Code)
 	}
+}
+
+// TestRefusalCodesRegistered is the construction-site conformance check: a
+// new literal Refuse/Refusef code cannot silently inherit the generic fallback.
+func TestRefusalCodesRegistered(t *testing.T) {
+	walkProductionGo(t, func(path string, fset *token.FileSet, file *ast.File) {
+		ast.Inspect(file, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok || !isRefusalConstructor(call.Fun) {
+				return true
+			}
+			position := fset.Position(call.Pos())
+			if len(call.Args) == 0 {
+				t.Errorf("%s:%d: refusal constructor has no code", path, position.Line)
+				return true
+			}
+			literal, ok := call.Args[0].(*ast.BasicLit)
+			if !ok || literal.Kind != token.STRING {
+				return true
+			}
+			code, err := strconv.Unquote(literal.Value)
+			if err != nil {
+				t.Errorf("%s:%d: invalid refusal code literal: %v", path, position.Line, err)
+				return true
+			}
+			if _, ok := refusalRecovery[code]; !ok {
+				t.Errorf("%s:%d: refusal code %q is absent from refusalRecovery", path, position.Line, code)
+			}
+			return true
+		})
+	})
 }
 
 func TestTypedRefusalBeforeAuthorityReportsNotConsumed(t *testing.T) {
@@ -145,5 +183,48 @@ func TestWorkerOutOfScopeRefusalClass(t *testing.T) {
 	}
 	if _, ok := AsRefusal(error(r)); !ok {
 		t.Fatal("WORKER_OUT_OF_SCOPE not recognized as a typed refusal")
+	}
+}
+
+func isRefusalConstructor(expr ast.Expr) bool {
+	switch fn := expr.(type) {
+	case *ast.Ident:
+		return fn.Name == "Refuse" || fn.Name == "Refusef"
+	case *ast.SelectorExpr:
+		return fn.Sel.Name == "Refuse" || fn.Sel.Name == "Refusef"
+	default:
+		return false
+	}
+}
+
+func walkProductionGo(t *testing.T, visit func(string, *token.FileSet, *ast.File)) {
+	t.Helper()
+	_, current, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate repository from test source")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(current), "..", ".."))
+	internal := filepath.Join(root, "internal")
+	fset := token.NewFileSet()
+	err := filepath.WalkDir(internal, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		visit(filepath.ToSlash(rel), fset, file)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

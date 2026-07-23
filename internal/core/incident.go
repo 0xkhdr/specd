@@ -60,7 +60,7 @@ func ValidatePreventiveEvidence(record IncidentPreventionV1, required bool) erro
 }
 
 func IncidentPreventionPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "incident-prevention.jsonl")
+	return filepath.Join(SpecDir(root, slug), "incident-prevention.jsonl")
 }
 
 func RecordIncidentPrevention(root, slug string, record IncidentPreventionV1) error {

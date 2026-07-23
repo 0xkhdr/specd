@@ -41,7 +41,7 @@ func SummaryHash(summary string) string {
 // separate from evidence/criteria so the terminal-submit audit trail is
 // physically distinct from execution evidence.
 func SubmissionsPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "submissions.jsonl")
+	return filepath.Join(SpecDir(root, slug), "submissions.jsonl")
 }
 
 // AppendSubmission stamps and appends a submission record. It fills the

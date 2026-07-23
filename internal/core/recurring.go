@@ -97,7 +97,7 @@ func (r RecurringResultV1) Validate() error {
 }
 
 func RecurringResultsPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "recurring-results.jsonl")
+	return filepath.Join(SpecDir(root, slug), "recurring-results.jsonl")
 }
 
 func RecordRecurringResult(root, slug string, result RecurringResultV1) error {

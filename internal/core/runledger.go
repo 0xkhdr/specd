@@ -37,7 +37,7 @@ type RunV1 struct {
 
 // RunLedgerPath is the per-spec append-only run/attempt ledger.
 func RunLedgerPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "runs.jsonl")
+	return filepath.Join(SpecDir(root, slug), "runs.jsonl")
 }
 
 // RunID derives the deterministic run-chain identity from the spec, task, and a

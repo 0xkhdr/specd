@@ -85,7 +85,7 @@ type ReviewReport struct {
 
 // ReviewReportPath is the per-spec review report the auditor role fills.
 func ReviewReportPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "review_report.md")
+	return filepath.Join(SpecDir(root, slug), "review_report.md")
 }
 
 // ReviewReportBackupPath is the deterministic prior-version slot used by a

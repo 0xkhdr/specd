@@ -66,7 +66,7 @@ type ConformanceEvent struct {
 }
 
 func ConformancePath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "conformance.jsonl")
+	return filepath.Join(SpecDir(root, slug), "conformance.jsonl")
 }
 
 // IsConformanceKind reports whether kind is one of the R7.1 events.

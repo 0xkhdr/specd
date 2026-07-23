@@ -94,7 +94,7 @@ type EvidenceRecord struct {
 }
 
 func EvidencePath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "evidence.jsonl")
+	return filepath.Join(SpecDir(root, slug), "evidence.jsonl")
 }
 
 // attemptFor resolves the current attempt of a task from the workflow ledger

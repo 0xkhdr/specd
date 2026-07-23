@@ -94,7 +94,7 @@ type OperationBinding struct {
 }
 
 func DriverSessionPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "driver-session.json")
+	return filepath.Join(SpecDir(root, slug), "driver-session.json")
 }
 
 // NewNonce mints a single-use operation nonce.

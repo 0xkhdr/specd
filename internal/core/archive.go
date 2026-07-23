@@ -72,7 +72,7 @@ func ArchiveSpec(root string, req ArchiveRequest) (ArchiveRecord, error) {
 		}
 		return ArchiveRecord{}, errors.New("archive replay conflicts with existing record")
 	}
-	src := filepath.Join(SpecdDir(root), "specs", req.SpecID)
+	src := SpecDir(root, req.SpecID)
 	state, err := LoadState(StatePath(root, req.SpecID))
 	if err != nil {
 		return ArchiveRecord{}, fmt.Errorf("archive source state: %w", err)
@@ -149,7 +149,7 @@ func RestoreArchive(root, slug string) error {
 		return err
 	}
 	src := filepath.Join(SpecdDir(root), "archive", "specs", slug)
-	dst := filepath.Join(SpecdDir(root), "specs", slug)
+	dst := SpecDir(root, slug)
 	if err := os.Remove(filepath.Join(src, "archive.json")); err != nil {
 		return err
 	}

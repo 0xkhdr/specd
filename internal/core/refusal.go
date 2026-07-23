@@ -78,39 +78,60 @@ func AsRefusal(err error) (Refusal, bool) {
 	return Refusal{}, false
 }
 
-// refusalRecovery maps known codes to an actor-legal next route. Unknown codes
-// use request-decision as an explicit non-retryable escalation; they never
-// invent a command that claims to repair an unclassified blocker.
-var refusalRecovery = map[string]Refusal{
-	"UNKNOWN_COMMAND":     refusalTemplate("usage", "command exists", RefusalActorAgent, "help", "specd help", true),
-	"PHASE_INVALID":       refusalTemplate("lifecycle", "operation is legal in the current phase", RefusalActorAgent, "status", "specd status <slug> --guide", true),
-	"OPERATION_UNKNOWN":   refusalTemplate("usage", "declared command operation", RefusalActorAgent, "help", "specd help <command>", true),
-	"FLAG_VALUE_INVALID":  refusalTemplate("usage", "declared flag value", RefusalActorAgent, "help", "specd help <command>", true),
-	"HUMAN_ONLY":          refusalTemplate("authority", "required human actor", RefusalActorHuman, "handoff", "ask a human to run the operation", false),
-	"AUTHORITY_DENIED":    refusalTemplate("authority", "valid scoped authority", RefusalActorAgent, "context", "specd context <slug> <task> --json", true),
-	"EVIDENCE_MISSING":    refusalTemplate("evidence", "current passing evidence", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
-	"EVIDENCE_FAILING":    refusalTemplate("evidence", "passing evidence", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
-	"EVIDENCE_STALE":      refusalTemplate("evidence", "evidence pinned to current HEAD", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
-	"GATE_FAILED":         refusalTemplate("gate", "no blocking gate findings", RefusalActorAgent, "check", "specd check <slug>", true),
-	"APPROVAL_REQUIRED":   refusalTemplate("authority", "human approval", RefusalActorHuman, "approve", "specd approve <slug>", true),
-	"SPEC_INVALID":        refusalTemplate("usage", "valid spec identity", RefusalActorAgent, "status", "specd status --json", true),
-	"REVISION_CONFLICT":   refusalTemplate("conflict", "current state revision", RefusalActorAgent, "status", "specd status <slug> --json", true),
-	"SANDBOX_UNAVAILABLE": refusalTemplate("host", "declared verify sandbox", RefusalActorOperator, "host.configure", "declare sandbox support on the host", false),
-	"DISPATCH_LEDGER_FAILED": refusalTemplate("orchestration", "checkpoint reconciled with dispatch ledger", RefusalActorOperator,
-		"brain.resume", "specd brain resume <slug>", false),
-	"SESSION_WRITE_FAILED": refusalTemplate("orchestration", "session reconciled with durable dispatch", RefusalActorOperator,
-		"brain.resume", "specd brain resume <slug>", false),
-	"MISSION_INVALID": refusalTemplate("input", "valid mission identity and authority envelope", RefusalActorOperator,
-		"brain.status", "specd brain status <slug>", false),
-	"WORKER_OUT_OF_SCOPE": refusalTemplate("scope", "a worker id the approved plan named for this task", RefusalActorOperator,
-		"brain.status", "specd brain status <slug>", false),
-	"NO_SUCCESSOR": refusalTemplate("lifecycle", "supported successor or escalation", RefusalActorAgent,
-		"new", "specd new <successor>", false),
-}
+// refusalRecovery maps every constructed code to an actor-legal next route.
+// Codes with a caller-specific recovery use the same explicit non-retryable
+// escalation as the old fallback; the conformance test keeps that list closed.
+var refusalRecovery = func() map[string]Refusal {
+	recoveries := map[string]Refusal{
+		"UNKNOWN_COMMAND":     refusalTemplate("usage", "command exists", RefusalActorAgent, "help", "specd help", true),
+		"PHASE_INVALID":       refusalTemplate("lifecycle", "operation is legal in the current phase", RefusalActorAgent, "status", "specd status <slug> --guide", true),
+		"OPERATION_UNKNOWN":   refusalTemplate("usage", "declared command operation", RefusalActorAgent, "help", "specd help <command>", true),
+		"FLAG_VALUE_INVALID":  refusalTemplate("usage", "declared flag value", RefusalActorAgent, "help", "specd help <command>", true),
+		"HUMAN_ONLY":          refusalTemplate("authority", "required human actor", RefusalActorHuman, "handoff", "ask a human to run the operation", false),
+		"AUTHORITY_DENIED":    refusalTemplate("authority", "valid scoped authority", RefusalActorAgent, "context", "specd context <slug> <task> --json", true),
+		"EVIDENCE_MISSING":    refusalTemplate("evidence", "current passing evidence", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
+		"EVIDENCE_FAILING":    refusalTemplate("evidence", "passing evidence", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
+		"EVIDENCE_STALE":      refusalTemplate("evidence", "evidence pinned to current HEAD", RefusalActorAgent, "verify.task", "specd verify <slug> <task>", true),
+		"GATE_FAILED":         refusalTemplate("gate", "no blocking gate findings", RefusalActorAgent, "check", "specd check <slug>", true),
+		"APPROVAL_REQUIRED":   refusalTemplate("authority", "human approval", RefusalActorHuman, "approve", "specd approve <slug>", true),
+		"SPEC_INVALID":        refusalTemplate("usage", "valid spec identity", RefusalActorAgent, "status", "specd status --json", true),
+		"REVISION_CONFLICT":   refusalTemplate("conflict", "current state revision", RefusalActorAgent, "status", "specd status <slug> --json", true),
+		"SANDBOX_UNAVAILABLE": refusalTemplate("host", "declared verify sandbox", RefusalActorOperator, "host.configure", "declare sandbox support on the host", false),
+		"DISPATCH_LEDGER_FAILED": refusalTemplate("orchestration", "checkpoint reconciled with dispatch ledger", RefusalActorOperator,
+			"brain.resume", "specd brain resume <slug>", false),
+		"SESSION_WRITE_FAILED": refusalTemplate("orchestration", "session reconciled with durable dispatch", RefusalActorOperator,
+			"brain.resume", "specd brain resume <slug>", false),
+		"MISSION_INVALID": refusalTemplate("input", "valid mission identity and authority envelope", RefusalActorOperator,
+			"brain.status", "specd brain status <slug>", false),
+		"WORKER_OUT_OF_SCOPE": refusalTemplate("scope", "a worker id the approved plan named for this task", RefusalActorOperator,
+			"brain.status", "specd brain status <slug>", false),
+		"NO_SUCCESSOR": refusalTemplate("lifecycle", "supported successor or escalation", RefusalActorAgent,
+			"new", "specd new <successor>", false),
+	}
+	escalation := refusalTemplate("governance", "governed operation preconditions satisfied", RefusalActorAgent,
+		"request-decision", "specd request-decision <slug> --text <reason>", false)
+	escalation.Retryable, escalation.RetrySafe = false, false
+	for _, code := range []string{
+		"ARTIFACT_PATH_ABSOLUTE", "BASELINE_DRIFTED", "BASELINE_UNPINNED", "BASELINE_UNRESOLVABLE",
+		"BINDING_MISSING", "BRAIN_ZERO_PROGRESS", "CLARIFICATION_OPEN", "CONFORMANCE_KIND_UNKNOWN",
+		"CONFORMANCE_SLUG_REQUIRED", "FLAG_UNKNOWN", "GRANT_EXHAUSTED", "GRANT_EXPIRED",
+		"GRANT_POLICY_STALE", "GRANT_PROHIBITED", "GRANT_REASON_REQUIRED", "GRANT_REPLAY",
+		"GRANT_REVOKED", "GRANT_SCOPE", "GRANT_SECRET_INVALID", "GRANT_USE_UNRESERVED",
+		"HANDSHAKE_MISMATCH", "LEASE_SESSION_CONFLICT", "LEASE_SESSION_MISMATCH", "MANAGED_TARGET_REQUIRED",
+		"NONCE_REPLAYED", "OUTSIDE_SCOPE", "RECEIPT_INVALID", "RECEIPT_STALE",
+		"REOPEN_ARTIFACT_MOVED", "REQUEST_MODE_CONFLICT", "REQUEST_MODE_INVALID", "ROUTE_DISPATCH_MISSING",
+		"ROUTE_HANDOFF_REQUIRED", "SESSION_EXPIRED", "SESSION_INVALID", "SESSION_UNKNOWN",
+		"SPEC_NOT_DRIVEABLE", "WRITE_SCOPE_CONFLICT",
+	} {
+		recoveries[code] = escalation
+	}
+	return recoveries
+}()
 
 func refusalTemplate(category, expected, actor, operation, command string, inPlace bool) Refusal {
 	recovery := RecoveryOperation{Operation: operation, Actor: actor, Command: command, InPlace: inPlace}
-	return Refusal{Category: category, Expected: expected, ActorRequired: actor, RecoveryCommand: command, RecoveryOperations: []RecoveryOperation{recovery}}
+	retryable := actor == RefusalActorAgent
+	return Refusal{Category: category, Expected: expected, ActorRequired: actor, RecoveryCommand: command, RecoveryOperations: []RecoveryOperation{recovery}, Retryable: retryable, RetrySafe: retryable}
 }
 
 // Refuse builds a typed refusal. Recovery defaults come from the code table;
@@ -136,6 +157,8 @@ func Refuse(code, blocker string) Refusal {
 		refusal.ActorRequired = known.ActorRequired
 		refusal.RecoveryCommand = known.RecoveryCommand
 		refusal.RecoveryOperations = append([]RecoveryOperation{}, known.RecoveryOperations...)
+		refusal.Retryable = known.Retryable
+		refusal.RetrySafe = known.RetrySafe
 	} else {
 		refusal.ActorRequired = RefusalActorAgent
 		refusal.RecoveryCommand = "specd request-decision <slug> --text <reason>"

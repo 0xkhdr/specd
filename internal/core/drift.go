@@ -62,7 +62,7 @@ type DriftDeclarationsV1 struct {
 }
 
 func DriftPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "drift.json")
+	return filepath.Join(SpecDir(root, slug), "drift.json")
 }
 
 func LoadDriftDeclarations(path string) ([]DriftInvariantV1, error) {

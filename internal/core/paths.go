@@ -15,11 +15,11 @@ type NotFoundError struct {
 }
 
 func EvalStorePath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "evals", "records.jsonl")
+	return filepath.Join(SpecDir(root, slug), "evals", "records.jsonl")
 }
 
 func EvalTracePath(root, slug, runID string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "evals", "traces", runID+".jsonl")
+	return filepath.Join(SpecDir(root, slug), "evals", "traces", runID+".jsonl")
 }
 
 func (e NotFoundError) Error() string {
@@ -32,6 +32,16 @@ func (e NotFoundError) ExitCode() int {
 
 func SpecdDir(root string) string {
 	return filepath.Join(root, specdDirName)
+}
+
+// SpecDir is the single sink for paths under .specd/specs/<slug>. Callers
+// validate user input for an actionable error; the sink still fails closed if
+// one is missed, so an invalid slug can never reach filepath.Join.
+func SpecDir(root, slug string) string {
+	if err := ValidateSlug(slug); err != nil {
+		panic(fmt.Sprintf("invalid spec slug %q: %v", slug, err))
+	}
+	return filepath.Join(SpecdDir(root), "specs", slug)
 }
 
 // SafeJoin resolves a slash-separated repo-relative path against root, refusing
@@ -55,7 +65,7 @@ func SafeJoin(root, rel string) (string, error) {
 
 // SpecMemoryPath is the per-spec steering-memory store (RM.1).
 func SpecMemoryPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "memory.md")
+	return filepath.Join(SpecDir(root, slug), "memory.md")
 }
 
 // SteeringMemoryPath is the shared steering store promotions land in (RM.3).

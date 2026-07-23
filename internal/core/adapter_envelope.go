@@ -163,7 +163,7 @@ type DeploymentAdapterConflictV1 struct {
 }
 
 func DeploymentAdapterConflictLedgerPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "deployment-conflicts.jsonl")
+	return filepath.Join(SpecDir(root, slug), "deployment-conflicts.jsonl")
 }
 
 // ApplyDeploymentAdapterEnvelope atomically checks idempotency and appends a

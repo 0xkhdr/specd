@@ -56,7 +56,7 @@ func resolveNamedSpec(root, slug, source, code string) (SpecResolution, error) {
 	if err := ValidateSlug(slug); err != nil {
 		return SpecResolution{}, SpecResolutionError{Code: code, Message: err.Error(), RecoveryAction: "choose a valid existing spec slug"}
 	}
-	info, err := os.Stat(filepath.Join(SpecdDir(root), "specs", slug))
+	info, err := os.Stat(SpecDir(root, slug))
 	if err != nil || !info.IsDir() {
 		return SpecResolution{}, SpecResolutionError{Code: code, Message: "spec " + slug + " does not exist", RecoveryAction: "choose a valid existing spec slug"}
 	}

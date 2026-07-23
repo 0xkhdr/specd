@@ -2,6 +2,8 @@ package core
 
 import (
 	"errors"
+	"go/ast"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +26,66 @@ func TestSafeJoinPath(t *testing.T) {
 	if !strings.HasPrefix(abs, root+string(filepath.Separator)) {
 		t.Fatalf("SafeJoin escaped root: %s", abs)
 	}
+}
+
+func TestRefusalSpecDirSink(t *testing.T) {
+	root := t.TempDir()
+	want := filepath.Join(SpecdDir(root), "specs", "demo")
+	if got := SpecDir(root, "demo"); got != want {
+		t.Fatalf("SpecDir = %q, want %q", got, want)
+	}
+	for _, slug := range []string{"", "..", "../escape", "/absolute", "a/b"} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("SpecDir accepted invalid slug %q", slug)
+				}
+			}()
+			_ = SpecDir(root, slug)
+		}()
+	}
+}
+
+// Every direct join below .specd/specs/<slug> must stay inside SpecDir, where
+// slug validation cannot be skipped by a caller.
+func TestRefusalPerSpecJoinsUseSink(t *testing.T) {
+	walkProductionGo(t, func(path string, fset *token.FileSet, file *ast.File) {
+		for _, declaration := range file.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if !ok || function.Body == nil || function.Name.Name == "SpecDir" {
+				continue
+			}
+			ast.Inspect(function.Body, func(node ast.Node) bool {
+				call, ok := node.(*ast.CallExpr)
+				if ok && isDirectSpecsJoin(call) {
+					position := fset.Position(call.Pos())
+					t.Errorf("%s:%d: %s bypasses SpecDir", path, position.Line, function.Name.Name)
+				}
+				return true
+			})
+		}
+	})
+}
+
+func isDirectSpecsJoin(call *ast.CallExpr) bool {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || selector.Sel.Name != "Join" || len(call.Args) < 3 {
+		return false
+	}
+	pkg, ok := selector.X.(*ast.Ident)
+	if !ok || pkg.Name != "filepath" {
+		return false
+	}
+	base, ok := call.Args[0].(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	specdDir, ok := base.Fun.(*ast.Ident)
+	if !ok || specdDir.Name != "SpecdDir" {
+		return false
+	}
+	specs, ok := call.Args[1].(*ast.BasicLit)
+	return ok && specs.Kind == token.STRING && specs.Value == `"specs"`
 }
 
 func TestFindRoot(t *testing.T) {

@@ -15,14 +15,14 @@ import (
 // ReleaseLedgerPath is the per-spec append-only release-candidate ledger
 // (spec 08 R6.1). Candidates frozen here are immutable and reproducible.
 func ReleaseLedgerPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "releases.jsonl")
+	return filepath.Join(SpecDir(root, slug), "releases.jsonl")
 }
 
 // DeploymentLedgerPath is the per-spec append-only deployment-attempt ledger
 // (spec 08 R6.2). Attempts append under the spec lock; the evidence gate is
 // neutral to its presence (R6.3).
 func DeploymentLedgerPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "deployments.jsonl")
+	return filepath.Join(SpecDir(root, slug), "deployments.jsonl")
 }
 
 // ReleaseCandidateID is the reproducible content address of a candidate's

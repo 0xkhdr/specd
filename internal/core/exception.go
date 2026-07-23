@@ -27,7 +27,7 @@ func (e ExceptionV1) Validate() error {
 }
 
 func ExceptionPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "exceptions.json")
+	return filepath.Join(SpecDir(root, slug), "exceptions.json")
 }
 
 func LoadGovernanceExceptions(path string) ([]ExceptionV1, error) {

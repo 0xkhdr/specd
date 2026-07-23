@@ -38,7 +38,7 @@ const (
 // separate from evidence.jsonl so the task-verify loader (last-write-wins per
 // task) is untouched and the two evidence types stay physically distinct.
 func CriteriaPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "criteria.jsonl")
+	return filepath.Join(SpecDir(root, slug), "criteria.jsonl")
 }
 
 // AppendCriterion stamps and appends a criterion record. It fills the timestamp

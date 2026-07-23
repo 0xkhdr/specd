@@ -38,7 +38,7 @@ type DecisionV1 struct {
 }
 
 func DecisionPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "decisions.json")
+	return filepath.Join(SpecDir(root, slug), "decisions.json")
 }
 
 // LoadDecisions decodes immutable records in append order. Missing file means

@@ -2,3 +2,5 @@
 {"task_id":"T63","command":"go test ./internal/core ./internal/cmd -run TestApproval -count=2","exit_code":0,"git_head":"8d3f1acd99111aa2168fc5e75256ed0c92d4f8db","timestamp":"2026-07-23T23:23:55Z","actor":"xkhdr"}
 {"task_id":"T64","command":"go test ./internal/core ./internal/cmd -run TestProgram -count=2","exit_code":0,"git_head":"cc9b0b9e462f4ca3f922b82caa454a2df5dead54","timestamp":"2026-07-23T23:28:05Z","actor":"xkhdr"}
 {"task_id":"T65","command":"./scripts/test-lint.sh","exit_code":0,"git_head":"ee2e57a6366294d0815998df8a75def480fcc566","timestamp":"2026-07-23T23:31:43Z","actor":"xkhdr"}
+{"task_id":"T66","command":"go test ./internal/core -run TestRefusal -count=2","exit_code":0,"git_head":"8cdc219832008949d1f9167fe33b0eb96299fb7a","timestamp":"2026-07-23T23:40:52Z","actor":"xkhdr"}
+{"task_id":"T66","command":"go test ./internal/core -run TestRefusal -count=2","exit_code":0,"git_head":"8cdc219832008949d1f9167fe33b0eb96299fb7a","timestamp":"2026-07-23T23:41:34Z","actor":"xkhdr"}

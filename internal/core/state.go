@@ -149,7 +149,7 @@ func InitialState(slug string) State {
 }
 
 func StatePath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "state.json")
+	return filepath.Join(SpecDir(root, slug), "state.json")
 }
 
 func LoadState(path string) (State, error) {

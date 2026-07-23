@@ -26,7 +26,7 @@ type OverrideRecord struct {
 
 // OverridePath is the per-spec append-only override ledger.
 func OverridePath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "overrides.jsonl")
+	return filepath.Join(SpecDir(root, slug), "overrides.jsonl")
 }
 
 // AppendOverride appends one override record. An empty reason is rejected: a

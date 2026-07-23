@@ -105,5 +105,5 @@ func LoadProvenance(path string) (*ProvenanceV1, error) {
 }
 
 func ProvenancePath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "provenance.json")
+	return filepath.Join(SpecDir(root, slug), "provenance.json")
 }

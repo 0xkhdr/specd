@@ -37,7 +37,7 @@ type WorkflowEventV1 struct {
 }
 
 func WorkflowEventPath(root, slug string) string {
-	return filepath.Join(SpecdDir(root), "specs", slug, "workflow-events.jsonl")
+	return filepath.Join(SpecDir(root, slug), "workflow-events.jsonl")
 }
 
 // CanonicalWorkflowEventID returns the content address of an event. The ID and
