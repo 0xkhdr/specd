@@ -131,3 +131,4 @@ the missing regression. A `superseded` row must also name the replacement feedba
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — T49 cannot satisfy Brain-only marker acceptance in declared scope | project maintainers | deferred | Next authoring-gates pass — couple acceptance edges to declared shared-path ownership. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — completion — workflow-09-driver-session | project maintainers | deferred | Release J — feedback disposition is owned by the analysis pass, not by the completed spec. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — ack snapshot exempts task-created untracked files | project maintainers | resolved | ./scripts/regress-domains.sh | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-23 — friction — program status labels an unapproved spec complete | project maintainers | deferred | Next observability pass — align program completion with the direct lifecycle predicate. | - |

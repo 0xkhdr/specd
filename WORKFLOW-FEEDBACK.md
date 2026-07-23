@@ -787,3 +787,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — T47 refreshed `PreexistingUntracked` during `session ack`, so an undeclared path created after open but before ack was misclassified as pre-existing.
 - **Recommendation:** snapshot untracked paths only at `session open`; baseline rotation may re-pin tracked HEAD but must not move the attribution time boundary.
 - **Status:** resolved (5b681ae)
+
+### 2026-07-23 — friction — program status labels an unapproved spec complete
+- **Context:** `workflow-10-observability`, perceive phase, driver, exact commands `./specd status --program` and `./specd status workflow-10-observability --guide`
+- **Expected:** a program row marked `(complete)` means the spec reached its terminal phase, so an empty program frontier means no governed work remains.
+- **Actual:** program status printed `workflow-10-observability  phase=perceive (complete)`, while direct status printed `next gate (human approval): design` and `blocker: design.md is the unedited scaffold stub`.
+- **Root cause:** harness bug — the program projection's completion label does not represent the spec's actual lifecycle completion.
+- **Recommendation:** derive `(complete)` from the same terminal lifecycle predicate used by direct spec status; if the label instead means dependency satisfaction, rename it to `(dependency-satisfied)` and keep the unfinished spec actionable in the frontier.
+- **Status:** open
