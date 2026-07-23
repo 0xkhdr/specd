@@ -19,13 +19,34 @@ func qualityDeclaration(ctx CheckCtx) []Finding {
 	if !qualityDeclarationArmed(ctx.ApproveTarget) {
 		return nil
 	}
+	slug := ctx.Slug
+	if slug == "" {
+		slug = "<slug>"
+	}
 	var findings []Finding
 	for _, task := range ctx.Tasks {
 		if strings.TrimSpace(task.Evidence) == "" {
 			continue
 		}
-		if _, err := core.ParseQualityContract(task); err != nil {
+		contract, err := core.ParseQualityContract(task)
+		if err != nil {
 			findings = append(findings, Finding{Severity: Error, Message: fmt.Sprintf("%s quality declaration invalid: %v", task.ID, err)})
+			continue
+		}
+		// R3.1/R3.2: a non-test evidence class needs an external producer that a
+		// plain `specd verify` cannot run, so name the producer and print the exact
+		// `specd eval import` command at approval — not only when complete-task
+		// later refuses. Warning severity: the declaration is legal, it just needs
+		// evidence imported before the task can complete. Only at the tasks-phase
+		// approval, where these producers are planned.
+		if ctx.ApproveTarget != string(core.StatusTasks) {
+			continue
+		}
+		for _, req := range contract.Required {
+			if req.EvidenceClass == core.EvidenceTest {
+				continue
+			}
+			findings = append(findings, Finding{Severity: Warn, Message: fmt.Sprintf("%s evidence %s/%s cannot be satisfied by a plain `specd verify`; import external evidence with `specd eval import %s <file> --task %s --check %s`", task.ID, req.EvidenceClass, req.CheckID, slug, task.ID, req.CheckID)})
 		}
 	}
 	return findings

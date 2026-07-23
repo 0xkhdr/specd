@@ -57,6 +57,7 @@ Inspect agent artifacts, diagnose prerequisites, or emit deterministic driver gu
 
 | Flag | Value | Description |
 |---|---|---|
+| `--compat` | bool | In `agents doctor`, report backward-compatibility diagnostics. |
 | `--json` | bool | Emit JSON. |
 
 **Examples:**
@@ -769,6 +770,7 @@ Render evidence-backed status, PR, history, trace, and metrics reports.
 
 | Flag | Value | Description |
 |---|---|---|
+| `--compat-removal` | bool | Emit the read-only compatibility-removal readiness report. |
 | `--delivery` | bool | Emit deterministic deployment status with adapter and trust source labeled separately. |
 | `--efficiency` | bool | Emit deterministic context-efficiency report with explicit unknown values. |
 | `--format` | string | Alternate output format; event emits neutral local JSONL, prometheus emits metrics. |
@@ -778,8 +780,10 @@ Render evidence-backed status, PR, history, trace, and metrics reports.
 | `--outcome-review` | bool | Join local change evidence to release and incident references, preserving missing outcomes as unknown. |
 | `--portfolio` | bool | Emit deterministic cross-spec release/environment status and blockers from local ledgers. |
 | `--pr` | bool | Emit PR-oriented report. |
+| `--proof` | bool | Emit the deterministic evidence-proof report. |
 | `--rollup` | bool | Emit exact cross-spec economic roll-up with explicit missing telemetry. |
 | `--trace` | bool | Export the metadata-only run trace as stable JSON Lines. |
+| `--workflow-metrics` | bool | Emit deterministic workflow-friction metrics from local ledgers. |
 
 **Examples:**
 

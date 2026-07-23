@@ -32,7 +32,7 @@ Add `--json` for machine-readable findings.
 
 ---
 
-## The 23 core gates
+## The 25 core gates
 
 Registered by `CoreRegistry()` in the order they run:
 
@@ -58,9 +58,11 @@ Registered by `CoreRegistry()` in the order they run:
 | 18 | `intake` | *(opt-in)* `provenance.json` supplies every configured typed-intake field; empty and `unknown` both fail readiness. |
 | 19 | `governance` | *(opt-in)* Required decisions are accepted and active; expired blocking exceptions fail closed with owner/review action. |
 | 20 | `memory-lint` | *(production profile)* Active memory has no duplicate normalized keys, explicit critical contradictions, or unowned forced promotions. |
-| 21 | `quality-declaration` | Each task's `evidence=` declaration is well-formed `class/check-id` (valid classes: test/output_eval/trajectory_eval/review). |
-| 22 | `verify-lint` | A write task's verify command is not a trivially-passing no-op. |
-| 23 | `steering-applicability` | *(warning)* Warns when every `.specd/steering/*.md` is dropped from the machine manifest for missing `specd-context` metadata; per-file omission stays silent. |
+| 21 | `quality-declaration` | Each task's `evidence=` declaration is well-formed `class/check-id` (valid classes: test/output_eval/trajectory_eval/review); a non-test class also warns that a plain verify cannot satisfy it and names the `specd eval import` producer. |
+| 22 | `dispatch-parity` | Every task row parses through the same `core.ParseTaskContract` the dispatcher uses, so a closed-vocabulary field (e.g. `kind`) outside the canonical set is rejected at the tasks gate rather than at dispatch; every nonconforming row is reported. |
+| 23 | `palette-scope` | A row declaring a CLI handler under `internal/cmd/` must also declare the command palette (`internal/core/commands.go`) and the gendocs source (`tools/gendocs/main.go`); the arg parser separately rejects any flag absent from a command's palette, fail-closed, so a functional-but-undocumented flag cannot ship. |
+| 24 | `verify-lint` | A write task's verify command is not a trivially-passing no-op; a `go test -run` selector must declare a matching test file and name a real `func Test`. |
+| 25 | `steering-applicability` | *(warning)* Warns when every `.specd/steering/*.md` is dropped from the machine manifest for missing `specd-context` metadata; per-file omission stays silent. |
 
 ### Notes on individual gates
 

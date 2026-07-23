@@ -143,6 +143,7 @@ func CoreRegistry() Registry {
 	registry.Register(gateFunc{name: "memory-lint", run: memoryConflictLint})
 	registry.Register(gateFunc{name: "quality-declaration", run: qualityDeclaration})
 	registry.Register(gateFunc{name: "dispatch-parity", run: dispatchParity})
+	registry.Register(gateFunc{name: "palette-scope", run: paletteScope})
 	registry.Register(gateFunc{name: "verify-lint", run: verifyLint})
 	registry.Register(gateFunc{name: "steering-applicability", run: steeringApplicability})
 	return registry

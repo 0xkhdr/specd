@@ -207,8 +207,11 @@ var Commands = []Command{
 		Description:   "Inspect agent artifacts, diagnose prerequisites, or emit deterministic driver guidance without writing.",
 		AllowedPhases: anyPhase(),
 		Examples:      []string{"specd agents", "specd agents doctor --json", "specd agents guide payments --json"},
-		Flags:         []Flag{{Name: "json", TakesValue: false, Type: "bool", Description: "Emit JSON."}},
-		ExitCodes:     stdCodes(),
+		Flags: []Flag{
+			{Name: "json", TakesValue: false, Type: "bool", Description: "Emit JSON."},
+			{Name: "compat", Type: "bool", Description: "In `agents doctor`, report backward-compatibility diagnostics."},
+		},
+		ExitCodes: stdCodes(),
 	},
 	{
 		Name:          "adapters",
@@ -682,6 +685,9 @@ var Commands = []Command{
 			{Name: "history", Type: "bool", Description: "Replay the spec's audit trail from existing records in timestamp order."},
 			{Name: "trace", Type: "bool", Description: "Export the metadata-only run trace as stable JSON Lines."},
 			{Name: "format", TakesValue: true, Type: "string", Enum: []string{"prometheus", "event"}, Description: "Alternate output format; event emits neutral local JSONL, prometheus emits metrics."},
+			{Name: "compat-removal", Type: "bool", Description: "Emit the read-only compatibility-removal readiness report."},
+			{Name: "proof", Type: "bool", Description: "Emit the deterministic evidence-proof report."},
+			{Name: "workflow-metrics", Type: "bool", Description: "Emit deterministic workflow-friction metrics from local ledgers."},
 		},
 	},
 	{
@@ -1192,4 +1198,18 @@ type HelpPayload struct {
 // BuildHelpPayload assembles the full palette for `help --json`.
 func BuildHelpPayload() HelpPayload {
 	return HelpPayload{SchemaVersion: HelpSchemaVersion, Commands: Commands}
+}
+
+// PaletteFlagNames is the set of every flag the command palette documents. It
+// is the single source of truth the flag-scope lint checks handler-recognized
+// flags against (spec R4.2): a flag a handler reads that is absent here is
+// functional but undocumented.
+func PaletteFlagNames() map[string]bool {
+	names := map[string]bool{}
+	for _, c := range Commands {
+		for _, f := range c.Flags {
+			names[f.Name] = true
+		}
+	}
+	return names
 }
