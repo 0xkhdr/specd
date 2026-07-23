@@ -875,3 +875,19 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** test authoring error — an unused standard-library import remained after the test implementation was simplified.
 - **Recommendation:** keep the minimal import set and let the focused compile/run remain the regression check.
 - **Status:** resolved (workflow-11-template-config T60)
+
+### 2026-07-24 — friction — unmatched zsh glob aborted T61 inspection
+- **Context:** `workflow-11-template-config` T61, craftsman, command beginning `rg -n "R6\.1|R6\.2|absolute|workspace-relative|completion recovery|placeholder" ... internal/cmd/test* internal/cmd/*_test.go`
+- **Expected:** ripgrep searches the available eval/lifecycle test files for existing refusal and recovery coverage.
+- **Actual:** shell exit before ripgrep with `zsh:1: no matches found: internal/cmd/test*`.
+- **Root cause:** agent error — an unnecessary unmatched glob was passed through zsh instead of using `rg --files` or explicit known paths.
+- **Recommendation:** enumerate candidates with `rg --files internal/cmd` and pipe/filter them, or pass only existing explicit paths.
+- **Status:** resolved (workflow-11-template-config T61)
+
+### 2026-07-24 — friction — resolved feedback inventory used prose instead of an executable check
+- **Context:** `workflow-11-template-config` T61, craftsman, exact command `./scripts/test-lint.sh && go vet ./internal/cmd && git status --short`
+- **Expected:** the newly synchronized feedback inventory passes structural lint before task verification.
+- **Actual:** exit 1 with `test-lint: feedback regression is not executable: WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — unmatched zsh glob aborted T61 inspection`.
+- **Root cause:** observer authoring error — the inventory marked an agent shell mistake resolved but supplied guidance text rather than an executable regression command.
+- **Recommendation:** classify non-product agent mistakes as deferred inventory items, and reserve resolved rows for entries with runnable checks.
+- **Status:** resolved (workflow-11-template-config observer sync)
