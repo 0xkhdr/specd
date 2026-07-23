@@ -2,12 +2,13 @@
   "schema_version": 2,
   "slug": "workflow-10-observability",
   "mode": "default",
-  "status": "verifying",
-  "phase": "verify",
+  "status": "tasks",
+  "phase": "plan",
   "cycle": 1,
-  "stage": "verifying",
+  "stage": "tasks",
   "condition": "active",
-  "revision": 9,
+  "revision": 10,
+  "last_event_id": "de75eb7ef492e6709f070aa81fb7a9bc312cfce6b17e0d3b56be321e9ed4ff98",
   "records": {
     "approval:design": {
       "kind": "approval",
