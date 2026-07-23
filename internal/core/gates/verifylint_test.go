@@ -1,6 +1,8 @@
 package gates
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -52,5 +54,43 @@ func TestVerifyLintArmingAndCleanCommands(t *testing.T) {
 	}
 	if f := verifyLint(CheckCtx{ApproveTarget: "design", Tasks: fragile}); len(f) != 0 {
 		t.Fatalf("armed outside tasks-phase check: %+v", f)
+	}
+}
+
+// TestVerifyRunSelectorCouplingGate pins spec R2.1/R2.2: a `-run` selector
+// naming a test must declare a *_test.go file (R2.1) and must match a `func
+// Test...` in the declared files (R2.2); a selector with a matching declared
+// test passes.
+func TestVerifyRunSelectorCouplingGate(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a_test.go"), []byte("package a\n\nfunc TestFoo(t *T) {}\nfunc TestBar(t *T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	arm := string(core.StatusTasks)
+
+	// R2.1: selector but no declared test file.
+	noTest := []core.TaskRow{{ID: "T1", Files: "a.go", Verify: "go test ./x -run TestFoo"}}
+	f := verifyLint(CheckCtx{ApproveTarget: arm, Root: root, Tasks: noTest})
+	if !HasErrors(f) {
+		t.Fatalf("R2.1: selector without declared test file not refused: %+v", f)
+	}
+	if !strings.Contains(f[0].Message, "T1") || !strings.Contains(f[0].Message, "TestFoo") {
+		t.Fatalf("R2.1 finding missing row id or selector: %+v", f[0])
+	}
+
+	// R2.2: selector matches no declared Test func.
+	missing := []core.TaskRow{{ID: "T2", Files: "a_test.go", Verify: "go test . -run TestNope"}}
+	f = verifyLint(CheckCtx{ApproveTarget: arm, Root: root, Tasks: missing})
+	if !HasErrors(f) {
+		t.Fatalf("R2.2: selector matching no declared test not reported: %+v", f)
+	}
+	if !strings.Contains(f[0].Message, "T2") || !strings.Contains(f[0].Message, "TestNope") {
+		t.Fatalf("R2.2 finding missing row id or selector: %+v", f[0])
+	}
+
+	// Valid: selector matches a declared Test func → no findings.
+	valid := []core.TaskRow{{ID: "T3", Files: "a_test.go", Verify: "go test . -run TestFoo -count=2"}}
+	if f := verifyLint(CheckCtx{ApproveTarget: arm, Root: root, Tasks: valid}); len(f) != 0 {
+		t.Fatalf("valid selector refused: %+v", f)
 	}
 }

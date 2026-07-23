@@ -29,6 +29,12 @@ type Options struct {
 const (
 	TimeoutExitCode = 124
 	LimitExitCode   = 125
+	// NoTestsExitCode marks a `go test -run` selector whose pattern matched no
+	// test in any package it reached (spec R2.3). go test still exits 0 in that
+	// case, so Run rewrites the exit code to this and names the selector in
+	// stderr; the recorder then refuses an empty run as passing evidence instead
+	// of banking a green that proved nothing.
+	NoTestsExitCode = 126
 )
 
 type Result struct {
@@ -107,6 +113,10 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return result, nil
 	}
 	if err == nil {
+		if selector, empty := runSelectorMatchedNothing(opts.Command, result.Stdout+result.Stderr); empty {
+			result.ExitCode = NoTestsExitCode
+			result.Stderr += fmt.Sprintf("\n[specd: run selector %q matched no tests in any package]\n", selector)
+		}
 		return result, nil
 	}
 	var exitErr *exec.ExitError
@@ -116,6 +126,53 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	result.ExitCode = 1
 	return result, err
+}
+
+// runSelectorMatchedNothing reports whether command is a `go test -run` selector
+// whose output shows every package it reached ran no test, returning the -run
+// pattern so the refusal can name what matched nothing (spec R2.3). Pure over
+// the captured output: an `ok` line without the `[no tests to run]` marker
+// proves at least one package executed a selected test, so a multi-package
+// command stays valid when any package runs matching tests. Non-selector and
+// non-`go test` commands are never refused here.
+// ponytail: line-prefix scan of go's host-agnostic summary lines; a change to
+// go's `ok`/`[no tests to run]` wording is the single upgrade point.
+func runSelectorMatchedNothing(command, output string) (string, bool) {
+	if !strings.Contains(command, "go test") {
+		return "", false
+	}
+	selector, ok := goTestRunPattern(command)
+	if !ok {
+		return "", false
+	}
+	var sawPackage, anyExecuted bool
+	for _, line := range strings.Split(output, "\n") {
+		switch {
+		case strings.HasPrefix(line, "ok "):
+			sawPackage = true
+			if !strings.Contains(line, "[no tests to run]") {
+				anyExecuted = true
+			}
+		case strings.HasPrefix(line, "?"):
+			sawPackage = true
+		}
+	}
+	return selector, sawPackage && !anyExecuted
+}
+
+// goTestRunPattern extracts the `-run <pattern>` (or `-run=<pattern>`) value from
+// a shell command, stripping one layer of surrounding quotes.
+func goTestRunPattern(command string) (string, bool) {
+	fields := strings.Fields(command)
+	for i, f := range fields {
+		if v, ok := strings.CutPrefix(f, "-run="); ok {
+			return strings.Trim(v, `"'`), true
+		}
+		if f == "-run" && i+1 < len(fields) {
+			return strings.Trim(fields[i+1], `"'`), true
+		}
+	}
+	return "", false
 }
 
 func sandboxArgv(binary, dir, hostHome, command string, limits Limits) (string, []string) {
