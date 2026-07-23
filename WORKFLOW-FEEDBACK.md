@@ -803,3 +803,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** test isolation bug — the session-rotation fixture observes a one-second verify timeout only in the full-suite order, while its isolated configuration uses the scaffold default.
 - **Recommendation:** make the fixture's verify timeout explicit and non-flaky, and add a config-isolation assertion proving another timeout test cannot affect it.
 - **Status:** open
+
+### 2026-07-23 — friction — reopen scope transaction advances revision but leaves the task complete
+- **Context:** `workflow-10-observability` verifying phase, operator, exact command `./specd reopen workflow-10-observability task T52 --reason "full race suite leaks the one-second verify timeout into TestDriverSessionTaskRotation" --expect-revision 8 --scope internal/cmd/verify_stamp_test.go,internal/cmd/verify_timeout_test.go`
+- **Expected:** T52 opens a new pending attempt with the two repair files added to its bounded scope, allowing a driver session and fresh evidence.
+- **Actual:** revision advanced to 9, but `status --json` still reports `T52` as `complete`, `5 complete, 0 pending`, and `context workflow-10-observability T52 --json` omits both scope paths.
+- **Root cause:** harness bug — the reopen attempt/scope record does not affect task activity or context projection.
+- **Recommendation:** make reopen task atomically project the new pending attempt and amended scope into status, frontier, context, session authority, and completion; refuse without revision mutation if that projection cannot be produced.
+- **Status:** open
