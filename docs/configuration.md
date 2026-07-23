@@ -26,7 +26,22 @@ diagnostics identify override variable names and never expose secret values.
 The parser intentionally supports only top-level scalars and one level of
 two-space-indented scalar sections. It rejects tabs, sequences, flow
 collections, anchors, aliases, duplicate keys, and multiple YAML documents with
-an exact `config line N` error. Specd uses only the Go standard library.
+an exact `config line N` error. Outside matching single or double quotes, `#`
+starts a comment; quote the whole scalar when a literal hash is data. Whole-line
+comments are ignored. Specd uses only the Go standard library.
+
+List and compound values use these separators:
+
+| Key | Separator |
+|---|---|
+| `verify.trivial` | comma between commands |
+| `routing.classes`, `routing.fallback` | comma between class names |
+| `routing.recommendations` | comma between `complexity=class` entries |
+| `routing.class_capabilities` | semicolon between class entries; `+` between capabilities |
+| `environments.<name>` | semicolon between fields; `+` between `criteria` values |
+
+Spaces around entries are trimmed. These separators are part of the flat
+configuration grammar; YAML sequences and flow collections remain unsupported.
 
 ## Migrating legacy configuration
 

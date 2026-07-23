@@ -79,6 +79,75 @@ func TestConfigStrictUnsupportedSyntax(t *testing.T) {
 	}
 }
 
+func TestConfigListAndCommentConformance(t *testing.T) {
+	clean := strings.Join([]string{
+		"agent: codex",
+		"verify:",
+		`  trivial: "printf ok,true,:"`,
+		"routing:",
+		"  classes: basic,reviewed",
+		"  default_class: basic",
+		"  fallback: reviewed,basic",
+		"  class_capabilities: basic=context;reviewed=context+review",
+		"  recommendations: low=basic,high=reviewed",
+		"environments:",
+		"  staging: strategy=rolling;criteria=health+latency;window=5m;freshness=2m;rollback=previous",
+		"orchestration:",
+		`  model: "model#release"`,
+		"",
+	}, "\n")
+	commented := strings.Join([]string{
+		"# whole-line comments are ignored, including unsupported-looking [] & * syntax",
+		"agent: codex # unquoted trailing comment",
+		"verify:",
+		`  trivial: "printf ok,true,:" # comma-separated commands`,
+		"routing:",
+		"  classes: basic,reviewed # comma-separated classes",
+		"  default_class: basic",
+		"  fallback: reviewed,basic # comma-separated fallback",
+		"  class_capabilities: basic=context;reviewed=context+review # semicolon entries, plus capabilities",
+		"  recommendations: low=basic,high=reviewed # comma-separated entries",
+		"environments:",
+		"  staging: strategy=rolling;criteria=health+latency;window=5m;freshness=2m;rollback=previous # semicolon fields, plus criteria",
+		"orchestration:",
+		`  model: "model#release" # quoted hash is data`,
+		"",
+	}, "\n")
+
+	load := func(name, raw string) Config {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), name+".yaml")
+		if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, diagnostics := LoadConfig(ConfigPaths{Project: path}, nil)
+		if len(diagnostics) != 0 {
+			t.Fatalf("%s diagnostics = %#v", name, diagnostics)
+		}
+		return cfg
+	}
+	want, got := load("clean", clean), load("commented", commented)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("commented config differs from documented form:\n got: %#v\nwant: %#v", got, want)
+	}
+	if !reflect.DeepEqual(got.Verify.Trivial, []string{"printf ok", "true", ":"}) ||
+		!reflect.DeepEqual(got.Routing.Classes, []string{"basic", "reviewed"}) ||
+		!reflect.DeepEqual(got.Routing.Fallback, []string{"reviewed", "basic"}) ||
+		!reflect.DeepEqual(got.Routing.ClassCapabilities["reviewed"], []string{"context", "review"}) ||
+		!reflect.DeepEqual(got.Routing.Recommendations, map[string]string{"low": "basic", "high": "reviewed"}) ||
+		!reflect.DeepEqual(got.Environments[EnvironmentStaging].HealthCriteria, []string{"health", "latency"}) {
+		t.Fatalf("documented list separators parsed incorrectly: %#v", got)
+	}
+
+	values, err := parseSimpleYAML("orchestration:\n  model: 'single#hash' # comment\nsubmit:\n  command: 'echo \"double#hash\"' # comment\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["orchestration.model"] != "single#hash" || values["submit.command"] != `echo "double#hash"` {
+		t.Fatalf("quoted hashes were stripped: %#v", values)
+	}
+}
+
 func TestConfigCascade(t *testing.T) {
 	dir := t.TempDir()
 	project := filepath.Join(dir, "project.yml")

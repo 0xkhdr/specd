@@ -1,12 +1,18 @@
 # specd project configuration — operator-owned, not a managed region.
 # `specd init` writes this once and never clobbers your edits. Every knob below
 # is documented; only verify.timeout_seconds is active by default. Syntax is a
-# strict subset of YAML: two-space indent, `key: value`, `#` comments.
+# strict subset of YAML: two-space indent and `key: value`. Outside matching
+# single or double quotes, `#` starts a comment; quote a scalar to keep a hash.
+# List separators are key-specific: commas for verify.trivial, routing.classes,
+# routing.fallback, and routing.recommendations; semicolons between
+# class_capabilities/environment entries; plus signs between nested
+# capabilities/criteria.
 
 # Bound each task verify command in wall-clock seconds. A timeout is recorded as
 # a FAILING evidence record (exit 124), never a silent hang. 0 means unbounded.
 verify:
   timeout_seconds: 600
+#   trivial: printf ok,true,:
 
 # Opt-in gates — uncomment to enable.
 
@@ -29,6 +35,7 @@ verify:
 #   default_class: default
 #   fallback: default
 #   class_capabilities: default=context
+#   recommendations: low=default,medium=default,high=default
 #   max_tokens: 0
 #   max_cost_micros: 0
 #   deadline_seconds: 0

@@ -433,6 +433,7 @@ func parseSimpleYAML(raw string) (map[string]string, error) {
 	out := make(map[string]string)
 	var section string
 	for lineNo, line := range strings.Split(raw, "\n") {
+		line = stripConfigComment(line)
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			continue
 		}
@@ -493,6 +494,33 @@ func parseSimpleYAML(raw string) (map[string]string, error) {
 		out[key] = unquote(value)
 	}
 	return out, nil
+}
+
+func stripConfigComment(line string) string {
+	var quote rune
+	escaped := false
+	for i, r := range line {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote == '"' && r == '\\' {
+			escaped = true
+			continue
+		}
+		if r == '\'' || r == '"' {
+			if quote == 0 {
+				quote = r
+			} else if quote == r {
+				quote = 0
+			}
+			continue
+		}
+		if r == '#' && quote == 0 {
+			return strings.TrimRight(line[:i], " \t")
+		}
+	}
+	return line
 }
 
 func unquote(value string) string {
