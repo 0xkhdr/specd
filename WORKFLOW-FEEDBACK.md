@@ -931,3 +931,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — the planning task-trace gate validates presence but not the canonical closed kind set consumed by context/session acknowledgement.
 - **Recommendation:** validate every task `kind` against the canonical enum during tasks approval and reuse the same enum for context/session parsing.
 - **Status:** open
+
+### 2026-07-24 — friction — sink-hardening task declared the sink but not its callers
+- **Context:** executing `workflow-12-reset-hygiene` T66, craftsman, after `./specd context workflow-12-reset-hygiene T66 --json`
+- **Expected:** the declared files are sufficient to route every per-spec path builder through the new validated sink required by R5.2.
+- **Actual:** `rg -l 'filepath\\.Join\\(SpecdDir\\(root\\), "specs", slug' internal/core --glob '*.go'` returned 21 implementation files, while T66 declared only `internal/core/paths.go` and its tests for the path half.
+- **Root cause:** task decomposition gap — the task named the new helper location but omitted every existing caller that must adopt it.
+- **Recommendation:** when acceptance requires “every” caller to route through a sink, declare the grep-derived caller set or split mechanical migration into a dependent task.
+- **Status:** open
