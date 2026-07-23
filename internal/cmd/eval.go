@@ -26,7 +26,17 @@ func runEval(root string, args []string, flags map[string]string) error {
 		}
 		slug, path := args[1], args[2]
 		if filepath.IsAbs(path) {
-			return fmt.Errorf("%w: absolute artifact path not allowed", ErrUsage)
+			recovery := "specd eval import " + slug + " <workspace-relative-file>"
+			if task := flags["task"]; task != "" {
+				recovery += " --task " + task
+			}
+			if check := flags["check"]; check != "" {
+				recovery += " --check " + check
+			}
+			return core.Refusef("ARTIFACT_PATH_ABSOLUTE", "eval artifact path %q is absolute; a workspace-relative artifact path is required", path).
+				WithContext("eval artifact", path, "workspace-relative artifact path").
+				WithRecovery(core.RefusalActorAgent, recovery).
+				Wrapping(ErrUsage)
 		}
 		resolved, err := core.SafeJoin(root, path)
 		if err != nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +56,59 @@ func TestEvalImportRejectsOutsideRootAndBadAdapter(t *testing.T) {
 	if err := Run(root, "eval", []string{"import", "demo", "bad.jsonl"}, map[string]string{"task": "T1"}); err == nil || !strings.Contains(err.Error(), "EVAL_IMPORT_MALFORMED") {
 		t.Fatalf("bad adapter accepted: %v", err)
 	}
+}
+
+func TestEvalAbsolutePathTypedRefusal(t *testing.T) {
+	t.Run("import-refusal", func(t *testing.T) {
+		root := t.TempDir()
+		artifact := filepath.Join(root, "adapter.jsonl")
+		const contents = "external evidence"
+		if err := os.WriteFile(artifact, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		err := Run(root, "eval", []string{"import", "demo", artifact}, map[string]string{"task": "T1", "check": "rubric-v1"})
+		refusal, ok := core.AsRefusal(err)
+		if !ok || refusal.Code != "ARTIFACT_PATH_ABSOLUTE" || !errors.Is(err, ErrUsage) {
+			t.Fatalf("absolute path refusal = %#v, %v", refusal, err)
+		}
+		if refusal.Observed != artifact || refusal.Expected != "workspace-relative artifact path" {
+			t.Fatalf("absolute path context = %#v", refusal)
+		}
+		if !strings.Contains(refusal.Detail, artifact) || !strings.Contains(refusal.Detail, "workspace-relative") {
+			t.Fatalf("absolute path detail = %q", refusal.Detail)
+		}
+		const recovery = "specd eval import demo <workspace-relative-file> --task T1 --check rubric-v1"
+		if refusal.RecoveryCommand != recovery || strings.Contains(refusal.RecoveryCommand, artifact) {
+			t.Fatalf("absolute path recovery = %q, want %q", refusal.RecoveryCommand, recovery)
+		}
+		if _, statErr := os.Stat(core.EvalStorePath(root, "demo")); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("absolute path refusal mutated eval store: %v", statErr)
+		}
+		raw, readErr := os.ReadFile(artifact)
+		if readErr != nil || string(raw) != contents {
+			t.Fatalf("absolute path refusal mutated artifact: contents=%q err=%v", raw, readErr)
+		}
+	})
+
+	t.Run("completion-recovery", func(t *testing.T) {
+		contract := core.QualityContract{
+			TaskID: "T1",
+			Required: []core.EvidenceRequirement{{
+				EvidenceClass: core.EvidenceOutputEval,
+				CheckID:       "rubric-v1",
+			}},
+		}
+		err := qualityEvidenceRefusal("demo", "T1", contract, nil, "head")
+		refusal, ok := core.AsRefusal(err)
+		if !ok || refusal.Code != "EVIDENCE_MISSING" {
+			t.Fatalf("completion refusal = %#v, %v", refusal, err)
+		}
+		const recovery = "specd eval import demo <workspace-relative-file> --task T1 --check rubric-v1"
+		if refusal.RecoveryCommand != recovery {
+			t.Fatalf("completion recovery = %q, want %q", refusal.RecoveryCommand, recovery)
+		}
+	})
 }
 
 func TestEvalCommandRegistered(t *testing.T) {

@@ -4,3 +4,4 @@
 {"task_id":"T59","command":"go test ./internal/core -run TestConfigListAndCommentConformance -count=2","exit_code":0,"git_head":"2ede57cf6dcc5a3db0a63e8c57fe7b28609a09c5","timestamp":"2026-07-23T21:22:35Z","actor":"xkhdr"}
 {"task_id":"T59","command":"go test ./internal/core -run TestConfigListAndCommentConformance -count=2","exit_code":0,"git_head":"518daf531b5398e3caff16dc39005020160683ba","timestamp":"2026-07-23T21:23:54Z","actor":"xkhdr"}
 {"task_id":"T60","command":"go test ./internal/core ./internal/cmd -run TestDeclaredFlagsAreConsumed -count=2","exit_code":0,"git_head":"36ef9dd0284af71c1e17f13c49315b90af8e1c3f","timestamp":"2026-07-23T21:28:38Z","actor":"xkhdr"}
+{"task_id":"T61","command":"go test ./internal/cmd -run TestEvalAbsolutePathTypedRefusal -count=2","exit_code":0,"git_head":"53a3c1f2e3042e3793dede0df06a0a507201e0d9","timestamp":"2026-07-23T21:33:13Z","actor":"xkhdr"}
