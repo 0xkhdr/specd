@@ -739,3 +739,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** ambiguous docs — usage does not state that `--json` is unavailable with `--program`, and the program view has no machine-readable equivalent.
 - **Recommendation:** support `status --program --json`; alternatively render `--program [--json]` only after implementing it and explicitly reject the combination as unsupported until then.
 - **Status:** open
+
+### 2026-07-23 — friction — coverage refusal conflates design and task gaps
+- **Context:** `workflow-09-driver-session`, tasks phase, driver, exact command `./specd check workflow-09-driver-session`
+- **Expected:** after every requirement and criterion was added to the tasks.md `refs` cells, either readiness passes or the remaining design trace gap is named against design.md.
+- **Actual:** exit 1 with `error coverage: coverage: requirement/criterion id(s) matched against the tasks.md \`refs\` column have no implementing task: R1, R2, R3, R4, R5, R6; fix: add each id to an implementing task's \`refs\` column, or mark its task \`kind: deferred\`` even though all six parent IDs were present in task refs; the actual gap was the design's range shorthand.
+- **Root cause:** harness bug — `coverageGate` discards `AnalyzeCoverage.Message`, deduplicates only `CoverageFinding.Requirement`, and always renders the task-coverage remedy for design-coverage findings.
+- **Recommendation:** preserve and group coverage findings by cause, rendering `design.md references` remediation separately from `tasks.md refs`; reject unsupported range syntax at the design gate.
+- **Status:** open
