@@ -4,3 +4,5 @@
 {"task_id":"T65","command":"./scripts/test-lint.sh","exit_code":0,"git_head":"ee2e57a6366294d0815998df8a75def480fcc566","timestamp":"2026-07-23T23:31:43Z","actor":"xkhdr"}
 {"task_id":"T66","command":"go test ./internal/core -run TestRefusal -count=2","exit_code":0,"git_head":"8cdc219832008949d1f9167fe33b0eb96299fb7a","timestamp":"2026-07-23T23:40:52Z","actor":"xkhdr"}
 {"task_id":"T66","command":"go test ./internal/core -run TestRefusal -count=2","exit_code":0,"git_head":"8cdc219832008949d1f9167fe33b0eb96299fb7a","timestamp":"2026-07-23T23:41:34Z","actor":"xkhdr"}
+{"task_id":"T67","command":"go test ./internal/core ./internal/cmd -run TestScopeAmend -count=2 \u0026\u0026 go run ./tools/gendocs \u0026\u0026 ./scripts/docs-lint.sh","exit_code":1,"git_head":"b2af4726aa4013029aa6e3426ab244331fabdcf9","timestamp":"2026-07-23T23:48:22Z","actor":"xkhdr"}
+{"task_id":"T67","command":"go test ./internal/core ./internal/cmd -run TestScopeAmend -count=2 \u0026\u0026 go run ./tools/gendocs \u0026\u0026 ./scripts/docs-lint.sh","exit_code":0,"git_head":"b2af4726aa4013029aa6e3426ab244331fabdcf9","timestamp":"2026-07-23T23:48:44Z","actor":"xkhdr"}

@@ -517,6 +517,9 @@ func runSpike(root string, args []string, flags map[string]string) error {
 }
 
 func runMidreq(root string, args []string, flags map[string]string) error {
+	if (strings.TrimSpace(flags["task"]) == "") != (strings.TrimSpace(flags["path"]) == "") {
+		return usageError("midreq")
+	}
 	return appendScoped(root, args, flags, "midreq", "usage: specd midreq <spec> --text <text> [--scope <scope>]")
 }
 
@@ -573,6 +576,22 @@ func appendScoped(root string, args []string, flags map[string]string, kind, usa
 		return err
 	}
 	fmt.Fprintf(os.Stdout, "recorded %s for %s\n", kind, slug)
+	if kind == "midreq" && strings.TrimSpace(flags["task"]) != "" {
+		state, loadErr := core.LoadState(core.StatePath(root, slug))
+		if loadErr != nil {
+			return loadErr
+		}
+		session, sessionErr := core.LoadDriverSession(core.DriverSessionPath(root, slug))
+		if sessionErr != nil {
+			return sessionErr
+		}
+		if session.ID != "" && !session.Expired(time.Now()) {
+			fmt.Fprintf(os.Stdout, "next: specd session action %s --json\n", slug)
+		} else {
+			fmt.Fprintf(os.Stdout, "next: specd reopen %s scope %s %s --reason %q --expect-revision %d\n",
+				slug, flags["task"], flags["path"], text, state.Revision)
+		}
+	}
 	return nil
 }
 

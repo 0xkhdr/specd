@@ -1,10 +1,12 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,11 +20,13 @@ const ReopenPlanSchemaVersion = "1"
 // ReopenTaskTransitionPrefix marks a task-reopen workflow event; the task id
 // follows it, so a ledger scan reads as `reopen.task.T7`.
 const ReopenTaskTransitionPrefix = "reopen.task."
+const ScopeAmendTransitionPrefix = "scope.amend."
 
 // reopenEntityKind is the workflow-event entity kind a task attempt advances.
 // BeforeEntityVersion/AfterEntityVersion are the prior and new attempt numbers,
 // so the attempt chain is the event chain — there is no second counter to drift.
 const reopenEntityKind = "task"
+const scopeEntityKind = "scope"
 
 // Impacted-entity prefixes of a reopen event. InputDigests admits only 32-byte
 // hex digests, so the bounded scope amendment travels in ImpactedEntities,
@@ -70,6 +74,18 @@ func CurrentTaskAttempt(events []WorkflowEventV1, taskID string) TaskAttempt {
 	attempt := TaskAttempt{TaskID: taskID, Attempt: 1, Activity: ActivityPending}
 	scopeDigest := reopenScopeDigest(nil)
 	for _, event := range events {
+		if event.EntityKind == scopeEntityKind && event.EntityID == taskID &&
+			event.Transition == ScopeAmendTransitionPrefix+taskID {
+			for _, entity := range event.ImpactedEntities {
+				if strings.HasPrefix(entity, ReopenScopeEntityPrefix) {
+					attempt.Amendment = corescope.Amend(attempt.Amendment,
+						[]string{strings.TrimPrefix(entity, ReopenScopeEntityPrefix)})
+				}
+			}
+			attempt.ScopeRevision = event.ResultingRevision
+			attempt.AuthorityDigest = event.AuthorityDigest
+			continue
+		}
 		if !isTaskReopenEvent(event, taskID) {
 			continue
 		}
@@ -88,6 +104,183 @@ func CurrentTaskAttempt(events []WorkflowEventV1, taskID string) TaskAttempt {
 		}
 	}
 	return attempt
+}
+
+type ScopeAmendRequest struct {
+	TaskID, Path, Reason, ActorID, GitHead string
+	ExpectedRevision                       int64
+}
+
+type ScopeAmendPlan struct {
+	SchemaVersion   string              `json:"schema_version"`
+	Slug            string              `json:"slug"`
+	TaskID          string              `json:"task_id"`
+	Path            string              `json:"path"`
+	CurrentRevision int64               `json:"current_revision"`
+	NewRevision     int64               `json:"new_revision"`
+	AuthorityDigest string              `json:"authority_digest,omitempty"`
+	EventID         string              `json:"event_id,omitempty"`
+	Eligible        bool                `json:"eligible"`
+	Blockers        []TransitionBlocker `json:"blockers"`
+}
+
+func (p *ScopeAmendPlan) addBlocker(code, entity, message string) {
+	p.Blockers = append(p.Blockers, TransitionBlocker{Code: code, Entity: entity, Message: message})
+}
+
+func (p ScopeAmendPlan) Refusal() error {
+	if p.Eligible {
+		return nil
+	}
+	if len(p.Blockers) == 0 {
+		return Refusef("SCOPE_AMEND_REFUSED", "scope amendment refused")
+	}
+	return Refusef(p.Blockers[0].Code, "%s", p.Blockers[0].Message)
+}
+
+func PlanScopeAmend(slug string, req ScopeAmendRequest, tasks []TaskRow, status map[string]TaskRunStatus, currentRevision int64) ScopeAmendPlan {
+	plan := ScopeAmendPlan{SchemaVersion: ReopenPlanSchemaVersion, Slug: slug, TaskID: req.TaskID,
+		CurrentRevision: currentRevision, NewRevision: currentRevision + 1}
+	if strings.TrimSpace(req.Reason) == "" {
+		plan.addBlocker("SCOPE_AMEND_REASON_REQUIRED", req.TaskID, "scope amendment requires --reason <text>")
+	}
+	if strings.TrimSpace(req.ActorID) == "" {
+		plan.addBlocker("SCOPE_AMEND_ACTOR_REQUIRED", req.TaskID, "scope amendment requires an accountable actor; set SPECD_ACTOR")
+	}
+	if req.ExpectedRevision != currentRevision {
+		plan.addBlocker("SCOPE_AMEND_REVISION_STALE", req.TaskID, fmt.Sprintf(
+			"expected state revision %d but current is %d; re-run with --expect-revision %d",
+			req.ExpectedRevision, currentRevision, currentRevision))
+	}
+	normalized, err := corescope.NormalizeAll([]string{req.Path})
+	if err != nil || len(normalized) != 1 {
+		plan.addBlocker("SCOPE_AMEND_PATH_INVALID", req.Path, fmt.Sprintf("scope path must be one workspace-relative path: %v", err))
+	} else {
+		plan.Path = normalized[0]
+	}
+	var row *TaskRow
+	for i := range tasks {
+		if tasks[i].ID == req.TaskID {
+			row = &tasks[i]
+			break
+		}
+	}
+	if row == nil {
+		plan.addBlocker("SCOPE_AMEND_TASK_UNKNOWN", req.TaskID, fmt.Sprintf("task %q is not in this spec's tasks.md", req.TaskID))
+	} else {
+		if status[req.TaskID] != TaskRunning {
+			plan.addBlocker("SCOPE_AMEND_TASK_NOT_RUNNING", req.TaskID, fmt.Sprintf("task %s is %s; scope may be amended only while it is running", req.TaskID, status[req.TaskID]))
+		}
+		if slices.Contains(row.DeclaredFiles, plan.Path) {
+			plan.addBlocker("SCOPE_AMEND_ALREADY_DECLARED", req.TaskID, fmt.Sprintf("path %s is already declared by task %s", plan.Path, req.TaskID))
+		}
+	}
+	plan.AuthorityDigest = Digest([]byte(strings.Join([]string{"scope-amend", req.ActorID, req.TaskID, plan.Path, req.Reason}, "|")))
+	plan.Eligible = len(plan.Blockers) == 0
+	return plan
+}
+
+func BuildScopeAmendEvent(plan ScopeAmendPlan, req ScopeAmendRequest, projection State, priorVersion int64) (WorkflowEventV1, error) {
+	if !plan.Eligible {
+		return WorkflowEventV1{}, plan.Refusal()
+	}
+	return NewWorkflowEvent(WorkflowEventV1{
+		EntityKind: scopeEntityKind, EntityID: plan.TaskID,
+		BeforeEntityVersion: priorVersion, AfterEntityVersion: priorVersion + 1,
+		ExpectedRevision: plan.CurrentRevision, Transition: ScopeAmendTransitionPrefix + plan.TaskID,
+		Actor: req.ActorID, AuthorityDigest: plan.AuthorityDigest, Reason: req.Reason,
+		InputDigests:     map[string]string{"path": Digest([]byte(plan.Path))},
+		ImpactedEntities: []string{ReopenTaskEntityPrefix + plan.TaskID, ReopenScopeEntityPrefix + plan.Path},
+		GitHead:          req.GitHead, Timestamp: Clock().Format(time.RFC3339), Projection: projection,
+	})
+}
+
+func CommitScopeAmend(tasksPath, statePath, eventPath, slug string, req ScopeAmendRequest, tasks []TaskRow, status map[string]TaskRunStatus, preview ScopeAmendPlan) (ScopeAmendPlan, error) {
+	state, err := RecoverWorkflowState(statePath, eventPath)
+	if err != nil {
+		return ScopeAmendPlan{}, err
+	}
+	fresh := PlanScopeAmend(slug, req, tasks, status, state.Revision)
+	if !fresh.Eligible {
+		return fresh, fresh.Refusal()
+	}
+	events, err := ReadWorkflowEvents(eventPath)
+	if err != nil {
+		return fresh, err
+	}
+	var version int64
+	for _, event := range events {
+		if event.EntityKind == scopeEntityKind && event.EntityID == req.TaskID && event.AfterEntityVersion > version {
+			version = event.AfterEntityVersion
+		}
+	}
+	event, err := BuildScopeAmendEvent(fresh, req, state, version)
+	if err != nil {
+		return fresh, err
+	}
+	original, err := os.ReadFile(tasksPath)
+	if err != nil {
+		return fresh, err
+	}
+	updated, err := RewriteTaskDeclaredPath(original, req.TaskID, fresh.Path)
+	if err != nil {
+		return fresh, err
+	}
+	if err := AtomicWrite(tasksPath, string(updated)); err != nil {
+		return fresh, err
+	}
+	if err := CommitWorkflowTransition(TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
+		if rollbackErr := AtomicWrite(tasksPath, string(original)); rollbackErr != nil {
+			return fresh, fmt.Errorf("scope amendment commit failed: %v; tasks rollback failed: %w", err, rollbackErr)
+		}
+		return fresh, err
+	}
+	fresh.EventID, fresh.NewRevision = event.ID, event.ResultingRevision
+	return fresh, nil
+}
+
+func RewriteTaskDeclaredPath(raw []byte, id, added string) ([]byte, error) {
+	lines := bytes.SplitAfter(raw, []byte{'\n'})
+	fileIndex := -1
+	changed := false
+	out := make([]byte, 0, len(raw)+len(added)+2)
+	for _, line := range lines {
+		cells := parsePipeRow(strings.TrimRight(string(line), "\n"))
+		if cells != nil && fileIndex < 0 {
+			for i, cell := range cells {
+				if strings.EqualFold(strings.TrimSpace(cell), "files") {
+					fileIndex = i
+				}
+			}
+		}
+		if cells == nil || fileIndex < 0 || fileIndex >= len(cells) {
+			out = append(out, line...)
+			continue
+		}
+		_, taskID := splitMarkedTaskID(cells[0])
+		if taskID != id {
+			out = append(out, line...)
+			continue
+		}
+		if changed {
+			return nil, fmt.Errorf("duplicate task id %q", id)
+		}
+		files, err := normalizeDeclaredFiles(cells[fileIndex])
+		if err != nil {
+			return nil, err
+		}
+		cells[fileIndex] = strings.Join(corescope.Amend(files, []string{added}), ", ")
+		newLine := "| " + strings.Join(cells, " | ") + " |"
+		if bytes.HasSuffix(line, []byte{'\n'}) {
+			newLine += "\n"
+		}
+		out = append(out, newLine...)
+		changed = true
+	}
+	if !changed {
+		return nil, fmt.Errorf("task %s not found", id)
+	}
+	return out, nil
 }
 
 // TaskAttempts maps every reopened task to its current attempt. Tasks absent

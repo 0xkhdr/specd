@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,54 @@ func reopenRequest() ReopenRequest {
 		Reason:           "rounding defect found after completion",
 		ActorID:          "operator:alice",
 		Baseline:         strings.Repeat("b", 40),
+	}
+}
+
+func TestScopeAmendRunningTaskAppendsPathAndAuditEvent(t *testing.T) {
+	statePath, eventPath, _ := reopenSpec(t)
+	tasksPath := filepath.Join(filepath.Dir(statePath), "tasks.md")
+	raw := "| id | role | files | depends-on | verify | acceptance |\n|---|---|---|---|---|---|\n| 🚧 T1 | craftsman | a.go | - | printf ok | R6.1 |\n"
+	if err := AtomicWrite(tasksPath, raw); err != nil {
+		t.Fatal(err)
+	}
+	tasks := []TaskRow{{ID: "T1", Marker: "🚧", Role: "craftsman", Files: "a.go", DeclaredFiles: []string{"a.go"}}}
+	req := ScopeAmendRequest{TaskID: "T1", Path: "internal/new.go", Reason: "implementation discovered dependency",
+		ActorID: "operator:alice", GitHead: strings.Repeat("a", 40)}
+	state, err := LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ExpectedRevision = state.Revision
+	preview := PlanScopeAmend("demo", req, tasks, map[string]TaskRunStatus{"T1": TaskRunning}, state.Revision)
+	plan, err := CommitScopeAmend(tasksPath, statePath, eventPath, "demo", req, tasks,
+		map[string]TaskRunStatus{"T1": TaskRunning}, preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Eligible || plan.EventID == "" {
+		t.Fatalf("plan = %+v", plan)
+	}
+	updated, err := os.ReadFile(tasksPath)
+	if err != nil || !strings.Contains(string(updated), "a.go, internal/new.go") {
+		t.Fatalf("tasks = %q, err %v", updated, err)
+	}
+	events, err := ReadWorkflowEvents(eventPath)
+	if err != nil || len(events) != 1 || events[0].Transition != "scope.amend.T1" {
+		t.Fatalf("events = %+v, err %v", events, err)
+	}
+	attempt := CurrentTaskAttempt(events, "T1")
+	if attempt.Attempt != 1 || attempt.ScopeRevision != plan.NewRevision ||
+		!slices.Contains(attempt.Amendment, "internal/new.go") {
+		t.Fatalf("attempt = %+v", attempt)
+	}
+}
+
+func TestScopeAmendRefusesUnsafePathAndNonRunningTask(t *testing.T) {
+	tasks := []TaskRow{{ID: "T1", DeclaredFiles: []string{"a.go"}}}
+	req := ScopeAmendRequest{TaskID: "T1", Path: "../escape", Reason: "x", ActorID: "operator:alice"}
+	plan := PlanScopeAmend("demo", req, tasks, map[string]TaskRunStatus{"T1": TaskPending}, 0)
+	if plan.Eligible || len(plan.Blockers) != 2 {
+		t.Fatalf("plan = %+v, want path and running blockers", plan)
 	}
 }
 

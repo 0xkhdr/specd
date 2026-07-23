@@ -73,6 +73,33 @@ func TestReopenTaskResetCLICreatesAttempt(t *testing.T) {
 	}
 }
 
+func TestScopeAmendCLIUpdatesRunningTask(t *testing.T) {
+	root := newDemoSpec(t)
+	gitInitRepo(t, root)
+	advanceToExecuting(t, root)
+	writeTasks(t, root, "demo", "| 🚧 T1 | craftsman | a.go | - | printf ok | R6.1 |")
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := captureStdout(t, func() error {
+		return runReopen(root, []string{"demo", "scope", "T1", "internal/new.go"}, map[string]string{
+			"reason": "implementation discovered dependency", "expect-revision": strconv.FormatInt(state.Revision, 10),
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan core.ScopeAmendPlan
+	if err := json.Unmarshal([]byte(out), &plan); err != nil || !plan.Eligible || plan.EventID == "" {
+		t.Fatalf("plan = %+v, err %v", plan, err)
+	}
+	raw, err := os.ReadFile(filepath.Join(core.SpecdDir(root), "specs", "demo", "tasks.md"))
+	if err != nil || !strings.Contains(string(raw), "a.go, internal/new.go") {
+		t.Fatalf("tasks = %q, err %v", raw, err)
+	}
+}
+
 func TestTaskReopenAttemptBindingCLIRefusesPriorAttemptEvidence(t *testing.T) {
 	root := reopenCLISpec(t)
 	if err := Run(root, "verify", []string{"demo", "T1"}, nil); err != nil {

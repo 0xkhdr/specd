@@ -304,8 +304,8 @@ var Commands = []Command{
 	},
 	{
 		Name:          "reopen",
-		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n> | specd reopen <spec> descendant <id> <revalidate|retain|supersede|cancel> --reason <text> --expect-revision <n>",
-		Description:   "Open the next attempt of a completed, failed, or cancelled task, the next draft version of an unreleased artifact, or the next lifecycle cycle of an unreleased spec; prior-attempt evidence stops completing a reopened task and prior bytes are preserved as a content-addressed revision.",
+		Usage:         "specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> scope <id> <path> --reason <text> --expect-revision <n> [--session <id> --nonce <nonce>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n> | specd reopen <spec> descendant <id> <revalidate|retain|supersede|cancel> --reason <text> --expect-revision <n>",
+		Description:   "Open the next attempt of terminal work, amend one running task's declared scope through an audited transaction, or open the next draft or lifecycle cycle.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd reopen payments task T7 --reason 'rounding defect found in review' --expect-revision 12"},
@@ -315,6 +315,8 @@ var Commands = []Command{
 			{Name: "expect-revision", TakesValue: true, Type: "string", Description: "State revision the reopen was previewed against; a moved revision refuses and requires a fresh preview."},
 			{Name: "scope", TakesValue: true, Type: "string", Description: "Comma-separated bounded scope amendment approved inside this transaction, for repair that spans the task's declared files."},
 			{Name: "revoke-lease", TakesValue: true, Type: "string", Description: "Lease id the operator authorizes revoking inside this transaction; a live lease otherwise refuses the reopen."},
+			{Name: "session", TakesValue: true, Type: "string", Description: "Open driver session id when governed session binding is active."},
+			{Name: "nonce", TakesValue: true, Type: "string", Description: "Single-use operation nonce minted by session action."},
 		},
 	},
 	{
@@ -372,8 +374,8 @@ var Commands = []Command{
 	},
 	{
 		Name:          "midreq",
-		Usage:         "specd midreq <spec> --text <change> [--scope <scope>]",
-		Description:   "Capture a scoped mid-stream requirement change.",
+		Usage:         "specd midreq <spec> --text <change> [--scope <scope>] [--task <id> --path <workspace-path>]",
+		Description:   "Capture a scoped mid-stream requirement change and, when a task/path are supplied, print the exact governed scope-amendment action.",
 		AllowedPhases: anyPhase(),
 		ExitCodes:     stdCodes(),
 		Examples:      []string{"specd midreq payments --text 'add refund path' --scope requirements"},
@@ -382,6 +384,8 @@ var Commands = []Command{
 		Flags: []Flag{
 			{Name: "text", TakesValue: true, Type: "string", Description: "Change description (required)."},
 			{Name: "scope", TakesValue: true, Type: "string", Description: "Optional scope label."},
+			{Name: "task", TakesValue: true, Type: "string", Description: "Running task that needs a governed declared-path amendment."},
+			{Name: "path", TakesValue: true, Type: "string", Description: "One workspace-relative path the running task needs."},
 		},
 	},
 	{
@@ -855,6 +859,7 @@ var operationDefinitions = map[string][]operationDefinition{
 	// a repair but never re-authorizes its own work (spec 04 design, security).
 	"reopen": {
 		{id: "reopen.task", subcommand: "task", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"},
+		{id: "reopen.scope", subcommand: "scope", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, taskRequired: true, scopeSource: "task"},
 		{id: "reopen.artifact", subcommand: "artifact", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
 		{id: "reopen.spec", subcommand: "spec", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "spec"},
 		{id: "reopen.descendant", subcommand: "descendant", actor: ActorOperator, effect: EffectStateWrite, authorityRequired: true, scopeSource: "task"},
@@ -1068,6 +1073,8 @@ func ResolveOperation(command string, args []string, flags map[string]string) (O
 		switch {
 		case len(args) >= 2 && args[1] == "task":
 			id = "reopen.task"
+		case len(args) == 4 && args[1] == "scope":
+			id = "reopen.scope"
 		case len(args) == 3 && args[1] == "artifact":
 			id = "reopen.artifact"
 		case len(args) == 2 && args[1] == "spec":

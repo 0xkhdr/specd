@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -270,6 +271,27 @@ func TestMidreqDecisionAppend(t *testing.T) {
 	}
 	if state.Revision <= before.Revision {
 		t.Fatal("revision not advanced via CAS")
+	}
+}
+
+func TestScopeAmendMidreqNamesExactNextAction(t *testing.T) {
+	root := newDemoSpec(t)
+	out, err := captureStdout(t, func() error {
+		return Run(root, "midreq", []string{"demo"}, map[string]string{
+			"text": "implementation needs helper", "task": "T1", "path": "internal/helper.go",
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := core.LoadState(core.StatePath(root, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("next: specd reopen demo scope T1 internal/helper.go --reason %q --expect-revision %d",
+		"implementation needs helper", state.Revision)
+	if !strings.Contains(out, want) {
+		t.Fatalf("output = %q, want %q", out, want)
 	}
 }
 

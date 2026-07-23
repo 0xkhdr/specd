@@ -609,16 +609,18 @@ specd memory payments add --key 'atomic writes' --pattern 'use AtomicWrite'
 ### `midreq`
 
 ```
-specd midreq <spec> --text <change> [--scope <scope>]
+specd midreq <spec> --text <change> [--scope <scope>] [--task <id> --path <workspace-path>]
 ```
 
-Capture a scoped mid-stream requirement change.
+Capture a scoped mid-stream requirement change and, when a task/path are supplied, print the exact governed scope-amendment action.
 
 **Phases:** any. **Human only.**
 
 | Flag | Value | Description |
 |---|---|---|
+| `--path` | string | One workspace-relative path the running task needs. |
 | `--scope` | string | Optional scope label. |
+| `--task` | string | Running task that needs a governed declared-path amendment. |
 | `--text` | string | Change description (required). |
 
 **Examples:**
@@ -738,19 +740,21 @@ specd release candidate payments --artifact-digest sha256:abc --sbom-ref sbom://
 ### `reopen`
 
 ```
-specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n> | specd reopen <spec> descendant <id> <revalidate|retain|supersede|cancel> --reason <text> --expect-revision <n>
+specd reopen <spec> task <id> --reason <text> --expect-revision <n> [--scope <paths>] [--revoke-lease <id>] | specd reopen <spec> scope <id> <path> --reason <text> --expect-revision <n> [--session <id> --nonce <nonce>] | specd reopen <spec> artifact <requirements|design|tasks> --reason <text> --expect-revision <n> | specd reopen <spec> spec --reason <text> --expect-revision <n> | specd reopen <spec> descendant <id> <revalidate|retain|supersede|cancel> --reason <text> --expect-revision <n>
 ```
 
-Open the next attempt of a completed, failed, or cancelled task, the next draft version of an unreleased artifact, or the next lifecycle cycle of an unreleased spec; prior-attempt evidence stops completing a reopened task and prior bytes are preserved as a content-addressed revision.
+Open the next attempt of terminal work, amend one running task's declared scope through an audited transaction, or open the next draft or lifecycle cycle.
 
 **Phases:** any.
 
 | Flag | Value | Description |
 |---|---|---|
 | `--expect-revision` | string | State revision the reopen was previewed against; a moved revision refuses and requires a fresh preview. |
+| `--nonce` | string | Single-use operation nonce minted by session action. |
 | `--reason` | string | Required audit reason recorded on the attempt event. |
 | `--revoke-lease` | string | Lease id the operator authorizes revoking inside this transaction; a live lease otherwise refuses the reopen. |
 | `--scope` | string | Comma-separated bounded scope amendment approved inside this transaction, for repair that spans the task's declared files. |
+| `--session` | string | Open driver session id when governed session binding is active. |
 
 **Examples:**
 

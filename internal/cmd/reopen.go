@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
 	corescope "github.com/0xkhdr/specd/internal/core/scope"
@@ -31,6 +32,8 @@ func runReopen(root string, args []string, flags map[string]string) error {
 	switch {
 	case args[1] == "task" && len(args) == 3:
 		return reopenTask(root, slug, args[2], reason, expected, flags)
+	case args[1] == "scope" && len(args) == 4:
+		return amendTaskScope(root, slug, args[2], args[3], reason, expected, flags)
 	case args[1] == "artifact" && len(args) == 3:
 		return reopenArtifact(root, slug, args[2], reason, expected)
 	case args[1] == "spec" && len(args) == 2:
@@ -39,6 +42,44 @@ func runReopen(root string, args []string, flags map[string]string) error {
 		return resolveDescendant(root, slug, args[2], args[3], reason, expected)
 	}
 	return usageError("reopen")
+}
+
+func amendTaskScope(root, slug, taskID, path, reason string, expected int64, flags map[string]string) error {
+	plan, err := core.WithSpecLock(root, func() (core.ScopeAmendPlan, error) {
+		spec, err := loadSpec(root, slug)
+		if err != nil {
+			return core.ScopeAmendPlan{}, err
+		}
+		statePath, eventPath := core.StatePath(root, slug), core.WorkflowEventPath(root, slug)
+		state, err := core.RecoverWorkflowState(statePath, eventPath)
+		if err != nil {
+			return core.ScopeAmendPlan{}, err
+		}
+		if err := validateSessionBinding(root, slug, taskID, state, flags, time.Now()); err != nil {
+			return core.ScopeAmendPlan{}, err
+		}
+		req := core.ScopeAmendRequest{
+			TaskID: taskID, Path: path, Reason: reason, ActorID: core.ReopenActor(),
+			GitHead: gitHead(root), ExpectedRevision: expected,
+		}
+		status := taskStatus(spec.Tasks)
+		preview := core.PlanScopeAmend(slug, req, spec.Tasks, status, state.Revision)
+		if !preview.Eligible {
+			return preview, preview.Refusal()
+		}
+		if err := enforceSessionBinding(root, slug, taskID, state, flags, time.Now()); err != nil {
+			return preview, err
+		}
+		tasksPath, err := core.SpecArtifactPath(root, slug, "tasks")
+		if err != nil {
+			return preview, err
+		}
+		return core.CommitScopeAmend(tasksPath, statePath, eventPath, slug, req, spec.Tasks, status, preview)
+	})
+	if err != nil {
+		return err
+	}
+	return writeJSON(plan)
 }
 
 // reopenIntent parses the two flags every reopen requires.
