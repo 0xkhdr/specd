@@ -36,6 +36,22 @@ Raising the floor is a **MINOR** release, called out in the changelog. Never low
 `internal/version.Version` is injected at build time from the tag
 (`-ldflags -X …/internal/version.Version=vX.Y.Z`); untagged builds report a development version.
 
+## Compatibility window and removal
+
+Every deprecated surface (legacy config source, state schema, status projection, machine-output
+route, unknown actor provenance, and task grammar) is tracked in the in-code compatibility registry
+(`internal/core/compatibility.go`) with a stable diagnostic code, the version and date at which its
+removal window opens, the replacement command, and an owner. The registry is a pure function of the
+binary — it reaches no network and keeps no mutable metrics store.
+
+`specd agents doctor --compat` projects the registry against local metadata and reports which
+surfaces are still in active use, their replacement, and whether their removal window is met.
+Removal is never automatic: a surface stays supported until **both** its minimum version and its
+minimum date are reached **and** no active use remains. When any of those is unmet the surface is
+retained and the unmet gate is named (`unmet-window-version`, `unmet-window-date`, or `active-use`).
+Time alone never deletes support. A migrated surface stops being reported as active but stays in the
+inventory as migration history.
+
 ---
 
 **See also:** [../CHANGELOG.md](../CHANGELOG.md) · [../TESTING.md](../TESTING.md) ·

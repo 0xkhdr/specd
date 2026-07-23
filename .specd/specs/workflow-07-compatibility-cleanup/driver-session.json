@@ -1,0 +1,41 @@
+{
+  "id": "ds-6ca1f77f43428cdd84f6f4b649ee10ea",
+  "slug": "workflow-07-compatibility-cleanup",
+  "driver": "claude-code",
+  "baseline_revision": 4,
+  "handshake_digest": "eec52c1c0f0a659d813e75adaf8add8cb93fb3bbd5c6d0bb26a3534235c6c22d",
+  "baseline_head": "41f71d2a644c928692ae04ebefdc19c4a5b02f3e",
+  "context_receipt": {
+    "schema_version": "1",
+    "manifest_digest": "18563c6ad030f15464231c02896b0da39672f870ead7712d9aff3b74b64889aa",
+    "host_id": "claude-code",
+    "driver_id": "claude-code",
+    "supplied_digests": [
+      "06f13371b7503e8fb3100a755637a877da149a0bc912edef43121339d521183d",
+      "32d43d756facbe936e2d878c0543a06647ba09f4045dfbba9c47f48c805b4365",
+      "38547bb4c76c12a1942c9344d5ec64e956d2dc116a586bff5915a6c29caffb94",
+      "4e1343dfb36c6575183a9d2d10e0d5be289369496331f092ab48a5b3c4917598",
+      "53976013c84a0d34205730890356c09956a1741c21bb83d4e075a0b3a91f7166",
+      "6d63f8fd302120443baecb341814ae6ac4236f2f8e55d68dcebe2d975eb7aef2",
+      "81a3247b0e71b31e03cbcf031b197209881e405cc7a6f59a2404f821ef3d785e",
+      "883adb5e1d7d1c1b2dec8702a3b53a72ae3375e801ea0711ea65aae4ef17a0a4",
+      "89802c92d8150f5a7cb85a58402591a489a512627397f66fc694267732e44653",
+      "89f511941f047698401e27b1f8036c837f4977786bc1d9d49d920e8e7f6234c4",
+      "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a",
+      "a7eefd09ffec2d7fe013f334b95a0d5cf54e6c1c6af9b6e721f6495912c3cef0",
+      "bb6065c1433e16a7bb86d9a4d8791a69ec12485db60f10ddbc8c95d98fa54df6",
+      "d08efe6d35432b50690a75eec5e25e9c1325d125d08e647409aaf9990ab77141",
+      "d451cb4a53502aed9c2e89503957bf9c4c7229494d9426e3f8564e582ae6575c"
+    ],
+    "missing_digests": [],
+    "reported_tokens": 15948,
+    "receipt_digest": "31fd4607742d2ebfd5538ab7f031a5ffc9b15336e458e5cf5ec49bbeee55bbe8"
+  },
+  "authority_digest": "654c6ee0460e3e67d7476f1fb793f590783540291cf719a09fedf0d726c2973b",
+  "issued_at": "2026-07-23T00:48:12.227083274Z",
+  "expires_at": "2026-07-23T02:48:12.227083274Z",
+  "spent_nonces": [
+    "d5dfc619a2d83ea8e43c32b8a489c4e7"
+  ],
+  "revision": 4
+}

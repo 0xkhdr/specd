@@ -15,6 +15,7 @@ import (
 	"github.com/0xkhdr/specd/internal/core"
 	"github.com/0xkhdr/specd/internal/core/gates/security"
 	"github.com/0xkhdr/specd/internal/orchestration"
+	"github.com/0xkhdr/specd/internal/version"
 )
 
 type outcomeInput struct {
@@ -552,7 +553,7 @@ func runReport(root string, args []string, flags map[string]string) error {
 		return writeJSON(export)
 	}
 	if len(args) != 1 {
-		return errors.New("usage: report slug [--pr|--metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event] | report --portfolio")
+		return errors.New("usage: report slug [--pr|--metrics|--workflow-metrics|--efficiency|--rollup|--delivery|--json|--history|--proof|--trace|--format prometheus|event] | report --portfolio")
 	}
 	model, err := reportModel(root, args[0])
 	if err != nil {
@@ -569,6 +570,22 @@ func runReport(root string, args []string, flags map[string]string) error {
 		}
 		_, err = fmt.Fprint(os.Stdout, renderOutcomeReview([]outcomeInput{{SpecID: args[0], EvidenceRefs: refs}}))
 		return err
+	}
+	// --workflow-metrics derives local workflow counts at read time from the
+	// on-disk workflow events plus the compatibility inventory. No aggregate file
+	// is written and no second metrics store exists (R1.3).
+	if flagEnabled(flags, "workflow-metrics") {
+		events, err := core.ReadWorkflowEvents(core.WorkflowEventPath(root, args[0]))
+		if err != nil {
+			return err
+		}
+		diagnostics := core.CompatInventory(core.LoadCompatFacts(root, args[0]), version.Get().Version, time.Now().UTC().Format("2006-01-02"))
+		metrics := core.DeriveWorkflowMetrics(events, diagnostics)
+		if flagEnabled(flags, "json") {
+			return writeJSON(metrics)
+		}
+		fmt.Fprint(os.Stdout, core.RenderWorkflowMetrics(args[0], metrics))
+		return nil
 	}
 	if flagEnabled(flags, "delivery") {
 		records, err := core.ReadDeployments(core.DeploymentLedgerPath(root, args[0]))

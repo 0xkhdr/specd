@@ -17,6 +17,41 @@ type DoctorResultV1 struct {
 	NextAction      string          `json:"next_action"`
 }
 
+// DoctorCompat projects the compatibility inventory through the existing doctor
+// envelope: one finding per active deprecated use, sorted deterministically, and
+// "healthy" when nothing deprecated is in active use. It writes nothing and
+// leaks no source or secret — findings carry only governed identities. Migrated
+// and inactive rows are retained by CompatInventory as history but omitted here,
+// since doctor reports what still needs action.
+func DoctorCompat(facts CompatFacts, currentVersion, today string) DoctorResultV1 {
+	findings := make([]DriverFinding, 0)
+	for _, d := range CompatInventory(facts, currentVersion, today) {
+		if !d.Active {
+			continue
+		}
+		message := "deprecated " + d.Surface + " in active use; window " + d.Window + "; owner " + d.Owner
+		if d.RemovalEligible {
+			message += "; removal-eligible"
+		} else if d.UnmetGate != "" {
+			message += "; retained (" + d.UnmetGate + ")"
+		}
+		findings = append(findings, DriverFinding{
+			Code: d.Code, Severity: "warn", Ref: d.Entity,
+			Message: message, RecoveryAction: "migrate via `" + d.Replacement + "`",
+		})
+	}
+	nextAction := "no deprecated surface in active use; run `specd agents doctor --json`"
+	if len(findings) > 0 {
+		nextAction = "migrate the reported deprecated surfaces before their removal window"
+	}
+	return DoctorResultV1{
+		ProtocolVersion: DriverProtocolVersion,
+		Healthy:         len(findings) == 0,
+		Findings:        findings,
+		NextAction:      nextAction,
+	}
+}
+
 // Doctor inspects agent-driving prerequisites and writes nothing.
 func Doctor(root, pinned string) DoctorResultV1 {
 	findings := make([]DriverFinding, 0)

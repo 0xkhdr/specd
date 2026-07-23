@@ -1,0 +1,1 @@
+{"task_id":"T30","command":"go test ./internal/core ./internal/cmd -run TestCompatibilityInventory -count=2","exit_code":0,"git_head":"41f71d2a644c928692ae04ebefdc19c4a5b02f3e","timestamp":"2026-07-23T00:58:12Z","actor":"xkhdr"}

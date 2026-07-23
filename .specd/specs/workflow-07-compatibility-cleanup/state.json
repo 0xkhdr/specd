@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "slug": "workflow-07-compatibility-cleanup",
-  "mode": "default",
-  "status": "tasks",
-  "phase": "plan",
-  "revision": 2,
+  "mode": "orchestrated",
+  "status": "executing",
+  "phase": "execute",
+  "cycle": 1,
+  "stage": "executing",
+  "condition": "active",
+  "revision": 5,
   "records": {
     "approval:design": {
       "kind": "approval",
@@ -16,6 +19,14 @@
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
     },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "approved_revision": 2,
+      "timestamp": "2026-07-23T00:45:58Z",
+      "git_head": "c9621ab075fd7b5c70c33ca4e002a75c705be95a",
+      "actor": "xkhdr"
+    },
     "approval:requirements": {
       "kind": "approval",
       "text": "requirements → design",
@@ -24,6 +35,56 @@
       "timestamp": "2026-07-21T21:03:51Z",
       "git_head": "062c54632013d41f0be3e26409ab4e35efbf1962",
       "actor": "xkhdr"
+    },
+    "approval:tasks": {
+      "kind": "approval",
+      "text": "tasks → executing",
+      "gate": "tasks",
+      "approved_revision": 3,
+      "timestamp": "2026-07-23T00:46:06Z",
+      "git_head": "c9621ab075fd7b5c70c33ca4e002a75c705be95a",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:0": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-07-compatibility-cleanup",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "751b43d07526c04604f9cbab2a98714b07993cd99b40aebacd69aed257edb495",
+        "config_digest": "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T01:46:06Z",
+      "timestamp": "2026-07-23T00:46:06Z",
+      "git_head": "c9621ab075fd7b5c70c33ca4e002a75c705be95a",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:tasks:1": {
+      "kind": "approval_request",
+      "id": "approve:tasks",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-07-compatibility-cleanup",
+      "entity_version": "tasks",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 3,
+        "plan_digest": "751b43d07526c04604f9cbab2a98714b07993cd99b40aebacd69aed257edb495",
+        "config_digest": "a2ccbbfdd600ac2a0211ea4b59799f0cc54cde371a788cb22a64da519aa4cd3a"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T01:46:06Z",
+      "timestamp": "2026-07-23T00:46:06Z",
+      "git_head": "c9621ab075fd7b5c70c33ca4e002a75c705be95a",
+      "actor": "xkhdr"
     }
+  },
+  "task_status": {
+    "T30": "complete"
   }
 }

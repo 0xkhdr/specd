@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
+	"github.com/0xkhdr/specd/internal/version"
 )
 
 func runAgents(root string, args []string, flags map[string]string) error {
@@ -23,6 +25,18 @@ func runAgents(root string, args []string, flags map[string]string) error {
 		}
 		return nil
 	}
+	if len(args) == 1 && args[0] == "doctor" && flagEnabled(flags, "compat") {
+		facts := core.LoadCompatFacts(root, getenv()["SPECD_SPEC"])
+		result := core.DoctorCompat(facts, version.Get().Version, time.Now().UTC().Format("2006-01-02"))
+		if flagEnabled(flags, "json") {
+			return writeJSON(result)
+		}
+		for _, finding := range result.Findings {
+			fmt.Fprintf(os.Stdout, "%s %s %s: %s; fix: %s\n", finding.Severity, finding.Code, finding.Ref, finding.Message, finding.RecoveryAction)
+		}
+		fmt.Fprintln(os.Stdout, result.NextAction)
+		return nil
+	}
 	if len(args) == 1 && args[0] == "doctor" {
 		result := core.Doctor(root, getenv()["SPECD_SPEC"])
 		if flagEnabled(flags, "json") {
@@ -35,7 +49,7 @@ func runAgents(root string, args []string, flags map[string]string) error {
 		return nil
 	}
 	if len(args) != 0 {
-		return errors.New("usage: specd agents [doctor | guide <slug>] [--json]")
+		return errors.New("usage: specd agents [doctor [--compat] | guide <slug>] [--json]")
 	}
 	discovery := core.DiscoverAgents(root)
 	if flags["json"] == "true" {

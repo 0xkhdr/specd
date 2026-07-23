@@ -117,6 +117,16 @@ construction:
   workspace-relative or content-addressed; a URL, absolute path, or `..`
   traversal is rejected in the core schema on both append and decode.
 
+## Workflow metrics
+
+`specd report <slug> --workflow-metrics` derives local workflow counts **at read time** from the
+on-disk workflow-event ledger, the compatibility inventory, and current state. No aggregate file is
+written and no second metrics store exists (a deliberate non-goal). It exposes aggregate identities
+only — transition attempts counted by transition name (covering refusals, waits, retries, reopen
+cycles, delegated approvals, and zero-progress halts), stale-descendant totals, and deprecated-use
+totals — never source content or secrets. `--json` emits the same counts as a machine-readable
+object. Because it is a pure projection, it reports correctly on a read-only filesystem.
+
 ## Crash-safety
 
 The opt-in Brain's ACP ledger is append-only and crash-safe: an interrupted append replays to a
