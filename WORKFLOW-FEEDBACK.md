@@ -923,3 +923,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — `coverageGate` discards `CoverageFinding.Message`, retains only the ID, and always renders the task-ref recovery.
 - **Recommendation:** preserve and render each coverage finding cause; prescribe design reference edits for `lacks design coverage` and task reference edits only for `lacks task coverage`.
 - **Status:** open
+
+### 2026-07-24 — friction — tasks approval accepts kinds that session ack rejects
+- **Context:** starting `workflow-12-reset-hygiene` T65, driver, exact command `./specd session ack workflow-12-reset-hygiene T65 --tokens 40000`
+- **Expected:** a task accepted by `specd check` and tasks→executing approval can be acknowledged and dispatched.
+- **Actual:** exit 1 with `TASK_FIELD_UNKNOWN: task T65 column kind value "maintenance" is not one of chore, deferred, docs, feature, fix, refactor, spike, test`.
+- **Root cause:** harness bug — the planning task-trace gate validates presence but not the canonical closed kind set consumed by context/session acknowledgement.
+- **Recommendation:** validate every task `kind` against the canonical enum during tasks approval and reuse the same enum for context/session parsing.
+- **Status:** open
