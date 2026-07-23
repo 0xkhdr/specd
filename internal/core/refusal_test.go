@@ -128,3 +128,22 @@ func TestRefusalRecoveryContract(t *testing.T) {
 		t.Fatalf("terminal refusal advertises in-place retry: %#v", terminal)
 	}
 }
+
+// TestWorkerOutOfScopeRefusalClass pins spec R6.4: WORKER_OUT_OF_SCOPE is a
+// non-retryable, operator-cleared scope-class refusal — a class refusal, not a
+// retryable warning.
+func TestWorkerOutOfScopeRefusalClass(t *testing.T) {
+	r := Refusef("WORKER_OUT_OF_SCOPE", "mission m1 (task T1) pinned to %q claimed by %q", "w1", "w2")
+	if r.Category != "scope" {
+		t.Fatalf("category = %q, want scope", r.Category)
+	}
+	if r.Retryable || r.RetrySafe {
+		t.Fatal("out-of-scope refusal must not be retryable")
+	}
+	if r.ActorRequired != RefusalActorOperator {
+		t.Fatalf("actor = %q, want operator", r.ActorRequired)
+	}
+	if _, ok := AsRefusal(error(r)); !ok {
+		t.Fatal("WORKER_OUT_OF_SCOPE not recognized as a typed refusal")
+	}
+}

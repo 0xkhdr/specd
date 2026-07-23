@@ -349,3 +349,18 @@ func TestMissionLifecycle(t *testing.T) {
 		}
 	})
 }
+
+// TestWorkerOutOfScopeMissionCarriesWorker pins that the optional worker field
+// round-trips through validation and payload without over-constraining a
+// host-chooses plan (spec R6.4).
+func TestWorkerOutOfScopeMissionCarriesWorker(t *testing.T) {
+	m := validMission()
+	m.Worker = "w1"
+	if err := ValidateMission(m); err != nil {
+		t.Fatalf("named worker rejected by ValidateMission: %v", err)
+	}
+	m.Worker = ""
+	if err := ValidateMission(m); err != nil {
+		t.Fatalf("host-chooses mission rejected: %v", err)
+	}
+}

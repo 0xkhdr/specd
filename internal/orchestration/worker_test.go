@@ -47,3 +47,46 @@ func TestCompleteAuthorityIsNarrow(t *testing.T) {
 		t.Fatal("generic task mutation authorized")
 	}
 }
+
+// echoFor builds a matching claim echo for a mission.
+func echoFor(m MissionV1) ClaimEcho {
+	return ClaimEcho{MissionID: m.MissionID, TaskID: m.TaskID, Role: m.Role, ContextDigest: m.ContextDigest, ConfigDigest: m.ConfigDigest, PaletteDigest: m.PaletteDigest, AuthorityRef: m.AuthorityRef, SubjectHead: m.SubjectHead}
+}
+
+// TestWorkerOutOfScopeRefusesUnnamedWorker pins spec R6.4: a mission the plan
+// pinned to worker w1 is refused as an out-of-scope class refusal when claimed
+// by w2, accepted when claimed by w1, and a dash/empty worker imposes no
+// restriction.
+func TestWorkerOutOfScopeRefusesUnnamedWorker(t *testing.T) {
+	m := validMission()
+	m.Worker = "w1"
+	echo := echoFor(m)
+
+	w2 := WorkerV1{WorkerID: "w2", Host: "local", Roles: []string{m.Role}}
+	_, err := ClaimMission(m, w2, echo, m.IssuedAt, time.Minute)
+	refusal, ok := core.AsRefusal(err)
+	if !ok || refusal.Code != "WORKER_OUT_OF_SCOPE" {
+		t.Fatalf("want WORKER_OUT_OF_SCOPE refusal, got %v", err)
+	}
+	if refusal.Retryable || refusal.Category != "scope" {
+		t.Fatalf("out-of-scope must be a non-retryable scope class: %+v", refusal)
+	}
+	for _, want := range []string{"w1", "w2", m.TaskID} {
+		if !strings.Contains(refusal.Error(), want) {
+			t.Fatalf("refusal %q missing %q", refusal.Error(), want)
+		}
+	}
+
+	w1 := WorkerV1{WorkerID: "w1", Host: "local", Roles: []string{m.Role}}
+	if _, err := ClaimMission(m, w1, echo, m.IssuedAt, time.Minute); err != nil {
+		t.Fatalf("named worker refused its own mission: %v", err)
+	}
+
+	for _, worker := range []string{"", "-"} {
+		md := validMission()
+		md.Worker = worker
+		if _, err := ClaimMission(md, w2, echoFor(md), md.IssuedAt, time.Minute); err != nil {
+			t.Fatalf("host-chooses worker %q imposed a restriction: %v", worker, err)
+		}
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -36,6 +37,12 @@ func ClaimMission(m MissionV1, w WorkerV1, e ClaimEcho, now time.Time, ttl time.
 	}
 	if !hasString(w.Roles, m.Role) {
 		return Lease{}, fmt.Errorf("WORKER_ROLE_MISMATCH")
+	}
+	// R6.4: a mission the approved plan pinned to a named worker must be claimed
+	// by that worker. A dash/empty worker is host-chooses and imposes no
+	// restriction. This is an out-of-scope class refusal, not a warning.
+	if planWorker := strings.TrimSpace(m.Worker); planWorker != "" && planWorker != "-" && w.WorkerID != planWorker {
+		return Lease{}, core.Refusef("WORKER_OUT_OF_SCOPE", "mission %s (task %s) is pinned to worker %q but was claimed by %q", m.MissionID, m.TaskID, planWorker, w.WorkerID)
 	}
 	if e.MissionID != m.MissionID || e.TaskID != m.TaskID || e.Role != m.Role || e.ContextDigest != m.ContextDigest || e.ConfigDigest != m.ConfigDigest || e.PaletteDigest != m.PaletteDigest || e.AuthorityRef != m.AuthorityRef || e.SubjectHead != m.SubjectHead || (m.DispatchDigest != "" && e.DispatchDigest != m.DispatchDigest) {
 		return Lease{}, fmt.Errorf("WORKER_PIN_MISMATCH")

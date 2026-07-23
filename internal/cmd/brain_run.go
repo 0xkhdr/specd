@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/0xkhdr/specd/internal/core"
@@ -330,7 +331,7 @@ func (d *sessionDispatcher) Dispatch(task core.FrontierTask) error {
 		timeout = d.config.Routing.DeadlineSeconds
 	}
 	maxAttempts := d.config.Routing.MaxRetries + 1
-	mission := orchestration.MissionV1{ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: d.session.ID, MissionID: missionID, SpecSlug: d.slug, TaskID: task.ID, Attempt: 1, Role: selected.Role, AuthorityRef: "approval:tasks", DeclaredFiles: append([]string(nil), selected.DeclaredFiles...), Acceptance: []string{selected.Acceptance}, Verify: selected.Verify, ContextRef: "context:" + d.slug + ":" + task.ID, ContextDigest: core.Digest([]byte(selected.ID + selected.Role + selected.Files + selected.Verify + selected.Acceptance)), ConfigDigest: core.ConfigDigest(d.config), PaletteDigest: core.PaletteDigest(), PolicyDigest: core.ConfigDigest(d.config), SubjectHead: gitHead(d.root), RouteClass: route.Class, RouteReason: route.Reason, Limits: orchestration.MissionLimits{MaxAttempts: maxAttempts, TimeoutSeconds: timeout, MaxTokens: d.config.Routing.MaxTokens, MaxCostMicros: d.config.Routing.MaxCostMicros}, IssuedAt: d.now, ExpiresAt: d.now.Add(time.Duration(timeout) * time.Second), Status: orchestration.MissionPending}
+	mission := orchestration.MissionV1{ProtocolVersion: orchestration.MissionProtocolVersion, SessionID: d.session.ID, MissionID: missionID, SpecSlug: d.slug, TaskID: task.ID, Attempt: 1, Role: selected.Role, AuthorityRef: "approval:tasks", DeclaredFiles: append([]string(nil), selected.DeclaredFiles...), Acceptance: []string{selected.Acceptance}, Verify: selected.Verify, ContextRef: "context:" + d.slug + ":" + task.ID, ContextDigest: core.Digest([]byte(selected.ID + selected.Role + selected.Files + selected.Verify + selected.Acceptance)), ConfigDigest: core.ConfigDigest(d.config), PaletteDigest: core.PaletteDigest(), PolicyDigest: core.ConfigDigest(d.config), SubjectHead: gitHead(d.root), RouteClass: route.Class, RouteReason: route.Reason, Worker: strings.TrimSpace(selected.Worker), Limits: orchestration.MissionLimits{MaxAttempts: maxAttempts, TimeoutSeconds: timeout, MaxTokens: d.config.Routing.MaxTokens, MaxCostMicros: d.config.Routing.MaxCostMicros}, IssuedAt: d.now, ExpiresAt: d.now.Add(time.Duration(timeout) * time.Second), Status: orchestration.MissionPending}
 	payload, err := orchestration.MissionPayload(mission)
 	if err != nil {
 		return err

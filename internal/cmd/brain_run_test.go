@@ -741,3 +741,24 @@ func assertNoGrantMutation(t *testing.T, name string) {
 		return true
 	})
 }
+
+// TestWorkerOutOfScopeBrainPopulatesMissionWorker pins that the dispatcher
+// copies the selected task row's worker column into the mission (spec R6.4
+// population), so the claim-time scope check has a value to enforce.
+func TestWorkerOutOfScopeBrainPopulatesMissionWorker(t *testing.T) {
+	root := newBrainTestRoot(t, "orchestrated", brainEnabledConfig)
+	tasks := "| id | role | files | depends-on | verify | acceptance | worker |\n|---|---|---|---|---|---|---|\n| T1 | craftsman | a.go | - | printf ok | R1 | w1 |\n"
+	if err := os.WriteFile(filepath.Join(root, ".specd/specs/demo/tasks.md"), []byte(tasks), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"start", "demo"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBrain(root, []string{"step", "demo"}, map[string]string{"authority": ""}); err != nil {
+		t.Fatal(err)
+	}
+	s := loadBrainSession(t, root)
+	if len(s.PendingMissions) != 1 || s.PendingMissions[0].Worker != "w1" {
+		t.Fatalf("mission worker not populated from task row: %+v", s.PendingMissions)
+	}
+}

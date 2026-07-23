@@ -102,6 +102,8 @@ var refusalRecovery = map[string]Refusal{
 		"brain.resume", "specd brain resume <slug>", false),
 	"MISSION_INVALID": refusalTemplate("input", "valid mission identity and authority envelope", RefusalActorOperator,
 		"brain.status", "specd brain status <slug>", false),
+	"WORKER_OUT_OF_SCOPE": refusalTemplate("scope", "a worker id the approved plan named for this task", RefusalActorOperator,
+		"brain.status", "specd brain status <slug>", false),
 	"NO_SUCCESSOR": refusalTemplate("lifecycle", "supported successor or escalation", RefusalActorAgent,
 		"new", "specd new <successor>", false),
 }

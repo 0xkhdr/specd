@@ -39,31 +39,36 @@ type MissionLimits struct {
 	MaxCostMicros  int64 `json:"max_cost_micros,omitempty"`
 }
 type MissionV1 struct {
-	ProtocolVersion string        `json:"protocol_version"`
-	SessionID       string        `json:"session_id"`
-	MissionID       string        `json:"mission_id"`
-	SpecSlug        string        `json:"spec_slug"`
-	TaskID          string        `json:"task_id"`
-	Attempt         int           `json:"attempt"`
-	Role            string        `json:"role"`
-	AuthorityRef    string        `json:"authority_ref"`
-	DeclaredFiles   []string      `json:"declared_files"`
-	Acceptance      []string      `json:"acceptance"`
-	Verify          string        `json:"verify"`
-	ContextRef      string        `json:"context_ref"`
-	ContextDigest   string        `json:"context_digest"`
-	ConfigDigest    string        `json:"config_digest"`
-	PaletteDigest   string        `json:"palette_digest"`
-	PolicyDigest    string        `json:"policy_digest"`
-	SubjectHead     string        `json:"subject_head"`
-	DispatchDigest  string        `json:"dispatch_digest,omitempty"`
-	DiffDigest      string        `json:"diff_digest,omitempty"`
-	RouteClass      string        `json:"route_class"`
-	RouteReason     string        `json:"route_reason"`
-	Limits          MissionLimits `json:"limits"`
-	IssuedAt        time.Time     `json:"issued_at"`
-	ExpiresAt       time.Time     `json:"expires_at"`
-	Status          MissionStatus `json:"status"`
+	ProtocolVersion string   `json:"protocol_version"`
+	SessionID       string   `json:"session_id"`
+	MissionID       string   `json:"mission_id"`
+	SpecSlug        string   `json:"spec_slug"`
+	TaskID          string   `json:"task_id"`
+	Attempt         int      `json:"attempt"`
+	Role            string   `json:"role"`
+	AuthorityRef    string   `json:"authority_ref"`
+	DeclaredFiles   []string `json:"declared_files"`
+	Acceptance      []string `json:"acceptance"`
+	Verify          string   `json:"verify"`
+	ContextRef      string   `json:"context_ref"`
+	ContextDigest   string   `json:"context_digest"`
+	ConfigDigest    string   `json:"config_digest"`
+	PaletteDigest   string   `json:"palette_digest"`
+	PolicyDigest    string   `json:"policy_digest"`
+	SubjectHead     string   `json:"subject_head"`
+	DispatchDigest  string   `json:"dispatch_digest,omitempty"`
+	DiffDigest      string   `json:"diff_digest,omitempty"`
+	RouteClass      string   `json:"route_class"`
+	RouteReason     string   `json:"route_reason"`
+	// Worker is the plan-declared dispatch-policy id from the task row's worker
+	// column (spec R6.4): a named id pins the mission to that worker, `-`/empty is
+	// host-chooses. Optional, so a plan without the column mints missions
+	// unchanged.
+	Worker    string        `json:"worker,omitempty"`
+	Limits    MissionLimits `json:"limits"`
+	IssuedAt  time.Time     `json:"issued_at"`
+	ExpiresAt time.Time     `json:"expires_at"`
+	Status    MissionStatus `json:"status"`
 }
 
 func ValidateMission(m MissionV1) error {
