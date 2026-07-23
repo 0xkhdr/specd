@@ -899,3 +899,27 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — the program projection uses a separate completion predicate and omits the configured execution mode.
 - **Recommendation:** derive program completion from loaded lifecycle state and include `mode=<value>` for each spec, so the documented setup check is decisive.
 - **Status:** open
+
+### 2026-07-24 — friction — task metadata shift hides the missing acceptance summary
+- **Context:** authoring `workflow-12-reset-hygiene` tasks, driver, exact command `./specd check workflow-12-reset-hygiene`
+- **Expected:** acceptance cells containing criterion IDs are either accepted or rejected as malformed acceptance declarations.
+- **Actual:** exit 1 reported 12 downstream errors, including `error task-trace: T62 has unknown risk tier R1.1,R1.2,R1.3` and `error quality-declaration: T62 quality declaration invalid: QUALITY_DECLARATION_INVALID: "standard" must be class/check-id`.
+- **Root cause:** missing guidance — omitting the `: summary` portion makes the parser reinterpret later optional columns, so the refusal names shifted values rather than the malformed acceptance cell.
+- **Recommendation:** validate the acceptance cell before optional-column projection and emit `T62 acceptance must be '<criterion IDs>: <summary>'`.
+- **Status:** open
+
+### 2026-07-24 — friction — verify regex pipes silently split task rows
+- **Context:** authoring `workflow-12-reset-hygiene` tasks, driver, exact command `./specd check workflow-12-reset-hygiene`
+- **Expected:** a shell `-run 'Test.*(Reopen.*Approval|Approval.*Cycle|Reapprove)'` inside the verify cell remains one Markdown cell or is rejected as a malformed row.
+- **Actual:** exit 1 projected later cells into wrong fields, including `error task-trace: T63 has unknown risk tier R2,R2.1,R2.2` and `error quality-declaration: T63 quality declaration invalid: QUALITY_DECLARATION_INVALID: "context" must be class/check-id`.
+- **Root cause:** ambiguous docs — the byte-stable table parser treats unescaped shell alternation pipes as Markdown separators and does not reject the changed cell count.
+- **Recommendation:** reject task rows whose cell count differs from the recognized header and name unescaped `|` as the likely cause.
+- **Status:** open
+
+### 2026-07-24 — friction — coverage gate blames tasks for missing design references
+- **Context:** approving `workflow-12-reset-hygiene` tasks, driver, exact command `./specd check workflow-12-reset-hygiene`
+- **Expected:** the coverage refusal identifies whether each gap comes from design references or task references.
+- **Actual:** exit 1 reported `error coverage: coverage: requirement/criterion id(s) matched against the tasks.md \`refs\` column have no implementing task: R2, R3, R4, R5, R6; fix: add each id to an implementing task's \`refs\` column`, although every ID was already in tasks and the defect was design's non-expanded `R1–R7` range.
+- **Root cause:** harness bug — `coverageGate` discards `CoverageFinding.Message`, retains only the ID, and always renders the task-ref recovery.
+- **Recommendation:** preserve and render each coverage finding cause; prescribe design reference edits for `lacks design coverage` and task reference edits only for `lacks task coverage`.
+- **Status:** open

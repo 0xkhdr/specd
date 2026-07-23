@@ -1,11 +1,116 @@
 {
   "schema_version": 2,
   "slug": "workflow-12-reset-hygiene",
-  "mode": "default",
-  "status": "requirements",
-  "phase": "perceive",
+  "mode": "orchestrated",
+  "status": "tasks",
+  "phase": "plan",
   "cycle": 1,
-  "stage": "requirements",
+  "stage": "tasks",
   "condition": "active",
-  "revision": 0
+  "revision": 3,
+  "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 2,
+      "source_digest": "a5c8fe3b9485bce75c05932d5a340a68a0f8e7606ddff68e218f17a3355e4399",
+      "timestamp": "2026-07-23T22:33:36Z",
+      "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval:orchestrated": {
+      "kind": "approval",
+      "gate": "orchestrated",
+      "timestamp": "2026-07-23T22:29:45Z",
+      "git_head": "484028e87d6c1101cba3ff37b3f27f78f96db9f9",
+      "actor": "xkhdr"
+    },
+    "approval:requirements": {
+      "kind": "approval",
+      "text": "requirements → design",
+      "gate": "requirements",
+      "approved_revision": 1,
+      "source_digest": "7e8949af429fdde1da58afece5791889db4976f3472f247739fb6396af323142",
+      "timestamp": "2026-07-23T22:29:54Z",
+      "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:design:0": {
+      "kind": "approval_request",
+      "id": "approve:design",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "design",
+      "pins": {
+        "artifact_digest": "a5c8fe3b9485bce75c05932d5a340a68a0f8e7606ddff68e218f17a3355e4399",
+        "state_revision": 2,
+        "plan_digest": "a443043262c17df211cd850335d21dd443f937b3013bc4d3084b790a8d71ea70",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:33:36Z",
+      "timestamp": "2026-07-23T22:33:36Z",
+      "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:design:1": {
+      "kind": "approval_request",
+      "id": "approve:design",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "design",
+      "pins": {
+        "artifact_digest": "a5c8fe3b9485bce75c05932d5a340a68a0f8e7606ddff68e218f17a3355e4399",
+        "state_revision": 2,
+        "plan_digest": "a443043262c17df211cd850335d21dd443f937b3013bc4d3084b790a8d71ea70",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:33:36Z",
+      "timestamp": "2026-07-23T22:33:36Z",
+      "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:requirements:0": {
+      "kind": "approval_request",
+      "id": "approve:requirements",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "requirements",
+      "pins": {
+        "artifact_digest": "7e8949af429fdde1da58afece5791889db4976f3472f247739fb6396af323142",
+        "state_revision": 1,
+        "plan_digest": "352c940393eedb4a93d7f5db43bb9e18fa8423991d8c7525a53b4f32bb9efd7c",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:29:54Z",
+      "timestamp": "2026-07-23T22:29:54Z",
+      "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:requirements:1": {
+      "kind": "approval_request",
+      "id": "approve:requirements",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "requirements",
+      "pins": {
+        "artifact_digest": "7e8949af429fdde1da58afece5791889db4976f3472f247739fb6396af323142",
+        "state_revision": 1,
+        "plan_digest": "352c940393eedb4a93d7f5db43bb9e18fa8423991d8c7525a53b4f32bb9efd7c",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T23:29:54Z",
+      "timestamp": "2026-07-23T22:29:54Z",
+      "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    }
+  }
 }
