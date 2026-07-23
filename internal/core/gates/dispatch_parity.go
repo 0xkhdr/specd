@@ -30,12 +30,10 @@ func dispatchParity(ctx CheckCtx) []Finding {
 	return findings
 }
 
-// dispatchParityArmed arms the parity check for every readiness phase, so plain
-// check and immediate approval cannot disagree about a non-dispatchable plan.
+// dispatchParityArmed arms the parity check ONLY at the tasks→executing
+// approval, where R1.1 belongs. It deliberately does NOT arm at plain check
+// (target ""), so specComplete's full-registry run does not retroactively reject
+// a historical spec whose legacy tasks.md used an out-of-vocabulary kind.
 func dispatchParityArmed(target string) bool {
-	switch target {
-	case "", string(core.StatusRequirements), string(core.StatusDesign), string(core.StatusTasks), string(core.StatusExecuting), string(core.StatusVerifying), string(core.StatusComplete):
-		return true
-	}
-	return false
+	return target == string(core.StatusTasks)
 }

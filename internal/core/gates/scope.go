@@ -92,15 +92,12 @@ func acceptanceReach(ctx CheckCtx) []Finding {
 	return findings
 }
 
-// acceptanceReachArmed arms the check for every readiness phase, mirroring
-// dispatch-parity/quality-declaration so plain check and immediate approval
-// cannot disagree.
+// acceptanceReachArmed arms the check ONLY at the tasks→executing approval,
+// where R5 ("before execution") belongs. It deliberately does NOT arm at plain
+// check (target ""), so specComplete's full-registry run does not retroactively
+// block a completed spec with R5.2's scope-versus-acceptance error.
 func acceptanceReachArmed(target string) bool {
-	switch target {
-	case "", string(core.StatusRequirements), string(core.StatusDesign), string(core.StatusTasks), string(core.StatusExecuting), string(core.StatusVerifying), string(core.StatusComplete):
-		return true
-	}
-	return false
+	return target == string(core.StatusTasks)
 }
 
 // acceptanceScopeFindings implements R5.2: a production-kind row whose

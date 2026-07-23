@@ -92,4 +92,17 @@ func TestAcceptanceReachabilityCleanAndParity(t *testing.T) {
 	if f := acceptanceReach(CheckCtx{}); len(f) != 0 {
 		t.Fatalf("empty CheckCtx produced findings: %+v", f)
 	}
+
+	// Armed ONLY at the tasks approval — plain check / specComplete (target "")
+	// must not fire, so R5.2's error never retroactively blocks a completed spec.
+	if acceptanceReachArmed("") {
+		t.Fatal("acceptance-reach must not arm at plain check (target \"\")")
+	}
+	if !acceptanceReachArmed(string(core.StatusTasks)) {
+		t.Fatal("acceptance-reach must arm at the tasks approval target")
+	}
+	scopeBad := []core.TaskRow{{ID: "T1", Kind: "feature", Files: "internal/other/x.go", Acceptance: "lives in internal/foo/bar.go"}}
+	if f := acceptanceReach(CheckCtx{ApproveTarget: "", Tasks: scopeBad}); len(f) != 0 {
+		t.Fatalf("acceptance-reach fired at target \"\": %+v", f)
+	}
 }
