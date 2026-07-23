@@ -755,3 +755,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** host-tool constraint — specialized role selection and inherited conversation context are mutually exclusive, but the worker policy does not disclose that combination.
 - **Recommendation:** document that Pinky roles require `fork_turns="none"` (and a self-contained brief), or allow a specialized role with inherited read-only context.
 - **Status:** open
+
+### 2026-07-23 — friction — approved T49 requires a nonexistent source file
+- **Context:** `workflow-09-driver-session` T49, executing, driver, exact command `./specd session ack workflow-09-driver-session T49 --tokens 60000`
+- **Expected:** the approved task context resolves every declared required input before worker dispatch.
+- **Actual:** `CONTEXT_REQUIRED_INPUT_MISSING: task T49 column context path "internal/cmd/brain_resume.go": required input is missing or unreadable — create the file or remove it from the context column`
+- **Root cause:** task authoring error — `brainResume` lives in `internal/cmd/brain_run.go`; the tasks gate validates context syntax but not required-path existence.
+- **Recommendation:** at tasks approval, require every non-output `context` path to exist and name the row/path; permit missing paths only when explicitly marked as task outputs.
+- **Status:** open
