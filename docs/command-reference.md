@@ -112,7 +112,7 @@ specd archive payments-v1 --successor payments-v2 --owner platform --evidence re
 specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report|release> <spec> [args] [--authority]
 ```
 
-Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker.
+Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker. A run that halts before dispatch exits 2; a run with no ready work exits 0.
 
 **Phases:** analyze · plan · execute · verify · reflect.
 

@@ -20,6 +20,11 @@ import (
 // so the message names the specific violation (spec 03 R2, R3).
 var ErrUsage = errors.New("usage")
 
+// ErrControllerHalt is the stable pre-dispatch halt classification. Wrapping
+// ErrUsage preserves the CLI's exit-2 mapping while letting unattended callers
+// distinguish a controller brake from ordinary usage validation.
+var ErrControllerHalt = fmt.Errorf("%w: controller halted before dispatch", ErrUsage)
+
 // usageError builds an arity/usage rejection from the palette's own usage
 // string, so a handler's error can never drift from what `specd help <verb>`
 // and docs/command-reference.md print for the same verb.

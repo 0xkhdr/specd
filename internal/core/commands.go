@@ -85,6 +85,11 @@ type ExitCode struct {
 	Meaning string `json:"meaning"`
 }
 
+// ControllerHaltExitCode is the CLI status for a Brain run that brakes before
+// dispatching any mission. It is a fail-closed rejection (exit 2), distinct
+// from no ready work (success, exit 0) and ordinary runtime failure (exit 1).
+const ControllerHaltExitCode = 2
+
 // Command describes one supported top-level command. This metadata is the
 // single source of truth for help, dispatch enforcement, MCP tool schemas, and
 // role prompts — no surface hand-restates command semantics (spec 03 C.8).
@@ -676,7 +681,7 @@ var Commands = []Command{
 	{
 		Name:          "brain",
 		Usage:         "specd brain <start|step|run|status|cancel|resume|claim|heartbeat|report|release> <spec> [args] [--authority]",
-		Description:   "Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker.",
+		Description:   "Run the opt-in deterministic orchestration controller. Mission ids (the `claim` argument) are minted by brain dispatch and listed by `specd brain status` — never invented by a worker. A run that halts before dispatch exits 2; a run with no ready work exits 0.",
 		AllowedPhases: postRequirementsPhases(),
 		SpecSlugArg:   argAt(1),
 		ExitCodes:     stdCodes(),

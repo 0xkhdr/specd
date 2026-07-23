@@ -257,10 +257,18 @@ func zeroProgressRefusal(checkpointPath, slug string, action orchestration.Actio
 	if exists {
 		checkpointID = checkpoint.MissionID
 	}
-	return core.Refusef("BRAIN_ZERO_PROGRESS", "brain run braked on %s after %d dispatch(es); no further task can proceed", action, dispatched).
+	refusal := core.Refusef("BRAIN_ZERO_PROGRESS", "brain run braked on %s after %d dispatch(es); no further task can proceed", action, dispatched).
 		WithContext(slug, fmt.Sprintf("durable checkpoint mission %q; %d dispatch(es) recorded in the ledger", checkpointID, dispatched), "resolve the brake, then re-run").
 		WithMutation(dispatched > 0, checkpointID).
 		WithSuccessor(core.RefusalActorOperator, "brain.status", "specd brain status "+slug)
+	return classifyControllerHalt(refusal, dispatched)
+}
+
+func classifyControllerHalt(refusal core.Refusal, dispatched int) error {
+	if dispatched == 0 {
+		return refusal.Wrapping(ErrControllerHalt)
+	}
+	return refusal
 }
 
 // sessionDispatcher records a dispatch as ACP evidence and a session lease. It is
@@ -716,9 +724,10 @@ func approvalHandoffRefusal(slug string, decision orchestration.Decision, dispat
 	if handoff == nil {
 		handoff = &orchestration.ApprovalHandoff{Gate: string(orchestration.ActionWaitApproval), Route: "specd approve " + slug, Actor: core.RefusalActorHuman}
 	}
-	return core.Refusef("APPROVAL_REQUIRED", "brain run reached the %s approval gate after %d dispatch(es); %s",
+	refusal := core.Refusef("APPROVAL_REQUIRED", "brain run reached the %s approval gate after %d dispatch(es); %s",
 		handoff.Gate, dispatched, decision.Reason).
 		WithContext(slug, "lifecycle gate "+handoff.Gate+" is unapproved", "an approved lifecycle transition").
 		WithMutation(dispatched > 0, "").
 		WithRecovery(handoff.Actor, handoff.Route)
+	return classifyControllerHalt(refusal, dispatched)
 }

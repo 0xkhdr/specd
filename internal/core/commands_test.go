@@ -67,6 +67,23 @@ func TestCommandsFlagValueShapes(t *testing.T) {
 	}
 }
 
+func TestMachineExitSeverityParity(t *testing.T) {
+	brain, ok := core.CommandByName("brain")
+	if !ok {
+		t.Fatal("brain command missing")
+	}
+	if core.ControllerHaltExitCode != 2 {
+		t.Fatalf("controller halt exit = %d, want 2", core.ControllerHaltExitCode)
+	}
+	documented := false
+	for _, exit := range brain.ExitCodes {
+		documented = documented || exit.Code == core.ControllerHaltExitCode
+	}
+	if !documented || !strings.Contains(brain.Description, "halts before dispatch exits 2") {
+		t.Fatalf("brain halt classification is not documented: %+v", brain)
+	}
+}
+
 // TestSpecSlugArgPositions is the slug-position regression (SPEC-02 T-02-04):
 // dispatch resolves the spec slug from a fixed argv index, and every verb that
 // resolves one must read it from the right place. `brain` takes a subcommand

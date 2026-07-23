@@ -274,11 +274,18 @@ func runDiagnosticCheck(root string, args []string, flags map[string]string, sec
 		findings[i].Message = actionableGateMessage(slug, finding)
 	}
 	if flagEnabled(flags, "json") {
-		return json.NewEncoder(os.Stdout).Encode(findings)
+		if err := json.NewEncoder(os.Stdout).Encode(findings); err != nil {
+			return err
+		}
+		return diagnosticCheckFailure(findings)
 	}
 	for _, finding := range findings {
 		fmt.Fprintf(os.Stdout, "%s %s: %s\n", finding.Severity, finding.Gate, finding.Message)
 	}
+	return diagnosticCheckFailure(findings)
+}
+
+func diagnosticCheckFailure(findings []gates.Finding) error {
 	if gates.HasErrors(findings) {
 		return errors.New("check failed")
 	}
