@@ -2,13 +2,23 @@
   "schema_version": 2,
   "slug": "workflow-10-observability",
   "mode": "default",
-  "status": "design",
-  "phase": "analyze",
+  "status": "tasks",
+  "phase": "plan",
   "cycle": 1,
-  "stage": "design",
+  "stage": "tasks",
   "condition": "active",
-  "revision": 1,
+  "revision": 2,
   "records": {
+    "approval:design": {
+      "kind": "approval",
+      "text": "design → tasks",
+      "gate": "design",
+      "approved_revision": 1,
+      "source_digest": "48218956f2743fd59dfa74b21fa386d2f34a9654d5284081d061af95dbc6ef51",
+      "timestamp": "2026-07-23T18:09:18Z",
+      "git_head": "c999e0addaeea88a2f0f4357392b9018f2268dfa",
+      "actor": "xkhdr"
+    },
     "approval:requirements": {
       "kind": "approval",
       "text": "requirements → design",
@@ -16,6 +26,44 @@
       "source_digest": "4519b5b2a6ac98f7d68e7c71b1e83daaf67e455e9399e3cf19c8092ff28fffbf",
       "timestamp": "2026-07-23T17:39:17Z",
       "git_head": "36d75cc7e77d82391ffc3eaa6c8992d1a9e31252",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:design:0": {
+      "kind": "approval_request",
+      "id": "approve:design",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-10-observability",
+      "entity_version": "design",
+      "pins": {
+        "artifact_digest": "48218956f2743fd59dfa74b21fa386d2f34a9654d5284081d061af95dbc6ef51",
+        "state_revision": 1,
+        "plan_digest": "f2d6f1c9463bb0b94b3fc75f2d64223daa05dade064e438a6f2ae6b6c59b9320",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T19:09:18Z",
+      "timestamp": "2026-07-23T18:09:18Z",
+      "git_head": "c999e0addaeea88a2f0f4357392b9018f2268dfa",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:design:1": {
+      "kind": "approval_request",
+      "id": "approve:design",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-10-observability",
+      "entity_version": "design",
+      "pins": {
+        "artifact_digest": "48218956f2743fd59dfa74b21fa386d2f34a9654d5284081d061af95dbc6ef51",
+        "state_revision": 1,
+        "plan_digest": "f2d6f1c9463bb0b94b3fc75f2d64223daa05dade064e438a6f2ae6b6c59b9320",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-23T19:09:18Z",
+      "timestamp": "2026-07-23T18:09:18Z",
+      "git_head": "c999e0addaeea88a2f0f4357392b9018f2268dfa",
       "actor": "xkhdr"
     },
     "approval_request:approve:requirements:0": {
