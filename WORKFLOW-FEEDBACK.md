@@ -827,3 +827,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** harness bug — tasks readiness validates context syntax incompletely and permits a source that execution deterministically refuses.
 - **Recommendation:** run the same bounded-context path validation during tasks approval and report the task ID, column, and explicit-file/glob remedy before execution.
 - **Status:** open
+
+### 2026-07-23 — friction — exact task verify permits a repository structural-lint violation
+- **Context:** `workflow-11-template-config` after T58, driver, exact command `go test ./internal/core ./internal/cmd -count=1`
+- **Expected:** T57's exact passing verify leaves the neighboring package suite green before dependent tasks continue.
+- **Actual:** exit 1 with `conformance_test.go:171: gates/steering_applicability_test.go references "Conformance"; conformance events must stay observational (R7.2)`.
+- **Root cause:** task verification gap — T57's selector required `TestShippedSteeringConformance`, but the repository structural test forbids that token anywhere under `internal/core/gates`.
+- **Recommendation:** make task authoring lint test selectors against repository naming constraints, or include the package structural/conformance test in any gate-test task's verify command.
+- **Status:** open
