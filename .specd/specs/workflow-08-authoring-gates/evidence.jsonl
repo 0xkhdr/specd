@@ -22,3 +22,4 @@
 {"task_id":"T44","command":"go test ./internal/core ./internal/cmd -run TestWorkerColumn -count=2","exit_code":0,"git_head":"47b3f19a182354a56347bbebbf6a0d6d507fa9c7","timestamp":"2026-07-23T15:13:54Z","actor":"xkhdr"}
 {"task_id":"T45","command":"go test ./internal/core -run TestSharedEvidenceParser -count=2","exit_code":0,"git_head":"47b3f19a182354a56347bbebbf6a0d6d507fa9c7","timestamp":"2026-07-23T15:13:54Z","actor":"xkhdr"}
 {"task_id":"T46","command":"go test ./internal/orchestration ./internal/cmd ./internal/core -run TestWorkerOutOfScope -count=2","exit_code":0,"git_head":"47b3f19a182354a56347bbebbf6a0d6d507fa9c7","timestamp":"2026-07-23T15:13:55Z","actor":"xkhdr"}
+{"task_id":"T42","command":"go test ./internal/core/gates -run TestPaletteAndProducer -count=2","exit_code":0,"git_head":"c4fe82b669294cf8d6c5fdd2ec5f2430316ef7f6","timestamp":"2026-07-23T16:21:50Z","actor":"xkhdr","attempt":2,"plan_revision":14,"scope_revision":14}
