@@ -16,3 +16,4 @@
 {"task_id":"T69","command":"go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh","exit_code":0,"git_head":"dd46e773abf60b08bc91179dd108edd64bdb248e","timestamp":"2026-07-24T00:21:22Z","actor":"xkhdr"}
 {"task_id":"T74","command":"go test ./internal/core -run TestRefusalCodesRegistered -count=2","exit_code":0,"git_head":"5814f309f0f9dc894c1dc172cef9c2d3087e7f3a","timestamp":"2026-07-24T00:27:35Z","actor":"xkhdr"}
 {"task_id":"T74","command":"go test ./internal/core -run TestRefusalCodesRegistered -count=2","exit_code":0,"git_head":"5814f309f0f9dc894c1dc172cef9c2d3087e7f3a","timestamp":"2026-07-24T00:28:37Z","actor":"xkhdr"}
+{"task_id":"T75","command":"go test ./internal/core -run TestReopenTransaction -count=2","exit_code":0,"git_head":"f2cd3f037a9aed35aece1ff05a3a966e491f244c","timestamp":"2026-07-24T00:34:04Z","actor":"xkhdr"}

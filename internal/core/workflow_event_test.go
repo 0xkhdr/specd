@@ -80,7 +80,7 @@ func TestReopenTransactionRecoveryAtCrashBoundaries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		journal := transitionJournal{EventID: event.ID, Artifact: TransitionArtifact{
+		journal := transitionJournal{EventID: event.ID, Event: event, Artifact: TransitionArtifact{
 			Path: artifactPath, Before: "before\n", After: "after\n",
 		}}
 		return statePath, eventPath, artifactPath, state, event, journal
@@ -149,6 +149,87 @@ func TestReopenTransactionRecoveryAtCrashBoundaries(t *testing.T) {
 		}
 		if _, err := os.Stat(transitionJournalPath(eventPath)); !os.IsNotExist(err) {
 			t.Fatalf("journal remains after commit: %v", err)
+		}
+	})
+
+	t.Run("crafted-targets-are-refused-without-write", func(t *testing.T) {
+		for _, name := range []string{"absolute", "relative", "corrupt"} {
+			t.Run(name, func(t *testing.T) {
+				statePath, eventPath, artifactPath, _, _, journal := setup(t)
+				outsideDir := t.TempDir()
+				outsidePath := filepath.Join(outsideDir, "outside.md")
+				if err := AtomicWrite(outsidePath, "untouched\n"); err != nil {
+					t.Fatal(err)
+				}
+				journal.Artifact.Path = outsidePath
+				if name == "relative" {
+					var err error
+					journal.Artifact.Path, err = filepath.Rel(".", outsidePath)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				if name == "corrupt" {
+					journal.Artifact.Path = "outside\x00.md"
+				}
+				raw, err := json.Marshal(journal)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := AtomicWrite(transitionJournalPath(eventPath), string(raw)+"\n"); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := RecoverWorkflowState(statePath, eventPath); err == nil {
+					t.Fatal("crafted transition target accepted")
+				}
+				outside, _ := os.ReadFile(outsidePath)
+				artifact, _ := os.ReadFile(artifactPath)
+				if string(outside) != "untouched\n" || string(artifact) != "before\n" {
+					t.Fatalf("outside/artifact = %q/%q, want no write", outside, artifact)
+				}
+			})
+		}
+	})
+
+	t.Run("event-identity-mismatch-is-refused-without-write", func(t *testing.T) {
+		statePath, eventPath, artifactPath, _, _, journal := setup(t)
+		journal.EventID = strings.Repeat("f", 64)
+		raw, err := json.Marshal(journal)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := AtomicWrite(transitionJournalPath(eventPath), string(raw)+"\n"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := RecoverWorkflowState(statePath, eventPath); err == nil {
+			t.Fatal("mismatched transition event accepted")
+		}
+		artifact, _ := os.ReadFile(artifactPath)
+		if string(artifact) != "before\n" {
+			t.Fatalf("artifact = %q, want no write", artifact)
+		}
+	})
+
+	t.Run("ledger-event-mismatch-is-refused-without-write", func(t *testing.T) {
+		statePath, eventPath, artifactPath, _, event, journal := setup(t)
+		different := event
+		different.ID = ""
+		different.Reason = "different transition"
+		different.Projection.LastEventID = ""
+		different, err := NewWorkflowEvent(different)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeJournal(t, eventPath, journal)
+		if err := AppendWorkflowEvent(eventPath, different); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := RecoverWorkflowState(statePath, eventPath); err == nil {
+			t.Fatal("journal accepted a different durable event")
+		}
+		artifact, _ := os.ReadFile(artifactPath)
+		if string(artifact) != "after\n" {
+			t.Fatalf("artifact = %q, want no recovery write", artifact)
 		}
 	})
 }
