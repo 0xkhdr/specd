@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -45,6 +46,34 @@ func TestTypedRefusalUnknownCodeStillStructured(t *testing.T) {
 	}
 	if refusal.Code != "NOT_IN_TABLE" {
 		t.Fatalf("code=%q", refusal.Code)
+	}
+}
+
+func TestRefuseBlockerRegisteredPreservesBehavior(t *testing.T) {
+	blocker := TransitionBlocker{Code: "EVIDENCE_MISSING", Message: "no evidence"}
+	if got, want := RefuseBlocker(blocker), Refuse(blocker.Code, blocker.Message); !reflect.DeepEqual(got, want) {
+		t.Fatalf("RefuseBlocker = %#v, want %#v", got, want)
+	}
+}
+
+func TestRefuseBlockerUnknownCodeFailsClosed(t *testing.T) {
+	refusal := RefuseBlocker(TransitionBlocker{Code: "RUNTIME_UNKNOWN", Message: "untrusted"})
+	if refusal.Code != "REFUSAL_CODE_UNREGISTERED" {
+		t.Fatalf("code = %q, want registered sentinel", refusal.Code)
+	}
+	if _, ok := refusalRecovery[refusal.Code]; !ok {
+		t.Fatalf("sentinel %q is absent from refusalRecovery", refusal.Code)
+	}
+	if refusal.Category != "internal" || refusal.Expected != "registered dynamic blocker refusal code" {
+		t.Fatalf("sentinel used generic template: %#v", refusal)
+	}
+	if refusal.Blocker != "dynamic blocker code is absent from refusalRecovery" ||
+		refusal.ActorRequired != RefusalActorOperator ||
+		refusal.RecoveryCommand != "ask an operator to register the blocker refusal code" {
+		t.Fatalf("sentinel is not actionable: %#v", refusal)
+	}
+	if strings.Contains(refusal.Error(), "RUNTIME_UNKNOWN") || strings.Contains(refusal.Error(), "untrusted") {
+		t.Fatalf("sentinel leaked the unknown blocker: %v", refusal)
 	}
 }
 

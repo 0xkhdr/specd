@@ -108,6 +108,8 @@ var refusalRecovery = func() map[string]Refusal {
 		"NO_SUCCESSOR": refusalTemplate("lifecycle", "supported successor or escalation", RefusalActorAgent,
 			"new", "specd new <successor>", false),
 	}
+	recoveries["REFUSAL_CODE_UNREGISTERED"] = refusalTemplate("internal", "registered dynamic blocker refusal code", RefusalActorOperator,
+		"handoff", "ask an operator to register the blocker refusal code", false)
 	escalation := refusalTemplate("governance", "governed operation preconditions satisfied", RefusalActorAgent,
 		"request-decision", "specd request-decision <slug> --text <reason>", false)
 	escalation.Retryable, escalation.RetrySafe = false, false
@@ -205,6 +207,9 @@ func Refusef(code, format string, args ...any) Refusal {
 // RefuseBlocker is the only dynamic-code construction path. TransitionBlocker
 // producers are statically checked against refusalRecovery.
 func RefuseBlocker(blocker TransitionBlocker) Refusal {
+	if _, ok := refusalRecovery[blocker.Code]; !ok {
+		return Refuse("REFUSAL_CODE_UNREGISTERED", "dynamic blocker code is absent from refusalRecovery")
+	}
 	return Refuse(blocker.Code, blocker.Message)
 }
 
