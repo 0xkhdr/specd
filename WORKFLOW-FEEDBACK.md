@@ -995,3 +995,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** repair coverage remained example-specific — one refusal family, valid journal shape, and well-formed managed config.
 - **Recommendation:** T74 must discover all dynamic code families; T75 must bind journal event/path to the expected spec artifact; T76 must preserve malformed user config fail-closed.
 - **Status:** open
+
+### 2026-07-24 — friction — late worker edit contaminated the next task session
+- **Context:** T75 worker after driver commit/session close while T76 session was active; exact rerun exposed Go 1.26 relative-path fixture failure
+- **Expected:** worker stops after reporting verified completion, leaving the committed task boundary immutable before the next session opens.
+- **Actual:** T75 worker added a five-line `workflow_event_test.go` fix after commit `796aa0b`; the file was outside T76 scope, forcing T76 session close, a separate corrective commit `8ec1261`, session reopen, and evidence refresh.
+- **Root cause:** worker coordination error — the worker continued testing/editing after its final task result crossed the driver boundary.
+- **Recommendation:** driver should interrupt a worker immediately after accepted final result, and worker prompts should forbid post-result edits.
+- **Status:** resolved (workflow-12-reset-hygiene T75/T76)
