@@ -1,0 +1,4 @@
+interface:
+  display_name: "Production Cleanup"
+  short_description: "Remove proven repository redundancy safely"
+  default_prompt: "Use $production-cleanup to audit and clean this repository for production."
