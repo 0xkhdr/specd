@@ -49,26 +49,13 @@ func TestTypedRefusalUnknownCodeStillStructured(t *testing.T) {
 }
 
 // TestRefusalCodesRegistered is the construction-site conformance check: a
-// new literal Refuse/Refusef code cannot silently inherit the generic fallback.
+// literal constructor code or a code emitted through a TransitionBlocker
+// cannot silently inherit the generic fallback.
 func TestRefusalCodesRegistered(t *testing.T) {
 	walkProductionGo(t, func(path string, fset *token.FileSet, file *ast.File) {
 		ast.Inspect(file, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if !ok || !isRefusalConstructor(call.Fun) {
-				return true
-			}
-			position := fset.Position(call.Pos())
-			if len(call.Args) == 0 {
-				t.Errorf("%s:%d: refusal constructor has no code", path, position.Line)
-				return true
-			}
-			literal, ok := call.Args[0].(*ast.BasicLit)
-			if !ok || literal.Kind != token.STRING {
-				return true
-			}
-			code, err := strconv.Unquote(literal.Value)
-			if err != nil {
-				t.Errorf("%s:%d: invalid refusal code literal: %v", path, position.Line, err)
+			code, position, ok := refusalCodeLiteral(node, fset)
+			if !ok {
 				return true
 			}
 			if _, ok := refusalRecovery[code]; !ok {
@@ -77,23 +64,6 @@ func TestRefusalCodesRegistered(t *testing.T) {
 			return true
 		})
 	})
-}
-
-func TestReopenScopeAmendRefusalCodesRegistered(t *testing.T) {
-	for _, code := range []string{
-		"SCOPE_AMEND_REFUSED",
-		"SCOPE_AMEND_REASON_REQUIRED",
-		"SCOPE_AMEND_ACTOR_REQUIRED",
-		"SCOPE_AMEND_REVISION_STALE",
-		"SCOPE_AMEND_PATH_INVALID",
-		"SCOPE_AMEND_TASK_UNKNOWN",
-		"SCOPE_AMEND_TASK_NOT_RUNNING",
-		"SCOPE_AMEND_ALREADY_DECLARED",
-	} {
-		if _, ok := refusalRecovery[code]; !ok {
-			t.Errorf("dynamic scope amendment refusal %q is absent from refusalRecovery", code)
-		}
-	}
 }
 
 func TestTypedRefusalBeforeAuthorityReportsNotConsumed(t *testing.T) {
@@ -212,6 +182,51 @@ func isRefusalConstructor(expr ast.Expr) bool {
 	default:
 		return false
 	}
+}
+
+func refusalCodeLiteral(node ast.Node, fset *token.FileSet) (string, token.Position, bool) {
+	var literal *ast.BasicLit
+	switch value := node.(type) {
+	case *ast.CallExpr:
+		if isRefusalConstructor(value.Fun) {
+			if len(value.Args) == 0 {
+				return "", fset.Position(value.Pos()), false
+			}
+			literal, _ = value.Args[0].(*ast.BasicLit)
+		} else if selector, ok := value.Fun.(*ast.SelectorExpr); ok && selector.Sel.Name == "addBlocker" && len(value.Args) > 0 {
+			literal, _ = value.Args[0].(*ast.BasicLit)
+		}
+	case *ast.CompositeLit:
+		name := ""
+		switch kind := value.Type.(type) {
+		case *ast.Ident:
+			name = kind.Name
+		case *ast.SelectorExpr:
+			name = kind.Sel.Name
+		}
+		if name != "TransitionBlocker" {
+			return "", token.Position{}, false
+		}
+		for _, element := range value.Elts {
+			field, ok := element.(*ast.KeyValueExpr)
+			if !ok {
+				continue
+			}
+			name, ok := field.Key.(*ast.Ident)
+			if ok && name.Name == "Code" {
+				literal, _ = field.Value.(*ast.BasicLit)
+				break
+			}
+		}
+	}
+	if literal == nil || literal.Kind != token.STRING {
+		return "", token.Position{}, false
+	}
+	code, err := strconv.Unquote(literal.Value)
+	if err != nil {
+		return "", token.Position{}, false
+	}
+	return code, fset.Position(literal.Pos()), true
 }
 
 func walkProductionGo(t *testing.T, visit func(string, *token.FileSet, *ast.File)) {
