@@ -2,13 +2,22 @@
   "schema_version": 2,
   "slug": "workflow-12-reset-hygiene",
   "mode": "orchestrated",
-  "status": "executing",
-  "phase": "execute",
+  "status": "complete",
+  "phase": "reflect",
   "cycle": 1,
-  "stage": "executing",
-  "condition": "active",
-  "revision": 24,
+  "stage": "complete",
+  "condition": "complete",
+  "revision": 26,
   "records": {
+    "approval:complete": {
+      "kind": "approval",
+      "text": "verifying → complete",
+      "gate": "complete",
+      "approved_revision": 25,
+      "timestamp": "2026-07-24T01:13:04Z",
+      "git_head": "4ab6ed6a01865e96b2566e2b4ac9485be06abf0f",
+      "actor": "xkhdr"
+    },
     "approval:design": {
       "kind": "approval",
       "text": "design → tasks",
@@ -17,6 +26,15 @@
       "source_digest": "a5c8fe3b9485bce75c05932d5a340a68a0f8e7606ddff68e218f17a3355e4399",
       "timestamp": "2026-07-23T22:33:36Z",
       "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval:executing": {
+      "kind": "approval",
+      "text": "executing → verifying",
+      "gate": "executing",
+      "approved_revision": 24,
+      "timestamp": "2026-07-24T01:11:53Z",
+      "git_head": "4ab6ed6a01865e96b2566e2b4ac9485be06abf0f",
       "actor": "xkhdr"
     },
     "approval:orchestrated": {
@@ -43,6 +61,44 @@
       "approved_revision": 3,
       "timestamp": "2026-07-23T22:34:31Z",
       "git_head": "36376409ba1bb123e1f7baa7a0fab38ad03fb3ff",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:0": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 25,
+        "plan_digest": "7069b86d1de85398dd766979adf07a55fbad237e18b9e90ae45d5cd3bd3b8f31",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-24T02:13:04Z",
+      "timestamp": "2026-07-24T01:13:04Z",
+      "git_head": "4ab6ed6a01865e96b2566e2b4ac9485be06abf0f",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:complete:1": {
+      "kind": "approval_request",
+      "id": "approve:complete",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "complete",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 25,
+        "plan_digest": "7069b86d1de85398dd766979adf07a55fbad237e18b9e90ae45d5cd3bd3b8f31",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-24T02:13:04Z",
+      "timestamp": "2026-07-24T01:13:04Z",
+      "git_head": "4ab6ed6a01865e96b2566e2b4ac9485be06abf0f",
       "actor": "xkhdr"
     },
     "approval_request:approve:design:0": {
@@ -81,6 +137,44 @@
       "expires_at": "2026-07-23T23:33:36Z",
       "timestamp": "2026-07-23T22:33:36Z",
       "git_head": "f82f0349b92e01af77ca6ac6dd3cfc4c42ac73a8",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:0": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "requested",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 24,
+        "plan_digest": "815062366df1ba650a088870b908ef0eb369ad9427d1c4fbe86bb733e4fe61f2",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-24T02:11:53Z",
+      "timestamp": "2026-07-24T01:11:53Z",
+      "git_head": "4ab6ed6a01865e96b2566e2b4ac9485be06abf0f",
+      "actor": "xkhdr"
+    },
+    "approval_request:approve:executing:1": {
+      "kind": "approval_request",
+      "id": "approve:executing",
+      "transition": "approved",
+      "entity_kind": "spec",
+      "entity_id": "workflow-12-reset-hygiene",
+      "entity_version": "executing",
+      "pins": {
+        "artifact_digest": "none",
+        "state_revision": 24,
+        "plan_digest": "815062366df1ba650a088870b908ef0eb369ad9427d1c4fbe86bb733e4fe61f2",
+        "config_digest": "ccd7752031b3378e9ce71829cf226f3d86e7cfbb258a6476d7c8e286595e1649"
+      },
+      "requester": "xkhdr",
+      "expires_at": "2026-07-24T02:11:53Z",
+      "timestamp": "2026-07-24T01:11:53Z",
+      "git_head": "4ab6ed6a01865e96b2566e2b4ac9485be06abf0f",
       "actor": "xkhdr"
     },
     "approval_request:approve:requirements:0": {
