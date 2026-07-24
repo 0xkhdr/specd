@@ -971,3 +971,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** verification coverage gap — exact tests covered happy paths and literal refusal constructors, not repeated reopen history, dynamic codes, crash boundaries, or resolver failure.
 - **Recommendation:** add focused T71–T73 regressions for dynamic refusal codes, reopen-complete-reopen projection, crash recovery boundaries, and no-local/no-PATH MCP resolution before repeating the final audit.
 - **Status:** open
+
+### 2026-07-24 — friction — first reopen precedence fix broke marker-only pending projection
+- **Context:** executing `workflow-12-reset-hygiene` T71, craftsman, broader command `go test ./internal/core ./internal/cmd -count=1`
+- **Expected:** an active reopen fact overrides a stale completed tasks.md marker while a later explicit running/completed state overrides historical reopen facts.
+- **Actual:** first run failed `TestReopenTaskResetCreatesNextAttempt` with `Activity:completed ... want pending`.
+- **Root cause:** implementation error — the initial precedence rule treated marker-derived completion like explicit post-reopen state.
+- **Recommendation:** distinguish explicit `state.TaskStatus` from tasks.md marker fallback; only explicit later running/completed status overrides reopen pending.
+- **Status:** resolved (workflow-12-reset-hygiene T71)
