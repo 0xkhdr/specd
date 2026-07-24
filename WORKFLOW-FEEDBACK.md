@@ -1019,3 +1019,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** test gap — exemption matched field spelling rather than receiver type/dataflow.
 - **Recommendation:** T79 must prove the selector originates from `TransitionBlocker` or reject it, with request/config selector fixtures.
 - **Status:** open
+
+### 2026-07-24 — friction — typed selector repair still trusted arbitrary Blockers fields
+- **Context:** fifth `workflow-12-reset-hygiene` T69 audit, exact command `./specd verify workflow-12-reset-hygiene T69`
+- **Expected:** T79 proves `.Code` comes from governed `TransitionBlocker` flow.
+- **Actual:** verify passed, but the AST heuristic trusted any expression shaped `x.Blockers[i].Code` or range/assignment from an arbitrary `.Blockers` field.
+- **Root cause:** test design gap — field-name inference cannot prove Go type/dataflow.
+- **Recommendation:** T80 routes all legitimate dynamic blockers through one typed canonical helper; conformance permits only that helper and rejects every other nonliteral Refuse/Refusef argument.
+- **Status:** open
