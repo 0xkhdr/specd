@@ -135,7 +135,7 @@ func (p ScopeAmendPlan) Refusal() error {
 	if len(p.Blockers) == 0 {
 		return Refusef("SCOPE_AMEND_REFUSED", "scope amendment refused")
 	}
-	return Refusef(p.Blockers[0].Code, "%s", p.Blockers[0].Message)
+	return RefuseBlocker(p.Blockers[0])
 }
 
 func PlanScopeAmend(slug string, req ScopeAmendRequest, tasks []TaskRow, status map[string]TaskRunStatus, currentRevision int64) ScopeAmendPlan {
@@ -559,7 +559,7 @@ func (p ArtifactReopenPlan) Refusal() error {
 		return nil
 	}
 	blocker := p.Blockers[0]
-	return Refusef(blocker.Code, "%s", blocker.Message).
+	return RefuseBlocker(blocker).
 		WithRecovery(RefusalActorOperator, p.Command()).
 		WithContext(blocker.Entity, "reopen target", "eligible unreleased artifact or spec")
 }
@@ -1085,7 +1085,7 @@ func (p ReopenPlan) Refusal() error {
 		return nil
 	}
 	blocker := p.Blockers[0]
-	return Refusef(blocker.Code, "%s", blocker.Message).
+	return RefuseBlocker(blocker).
 		WithRecovery(RefusalActorOperator, fmt.Sprintf(
 			"specd reopen %s task %s --reason <text> --expect-revision %d", p.Slug, p.TaskID, p.CurrentRevision)).
 		WithContext(blocker.Entity, "reopen target", "eligible unleased completed, failed, or cancelled task")

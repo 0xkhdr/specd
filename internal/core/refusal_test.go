@@ -56,7 +56,7 @@ func TestRefusalCodesRegistered(t *testing.T) {
 		ast.Inspect(file, func(node ast.Node) bool {
 			if call, ok := node.(*ast.CallExpr); ok && untrackedRefusalConstructor(path, file, call) {
 				position := fset.Position(call.Pos())
-				t.Errorf("%s:%d: nonliteral refusal code is not a TransitionBlocker code", path, position.Line)
+				t.Errorf("%s:%d: nonliteral refusal code is outside RefuseBlocker", path, position.Line)
 				return true
 			}
 			code, position, ok := refusalCodeLiteral(node, fset)
@@ -72,34 +72,31 @@ func TestRefusalCodesRegistered(t *testing.T) {
 }
 
 func TestRefusalCodesRegisteredRejectsVariableCode(t *testing.T) {
-	if !fixtureHasUntrackedRefusal(t, `package fixture
+	if !fixtureHasUntrackedRefusal(t, "future.go", `package fixture
 func future(code string) error { return Refuse(code, "blocked") }
 `) {
 		t.Fatal("future variable refusal code was not rejected")
 	}
 }
 
-func TestRefusalCodesRegisteredSelectorProvenance(t *testing.T) {
-	rejected := []string{
-		`package fixture
-type Request struct { Code string }
-func future(request Request) error { return Refuse(request.Code, "blocked") }
-`,
-		`package fixture
-type Config struct { Code string }
-func future(config Config) error { return Refuse(config.Code, "blocked") }
-`,
-	}
-	for _, source := range rejected {
-		if !fixtureHasUntrackedRefusal(t, source) {
-			t.Fatal("unproved selector refusal code was not rejected")
-		}
-	}
-	if fixtureHasUntrackedRefusal(t, `package fixture
+func TestRefusalCodesRegisteredCanonicalHelper(t *testing.T) {
+	source := `package fixture
 type TransitionBlocker struct { Code string }
-func future(blocker TransitionBlocker) error { return Refuse(blocker.Code, "blocked") }
-`) {
-		t.Fatal("TransitionBlocker selector refusal code was rejected")
+type Request struct { Blockers []TransitionBlocker }
+func future(request Request) error { return Refuse(request.Blockers[0].Code, "blocked") }
+`
+	if !fixtureHasUntrackedRefusal(t, "future.go", source) {
+		t.Fatal("arbitrary request.Blockers refusal code was not rejected")
+	}
+	helper := `package fixture
+type TransitionBlocker struct { Code, Message string }
+func RefuseBlocker(blocker TransitionBlocker) error { return Refuse(blocker.Code, blocker.Message) }
+`
+	if fixtureHasUntrackedRefusal(t, "internal/core/refusal.go", helper) {
+		t.Fatal("canonical RefuseBlocker implementation was rejected")
+	}
+	if !fixtureHasUntrackedRefusal(t, "future.go", helper) {
+		t.Fatal("same-named helper outside its canonical file was accepted")
 	}
 }
 
@@ -228,125 +225,30 @@ func untrackedRefusalConstructor(path string, file *ast.File, call *ast.CallExpr
 	if literal, ok := call.Args[0].(*ast.BasicLit); ok && literal.Kind == token.STRING {
 		return false
 	}
-	if transitionBlockerCode(file, call, call.Args[0]) {
-		return false
-	}
-	if path == "internal/core/refusal.go" {
-		for _, declaration := range file.Decls {
-			function, ok := declaration.(*ast.FuncDecl)
-			if ok && function.Name.Name == "Refusef" && function.Body.Pos() <= call.Pos() && call.Pos() <= function.Body.End() {
-				return false
-			}
-		}
-	}
-	return true
+	return !(path == "internal/core/refusal.go" && enclosingFunction(file, call.Pos()) == "RefuseBlocker")
 }
 
-func transitionBlockerCode(file *ast.File, call *ast.CallExpr, expression ast.Expr) bool {
-	code, ok := expression.(*ast.SelectorExpr)
-	if !ok || code.Sel.Name != "Code" {
-		return false
-	}
-	if blockerIndex(code.X) {
-		return true
-	}
-	identifier, ok := code.X.(*ast.Ident)
-	if !ok {
-		return false
-	}
-	function := enclosingFunction(file, call.Pos())
-	if function == nil {
-		return false
-	}
-	for _, field := range function.Type.Params.List {
-		if transitionBlockerType(field.Type) {
-			for _, name := range field.Names {
-				if name.Name == identifier.Name {
-					return true
-				}
-			}
-		}
-	}
-	proven := false
-	ast.Inspect(function.Body, func(node ast.Node) bool {
-		if node == nil || proven || node.Pos() >= call.Pos() {
-			return false
-		}
-		switch statement := node.(type) {
-		case *ast.AssignStmt:
-			for index, target := range statement.Lhs {
-				name, ok := target.(*ast.Ident)
-				if ok && name.Name == identifier.Name && index < len(statement.Rhs) && blockerIndex(statement.Rhs[index]) {
-					proven = true
-				}
-			}
-		case *ast.DeclStmt:
-			declaration, ok := statement.Decl.(*ast.GenDecl)
-			if !ok {
-				break
-			}
-			for _, spec := range declaration.Specs {
-				variable, ok := spec.(*ast.ValueSpec)
-				if !ok || !transitionBlockerType(variable.Type) {
-					continue
-				}
-				for _, name := range variable.Names {
-					proven = proven || name.Name == identifier.Name
-				}
-			}
-		case *ast.RangeStmt:
-			name, ok := statement.Value.(*ast.Ident)
-			proven = ok && name.Name == identifier.Name && blockerCollection(statement.X)
-		}
-		return !proven
-	})
-	return proven
-}
-
-func blockerIndex(expression ast.Expr) bool {
-	index, ok := expression.(*ast.IndexExpr)
-	return ok && blockerCollection(index.X)
-}
-
-func blockerCollection(expression ast.Expr) bool {
-	selector, ok := expression.(*ast.SelectorExpr)
-	return ok && selector.Sel.Name == "Blockers"
-}
-
-func transitionBlockerType(expression ast.Expr) bool {
-	switch value := expression.(type) {
-	case *ast.Ident:
-		return value.Name == "TransitionBlocker"
-	case *ast.SelectorExpr:
-		return value.Sel.Name == "TransitionBlocker"
-	case *ast.StarExpr:
-		return transitionBlockerType(value.X)
-	default:
-		return false
-	}
-}
-
-func enclosingFunction(file *ast.File, position token.Pos) *ast.FuncDecl {
+func enclosingFunction(file *ast.File, position token.Pos) string {
 	for _, declaration := range file.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
 		if ok && function.Body != nil && function.Body.Pos() <= position && position <= function.Body.End() {
-			return function
+			return function.Name.Name
 		}
 	}
-	return nil
+	return ""
 }
 
-func fixtureHasUntrackedRefusal(t *testing.T, source string) bool {
+func fixtureHasUntrackedRefusal(t *testing.T, path, source string) bool {
 	t.Helper()
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "future.go", source, 0)
+	file, err := parser.ParseFile(fset, path, source, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rejected := false
 	ast.Inspect(file, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
-		if ok && untrackedRefusalConstructor("future.go", file, call) {
+		if ok && untrackedRefusalConstructor(path, file, call) {
 			rejected = true
 		}
 		return true

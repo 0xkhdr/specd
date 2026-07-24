@@ -199,7 +199,13 @@ func Refuse(code, blocker string) Refusal {
 
 // Refusef is Refuse with a formatted blocker.
 func Refusef(code, format string, args ...any) Refusal {
-	return Refuse(code, fmt.Sprintf(format, args...))
+	return RefuseBlocker(TransitionBlocker{Code: code, Message: fmt.Sprintf(format, args...)})
+}
+
+// RefuseBlocker is the only dynamic-code construction path. TransitionBlocker
+// producers are statically checked against refusalRecovery.
+func RefuseBlocker(blocker TransitionBlocker) Refusal {
+	return Refuse(blocker.Code, blocker.Message)
 }
 
 // Consumed marks the refusal as having burned its authority packet: a retry

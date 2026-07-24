@@ -249,7 +249,7 @@ func (p UndoPlan) Refusal(slug string) error {
 		return nil
 	}
 	blocker := p.Blockers[0]
-	return Refusef(blocker.Code, "%s", blocker.Message).
+	return RefuseBlocker(blocker).
 		WithRecovery(RefusalActorOperator, fmt.Sprintf("specd undo %s --reason <text> --expect-revision %d", slug, p.CurrentRevision)).
 		WithContext(blocker.Entity, "undo target", "latest unconsumed reversible event")
 }

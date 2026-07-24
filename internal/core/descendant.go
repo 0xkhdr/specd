@@ -322,7 +322,7 @@ func (p DescendantResolutionPlan) Refusal() error {
 		return nil
 	}
 	blocker := p.Blockers[0]
-	return Refusef(blocker.Code, "%s", blocker.Message).
+	return RefuseBlocker(blocker).
 		WithRecovery(RefusalActorOperator, fmt.Sprintf(
 			"specd reopen %s descendant %s <%s> --reason <text> --expect-revision %d",
 			p.Slug, p.TaskID, strings.Join(DescendantResolutions, "|"), p.CurrentRevision)).
