@@ -979,3 +979,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** implementation error — the initial precedence rule treated marker-derived completion like explicit post-reopen state.
 - **Recommendation:** distinguish explicit `state.TaskStatus` from tasks.md marker fallback; only explicit later running/completed status overrides reopen pending.
 - **Status:** resolved (workflow-12-reset-hygiene T71)
+
+### 2026-07-24 — friction — recovery cleanup used the wrong return arity
+- **Context:** executing `workflow-12-reset-hygiene` T72, craftsman, first targeted compile for crash-transaction recovery
+- **Expected:** the new recovery cleanup compiles before crash-boundary assertions run.
+- **Actual:** compile failed because `recoverTransitionArtifact` returns two values but its call assigned one.
+- **Root cause:** implementation error — the helper’s result and error return were not both handled.
+- **Recommendation:** keep the focused crash-recovery compile/test before full-core verification.
+- **Status:** resolved (workflow-12-reset-hygiene T72)
