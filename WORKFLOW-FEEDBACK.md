@@ -1011,3 +1011,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** conformance/recovery gaps — the AST walker tolerated unknown dataflow, and journal identity authenticated location/event but not content.
 - **Recommendation:** T77 rejects or removes untracked nonliteral constructors; T78 stores trusted before/after digests in the durable event and verifies them before writes.
 - **Status:** open
+
+### 2026-07-24 — friction — fourth green audit found an overbroad Code-selector exemption
+- **Context:** fourth `workflow-12-reset-hygiene` T69 audit, exact command `./specd verify workflow-12-reset-hygiene T69`
+- **Expected:** T77 rejects every untracked nonliteral refusal constructor except proven governed blocker flow.
+- **Actual:** verify passed, but the AST test exempted every selector named `.Code`; `Refuse(request.Code, ...)` or `Refusef(config.Code, ...)` would evade conformance.
+- **Root cause:** test gap — exemption matched field spelling rather than receiver type/dataflow.
+- **Recommendation:** T79 must prove the selector originates from `TransitionBlocker` or reject it, with request/config selector fixtures.
+- **Status:** open
