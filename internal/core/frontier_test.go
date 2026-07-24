@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func TestReopenPendingFactYieldsToCurrentRunStatus(t *testing.T) {
+	task := TaskRow{ID: "T1"}
+	facts := map[string]TaskFacts{"T1": {Activity: ActivityPending, Attempt: 2}}
+	for status, want := range map[TaskRunStatus]TaskActivity{
+		TaskPending: ActivityPending, TaskRunning: ActivityInProgress, TaskComplete: ActivityCompleted,
+	} {
+		states, err := ProjectTaskStates([]TaskRow{task}, map[string]TaskRunStatus{"T1": status}, facts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if states[0].Activity != want || states[0].Attempt != 2 {
+			t.Errorf("status %s: state = %+v, want activity %s on attempt 2", status, states[0], want)
+		}
+	}
+}
+
 // TestTaskActivityReadiness pins the spec 03 R3 contract: activity and readiness
 // are separate, every applicable wait is reported in stable priority order, only
 // pending-and-ready runs, and pending blocks parent completion.

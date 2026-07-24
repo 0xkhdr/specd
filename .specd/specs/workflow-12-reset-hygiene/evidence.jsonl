@@ -10,3 +10,4 @@
 {"task_id":"T68","command":"go test ./internal/core ./internal/cmd -run TestMCP -count=2","exit_code":0,"git_head":"b0214fab4947c30d58b39d7c5991b7cfb749b0b8","timestamp":"2026-07-23T23:57:44Z","actor":"xkhdr"}
 {"task_id":"T70","command":"go test ./internal/core -run TestRefusalCodesRegistered -count=2","exit_code":0,"git_head":"474ef0e24ec26593b4a5436905b1ec4eab33ed02","timestamp":"2026-07-24T00:00:24Z","actor":"xkhdr"}
 {"task_id":"T69","command":"go test ./... -race -count=1 \u0026\u0026 ./scripts/test-lint.sh \u0026\u0026 ./scripts/docs-lint.sh \u0026\u0026 ./scripts/regress-domains.sh","exit_code":0,"git_head":"33e160e339954a27492c4a914ab36021361b3cbe","timestamp":"2026-07-24T00:03:01Z","actor":"xkhdr"}
+{"task_id":"T71","command":"go test ./internal/core ./internal/cmd -run TestReopen -count=2","exit_code":0,"git_head":"26638f2cd34190a25786192a5b4f14bd2a6dbb18","timestamp":"2026-07-24T00:11:28Z","actor":"xkhdr"}

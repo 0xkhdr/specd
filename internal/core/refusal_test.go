@@ -79,6 +79,23 @@ func TestRefusalCodesRegistered(t *testing.T) {
 	})
 }
 
+func TestReopenScopeAmendRefusalCodesRegistered(t *testing.T) {
+	for _, code := range []string{
+		"SCOPE_AMEND_REFUSED",
+		"SCOPE_AMEND_REASON_REQUIRED",
+		"SCOPE_AMEND_ACTOR_REQUIRED",
+		"SCOPE_AMEND_REVISION_STALE",
+		"SCOPE_AMEND_PATH_INVALID",
+		"SCOPE_AMEND_TASK_UNKNOWN",
+		"SCOPE_AMEND_TASK_NOT_RUNNING",
+		"SCOPE_AMEND_ALREADY_DECLARED",
+	} {
+		if _, ok := refusalRecovery[code]; !ok {
+			t.Errorf("dynamic scope amendment refusal %q is absent from refusalRecovery", code)
+		}
+	}
+}
+
 func TestTypedRefusalBeforeAuthorityReportsNotConsumed(t *testing.T) {
 	// A refusal raised before authority is issued consumed nothing, so a retry
 	// does not need a fresh packet.

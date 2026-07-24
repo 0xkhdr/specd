@@ -233,6 +233,40 @@ func TestTaskReopenAttemptBindingRejectsPriorAttemptEvidence(t *testing.T) {
 	})
 }
 
+func TestReopenCompletedAttemptCanReopenAgain(t *testing.T) {
+	statePath, eventPath, _ := reopenSpec(t)
+	tasks := reopenTasks()
+	req := reopenRequest()
+	first := reopenCommit(t, statePath, eventPath, req, tasks,
+		map[string]TaskRunStatus{"T1": TaskComplete, "T2": TaskComplete})
+
+	state, err := LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.TaskStatus["T1"] = TaskComplete
+	if err := SaveStateCAS(statePath, state.Revision, state); err != nil {
+		t.Fatal(err)
+	}
+	state, err = LoadState(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, err := ReadWorkflowEvents(eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.ExpectedRevision = state.Revision
+	second := PlanTaskReopen("demo", req, tasks,
+		map[string]TaskRunStatus{"T1": TaskComplete, "T2": TaskComplete}, events, state.Revision)
+	if !second.Eligible || second.PriorActivity != ActivityCompleted {
+		t.Fatalf("second reopen = %+v, want completed attempt eligible", second)
+	}
+	if first.Attempt.Attempt != 2 || second.Attempt.Attempt != 3 {
+		t.Fatalf("attempts = %d then %d, want 2 then 3", first.Attempt.Attempt, second.Attempt.Attempt)
+	}
+}
+
 func TestTaskReopenAttemptBindingRefusesUnboundedRepairScope(t *testing.T) {
 	t.Run("cross-task-scope", func(t *testing.T) {
 		req := reopenRequest()

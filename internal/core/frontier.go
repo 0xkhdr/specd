@@ -103,15 +103,18 @@ func ProjectTaskStates(tasks []TaskRow, status map[string]TaskRunStatus, facts m
 	return states, nil
 }
 
-// taskActivity resolves the activity view: a persisted fact wins, otherwise the
-// run status, otherwise the tasks.md marker.
+// taskActivity resolves the activity view. Facts carry states the legacy
+// marker cannot express. A reopen's pending fact yields to a later concrete
+// run status, so completing or restarting that attempt is visible instead of
+// being projected pending forever.
 func taskActivity(task TaskRow, status map[string]TaskRunStatus, facts map[string]TaskFacts) TaskActivity {
-	if fact := facts[task.ID].Activity; fact != "" {
-		return fact
-	}
-	current := status[task.ID]
+	fact := facts[task.ID].Activity
+	current, explicit := status[task.ID]
 	if current == "" {
 		current = statusFromMarker(task.Marker)
+	}
+	if fact != "" && !(fact == ActivityPending && explicit && current != TaskPending) {
+		return fact
 	}
 	return ActivityFromStatus(current)
 }
