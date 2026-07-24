@@ -89,7 +89,7 @@ func removePinkyCodexConfig(existing string) string {
 	}
 	end := strings.Index(existing[start:], pinkyCodexEnd)
 	if end < 0 {
-		return existing[:start]
+		return existing
 	}
 	end += start + len(pinkyCodexEnd)
 	return existing[:start] + existing[end:]

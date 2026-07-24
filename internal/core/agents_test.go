@@ -135,3 +135,13 @@ func TestAgentsMCPConfigRefusesUnresolvedCommand(t *testing.T) {
 		t.Fatalf("unresolved MCP snippet = %q, %v; want empty error result", snippet, err)
 	}
 }
+
+func TestAgentsMCPConfigPreservesUnmatchedManagedBegin(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("PATH", "")
+	existing := "model = \"gpt-5\"\n\n" + pinkyCodexBegin + "\n[mcp_servers.specd]\ncommand = \"specd\"\n\n[profiles.user]\nmodel = \"keep-me\"\n"
+
+	if got := MergePinkyCodexConfig(existing, root); got != existing {
+		t.Fatalf("unmatched managed begin changed user config:\nwant %q\ngot  %q", existing, got)
+	}
+}
