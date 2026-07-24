@@ -80,9 +80,14 @@ func TestReopenTransactionRecoveryAtCrashBoundaries(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		journal := transitionJournal{EventID: event.ID, Event: event, Artifact: TransitionArtifact{
+		artifact := TransitionArtifact{
 			Path: artifactPath, Before: "before\n", After: "after\n",
-		}}
+		}
+		event, err = bindTransitionArtifact(event, artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		journal := transitionJournal{EventID: event.ID, Event: event, Artifact: artifact}
 		return statePath, eventPath, artifactPath, state, event, journal
 	}
 	writeJournal := func(t *testing.T, eventPath string, journal transitionJournal) {
@@ -94,12 +99,9 @@ func TestReopenTransactionRecoveryAtCrashBoundaries(t *testing.T) {
 		if err := AtomicWrite(transitionJournalPath(eventPath), string(raw)+"\n"); err != nil {
 			t.Fatal(err)
 		}
-		if err := AtomicWrite(journal.Artifact.Path, journal.Artifact.After); err != nil {
-			t.Fatal(err)
-		}
 	}
 
-	t.Run("artifact-written-before-event-rolls-back", func(t *testing.T) {
+	t.Run("journal-written-before-event-rolls-back", func(t *testing.T) {
 		statePath, eventPath, artifactPath, beforeState, _, journal := setup(t)
 		writeJournal(t, eventPath, journal)
 		recovered, err := RecoverWorkflowState(statePath, eventPath)
@@ -232,8 +234,37 @@ func TestReopenTransactionRecoveryAtCrashBoundaries(t *testing.T) {
 			t.Fatal("journal accepted a different durable event")
 		}
 		artifact, _ := os.ReadFile(artifactPath)
-		if string(artifact) != "after\n" {
+		if string(artifact) != "before\n" {
 			t.Fatalf("artifact = %q, want no recovery write", artifact)
+		}
+	})
+
+	t.Run("forged-content-is-refused-without-write", func(t *testing.T) {
+		for _, name := range []string{"before", "after"} {
+			t.Run(name, func(t *testing.T) {
+				statePath, eventPath, artifactPath, _, event, journal := setup(t)
+				if err := AppendWorkflowEvent(eventPath, event); err != nil {
+					t.Fatal(err)
+				}
+				current := journal.Artifact.Before
+				if name == "before" {
+					journal.Artifact.Before = "forged before\n"
+					current = journal.Artifact.Before
+				} else {
+					journal.Artifact.After = "forged after\n"
+				}
+				writeJournal(t, eventPath, journal)
+				if err := AtomicWrite(artifactPath, current); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := RecoverWorkflowState(statePath, eventPath); err == nil {
+					t.Fatalf("forged %s content accepted", name)
+				}
+				artifact, _ := os.ReadFile(artifactPath)
+				if string(artifact) != current {
+					t.Fatalf("artifact = %q, want no write from %q", artifact, current)
+				}
+			})
 		}
 	})
 }

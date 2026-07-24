@@ -226,9 +226,14 @@ func CommitScopeAmend(tasksPath, statePath, eventPath, slug string, req ScopeAme
 	if err != nil {
 		return fresh, err
 	}
+	artifact := TransitionArtifact{Path: tasksPath, Before: string(original), After: string(updated)}
+	event, err = bindTransitionArtifact(event, artifact)
+	if err != nil {
+		return fresh, err
+	}
 	if err := CommitWorkflowTransition(TransitionCommit{
 		StatePath: statePath, EventPath: eventPath, Event: event,
-		Artifact: &TransitionArtifact{Path: tasksPath, Before: string(original), After: string(updated)},
+		Artifact: &artifact,
 	}); err != nil {
 		return fresh, err
 	}
@@ -811,7 +816,7 @@ func CommitArtifactReopen(root, slug string, req ArtifactReopenRequest, preview 
 	}
 	commit := TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}
 	if fresh.Artifact == "" {
-		err = commitReopenMarkers(tasksPath, taskIDs, commit)
+		event, err = commitReopenMarkers(tasksPath, taskIDs, commit)
 	} else {
 		err = CommitWorkflowTransition(commit)
 	}
@@ -1151,7 +1156,8 @@ func CommitTaskReopen(tasksPath, statePath, eventPath, slug string, req ReopenRe
 	if err != nil {
 		return fresh, err
 	}
-	if err := commitReopenMarkers(tasksPath, []string{fresh.TaskID}, TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
+	event, err = commitReopenMarkers(tasksPath, []string{fresh.TaskID}, TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event})
+	if err != nil {
 		return fresh, err
 	}
 	fresh.EventID = event.ID
@@ -1162,20 +1168,24 @@ func CommitTaskReopen(tasksPath, statePath, eventPath, slug string, req ReopenRe
 // commitReopenMarkers applies the byte-stable pending markers and the
 // event/state CAS as one locked command transaction. A refused commit restores
 // the original task bytes.
-func commitReopenMarkers(tasksPath string, taskIDs []string, commit TransitionCommit) error {
+func commitReopenMarkers(tasksPath string, taskIDs []string, commit TransitionCommit) (WorkflowEventV1, error) {
 	original, err := os.ReadFile(tasksPath)
 	if err != nil {
-		return err
+		return WorkflowEventV1{}, err
 	}
 	updated := original
 	for _, id := range taskIDs {
 		updated, err = RewriteTaskStatusLine(updated, id, "")
 		if err != nil {
-			return err
+			return WorkflowEventV1{}, err
 		}
 	}
 	if string(updated) != string(original) {
 		commit.Artifact = &TransitionArtifact{Path: tasksPath, Before: string(original), After: string(updated)}
+		commit.Event, err = bindTransitionArtifact(commit.Event, *commit.Artifact)
+		if err != nil {
+			return WorkflowEventV1{}, err
+		}
 	}
-	return CommitWorkflowTransition(commit)
+	return commit.Event, CommitWorkflowTransition(commit)
 }

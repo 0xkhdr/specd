@@ -13,6 +13,11 @@ import (
 
 const WorkflowEventSchemaVersion = 1
 
+const (
+	transitionArtifactBeforeDigest = "transition_artifact_before"
+	transitionArtifactAfterDigest  = "transition_artifact_after"
+)
+
 // WorkflowEventV1 is durable provenance for one state transition. Projection
 // contains only governed state; inputs are represented by identities and
 // digests so prompts, command output, and secrets never enter the ledger.
@@ -186,9 +191,8 @@ type TransitionCommit struct {
 }
 
 // TransitionArtifact extends the event-first transaction to one derived
-// artifact. Before and After are held in a durable sidecar until the event and
-// state checkpoint agree, allowing recovery to roll back a pre-event edit or
-// roll forward an edit whose event is already durable.
+// artifact. Before and After are held in a durable sidecar and bound by digest
+// into the event, so recovery writes only content authenticated by the ledger.
 type TransitionArtifact struct {
 	Path   string `json:"path"`
 	Before string `json:"before"`
@@ -221,6 +225,27 @@ func transitionArtifactPath(statePath, eventPath string) (string, error) {
 	return filepath.Join(filepath.Dir(eventPath), "tasks.md"), nil
 }
 
+func bindTransitionArtifact(event WorkflowEventV1, artifact TransitionArtifact) (WorkflowEventV1, error) {
+	inputs := make(map[string]string, len(event.InputDigests)+2)
+	for name, digest := range event.InputDigests {
+		inputs[name] = digest
+	}
+	inputs[transitionArtifactBeforeDigest] = Digest([]byte(artifact.Before))
+	inputs[transitionArtifactAfterDigest] = Digest([]byte(artifact.After))
+	event.ID = ""
+	event.Projection.LastEventID = ""
+	event.InputDigests = inputs
+	return NewWorkflowEvent(event)
+}
+
+func validateTransitionArtifact(event WorkflowEventV1, artifact TransitionArtifact) error {
+	if event.InputDigests[transitionArtifactBeforeDigest] != Digest([]byte(artifact.Before)) ||
+		event.InputDigests[transitionArtifactAfterDigest] != Digest([]byte(artifact.After)) {
+		return errors.New("transition journal artifact content does not match event")
+	}
+	return nil
+}
+
 func CommitWorkflowTransition(commit TransitionCommit) error {
 	state, err := RecoverWorkflowState(commit.StatePath, commit.EventPath)
 	if err != nil {
@@ -233,8 +258,9 @@ func CommitWorkflowTransition(commit TransitionCommit) error {
 		return err
 	}
 	journalPath := transitionJournalPath(commit.EventPath)
+	var artifactPath string
 	if commit.Artifact != nil {
-		artifactPath, err := transitionArtifactPath(commit.StatePath, commit.EventPath)
+		artifactPath, err = transitionArtifactPath(commit.StatePath, commit.EventPath)
 		if err != nil {
 			return err
 		}
@@ -249,6 +275,9 @@ func CommitWorkflowTransition(commit TransitionCommit) error {
 		if string(current) != commit.Artifact.Before {
 			return errors.New("transition artifact changed since preview")
 		}
+		if err := validateTransitionArtifact(commit.Event, *commit.Artifact); err != nil {
+			return err
+		}
 		artifact := *commit.Artifact
 		artifact.Path = artifactPath
 		raw, err := json.Marshal(transitionJournal{EventID: commit.Event.ID, Event: commit.Event, Artifact: artifact})
@@ -256,10 +285,6 @@ func CommitWorkflowTransition(commit TransitionCommit) error {
 			return err
 		}
 		if err := AtomicWrite(journalPath, string(raw)+"\n"); err != nil {
-			return err
-		}
-		if err := AtomicWrite(artifactPath, commit.Artifact.After); err != nil {
-			_, _ = recoverTransitionArtifact(commit.StatePath, commit.EventPath, state, nil)
 			return err
 		}
 	}
@@ -271,6 +296,11 @@ func CommitWorkflowTransition(commit TransitionCommit) error {
 			_, _ = recoverTransitionArtifact(commit.StatePath, commit.EventPath, state, events)
 		}
 		return err
+	}
+	if commit.Artifact != nil {
+		if err := AtomicWrite(artifactPath, commit.Artifact.After); err != nil {
+			return err
+		}
 	}
 	if err := SaveStateCAS(commit.StatePath, state.Revision, commit.Event.Projection); err != nil {
 		return err
@@ -344,8 +374,9 @@ func RecoverWorkflowState(statePath, eventPath string) (State, error) {
 }
 
 // recoverTransitionArtifact returns whether a committed-event journal remains
-// to be removed after state replay. With no durable event, the artifact is
-// rolled back and the journal is removed immediately.
+// to be removed after state replay. With no durable event, recovery removes the
+// journal only while the artifact is still unchanged; legacy sidecars that
+// would require an unauthenticated rollback fail closed.
 func recoverTransitionArtifact(statePath, eventPath string, state State, events []WorkflowEventV1) (bool, error) {
 	path := transitionJournalPath(eventPath)
 	raw, err := os.ReadFile(path)
@@ -376,17 +407,17 @@ func recoverTransitionArtifact(statePath, eventPath string, state State, events 
 	if err != nil || journalArtifactPath != artifactPath {
 		return false, errors.New("transition journal artifact must be the spec tasks.md")
 	}
-	committed := false
+	var committedEvent *WorkflowEventV1
 	for i, event := range events {
 		if event.ID == journal.EventID {
 			if i != len(events)-1 {
 				return false, errors.New("transition journal event is not the ledger tip")
 			}
-			committed = true
+			committedEvent = &events[i]
 			break
 		}
 	}
-	if committed {
+	if committedEvent != nil {
 		if state.Revision != journal.Event.ExpectedRevision && state.Revision != journal.Event.ResultingRevision {
 			return false, errors.New("transition journal event does not match state revision")
 		}
@@ -402,18 +433,20 @@ func recoverTransitionArtifact(statePath, eventPath string, state State, events 
 	if err != nil {
 		return false, err
 	}
+	if committedEvent == nil {
+		if string(current) != journal.Artifact.Before {
+			return false, errors.New("uncommitted transition journal cannot restore artifact content")
+		}
+		return false, RemoveFileDurable(path)
+	}
+	if err := validateTransitionArtifact(*committedEvent, journal.Artifact); err != nil {
+		return false, err
+	}
 	if string(current) != journal.Artifact.Before && string(current) != journal.Artifact.After {
 		return false, errors.New("transition journal artifact content mismatch")
 	}
-	content := journal.Artifact.Before
-	if committed {
-		content = journal.Artifact.After
-	}
-	if err := AtomicWrite(artifactPath, content); err != nil {
+	if err := AtomicWrite(artifactPath, journal.Artifact.After); err != nil {
 		return false, err
-	}
-	if !committed {
-		return false, RemoveFileDurable(path)
 	}
 	return true, nil
 }
