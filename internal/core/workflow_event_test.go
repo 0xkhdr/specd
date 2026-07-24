@@ -164,7 +164,11 @@ func TestReopenTransactionRecoveryAtCrashBoundaries(t *testing.T) {
 				journal.Artifact.Path = outsidePath
 				if name == "relative" {
 					var err error
-					journal.Artifact.Path, err = filepath.Rel(".", outsidePath)
+					base, absErr := filepath.Abs(".")
+					if absErr != nil {
+						t.Fatal(absErr)
+					}
+					journal.Artifact.Path, err = filepath.Rel(base, outsidePath)
 					if err != nil {
 						t.Fatal(err)
 					}
