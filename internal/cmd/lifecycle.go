@@ -429,7 +429,18 @@ func taskEvidenceRefusal(code, slug, taskID, observed, expected string, evidence
 	} else if code == "EVIDENCE_STALE" {
 		detail = fmt.Sprintf("task %s evidence is stale: %s", taskID, observed)
 	}
-	refusal := core.Refuse(code, detail).
+	var refusal core.Refusal
+	switch code {
+	case "EVIDENCE_MISSING":
+		refusal = core.Refuse("EVIDENCE_MISSING", detail)
+	case "EVIDENCE_FAILING":
+		refusal = core.Refuse("EVIDENCE_FAILING", detail)
+	case "EVIDENCE_STALE":
+		refusal = core.Refuse("EVIDENCE_STALE", detail)
+	default:
+		return fmt.Errorf("unknown task evidence refusal code %q", code)
+	}
+	refusal = refusal.
 		WithContext(slug+"/"+taskID, observed, expected).
 		WithRecovery(core.RefusalActorAgent, "specd verify "+slug+" "+taskID)
 	if evidence != nil {
@@ -455,14 +466,18 @@ func qualityEvidenceRefusal(slug, taskID string, contract core.QualityContract, 
 			}
 		}
 	}
-	code, observed, requirements := "", "", status.Missing
+	observed, requirements := "", status.Missing
+	var refusal core.Refusal
 	switch {
 	case len(failing) > 0:
-		code, observed, requirements = "EVIDENCE_FAILING", strings.Join(failing, ","), failingRequirements
+		observed, requirements = strings.Join(failing, ","), failingRequirements
+		refusal = core.Refusef("EVIDENCE_FAILING", "task %s evidence %s", taskID, observed)
 	case len(status.Missing) > 0:
-		code, observed = "EVIDENCE_MISSING", core.FormatRequirements(status.Missing)
+		observed = core.FormatRequirements(status.Missing)
+		refusal = core.Refusef("EVIDENCE_MISSING", "task %s evidence %s", taskID, observed)
 	case len(status.Stale) > 0:
-		code, observed, requirements = "EVIDENCE_STALE", core.FormatRequirements(status.Stale), status.Stale
+		observed, requirements = core.FormatRequirements(status.Stale), status.Stale
+		refusal = core.Refusef("EVIDENCE_STALE", "task %s evidence %s", taskID, observed)
 	default:
 		return nil
 	}
@@ -471,7 +486,7 @@ func qualityEvidenceRefusal(slug, taskID string, contract core.QualityContract, 
 		command = "specd eval import " + slug + " <workspace-relative-file> --task " + taskID + " --check " + requirements[0].CheckID
 	}
 	raw, _ := json.Marshal(evals)
-	return core.Refusef(code, "task %s evidence %s", taskID, observed).
+	return refusal.
 		WithContext(slug+"/"+taskID, observed, "fresh passing evidence for "+core.FormatRequirements(requirements)).
 		WithInput("eval evidence", raw).
 		WithRecovery(core.RefusalActorAgent, command)

@@ -54,6 +54,11 @@ func TestTypedRefusalUnknownCodeStillStructured(t *testing.T) {
 func TestRefusalCodesRegistered(t *testing.T) {
 	walkProductionGo(t, func(path string, fset *token.FileSet, file *ast.File) {
 		ast.Inspect(file, func(node ast.Node) bool {
+			if call, ok := node.(*ast.CallExpr); ok && untrackedRefusalConstructor(path, file, call) {
+				position := fset.Position(call.Pos())
+				t.Errorf("%s:%d: nonliteral refusal code is not a TransitionBlocker code", path, position.Line)
+				return true
+			}
 			code, position, ok := refusalCodeLiteral(node, fset)
 			if !ok {
 				return true
@@ -64,6 +69,27 @@ func TestRefusalCodesRegistered(t *testing.T) {
 			return true
 		})
 	})
+}
+
+func TestRefusalCodesRegisteredRejectsVariableCode(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "future.go", `package fixture
+func future(code string) error { return Refuse(code, "blocked") }
+`, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rejected := false
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if ok && untrackedRefusalConstructor("future.go", file, call) {
+			rejected = true
+		}
+		return true
+	})
+	if !rejected {
+		t.Fatal("future variable refusal code was not rejected")
+	}
 }
 
 func TestTypedRefusalBeforeAuthorityReportsNotConsumed(t *testing.T) {
@@ -182,6 +208,27 @@ func isRefusalConstructor(expr ast.Expr) bool {
 	default:
 		return false
 	}
+}
+
+func untrackedRefusalConstructor(path string, file *ast.File, call *ast.CallExpr) bool {
+	if !isRefusalConstructor(call.Fun) || len(call.Args) == 0 {
+		return isRefusalConstructor(call.Fun)
+	}
+	if literal, ok := call.Args[0].(*ast.BasicLit); ok && literal.Kind == token.STRING {
+		return false
+	}
+	if code, ok := call.Args[0].(*ast.SelectorExpr); ok && code.Sel.Name == "Code" {
+		return false
+	}
+	if path == "internal/core/refusal.go" {
+		for _, declaration := range file.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if ok && function.Name.Name == "Refusef" && function.Body.Pos() <= call.Pos() && call.Pos() <= function.Body.End() {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func refusalCodeLiteral(node ast.Node, fset *token.FileSet) (string, token.Position, bool) {
