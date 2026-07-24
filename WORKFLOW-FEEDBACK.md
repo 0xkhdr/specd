@@ -1003,3 +1003,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** worker coordination error — the worker continued testing/editing after its final task result crossed the driver boundary.
 - **Recommendation:** driver should interrupt a worker immediately after accepted final result, and worker prompts should forbid post-result edits.
 - **Status:** resolved (workflow-12-reset-hygiene T75/T76)
+
+### 2026-07-24 — friction — third green audit found unbound dynamic code and journal content
+- **Context:** third `workflow-12-reset-hygiene` T69 audit, exact command `./specd verify workflow-12-reset-hygiene T69`
+- **Expected:** generalized refusal AST coverage and trusted journal path/event binding close the prior high findings.
+- **Actual:** verify passed, but nonliteral lifecycle refusal arguments were still silently skipped, and a forged sidecar could pair a real event ID with arbitrary `After` bytes because durable event data did not bind artifact digests.
+- **Root cause:** conformance/recovery gaps — the AST walker tolerated unknown dataflow, and journal identity authenticated location/event but not content.
+- **Recommendation:** T77 rejects or removes untracked nonliteral constructors; T78 stores trusted before/after digests in the durable event and verifies them before writes.
+- **Status:** open
