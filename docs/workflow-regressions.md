@@ -154,3 +154,4 @@ executable invariant; `deferred` rows name the release or task that owns the mis
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — scope-amendment test started with a missing fmt import | project maintainers | resolved | go test ./internal/cmd -run TestScopeAmend -count=2 | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — docs lint caught a hand-written midreq usage string | project maintainers | resolved | ./scripts/docs-lint.sh | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — later task bypassed the refusal registry conformance | project maintainers | deferred | workflow-12-reset-hygiene T70 — register the scope-amendment code and rerun conformance. | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — green final verify missed four reset-hygiene acceptance failures | project maintainers | deferred | workflow-12-reset-hygiene T71-T73 then T69 — repair and repeat independent audit. | - |

@@ -963,3 +963,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** task ordering/scope gap — T67 introduced a new refusal code after T66 completed, but T67 did not declare `internal/core/refusal.go` and its exact verify selector did not run the registry conformance.
 - **Recommendation:** make any task touching `Refuse`/`Refusef` run `TestRefusalCodesRegistered`, and declare `internal/core/refusal.go` when adding a code.
 - **Status:** open
+
+### 2026-07-24 — friction — green final verify missed four reset-hygiene acceptance failures
+- **Context:** auditing `workflow-12-reset-hygiene` T69, exact command `./specd verify workflow-12-reset-hygiene T69`
+- **Expected:** the declared full race/lint/docs/domain verification fails when core reset-hygiene acceptance is unmet.
+- **Actual:** verify passed, but read-only audit found seven dynamic `SCOPE_AMEND_*` codes absent from `refusalRecovery`, historical reopen facts permanently overriding later completed status to pending, tasks.md writes preceding recoverable event/state commits, and Pinky config falling back to unresolved bare `specd`.
+- **Root cause:** verification coverage gap — exact tests covered happy paths and literal refusal constructors, not repeated reopen history, dynamic codes, crash boundaries, or resolver failure.
+- **Recommendation:** add focused T71–T73 regressions for dynamic refusal codes, reopen-complete-reopen projection, crash recovery boundaries, and no-local/no-PATH MCP resolution before repeating the final audit.
+- **Status:** open
