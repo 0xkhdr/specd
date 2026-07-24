@@ -157,3 +157,4 @@ executable invariant; `deferred` rows name the release or task that owns the mis
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — green final verify missed four reset-hygiene acceptance failures | project maintainers | deferred | workflow-12-reset-hygiene T71-T73 then T69 — repair and repeat independent audit. | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — first reopen precedence fix broke marker-only pending projection | project maintainers | resolved | go test ./internal/core ./internal/cmd -run TestReopen -count=2 | - |
 | WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — recovery cleanup used the wrong return arity | project maintainers | resolved | go test ./internal/core -run TestReopenTransaction -count=2 | - |
+| WORKFLOW-FEEDBACK.md :: 2026-07-24 — friction — second green audit exposed unsafe repair edge cases | project maintainers | deferred | workflow-12-reset-hygiene T74-T76 then T69 — repair and repeat independent audit. | - |

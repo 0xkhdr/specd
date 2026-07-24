@@ -987,3 +987,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** implementation error — the helper’s result and error return were not both handled.
 - **Recommendation:** keep the focused crash-recovery compile/test before full-core verification.
 - **Status:** resolved (workflow-12-reset-hygiene T72)
+
+### 2026-07-24 — friction — second green audit exposed unsafe repair edge cases
+- **Context:** repeating `workflow-12-reset-hygiene` T69 after T71–T73, exact command `./specd verify workflow-12-reset-hygiene T69`
+- **Expected:** prior audit repairs close dynamic refusal, crash recovery, and MCP fallback without new unsafe edges.
+- **Actual:** verify passed, but audit found other dynamic REOPEN/descendant/undo codes still absent, journal recovery trusting an arbitrary sidecar filesystem path, and unmatched Pinky managed markers causing unresolved-command cleanup to truncate later user config.
+- **Root cause:** repair coverage remained example-specific — one refusal family, valid journal shape, and well-formed managed config.
+- **Recommendation:** T74 must discover all dynamic code families; T75 must bind journal event/path to the expected spec artifact; T76 must preserve malformed user config fail-closed.
+- **Status:** open
