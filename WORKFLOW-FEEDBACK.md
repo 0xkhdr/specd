@@ -1027,3 +1027,11 @@ stated plainly and stays a proposal — never a self-applied change.
 - **Root cause:** test design gap — field-name inference cannot prove Go type/dataflow.
 - **Recommendation:** T80 routes all legitimate dynamic blockers through one typed canonical helper; conformance permits only that helper and rejects every other nonliteral Refuse/Refusef argument.
 - **Status:** open
+
+### 2026-07-24 — friction — canonical typed helper still accepted unknown dynamic codes
+- **Context:** post-T80 `workflow-12-reset-hygiene` T69 audit, exact command `./specd verify workflow-12-reset-hygiene T69`
+- **Expected:** one typed helper makes dynamic blocker conversion safe independent of caller expression shape.
+- **Actual:** verify passed, but `RefuseBlocker(TransitionBlocker{Code: request.Code})` could still emit an unregistered code because producer literals were the only checked inputs.
+- **Root cause:** defense gap — canonical routing removed heuristic bypasses but did not validate the code at the final runtime sink.
+- **Recommendation:** T81 validates registry membership inside `RefuseBlocker` and returns a registered fail-closed refusal for unknown dynamic codes.
+- **Status:** open
