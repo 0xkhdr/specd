@@ -102,3 +102,13 @@ func syncDir(dir string) error {
 	defer file.Close()
 	return file.Sync()
 }
+
+// RemoveFileDurable removes a transaction sidecar and fsyncs its directory so
+// recovery cannot resurrect a completed transaction after a process or host
+// crash.
+func RemoveFileDurable(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return syncDir(filepath.Dir(path))
+}

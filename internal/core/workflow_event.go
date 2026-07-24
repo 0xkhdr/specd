@@ -182,6 +182,26 @@ type TransitionCommit struct {
 	StatePath string
 	EventPath string
 	Event     WorkflowEventV1
+	Artifact  *TransitionArtifact
+}
+
+// TransitionArtifact extends the event-first transaction to one derived
+// artifact. Before and After are held in a durable sidecar until the event and
+// state checkpoint agree, allowing recovery to roll back a pre-event edit or
+// roll forward an edit whose event is already durable.
+type TransitionArtifact struct {
+	Path   string `json:"path"`
+	Before string `json:"before"`
+	After  string `json:"after"`
+}
+
+type transitionJournal struct {
+	EventID  string             `json:"event_id"`
+	Artifact TransitionArtifact `json:"artifact"`
+}
+
+func transitionJournalPath(eventPath string) string {
+	return eventPath + ".transaction.json"
 }
 
 func CommitWorkflowTransition(commit TransitionCommit) error {
@@ -192,10 +212,43 @@ func CommitWorkflowTransition(commit TransitionCommit) error {
 	if state.Revision != commit.Event.ExpectedRevision {
 		return fmt.Errorf("%w: expected %d, got %d", ErrRevisionConflict, commit.Event.ExpectedRevision, state.Revision)
 	}
+	journalPath := transitionJournalPath(commit.EventPath)
+	if commit.Artifact != nil {
+		current, err := os.ReadFile(commit.Artifact.Path)
+		if err != nil {
+			return err
+		}
+		if string(current) != commit.Artifact.Before {
+			return errors.New("transition artifact changed since preview")
+		}
+		raw, err := json.Marshal(transitionJournal{EventID: commit.Event.ID, Artifact: *commit.Artifact})
+		if err != nil {
+			return err
+		}
+		if err := AtomicWrite(journalPath, string(raw)+"\n"); err != nil {
+			return err
+		}
+		if err := AtomicWrite(commit.Artifact.Path, commit.Artifact.After); err != nil {
+			_, _ = recoverTransitionArtifact(commit.EventPath, nil)
+			return err
+		}
+	}
 	if err := AppendWorkflowEvent(commit.EventPath, commit.Event); err != nil {
+		// An append can report a late fsync error after the bytes reached the
+		// ledger. Re-read before recovering so a durable event rolls forward
+		// rather than being paired with a rolled-back artifact.
+		if events, readErr := ReadWorkflowEvents(commit.EventPath); readErr == nil {
+			_, _ = recoverTransitionArtifact(commit.EventPath, events)
+		}
 		return err
 	}
-	return SaveStateCAS(commit.StatePath, state.Revision, commit.Event.Projection)
+	if err := SaveStateCAS(commit.StatePath, state.Revision, commit.Event.Projection); err != nil {
+		return err
+	}
+	if commit.Artifact != nil {
+		return RemoveFileDurable(journalPath)
+	}
+	return nil
 }
 
 func ReplayWorkflowEvents(baseline State, events []WorkflowEventV1) (State, error) {
@@ -214,11 +267,15 @@ func ReplayWorkflowEvents(baseline State, events []WorkflowEventV1) (State, erro
 
 // RecoverWorkflowState applies durable events after the state's checkpoint.
 func RecoverWorkflowState(statePath, eventPath string) (State, error) {
-	state, err := LoadState(statePath)
+	events, err := ReadWorkflowEvents(eventPath)
 	if err != nil {
 		return State{}, err
 	}
-	events, err := ReadWorkflowEvents(eventPath)
+	journal, err := recoverTransitionArtifact(eventPath, events)
+	if err != nil {
+		return State{}, err
+	}
+	state, err := LoadState(statePath)
 	if err != nil {
 		return State{}, err
 	}
@@ -248,5 +305,49 @@ func RecoverWorkflowState(statePath, eventPath string) (State, error) {
 		}
 		state = next
 	}
+	if journal {
+		if err := RemoveFileDurable(transitionJournalPath(eventPath)); err != nil {
+			return State{}, err
+		}
+	}
 	return state, nil
+}
+
+// recoverTransitionArtifact returns whether a committed-event journal remains
+// to be removed after state replay. With no durable event, the artifact is
+// rolled back and the journal is removed immediately.
+func recoverTransitionArtifact(eventPath string, events []WorkflowEventV1) (bool, error) {
+	path := transitionJournalPath(eventPath)
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var journal transitionJournal
+	if err := json.Unmarshal(raw, &journal); err != nil {
+		return false, fmt.Errorf("decode transition journal: %w", err)
+	}
+	if journal.EventID == "" || journal.Artifact.Path == "" {
+		return false, errors.New("transition journal is incomplete")
+	}
+	committed := false
+	for _, event := range events {
+		if event.ID == journal.EventID {
+			committed = true
+			break
+		}
+	}
+	content := journal.Artifact.Before
+	if committed {
+		content = journal.Artifact.After
+	}
+	if err := AtomicWrite(journal.Artifact.Path, content); err != nil {
+		return false, err
+	}
+	if !committed {
+		return false, RemoveFileDurable(path)
+	}
+	return true, nil
 }

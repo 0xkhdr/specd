@@ -226,13 +226,10 @@ func CommitScopeAmend(tasksPath, statePath, eventPath, slug string, req ScopeAme
 	if err != nil {
 		return fresh, err
 	}
-	if err := AtomicWrite(tasksPath, string(updated)); err != nil {
-		return fresh, err
-	}
-	if err := CommitWorkflowTransition(TransitionCommit{StatePath: statePath, EventPath: eventPath, Event: event}); err != nil {
-		if rollbackErr := AtomicWrite(tasksPath, string(original)); rollbackErr != nil {
-			return fresh, fmt.Errorf("scope amendment commit failed: %v; tasks rollback failed: %w", err, rollbackErr)
-		}
+	if err := CommitWorkflowTransition(TransitionCommit{
+		StatePath: statePath, EventPath: eventPath, Event: event,
+		Artifact: &TransitionArtifact{Path: tasksPath, Before: string(original), After: string(updated)},
+	}); err != nil {
 		return fresh, err
 	}
 	fresh.EventID, fresh.NewRevision = event.ID, event.ResultingRevision
@@ -1177,17 +1174,8 @@ func commitReopenMarkers(tasksPath string, taskIDs []string, commit TransitionCo
 			return err
 		}
 	}
-	if string(updated) == string(original) {
-		return CommitWorkflowTransition(commit)
+	if string(updated) != string(original) {
+		commit.Artifact = &TransitionArtifact{Path: tasksPath, Before: string(original), After: string(updated)}
 	}
-	if err := AtomicWrite(tasksPath, string(updated)); err != nil {
-		return err
-	}
-	if err := CommitWorkflowTransition(commit); err != nil {
-		if rollbackErr := AtomicWrite(tasksPath, string(original)); rollbackErr != nil {
-			return fmt.Errorf("reopen commit failed: %v; marker rollback failed: %w", err, rollbackErr)
-		}
-		return err
-	}
-	return nil
+	return CommitWorkflowTransition(commit)
 }
