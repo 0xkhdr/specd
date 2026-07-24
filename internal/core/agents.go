@@ -57,7 +57,7 @@ func MergePinkyCodexConfig(existing, root string) string {
 	// role name ... in the same config layer") and drop them.
 	command, err := ResolveMCPCommand(root)
 	if err != nil {
-		command = "specd"
+		return removePinkyCodexConfig(existing)
 	}
 	block := strings.Join([]string{
 		pinkyCodexBegin,
@@ -80,6 +80,19 @@ func MergePinkyCodexConfig(existing, root string) string {
 	}
 	end += start + len(pinkyCodexEnd)
 	return existing[:start] + block + existing[end:]
+}
+
+func removePinkyCodexConfig(existing string) string {
+	start := strings.Index(existing, pinkyCodexBegin)
+	if start < 0 {
+		return existing
+	}
+	end := strings.Index(existing[start:], pinkyCodexEnd)
+	if end < 0 {
+		return existing[:start]
+	}
+	end += start + len(pinkyCodexEnd)
+	return existing[:start] + existing[end:]
 }
 
 type AgentDiscovery struct {

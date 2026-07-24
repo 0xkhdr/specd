@@ -118,3 +118,20 @@ func TestMCPAgentConfigPinsLocalExecutable(t *testing.T) {
 		t.Fatalf("generated MCP config does not pin local executable: %s", raw)
 	}
 }
+
+func TestAgentsMCPConfigRefusesUnresolvedCommand(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("PATH", "")
+	existing := "model = \"gpt-5\"\n\n" + pinkyCodexBegin + "\n[mcp_servers.specd]\ncommand = \"specd\"\n" + pinkyCodexEnd + "\n\n[profiles.default]\n"
+
+	got := MergePinkyCodexConfig(existing, root)
+	if strings.Contains(got, pinkyCodexBegin) || strings.Contains(got, `command = "specd"`) {
+		t.Fatalf("unresolved Pinky hosting did not fail closed: %q", got)
+	}
+	if !strings.Contains(got, `model = "gpt-5"`) || !strings.Contains(got, "[profiles.default]") {
+		t.Fatalf("unresolved Pinky hosting lost user config: %q", got)
+	}
+	if snippet, err := MCPConfigSnippet("claude-code", root, ""); err == nil || snippet != "" {
+		t.Fatalf("unresolved MCP snippet = %q, %v; want empty error result", snippet, err)
+	}
+}
